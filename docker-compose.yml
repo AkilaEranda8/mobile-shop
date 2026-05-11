@@ -67,7 +67,7 @@ services:
   admin:
     build:
       context: ./apps/admin
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile.prod
     container_name: hexalyte_admin
     environment:
       NEXT_PUBLIC_API_URL: https://api.shop.hexalyte.com/api/v1
@@ -80,13 +80,11 @@ services:
       - backend
     networks:
       - hexalyte-network
-    volumes:
-      - ./apps/admin/src:/app/src
 
   web:
     build:
       context: ./apps/web
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile.prod
     container_name: hexalyte_web
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
