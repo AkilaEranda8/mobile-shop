@@ -1,39 +1,52 @@
 'use client'
 
 import { useState } from 'react'
-import { Receipt, Plus, Search, TrendingDown, Filter, X, Loader2, Tag, Calendar, DollarSign } from 'lucide-react'
+import { Receipt, Plus, Search, X, Loader2 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { useTransactions, useFinanceSummary } from '@/lib/hooks'
+import { financeApi } from '@/lib/api'
+import toast from 'react-hot-toast'
 
 const categories = ['All', 'Rent', 'Salary', 'Utilities', 'Marketing', 'Inventory', 'Repairs', 'Misc']
 
-const mockExpenses = [
-  { id: '1', title: 'Monthly Shop Rent', category: 'Rent', amount: 45000, date: '2024-05-01', paidBy: 'Owner', method: 'Bank Transfer', notes: 'Anna Nagar Branch' },
-  { id: '2', title: 'Staff Salaries - April', category: 'Salary', amount: 85000, date: '2024-05-02', paidBy: 'Owner', method: 'Bank Transfer', notes: '4 staff members' },
-  { id: '3', title: 'Electricity Bill', category: 'Utilities', amount: 4200, date: '2024-05-05', paidBy: 'Kavitha M', method: 'Cash', notes: 'May 2024' },
-  { id: '4', title: 'Google Ads Campaign', category: 'Marketing', amount: 8500, date: '2024-05-07', paidBy: 'Owner', method: 'Credit Card', notes: 'iPhone 14 promo' },
-  { id: '5', title: 'Soldering Station', category: 'Repairs', amount: 12000, date: '2024-05-08', paidBy: 'Rajan T', method: 'Cash', notes: 'Repair equipment' },
-  { id: '6', title: 'Display Cases', category: 'Inventory', amount: 6800, date: '2024-05-09', paidBy: 'Owner', method: 'Bank Transfer', notes: 'New display racks' },
-  { id: '7', title: 'Internet & WiFi', category: 'Utilities', amount: 1800, date: '2024-05-10', paidBy: 'Kavitha M', method: 'Cash', notes: 'Monthly bill' },
-]
-
 const categoryColors: Record<string, string> = {
-  Rent: 'text-red-400 bg-red-500/10 border-red-500/20',
-  Salary: 'text-violet-400 bg-violet-500/10 border-violet-500/20',
+  Rent:      'text-red-400 bg-red-500/10 border-red-500/20',
+  Salary:    'text-violet-400 bg-violet-500/10 border-violet-500/20',
   Utilities: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
   Marketing: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20',
   Inventory: 'text-green-400 bg-green-500/10 border-green-500/20',
-  Repairs: 'text-orange-400 bg-orange-500/10 border-orange-500/20',
-  Misc: 'text-slate-400 bg-slate-500/10 border-slate-500/20',
+  Repairs:   'text-orange-400 bg-orange-500/10 border-orange-500/20',
+  Misc:      'text-slate-400 bg-slate-500/10 border-slate-500/20',
 }
 
-function AddExpenseModal({ onClose }: { onClose: () => void }) {
-  const [form, setForm] = useState({ title: '', category: 'Misc', amount: '', date: new Date().toISOString().split('T')[0], paidBy: '', method: 'Cash', notes: '' })
+function AddExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState({
+    description: '', category: 'Misc', amount: '',
+    paymentMethod: 'CASH', type: 'EXPENSE',
+  })
   const [loading, setLoading] = useState(false)
-  const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm(p => ({ ...p, [k]: e.target.value }))
+  const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+    setForm(p => ({ ...p, [k]: e.target.value }))
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setLoading(true)
-    await new Promise(r => setTimeout(r, 600)); setLoading(false); onClose()
+    e.preventDefault()
+    setLoading(true)
+    try {
+      await financeApi.create({
+        type: 'EXPENSE',
+        category: form.category,
+        amount: parseFloat(form.amount),
+        description: form.description,
+        paymentMethod: form.paymentMethod,
+      })
+      toast.success('Expense recorded')
+      onSaved()
+      onClose()
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to save expense')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -46,8 +59,8 @@ function AddExpenseModal({ onClose }: { onClose: () => void }) {
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <label className="block text-xs text-slate-400 mb-1.5">Expense Title *</label>
-              <input required className="input-field" placeholder="Monthly Rent" value={form.title} onChange={f('title')} />
+              <label className="block text-xs text-slate-400 mb-1.5">Description *</label>
+              <input required className="input-field" placeholder="Monthly Rent" value={form.description} onChange={f('description')} />
             </div>
             <div>
               <label className="block text-xs text-slate-400 mb-1.5">Category</label>
@@ -59,26 +72,15 @@ function AddExpenseModal({ onClose }: { onClose: () => void }) {
               <label className="block text-xs text-slate-400 mb-1.5">Amount (₹) *</label>
               <input required type="number" min="0" className="input-field" placeholder="5000" value={form.amount} onChange={f('amount')} />
             </div>
-            <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Date</label>
-              <input type="date" className="input-field" value={form.date} onChange={f('date')} />
-            </div>
-            <div>
+            <div className="col-span-2">
               <label className="block text-xs text-slate-400 mb-1.5">Payment Method</label>
-              <select className="input-field" value={form.method} onChange={f('method')}>
-                <option>Cash</option>
-                <option>Bank Transfer</option>
-                <option>Credit Card</option>
-                <option>UPI</option>
+              <select className="input-field" value={form.paymentMethod} onChange={f('paymentMethod')}>
+                <option value="CASH">Cash</option>
+                <option value="BANK_TRANSFER">Bank Transfer</option>
+                <option value="CARD">Card</option>
+                <option value="UPI">UPI</option>
+                <option value="WALLET">Wallet</option>
               </select>
-            </div>
-            <div className="col-span-2">
-              <label className="block text-xs text-slate-400 mb-1.5">Paid By</label>
-              <input className="input-field" placeholder="Staff name or self" value={form.paidBy} onChange={f('paidBy')} />
-            </div>
-            <div className="col-span-2">
-              <label className="block text-xs text-slate-400 mb-1.5">Notes</label>
-              <textarea className="input-field min-h-[60px] resize-none" placeholder="Additional details..." value={form.notes} onChange={f('notes')} />
             </div>
           </div>
           <div className="flex gap-3 pt-1">
@@ -98,23 +100,32 @@ export default function ExpensesPage() {
   const [category, setCategory] = useState('All')
   const [showAdd, setShowAdd] = useState(false)
 
-  const filtered = mockExpenses.filter(e => {
-    const q = search.toLowerCase()
-    return (
-      (e.title.toLowerCase().includes(q) || e.category.toLowerCase().includes(q)) &&
-      (category === 'All' || e.category === category)
-    )
-  })
+  const txParams: Record<string, string> = { type: 'EXPENSE' }
+  if (category !== 'All') txParams.category = category
 
-  const totalExpenses = mockExpenses.reduce((s, e) => s + e.amount, 0)
+  const { data, loading, refetch } = useTransactions(txParams)
+  const { data: summaryData } = useFinanceSummary()
+  const summary = summaryData as any
+
+  const allExpenses: any[] = (data?.data ?? []) as any[]
+  const filtered = search
+    ? allExpenses.filter((e: any) =>
+        e.description?.toLowerCase().includes(search.toLowerCase()) ||
+        e.category?.toLowerCase().includes(search.toLowerCase())
+      )
+    : allExpenses
+
+  const totalExpenses = summary?.totalExpense ?? allExpenses.reduce((s: number, e: any) => s + (e.amount ?? 0), 0)
+  const totalIncome = summary?.totalIncome ?? 0
+
   const categoryTotals = categories.filter(c => c !== 'All').map(c => ({
     cat: c,
-    total: mockExpenses.filter(e => e.category === c).reduce((s, e) => s + e.amount, 0),
+    total: allExpenses.filter((e: any) => e.category === c).reduce((s: number, e: any) => s + (e.amount ?? 0), 0),
   })).filter(c => c.total > 0).sort((a, b) => b.total - a.total)
 
   return (
     <div className="space-y-6">
-      {showAdd && <AddExpenseModal onClose={() => setShowAdd(false)} />}
+      {showAdd && <AddExpenseModal onClose={() => setShowAdd(false)} onSaved={refetch} />}
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -130,7 +141,7 @@ export default function ExpensesPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="card p-4 border-red-500/20 bg-red-500/5">
-          <p className="text-xs text-slate-500 mb-1">Total This Month</p>
+          <p className="text-xs text-slate-500 mb-1">Total Expenses</p>
           <p className="text-xl font-bold text-red-400">{formatCurrency(totalExpenses)}</p>
         </div>
         <div className="card p-4">
@@ -139,11 +150,11 @@ export default function ExpensesPage() {
         </div>
         <div className="card p-4">
           <p className="text-xs text-slate-500 mb-1">Total Entries</p>
-          <p className="text-xl font-bold text-white">{mockExpenses.length}</p>
+          <p className="text-xl font-bold text-white">{allExpenses.length}</p>
         </div>
         <div className="card p-4 border-green-500/20 bg-green-500/5">
-          <p className="text-xs text-slate-500 mb-1">Net Profit Est.</p>
-          <p className="text-xl font-bold text-green-400">{formatCurrency(634000 - totalExpenses)}</p>
+          <p className="text-xs text-slate-500 mb-1">Net Profit</p>
+          <p className="text-xl font-bold text-green-400">{formatCurrency(totalIncome - totalExpenses)}</p>
         </div>
       </div>
 
@@ -185,17 +196,18 @@ export default function ExpensesPage() {
 
           <div className="card overflow-hidden">
             <div className="divide-y divide-white/5">
-              {filtered.map(e => (
+              {loading && <div className="py-10 text-center text-sm text-slate-500">Loading...</div>}
+              {!loading && filtered.map((e: any) => (
                 <div key={e.id} className="flex items-center gap-4 p-4 hover:bg-white/2 transition-colors">
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 border ${categoryColors[e.category] ?? 'text-slate-400 bg-slate-500/10 border-slate-500/20'}`}>
                     <Receipt size={15} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-200 truncate">{e.title}</p>
+                    <p className="text-sm font-medium text-slate-200 truncate">{e.description}</p>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded border ${categoryColors[e.category]}`}>{e.category}</span>
-                      <span className="text-xs text-slate-500">{e.date}</span>
-                      <span className="text-xs text-slate-600">· {e.method}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded border ${categoryColors[e.category] ?? 'text-slate-400 bg-slate-500/10 border-slate-500/20'}`}>{e.category}</span>
+                      <span className="text-xs text-slate-500">{new Date(e.createdAt).toLocaleDateString('en-IN')}</span>
+                      <span className="text-xs text-slate-600">· {e.paymentMethod?.replace('_', ' ')}</span>
                     </div>
                   </div>
                   <span className="text-sm font-bold text-red-400 flex-shrink-0">−{formatCurrency(e.amount)}</span>

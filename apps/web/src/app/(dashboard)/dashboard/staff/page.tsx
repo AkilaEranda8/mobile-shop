@@ -1,15 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { UserCheck, Plus, Search, Shield, Clock, CheckCircle, XCircle, X, Loader2, Mail, Phone, Edit, MoreVertical } from 'lucide-react'
-
-const staff = [
-  { id: '1', name: 'Subramaniam R', role: 'OWNER', email: 'owner@mobilehub.com', phone: '9876543210', branch: 'Main Branch', status: 'ACTIVE', joinDate: '2022-01-01', lastLogin: '2024-05-11 09:15', sales: 145, repairs: 0, avatar: 'SR' },
-  { id: '2', name: 'Kavitha M', role: 'MANAGER', email: 'kavitha@mobilehub.com', phone: '9865432109', branch: 'Main Branch', status: 'ACTIVE', joinDate: '2022-03-15', lastLogin: '2024-05-11 08:42', sales: 89, repairs: 12, avatar: 'KM' },
-  { id: '3', name: 'Rajan T', role: 'TECHNICIAN', email: 'rajan@mobilehub.com', phone: '9845678901', branch: 'Main Branch', status: 'ACTIVE', joinDate: '2023-01-10', lastLogin: '2024-05-10 18:30', sales: 0, repairs: 67, avatar: 'RT' },
-  { id: '4', name: 'Priya S', role: 'SALES_STAFF', email: 'priya@mobilehub.com', phone: '9712345678', branch: 'T Nagar Showroom', status: 'ACTIVE', joinDate: '2023-06-01', lastLogin: '2024-05-11 10:05', sales: 52, repairs: 0, avatar: 'PS' },
-  { id: '5', name: 'Dinesh K', role: 'SALES_STAFF', email: 'dinesh@mobilehub.com', phone: '9632587410', branch: 'Velachery Branch', status: 'INACTIVE', joinDate: '2023-02-20', lastLogin: '2024-04-28 15:00', sales: 31, repairs: 0, avatar: 'DK' },
-]
+import { UserCheck, Plus, Search, CheckCircle, XCircle, X, Loader2, Mail, Phone, Clock, MoreVertical } from 'lucide-react'
+import { useUsers } from '@/lib/hooks'
+import { usersApi } from '@/lib/api'
+import toast from 'react-hot-toast'
 
 const roleConfig: Record<string, { label: string; color: string; bg: string; border: string }> = {
   OWNER: { label: 'Owner', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
@@ -33,14 +28,24 @@ const permissionMatrix = [
   { feature: 'Settings', owner: true, manager: false, technician: false, sales: false },
 ]
 
-function AddStaffModal({ onClose }: { onClose: () => void }) {
-  const [form, setForm] = useState({ name: '', email: '', phone: '', role: 'SALES_STAFF', branch: 'Main Branch', password: '' })
+function AddStaffModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState({ name: '', email: '', phone: '', role: 'CASHIER', password: '' })
   const [loading, setLoading] = useState(false)
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(p => ({ ...p, [k]: e.target.value }))
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setLoading(true)
-    await new Promise(r => setTimeout(r, 800)); setLoading(false); onClose()
+    e.preventDefault()
+    setLoading(true)
+    try {
+      await usersApi.create(form)
+      toast.success('Staff member added')
+      onSaved()
+      onClose()
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to add staff')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -73,14 +78,6 @@ function AddStaffModal({ onClose }: { onClose: () => void }) {
                 <option value="ACCOUNTANT">Accountant</option>
               </select>
             </div>
-            <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Branch</label>
-              <select className="input-field" value={form.branch} onChange={f('branch')}>
-                <option>Main Branch</option>
-                <option>T Nagar Showroom</option>
-                <option>Velachery Branch</option>
-              </select>
-            </div>
             <div className="col-span-2">
               <label className="block text-xs text-slate-400 mb-1.5">Temporary Password *</label>
               <input required type="password" className="input-field" placeholder="Min 8 characters" value={form.password} onChange={f('password')} />
@@ -103,28 +100,24 @@ export default function StaffPage() {
   const [tab, setTab] = useState<'staff' | 'permissions'>('staff')
   const [showAdd, setShowAdd] = useState(false)
 
-  const filtered = staff.filter(s =>
-    s.name.toLowerCase().includes(search.toLowerCase()) ||
-    s.email.toLowerCase().includes(search.toLowerCase()) ||
-    s.role.toLowerCase().includes(search.toLowerCase())
-  )
+  const { data, loading, refetch } = useUsers(search ? { search } : undefined)
+  const users: any[] = (data?.data ?? []) as any[]
+  const activeCount = users.filter((u: any) => u.isActive).length
 
   return (
     <div className="space-y-6">
-      {showAdd && <AddStaffModal onClose={() => setShowAdd(false)} />}
+      {showAdd && <AddStaffModal onClose={() => setShowAdd(false)} onSaved={refetch} />}
 
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
           <h1 className="page-title">Staff & Roles</h1>
-          <p className="page-subtitle">{staff.filter(s => s.status === 'ACTIVE').length} active · {staff.length} total employees</p>
+          <p className="page-subtitle">{activeCount} active · {users.length} total employees</p>
         </div>
         <button onClick={() => setShowAdd(true)} className="btn-primary text-sm flex items-center gap-2 sm:ml-auto">
           <Plus size={14} />Add Staff
         </button>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-1 bg-white/3 border border-white/5 rounded-xl p-1 w-fit">
         {(['staff', 'permissions'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
@@ -136,28 +129,29 @@ export default function StaffPage() {
 
       {tab === 'staff' && (
         <>
-          {/* Search */}
           <div className="relative max-w-sm">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
             <input className="input-field pl-9" placeholder="Search staff..." value={search} onChange={e => setSearch(e.target.value)} />
           </div>
 
-          {/* Staff Cards */}
+          {loading && <p className="text-sm text-slate-500">Loading staff...</p>}
+
           <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filtered.map((s, i) => {
-              const role = roleConfig[s.role]
+            {users.map((s: any, i: number) => {
+              const role = roleConfig[s.role] ?? roleConfig['OWNER']
+              const initials = (s.name ?? '').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
               return (
                 <div key={s.id} className="card p-5 hover:border-violet-500/20 transition-all">
                   <div className="flex items-start gap-3 mb-4">
                     <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${avatarColors[i % avatarColors.length]} border border-white/10 flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
-                      {s.avatar}
+                      {initials}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-white truncate">{s.name}</p>
                       <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${role.color} ${role.bg} ${role.border}`}>{role.label}</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <div className={`w-1.5 h-1.5 rounded-full ${s.status === 'ACTIVE' ? 'bg-green-400' : 'bg-slate-500'}`} />
+                      <div className={`w-1.5 h-1.5 rounded-full ${s.isActive ? 'bg-green-400' : 'bg-slate-500'}`} />
                       <button className="p-1 text-slate-600 hover:text-slate-400 rounded"><MoreVertical size={14} /></button>
                     </div>
                   </div>
@@ -166,32 +160,32 @@ export default function StaffPage() {
                       <Mail size={11} className="flex-shrink-0" /><span className="truncate">{s.email}</span>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-slate-500">
-                      <Phone size={11} className="flex-shrink-0" /><span>{s.phone}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-slate-500">
-                      <Clock size={11} className="flex-shrink-0" /><span>Last login: {s.lastLogin}</span>
+                      <Clock size={11} className="flex-shrink-0" />
+                      <span>Joined {new Date(s.createdAt).toLocaleDateString('en-IN')}</span>
                     </div>
                   </div>
                   <div className="flex gap-3 mt-4 pt-4 border-t border-white/5">
                     <div className="flex-1 text-center">
-                      <p className="text-base font-bold text-white">{s.sales}</p>
-                      <p className="text-[10px] text-slate-500">Sales</p>
+                      <p className="text-[10px] font-medium text-slate-300 capitalize">{s.role?.toLowerCase().replace('_', ' ')}</p>
+                      <p className="text-[10px] text-slate-500">Role</p>
                     </div>
                     <div className="w-px bg-white/5" />
                     <div className="flex-1 text-center">
-                      <p className="text-base font-bold text-white">{s.repairs}</p>
-                      <p className="text-[10px] text-slate-500">Repairs</p>
-                    </div>
-                    <div className="w-px bg-white/5" />
-                    <div className="flex-1 text-center">
-                      <p className="text-[10px] font-medium text-slate-400">{s.branch.split(' ')[0]}</p>
-                      <p className="text-[10px] text-slate-500">Branch</p>
+                      <p className={`text-[10px] font-medium ${s.isActive ? 'text-green-400' : 'text-slate-500'}`}>{s.isActive ? 'Active' : 'Inactive'}</p>
+                      <p className="text-[10px] text-slate-500">Status</p>
                     </div>
                   </div>
                 </div>
               )
             })}
           </div>
+
+          {!loading && users.length === 0 && (
+            <div className="card p-12 text-center">
+              <UserCheck size={32} className="text-slate-700 mx-auto mb-3" />
+              <p className="text-slate-500 text-sm">No staff found</p>
+            </div>
+          )}
         </>
       )}
 

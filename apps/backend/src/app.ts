@@ -13,6 +13,7 @@ import usersRoutes from './modules/users/users.routes'
 import tenantsRoutes from './modules/tenants/tenants.routes'
 import branchesRoutes from './modules/tenants/branches.routes'
 import productsRoutes from './modules/products/products.routes'
+import imeiRoutes from './modules/products/imei.routes'
 import customersRoutes from './modules/customers/customers.routes'
 import salesRoutes from './modules/sales/sales.routes'
 import repairsRoutes from './modules/repairs/repairs.routes'
@@ -61,6 +62,7 @@ app.use(`${API}/users`, usersRoutes)
 app.use(`${API}/tenants`, tenantsRoutes)
 app.use(`${API}/branches`, branchesRoutes)
 app.use(`${API}/products`, productsRoutes)
+app.use(`${API}/imei`, imeiRoutes)
 app.use(`${API}/customers`, customersRoutes)
 app.use(`${API}/sales`, salesRoutes)
 app.use(`${API}/repairs`, repairsRoutes)

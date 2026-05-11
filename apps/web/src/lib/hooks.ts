@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   productsApi, customersApi, salesApi, repairsApi,
   warrantyApi, suppliersApi, financeApi, analyticsApi,
+  imeiApi, usersApi,
 } from './api'
 
 export function useApi<T>(
@@ -115,6 +116,20 @@ export function useRevenue(params?: Record<string, string>) {
 export function useTopProducts(params?: Record<string, string>) {
   return useApi<unknown[]>(
     () => analyticsApi.topProducts(params) as Promise<{ data: unknown[] }>,
+    [JSON.stringify(params)],
+  )
+}
+
+export function useImeiRecords(params?: Record<string, string>) {
+  return useApi<{ data: unknown[]; meta: any }>(
+    () => wrapPaginated(imeiApi.list.bind(null, params)),
+    [JSON.stringify(params)],
+  )
+}
+
+export function useUsers(params?: Record<string, string>) {
+  return useApi<{ data: unknown[]; meta: any }>(
+    () => wrapPaginated(usersApi.list.bind(null, params)),
     [JSON.stringify(params)],
   )
 }

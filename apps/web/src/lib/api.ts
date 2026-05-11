@@ -152,6 +152,14 @@ export const financeApi = {
     api.get(`/finance/summary${params ? '?' + new URLSearchParams(params) : ''}`),
 }
 
+export const imeiApi = {
+  list: (params?: Record<string, string>) =>
+    api.get(`/imei${params ? '?' + new URLSearchParams(params) : ''}`),
+  lookup: (imei: string) => api.get(`/imei/lookup/${imei}`),
+  create: (body: unknown) => api.post('/imei', body),
+  updateStatus: (id: string, status: string) => api.patch(`/imei/${id}/status`, { status }),
+}
+
 export const analyticsApi = {
   dashboard: () => api.get('/analytics/dashboard'),
   revenue: (params?: Record<string, string>) =>
