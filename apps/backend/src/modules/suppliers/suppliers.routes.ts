@@ -44,8 +44,9 @@ router.post('/purchase-orders', authorize('OWNER', 'MANAGER'), async (req: Reque
   try {
     const { supplierId, supplierName, subtotal, tax, total, paidAmount, dueAmount, expectedDelivery, notes, status, items } = req.body
     const poNumber = await generatePONumber(req.tenantId!)
-    const branchId = (req.user as any)?.branchId
-    if (!branchId) throw new Error('branchId missing from token — please re-login')
+    const userBranch = await prisma.userBranch.findFirst({ where: { userId: req.user!.userId } })
+    const branchId = userBranch?.branchId
+    if (!branchId) throw new Error('No branch assigned to this user — contact admin')
     const po = await prisma.purchaseOrder.create({
       data: {
         tenantId: req.tenantId!,
