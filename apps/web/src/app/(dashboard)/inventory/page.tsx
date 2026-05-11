@@ -88,10 +88,126 @@ function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
   )
 }
 
+function EditProductModal({ product, onClose, onSaved }: { product: Product; onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState({
+    name: product.name, sku: product.sku,
+    categoryName: (product as any).categoryName ?? '',
+    brandName: (product as any).brandName ?? '',
+    buyingPrice: String(product.buyingPrice), sellingPrice: String(product.sellingPrice),
+    stock: String(product.stock), minStock: String(product.minStock),
+  })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(p => ({ ...p, [k]: e.target.value }))
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true); setError('')
+    try {
+      await productsApi.update(product.id, {
+        ...form,
+        buyingPrice: Number(form.buyingPrice), sellingPrice: Number(form.sellingPrice),
+        mrp: Number(form.sellingPrice), stock: Number(form.stock), minStock: Number(form.minStock),
+      })
+      onSaved(); onClose()
+    } catch (err: any) { setError(err.message || 'Failed to update') }
+    finally { setLoading(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
+          <h3 className="text-base font-semibold text-white">Edit Product</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors"><X size={16} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <label className="block text-xs text-slate-400 mb-1.5">Product Name *</label>
+              <input required className="input-field" value={form.name} onChange={f('name')} />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">SKU *</label>
+              <input required className="input-field" value={form.sku} onChange={f('sku')} />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">Brand</label>
+              <input className="input-field" value={form.brandName} onChange={f('brandName')} />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs text-slate-400 mb-1.5">Category</label>
+              <select className="input-field" value={form.categoryName} onChange={f('categoryName')}>
+                {['Smartphones','Accessories','Tablets','Batteries','Screens','Chargers','Other'].map(c => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">Buying Price (₹)</label>
+              <input type="number" min="0" className="input-field" value={form.buyingPrice} onChange={f('buyingPrice')} />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">Selling Price (₹)</label>
+              <input type="number" min="0" className="input-field" value={form.sellingPrice} onChange={f('sellingPrice')} />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">Stock Qty</label>
+              <input type="number" min="0" className="input-field" value={form.stock} onChange={f('stock')} />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">Min Stock Alert</label>
+              <input type="number" min="0" className="input-field" value={form.minStock} onChange={f('minStock')} />
+            </div>
+          </div>
+          {error && <p className="text-xs text-red-400">{error}</p>}
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
+            <button type="submit" disabled={loading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+              {loading ? <Loader2 size={14} className="animate-spin" /> : null}Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function ProductDetailModal({ product, onClose }: { product: Product; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl">
+        <div className="flex items-center justify-between p-5 border-b border-white/5">
+          <h3 className="text-base font-semibold text-white">Product Details</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
+        </div>
+        <div className="p-5 space-y-3">
+          <div className="w-full h-24 bg-gradient-to-br from-violet-500/10 to-cyan-500/10 rounded-xl flex items-center justify-center border border-violet-500/10">
+            <Package size={36} className="text-violet-400 opacity-50" />
+          </div>
+          {[
+            ['Name', product.name],
+            ['SKU', product.sku],
+            ['Category', (product as any).categoryName],
+            ['Brand', (product as any).brandName],
+            ['Stock', String(product.stock)],
+            ['Selling Price', `₹${product.sellingPrice}`],
+          ].map(([k, v]) => v ? (
+            <div key={k} className="flex justify-between text-sm border-b border-white/5 pb-2">
+              <span className="text-slate-500">{k}</span>
+              <span className="text-slate-200 font-medium">{v}</span>
+            </div>
+          ) : null)}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function InventoryPage() {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('All')
   const [showAddModal, setShowAddModal] = useState(false)
+  const [editProduct, setEditProduct] = useState<Product | null>(null)
+  const [viewProduct, setViewProduct] = useState<Product | null>(null)
   const { data: productsData, loading, refetch } = useProducts()
   const products: Product[] = (productsData?.data ?? []) as Product[]
 
@@ -103,8 +219,8 @@ export default function InventoryPage() {
 
   const lowStockCount = products.filter(p => p.stock < p.minStock).length
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this product?')) return
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Delete "${name}"?`)) return
     await productsApi.delete(id)
     refetch()
   }
@@ -112,6 +228,8 @@ export default function InventoryPage() {
   return (
     <div className="space-y-6">
       {showAddModal && <AddProductModal onClose={() => setShowAddModal(false)} onSaved={refetch} />}
+      {editProduct && <EditProductModal product={editProduct} onClose={() => setEditProduct(null)} onSaved={refetch} />}
+      {viewProduct && <ProductDetailModal product={viewProduct} onClose={() => setViewProduct(null)} />}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
@@ -230,13 +348,13 @@ export default function InventoryPage() {
                     </td>
                     <td className="table-cell text-right">
                       <div className="flex items-center justify-end gap-1.5">
-                        <button className="p-1.5 text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors">
+                        <button onClick={() => setViewProduct(product)} className="p-1.5 text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors" title="View details">
                           <QrCode size={13} />
                         </button>
-                        <button className="p-1.5 text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors">
+                        <button onClick={() => setEditProduct(product)} className="p-1.5 text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors" title="Edit">
                           <Edit size={13} />
                         </button>
-                        <button onClick={() => handleDelete(product.id)} className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                        <button onClick={() => handleDelete(product.id, product.name)} className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Delete">
                           <Trash2 size={13} />
                         </button>
                       </div>
