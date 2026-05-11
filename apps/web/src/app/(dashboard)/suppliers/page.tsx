@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Search, Plus, Truck, Phone, Mail, Package, Eye, Edit, Loader2, X, ChevronDown, Trash2 } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { useSuppliers, usePurchaseOrders } from '@/lib/hooks'
+import { useSuppliers, usePurchaseOrders, useProducts } from '@/lib/hooks'
 import { suppliersApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import type { Supplier, PurchaseOrder } from '@/types'
@@ -87,15 +87,51 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
   const [supplierId, setSupplierId]   = useState(suppliers[0]?.id ?? '')
   const [expectedDelivery, setExpDel] = useState('')
   const [notes, setNotes]             = useState('')
-  const [items, setItems]             = useState([{ productName: '', quantity: 1, unitCost: 0 }])
+  const [items, setItems]             = useState([{ productId: '', productName: '', quantity: 1, unitCost: 0 }])
   const [loading, setLoading]         = useState(false)
+  const [searches, setSearches]       = useState<string[]>([''])
+  const [openIdx, setOpenIdx]         = useState<number | null>(null)
+
+  const { data: productsData } = useProducts({ limit: '200' })
+  const allProducts: any[] = (productsData?.data ?? []) as any[]
+
+  const getFiltered = (i: number) => {
+    const q = (searches[i] ?? '').toLowerCase()
+    if (!q) return allProducts.slice(0, 10)
+    return allProducts.filter(p =>
+      p.name?.toLowerCase().includes(q) ||
+      p.sku?.toLowerCase().includes(q) ||
+      p.brandName?.toLowerCase().includes(q)
+    ).slice(0, 10)
+  }
+
+  const selectProduct = (i: number, product: any) => {
+    setItems(prev => prev.map((row, idx) =>
+      idx === i ? {
+        ...row,
+        productId:   product.id,
+        productName: product.name,
+        unitCost:    product.buyingPrice ?? 0,
+      } : row
+    ))
+    setSearches(prev => prev.map((s, idx) => idx === i ? product.name : s))
+    setOpenIdx(null)
+  }
 
   const updateItem = (i: number, k: string, v: string | number) =>
     setItems(prev => prev.map((row, idx) => idx === i ? { ...row, [k]: v } : row))
-  const addItem    = () => setItems(p => [...p, { productName: '', quantity: 1, unitCost: 0 }])
-  const removeItem = (i: number) => setItems(p => p.filter((_, idx) => idx !== i))
 
-  const subtotal = items.reduce((s, r) => s + r.quantity * r.unitCost, 0)
+  const addItem = () => {
+    setItems(p => [...p, { productId: '', productName: '', quantity: 1, unitCost: 0 }])
+    setSearches(p => [...p, ''])
+  }
+
+  const removeItem = (i: number) => {
+    setItems(p => p.filter((_, idx) => idx !== i))
+    setSearches(p => p.filter((_, idx) => idx !== i))
+  }
+
+  const subtotal = items.reduce((s, r) => s + Number(r.quantity) * Number(r.unitCost), 0)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setLoading(true)
@@ -105,10 +141,11 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
         supplierId,
         supplierName: selectedSupplier?.name ?? '',
         items: items.map(r => ({
-          productName: r.productName,
-          quantity: Number(r.quantity),
-          unitCost: Number(r.unitCost),
-          total: Number(r.quantity) * Number(r.unitCost),
+          productId:        r.productId   || undefined,
+          productName:      r.productName,
+          quantity:         Number(r.quantity),
+          unitCost:         Number(r.unitCost),
+          total:            Number(r.quantity) * Number(r.unitCost),
           receivedQuantity: 0,
         })),
         subtotal,
@@ -157,22 +194,68 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
 
           {/* Items */}
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-3">
               <label className="text-xs text-slate-400 uppercase tracking-wide">Items *</label>
               <button type="button" onClick={addItem} className="text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1">
                 <Plus size={11} />Add Row
               </button>
             </div>
+
+            {/* Column headers */}
+            <div className="grid grid-cols-12 gap-2 mb-1 px-0.5">
+              <span className="col-span-5 text-[10px] text-slate-600 uppercase tracking-wide">Product</span>
+              <span className="col-span-2 text-[10px] text-slate-600 uppercase tracking-wide text-center">Qty</span>
+              <span className="col-span-3 text-[10px] text-slate-600 uppercase tracking-wide">Unit Cost</span>
+              <span className="col-span-2 text-[10px] text-slate-600 uppercase tracking-wide text-right">Total</span>
+            </div>
+
             <div className="space-y-2">
               {items.map((item, i) => (
-                <div key={i} className="grid grid-cols-12 gap-2 items-center">
-                  <input
-                    required
-                    className="input-field col-span-5 text-sm"
-                    placeholder="Product name"
-                    value={item.productName}
-                    onChange={e => updateItem(i, 'productName', e.target.value)}
-                  />
+                <div key={i} className="grid grid-cols-12 gap-2 items-start">
+                  {/* Product search dropdown */}
+                  <div className="col-span-5 relative">
+                    <input
+                      required
+                      className="input-field text-sm w-full"
+                      placeholder="Search product..."
+                      value={searches[i] ?? ''}
+                      onFocus={() => setOpenIdx(i)}
+                      onChange={e => {
+                        const v = e.target.value
+                        setSearches(prev => prev.map((s, idx) => idx === i ? v : s))
+                        setItems(prev => prev.map((row, idx) => idx === i ? { ...row, productName: v, productId: '' } : row))
+                        setOpenIdx(i)
+                      }}
+                      onBlur={() => setTimeout(() => setOpenIdx(null), 150)}
+                    />
+                    {openIdx === i && getFiltered(i).length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-[#0d1220] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden max-h-48 overflow-y-auto">
+                        {getFiltered(i).map((p: any) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onMouseDown={() => selectProduct(i, p)}
+                            className="w-full px-3 py-2 text-left hover:bg-violet-500/10 transition-colors"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-xs text-slate-200 truncate">{p.name}</p>
+                                <p className="text-[10px] text-slate-500">{p.sku} · {p.brandName}</p>
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <p className="text-[10px] text-violet-400">{formatCurrency(p.buyingPrice)}</p>
+                                <p className="text-[10px] text-slate-600">stock: {p.stock}</p>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                        {allProducts.length === 0 && (
+                          <p className="text-xs text-slate-500 px-3 py-2">No products in inventory</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
                   <input
                     required type="number" min="1"
                     className="input-field col-span-2 text-sm text-center"
@@ -183,20 +266,23 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
                   <input
                     required type="number" min="0"
                     className="input-field col-span-3 text-sm"
-                    placeholder="Unit cost"
+                    placeholder="Cost"
                     value={item.unitCost}
                     onChange={e => updateItem(i, 'unitCost', e.target.value)}
                   />
-                  <span className="col-span-1 text-xs text-slate-500 text-right">
-                    {formatCurrency(item.quantity * item.unitCost)}
-                  </span>
-                  <button type="button" onClick={() => removeItem(i)} disabled={items.length === 1}
-                    className="col-span-1 p-1 text-slate-600 hover:text-red-400 disabled:opacity-30 transition-colors">
-                    <Trash2 size={12} />
-                  </button>
+                  <div className="col-span-2 flex items-center justify-end gap-1">
+                    <span className="text-xs text-slate-400">
+                      {formatCurrency(Number(item.quantity) * Number(item.unitCost))}
+                    </span>
+                    <button type="button" onClick={() => removeItem(i)} disabled={items.length === 1}
+                      className="p-1 text-slate-600 hover:text-red-400 disabled:opacity-30 transition-colors flex-shrink-0">
+                      <Trash2 size={11} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
+
             <div className="flex justify-end mt-3 pt-3 border-t border-white/5">
               <span className="text-sm font-bold text-white">Total: {formatCurrency(subtotal)}</span>
             </div>
