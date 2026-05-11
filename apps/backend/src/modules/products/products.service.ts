@@ -9,14 +9,16 @@ export const productsService = {
     const branchId = req.query.branchId as string | undefined
     const categoryId = req.query.categoryId as string | undefined
     const where: any = { tenantId, isActive: true, ...(branchId && { branchId }), ...(categoryId && { categoryId }), ...(search && { OR: [{ name: { contains: search, mode: 'insensitive' } }, { sku: { contains: search, mode: 'insensitive' } }, { barcode: { contains: search, mode: 'insensitive' } }] }) }
-    const [data, total] = await Promise.all([prisma.product.findMany({ where, skip, take: limit, orderBy: { name: 'asc' } }), prisma.product.count({ where })])
+    const include = { category: { select: { name: true } }, brand: { select: { name: true } } }
+    const [raw, total] = await Promise.all([prisma.product.findMany({ where, skip, take: limit, orderBy: { name: 'asc' }, include }), prisma.product.count({ where })])
+    const data = raw.map((p: any) => ({ ...p, categoryName: p.category?.name, brandName: p.brand?.name }))
     return { data, total, page, limit }
   },
 
   async getById(tenantId: string, id: string) {
-    const p = await prisma.product.findFirst({ where: { id, tenantId } })
-    if (!p) throw new AppError('Product not found', 404)
-    return p
+    const raw = await prisma.product.findFirst({ where: { id, tenantId }, include: { category: { select: { name: true } }, brand: { select: { name: true } } } }) as any
+    if (!raw) throw new AppError('Product not found', 404)
+    return { ...raw, categoryName: raw.category?.name, brandName: raw.brand?.name }
   },
 
   async create(tenantId: string, body: any) {
@@ -46,8 +48,8 @@ export const productsService = {
     if (!body.brandId) throw new AppError('Brand is required', 400)
 
     const { categoryName, brandName, ...productData } = body
-    const product = await prisma.product.create({ data: { ...productData, tenantId } })
-    return product
+    const raw: any = await prisma.product.create({ data: { ...productData, tenantId }, include: { category: { select: { name: true } }, brand: { select: { name: true } } } })
+    return { ...raw, categoryName: raw.category?.name, brandName: raw.brand?.name }
   },
 
   async update(tenantId: string, id: string, body: any) {
