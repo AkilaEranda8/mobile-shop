@@ -32,58 +32,61 @@ export function useApi<T>(
   return { data, loading, error, refetch: load }
 }
 
+const wrapPaginated = <T>(apiFn: () => Promise<any>): Promise<{ data: { data: T[]; meta: any } }> =>
+  apiFn().then((r: any) => ({ data: { data: r.data ?? [], meta: r.meta ?? {} } }))
+
 export function useProducts(params?: Record<string, string>) {
-  return useApi<{ data: unknown[]; total: number }>(
-    () => productsApi.list(params) as Promise<{ data: { data: unknown[]; total: number } }>,
+  return useApi<{ data: unknown[]; meta: any }>(
+    () => wrapPaginated(productsApi.list.bind(null, params)),
     [JSON.stringify(params)],
   )
 }
 
 export function useCustomers(params?: Record<string, string>) {
-  return useApi<{ data: unknown[]; total: number }>(
-    () => customersApi.list(params) as Promise<{ data: { data: unknown[]; total: number } }>,
+  return useApi<{ data: unknown[]; meta: any }>(
+    () => wrapPaginated(customersApi.list.bind(null, params)),
     [JSON.stringify(params)],
   )
 }
 
 export function useSales(params?: Record<string, string>) {
-  return useApi<{ data: unknown[]; total: number }>(
-    () => salesApi.list(params) as Promise<{ data: { data: unknown[]; total: number } }>,
+  return useApi<{ data: unknown[]; meta: any }>(
+    () => wrapPaginated(salesApi.list.bind(null, params)),
     [JSON.stringify(params)],
   )
 }
 
 export function useRepairs(params?: Record<string, string>) {
-  return useApi<{ data: unknown[]; total: number }>(
-    () => repairsApi.list(params) as Promise<{ data: { data: unknown[]; total: number } }>,
+  return useApi<{ data: unknown[]; meta: any }>(
+    () => wrapPaginated(repairsApi.list.bind(null, params)),
     [JSON.stringify(params)],
   )
 }
 
 export function useWarranties(params?: Record<string, string>) {
-  return useApi<{ data: unknown[]; total: number }>(
-    () => warrantyApi.list(params) as Promise<{ data: { data: unknown[]; total: number } }>,
+  return useApi<{ data: unknown[]; meta: any }>(
+    () => wrapPaginated(warrantyApi.list.bind(null, params)),
     [JSON.stringify(params)],
   )
 }
 
 export function useSuppliers(params?: Record<string, string>) {
-  return useApi<{ data: unknown[]; total: number }>(
-    () => suppliersApi.list(params) as Promise<{ data: { data: unknown[]; total: number } }>,
+  return useApi<{ data: unknown[]; meta: any }>(
+    () => wrapPaginated(suppliersApi.list.bind(null, params)),
     [JSON.stringify(params)],
   )
 }
 
 export function usePurchaseOrders(params?: Record<string, string>) {
-  return useApi<{ data: unknown[]; total: number }>(
-    () => suppliersApi.purchaseOrders(params) as Promise<{ data: { data: unknown[]; total: number } }>,
+  return useApi<{ data: unknown[]; meta: any }>(
+    () => wrapPaginated(suppliersApi.purchaseOrders.bind(null, params)),
     [JSON.stringify(params)],
   )
 }
 
 export function useTransactions(params?: Record<string, string>) {
-  return useApi<{ data: unknown[]; total: number }>(
-    () => financeApi.transactions(params) as Promise<{ data: { data: unknown[]; total: number } }>,
+  return useApi<{ data: unknown[]; meta: any }>(
+    () => wrapPaginated(financeApi.transactions.bind(null, params)),
     [JSON.stringify(params)],
   )
 }
