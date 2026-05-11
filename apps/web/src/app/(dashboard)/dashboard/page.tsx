@@ -3,21 +3,16 @@
 import { TrendingUp, TrendingDown, ShoppingCart, Users, Wrench, AlertTriangle, Package, Shield, ArrowRight, Clock } from 'lucide-react'
 import Link from 'next/link'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { useRevenue, useRepairs, useTransactions } from '@/lib/hooks'
+import { useRevenue, useRepairs, useTransactions, useAnalyticsDashboard } from '@/lib/hooks'
 import type { RepairTicket, Transaction as AppTransaction } from '@/types'
 import { formatCurrency, formatRelativeTime, getRepairStatusColor } from '@/lib/utils'
-
-const statCards = [
-  { label: "Today's Revenue", value: '₹1,42,000', change: '+12.4%', up: true, icon: TrendingUp, color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20', href: '/dashboard/finance' },
-  { label: 'Active Repairs', value: '12', change: '-3 from yesterday', up: false, icon: Wrench, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20', href: '/dashboard/repairs' },
-  { label: 'Total Customers', value: '1,842', change: '+8 today', up: true, icon: Users, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20', href: '/dashboard/customers' },
-  { label: 'Pending Dues', value: '₹68,500', change: '5 customers', up: false, icon: AlertTriangle, color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20', href: '/dashboard/customers' },
-]
 
 export default function DashboardPage() {
   const { data: rawRevenue } = useRevenue()
   const { data: repairsData } = useRepairs()
   const { data: txData } = useTransactions()
+  const { data: stats } = useAnalyticsDashboard()
+  const s = stats as any
   const revenueArr: any[] = Array.isArray(rawRevenue) ? rawRevenue : []
   const repairs: RepairTicket[] = ((repairsData?.data ?? []) as RepairTicket[]).filter(r => r.status !== 'DELIVERED' && r.status !== 'CANCELLED').slice(0, 5)
   const transactions: AppTransaction[] = (txData?.data ?? []) as AppTransaction[]
@@ -42,15 +37,17 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {statCards.map((stat) => (
+        {[
+          { label: "Today's Revenue", value: formatCurrency(s?.todayRevenue ?? 0), icon: TrendingUp, color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20', href: '/dashboard/finance' },
+          { label: 'Active Repairs', value: String(s?.activeRepairs ?? 0), icon: Wrench, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20', href: '/dashboard/repairs' },
+          { label: 'Total Customers', value: String(s?.totalCustomers ?? 0), icon: Users, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20', href: '/dashboard/customers' },
+          { label: 'Low Stock Items', value: String(s?.lowStockCount ?? 0), icon: AlertTriangle, color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20', href: '/dashboard/inventory' },
+        ].map((stat) => (
           <Link key={stat.label} href={stat.href} className="card p-5 hover:border-violet-500/20 transition-all duration-200 group">
             <div className="flex items-start justify-between mb-4">
               <div className={`w-10 h-10 rounded-xl ${stat.bg} border ${stat.border} flex items-center justify-center`}>
                 <stat.icon size={18} className={stat.color} />
               </div>
-              <span className={`text-xs font-medium flex items-center gap-1 ${stat.up ? 'text-green-400' : 'text-slate-400'}`}>
-                {stat.up ? <TrendingUp size={11} /> : <TrendingDown size={11} />}{stat.change}
-              </span>
             </div>
             <p className="text-2xl font-bold text-white mb-1">{stat.value}</p>
             <p className="text-sm text-slate-500">{stat.label}</p>
