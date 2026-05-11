@@ -32,7 +32,12 @@ app.use(cors({
       const devPattern = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/
       if (devPattern.test(origin)) return callback(null, true)
     }
-    if (origin === env.FRONTEND_URL) return callback(null, true)
+    const allowedOrigins = [
+      env.FRONTEND_URL,
+      'https://admin2.hexalyte.com',
+      'https://app.hexalyte.com',
+    ]
+    if (allowedOrigins.includes(origin)) return callback(null, true)
     callback(new Error(`CORS: origin ${origin} not allowed`))
   },
   credentials: true,

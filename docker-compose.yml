@@ -70,9 +70,9 @@ services:
       dockerfile: Dockerfile.dev
     container_name: hexalyte_admin
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3001
+      NEXT_PUBLIC_API_URL: https://api.shop.hexalyte.com
       NEXTAUTH_SECRET: hexalyte-admin-nextauth-secret-dev
-      NEXTAUTH_URL: http://localhost:3002
+      NEXTAUTH_URL: https://admin2.hexalyte.com
     ports:
       - "3002:3002"
     depends_on:
