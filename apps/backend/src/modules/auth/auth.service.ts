@@ -45,7 +45,10 @@ export const authService = {
     const existing = await prisma.user.findFirst({ where: { email: data.ownerEmail } })
     if (existing) throw new AppError('Email already in use', 409)
 
-    const slug = data.shopName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+    const baseSlug = data.shopName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+    const existing_slug = await prisma.tenant.findFirst({ where: { slug: baseSlug } })
+    const slug = existing_slug ? `${baseSlug}-${Date.now().toString(36)}` : baseSlug
+    const subdomain = `${slug}.app.hexalyte.com`
     const hashedPassword = await bcrypt.hash(data.password, 12)
     const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
 
@@ -105,9 +108,10 @@ export const authService = {
         password: data.password,
         groupId,
       })
-    } catch (e) { console.warn('[KC] registerTenant sync failed:', (e as Error).message) }
+      console.log(`[KC] User created for tenant ${slug}`)
+    } catch (e) { console.warn('[KC] registerTenant sync failed (non-fatal):', (e as Error).message) }
 
-    return { accessToken, refreshToken, tenant, user }
+    return { accessToken, refreshToken, tenant, user, subdomain }
   },
 
   async refresh(refreshTokenStr: string) {
