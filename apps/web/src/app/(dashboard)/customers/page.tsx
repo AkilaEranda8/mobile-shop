@@ -1,15 +1,75 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Plus, Users, Star, Phone, Mail, MapPin, Eye, Loader2, SlidersHorizontal } from 'lucide-react'
+import { Search, Plus, Users, Star, Phone, Mail, MapPin, Eye, Loader2, SlidersHorizontal, X } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useCustomers } from '@/lib/hooks'
+import { customersApi } from '@/lib/api'
 import type { Customer } from '@/types'
+
+function AddCustomerModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState({ name: '', phone: '', email: '', city: '', address: '' })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true); setError('')
+    try {
+      await customersApi.create(form)
+      onSaved(); onClose()
+    } catch (err: any) { setError(err.message || 'Failed to create customer') }
+    finally { setLoading(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
+        <div className="flex items-center justify-between p-5 border-b border-white/5">
+          <h3 className="text-base font-semibold text-white">Add Customer</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors"><X size={16} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <label className="block text-xs text-slate-400 mb-1.5">Full Name *</label>
+              <input required className="input-field" placeholder="Subramaniam R" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">Phone *</label>
+              <input required className="input-field" placeholder="9876543210" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">Email</label>
+              <input type="email" className="input-field" placeholder="optional" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">City</label>
+              <input className="input-field" placeholder="Chennai" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">Address</label>
+              <input className="input-field" placeholder="Street address" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
+            </div>
+          </div>
+          {error && <p className="text-xs text-red-400">{error}</p>}
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
+            <button type="submit" disabled={loading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+              {loading ? <Loader2 size={14} className="animate-spin" /> : null}Add Customer
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
 
 export default function CustomersPage() {
   const [search, setSearch] = useState('')
   const [view, setView] = useState<'grid' | 'table'>('table')
-  const { data: customersData, loading } = useCustomers()
+  const [showAddModal, setShowAddModal] = useState(false)
+  const { data: customersData, loading, refetch } = useCustomers()
   const customers: Customer[] = (customersData?.data ?? []) as Customer[]
 
   const filtered = customers.filter(c =>
@@ -23,6 +83,7 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-6">
+      {showAddModal && <AddCustomerModal onClose={() => setShowAddModal(false)} onSaved={refetch} />}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
@@ -33,7 +94,7 @@ export default function CustomersPage() {
           <button className="btn-secondary text-sm flex items-center gap-2">
             <SlidersHorizontal size={14} />Segment
           </button>
-          <button className="btn-primary text-sm flex items-center gap-2">
+          <button onClick={() => setShowAddModal(true)} className="btn-primary text-sm flex items-center gap-2">
             <Plus size={14} />Add Customer
           </button>
         </div>
