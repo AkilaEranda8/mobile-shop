@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import {
   Download, Printer, Mail, Share2, CheckCircle2, Clock, FileText,
@@ -91,23 +91,26 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 /* ─── Action buttons ────────────────────────────────────────────────── */
-function ActionBar({ onPrint }: { onPrint: () => void }) {
+function ActionBar({ onDownload, onPrint, downloading }: { onDownload: () => void; onPrint: () => void; downloading: boolean }) {
   return (
     <div className="flex flex-wrap gap-3 justify-end mb-6 print:hidden">
-      {[
-        { icon: Download,  label: 'Download PDF',  cls: 'bg-orange-500 hover:bg-orange-400 text-white shadow-lg shadow-orange-500/20' },
-        { icon: Printer,   label: 'Print',         cls: 'bg-[#1a2540] hover:bg-[#1f2d4f] text-slate-200 border border-white/10', action: onPrint },
-        { icon: Share2,    label: 'WhatsApp',       cls: 'bg-emerald-600 hover:bg-emerald-500 text-white' },
-        { icon: Mail,      label: 'Send Email',     cls: 'bg-[#1a2540] hover:bg-[#1f2d4f] text-slate-200 border border-white/10' },
-      ].map(({ icon: Icon, label, cls, action }) => (
-        <button
-          key={label}
-          onClick={action}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${cls}`}
-        >
-          <Icon size={15} />{label}
-        </button>
-      ))}
+      <button
+        onClick={onDownload}
+        disabled={downloading}
+        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 bg-orange-500 hover:bg-orange-400 text-white shadow-lg shadow-orange-500/20 disabled:opacity-60 disabled:cursor-wait"
+      >
+        {downloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+        {downloading ? 'Generating…' : 'Download PDF'}
+      </button>
+      <button onClick={onPrint} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#1a2540] hover:bg-[#1f2d4f] text-slate-200 border border-white/10 transition-all">
+        <Printer size={15} />Print
+      </button>
+      <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-all">
+        <Share2 size={15} />WhatsApp
+      </button>
+      <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#1a2540] hover:bg-[#1f2d4f] text-slate-200 border border-white/10 transition-all">
+        <Mail size={15} />Send Email
+      </button>
     </div>
   )
 }
@@ -121,6 +124,8 @@ function InvoiceContent() {
   const [po, setPo]           = useState<any>(null)
   const [loading, setLoading] = useState(!!poId)
   const [error, setError]     = useState('')
+  const [downloading, setDownloading] = useState(false)
+  const invoiceRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!poId) return
@@ -135,6 +140,64 @@ function InvoiceContent() {
       .catch(() => setError('Failed to load purchase order'))
       .finally(() => setLoading(false))
   }, [poId])
+
+  const handleDownload = async () => {
+    const el = invoiceRef.current
+    if (!el) return
+    setDownloading(true)
+    try {
+      const { default: html2canvas } = await import('html2canvas')
+      const { jsPDF }               = await import('jspdf')
+
+      const canvas = await html2canvas(el, {
+        scale:           2,
+        useCORS:         true,
+        backgroundColor: '#0b1425',
+        logging:         false,
+        windowWidth:     el.scrollWidth,
+        windowHeight:    el.scrollHeight,
+      })
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95)
+      const pdf     = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+      const pdfW    = pdf.internal.pageSize.getWidth()
+      const pdfH    = pdf.internal.pageSize.getHeight()
+      const ratio   = canvas.width / canvas.height
+      const imgW    = pdfW
+      const imgH    = imgW / ratio
+
+      if (imgH <= pdfH) {
+        pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH)
+      } else {
+        let yPos   = 0
+        let remain = imgH
+        while (remain > 0) {
+          const sliceH = Math.min(pdfH, remain)
+          const sy     = (yPos / imgH) * canvas.height
+          const sh     = (sliceH / imgH) * canvas.height
+          const sliceCv = document.createElement('canvas')
+          sliceCv.width  = canvas.width
+          sliceCv.height = sh
+          sliceCv.getContext('2d')!.drawImage(canvas, 0, sy, canvas.width, sh, 0, 0, canvas.width, sh)
+          const sliceData = sliceCv.toDataURL('image/jpeg', 0.95)
+          if (yPos > 0) pdf.addPage()
+          pdf.addImage(sliceData, 'JPEG', 0, 0, imgW, sliceH)
+          yPos   += sliceH
+          remain -= sliceH
+        }
+      }
+
+      const fileName = po?.poNumber ? `Invoice-${po.poNumber}.pdf` : 'Purchase-Invoice.pdf'
+      pdf.save(fileName)
+    } catch (e) {
+      console.error('PDF generation failed', e)
+      alert('PDF generation failed. Try using Print → Save as PDF instead.')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  const handlePrint = () => window.print()
 
   if (loading) return (
     <div className="min-h-screen bg-[#060d1a] flex items-center justify-center">
@@ -185,10 +248,11 @@ function InvoiceContent() {
     <div className="min-h-screen bg-[#060d1a] py-8 px-4 sm:px-8 print:bg-white print:p-0">
 
       {/* Action bar */}
-      <ActionBar onPrint={() => window.print()} />
+      <ActionBar onDownload={handleDownload} onPrint={handlePrint} downloading={downloading} />
 
       {/* Invoice Card */}
       <div
+        ref={invoiceRef}
         id="invoice"
         className="relative max-w-5xl mx-auto bg-[#0b1425] rounded-3xl overflow-hidden shadow-2xl shadow-black/60 border border-white/5 print:shadow-none print:border-0 print:rounded-none print:bg-white"
       >
@@ -533,8 +597,11 @@ function InvoiceContent() {
       {/* Print styles */}
       <style>{`
         @media print {
-          body { background: white !important; }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          body, html { background: #0b1425 !important; margin: 0 !important; padding: 0 !important; }
           .print\\:hidden { display: none !important; }
+          #invoice { box-shadow: none !important; border-radius: 0 !important; border: none !important; max-width: 100% !important; margin: 0 !important; }
+          @page { margin: 0; size: A4; }
         }
       `}</style>
     </div>
