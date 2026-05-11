@@ -38,6 +38,7 @@ app.use(cors({
       'https://app.hexalyte.com',
     ]
     if (allowedOrigins.includes(origin)) return callback(null, true)
+    if (/^https:\/\/[^.]+\.app\.hexalyte\.com$/.test(origin)) return callback(null, true)
     callback(new Error(`CORS: origin ${origin} not allowed`))
   },
   credentials: true,
