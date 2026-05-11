@@ -22,10 +22,31 @@ export const productsService = {
   async create(tenantId: string, body: any) {
     const existing = await prisma.product.findFirst({ where: { tenantId, sku: body.sku } })
     if (existing) throw new AppError('SKU already in use', 409)
+
     if (body.mrp === undefined || body.mrp === null) body.mrp = body.sellingPrice
-    const product = await prisma.product.create({ data: { ...body, tenantId } })
-    await prisma.category.update({ where: { id: body.categoryId }, data: { productCount: { increment: 1 } } }).catch(() => {})
-    await prisma.brand.update({ where: { id: body.brandId }, data: { productCount: { increment: 1 } } }).catch(() => {})
+
+    if (!body.branchId) {
+      const branch = await prisma.branch.findFirst({ where: { tenantId } })
+      if (!branch) throw new AppError('No branch found for tenant', 400)
+      body.branchId = branch.id
+    }
+
+    if (!body.categoryId && body.categoryName) {
+      let cat = await prisma.category.findFirst({ where: { tenantId, name: body.categoryName } })
+      if (!cat) cat = await prisma.category.create({ data: { tenantId, name: body.categoryName, slug: body.categoryName.toLowerCase().replace(/\s+/g, '-') } })
+      body.categoryId = cat.id
+    }
+    if (!body.categoryId) throw new AppError('Category is required', 400)
+
+    if (!body.brandId && body.brandName) {
+      let brand = await prisma.brand.findFirst({ where: { tenantId, name: body.brandName } })
+      if (!brand) brand = await prisma.brand.create({ data: { tenantId, name: body.brandName } })
+      body.brandId = brand.id
+    }
+    if (!body.brandId) throw new AppError('Brand is required', 400)
+
+    const { categoryName, brandName, ...productData } = body
+    const product = await prisma.product.create({ data: { ...productData, tenantId } })
     return product
   },
 
