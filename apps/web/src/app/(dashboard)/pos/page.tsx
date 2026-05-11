@@ -1,8 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, Receipt, ScanLine, X } from 'lucide-react'
-import { mockProducts, mockCustomers } from '@/lib/mock-data'
+import { Search, Plus, Minus, CreditCard, Banknote, Smartphone, Receipt, ScanLine, X, Loader2 } from 'lucide-react'
+import { useProducts, useCustomers } from '@/lib/hooks'
+import { salesApi } from '@/lib/api'
+import { authStorage } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
 
 interface CartItem {
@@ -20,28 +22,31 @@ export default function POSPage() {
   const [imeiInput, setImeiInput] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null)
   const [discount, setDiscount] = useState(0)
-  const [completedSale, setCompletedSale] = useState(false)
+  const [completedSale, setCompletedSale] = useState<any>(null)
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [checkoutError, setCheckoutError] = useState('')
 
-  const filtered = mockProducts.filter(p =>
+  const { data: productsData } = useProducts({ limit: '100' })
+  const { data: customersData } = useCustomers({ limit: '200' })
+
+  const products: any[] = (productsData as any)?.data ?? []
+  const customers: any[] = (customersData as any)?.data ?? []
+
+  const filtered = products.filter((p: any) =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.sku.toLowerCase().includes(search.toLowerCase())
+    (p.sku ?? '').toLowerCase().includes(search.toLowerCase())
   )
 
-  const addToCart = (product: typeof mockProducts[0]) => {
+  const addToCart = (product: any) => {
     setCart(prev => {
       const existing = prev.find(i => i.productId === product.id)
-      if (existing) {
-        return prev.map(i => i.productId === product.id ? { ...i, quantity: i.quantity + 1 } : i)
-      }
+      if (existing) return prev.map(i => i.productId === product.id ? { ...i, quantity: i.quantity + 1 } : i)
       return [...prev, { productId: product.id, name: product.name, price: product.sellingPrice, quantity: 1 }]
     })
   }
 
   const updateQty = (id: string, delta: number) => {
-    setCart(prev => prev
-      .map(i => i.productId === id ? { ...i, quantity: i.quantity + delta } : i)
-      .filter(i => i.quantity > 0)
-    )
+    setCart(prev => prev.map(i => i.productId === id ? { ...i, quantity: i.quantity + delta } : i).filter(i => i.quantity > 0))
   }
 
   const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0)
@@ -49,17 +54,43 @@ export default function POSPage() {
   const tax = Math.round((subtotal - discountAmount) * 0.18)
   const total = subtotal - discountAmount + tax
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (cart.length === 0) return
-    setCompletedSale(true)
+    setCheckoutLoading(true)
+    setCheckoutError('')
+    try {
+      const user = authStorage.getUser()
+      const customer = customers.find(c => c.id === selectedCustomer)
+      const res: any = await salesApi.create({
+        branchId: user?.branchIds?.[0],
+        customerId: selectedCustomer || undefined,
+        customerName: customer?.name || 'Walk-in Customer',
+        customerPhone: customer?.phone || '',
+        subtotal,
+        discount: discountAmount,
+        tax,
+        total,
+        paidAmount: total,
+        dueAmount: 0,
+        status: 'PAID',
+        items: cart.map(i => ({ productId: i.productId, productName: i.name, quantity: i.quantity, unitPrice: i.price, total: i.price * i.quantity, imei: i.imei })),
+        payments: [{ method: paymentMethod, amount: total }],
+      })
+      setCompletedSale(res.data)
+    } catch (e: any) {
+      setCheckoutError(e.message || 'Checkout failed')
+    } finally {
+      setCheckoutLoading(false)
+    }
   }
 
   const handleNewSale = () => {
     setCart([])
-    setCompletedSale(false)
+    setCompletedSale(null)
     setSearch('')
     setDiscount(0)
     setSelectedCustomer(null)
+    setCheckoutError('')
   }
 
   return (
@@ -140,7 +171,7 @@ export default function POSPage() {
             </div>
             <h3 className="text-lg font-bold text-white mb-1">Sale Complete!</h3>
             <p className="text-slate-400 text-sm mb-1">Total: <span className="font-bold text-white">{formatCurrency(total)}</span></p>
-            <p className="text-slate-500 text-xs mb-6">Invoice #INV-2024-{Math.floor(Math.random() * 9000) + 1000} generated</p>
+            <p className="text-slate-500 text-xs mb-6">Invoice #{completedSale?.invoiceNumber ?? '---'} generated</p>
             <div className="flex gap-2 w-full">
               <button className="btn-secondary flex-1 text-sm">Print Invoice</button>
               <button className="btn-primary flex-1 text-sm" onClick={handleNewSale}>New Sale</button>
@@ -166,7 +197,7 @@ export default function POSPage() {
                 onChange={e => setSelectedCustomer(e.target.value || null)}
               >
                 <option value="">Walk-in Customer</option>
-                {mockCustomers.map(c => (
+                {customers.map((c: any) => (
                   <option key={c.id} value={c.id}>{c.name} · {c.phone}</option>
                 ))}
               </select>
@@ -248,12 +279,14 @@ export default function POSPage() {
                   ))}
                 </div>
 
+                {checkoutError && <p className="text-xs text-red-400 text-center">{checkoutError}</p>}
                 <button
                   onClick={handleCheckout}
-                  className="btn-primary w-full flex items-center justify-center gap-2 text-sm"
+                  disabled={checkoutLoading}
+                  className="btn-primary w-full flex items-center justify-center gap-2 text-sm disabled:opacity-60"
                 >
-                  <Receipt size={15} />
-                  Charge {formatCurrency(total)}
+                  {checkoutLoading ? <Loader2 size={15} className="animate-spin" /> : <Receipt size={15} />}
+                  {checkoutLoading ? 'Processing...' : `Charge ${formatCurrency(total)}`}
                 </button>
               </div>
             )}
