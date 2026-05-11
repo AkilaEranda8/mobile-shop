@@ -30,30 +30,6 @@ services:
       - hexalyte-network
     command: redis-server --appendonly yes
 
-  keycloak:
-    image: quay.io/keycloak/keycloak:24.0.4
-    container_name: hexalyte_keycloak
-    environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
-      KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/hexalyte_auth
-      KC_DB_USERNAME: hexalyte
-      KC_DB_PASSWORD: hexalyte_secret
-      KC_HOSTNAME: localhost
-      KC_HOSTNAME_PORT: 8080
-      KC_HTTP_ENABLED: "true"
-      KC_HOSTNAME_STRICT: "false"
-      KC_HOSTNAME_STRICT_HTTPS: "false"
-    command: start-dev
-    ports:
-      - "8080:8080"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - hexalyte-network
-
   backend:
     build:
       context: ./apps/backend
@@ -69,7 +45,7 @@ services:
       JWT_REFRESH_EXPIRES_IN: 7d
       FRONTEND_URL: http://localhost:3000
       API_PREFIX: api/v1
-      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_URL: https://auth.hexalyte.com
       KC_REALM: hexalyte
       KC_CLIENT_ID: hexalyte-backend
       KC_CLIENT_SECRET: MTn88PrnUswYgydsveQZumTX2lzqkbbg
@@ -113,7 +89,7 @@ services:
     container_name: hexalyte_web
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
-      NEXT_PUBLIC_KEYCLOAK_URL: http://localhost:8080
+      NEXT_PUBLIC_KEYCLOAK_URL: https://auth.hexalyte.com
       NEXT_PUBLIC_WS_URL: ws://localhost:3001
       NEXTAUTH_SECRET: your-nextauth-secret-min-32-chars
       NEXTAUTH_URL: http://localhost:3000
