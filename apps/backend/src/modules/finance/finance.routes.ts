@@ -10,9 +10,17 @@ router.use(authenticate)
 router.get('/transactions', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { skip, limit, page } = getPagination(req)
-    const type = req.query.type as string | undefined
+    const type     = req.query.type     as string | undefined
     const branchId = req.query.branchId as string | undefined
-    const where: any = { tenantId: req.tenantId!, ...(type && { type }), ...(branchId && { branchId }) }
+    const category = req.query.category as string | undefined
+    const search   = req.query.search   as string | undefined
+    const where: any = {
+      tenantId: req.tenantId!,
+      ...(type     && { type }),
+      ...(branchId && { branchId }),
+      ...(category && { category }),
+      ...(search   && { description: { contains: search, mode: 'insensitive' } }),
+    }
     const [data, total] = await Promise.all([prisma.transaction.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }), prisma.transaction.count({ where })])
     sendPaginated(res, data, total, page, limit)
   } catch (e) { next(e) }

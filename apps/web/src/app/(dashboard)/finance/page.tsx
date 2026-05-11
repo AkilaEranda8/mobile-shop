@@ -4,54 +4,129 @@ import { useState } from 'react'
 import { TrendingUp, TrendingDown, Download, Plus, ArrowUpRight, ArrowDownRight, SlidersHorizontal, Loader2 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { useTransactions, useRevenue } from '@/lib/hooks'
+import { useTransactions, useRevenue, useFinanceSummary } from '@/lib/hooks'
+import { financeApi } from '@/lib/api'
+import toast from 'react-hot-toast'
 import type { Transaction as AppTransaction } from '@/types'
 
 const COLORS = ['#7c3aed', '#06b6d4', '#10b981', '#f59e0b', '#ef4444']
 
-const categories = [
-  { name: 'Device Sales', value: 425000, color: '#7c3aed' },
-  { name: 'Repairs', value: 82000, color: '#06b6d4' },
-  { name: 'Accessories', value: 35000, color: '#10b981' },
-  { name: 'Warranties', value: 12000, color: '#f59e0b' },
-  { name: 'Other', value: 8000, color: '#ef4444' },
-]
+function AddTransactionModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState({ type: 'EXPENSE', category: 'Misc', amount: '', description: '', paymentMethod: 'CASH' })
+  const [loading, setLoading] = useState(false)
+  const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(p => ({ ...p, [k]: e.target.value }))
+  const handleSubmit = async (ev: React.FormEvent) => {
+    ev.preventDefault(); setLoading(true)
+    try {
+      await financeApi.create({ ...form, amount: parseFloat(form.amount) })
+      toast.success('Transaction recorded')
+      onSaved(); onClose()
+    } catch (err: any) { toast.error(err?.message ?? 'Failed') } finally { setLoading(false) }
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
+        <div className="flex items-center justify-between p-5 border-b border-white/5">
+          <h3 className="text-base font-semibold text-white">Add Transaction</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><TrendingDown size={14} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">Type</label>
+              <select className="input-field" value={form.type} onChange={f('type')}>
+                <option value="INCOME">Income</option>
+                <option value="EXPENSE">Expense</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">Amount (₹) *</label>
+              <input required type="number" min="0" className="input-field" placeholder="5000" value={form.amount} onChange={f('amount')} />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs text-slate-400 mb-1.5">Description *</label>
+              <input required className="input-field" placeholder="e.g. Monthly rent" value={form.description} onChange={f('description')} />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">Category</label>
+              <input className="input-field" placeholder="Rent, Sales, Repair..." value={form.category} onChange={f('category')} />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">Payment Method</label>
+              <select className="input-field" value={form.paymentMethod} onChange={f('paymentMethod')}>
+                <option value="CASH">Cash</option>
+                <option value="BANK_TRANSFER">Bank Transfer</option>
+                <option value="CARD">Card</option>
+                <option value="UPI">UPI</option>
+                <option value="WALLET">Wallet</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
+            <button type="submit" disabled={loading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}Save
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
 
 export default function FinancePage() {
   const [tab, setTab] = useState<'overview' | 'transactions' | 'reports'>('overview')
   const [search, setSearch] = useState('')
-  const { data: txData, loading: txLoading } = useTransactions()
+  const [showAdd, setShowAdd] = useState(false)
+  const { data: txData, loading: txLoading, refetch: refetchTx } = useTransactions()
   const { data: rawRevenue } = useRevenue()
+  const { data: summaryData, refetch: refetchSummary } = useFinanceSummary()
   const transactions: AppTransaction[] = (txData?.data ?? []) as AppTransaction[]
   const revenueArr: any[] = Array.isArray(rawRevenue) ? rawRevenue : []
+  const summary = summaryData as any
+
+  const income  = summary?.totalIncome  ?? 0
+  const expense = summary?.totalExpense ?? 0
 
   const monthlyData = revenueArr.slice(-6).map((d: any) => ({
-    month: new Date(d.date).toLocaleDateString('en-IN', { month: 'short' }),
-    income: Math.round((d.revenue ?? 0) / 1000),
-    expense: Math.round(((d.revenue ?? 0) - (d.profit ?? 0)) / 1000),
-    profit: Math.round((d.profit ?? 0) / 1000),
+    month:   new Date(d.date).toLocaleDateString('en-IN', { month: 'short' }),
+    income:  Math.round((d.totalRevenue  ?? 0) / 1000),
+    expense: Math.round((d.totalExpenses ?? 0) / 1000),
+    profit:  Math.round((d.profit        ?? 0) / 1000),
   }))
 
-  const income = transactions.filter((t: AppTransaction) => t.type === 'INCOME').reduce((s, t) => s + t.amount, 0)
-  const expense = transactions.filter((t: AppTransaction) => t.type === 'EXPENSE').reduce((s, t) => s + t.amount, 0)
+  const categoryMap: Record<string, number> = {}
+  transactions.filter((t: AppTransaction) => t.type === 'INCOME').forEach((t: AppTransaction) => {
+    categoryMap[t.category] = (categoryMap[t.category] ?? 0) + t.amount
+  })
+  const pieCategories = Object.entries(categoryMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, value], i) => ({ name, value, color: COLORS[i % COLORS.length] }))
 
   const filtered = transactions.filter((t: AppTransaction) =>
     t.description.toLowerCase().includes(search.toLowerCase())
   )
 
+  const handleSaved = () => { refetchTx(); refetchSummary() }
+
+  const now = new Date()
+  const periodLabel = `${now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })} · All Branches`
+
   return (
     <div className="space-y-6">
+      {showAdd && <AddTransactionModal onClose={() => setShowAdd(false)} onSaved={handleSaved} />}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
           <h1 className="page-title">Finance & Accounting</h1>
-          <p className="page-subtitle">May 2024 · All Branches</p>
+          <p className="page-subtitle">{periodLabel}</p>
         </div>
         <div className="flex gap-2 sm:ml-auto">
           <button className="btn-secondary text-sm flex items-center gap-2">
             <Download size={14} />Export
           </button>
-          <button className="btn-primary text-sm flex items-center gap-2">
+          <button onClick={() => setShowAdd(true)} className="btn-primary text-sm flex items-center gap-2">
             <Plus size={14} />Add Transaction
           </button>
         </div>
@@ -65,7 +140,7 @@ export default function FinancePage() {
             <span className="text-sm text-green-300 font-semibold">Total Income</span>
           </div>
           <p className="text-3xl font-bold text-white">{formatCurrency(income)}</p>
-          <p className="text-xs text-slate-500 mt-1">+18.2% vs last month</p>
+          <p className="text-xs text-slate-500 mt-1">Total income recorded</p>
         </div>
         <div className="card p-5 border-red-500/20 bg-red-500/5">
           <div className="flex items-center gap-2 mb-2">
@@ -73,7 +148,7 @@ export default function FinancePage() {
             <span className="text-sm text-red-300 font-semibold">Total Expenses</span>
           </div>
           <p className="text-3xl font-bold text-white">{formatCurrency(expense)}</p>
-          <p className="text-xs text-slate-500 mt-1">+5.1% vs last month</p>
+          <p className="text-xs text-slate-500 mt-1">Total expenses recorded</p>
         </div>
         <div className="card p-5 border-violet-500/20 bg-violet-500/5">
           <div className="flex items-center gap-2 mb-2">
@@ -81,7 +156,7 @@ export default function FinancePage() {
             <span className="text-sm text-violet-300 font-semibold">Net Profit</span>
           </div>
           <p className="text-3xl font-bold text-white">{formatCurrency(income - expense)}</p>
-          <p className="text-xs text-slate-500 mt-1">Margin: {Math.round(((income - expense) / income) * 100)}%</p>
+          <p className="text-xs text-slate-500 mt-1">Margin: {income > 0 ? Math.round(((income - expense) / income) * 100) : 0}%</p>
         </div>
       </div>
 
@@ -117,18 +192,22 @@ export default function FinancePage() {
 
           {/* Revenue Breakdown */}
           <div className="card p-5">
-            <h3 className="text-sm font-semibold text-white mb-4">Revenue Breakdown</h3>
-            <ResponsiveContainer width="100%" height={120}>
-              <PieChart>
-                <Pie data={categories} cx="50%" cy="50%" innerRadius={35} outerRadius={55} dataKey="value" strokeWidth={0}>
-                  {categories.map((entry, index) => (
-                    <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
+            <h3 className="text-sm font-semibold text-white mb-4">Income by Category</h3>
+            {pieCategories.length === 0 ? (
+              <div className="h-[120px] flex items-center justify-center text-slate-600 text-xs">No income data yet</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={120}>
+                <PieChart>
+                  <Pie data={pieCategories} cx="50%" cy="50%" innerRadius={35} outerRadius={55} dataKey="value" strokeWidth={0}>
+                    {pieCategories.map((entry, index) => (
+                      <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            )}
             <div className="mt-3 space-y-2">
-              {categories.map((cat, i) => (
+              {pieCategories.map((cat, i) => (
                 <div key={cat.name} className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[i] }} />
@@ -137,6 +216,9 @@ export default function FinancePage() {
                   <span className="text-xs font-medium text-slate-300">{formatCurrency(cat.value)}</span>
                 </div>
               ))}
+              {pieCategories.length === 0 && (
+                <p className="text-xs text-slate-600 text-center">Add income transactions to see breakdown</p>
+              )}
             </div>
           </div>
         </div>
