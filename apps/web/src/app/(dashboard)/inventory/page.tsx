@@ -1,13 +1,172 @@
 'use client'
 
-import { useState } from 'react'
-import { Search, Plus, Package, AlertTriangle, Download, Upload, QrCode, Edit, Trash2, Loader2, X } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Search, Plus, Package, AlertTriangle, Download, Upload, QrCode, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { useProducts } from '@/lib/hooks'
 import { productsApi } from '@/lib/api'
 import type { Product } from '@/types'
 
 const categories = ['All', 'Smartphones', 'Accessories', 'Tablets', 'Batteries', 'Screens', 'Chargers']
+
+/* ── CSV Export ─────────────────────────────────────────────────────── */
+function exportProductsCSV(products: Product[]) {
+  const headers = ['name','sku','brandName','categoryName','buyingPrice','sellingPrice','stock','minStock']
+  const rows = products.map(p => [
+    `"${p.name}"`, p.sku,
+    `"${(p as any).brandName ?? ''}"`,
+    `"${(p as any).categoryName ?? ''}"`,
+    p.buyingPrice, p.sellingPrice, p.stock, p.minStock,
+  ].join(','))
+  const csv = [headers.join(','), ...rows].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = `inventory-${new Date().toISOString().split('T')[0]}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+/* ── CSV Import Modal ────────────────────────────────────────────────── */
+function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [rows, setRows] = useState<Record<string, string>[]>([])
+  const [errors, setErrors] = useState<string[]>([])
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
+  const [done, setDone] = useState(false)
+
+  const TEMPLATE = 'name,sku,brandName,categoryName,buyingPrice,sellingPrice,stock,minStock'
+  const SAMPLE   = 'iPhone 15 Pro,IP15P-256,Apple,Smartphones,75000,89999,5,2'
+
+  const downloadTemplate = () => {
+    const blob = new Blob([[TEMPLATE, SAMPLE].join('\n')], { type: 'text/csv' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a'); a.href = url; a.download = 'inventory-template.csv'; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const parseFile = (file: File) => {
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const text   = ev.target?.result as string
+      const lines  = text.trim().split('\n').filter(Boolean)
+      const header = lines[0].split(',')
+      const parsed = lines.slice(1).map(line => {
+        const vals: Record<string, string> = {}
+        line.split(',').forEach((v, i) => { vals[header[i]?.trim()] = v.trim().replace(/^"|"$/g, '') })
+        return vals
+      })
+      setRows(parsed)
+    }
+    reader.readAsText(file)
+  }
+
+  const handleImport = async () => {
+    setErrors([])
+    setProgress({ done: 0, total: rows.length })
+    const errs: string[] = []
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i]
+      try {
+        await productsApi.create({
+          name: r.name, sku: r.sku, brandName: r.brandName, categoryName: r.categoryName,
+          buyingPrice: Number(r.buyingPrice), sellingPrice: Number(r.sellingPrice),
+          stock: Number(r.stock), minStock: Number(r.minStock ?? 3),
+        })
+      } catch (e: any) {
+        errs.push(`Row ${i + 2}: ${r.name} — ${e?.message ?? 'failed'}`)
+      }
+      setProgress({ done: i + 1, total: rows.length })
+    }
+    setErrors(errs)
+    setDone(true)
+    onSaved()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl">
+        <div className="flex items-center justify-between p-5 border-b border-white/5">
+          <h3 className="text-base font-semibold text-white">Import Products (CSV)</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
+        </div>
+        <div className="p-5 space-y-4">
+          {/* Template */}
+          <div className="flex items-center justify-between p-3 rounded-xl bg-violet-500/5 border border-violet-500/15">
+            <div>
+              <p className="text-sm text-violet-300 font-medium">Required columns</p>
+              <p className="text-[11px] text-slate-500 mt-0.5 font-mono">name, sku, brandName, categoryName, buyingPrice, sellingPrice, stock, minStock</p>
+            </div>
+            <button onClick={downloadTemplate} className="text-xs text-violet-400 border border-violet-500/20 px-2.5 py-1.5 rounded-lg hover:bg-violet-500/10 flex items-center gap-1.5 flex-shrink-0 ml-3">
+              <FileText size={12} />Template
+            </button>
+          </div>
+
+          {/* File picker */}
+          <input ref={inputRef} type="file" accept=".csv" className="hidden" onChange={e => e.target.files?.[0] && parseFile(e.target.files[0])} />
+          <button
+            onClick={() => inputRef.current?.click()}
+            className="w-full border-2 border-dashed border-white/10 rounded-xl p-6 text-center hover:border-violet-500/30 hover:bg-violet-500/3 transition-colors"
+          >
+            <Upload size={24} className="text-slate-600 mx-auto mb-2" />
+            {rows.length > 0
+              ? <p className="text-sm text-violet-300">{rows.length} rows loaded — click to change file</p>
+              : <><p className="text-sm text-slate-400">Click to select a CSV file</p><p className="text-xs text-slate-600 mt-1">or drag and drop</p></>}
+          </button>
+
+          {/* Preview */}
+          {rows.length > 0 && !done && (
+            <div className="bg-white/3 rounded-xl p-3 border border-white/5 max-h-40 overflow-y-auto">
+              <p className="text-[10px] text-slate-500 mb-2 uppercase tracking-wide">Preview ({rows.length} products)</p>
+              {rows.slice(0, 5).map((r, i) => (
+                <div key={i} className="flex items-center gap-2 py-1 border-b border-white/5 last:border-0">
+                  <span className="text-xs text-slate-400 truncate flex-1">{r.name}</span>
+                  <span className="text-[10px] text-slate-600 flex-shrink-0">{r.sku}</span>
+                </div>
+              ))}
+              {rows.length > 5 && <p className="text-[10px] text-slate-600 mt-1">+{rows.length - 5} more</p>}
+            </div>
+          )}
+
+          {/* Progress */}
+          {progress && (
+            <div className="space-y-2">
+              <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                <div className="h-full bg-violet-500 rounded-full transition-all" style={{ width: `${(progress.done / progress.total) * 100}%` }} />
+              </div>
+              <p className="text-xs text-slate-400 text-center">{progress.done} / {progress.total} imported</p>
+            </div>
+          )}
+
+          {/* Errors */}
+          {done && errors.length === 0 && (
+            <div className="flex items-center gap-2 text-green-400 text-sm"><CheckCircle size={16} />All {rows.length} products imported successfully!</div>
+          )}
+          {errors.length > 0 && (
+            <div className="space-y-1 max-h-24 overflow-y-auto">
+              {errors.map((e, i) => <p key={i} className="text-xs text-red-400 flex items-start gap-1.5"><AlertCircle size={11} className="mt-0.5 flex-shrink-0" />{e}</p>)}
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-1">
+            <button onClick={onClose} className="btn-secondary flex-1 text-sm">{done ? 'Close' : 'Cancel'}</button>
+            {!done && (
+              <button
+                onClick={handleImport}
+                disabled={rows.length === 0 || !!progress}
+                className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {progress ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                Import {rows.length > 0 ? rows.length : ''} Products
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState({ name: '', sku: '', categoryName: 'Smartphones', brandName: '', buyingPrice: '', sellingPrice: '', stock: '', minStock: '5', description: '' })
@@ -206,6 +365,7 @@ export default function InventoryPage() {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('All')
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [editProduct, setEditProduct] = useState<Product | null>(null)
   const [viewProduct, setViewProduct] = useState<Product | null>(null)
   const { data: productsData, loading, refetch } = useProducts()
@@ -228,6 +388,7 @@ export default function InventoryPage() {
   return (
     <div className="space-y-6">
       {showAddModal && <AddProductModal onClose={() => setShowAddModal(false)} onSaved={refetch} />}
+      {showImport  && <ImportModal onClose={() => setShowImport(false)} onSaved={refetch} />}
       {editProduct && <EditProductModal product={editProduct} onClose={() => setEditProduct(null)} onSaved={refetch} />}
       {viewProduct && <ProductDetailModal product={viewProduct} onClose={() => setViewProduct(null)} />}
       {/* Header */}
@@ -237,10 +398,10 @@ export default function InventoryPage() {
           <p className="page-subtitle">{products.length} products · {lowStockCount} low stock alerts</p>
         </div>
         <div className="flex gap-2 sm:ml-auto">
-          <button className="btn-secondary text-sm flex items-center gap-2">
+          <button onClick={() => setShowImport(true)} className="btn-secondary text-sm flex items-center gap-2">
             <Upload size={14} />Import
           </button>
-          <button className="btn-secondary text-sm flex items-center gap-2">
+          <button onClick={() => exportProductsCSV(products)} disabled={products.length === 0} className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40">
             <Download size={14} />Export
           </button>
           <button onClick={() => setShowAddModal(true)} className="btn-primary text-sm flex items-center gap-2">
