@@ -3,7 +3,7 @@
 import { TrendingUp, TrendingDown, ShoppingCart, Users, Wrench, AlertTriangle, Package, Shield, ArrowRight, Clock } from 'lucide-react'
 import Link from 'next/link'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { useRevenue, useRepairs, useTransactions, useAnalyticsDashboard } from '@/lib/hooks'
+import { useRevenue, useRepairs, useTransactions, useAnalyticsDashboard, useTopProducts } from '@/lib/hooks'
 import type { RepairTicket, Transaction as AppTransaction } from '@/types'
 import { formatCurrency, formatRelativeTime, getRepairStatusColor } from '@/lib/utils'
 
@@ -12,6 +12,8 @@ export default function DashboardPage() {
   const { data: repairsData } = useRepairs()
   const { data: txData } = useTransactions()
   const { data: stats } = useAnalyticsDashboard()
+  const { data: rawTopProducts } = useTopProducts()
+  const topProducts: any[] = Array.isArray(rawTopProducts) ? rawTopProducts : []
   const s = stats as any
   const revenueArr: any[] = Array.isArray(rawRevenue) ? rawRevenue : []
   const repairs: RepairTicket[] = ((repairsData?.data ?? []) as RepairTicket[]).filter(r => r.status !== 'DELIVERED' && r.status !== 'CANCELLED').slice(0, 5)
@@ -22,35 +24,58 @@ export default function DashboardPage() {
     profit: Math.round((d.profit ?? 0) / 1000),
   }))
 
+  const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
           <h1 className="page-title">Dashboard</h1>
-          <p className="page-subtitle">Saturday, 11 May 2024 · Main Branch - Anna Nagar</p>
+          <p className="page-subtitle">{today} · Main Branch</p>
         </div>
-        <div className="flex gap-2">
-          <Link href="/dashboard/pos" className="btn-primary text-sm flex items-center gap-2">
-            <ShoppingCart size={15} />New Sale
-          </Link>
+        <div className="flex gap-2 sm:ml-auto">
+          <Link href="/dashboard/repairs" className="btn-secondary text-sm flex items-center gap-2"><Wrench size={14} />New Repair</Link>
+          <Link href="/dashboard/pos" className="btn-primary text-sm flex items-center gap-2"><ShoppingCart size={15} />New Sale</Link>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      {/* Quick Action Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: "Today's Revenue", value: formatCurrency(s?.todayRevenue ?? 0), icon: TrendingUp, color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20', href: '/dashboard/finance' },
-          { label: 'Active Repairs', value: String(s?.activeRepairs ?? 0), icon: Wrench, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20', href: '/dashboard/repairs' },
-          { label: 'Total Customers', value: String(s?.totalCustomers ?? 0), icon: Users, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20', href: '/dashboard/customers' },
-          { label: 'Low Stock Items', value: String(s?.lowStockCount ?? 0), icon: AlertTriangle, color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20', href: '/dashboard/inventory' },
+          { href: '/dashboard/pos', icon: ShoppingCart, label: 'Point of Sale', sub: 'Start a new sale', color: 'from-violet-600/20 to-violet-800/10 border-violet-500/20' },
+          { href: '/dashboard/repairs', icon: Wrench, label: 'New Repair', sub: 'Log repair job', color: 'from-blue-600/20 to-blue-800/10 border-blue-500/20' },
+          { href: '/dashboard/customers', icon: Users, label: 'Add Customer', sub: 'Register customer', color: 'from-cyan-600/20 to-cyan-800/10 border-cyan-500/20' },
+          { href: '/dashboard/inventory', icon: Package, label: 'Add Product', sub: 'Update inventory', color: 'from-green-600/20 to-green-800/10 border-green-500/20' },
+        ].map(q => (
+          <Link key={q.href} href={q.href} className={`p-3.5 rounded-xl bg-gradient-to-br ${q.color} border hover:opacity-80 transition-opacity flex items-center gap-3`}>
+            <q.icon size={18} className="text-slate-300 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white truncate">{q.label}</p>
+              <p className="text-[11px] text-slate-400 truncate">{q.sub}</p>
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        {[
+          { label: "Today's Revenue", value: formatCurrency(s?.todayRevenue ?? 0), sub: `${s?.todaySalesCount ?? 0} sales today`, icon: TrendingUp, color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20', href: '/dashboard/finance' },
+          { label: 'Active Repairs', value: String(s?.activeRepairs ?? 0), sub: 'Pending completion', icon: Wrench, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20', href: '/dashboard/repairs' },
+          { label: 'Total Customers', value: String(s?.totalCustomers ?? 0), sub: 'Registered customers', icon: Users, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20', href: '/dashboard/customers' },
+          { label: 'Low Stock Items', value: String(s?.lowStockCount ?? 0), sub: 'Need reorder', icon: AlertTriangle, color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20', href: '/dashboard/inventory' },
         ].map((stat) => (
           <Link key={stat.label} href={stat.href} className="card p-5 hover:border-violet-500/20 transition-all duration-200 group">
-            <div className="flex items-start justify-between mb-4">
-              <div className={`w-10 h-10 rounded-xl ${stat.bg} border ${stat.border} flex items-center justify-center`}>
-                <stat.icon size={18} className={stat.color} />
+            <div className="flex items-start justify-between mb-3">
+              <div className={`w-9 h-9 rounded-xl ${stat.bg} border ${stat.border} flex items-center justify-center`}>
+                <stat.icon size={17} className={stat.color} />
               </div>
+              <ArrowRight size={14} className="text-slate-700 group-hover:text-slate-400 transition-colors mt-1" />
             </div>
-            <p className="text-2xl font-bold text-white mb-1">{stat.value}</p>
-            <p className="text-sm text-slate-500">{stat.label}</p>
+            <p className="text-2xl font-bold text-white mb-0.5">{stat.value}</p>
+            <p className="text-xs text-slate-500">{stat.label}</p>
+            <p className="text-[11px] text-slate-600 mt-0.5">{stat.sub}</p>
           </Link>
         ))}
       </div>
@@ -92,7 +117,23 @@ export default function DashboardPage() {
             <Link href="/dashboard/inventory" className="text-xs text-violet-400 hover:text-violet-300">View all</Link>
           </div>
           <div className="space-y-3">
-            <p className="text-xs text-slate-500">Load from analytics API</p>
+            {topProducts.length > 0 ? topProducts.slice(0, 5).map((p: any, i: number) => (
+              <div key={p.productId ?? i} className="flex items-center gap-3">
+                <span className="text-xs text-slate-600 w-4 font-bold">#{i + 1}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-slate-300 truncate">{p.productName ?? 'Unknown'}</p>
+                  <div className="h-1 bg-white/5 rounded-full mt-1 overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-violet-500 to-cyan-500 rounded-full" style={{ width: `${Math.min(100, ((p.totalQty ?? 1) / ((topProducts[0] as any)?.totalQty ?? 1)) * 100)}%` }} />
+                  </div>
+                </div>
+                <span className="text-xs text-slate-400 flex-shrink-0">{p.totalQty ?? 0} sold</span>
+              </div>
+            )) : (
+              <div className="py-6 text-center">
+                <Package size={24} className="text-slate-700 mx-auto mb-2" />
+                <p className="text-xs text-slate-500">No sales data yet</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
