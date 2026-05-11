@@ -42,8 +42,38 @@ router.get('/purchase-orders', async (req: Request, res: Response, next: NextFun
 
 router.post('/purchase-orders', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const { supplierId, supplierName, subtotal, tax, total, paidAmount, dueAmount, expectedDelivery, notes, status, items } = req.body
     const poNumber = await generatePONumber(req.tenantId!)
-    const po = await prisma.purchaseOrder.create({ data: { ...req.body, tenantId: req.tenantId!, poNumber, items: { create: req.body.items } }, include: { items: true } })
+    const branchId = (req.user as any)?.branchId
+    if (!branchId) throw new Error('branchId missing from token — please re-login')
+    const po = await prisma.purchaseOrder.create({
+      data: {
+        tenantId: req.tenantId!,
+        branchId,
+        poNumber,
+        supplierId,
+        supplierName,
+        subtotal:         Number(subtotal)   || 0,
+        tax:              Number(tax)        || 0,
+        total:            Number(total)      || 0,
+        paidAmount:       Number(paidAmount) || 0,
+        dueAmount:        Number(dueAmount)  || 0,
+        expectedDelivery: expectedDelivery ? new Date(expectedDelivery) : undefined,
+        notes:            notes || undefined,
+        status:           status || 'DRAFT',
+        items: {
+          create: (items ?? []).map((item: any) => ({
+            productId:        item.productId || undefined,
+            productName:      item.productName,
+            quantity:         Number(item.quantity)         || 1,
+            unitCost:         Number(item.unitCost)         || 0,
+            total:            Number(item.total)            || 0,
+            receivedQuantity: Number(item.receivedQuantity) || 0,
+          })),
+        },
+      },
+      include: { items: true },
+    })
     sendSuccess(res, po, 'Purchase order created', 201)
   } catch (e) { next(e) }
 })

@@ -548,17 +548,17 @@ model PurchaseOrder {
 }
 
 model POItem {
-  id               String @id @default(cuid())
+  id               String  @id @default(cuid())
   purchaseOrderId  String
-  productId        String
+  productId        String?
   productName      String
   quantity         Int
-  receivedQuantity Int    @default(0)
+  receivedQuantity Int     @default(0)
   unitCost         Float
   total            Float
 
   purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  product       Product       @relation(fields: [productId], references: [id])
+  product       Product?      @relation(fields: [productId], references: [id])
 }
 
 // ─────────────── Finance ───────────────
