@@ -279,7 +279,8 @@ export default function TenantsPage() {
 
 function OnboardModal({ onClose, onCreated }: { onClose: () => void; onCreated?: () => void }) {
   const [step, setStep] = useState(1)
-  const [form, setForm] = useState({ shopName: '', ownerName: '', email: '', phone: '', plan: 'STARTER', country: 'LK' })
+  const [form, setForm] = useState({ shopName: '', ownerName: '', email: '', phone: '', password: '', plan: 'STARTER', country: 'LK' })
+  const [showPwd, setShowPwd] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<{ subdomain: string; tempPassword?: string } | null>(null)
@@ -288,7 +289,7 @@ function OnboardModal({ onClose, onCreated }: { onClose: () => void; onCreated?:
     setLoading(true)
     setError('')
     try {
-      const res = await createTenant({ shopName: form.shopName, ownerName: form.ownerName, email: form.email, phone: form.phone, plan: form.plan })
+      const res = await createTenant({ shopName: form.shopName, ownerName: form.ownerName, email: form.email, phone: form.phone, plan: form.plan, password: form.password || undefined })
       setResult({ subdomain: res.subdomain, tempPassword: res.tempPassword })
       setStep(4)
       onCreated?.()
@@ -330,6 +331,17 @@ function OnboardModal({ onClose, onCreated }: { onClose: () => void; onCreated?:
                   value={(form as any)[f.key]} onChange={e => setForm({ ...form, [f.key]: e.target.value })} />
               </div>
             ))}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Password <span className="text-gray-400 font-normal">(leave blank to auto-generate)</span></label>
+              <div className="relative">
+                <input className="input pr-10" placeholder="Min 8 characters" type={showPwd ? 'text' : 'password'}
+                  value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
+                <button type="button" onClick={() => setShowPwd(p => !p)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs">
+                  {showPwd ? 'Hide' : 'Show'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
