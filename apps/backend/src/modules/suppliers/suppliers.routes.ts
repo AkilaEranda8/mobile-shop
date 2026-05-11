@@ -34,7 +34,8 @@ router.get('/purchase-orders', async (req: Request, res: Response, next: NextFun
   try {
     const { skip, limit, page } = getPagination(req)
     const status = req.query.status as string | undefined
-    const where: any = { tenantId: req.tenantId!, ...(status && { status }) }
+    const id     = req.query.id     as string | undefined
+    const where: any = { tenantId: req.tenantId!, ...(status && { status }), ...(id && { id }) }
     const [data, total] = await Promise.all([prisma.purchaseOrder.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { items: true } }), prisma.purchaseOrder.count({ where })])
     sendPaginated(res, data, total, page, limit)
   } catch (e) { next(e) }

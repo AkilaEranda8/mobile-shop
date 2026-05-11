@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import {
   Download, Printer, Mail, Share2, CheckCircle2, Clock, FileText,
@@ -111,8 +111,8 @@ function ActionBar({ onPrint }: { onPrint: () => void }) {
   )
 }
 
-/* ─── Main ──────────────────────────────────────────────────────────── */
-export default function PurchaseInvoicePage() {
+/* ─── Inner content (needs Suspense for useSearchParams) ────────────── */
+function InvoiceContent() {
   const router       = useRouter()
   const searchParams = useSearchParams()
   const poId         = searchParams.get('id')
@@ -124,9 +124,10 @@ export default function PurchaseInvoicePage() {
   useEffect(() => {
     if (!poId) return
     setLoading(true)
-    suppliersApi.purchaseOrders({ id: poId } as any)
+    suppliersApi.purchaseOrders({ id: poId })
       .then((res: any) => {
-        const found = res?.data?.find?.((p: any) => p.id === poId) ?? res?.data?.[0] ?? null
+        const list  = res?.data ?? []
+        const found = list.find((p: any) => p.id === poId) ?? list[0] ?? null
         if (!found) setError('Purchase order not found')
         else setPo(found)
       })
@@ -526,5 +527,18 @@ export default function PurchaseInvoicePage() {
         }
       `}</style>
     </div>
+  )
+}
+
+/* ─── Default export — Suspense boundary required by Next.js 14 ─────── */
+export default function PurchaseInvoicePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#060d1a] flex items-center justify-center">
+        <Loader2 size={28} className="animate-spin text-orange-400" />
+      </div>
+    }>
+      <InvoiceContent />
+    </Suspense>
   )
 }
