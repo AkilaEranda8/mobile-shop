@@ -1,0 +1,58 @@
+import { prisma } from '../../config/database'
+import { AppError } from '../../middleware/error.middleware'
+import { getPagination } from '../../utils/pagination'
+import { generateTicketNumber } from '../../utils/counters'
+import { Request } from 'express'
+
+export const repairsService = {
+  async list(tenantId: string, req: Request) {
+    const { skip, limit, page, search } = getPagination(req)
+    const status = req.query.status as string | undefined
+    const branchId = req.query.branchId as string | undefined
+    const where: any = { tenantId, ...(status && { status }), ...(branchId && { branchId }), ...(search && { OR: [{ ticketNumber: { contains: search, mode: 'insensitive' } }, { customerName: { contains: search, mode: 'insensitive' } }, { deviceBrand: { contains: search, mode: 'insensitive' } }, { deviceModel: { contains: search, mode: 'insensitive' } }] }) }
+    const [data, total] = await Promise.all([
+      prisma.repairTicket.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { notes: true, spareParts: true, history: true } }),
+      prisma.repairTicket.count({ where }),
+    ])
+    return { data, total, page, limit }
+  },
+
+  async getById(tenantId: string, id: string) {
+    const r = await prisma.repairTicket.findFirst({ where: { id, tenantId }, include: { notes: true, spareParts: true, history: true } })
+    if (!r) throw new AppError('Repair ticket not found', 404)
+    return r
+  },
+
+  async create(tenantId: string, body: any) {
+    const ticketNumber = await generateTicketNumber(tenantId)
+    const repair = await prisma.repairTicket.create({
+      data: { ...body, tenantId, ticketNumber, history: { create: [{ status: 'RECEIVED', changedBy: body.createdBy ?? 'system', note: 'Ticket created' }] } },
+      include: { notes: true, spareParts: true, history: true },
+    })
+    await prisma.customer.update({ where: { id: body.customerId }, data: { totalRepairs: { increment: 1 } } }).catch(() => {})
+    return repair
+  },
+
+  async update(tenantId: string, id: string, body: any) {
+    const r = await prisma.repairTicket.findFirst({ where: { id, tenantId } })
+    if (!r) throw new AppError('Repair ticket not found', 404)
+    return prisma.repairTicket.update({ where: { id }, data: body, include: { notes: true, spareParts: true, history: true } })
+  },
+
+  async updateStatus(tenantId: string, id: string, status: string, changedBy: string, note?: string) {
+    const r = await prisma.repairTicket.findFirst({ where: { id, tenantId } })
+    if (!r) throw new AppError('Repair ticket not found', 404)
+    const completedAt = status === 'DELIVERED' ? new Date() : undefined
+    await prisma.$transaction([
+      prisma.repairTicket.update({ where: { id }, data: { status: status as any, ...(completedAt && { completedAt }) } }),
+      prisma.repairStatusHistory.create({ data: { repairId: id, status: status as any, changedBy, note } }),
+    ])
+    return prisma.repairTicket.findUnique({ where: { id }, include: { notes: true, spareParts: true, history: true } })
+  },
+
+  async addNote(tenantId: string, id: string, text: string, authorName: string, isPublic: boolean) {
+    const r = await prisma.repairTicket.findFirst({ where: { id, tenantId } })
+    if (!r) throw new AppError('Repair ticket not found', 404)
+    return prisma.repairNote.create({ data: { repairId: id, text, authorName, isPublic } })
+  },
+}

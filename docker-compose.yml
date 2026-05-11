@@ -1,0 +1,135 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hexalyte_postgres
+    environment:
+      POSTGRES_USER: hexalyte
+      POSTGRES_PASSWORD: hexalyte_secret
+      POSTGRES_DB: hexalyte
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./apps/backend/src/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - hexalyte-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hexalyte"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: hexalyte_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - hexalyte-network
+    command: redis-server --appendonly yes
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.4
+    container_name: hexalyte_keycloak
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/hexalyte_auth
+      KC_DB_USERNAME: hexalyte
+      KC_DB_PASSWORD: hexalyte_secret
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: 8080
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+    command: start-dev
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hexalyte-network
+
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile.dev
+    container_name: hexalyte_backend
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DATABASE_URL: postgresql://hexalyte:hexalyte_secret@postgres:5432/hexalyte
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: hexalyte-super-secret-jwt-key-for-development-only
+      JWT_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      FRONTEND_URL: http://localhost:3000
+      API_PREFIX: api/v1
+      KEYCLOAK_URL: http://keycloak:8080
+      KC_REALM: hexalyte
+      KC_CLIENT_ID: hexalyte-backend
+      KC_CLIENT_SECRET: MTn88PrnUswYgydsveQZumTX2lzqkbbg
+      KEYCLOAK_AUTH_ENABLED: "false"
+      AWS_REGION: ap-south-1
+      AWS_S3_BUCKET: hexalyte-storage
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - hexalyte-network
+    volumes:
+      - ./apps/backend/src:/app/src
+
+  admin:
+    build:
+      context: ./apps/admin
+      dockerfile: Dockerfile.dev
+    container_name: hexalyte_admin
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      NEXTAUTH_SECRET: hexalyte-admin-nextauth-secret-dev
+      NEXTAUTH_URL: http://localhost:3002
+    ports:
+      - "3002:3002"
+    depends_on:
+      - backend
+    networks:
+      - hexalyte-network
+    volumes:
+      - ./apps/admin/src:/app/src
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile.dev
+    container_name: hexalyte_web
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+      NEXT_PUBLIC_KEYCLOAK_URL: http://localhost:8080
+      NEXT_PUBLIC_WS_URL: ws://localhost:3001
+      NEXTAUTH_SECRET: your-nextauth-secret-min-32-chars
+      NEXTAUTH_URL: http://localhost:3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - hexalyte-network
+    volumes:
+      - ./apps/web/src:/app/src
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  hexalyte-network:
+    driver: bridge

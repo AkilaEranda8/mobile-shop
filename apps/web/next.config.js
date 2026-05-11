@@ -1,0 +1,22 @@
+const createNextIntlPlugin = require('next-intl/plugin')
+
+const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts')
+
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+  serverExternalPackages: ['puppeteer'],
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: '**.amazonaws.com' },
+      { protocol: 'https', hostname: 'ui-avatars.com' },
+      { protocol: 'https', hostname: 'api.dicebear.com' },
+    ],
+  },
+  env: {
+    NEXT_PUBLIC_APP_VERSION: '1.0.0',
+    NEXT_PUBLIC_APP_NAME: 'Hexalyte',
+  },
+}
+
+module.exports = withNextIntl(nextConfig)

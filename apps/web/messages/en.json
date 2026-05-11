@@ -1,0 +1,33 @@
+{
+  "common": {
+    "search": "Search",
+    "filter": "Filter",
+    "export": "Export",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "add": "Add",
+    "close": "Close",
+    "loading": "Loading...",
+    "noResults": "No results found",
+    "confirm": "Confirm"
+  },
+  "table": {
+    "rowsPerPage": "Rows per page",
+    "of": "of",
+    "page": "Page",
+    "nextPage": "Next page",
+    "prevPage": "Previous page",
+    "firstPage": "First page",
+    "lastPage": "Last page",
+    "columns": "Columns",
+    "filters": "Filters",
+    "clearFilters": "Clear filters",
+    "exportCsv": "Export CSV",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all",
+    "selected": "{count} selected"
+  }
+}
