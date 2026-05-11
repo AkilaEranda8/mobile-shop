@@ -62,7 +62,8 @@ function QRCodeSVG() {
 }
 
 /* ─── Barcode SVG ───────────────────────────────────────────────────── */
-function BarcodeSVG({ value }: { value: string }) {
+function BarcodeSVG({ value }: { value?: string }) {
+  if (!value) return null
   const bars = value.split('').map((c, i) => ({ w: (parseInt(c, 16) % 3) + 1, x: i * 5 }))
   return (
     <svg width="120" height="36" viewBox={`0 0 ${bars.reduce((s, b) => s + b.w + 1, 0)} 28`}>
@@ -324,53 +325,63 @@ function InvoiceContent() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/3">
-                  {ITEMS.map((item, idx) => {
-                    const lineTotal = itemTotal(item)
+                  {ITEMS.map((item: any, idx: number) => {
+                    const name      = item.productName ?? item.name ?? '—'
+                    const brand     = item.brand ?? item.brandName ?? null
+                    const imei      = item.imei ?? null
+                    const storage   = item.storage ?? null
+                    const color     = item.color  ?? null
+                    const qty       = item.quantity   ?? item.qty   ?? 0
+                    const unitPrice = item.unitCost   ?? item.unitPrice ?? 0
+                    const discount  = item.discount   ?? 0
+                    const tax       = item.tax        ?? null
+                    const lineTotal = item.total      ?? (qty * unitPrice - discount)
                     return (
-                      <tr key={idx} className="hover:bg-orange-500/3 transition-colors group">
+                      <tr key={item.id ?? idx} className="hover:bg-orange-500/3 transition-colors group">
                         {/* Product */}
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500/20 to-amber-500/10 border border-orange-500/20 flex items-center justify-center text-xl flex-shrink-0">
-                              {item.image}
+                              📦
                             </div>
                             <div>
-                              <p className="font-semibold text-slate-100 text-sm leading-tight">{item.name}</p>
-                              <span className="text-[10px] text-orange-400 font-medium bg-orange-500/10 px-1.5 py-0.5 rounded mt-0.5 inline-block">{item.brand}</span>
+                              <p className="font-semibold text-slate-100 text-sm leading-tight">{name}</p>
+                              {brand && <span className="text-[10px] text-orange-400 font-medium bg-orange-500/10 px-1.5 py-0.5 rounded mt-0.5 inline-block">{brand}</span>}
                             </div>
                           </div>
                         </td>
                         {/* IMEI */}
                         <td className="px-4 py-4">
-                          <div>
-                            <p className="text-[11px] font-mono text-slate-300">{item.imei}</p>
-                            <div className="mt-1">
-                              <BarcodeSVG value={item.imei} />
+                          {imei ? (
+                            <div>
+                              <p className="text-[11px] font-mono text-slate-300">{imei}</p>
+                              <div className="mt-1"><BarcodeSVG value={imei} /></div>
                             </div>
-                          </div>
+                          ) : <span className="text-xs text-slate-600">—</span>}
                         </td>
                         {/* Specs */}
                         <td className="px-4 py-4">
                           <div className="flex flex-col gap-1">
-                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20 w-fit">{item.storage}</span>
-                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-400 border border-slate-500/20 w-fit">{item.color}</span>
+                            {storage && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20 w-fit">{storage}</span>}
+                            {color   && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-400 border border-slate-500/20 w-fit">{color}</span>}
+                            {!storage && !color && <span className="text-xs text-slate-600">—</span>}
                           </div>
                         </td>
                         {/* Qty */}
                         <td className="px-4 py-4 text-right">
-                          <span className="text-sm font-bold text-white bg-white/5 px-2.5 py-1 rounded-lg">{item.qty}</span>
+                          <span className="text-sm font-bold text-white bg-white/5 px-2.5 py-1 rounded-lg">{qty}</span>
                         </td>
                         {/* Unit price */}
                         <td className="px-4 py-4 text-right">
-                          <span className="text-sm font-semibold text-slate-200">{fmt(item.unitPrice)}</span>
+                          <span className="text-sm font-semibold text-slate-200">{fmt(unitPrice)}</span>
                         </td>
                         {/* Discount */}
                         <td className="px-4 py-4 text-right">
-                          <span className="text-xs text-red-400">-{fmt(item.discount)}</span>
+                          <span className="text-xs text-red-400">{discount ? `-${fmt(discount)}` : '—'}</span>
                         </td>
                         {/* Tax */}
                         <td className="px-4 py-4 text-right">
-                          <span className="text-xs text-amber-400">{item.tax}%</span>
+                          <span className="text-xs text-amber-400">{tax != null ? `${tax}%` : '—'}</span>
                         </td>
                         {/* Total */}
                         <td className="px-4 py-4 text-right">
