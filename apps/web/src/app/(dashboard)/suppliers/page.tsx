@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Plus, Truck, Phone, Mail, Package, Eye, Edit, Loader2, X, ChevronDown, Trash2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Search, Plus, Truck, Phone, Mail, Package, Eye, Edit, Loader2, X, ChevronDown, Trash2, FileText } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useSuppliers, usePurchaseOrders, useProducts } from '@/lib/hooks'
 import { suppliersApi } from '@/lib/api'
@@ -301,6 +302,7 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
 }
 
 export default function SuppliersPage() {
+  const router = useRouter()
   const [search, setSearch]       = useState('')
   const [activeTab, setActiveTab] = useState<'suppliers' | 'orders'>('suppliers')
   const [showAddSupplier, setShowAddSupplier] = useState(false)
@@ -457,8 +459,12 @@ export default function SuppliersPage() {
                       </span>
                     </td>
                     <td className="table-cell text-center">
-                      <button className="p-1.5 text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors">
-                        <Eye size={13} />
+                      <button
+                        onClick={() => router.push(`/purchase-invoice?id=${po.id}`)}
+                        className="p-1.5 text-slate-500 hover:text-orange-400 hover:bg-orange-500/10 rounded-lg transition-colors"
+                        title="View Invoice"
+                      >
+                        <FileText size={13} />
                       </button>
                     </td>
                   </tr>

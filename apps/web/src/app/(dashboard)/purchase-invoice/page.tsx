@@ -1,25 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import {
   Download, Printer, Mail, Share2, CheckCircle2, Clock, FileText,
   Phone, Globe, MapPin, Package, Building2, User, Truck, CreditCard,
-  BarChart2, QrCode, ChevronRight, Zap,
+  BarChart2, QrCode, ChevronRight, Zap, ArrowLeft, Loader2,
 } from 'lucide-react'
+import { suppliersApi } from '@/lib/api'
+import { formatDate } from '@/lib/utils'
 
-/* ─── Mock invoice data ─────────────────────────────────────────────── */
-const INVOICE = {
-  number:       'PI-2024-00147',
-  date:         '11 May 2026',
-  dueDate:      '25 May 2026',
-  status:       'PAID' as 'PAID' | 'PENDING' | 'DRAFT',
-  currency:     'LKR',
-  poNumber:     'PO-2024-00089',
-  warehouse:    'Main Warehouse – Colombo',
-  paymentMethod:'Bank Transfer',
-  createdBy:    'Akila Eranda',
-}
-
+/* ─── Static company info ───────────────────────────────────────────── */
 const COMPANY = {
   name:    'HEXALYTE MOBILE',
   tagline: 'Premium Mobile Solutions',
@@ -30,60 +21,12 @@ const COMPANY = {
   vat:     'VAT-LK-20240312',
 }
 
-const SUPPLIER = {
-  name:    'TechPrime Distributors Pvt Ltd',
-  contact: '+94 11 987 6543',
-  address: '18, R.A. De Mel Mawatha, Colombo 04',
-  email:   'orders@techprime.lk',
-  id:      'SUP-0034',
-}
-
-const ITEMS = [
-  {
-    image:    '📱',
-    name:     'iPhone 15 Pro Max',
-    brand:    'Apple',
-    imei:     '356938035643809',
-    storage:  '256 GB',
-    color:    'Natural Titanium',
-    qty:      2,
-    unitPrice:299000,
-    discount: 5000,
-    tax:      8,
-  },
-  {
-    image:    '📲',
-    name:     'Samsung Galaxy S24 Ultra',
-    brand:    'Samsung',
-    imei:     '490154203237518',
-    storage:  '512 GB',
-    color:    'Titanium Black',
-    qty:      3,
-    unitPrice:215000,
-    discount: 3000,
-    tax:      8,
-  },
-  {
-    image:    '📟',
-    name:     'Redmi Note 14 Pro',
-    brand:    'Xiaomi',
-    imei:     '012345678901238',
-    storage:  '128 GB',
-    color:    'Midnight Black',
-    qty:      5,
-    unitPrice:52000,
-    discount: 1000,
-    tax:      8,
-  },
-]
-
 /* ─── Helpers ───────────────────────────────────────────────────────── */
 const fmt = (n: number) =>
   new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR', maximumFractionDigits: 0 }).format(n)
 
-function itemTotal(it: typeof ITEMS[0]) {
-  const base    = it.qty * it.unitPrice - it.discount
-  return base + (base * it.tax) / 100
+function itemTotal(it: { quantity: number; unitCost: number; total: number }) {
+  return it.total ?? it.quantity * it.unitCost
 }
 
 /* ─── Mini QR SVG ───────────────────────────────────────────────────── */
@@ -170,14 +113,71 @@ function ActionBar({ onPrint }: { onPrint: () => void }) {
 
 /* ─── Main ──────────────────────────────────────────────────────────── */
 export default function PurchaseInvoicePage() {
-  const [watermark] = useState(INVOICE.status === 'PAID')
+  const router       = useRouter()
+  const searchParams = useSearchParams()
+  const poId         = searchParams.get('id')
 
-  const subtotal   = ITEMS.reduce((s, i) => s + i.qty * i.unitPrice, 0)
-  const totalDisc  = ITEMS.reduce((s, i) => s + i.discount, 0)
-  const taxable    = subtotal - totalDisc
-  const totalTax   = ITEMS.reduce((s, i) => s + ((i.qty * i.unitPrice - i.discount) * i.tax) / 100, 0)
-  const shipping   = 2500
-  const grandTotal = taxable + totalTax + shipping
+  const [po, setPo]           = useState<any>(null)
+  const [loading, setLoading] = useState(!!poId)
+  const [error, setError]     = useState('')
+
+  useEffect(() => {
+    if (!poId) return
+    setLoading(true)
+    suppliersApi.purchaseOrders({ id: poId } as any)
+      .then((res: any) => {
+        const found = res?.data?.find?.((p: any) => p.id === poId) ?? res?.data?.[0] ?? null
+        if (!found) setError('Purchase order not found')
+        else setPo(found)
+      })
+      .catch(() => setError('Failed to load purchase order'))
+      .finally(() => setLoading(false))
+  }, [poId])
+
+  if (loading) return (
+    <div className="min-h-screen bg-[#060d1a] flex items-center justify-center">
+      <Loader2 size={28} className="animate-spin text-orange-400" />
+    </div>
+  )
+  if (error) return (
+    <div className="min-h-screen bg-[#060d1a] flex flex-col items-center justify-center gap-4">
+      <p className="text-red-400">{error}</p>
+      <button onClick={() => router.back()} className="btn-secondary text-sm flex items-center gap-2"><ArrowLeft size={14} />Go Back</button>
+    </div>
+  )
+
+  /* Map real PO → invoice shape, or use demo values */
+  const INVOICE = po ? {
+    number:        po.poNumber,
+    date:          formatDate(po.createdAt),
+    dueDate:       po.expectedDelivery ? formatDate(po.expectedDelivery) : '—',
+    status:        po.status === 'RECEIVED' || po.paidAmount >= po.total ? 'PAID'
+                 : po.status === 'DRAFT'                                 ? 'DRAFT'
+                 :                                                          'PENDING',
+    poNumber:      po.poNumber,
+    warehouse:     'Main Warehouse',
+    paymentMethod: 'Bank Transfer',
+    createdBy:     'Akila Eranda',
+  } : {
+    number: 'PI-DEMO-001', date: '11 May 2026', dueDate: '25 May 2026',
+    status: 'DRAFT' as const, poNumber: 'PO-DEMO-001',
+    warehouse: 'Main Warehouse', paymentMethod: 'Bank Transfer', createdBy: 'Demo',
+  }
+
+  const SUPPLIER = po ? {
+    name:    po.supplierName,
+    contact: '—', address: '—', email: '—',
+    id:      po.supplierId?.slice(0, 8).toUpperCase(),
+  } : { name: 'Demo Supplier', contact: '—', address: '—', email: '—', id: 'DEMO' }
+
+  const ITEMS: any[] = po?.items ?? []
+
+  const subtotal   = po ? Number(po.subtotal) : 0
+  const totalDisc  = 0
+  const totalTax   = po ? Number(po.tax) : 0
+  const shipping   = 0
+  const grandTotal = po ? Number(po.total) : 0
+  const watermark  = INVOICE.status === 'PAID'
 
   return (
     <div className="min-h-screen bg-[#060d1a] py-8 px-4 sm:px-8 print:bg-white print:p-0">
