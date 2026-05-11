@@ -3,6 +3,7 @@ import { prisma } from '../../config/database'
 import { sendSuccess, sendError } from '../../utils/response'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
 import { AppError } from '../../middleware/error.middleware'
+import { authService } from '../auth/auth.service'
 
 const router = Router()
 router.use(authenticate)
@@ -35,6 +36,23 @@ router.get('/stats', async (_req: Request, res: Response, next: NextFunction) =>
 })
 
 // ── Tenants ───────────────────────────────────────────────────────────────────
+router.post('/tenants', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { shopName, ownerName, email, phone, plan, password } = req.body
+    if (!shopName || !ownerName || !email) throw new AppError('shopName, ownerName and email are required', 400)
+    const tempPassword = password || Math.random().toString(36).slice(-10) + 'A1!'
+    const result = await authService.registerTenant({
+      shopName, ownerName, ownerEmail: email, password: tempPassword, plan,
+    })
+    sendSuccess(res, {
+      tenant: result.tenant,
+      subdomain: result.subdomain,
+      ownerEmail: email,
+      tempPassword: password ? undefined : tempPassword,
+    }, 'Tenant created')
+  } catch (e) { next(e) }
+})
+
 router.get('/tenants', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { search, status, plan, page = '1', limit = '20' } = req.query as Record<string, string>

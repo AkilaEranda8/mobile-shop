@@ -113,6 +113,12 @@ export async function deleteTenant(id: string) {
   return req<null>(ADMIN_BASE, `/tenants/${id}`, { method: 'DELETE' })
 }
 
+export async function createTenant(data: { shopName: string; ownerName: string; email: string; phone?: string; plan: string }) {
+  return req<{ tenant: TenantRow; subdomain: string; ownerEmail: string; tempPassword?: string }>(
+    ADMIN_BASE, '/tenants', { method: 'POST', body: JSON.stringify(data) },
+  )
+}
+
 // ─── Subscriptions ────────────────────────────────────────────────────────────
 export async function fetchSubscriptions(status?: string) {
   const qs = status ? `?status=${status}` : ''

@@ -36,3 +36,7 @@ Thumbs.db
 
 # Docker
 .dockerignore
+
+# Deploy scripts (contain server credentials)
+scripts/deploy.ps1
+scripts/server-init.sh

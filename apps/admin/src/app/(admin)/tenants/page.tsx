@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Search, Plus, Filter, MoreHorizontal, Eye, Edit, Ban, RefreshCw, Trash2, KeyRound, ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
-import { fetchTenants, updateTenantStatus, deleteTenant, type TenantRow } from '@/lib/api'
+import { fetchTenants, updateTenantStatus, deleteTenant, createTenant, type TenantRow } from '@/lib/api'
 
 const STATUS_BADGE: Record<string, string> = {
   ACTIVE:    'badge-green',
@@ -272,14 +272,32 @@ export default function TenantsPage() {
       )}
 
       {/* Onboard modal */}
-      {showOnboard && <OnboardModal onClose={() => setShowOnboard(false)} />}
+      {showOnboard && <OnboardModal onClose={() => setShowOnboard(false)} onCreated={() => fetchTenants({ limit: '100' }).then(d => setAllTenants(d.data)).catch(() => {})} />}
     </div>
   )
 }
 
-function OnboardModal({ onClose }: { onClose: () => void }) {
+function OnboardModal({ onClose, onCreated }: { onClose: () => void; onCreated?: () => void }) {
   const [step, setStep] = useState(1)
   const [form, setForm] = useState({ shopName: '', ownerName: '', email: '', phone: '', plan: 'STARTER', country: 'LK' })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [result, setResult] = useState<{ subdomain: string; tempPassword?: string } | null>(null)
+
+  async function provision() {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await createTenant({ shopName: form.shopName, ownerName: form.ownerName, email: form.email, phone: form.phone, plan: form.plan })
+      setResult({ subdomain: res.subdomain, tempPassword: res.tempPassword })
+      setStep(4)
+      onCreated?.()
+    } catch (e: any) {
+      setError(e.message || 'Failed to create tenant')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
@@ -367,22 +385,33 @@ function OnboardModal({ onClose }: { onClose: () => void }) {
             </div>
             <h3 className="text-base font-semibold text-gray-900 mb-1">Tenant Onboarded!</h3>
             <p className="text-sm text-gray-500 mb-4">{form.shopName} is now active on {form.plan} plan.</p>
-            <div className="bg-gray-50 rounded-lg p-3 text-left">
-              <p className="text-xs text-gray-500 mb-1">Keycloak Realm URL:</p>
-              <p className="text-xs font-mono text-blue-600">
-                https://auth.hexalyte.com/realms/{form.shopName.toLowerCase().replace(/\s/g, '-') || 'tenant'}
-              </p>
+            <div className="bg-gray-50 rounded-lg p-3 text-left space-y-2">
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Shop URL:</p>
+                <p className="text-xs font-mono text-blue-600">{result?.subdomain}</p>
+              </div>
+              {result?.tempPassword && (
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Temp Password (share with owner):</p>
+                  <p className="text-xs font-mono text-red-600 bg-red-50 p-1 rounded">{result.tempPassword}</p>
+                </div>
+              )}
             </div>
           </div>
         )}
 
+        {error && <p className="text-xs text-red-600 mt-3 text-center">{error}</p>}
         <div className="flex justify-between mt-6">
           <button onClick={onClose} className="btn-secondary">
             {step === 4 ? 'Close' : 'Cancel'}
           </button>
           {step < 4 && (
-            <button onClick={() => setStep(s => s + 1)} className="btn-primary">
-              {step === 3 ? 'Provision Tenant' : 'Next →'}
+            <button
+              onClick={step === 3 ? provision : () => setStep(s => s + 1)}
+              className="btn-primary"
+              disabled={loading}
+            >
+              {loading ? 'Provisioning…' : step === 3 ? 'Provision Tenant' : 'Next →'}
             </button>
           )}
         </div>
