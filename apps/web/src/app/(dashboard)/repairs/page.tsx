@@ -11,7 +11,7 @@ import type { RepairTicket } from '@/types'
 function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState({
     customerName: '', customerPhone: '', deviceBrand: '', deviceModel: '',
-    deviceColor: '', reportedIssue: '', priority: 'MEDIUM', estimatedCost: '', technicianName: '',
+    deviceColor: '', reportedIssue: '', priority: 'NORMAL', estimatedCost: '', technicianName: '',
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -75,8 +75,9 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
               <label className="block text-xs text-slate-400 mb-1.5">Priority</label>
               <select className="input-field" value={form.priority} onChange={f('priority')}>
                 <option value="LOW">Low</option>
-                <option value="MEDIUM">Medium</option>
+                <option value="NORMAL">Normal</option>
                 <option value="HIGH">High</option>
+                <option value="URGENT">Urgent</option>
               </select>
             </div>
             <div>
@@ -112,11 +113,12 @@ const statusLabels: Record<string, string> = {
 
 const priorityBadge = (p: string) => {
   const map: Record<string, string> = {
-    HIGH: 'bg-red-500/10 border-red-500/20 text-red-400',
-    MEDIUM: 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400',
+    URGENT: 'bg-red-500/10 border-red-500/20 text-red-400',
+    HIGH: 'bg-orange-500/10 border-orange-500/20 text-orange-400',
+    NORMAL: 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400',
     LOW: 'bg-green-500/10 border-green-500/20 text-green-400',
   }
-  return map[p] || ''
+  return map[p] || 'bg-slate-500/10 border-slate-500/20 text-slate-400'
 }
 
 export default function RepairsPage() {

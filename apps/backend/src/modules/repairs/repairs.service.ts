@@ -24,9 +24,25 @@ export const repairsService = {
   },
 
   async create(tenantId: string, body: any) {
+    if (!body.branchId) {
+      const branch = await prisma.branch.findFirst({ where: { tenantId } })
+      if (!branch) throw new AppError('No branch found for tenant', 400)
+      body.branchId = branch.id
+    }
+
+    if (!body.customerId && body.customerPhone) {
+      let customer = await prisma.customer.findFirst({ where: { tenantId, phone: body.customerPhone } })
+      if (!customer) customer = await prisma.customer.create({ data: { tenantId, name: body.customerName || 'Unknown', phone: body.customerPhone } })
+      body.customerId = customer.id
+    }
+    if (!body.customerId) throw new AppError('Customer phone is required', 400)
+
+    if (body.estimatedCost === undefined || body.estimatedCost === null || body.estimatedCost === '') body.estimatedCost = 0
+
+    const { createdBy, deviceColor, ...repairData } = body
     const ticketNumber = await generateTicketNumber(tenantId)
     const repair = await prisma.repairTicket.create({
-      data: { ...body, tenantId, ticketNumber, history: { create: [{ status: 'RECEIVED', changedBy: body.createdBy ?? 'system', note: 'Ticket created' }] } },
+      data: { ...repairData, tenantId, ticketNumber, history: { create: [{ status: 'RECEIVED', changedBy: createdBy ?? 'system', note: 'Ticket created' }] } },
       include: { notes: true, spareParts: true, history: true },
     })
     await prisma.customer.update({ where: { id: body.customerId }, data: { totalRepairs: { increment: 1 } } }).catch(() => {})
