@@ -1,11 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Search, Clock, CheckCircle, PhoneCall, Loader2, SlidersHorizontal, X } from 'lucide-react'
+import {
+  Plus, Search, Clock, CheckCircle, PhoneCall, Loader2, SlidersHorizontal, X,
+  Eye, Edit, ChevronRight, Smartphone, User, Wrench, DollarSign, AlertTriangle,
+  Calendar, Hash, Save, ArrowRight, MessageSquare, Package,
+} from 'lucide-react'
 import { formatCurrency, formatDate, getRepairStatusColor } from '@/lib/utils'
 import { useRepairs } from '@/lib/hooks'
 import { repairsApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
+import toast from 'react-hot-toast'
 import type { RepairTicket } from '@/types'
 
 function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
@@ -101,37 +106,313 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
 const statuses = ['ALL', 'RECEIVED', 'DIAGNOSED', 'IN_REPAIR', 'QC', 'READY', 'DELIVERED', 'CANCELLED']
 
 const statusLabels: Record<string, string> = {
-  ALL: 'All',
-  RECEIVED: 'Received',
-  DIAGNOSED: 'Diagnosed',
-  IN_REPAIR: 'In Repair',
-  QC: 'Quality Check',
-  READY: 'Ready',
-  DELIVERED: 'Delivered',
-  CANCELLED: 'Cancelled',
+  ALL: 'All', RECEIVED: 'Received', DIAGNOSED: 'Diagnosed',
+  IN_REPAIR: 'In Repair', QC: 'Quality Check',
+  READY: 'Ready', DELIVERED: 'Delivered', CANCELLED: 'Cancelled',
 }
+
+const STATUS_FLOW = ['RECEIVED', 'DIAGNOSED', 'IN_REPAIR', 'QC', 'READY', 'DELIVERED']
 
 const priorityBadge = (p: string) => {
   const map: Record<string, string> = {
     URGENT: 'bg-red-500/10 border-red-500/20 text-red-400',
-    HIGH: 'bg-orange-500/10 border-orange-500/20 text-orange-400',
+    HIGH:   'bg-orange-500/10 border-orange-500/20 text-orange-400',
     NORMAL: 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400',
-    LOW: 'bg-green-500/10 border-green-500/20 text-green-400',
+    LOW:    'bg-green-500/10 border-green-500/20 text-green-400',
   }
   return map[p] || 'bg-slate-500/10 border-slate-500/20 text-slate-400'
+}
+
+/* ── Repair Details Modal ─────────────────────────────────────────────── */
+function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange }: {
+  repair: RepairTicket
+  onClose: () => void
+  onEdit: () => void
+  onStatusChange: (id: string, status: string) => Promise<void>
+}) {
+  const [changingStatus, setChangingStatus] = useState(false)
+  const currentIdx = STATUS_FLOW.indexOf(repair.status)
+  const nextStatus = STATUS_FLOW[currentIdx + 1] ?? null
+
+  const handleNext = async () => {
+    if (!nextStatus) return
+    setChangingStatus(true)
+    await onStatusChange(repair.id, nextStatus)
+    setChangingStatus(false)
+  }
+
+  const handleCancel = async () => {
+    setChangingStatus(true)
+    await onStatusChange(repair.id, 'CANCELLED')
+    setChangingStatus(false)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
+          <div>
+            <p className="text-xs font-mono text-violet-400">{repair.ticketNumber}</p>
+            <h3 className="text-sm font-bold text-white mt-0.5">{repair.deviceBrand} {repair.deviceModel}</h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={onEdit} className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 transition-colors">
+              <Edit size={11} />Edit
+            </button>
+            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
+          </div>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* Status progress */}
+          <div className="bg-white/3 rounded-xl p-4 border border-white/5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[10px] text-slate-500 uppercase tracking-wide">Status Progress</span>
+              <span className={`text-[11px] px-2 py-0.5 rounded-full border ${getRepairStatusColor(repair.status)}`}>
+                {statusLabels[repair.status]}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 mb-2">
+              {STATUS_FLOW.map((s, i) => {
+                const done = i <= currentIdx
+                const active = i === currentIdx
+                return (
+                  <div key={s} className="flex-1 flex flex-col items-center gap-1">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold transition-colors
+                      ${active ? 'bg-violet-500 text-white ring-2 ring-violet-400/30' : done ? 'bg-violet-500/60 text-white' : 'bg-white/5 border border-white/10 text-slate-600'}`}>
+                      {done ? <CheckCircle size={12} /> : i + 1}
+                    </div>
+                    <span className="text-[8px] text-slate-600 text-center leading-tight">
+                      {statusLabels[s].split(' ')[0]}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+            {/* Action buttons */}
+            <div className="flex gap-2 mt-3">
+              {nextStatus && repair.status !== 'CANCELLED' && (
+                <button onClick={handleNext} disabled={changingStatus}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg bg-violet-500/15 text-violet-300 hover:bg-violet-500/25 border border-violet-500/20 transition-colors disabled:opacity-50">
+                  {changingStatus ? <Loader2 size={11} className="animate-spin" /> : <ArrowRight size={11} />}
+                  Move to {statusLabels[nextStatus]}
+                </button>
+              )}
+              {repair.status !== 'DELIVERED' && repair.status !== 'CANCELLED' && (
+                <button onClick={handleCancel} disabled={changingStatus}
+                  className="px-3 py-2 text-xs rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors disabled:opacity-50">
+                  Cancel
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Device & Customer */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-white/3 rounded-xl p-3 border border-white/5">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Smartphone size={11} className="text-violet-400" />
+                <span className="text-[10px] text-slate-500 uppercase tracking-wide">Device</span>
+              </div>
+              <p className="text-xs font-semibold text-slate-200">{repair.deviceBrand} {repair.deviceModel}</p>
+              {(repair as any).deviceColor && <p className="text-[11px] text-slate-500 mt-0.5">{(repair as any).deviceColor}</p>}
+              {repair.imei && <p className="text-[10px] font-mono text-slate-600 mt-1">IMEI: {repair.imei}</p>}
+            </div>
+            <div className="bg-white/3 rounded-xl p-3 border border-white/5">
+              <div className="flex items-center gap-1.5 mb-2">
+                <User size={11} className="text-cyan-400" />
+                <span className="text-[10px] text-slate-500 uppercase tracking-wide">Customer</span>
+              </div>
+              <p className="text-xs font-semibold text-slate-200">{repair.customerName}</p>
+              <a href={`tel:${repair.customerPhone}`} className="text-[11px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 mt-0.5">
+                <PhoneCall size={9} />{repair.customerPhone}
+              </a>
+            </div>
+          </div>
+
+          {/* Issue */}
+          <div className="bg-white/3 rounded-xl p-3 border border-white/5">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Wrench size={11} className="text-amber-400" />
+              <span className="text-[10px] text-slate-500 uppercase tracking-wide">Reported Issue</span>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">{repair.reportedIssue}</p>
+          </div>
+
+          {/* Cost + Technician */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white/3 rounded-xl p-3 border border-white/5 text-center">
+              <DollarSign size={12} className="mx-auto mb-1 text-emerald-400" />
+              <p className="text-sm font-bold text-white">{repair.estimatedCost ? formatCurrency(repair.estimatedCost) : '—'}</p>
+              <p className="text-[10px] text-slate-600">Estimated</p>
+            </div>
+            <div className="bg-white/3 rounded-xl p-3 border border-white/5 text-center">
+              <DollarSign size={12} className="mx-auto mb-1 text-violet-400" />
+              <p className="text-sm font-bold text-white">{repair.actualCost ? formatCurrency(repair.actualCost) : '—'}</p>
+              <p className="text-[10px] text-slate-600">Actual</p>
+            </div>
+            <div className="bg-white/3 rounded-xl p-3 border border-white/5 text-center">
+              <Wrench size={12} className="mx-auto mb-1 text-slate-400" />
+              <p className="text-xs font-semibold text-slate-200 truncate">{repair.technicianName || '—'}</p>
+              <p className="text-[10px] text-slate-600">Technician</p>
+            </div>
+          </div>
+
+          {/* Status History */}
+          {repair.statusHistory?.length > 0 && (
+            <div className="bg-white/3 rounded-xl p-3 border border-white/5">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-2">Status History</p>
+              <div className="space-y-2">
+                {repair.statusHistory.map((h: any, i: number) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${getRepairStatusColor(h.status)}`}>{statusLabels[h.status]}</span>
+                    <span className="text-[10px] text-slate-500 flex-1">{h.changedBy}</span>
+                    <span className="text-[10px] text-slate-600">{formatDate(h.changedAt)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Notes */}
+          {repair.notes?.length > 0 && (
+            <div className="bg-white/3 rounded-xl p-3 border border-white/5">
+              <div className="flex items-center gap-1.5 mb-2">
+                <MessageSquare size={11} className="text-blue-400" />
+                <span className="text-[10px] text-slate-500 uppercase tracking-wide">Notes</span>
+              </div>
+              {repair.notes.map((n: any) => (
+                <div key={n.id} className="mb-2 pb-2 border-b border-white/5 last:border-0 last:mb-0 last:pb-0">
+                  <p className="text-xs text-slate-300">{n.text}</p>
+                  <p className="text-[10px] text-slate-600 mt-0.5">{n.authorName} · {formatDate(n.createdAt)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center justify-between text-[10px] text-slate-600 pt-1">
+            <span className="flex items-center gap-1"><Calendar size={10} />Created {formatDate(repair.createdAt)}</span>
+            {repair.estimatedCompletion && <span>Due {formatDate(repair.estimatedCompletion)}</span>}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Edit Repair Modal ────────────────────────────────────────────────── */
+function EditRepairModal({ repair, onClose, onSaved }: {
+  repair: RepairTicket; onClose: () => void; onSaved: () => void
+}) {
+  const [form, setForm] = useState({
+    customerName:    repair.customerName    ?? '',
+    customerPhone:   repair.customerPhone   ?? '',
+    deviceBrand:     repair.deviceBrand     ?? '',
+    deviceModel:     repair.deviceModel     ?? '',
+    deviceColor:     (repair as any).deviceColor ?? '',
+    imei:            repair.imei            ?? '',
+    reportedIssue:   repair.reportedIssue   ?? '',
+    technicianName:  repair.technicianName  ?? '',
+    priority:        repair.priority        ?? 'NORMAL',
+    estimatedCost:   String(repair.estimatedCost ?? ''),
+    actualCost:      String(repair.actualCost    ?? ''),
+    estimatedCompletion: repair.estimatedCompletion
+      ? repair.estimatedCompletion.slice(0, 10) : '',
+  })
+  const [loading, setLoading] = useState(false)
+  const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+    setForm(p => ({ ...p, [k]: e.target.value }))
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); setLoading(true)
+    try {
+      await repairsApi.update(repair.id, {
+        ...form,
+        estimatedCost: form.estimatedCost ? Number(form.estimatedCost) : undefined,
+        actualCost:    form.actualCost    ? Number(form.actualCost)    : undefined,
+      })
+      toast.success('Repair job updated')
+      onSaved(); onClose()
+    } catch (err: any) { toast.error(err?.message ?? 'Update failed') }
+    finally { setLoading(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
+          <div>
+            <p className="text-[10px] font-mono text-violet-400">{repair.ticketNumber}</p>
+            <h3 className="text-sm font-bold text-white">Edit Repair Job</h3>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { k: 'customerName',  label: 'Customer Name *',  type: 'text',   req: true  },
+              { k: 'customerPhone', label: 'Phone *',           type: 'text',   req: true  },
+              { k: 'deviceBrand',   label: 'Device Brand *',   type: 'text',   req: true  },
+              { k: 'deviceModel',   label: 'Device Model *',   type: 'text',   req: true  },
+              { k: 'deviceColor',   label: 'Color',            type: 'text',   req: false },
+              { k: 'imei',          label: 'IMEI',             type: 'text',   req: false },
+              { k: 'technicianName',label: 'Technician',       type: 'text',   req: false },
+              { k: 'estimatedCost', label: 'Estimated Cost',   type: 'number', req: false },
+              { k: 'actualCost',    label: 'Actual Cost',      type: 'number', req: false },
+              { k: 'estimatedCompletion', label: 'Due Date',   type: 'date',   req: false },
+            ].map(({ k, label, type, req }) => (
+              <div key={k}>
+                <label className="block text-xs text-slate-400 mb-1.5">{label}</label>
+                <input
+                  type={type} required={req}
+                  className="input-field"
+                  value={(form as any)[k]}
+                  onChange={f(k)}
+                  min={type === 'number' ? 0 : undefined}
+                />
+              </div>
+            ))}
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">Priority</label>
+              <select className="input-field" value={form.priority} onChange={f('priority')}>
+                {['LOW','NORMAL','HIGH','URGENT'].map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs text-slate-400 mb-1.5">Reported Issue *</label>
+              <textarea required className="input-field min-h-[72px] resize-none"
+                value={form.reportedIssue} onChange={f('reportedIssue')} />
+            </div>
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
+            <button type="submit" disabled={loading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
 }
 
 export default function RepairsPage() {
   const { data: repairsData, loading, refetch } = useRepairs()
   const [selectedStatus, setSelectedStatus] = useState('ALL')
-  const [search, setSearch] = useState('')
-  const [showAddModal, setShowAddModal] = useState(false)
+  const [search, setSearch]                 = useState('')
+  const [showAddModal, setShowAddModal]     = useState(false)
+  const [detailRepair, setDetailRepair]     = useState<RepairTicket | null>(null)
+  const [editRepair,   setEditRepair]       = useState<RepairTicket | null>(null)
   const repairs: RepairTicket[] = (repairsData?.data ?? []) as RepairTicket[]
-  const [selectedRepair, setSelectedRepair] = useState<string | null>(null)
 
   const handleStatusUpdate = async (id: string, status: string) => {
-    await repairsApi.updateStatus(id, status)
-    refetch()
+    try {
+      await repairsApi.updateStatus(id, status)
+      toast.success(`Status → ${statusLabels[status]}`)
+      refetch()
+      if (detailRepair?.id === id) setDetailRepair(null)
+    } catch { toast.error('Status update failed') }
   }
 
   const filtered = repairs.filter(r => {
@@ -149,7 +430,9 @@ export default function RepairsPage() {
 
   return (
     <div className="space-y-6">
-      {showAddModal && <NewTicketModal onClose={() => setShowAddModal(false)} onSaved={refetch} />}
+      {showAddModal  && <NewTicketModal onClose={() => setShowAddModal(false)} onSaved={refetch} />}
+      {detailRepair  && <RepairDetailsModal repair={detailRepair} onClose={() => setDetailRepair(null)} onEdit={() => { setEditRepair(detailRepair); setDetailRepair(null) }} onStatusChange={handleStatusUpdate} />}
+      {editRepair    && <EditRepairModal   repair={editRepair}   onClose={() => setEditRepair(null)}   onSaved={() => { refetch(); setEditRepair(null) }} />}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
@@ -195,86 +478,90 @@ export default function RepairsPage() {
       </div>
 
       {/* Repair Cards */}
+      {loading && <p className="text-sm text-slate-500 py-4">Loading...</p>}
       <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filtered.map((repair) => (
-          <div
-            key={repair.id}
-            onClick={() => setSelectedRepair(repair.id === selectedRepair ? null : repair.id)}
-            className={`card p-4 cursor-pointer transition-all hover:border-violet-500/20 ${selectedRepair === repair.id ? 'border-violet-500/40 bg-violet-500/5' : ''}`}
-          >
-            {/* Header */}
-            <div className="flex items-start justify-between mb-3">
-              <div>
-                <p className="text-xs font-mono text-violet-400">{repair.ticketNumber}</p>
-                <p className="text-sm font-semibold text-white mt-0.5">{repair.deviceBrand} {repair.deviceModel}</p>
-              </div>
-              <span className={`text-[11px] px-2 py-0.5 rounded-full border ${getRepairStatusColor(repair.status)}`}>
-                {statusLabels[repair.status]}
-              </span>
-            </div>
-
-            {/* Customer */}
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center text-[10px] font-bold text-violet-300">
-                {repair.customerName.charAt(0)}
-              </div>
-              <p className="text-xs text-slate-400">{repair.customerName}</p>
-              <a href={`tel:${repair.customerPhone}`} onClick={e => e.stopPropagation()} className="ml-auto text-slate-500 hover:text-violet-400">
-                <PhoneCall size={13} />
-              </a>
-            </div>
-
-            {/* Problem */}
-            <p className="text-xs text-slate-500 mb-3 line-clamp-2">{repair.reportedIssue}</p>
-
-            {/* Footer */}
-            <div className="flex items-center justify-between pt-3 border-t border-white/5">
-              <div className="flex items-center gap-1.5">
-                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${priorityBadge(repair.priority)}`}>
-                  {repair.priority}
+        {filtered.map((repair) => {
+          const currentIdx = STATUS_FLOW.indexOf(repair.status)
+          const nextStatus = STATUS_FLOW[currentIdx + 1] ?? null
+          return (
+            <div key={repair.id} className="card p-4 hover:border-violet-500/20 transition-all flex flex-col">
+              {/* Header */}
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <p className="text-xs font-mono text-violet-400">{repair.ticketNumber}</p>
+                  <p className="text-sm font-semibold text-white mt-0.5">{repair.deviceBrand} {repair.deviceModel}</p>
+                </div>
+                <span className={`text-[11px] px-2 py-0.5 rounded-full border ${getRepairStatusColor(repair.status)}`}>
+                  {statusLabels[repair.status]}
                 </span>
-                {repair.technicianName && (
-                  <span className="text-[10px] text-slate-500">· {repair.technicianName}</span>
-                )}
               </div>
-              <div className="text-right">
-                {repair.estimatedCost && (
-                  <p className="text-xs font-bold text-white">{formatCurrency(repair.estimatedCost)}</p>
-                )}
-                <p className="text-[10px] text-slate-600 flex items-center gap-1 justify-end">
-                  <Clock size={9} />{formatDate(repair.createdAt)}
-                </p>
-              </div>
-            </div>
 
-            {/* Status Progress */}
-            {selectedRepair === repair.id && (
-              <div className="mt-3 pt-3 border-t border-white/5">
-                <div className="flex items-center gap-1">
-                  {['RECEIVED', 'DIAGNOSED', 'IN_REPAIR', 'QC', 'DELIVERED'].map((s, i) => {
-                    const steps = ['RECEIVED', 'DIAGNOSED', 'IN_REPAIR', 'QC', 'READY', 'DELIVERED']
-                    const currentIdx = steps.indexOf(repair.status)
-                    const stepIdx = steps.indexOf(s)
-                    const isDone = stepIdx <= currentIdx
-                    return (
-                      <div key={s} className="flex-1 flex flex-col items-center gap-0.5">
-                        <div className={`w-5 h-5 rounded-full flex items-center justify-center ${isDone ? 'bg-violet-500' : 'bg-white/5 border border-white/10'}`}>
-                          {isDone ? <CheckCircle size={11} className="text-white" /> : <span className="text-[9px] text-slate-600">{i + 1}</span>}
-                        </div>
-                        {i < 4 && <div className={`h-0.5 w-full ${isDone ? 'bg-violet-500' : 'bg-white/5'}`} style={{ marginTop: '-10px', zIndex: -1 }} />}
-                      </div>
-                    )
-                  })}
+              {/* Customer */}
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center text-[10px] font-bold text-violet-300">
+                  {repair.customerName.charAt(0)}
                 </div>
-                <div className="flex justify-between mt-1">
-                  {['Received', 'Diagnosed', 'In Repair', 'QC', 'Done'].map(l => (
-                    <span key={l} className="text-[9px] text-slate-600 text-center flex-1">{l}</span>
-                  ))}
+                <p className="text-xs text-slate-400">{repair.customerName}</p>
+                <a href={`tel:${repair.customerPhone}`} className="ml-auto text-slate-500 hover:text-violet-400">
+                  <PhoneCall size={13} />
+                </a>
+              </div>
+
+              {/* Problem */}
+              <p className="text-xs text-slate-500 mb-3 line-clamp-2 flex-1">{repair.reportedIssue}</p>
+
+              {/* Progress mini bar */}
+              <div className="flex gap-0.5 mb-3">
+                {STATUS_FLOW.map((s, i) => (
+                  <div key={s} className={`flex-1 h-1 rounded-full ${i <= currentIdx ? 'bg-violet-500' : 'bg-white/8'}`} />
+                ))}
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-between pt-3 border-t border-white/5">
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded border ${priorityBadge(repair.priority)}`}>
+                    {repair.priority}
+                  </span>
+                  {repair.technicianName && (
+                    <span className="text-[10px] text-slate-500 truncate max-w-[80px]">· {repair.technicianName}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  {/* Next status quick button */}
+                  {nextStatus && repair.status !== 'CANCELLED' && (
+                    <button
+                      onClick={() => handleStatusUpdate(repair.id, nextStatus)}
+                      className="flex items-center gap-0.5 px-2 py-1 text-[10px] rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 border border-violet-500/20 transition-colors"
+                      title={`Move to ${statusLabels[nextStatus]}`}
+                    >
+                      <ArrowRight size={9} />{statusLabels[nextStatus]}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setDetailRepair(repair)}
+                    className="p-1.5 text-slate-500 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors"
+                    title="View Details"
+                  >
+                    <Eye size={13} />
+                  </button>
+                  <button
+                    onClick={() => setEditRepair(repair)}
+                    className="p-1.5 text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors"
+                    title="Edit"
+                  >
+                    <Edit size={13} />
+                  </button>
                 </div>
               </div>
-            )}
-          </div>
-        ))}
+
+              <p className="text-[10px] text-slate-600 flex items-center gap-1 mt-2">
+                <Clock size={9} />{formatDate(repair.createdAt)}
+                {repair.estimatedCost ? <span className="ml-auto font-semibold text-slate-400">{formatCurrency(repair.estimatedCost)}</span> : null}
+              </p>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
