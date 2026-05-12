@@ -10,7 +10,7 @@ import { salesApi, customersApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
-import { getInvoiceSettings, type InvoiceSettings } from '@/app/(dashboard)/settings/page'
+import { getInvoiceSettings, type InvoiceSettings } from '@/lib/invoiceSettings'
 
 interface CartItem {
   productId: string

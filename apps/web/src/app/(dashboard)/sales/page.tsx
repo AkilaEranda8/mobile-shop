@@ -10,7 +10,7 @@ import { salesApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
-import { getInvoiceSettings, type InvoiceSettings } from '@/app/(dashboard)/settings/page'
+import { getInvoiceSettings, type InvoiceSettings } from '@/lib/invoiceSettings'
 
 const statusColors: Record<string, string> = {
   PAID:           'bg-green-500/10  border-green-500/20  text-green-400',

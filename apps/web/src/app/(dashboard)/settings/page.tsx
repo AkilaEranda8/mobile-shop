@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { authApi, usersApi, tenantApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
+import { INVOICE_SETTINGS_KEY, type InvoiceSettings, getInvoiceSettings } from '@/lib/invoiceSettings'
 import toast from 'react-hot-toast'
 
 const tabs = [
@@ -20,30 +21,6 @@ const tabs = [
   { key: 'team',          label: 'Team',            icon: Users      },
 ]
 
-export const INVOICE_SETTINGS_KEY = 'hx_invoice_settings'
-export interface InvoiceSettings {
-  shopName:   string
-  slogan:     string
-  phone:      string
-  email:      string
-  address:    string
-  website:    string
-  footerNote: string
-}
-export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
-  shopName:   '',
-  slogan:     '',
-  phone:      '',
-  email:      '',
-  address:    '',
-  website:    '',
-  footerNote: 'Thank you for your business!',
-}
-export function getInvoiceSettings(): InvoiceSettings {
-  if (typeof window === 'undefined') return DEFAULT_INVOICE_SETTINGS
-  try { return { ...DEFAULT_INVOICE_SETTINGS, ...JSON.parse(localStorage.getItem(INVOICE_SETTINGS_KEY) ?? '{}') } }
-  catch { return DEFAULT_INVOICE_SETTINGS }
-}
 
 const Toggle = ({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) => (
   <button onClick={() => onChange(!value)}
