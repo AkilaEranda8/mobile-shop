@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, useCallback } from 'react'
+import React, { useState, useRef, useCallback, useEffect } from 'react'
 import {
   Search, Plus, Minus, CreditCard, Banknote, Smartphone, Receipt,
   ScanLine, X, Loader2, UserPlus, Edit2, Check, Download, Tag,
@@ -10,6 +10,7 @@ import { salesApi, customersApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
+import { getInvoiceSettings, type InvoiceSettings } from '@/app/(dashboard)/settings/page'
 
 interface CartItem {
   productId: string
@@ -34,10 +35,11 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-function InvoiceTemplate({ sale, shopName }: { sale: any; shopName: string }) {
+function InvoiceTemplate({ sale, shopName, settings }: { sale: any; shopName: string; settings: InvoiceSettings }) {
   const fc = formatCurrency
   const dateStr = sale.createdAt ? new Date(sale.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : ''
   const payMethod = sale.payments?.map((p: any) => p.method).join(' + ') || '—'
+  const displayName = settings.shopName || shopName
 
   return (
     <div style={{ width: 700, background: '#fff', fontFamily: "'Segoe UI',Arial,sans-serif", color: '#1e293b' }}>
@@ -49,8 +51,8 @@ function InvoiceTemplate({ sale, shopName }: { sale: any; shopName: string }) {
         <div style={{ position: 'absolute', left: 58, top: 0, width: 30, height: '130%', background: '#c97d06', transform: 'skewX(-12deg)', opacity: 0.7 }} />
         {/* Logo */}
         <div style={{ position: 'relative', zIndex: 2, paddingLeft: 60 }}>
-          <p style={{ margin: 0, color: '#fff', fontSize: 24, fontWeight: 900, letterSpacing: 1 }}>{shopName.toUpperCase()}</p>
-          <p style={{ margin: '2px 0 0', color: '#94a3b8', fontSize: 11, letterSpacing: 2 }}>SALES INVOICE</p>
+          <p style={{ margin: 0, color: '#fff', fontSize: 24, fontWeight: 900, letterSpacing: 1 }}>{displayName.toUpperCase()}</p>
+          <p style={{ margin: '2px 0 0', color: '#94a3b8', fontSize: 11, letterSpacing: 2 }}>{settings.slogan || 'SALES INVOICE'}</p>
         </div>
         {/* Invoice ID */}
         <div style={{ textAlign: 'right', zIndex: 2 }}>
@@ -70,9 +72,11 @@ function InvoiceTemplate({ sale, shopName }: { sale: any; shopName: string }) {
         </div>
         <div style={{ flex: 1 }}>
           <SectionLabel>Invoice From :</SectionLabel>
-          <p style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 700, color: NAVY }}>{sale.cashierName}</p>
-          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>{shopName}</p>
-          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>Payment : {payMethod}</p>
+          <p style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 700, color: NAVY }}>{displayName}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>{sale.cashierName}</p>
+          {settings.phone   && <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>Phone : {settings.phone}</p>}
+          {settings.email   && <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>Email : {settings.email}</p>}
+          {settings.address && <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>{settings.address}</p>}
         </div>
       </div>
 
@@ -124,9 +128,10 @@ function InvoiceTemplate({ sale, shopName }: { sale: any; shopName: string }) {
             <span style={{ fontSize: 10, fontWeight: 800, color: '#fff', textTransform: 'uppercase', letterSpacing: 0.5 }}>Contact Info :</span>
           </div>
           <div style={{ padding: '10px 12px' }}>
-            <p style={{ margin: '0 0 4px', fontSize: 11, color: '#94a3b8' }}>Cashier : <span style={{ color: '#cbd5e1' }}>{sale.cashierName}</span></p>
-            {sale.customerPhone && <p style={{ margin: '0 0 4px', fontSize: 11, color: '#94a3b8' }}>Customer : <span style={{ color: '#cbd5e1' }}>{sale.customerPhone}</span></p>}
-            <p style={{ margin: '0', fontSize: 11, color: '#94a3b8' }}>Shop : <span style={{ color: '#cbd5e1' }}>{shopName}</span></p>
+            {settings.phone   && <p style={{ margin: '0 0 3px', fontSize: 11, color: '#94a3b8' }}>Phone : <span style={{ color: '#cbd5e1' }}>{settings.phone}</span></p>}
+            {settings.email   && <p style={{ margin: '0 0 3px', fontSize: 11, color: '#94a3b8' }}>Email : <span style={{ color: '#cbd5e1' }}>{settings.email}</span></p>}
+            {settings.website && <p style={{ margin: '0 0 3px', fontSize: 11, color: '#94a3b8' }}>Web : <span style={{ color: '#cbd5e1' }}>{settings.website}</span></p>}
+            {sale.customerPhone && <p style={{ margin: '0', fontSize: 11, color: '#94a3b8' }}>Customer : <span style={{ color: '#cbd5e1' }}>{sale.customerPhone}</span></p>}
           </div>
         </div>
 
@@ -155,8 +160,8 @@ function InvoiceTemplate({ sale, shopName }: { sale: any; shopName: string }) {
       {/* ── FOOTER BOTTOM ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', padding: '0 36px 20px' }}>
         <div>
-          <p style={{ margin: '0 0 4px', fontSize: 12, color: '#475569', fontStyle: 'italic' }}>Thanks for your business</p>
-          <p style={{ margin: 0, fontSize: 10, color: '#94a3b8' }}>This is a computer-generated invoice · {shopName}</p>
+          <p style={{ margin: '0 0 4px', fontSize: 12, color: '#475569', fontStyle: 'italic' }}>{settings.footerNote || 'Thanks for your business!'}</p>
+          <p style={{ margin: 0, fontSize: 10, color: '#94a3b8' }}>Computer-generated invoice · {displayName}</p>
         </div>
         <div style={{ textAlign: 'center' }}>
           <div style={{ borderTop: '2px solid ' + NAVY, paddingTop: 4, width: 140 }}>
@@ -294,6 +299,8 @@ export default function POSPage() {
   const total          = afterDiscount
 
   const shopName = authStorage.getUser()?.name?.split(' ')[0] + ' Shop' || 'Our Shop'
+  const [invoiceSettings, setInvoiceSettings] = useState<InvoiceSettings>(() => getInvoiceSettings())
+  useEffect(() => { setInvoiceSettings(getInvoiceSettings()) }, [completedSale])
 
   const handleCheckout = async () => {
     if (cart.length === 0) return
@@ -473,7 +480,7 @@ export default function POSPage() {
             {/* Hidden invoice for PDF */}
             <div className="overflow-hidden h-0">
               <div ref={invoiceRef}>
-                <InvoiceTemplate sale={{ ...completedSale, subtotal, discount: discountAmount, tax, total }} shopName={shopName} />
+                <InvoiceTemplate sale={{ ...completedSale, subtotal, discount: discountAmount, tax, total }} shopName={shopName} settings={invoiceSettings} />
               </div>
             </div>
           </div>

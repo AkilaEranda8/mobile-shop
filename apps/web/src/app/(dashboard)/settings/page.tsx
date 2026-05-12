@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import {
   Save, Building2, User, Bell, Shield, Palette, CreditCard, Users,
-  Loader2, Eye, EyeOff, Trash2, Plus, X, CheckCircle, Check,
+  Loader2, Eye, EyeOff, Trash2, Plus, X, CheckCircle, Check, FileText,
 } from 'lucide-react'
 import { authApi, usersApi, tenantApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
@@ -11,6 +11,7 @@ import toast from 'react-hot-toast'
 
 const tabs = [
   { key: 'shop',          label: 'Shop Info',       icon: Building2  },
+  { key: 'invoice',       label: 'Invoice',         icon: FileText   },
   { key: 'profile',       label: 'Profile',         icon: User       },
   { key: 'notifications', label: 'Notifications',   icon: Bell       },
   { key: 'security',      label: 'Security',        icon: Shield     },
@@ -18,6 +19,31 @@ const tabs = [
   { key: 'billing',       label: 'Billing',         icon: CreditCard },
   { key: 'team',          label: 'Team',            icon: Users      },
 ]
+
+export const INVOICE_SETTINGS_KEY = 'hx_invoice_settings'
+export interface InvoiceSettings {
+  shopName:   string
+  slogan:     string
+  phone:      string
+  email:      string
+  address:    string
+  website:    string
+  footerNote: string
+}
+export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
+  shopName:   '',
+  slogan:     '',
+  phone:      '',
+  email:      '',
+  address:    '',
+  website:    '',
+  footerNote: 'Thank you for your business!',
+}
+export function getInvoiceSettings(): InvoiceSettings {
+  if (typeof window === 'undefined') return DEFAULT_INVOICE_SETTINGS
+  try { return { ...DEFAULT_INVOICE_SETTINGS, ...JSON.parse(localStorage.getItem(INVOICE_SETTINGS_KEY) ?? '{}') } }
+  catch { return DEFAULT_INVOICE_SETTINGS }
+}
 
 const Toggle = ({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) => (
   <button onClick={() => onChange(!value)}
@@ -161,6 +187,13 @@ export default function SettingsPage() {
     finally { setDeletingUserId(null) }
   }
 
+  /* ── Invoice Settings ── */
+  const [invoiceForm, setInvoiceForm] = useState<InvoiceSettings>(() => getInvoiceSettings())
+  const saveInvoice = () => {
+    localStorage.setItem(INVOICE_SETTINGS_KEY, JSON.stringify(invoiceForm))
+    toast.success('Invoice settings saved')
+  }
+
   const ROLES = ['OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN']
   const roleColors: Record<string, string> = {
     OWNER:      'bg-violet-500/10 border-violet-500/20 text-violet-400',
@@ -235,6 +268,48 @@ export default function SettingsPage() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ── INVOICE ── */}
+          {activeTab === 'invoice' && (
+            <div className="card p-6 space-y-5">
+              <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                <div>
+                  <h2 className="text-base font-semibold text-white">Invoice Settings</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">These details appear on every downloaded invoice PDF</p>
+                </div>
+                <button onClick={saveInvoice} className="btn-primary text-sm flex items-center gap-2">
+                  <Save size={13} />Save
+                </button>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-4">
+                {[
+                  { k: 'shopName',   label: 'Shop / Business Name', ph: 'e.g. Akila Mobile Shop',        col: '' },
+                  { k: 'slogan',     label: 'Slogan / Tagline',      ph: 'e.g. Your Trusted Mobile Store', col: '' },
+                  { k: 'phone',      label: 'Contact Phone',          ph: '+94 77 123 4567',                col: '' },
+                  { k: 'email',      label: 'Contact Email',          ph: 'shop@example.com',               col: '' },
+                  { k: 'website',    label: 'Website',                ph: 'www.example.com',                col: '' },
+                  { k: 'address',    label: 'Address',                ph: '123 Main St, Colombo',           col: '' },
+                ].map(({ k, label, ph }) => (
+                  <div key={k}>
+                    <label className="block text-xs text-slate-400 mb-1.5">{label}</label>
+                    <input className="input-field" placeholder={ph}
+                      value={(invoiceForm as any)[k]}
+                      onChange={e => setInvoiceForm(p => ({ ...p, [k]: e.target.value }))} />
+                  </div>
+                ))}
+                <div className="sm:col-span-2">
+                  <label className="block text-xs text-slate-400 mb-1.5">Footer Note</label>
+                  <input className="input-field" placeholder="e.g. Thank you for your business!"
+                    value={invoiceForm.footerNote}
+                    onChange={e => setInvoiceForm(p => ({ ...p, footerNote: e.target.value }))} />
+                </div>
+              </div>
+              <div className="pt-3 border-t border-white/5 text-xs text-slate-500 space-y-1">
+                <p className="font-semibold text-slate-400">Preview</p>
+                <p>These values will appear in the <span className="text-violet-400">Invoice To / From</span>, <span className="text-violet-400">Contact Info</span>, and <span className="text-violet-400">Footer</span> sections of all invoices.</p>
+              </div>
             </div>
           )}
 
