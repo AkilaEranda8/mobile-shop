@@ -25,6 +25,7 @@ const navItems = [
     label: 'Sales',
     items: [
       { href: '/dashboard/pos', icon: ShoppingCart, label: 'Point of Sale', badge: 'POS' },
+      { href: '/dashboard/sales', icon: Receipt, label: 'Sales History' },
       { href: '/dashboard/customers', icon: Users, label: 'Customers' },
     ],
   },
