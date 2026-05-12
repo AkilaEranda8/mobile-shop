@@ -80,7 +80,6 @@ function InvoiceTemplate({ sale, shopName }: { sale: any; shopName: string }) {
           {[
             { label: 'Subtotal', value: fc(sale.subtotal) },
             ...(sale.discount ? [{ label: 'Discount', value: `− ${fc(sale.discount)}`, red: true }] : []),
-            ...(sale.tax ? [{ label: 'Tax', value: `+ ${fc(sale.tax)}` }] : []),
           ].map(({ label, value, red }: any) => (
             <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: 12, color: red ? '#dc2626' : '#64748b' }}>
               <span>{label}</span><span>{value}</span>
@@ -232,8 +231,8 @@ export default function POSPage() {
   const subtotal       = cart.reduce((s, i) => s + i.price * i.quantity, 0)
   const discountAmount = discountMode === '%' ? (subtotal * discountPct) / 100 : Math.min(discountFlat, subtotal)
   const afterDiscount  = subtotal - discountAmount
-  const tax            = Math.round(afterDiscount * 0.18)
-  const total          = afterDiscount + tax
+  const tax            = 0
+  const total          = afterDiscount
 
   const shopName = authStorage.getUser()?.name?.split(' ')[0] + ' Shop' || 'Our Shop'
 
@@ -394,7 +393,6 @@ export default function POSPage() {
                 {[
                   { label: 'Subtotal',  value: formatCurrency(subtotal)       },
                   { label: 'Discount',  value: `-${formatCurrency(discountAmount)}`, hide: !discountAmount },
-                  { label: 'Tax',       value: formatCurrency(tax)            },
                 ].filter(r => !r.hide).map(({ label, value }) => (
                   <div key={label} className="flex justify-between text-xs text-slate-400"><span>{label}</span><span>{value}</span></div>
                 ))}
@@ -551,7 +549,6 @@ export default function POSPage() {
                       <span>-{formatCurrency(discountAmount)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-slate-400"><span>GST 18%</span><span>{formatCurrency(tax)}</span></div>
                   <div className="flex justify-between font-bold text-white text-sm border-t border-white/10 pt-1.5">
                     <span>Total</span><span>{formatCurrency(total)}</span>
                   </div>
