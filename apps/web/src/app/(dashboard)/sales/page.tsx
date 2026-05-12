@@ -333,8 +333,8 @@ export default function SalesPage() {
       if (search)       params.search = search
       if (statusFilter) params.status = statusFilter
       const res: any = await salesApi.list(params)
-      setSales(res?.data?.data ?? [])
-      setMeta(res?.data ?? null)
+      setSales(res?.data ?? [])
+      setMeta(res?.meta ?? null)
     } catch { toast.error('Failed to load sales') }
     finally { setLoading(false) }
   }, [page, search, statusFilter])
