@@ -130,7 +130,7 @@
   }
 
   .btn-primary {
-    @apply bg-violet-600 hover:bg-violet-500 text-white font-semibold px-4 py-2 rounded-xl transition-all duration-200 active:scale-95 text-sm;
+    @apply bg-violet-600 hover:bg-violet-500 text-white font-medium px-3.5 py-1.5 rounded-lg transition-all duration-200 active:scale-95 text-sm;
   }
 
   .btn-secondary {
@@ -234,11 +234,11 @@ html:not(.dark) .input-field:focus {
   box-shadow: 0 0 0 3px rgba(124,58,237,0.10);
 }
 html:not(.dark) .btn-primary {
-  background-color: #7c3aed;
-  box-shadow: 0 1px 4px rgba(124,58,237,0.25);
+  background-color: #6d28d9;
+  box-shadow: 0 1px 3px rgba(109,40,217,0.20);
 }
 html:not(.dark) .btn-primary:hover {
-  background-color: #6d28d9;
+  background-color: #5b21b6;
 }
 html:not(.dark) .btn-secondary {
   background: #ffffff;
