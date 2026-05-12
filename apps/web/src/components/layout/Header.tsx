@@ -73,18 +73,33 @@ export default function Header({ onMenuToggle, sidebarOpen }: HeaderProps) {
         </div>
 
         {/* Theme toggle */}
-        <button
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all duration-200"
-          style={{
-            background: theme === 'dark' ? 'rgba(124,58,237,0.15)' : 'rgba(0,0,0,0.05)',
-            borderColor: theme === 'dark' ? 'rgba(124,58,237,0.35)' : 'rgba(0,0,0,0.1)',
-            color: theme === 'dark' ? '#a78bfa' : '#475569',
-          }}
-        >
-          {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-          <span className="hidden sm:inline">{theme === 'dark' ? 'Light' : 'Dark'}</span>
-        </button>
+        <div className="flex items-center rounded-xl border p-0.5 gap-0.5"
+          style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
+          <button
+            onClick={() => setTheme('light')}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-200"
+            style={{
+              background: theme === 'light' ? '#ffffff' : 'transparent',
+              color: theme === 'light' ? '#7c3aed' : 'var(--text-muted)',
+              boxShadow: theme === 'light' ? '0 1px 3px rgba(0,0,0,0.12)' : 'none',
+            }}
+          >
+            <Sun size={13} />
+            <span className="hidden sm:inline">Light</span>
+          </button>
+          <button
+            onClick={() => setTheme('dark')}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-200"
+            style={{
+              background: theme === 'dark' ? '#1e1b4b' : 'transparent',
+              color: theme === 'dark' ? '#a78bfa' : 'var(--text-muted)',
+              boxShadow: theme === 'dark' ? '0 1px 3px rgba(0,0,0,0.3)' : 'none',
+            }}
+          >
+            <Moon size={13} />
+            <span className="hidden sm:inline">Dark</span>
+          </button>
+        </div>
 
         {/* Notifications */}
         <div className="relative">
