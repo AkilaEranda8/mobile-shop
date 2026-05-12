@@ -76,11 +76,15 @@ export default function Header({ onMenuToggle, sidebarOpen }: HeaderProps) {
         {mounted && (
           <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="p-2 rounded-xl transition-colors hover:bg-[var(--bg-subtle)]"
-            style={{ color: 'var(--text-muted)' }}
-            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all duration-200"
+            style={{
+              background: theme === 'dark' ? 'rgba(124,58,237,0.15)' : 'rgba(0,0,0,0.05)',
+              borderColor: theme === 'dark' ? 'rgba(124,58,237,0.35)' : 'rgba(0,0,0,0.1)',
+              color: theme === 'dark' ? '#a78bfa' : '#475569',
+            }}
           >
-            {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+            <span className="hidden sm:inline">{theme === 'dark' ? 'Light' : 'Dark'}</span>
           </button>
         )}
 
