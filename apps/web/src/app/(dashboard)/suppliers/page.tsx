@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Plus, Truck, Phone, Mail, Package, Eye, Edit, Loader2, X, ChevronDown, Trash2, FileText } from 'lucide-react'
+import { Search, Plus, Truck, Phone, Mail, Package, Eye, Edit, Loader2, X, ChevronDown, Trash2, FileText, MapPin, Globe, Hash, ShoppingBag, TrendingUp, AlertCircle, Calendar, CheckCircle, Save } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useSuppliers, usePurchaseOrders, useProducts } from '@/lib/hooks'
 import { suppliersApi } from '@/lib/api'
@@ -15,6 +15,147 @@ const poStatusColors: Record<string, string> = {
   PARTIAL:  'bg-yellow-500/10 border-yellow-500/20 text-yellow-400',
   RECEIVED: 'bg-green-500/10 border-green-500/20 text-green-400',
   CLOSED:   'bg-violet-500/10 border-violet-500/20 text-violet-400',
+}
+
+/* ── Supplier Details Modal ─────────────────────────────────────────── */
+function SupplierDetailsModal({ supplier, onClose, onEdit }: { supplier: Supplier; onClose: () => void; onEdit: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl">
+        <div className="flex items-center justify-between p-5 border-b border-white/5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/30 to-cyan-500/20 border border-violet-500/20 flex items-center justify-center text-base font-bold text-violet-300">
+              {supplier.name.charAt(0)}
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">{supplier.name}</h3>
+              {supplier.contactName && <p className="text-xs text-slate-500">{supplier.contactName}</p>}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={onEdit} className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 transition-colors">
+              <Edit size={11} />Edit
+            </button>
+            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
+          </div>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* KPIs */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { icon: ShoppingBag,  label: 'Total Orders',    value: supplier.totalOrders,                              cls: 'text-violet-400' },
+              { icon: TrendingUp,   label: 'Purchase Value',  value: formatCurrency(supplier.totalPurchaseValue ?? 0),   cls: 'text-emerald-400' },
+              { icon: AlertCircle,  label: 'Outstanding',     value: formatCurrency(supplier.outstandingDues ?? 0),      cls: supplier.outstandingDues > 0 ? 'text-red-400' : 'text-green-400' },
+            ].map(({ icon: Icon, label, value, cls }) => (
+              <div key={label} className="bg-white/3 rounded-xl p-3 text-center border border-white/5">
+                <Icon size={14} className={`mx-auto mb-1 ${cls}`} />
+                <p className={`text-sm font-bold ${cls}`}>{value}</p>
+                <p className="text-[10px] text-slate-600 mt-0.5">{label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Contact details */}
+          <div className="bg-white/3 rounded-xl p-4 border border-white/5 space-y-2.5">
+            {[
+              supplier.phone    && { icon: Phone,   label: 'Phone',   value: supplier.phone },
+              supplier.email    && { icon: Mail,    label: 'Email',   value: supplier.email },
+              supplier.address  && { icon: MapPin,  label: 'Address', value: supplier.address },
+              supplier.city     && { icon: Globe,   label: 'City',    value: supplier.city },
+              supplier.gstin    && { icon: Hash,    label: 'GSTIN',   value: supplier.gstin },
+            ].filter(Boolean).map((row: any) => (
+              <div key={row.label} className="flex items-start gap-3">
+                <row.icon size={12} className="text-slate-500 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 flex items-start justify-between gap-4">
+                  <span className="text-[11px] text-slate-500 w-14 flex-shrink-0">{row.label}</span>
+                  <span className="text-xs text-slate-200 text-right">{row.value}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Status + created */}
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2">
+              {supplier.isActive
+                ? <span className="flex items-center gap-1 text-emerald-400"><CheckCircle size={11} />Active</span>
+                : <span className="flex items-center gap-1 text-red-400"><X size={11} />Inactive</span>}
+            </div>
+            <div className="flex items-center gap-1.5 text-slate-500">
+              <Calendar size={11} />
+              <span>Joined {formatDate(supplier.createdAt)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Edit Supplier Modal ─────────────────────────────────────────────── */
+function EditSupplierModal({ supplier, onClose, onSaved }: { supplier: Supplier; onClose: () => void; onSaved: () => void }) {
+  const [form, setForm]   = useState({
+    name:        supplier.name        ?? '',
+    contactName: supplier.contactName ?? '',
+    phone:       supplier.phone       ?? '',
+    email:       supplier.email       ?? '',
+    city:        supplier.city        ?? '',
+    address:     supplier.address     ?? '',
+    gstin:       supplier.gstin       ?? '',
+  })
+  const [loading, setLoading] = useState(false)
+  const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(p => ({ ...p, [k]: e.target.value }))
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); setLoading(true)
+    try {
+      await suppliersApi.update(supplier.id, form)
+      toast.success('Supplier updated')
+      onSaved(); onClose()
+    } catch (err: any) { toast.error(err?.message ?? 'Update failed') }
+    finally { setLoading(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
+          <h3 className="text-sm font-bold text-white">Edit Supplier</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { k: 'name',        label: 'Supplier Name *', full: true  },
+              { k: 'contactName', label: 'Contact Name',    full: false },
+              { k: 'phone',       label: 'Phone',           full: false },
+              { k: 'email',       label: 'Email',           full: false },
+              { k: 'city',        label: 'City',            full: false },
+              { k: 'address',     label: 'Address',         full: true  },
+              { k: 'gstin',       label: 'GSTIN / VAT No',  full: false },
+            ].map(({ k, label, full }) => (
+              <div key={k} className={full ? 'col-span-2' : ''}>
+                <label className="block text-xs text-slate-400 mb-1.5">{label}</label>
+                <input
+                  className="input-field"
+                  value={(form as any)[k]}
+                  onChange={f(k)}
+                  required={k === 'name'}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
+            <button type="submit" disabled={loading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
 }
 
 /* ── Add Supplier Modal ──────────────────────────────────────────────── */
@@ -305,8 +446,10 @@ export default function SuppliersPage() {
   const router = useRouter()
   const [search, setSearch]       = useState('')
   const [activeTab, setActiveTab] = useState<'suppliers' | 'orders'>('suppliers')
-  const [showAddSupplier, setShowAddSupplier] = useState(false)
-  const [showNewPO, setShowNewPO]             = useState(false)
+  const [showAddSupplier, setShowAddSupplier]     = useState(false)
+  const [showNewPO, setShowNewPO]                 = useState(false)
+  const [detailSupplier, setDetailSupplier]       = useState<Supplier | null>(null)
+  const [editSupplier,   setEditSupplier]         = useState<Supplier | null>(null)
   const { data: suppliersData, loading: suppliersLoading, refetch: refetchSuppliers } = useSuppliers()
   const { data: ordersData,    loading: ordersLoading,    refetch: refetchOrders    } = usePurchaseOrders()
   const suppliers:      Supplier[]      = (suppliersData?.data ?? []) as Supplier[]
@@ -326,6 +469,8 @@ export default function SuppliersPage() {
     <div className="space-y-6">
       {showAddSupplier && <AddSupplierModal onClose={() => setShowAddSupplier(false)} onSaved={refetchSuppliers} />}
       {showNewPO       && <NewPOModal suppliers={suppliers} onClose={() => setShowNewPO(false)} onSaved={() => { refetchOrders(); refetchSuppliers() }} />}
+      {detailSupplier  && <SupplierDetailsModal supplier={detailSupplier} onClose={() => setDetailSupplier(null)} onEdit={() => { setEditSupplier(detailSupplier); setDetailSupplier(null) }} />}
+      {editSupplier    && <EditSupplierModal supplier={editSupplier} onClose={() => setEditSupplier(null)} onSaved={() => { refetchSuppliers(); setEditSupplier(null) }} />}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
@@ -382,9 +527,14 @@ export default function SuppliersPage() {
                     <p className="text-xs text-slate-500">{supplier.contactName}</p>
                   )}
                 </div>
-                <button className="text-slate-500 hover:text-violet-400 p-1">
-                  <Edit size={13} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setDetailSupplier(supplier)} className="p-1.5 text-slate-500 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors" title="View Details">
+                    <Eye size={13} />
+                  </button>
+                  <button onClick={() => setEditSupplier(supplier)} className="p-1.5 text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors" title="Edit">
+                    <Edit size={13} />
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-1.5">
