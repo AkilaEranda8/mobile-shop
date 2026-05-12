@@ -216,6 +216,45 @@
   }
 }
 
+/* ── Light mode: override hardcoded dark-only Tailwind classes ──────── */
+html:not(.dark) .text-white     { color: #1e293b; }
+html:not(.dark) .text-slate-50  { color: #1e293b; }
+html:not(.dark) .text-slate-100 { color: #1e293b; }
+html:not(.dark) .text-slate-200 { color: #334155; }
+html:not(.dark) .text-slate-300 { color: #475569; }
+html:not(.dark) .text-slate-400 { color: #64748b; }
+html:not(.dark) .text-slate-500 { color: #94a3b8; }
+html:not(.dark) .text-slate-600 { color: #94a3b8; }
+
+/* Borders */
+html:not(.dark) .border-white\/5  { border-color: rgba(0,0,0,0.07); }
+html:not(.dark) .border-white\/8  { border-color: rgba(0,0,0,0.08); }
+html:not(.dark) .border-white\/10 { border-color: rgba(0,0,0,0.10); }
+html:not(.dark) .border-white\/20 { border-color: rgba(0,0,0,0.15); }
+html:not(.dark) .divide-white\/5 > * + * { border-color: rgba(0,0,0,0.07); }
+html:not(.dark) .divide-y > * + * { border-color: rgba(0,0,0,0.07); }
+
+/* Subtle backgrounds */
+html:not(.dark) .bg-white\/2  { background-color: rgba(0,0,0,0.02); }
+html:not(.dark) .bg-white\/3  { background-color: rgba(0,0,0,0.03); }
+html:not(.dark) .bg-white\/5  { background-color: rgba(0,0,0,0.04); }
+html:not(.dark) .bg-white\/8  { background-color: rgba(0,0,0,0.05); }
+html:not(.dark) .bg-white\/10 { background-color: rgba(0,0,0,0.06); }
+html:not(.dark) .bg-white\/15 { background-color: rgba(0,0,0,0.08); }
+html:not(.dark) .hover\:bg-white\/5:hover  { background-color: rgba(0,0,0,0.04); }
+html:not(.dark) .hover\:bg-white\/10:hover { background-color: rgba(0,0,0,0.07); }
+
+/* Hardcoded dark hex backgrounds (modals, dropdowns, cards) */
+html:not(.dark) [class*="#0f1623"] { background-color: var(--bg-card) !important; }
+html:not(.dark) [class*="#0a0f1a"] { background-color: var(--bg-surface) !important; }
+html:not(.dark) [class*="#080c14"] { background-color: var(--bg-primary) !important; }
+html:not(.dark) [class*="#141b2d"] { background-color: var(--bg-card-hover) !important; }
+html:not(.dark) [class*="#1a2235"] { background-color: var(--bg-card-hover) !important; }
+html:not(.dark) [class*="#1e1b4b"] { background-color: rgba(124,58,237,0.08) !important; }
+
+/* Sticky headers inside modals */
+html:not(.dark) [class*="#0f1623"][class*="sticky"] { background-color: var(--bg-card) !important; }
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
