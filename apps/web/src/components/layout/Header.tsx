@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { Bell, Search, Menu, X, ChevronDown, Settings, LogOut, User, Wifi, WifiOff } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Bell, Search, Menu, X, ChevronDown, Settings, LogOut, User, Wifi, WifiOff, Sun, Moon } from 'lucide-react'
+import { useTheme } from 'next-themes'
 
 interface HeaderProps {
   onMenuToggle: () => void
@@ -12,7 +13,11 @@ export default function Header({ onMenuToggle, sidebarOpen }: HeaderProps) {
   const [notifOpen, setNotifOpen] = useState(false)
   const [userOpen, setUserOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const { theme, setTheme } = useTheme()
   const isOnline = true
+
+  useEffect(() => setMounted(true), [])
 
   const notifications = [
     { id: 1, type: 'warning', message: '3 items are running low on stock', time: '5m ago', read: false },
@@ -24,7 +29,8 @@ export default function Header({ onMenuToggle, sidebarOpen }: HeaderProps) {
   const unreadCount = notifications.filter(n => !n.read).length
 
   return (
-    <header className="bg-[#0a0f1a] border-b border-white/5 h-14 flex items-center px-4 gap-4 sticky top-0 z-40">
+    <header className="h-14 flex items-center px-4 gap-4 sticky top-0 z-40 border-b transition-colors"
+      style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-subtle)' }}>
       {/* Menu toggle (mobile) */}
       <button
         onClick={onMenuToggle}
@@ -42,18 +48,19 @@ export default function Header({ onMenuToggle, sidebarOpen }: HeaderProps) {
               autoFocus
               type="text"
               placeholder="Search products, customers, repairs..."
-              className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500/50"
+              className="input-field pl-9 py-2 text-sm"
               onBlur={() => setSearchOpen(false)}
             />
           </div>
         ) : (
           <button
             onClick={() => setSearchOpen(true)}
-            className="flex items-center gap-2 text-slate-500 hover:text-slate-300 bg-white/3 border border-white/5 hover:border-white/10 rounded-xl px-3 py-2 text-sm transition-all w-full max-w-xs"
+            className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-all w-full max-w-xs border"
+            style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}
           >
             <Search size={14} />
             <span>Search...</span>
-            <kbd className="ml-auto text-[10px] bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-slate-600">⌘K</kbd>
+            <kbd className="ml-auto text-[10px] border rounded px-1.5 py-0.5" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-muted)' }}>⌘K</kbd>
           </button>
         )}
       </div>
@@ -64,6 +71,18 @@ export default function Header({ onMenuToggle, sidebarOpen }: HeaderProps) {
           {isOnline ? <Wifi size={11} /> : <WifiOff size={11} />}
           <span className="hidden sm:inline">{isOnline ? 'Online' : 'Offline'}</span>
         </div>
+
+        {/* Theme toggle */}
+        {mounted && (
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="p-2 rounded-xl transition-colors hover:bg-[var(--bg-subtle)]"
+            style={{ color: 'var(--text-muted)' }}
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+          </button>
+        )}
 
         {/* Notifications */}
         <div className="relative">
@@ -80,7 +99,7 @@ export default function Header({ onMenuToggle, sidebarOpen }: HeaderProps) {
           </button>
 
           {notifOpen && (
-            <div className="absolute right-0 top-full mt-2 w-80 bg-[#0f1623] border border-white/10 rounded-2xl shadow-xl z-50">
+            <div className="absolute right-0 top-full mt-2 w-80 rounded-2xl shadow-xl z-50 border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
               <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
                 <span className="text-sm font-semibold text-white">Notifications</span>
                 <button className="text-xs text-violet-400 hover:text-violet-300">Mark all read</button>
@@ -117,7 +136,7 @@ export default function Header({ onMenuToggle, sidebarOpen }: HeaderProps) {
           </button>
 
           {userOpen && (
-            <div className="absolute right-0 top-full mt-2 w-52 bg-[#0f1623] border border-white/10 rounded-2xl shadow-xl z-50">
+            <div className="absolute right-0 top-full mt-2 w-52 rounded-2xl shadow-xl z-50 border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
               <div className="px-4 py-3 border-b border-white/5">
                 <p className="text-sm font-semibold text-white">Subramaniam R</p>
                 <p className="text-xs text-slate-500">owner@mobilehub.com</p>

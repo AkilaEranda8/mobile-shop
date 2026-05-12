@@ -96,19 +96,22 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
 
   return (
     <aside className={cn(
-      'flex flex-col h-full bg-[#0a0f1a] border-r border-white/5 transition-all duration-300 relative',
+      'flex flex-col h-full border-r transition-all duration-300 relative',
       collapsed ? 'w-16' : 'w-60'
-    )}>
+    )}
+      style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-subtle)' }}
+    >
       {/* Collapse Toggle */}
       <button
         onClick={onToggle}
-        className="absolute -right-3 top-16 z-10 w-6 h-6 bg-[#0f1623] border border-white/10 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:border-violet-500/40 transition-all shadow-lg hidden lg:flex"
+        className="absolute -right-3 top-16 z-10 w-6 h-6 border rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:border-violet-500/40 transition-all shadow-lg hidden lg:flex"
+        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
       >
         {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
       </button>
 
       {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-4 border-b border-white/5">
+      <div className="flex items-center gap-3 px-4 py-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
         <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg shadow-violet-500/20">
           <span className="text-white font-black text-sm">H</span>
         </div>
@@ -122,21 +125,23 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
 
       {/* Branch Selector */}
       {!collapsed && (
-        <div className="px-3 py-2 border-b border-white/5">
+        <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
           <button
             onClick={() => setBranchOpen(!branchOpen)}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-white/3 border border-white/5 hover:border-violet-500/20 transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border hover:border-violet-500/20 transition-colors"
+            style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}
           >
             <Building2 size={14} className="text-violet-400 flex-shrink-0" />
-            <span className="flex-1 text-left text-xs text-slate-300 truncate">Main Branch</span>
-            <ChevronDown size={11} className={`text-slate-500 transition-transform flex-shrink-0 ${branchOpen ? 'rotate-180' : ''}`} />
+            <span className="flex-1 text-left text-xs truncate" style={{ color: 'var(--text-secondary)' }}>Main Branch</span>
+            <ChevronDown size={11} className={`transition-transform flex-shrink-0 ${branchOpen ? 'rotate-180' : ''}`} style={{ color: 'var(--text-muted)' } as any} />
           </button>
           {branchOpen && (
-            <div className="mt-1 bg-[#0f1623] border border-white/5 rounded-lg overflow-hidden shadow-xl">
+            <div className="mt-1 border rounded-lg overflow-hidden shadow-xl" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
               {['Main Branch', 'T Nagar Showroom', 'Velachery Branch'].map((branch) => (
                 <button
                   key={branch}
-                  className="w-full text-left px-3 py-2 text-xs text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+                  className="w-full text-left px-3 py-2 text-xs hover:text-white hover:bg-white/5 transition-colors"
+                  style={{ color: 'var(--text-muted)' }}
                   onClick={() => setBranchOpen(false)}
                 >
                   {branch}
@@ -197,7 +202,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
 
       {/* Admin Console Link */}
       {!collapsed && (
-        <div className="px-3 py-2 border-t border-white/5">
+        <div className="px-3 py-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
           <Link href="/admin" className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-500 hover:text-amber-300 hover:bg-amber-500/5 transition-colors text-xs">
             <Zap size={13} className="text-amber-400" />
             <span>Platform Admin</span>
@@ -206,7 +211,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       )}
 
       {/* User section */}
-      <div className={cn('border-t border-white/5 p-3', collapsed && 'flex justify-center')}>
+      <div className={cn('border-t p-3', collapsed && 'flex justify-center')} style={{ borderColor: 'var(--border-subtle)' }}>
         {collapsed ? (
           <button
             onClick={handleLogout}

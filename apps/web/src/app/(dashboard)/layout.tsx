@@ -23,7 +23,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!checked) return null
 
   return (
-    <div className="flex h-screen bg-[#080c14] overflow-hidden">
+    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--bg-primary)' }}>
       {/* Mobile overlay */}
       {mobileSidebarOpen && (
         <div
