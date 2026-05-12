@@ -411,9 +411,7 @@ export default function SalesPage() {
       id: 'actions',
       cell: ({ row }) => (
         <TableActionsRow
-          actions={[
-            { label: 'View Details', onClick: () => setDetailSale(row.original) },
-          ]}
+          showAction={{ action: () => setDetailSale(row.original) }}
         />
       ),
     },
