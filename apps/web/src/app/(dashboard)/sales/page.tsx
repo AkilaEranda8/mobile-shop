@@ -305,7 +305,7 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
           )}
 
           {/* Hidden invoice for PDF capture */}
-          <div className="overflow-hidden h-0">
+          <div style={{ position: 'fixed', left: '-9999px', top: 0, pointerEvents: 'none' }}>
             <div ref={invoiceRef}>
               <InvoiceTemplate sale={sale} shopName={shopName} settings={invSettings} />
             </div>

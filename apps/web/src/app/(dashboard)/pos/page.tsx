@@ -478,7 +478,7 @@ export default function POSPage() {
             </div>
 
             {/* Hidden invoice for PDF */}
-            <div className="overflow-hidden h-0">
+            <div style={{ position: 'fixed', left: '-9999px', top: 0, pointerEvents: 'none' }}>
               <div ref={invoiceRef}>
                 <InvoiceTemplate sale={{ ...completedSale, subtotal, discount: discountAmount, tax, total }} shopName={shopName} settings={invoiceSettings} />
               </div>
