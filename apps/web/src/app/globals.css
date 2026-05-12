@@ -277,6 +277,64 @@ html:not(.dark) .bg-white\/15 { background-color: rgba(0,0,0,0.08); }
 html:not(.dark) .hover\:bg-white\/5:hover  { background-color: rgba(0,0,0,0.04); }
 html:not(.dark) .hover\:bg-white\/10:hover { background-color: rgba(0,0,0,0.07); }
 
+/* Colored text — too light on white background */
+html:not(.dark) .text-yellow-400  { color: #a16207 !important; }
+html:not(.dark) .text-yellow-300  { color: #854d0e !important; }
+html:not(.dark) .text-green-400   { color: #15803d !important; }
+html:not(.dark) .text-green-300   { color: #166534 !important; }
+html:not(.dark) .text-blue-400    { color: #1d4ed8 !important; }
+html:not(.dark) .text-blue-300    { color: #1e40af !important; }
+html:not(.dark) .text-purple-400  { color: #7e22ce !important; }
+html:not(.dark) .text-purple-300  { color: #6b21a8 !important; }
+html:not(.dark) .text-violet-400  { color: #6d28d9 !important; }
+html:not(.dark) .text-violet-300  { color: #5b21b6 !important; }
+html:not(.dark) .text-orange-400  { color: #c2410c !important; }
+html:not(.dark) .text-orange-300  { color: #9a3412 !important; }
+html:not(.dark) .text-red-400     { color: #b91c1c !important; }
+html:not(.dark) .text-red-300     { color: #991b1b !important; }
+html:not(.dark) .text-cyan-400    { color: #0e7490 !important; }
+html:not(.dark) .text-teal-400    { color: #0f766e !important; }
+html:not(.dark) .text-pink-400    { color: #be185d !important; }
+
+/* Badge/pill backgrounds — too faint on white */
+html:not(.dark) .bg-yellow-500\/10,
+html:not(.dark) .bg-yellow-500\/20 { background-color: rgba(202,138,4,0.12)  !important; }
+html:not(.dark) .bg-green-500\/10,
+html:not(.dark) .bg-green-500\/20  { background-color: rgba(21,128,61,0.10)  !important; }
+html:not(.dark) .bg-blue-500\/10,
+html:not(.dark) .bg-blue-500\/20   { background-color: rgba(29,78,216,0.10)  !important; }
+html:not(.dark) .bg-purple-500\/10,
+html:not(.dark) .bg-purple-500\/20 { background-color: rgba(126,34,206,0.10) !important; }
+html:not(.dark) .bg-violet-500\/10,
+html:not(.dark) .bg-violet-500\/20 { background-color: rgba(109,40,217,0.10) !important; }
+html:not(.dark) .bg-violet-600\/20 { background-color: rgba(124,58,237,0.12) !important; }
+html:not(.dark) .bg-orange-500\/10,
+html:not(.dark) .bg-orange-500\/20 { background-color: rgba(194,65,12,0.10)  !important; }
+html:not(.dark) .bg-red-500\/10,
+html:not(.dark) .bg-red-500\/20    { background-color: rgba(185,28,28,0.10)  !important; }
+html:not(.dark) .bg-slate-500\/10,
+html:not(.dark) .bg-slate-500\/20  { background-color: rgba(71,85,105,0.10)  !important; }
+html:not(.dark) .bg-cyan-500\/10,
+html:not(.dark) .bg-cyan-500\/20   { background-color: rgba(14,116,144,0.10) !important; }
+
+/* Badge borders — too faint on white */
+html:not(.dark) .border-yellow-500\/20,
+html:not(.dark) .border-yellow-500\/30 { border-color: rgba(202,138,4,0.35)  !important; }
+html:not(.dark) .border-green-500\/20,
+html:not(.dark) .border-green-500\/30  { border-color: rgba(21,128,61,0.30)  !important; }
+html:not(.dark) .border-blue-500\/20,
+html:not(.dark) .border-blue-500\/30   { border-color: rgba(29,78,216,0.30)  !important; }
+html:not(.dark) .border-purple-500\/20,
+html:not(.dark) .border-purple-500\/30 { border-color: rgba(126,34,206,0.30) !important; }
+html:not(.dark) .border-violet-500\/20,
+html:not(.dark) .border-violet-500\/30 { border-color: rgba(109,40,217,0.30) !important; }
+html:not(.dark) .border-orange-500\/20,
+html:not(.dark) .border-orange-500\/30 { border-color: rgba(194,65,12,0.30)  !important; }
+html:not(.dark) .border-red-500\/20,
+html:not(.dark) .border-red-500\/30    { border-color: rgba(185,28,28,0.30)  !important; }
+html:not(.dark) .border-slate-500\/20,
+html:not(.dark) .border-slate-500\/30  { border-color: rgba(71,85,105,0.25)  !important; }
+
 /* Hardcoded dark hex backgrounds (modals, dropdowns, cards) */
 html:not(.dark) [class*="#0f1623"] { background-color: var(--bg-card) !important; }
 html:not(.dark) [class*="#0a0f1a"] { background-color: var(--bg-surface) !important; }
