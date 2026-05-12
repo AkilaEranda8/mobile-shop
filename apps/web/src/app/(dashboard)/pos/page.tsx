@@ -22,93 +22,152 @@ interface CartItem {
 }
 
 /* ── Invoice Template ───────────────────────────────────────────────────── */
+const NAVY = '#0d1b2e'
+const ORANGE = '#f59e0b'
+const DARK2 = '#162436'
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', background: ORANGE, padding: '4px 12px 4px 10px', marginBottom: 10, clipPath: 'polygon(0 0,100% 0,calc(100% - 8px) 100%,0 100%)' }}>
+      <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', textTransform: 'uppercase', letterSpacing: 0.5 }}>{children}</span>
+    </div>
+  )
+}
+
 function InvoiceTemplate({ sale, shopName }: { sale: any; shopName: string }) {
   const fc = formatCurrency
+  const dateStr = sale.createdAt ? new Date(sale.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : ''
+  const payMethod = sale.payments?.map((p: any) => p.method).join(' + ') || '—'
+
   return (
-    <div style={{ width: 680, background: '#fff', fontFamily: "'Segoe UI',Arial,sans-serif", color: '#1e293b' }}>
-      <div style={{ background: 'linear-gradient(135deg,#6d28d9,#7c3aed)', padding: '32px 40px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <p style={{ margin: 0, color: '#fff', fontSize: 26, fontWeight: 800 }}>{shopName}</p>
-          <p style={{ margin: '4px 0 0', color: '#c4b5fd', fontSize: 12 }}>Sales Invoice</p>
+    <div style={{ width: 700, background: '#fff', fontFamily: "'Segoe UI',Arial,sans-serif", color: '#1e293b' }}>
+
+      {/* ── HEADER ── */}
+      <div style={{ background: NAVY, position: 'relative', overflow: 'hidden', padding: '30px 36px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 110 }}>
+        {/* Orange diagonal accent left */}
+        <div style={{ position: 'absolute', left: -18, top: 0, width: 90, height: '130%', background: ORANGE, transform: 'skewX(-12deg)', opacity: 0.85 }} />
+        <div style={{ position: 'absolute', left: 58, top: 0, width: 30, height: '130%', background: '#c97d06', transform: 'skewX(-12deg)', opacity: 0.7 }} />
+        {/* Logo */}
+        <div style={{ position: 'relative', zIndex: 2, paddingLeft: 60 }}>
+          <p style={{ margin: 0, color: '#fff', fontSize: 24, fontWeight: 900, letterSpacing: 1 }}>{shopName.toUpperCase()}</p>
+          <p style={{ margin: '2px 0 0', color: '#94a3b8', fontSize: 11, letterSpacing: 2 }}>SALES INVOICE</p>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <p style={{ margin: 0, color: '#fff', fontSize: 20, fontWeight: 700, fontFamily: 'monospace' }}>{sale.invoiceNumber}</p>
-          <p style={{ margin: '4px 0 0', color: '#c4b5fd', fontSize: 11 }}>{new Date(sale.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-          <div style={{ display: 'inline-block', marginTop: 8, padding: '3px 12px', borderRadius: 99, background: 'rgba(34,197,94,.2)', border: '1px solid rgba(34,197,94,.4)', color: '#4ade80', fontSize: 10, fontWeight: 700, letterSpacing: 1 }}>{sale.status}</div>
-        </div>
-      </div>
-      <div style={{ display: 'flex', background: '#f8f5ff', borderBottom: '1px solid #ede9fe' }}>
-        <div style={{ flex: 1, padding: '16px 40px' }}>
-          <p style={{ margin: '0 0 4px', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: '#7c3aed', fontWeight: 700 }}>Bill To</p>
-          <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#1e1b4b' }}>{sale.customerName || 'Walk-in Customer'}</p>
-          {sale.customerPhone && <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>{sale.customerPhone}</p>}
-        </div>
-        <div style={{ flex: 1, padding: '16px 40px', borderLeft: '1px solid #ede9fe' }}>
-          <p style={{ margin: '0 0 4px', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: '#7c3aed', fontWeight: 700 }}>Served By</p>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#1e1b4b' }}>{sale.cashierName}</p>
-          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>{sale.payments?.map((p: any) => p.method).join(' + ') || '—'}</p>
+        {/* Invoice ID */}
+        <div style={{ textAlign: 'right', zIndex: 2 }}>
+          <p style={{ margin: 0, color: ORANGE, fontSize: 28, fontWeight: 900, letterSpacing: 2 }}>INVOICE</p>
+          <p style={{ margin: '4px 0 0', color: '#94a3b8', fontSize: 11 }}>ID NO : {sale.invoiceNumber}</p>
+          <p style={{ margin: '2px 0 0', color: '#94a3b8', fontSize: 10 }}>{dateStr}</p>
         </div>
       </div>
-      <div style={{ padding: '20px 40px 0' }}>
+
+      {/* ── BILL TO / BILL FROM ── */}
+      <div style={{ display: 'flex', background: '#f8fafc', borderBottom: '3px solid #e2e8f0', padding: '18px 36px', gap: 24 }}>
+        <div style={{ flex: 1 }}>
+          <SectionLabel>Invoice To :</SectionLabel>
+          <p style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 700, color: NAVY }}>{sale.customerName || 'Walk-in Customer'}</p>
+          {sale.customerPhone && <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>Phone : {sale.customerPhone}</p>}
+          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>Date : {dateStr}</p>
+        </div>
+        <div style={{ flex: 1 }}>
+          <SectionLabel>Invoice From :</SectionLabel>
+          <p style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 700, color: NAVY }}>{sale.cashierName}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>{shopName}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>Payment : {payMethod}</p>
+        </div>
+      </div>
+
+      {/* ── ITEMS TABLE ── */}
+      <div style={{ padding: '20px 36px 0' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ background: '#6d28d9' }}>
-              {['#', 'Product', 'SKU', 'Qty', 'Unit Price', 'Total'].map((h, i) => (
-                <th key={h} style={{ padding: '8px 10px', color: '#fff', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .5, textAlign: i >= 3 ? 'right' : 'left' }}>{h}</th>
-              ))}
+            <tr>
+              <th style={{ background: ORANGE, padding: '9px 12px', color: '#fff', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left', clipPath: 'polygon(0 0,100% 0,calc(100% - 6px) 100%,0 100%)' }}>Description</th>
+              <th style={{ background: DARK2, padding: '9px 12px', color: '#fff', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}>Price</th>
+              <th style={{ background: DARK2, padding: '9px 12px', color: '#fff', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}>Qty</th>
+              <th style={{ background: ORANGE, padding: '9px 12px', color: '#fff', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right', clipPath: 'polygon(6px 0,100% 0,100% 100%,0 100%)' }}>Total</th>
             </tr>
           </thead>
           <tbody>
             {sale.items?.map((item: any, idx: number) => (
-              <tr key={item.id ?? idx} style={{ background: idx % 2 === 0 ? '#fff' : '#faf5ff', borderBottom: '1px solid #ede9fe' }}>
-                <td style={{ padding: '9px 10px', fontSize: 11, color: '#94a3b8' }}>{idx + 1}</td>
-                <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 600, color: '#1e293b' }}>
+              <tr key={item.id ?? idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                <td style={{ padding: '10px 12px', fontSize: 12, color: '#1e293b', fontWeight: 500 }}>
                   {item.productName}
-                  {item.imei && <span style={{ display: 'block', fontSize: 9, color: '#94a3b8', fontFamily: 'monospace' }}>IMEI: {item.imei}</span>}
+                  {item.sku && <span style={{ display: 'block', fontSize: 9, color: '#94a3b8', fontFamily: 'monospace', marginTop: 1 }}>{item.sku}{item.imei ? ' · IMEI: ' + item.imei : ''}</span>}
                 </td>
-                <td style={{ padding: '9px 10px', fontSize: 10, color: '#94a3b8', fontFamily: 'monospace' }}>{item.sku}</td>
-                <td style={{ padding: '9px 10px', fontSize: 12, color: '#1e293b', textAlign: 'right' }}>{item.quantity}</td>
-                <td style={{ padding: '9px 10px', fontSize: 12, color: '#1e293b', textAlign: 'right' }}>{fc(item.unitPrice)}</td>
-                <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 700, color: '#1e1b4b', textAlign: 'right' }}>{fc(item.total)}</td>
+                <td style={{ padding: '10px 12px', fontSize: 12, color: '#475569', textAlign: 'right' }}>{fc(item.unitPrice)}</td>
+                <td style={{ padding: '10px 12px', fontSize: 12, color: '#475569', textAlign: 'right' }}>{item.quantity}</td>
+                <td style={{ padding: '10px 12px', fontSize: 12, fontWeight: 700, color: NAVY, textAlign: 'right' }}>{fc(item.total)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 40px 18px' }}>
-        <div style={{ width: 240 }}>
+
+      {/* ── FOOTER: payment | contact | totals ── */}
+      <div style={{ display: 'flex', gap: 16, padding: '20px 36px', alignItems: 'flex-start' }}>
+        {/* Payment Method */}
+        <div style={{ flex: 1, background: NAVY, borderRadius: 6, overflow: 'hidden' }}>
+          <div style={{ background: ORANGE, padding: '5px 12px', clipPath: 'polygon(0 0,100% 0,calc(100% - 8px) 100%,0 100%)' }}>
+            <span style={{ fontSize: 10, fontWeight: 800, color: '#fff', textTransform: 'uppercase', letterSpacing: 0.5 }}>Payment Method :</span>
+          </div>
+          <div style={{ padding: '10px 12px' }}>
+            {sale.payments?.map((p: any, i: number) => (
+              <p key={i} style={{ margin: '0 0 4px', fontSize: 11, color: '#94a3b8' }}><span style={{ color: '#cbd5e1', fontWeight: 600 }}>{p.method}</span> : {fc(p.amount)}</p>
+            ))}
+            <p style={{ margin: '6px 0 0', fontSize: 10, color: '#64748b' }}>Status : <span style={{ color: '#4ade80', fontWeight: 700 }}>{sale.status || 'PAID'}</span></p>
+          </div>
+        </div>
+
+        {/* Contact Info */}
+        <div style={{ flex: 1, background: NAVY, borderRadius: 6, overflow: 'hidden' }}>
+          <div style={{ background: ORANGE, padding: '5px 12px', clipPath: 'polygon(0 0,100% 0,calc(100% - 8px) 100%,0 100%)' }}>
+            <span style={{ fontSize: 10, fontWeight: 800, color: '#fff', textTransform: 'uppercase', letterSpacing: 0.5 }}>Contact Info :</span>
+          </div>
+          <div style={{ padding: '10px 12px' }}>
+            <p style={{ margin: '0 0 4px', fontSize: 11, color: '#94a3b8' }}>Cashier : <span style={{ color: '#cbd5e1' }}>{sale.cashierName}</span></p>
+            {sale.customerPhone && <p style={{ margin: '0 0 4px', fontSize: 11, color: '#94a3b8' }}>Customer : <span style={{ color: '#cbd5e1' }}>{sale.customerPhone}</span></p>}
+            <p style={{ margin: '0', fontSize: 11, color: '#94a3b8' }}>Shop : <span style={{ color: '#cbd5e1' }}>{shopName}</span></p>
+          </div>
+        </div>
+
+        {/* Totals */}
+        <div style={{ flex: 1 }}>
           {[
-            { label: 'Subtotal', value: fc(sale.subtotal) },
-            ...(sale.discount ? [{ label: 'Discount', value: `− ${fc(sale.discount)}`, red: true }] : []),
-          ].map(({ label, value, red }: any) => (
-            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: 12, color: red ? '#dc2626' : '#64748b' }}>
-              <span>{label}</span><span>{value}</span>
+            { label: 'Subtotal :', value: fc(sale.subtotal), dark: false },
+            { label: 'Discount :', value: sale.discount ? fc(sale.discount) : fc(0), dark: false },
+          ].map(({ label, value }) => (
+            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12, color: '#64748b', borderBottom: '1px solid #e2e8f0' }}>
+              <span style={{ fontWeight: 600 }}>{label}</span><span>{value}</span>
             </div>
           ))}
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', marginTop: 8, background: '#6d28d9', borderRadius: 10, fontSize: 15, fontWeight: 800, color: '#fff' }}>
-            <span>TOTAL</span><span>{fc(sale.total)}</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, background: ORANGE, padding: '8px 12px', borderRadius: 4 }}>
+            <span style={{ fontSize: 14, fontWeight: 900, color: '#fff', letterSpacing: 1 }}>TOTAL</span>
+            <span style={{ fontSize: 14, fontWeight: 900, color: '#fff' }}>{fc(sale.total)}</span>
           </div>
           {sale.dueAmount > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 14px', marginTop: 6, background: '#fef9c3', borderRadius: 8, fontSize: 11, fontWeight: 600, color: '#92400e' }}>
-              <span>Amount Due</span><span>{fc(sale.dueAmount)}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, background: '#fef3c7', padding: '5px 10px', borderRadius: 4, fontSize: 11, color: '#92400e', fontWeight: 700 }}>
+              <span>Due</span><span>{fc(sale.dueAmount)}</span>
             </div>
           )}
         </div>
       </div>
-      {sale.payments?.length > 0 && (
-        <div style={{ margin: '0 40px 16px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '10px 16px' }}>
-          <p style={{ margin: '0 0 6px', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: '#16a34a', fontWeight: 700 }}>Payment Received</p>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            {sale.payments.map((p: any, i: number) => (
-              <span key={i} style={{ fontSize: 11, color: '#14532d', fontWeight: 600 }}>{p.method}: {fc(p.amount)}</span>
-            ))}
+
+      {/* ── FOOTER BOTTOM ── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', padding: '0 36px 20px' }}>
+        <div>
+          <p style={{ margin: '0 0 4px', fontSize: 12, color: '#475569', fontStyle: 'italic' }}>Thanks for your business</p>
+          <p style={{ margin: 0, fontSize: 10, color: '#94a3b8' }}>This is a computer-generated invoice · {shopName}</p>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ borderTop: '2px solid ' + NAVY, paddingTop: 4, width: 140 }}>
+            <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: NAVY }}>{sale.cashierName}</p>
+            <p style={{ margin: 0, fontSize: 9, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1 }}>Authorised Signature</p>
           </div>
         </div>
-      )}
-      <div style={{ background: '#f8f5ff', borderTop: '2px solid #ede9fe', padding: '14px 40px', textAlign: 'center' }}>
-        <p style={{ margin: 0, fontSize: 11, color: '#7c3aed', fontWeight: 600 }}>Thank you for your purchase!</p>
-        <p style={{ margin: '3px 0 0', fontSize: 9, color: '#a78bfa' }}>Computer-generated invoice · {shopName}</p>
       </div>
+
+      {/* Bottom accent bar */}
+      <div style={{ height: 8, background: `linear-gradient(90deg, ${NAVY} 60%, ${ORANGE} 100%)` }} />
     </div>
   )
 }

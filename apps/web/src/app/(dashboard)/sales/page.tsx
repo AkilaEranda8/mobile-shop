@@ -25,119 +25,143 @@ const methodIcon: Record<string, React.ReactNode> = {
 }
 
 /* ── Printable Invoice Template ─────────────────────────────────────────── */
-function InvoiceTemplate({ sale, shopName }: { sale: any; shopName: string }) {
-  const s = (n: number) => formatCurrency(n)
+const INV_NAVY   = '#0d1b2e'
+const INV_ORANGE = '#f59e0b'
+const INV_DARK2  = '#162436'
+
+function InvLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ width: 680, background: '#fff', fontFamily: "'Segoe UI', Arial, sans-serif", padding: 0, color: '#1e293b' }}>
-      {/* Header band */}
-      <div style={{ background: 'linear-gradient(135deg,#6d28d9,#7c3aed)', padding: '32px 40px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <p style={{ margin: 0, color: '#fff', fontSize: 26, fontWeight: 800, letterSpacing: -0.5 }}>{shopName}</p>
-          <p style={{ margin: '4px 0 0', color: '#c4b5fd', fontSize: 12 }}>Sales Invoice</p>
+    <div style={{ display: 'inline-flex', alignItems: 'center', background: INV_ORANGE, padding: '4px 12px 4px 10px', marginBottom: 10, clipPath: 'polygon(0 0,100% 0,calc(100% - 8px) 100%,0 100%)' }}>
+      <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', textTransform: 'uppercase', letterSpacing: 0.5 }}>{children}</span>
+    </div>
+  )
+}
+
+function InvoiceTemplate({ sale, shopName }: { sale: any; shopName: string }) {
+  const fc = (n: number) => formatCurrency(n)
+  const dateStr = sale.createdAt ? new Date(sale.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : ''
+  const payMethod = sale.payments?.map((p: any) => p.method).join(' + ') || '—'
+
+  return (
+    <div style={{ width: 700, background: '#fff', fontFamily: "'Segoe UI',Arial,sans-serif", color: '#1e293b' }}>
+
+      {/* HEADER */}
+      <div style={{ background: INV_NAVY, position: 'relative', overflow: 'hidden', padding: '30px 36px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 110 }}>
+        <div style={{ position: 'absolute', left: -18, top: 0, width: 90, height: '130%', background: INV_ORANGE, transform: 'skewX(-12deg)', opacity: 0.85 }} />
+        <div style={{ position: 'absolute', left: 58, top: 0, width: 30, height: '130%', background: '#c97d06', transform: 'skewX(-12deg)', opacity: 0.7 }} />
+        <div style={{ position: 'relative', zIndex: 2, paddingLeft: 60 }}>
+          <p style={{ margin: 0, color: '#fff', fontSize: 24, fontWeight: 900, letterSpacing: 1 }}>{shopName.toUpperCase()}</p>
+          <p style={{ margin: '2px 0 0', color: '#94a3b8', fontSize: 11, letterSpacing: 2 }}>SALES INVOICE</p>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <p style={{ margin: 0, color: '#fff', fontSize: 20, fontWeight: 700, fontFamily: 'monospace' }}>{sale.invoiceNumber}</p>
-          <p style={{ margin: '4px 0 0', color: '#c4b5fd', fontSize: 11 }}>{new Date(sale.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-          <div style={{ display: 'inline-block', marginTop: 8, padding: '3px 12px', borderRadius: 99, background: sale.status === 'PAID' ? 'rgba(34,197,94,.2)' : 'rgba(250,204,21,.2)', border: `1px solid ${sale.status === 'PAID' ? 'rgba(34,197,94,.4)' : 'rgba(250,204,21,.4)'}`, color: sale.status === 'PAID' ? '#4ade80' : '#fde047', fontSize: 10, fontWeight: 700, letterSpacing: 1 }}>
-            {sale.status}
-          </div>
+        <div style={{ textAlign: 'right', zIndex: 2 }}>
+          <p style={{ margin: 0, color: INV_ORANGE, fontSize: 28, fontWeight: 900, letterSpacing: 2 }}>INVOICE</p>
+          <p style={{ margin: '4px 0 0', color: '#94a3b8', fontSize: 11 }}>ID NO : {sale.invoiceNumber}</p>
+          <p style={{ margin: '2px 0 0', color: '#94a3b8', fontSize: 10 }}>{dateStr}</p>
         </div>
       </div>
 
-      {/* Bill to + Cashier */}
-      <div style={{ display: 'flex', gap: 0, background: '#f8f5ff', borderBottom: '1px solid #ede9fe' }}>
-        <div style={{ flex: 1, padding: '16px 40px' }}>
-          <p style={{ margin: '0 0 6px', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: '#7c3aed', fontWeight: 700 }}>Bill To</p>
-          <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#1e1b4b' }}>{sale.customerName || 'Walk-in Customer'}</p>
-          {sale.customerPhone && <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>{sale.customerPhone}</p>}
+      {/* BILL TO / BILL FROM */}
+      <div style={{ display: 'flex', background: '#f8fafc', borderBottom: '3px solid #e2e8f0', padding: '18px 36px', gap: 24 }}>
+        <div style={{ flex: 1 }}>
+          <InvLabel>Invoice To :</InvLabel>
+          <p style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 700, color: INV_NAVY }}>{sale.customerName || 'Walk-in Customer'}</p>
+          {sale.customerPhone && <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>Phone : {sale.customerPhone}</p>}
+          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>Date : {dateStr}</p>
         </div>
-        <div style={{ flex: 1, padding: '16px 40px', borderLeft: '1px solid #ede9fe' }}>
-          <p style={{ margin: '0 0 6px', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: '#7c3aed', fontWeight: 700 }}>Served By</p>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#1e1b4b' }}>{sale.cashierName}</p>
-          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>
-            {sale.payments?.map((p: any) => p.method).join(' + ') || '—'}
-          </p>
+        <div style={{ flex: 1 }}>
+          <InvLabel>Invoice From :</InvLabel>
+          <p style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 700, color: INV_NAVY }}>{sale.cashierName}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>{shopName}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>Payment : {payMethod}</p>
         </div>
       </div>
 
-      {/* Items table */}
-      <div style={{ padding: '24px 40px 0' }}>
+      {/* ITEMS TABLE */}
+      <div style={{ padding: '20px 36px 0' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ background: '#6d28d9' }}>
-              {['#', 'Product', 'SKU', 'Qty', 'Unit Price', 'Total'].map((h, i) => (
-                <th key={h} style={{ padding: '8px 10px', color: '#fff', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .5, textAlign: i >= 3 ? 'right' : 'left' }}>{h}</th>
-              ))}
+            <tr>
+              <th style={{ background: INV_ORANGE, padding: '9px 12px', color: '#fff', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left', clipPath: 'polygon(0 0,100% 0,calc(100% - 6px) 100%,0 100%)' }}>Description</th>
+              <th style={{ background: INV_DARK2, padding: '9px 12px', color: '#fff', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}>Price</th>
+              <th style={{ background: INV_DARK2, padding: '9px 12px', color: '#fff', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}>Qty</th>
+              <th style={{ background: INV_ORANGE, padding: '9px 12px', color: '#fff', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right', clipPath: 'polygon(6px 0,100% 0,100% 100%,0 100%)' }}>Total</th>
             </tr>
           </thead>
           <tbody>
             {sale.items?.map((item: any, idx: number) => (
-              <tr key={item.id} style={{ background: idx % 2 === 0 ? '#fff' : '#faf5ff', borderBottom: '1px solid #ede9fe' }}>
-                <td style={{ padding: '9px 10px', fontSize: 11, color: '#94a3b8' }}>{idx + 1}</td>
-                <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 600, color: '#1e293b' }}>
+              <tr key={item.id ?? idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                <td style={{ padding: '10px 12px', fontSize: 12, color: '#1e293b', fontWeight: 500 }}>
                   {item.productName}
-                  {item.imei && <span style={{ display: 'block', fontSize: 9, color: '#94a3b8', fontFamily: 'monospace' }}>IMEI: {item.imei}</span>}
+                  {item.sku && <span style={{ display: 'block', fontSize: 9, color: '#94a3b8', fontFamily: 'monospace', marginTop: 1 }}>{item.sku}{item.imei ? ' · IMEI: ' + item.imei : ''}</span>}
                 </td>
-                <td style={{ padding: '9px 10px', fontSize: 10, color: '#94a3b8', fontFamily: 'monospace' }}>{item.sku}</td>
-                <td style={{ padding: '9px 10px', fontSize: 12, color: '#1e293b', textAlign: 'right' }}>{item.quantity}</td>
-                <td style={{ padding: '9px 10px', fontSize: 12, color: '#1e293b', textAlign: 'right' }}>{s(item.unitPrice)}</td>
-                <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 700, color: '#1e1b4b', textAlign: 'right' }}>{s(item.total)}</td>
+                <td style={{ padding: '10px 12px', fontSize: 12, color: '#475569', textAlign: 'right' }}>{fc(item.unitPrice)}</td>
+                <td style={{ padding: '10px 12px', fontSize: 12, color: '#475569', textAlign: 'right' }}>{item.quantity}</td>
+                <td style={{ padding: '10px 12px', fontSize: 12, fontWeight: 700, color: INV_NAVY, textAlign: 'right' }}>{fc(item.total)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      {/* Totals */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '16px 40px 20px' }}>
-        <div style={{ width: 240 }}>
+      {/* FOOTER: payment | contact | totals */}
+      <div style={{ display: 'flex', gap: 16, padding: '20px 36px', alignItems: 'flex-start' }}>
+        <div style={{ flex: 1, background: INV_NAVY, borderRadius: 6, overflow: 'hidden' }}>
+          <div style={{ background: INV_ORANGE, padding: '5px 12px', clipPath: 'polygon(0 0,100% 0,calc(100% - 8px) 100%,0 100%)' }}>
+            <span style={{ fontSize: 10, fontWeight: 800, color: '#fff', textTransform: 'uppercase', letterSpacing: 0.5 }}>Payment Method :</span>
+          </div>
+          <div style={{ padding: '10px 12px' }}>
+            {sale.payments?.map((p: any, i: number) => (
+              <p key={i} style={{ margin: '0 0 4px', fontSize: 11, color: '#94a3b8' }}><span style={{ color: '#cbd5e1', fontWeight: 600 }}>{p.method}</span> : {fc(p.amount)}{p.reference ? ` (${p.reference})` : ''}</p>
+            ))}
+            <p style={{ margin: '6px 0 0', fontSize: 10, color: '#64748b' }}>Status : <span style={{ color: '#4ade80', fontWeight: 700 }}>{sale.status || 'PAID'}</span></p>
+          </div>
+        </div>
+        <div style={{ flex: 1, background: INV_NAVY, borderRadius: 6, overflow: 'hidden' }}>
+          <div style={{ background: INV_ORANGE, padding: '5px 12px', clipPath: 'polygon(0 0,100% 0,calc(100% - 8px) 100%,0 100%)' }}>
+            <span style={{ fontSize: 10, fontWeight: 800, color: '#fff', textTransform: 'uppercase', letterSpacing: 0.5 }}>Contact Info :</span>
+          </div>
+          <div style={{ padding: '10px 12px' }}>
+            <p style={{ margin: '0 0 4px', fontSize: 11, color: '#94a3b8' }}>Cashier : <span style={{ color: '#cbd5e1' }}>{sale.cashierName}</span></p>
+            {sale.customerPhone && <p style={{ margin: '0 0 4px', fontSize: 11, color: '#94a3b8' }}>Customer : <span style={{ color: '#cbd5e1' }}>{sale.customerPhone}</span></p>}
+            <p style={{ margin: 0, fontSize: 11, color: '#94a3b8' }}>Shop : <span style={{ color: '#cbd5e1' }}>{shopName}</span></p>
+          </div>
+        </div>
+        <div style={{ flex: 1 }}>
           {[
-            { label: 'Subtotal', value: s(sale.subtotal), bold: false },
-            ...(sale.discount ? [{ label: 'Discount', value: `− ${s(sale.discount)}`, bold: false, red: true }] : []),
-            ...(sale.tax ? [{ label: 'Tax (18%)', value: `+ ${s(sale.tax)}`, bold: false }] : []),
-          ].map(({ label, value, bold, red }: any) => (
-            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12, color: red ? '#dc2626' : '#64748b', fontWeight: bold ? 700 : 400 }}>
-              <span>{label}</span><span>{value}</span>
+            { label: 'Subtotal :', value: fc(sale.subtotal) },
+            { label: 'Discount :', value: sale.discount ? fc(sale.discount) : fc(0) },
+          ].map(({ label, value }) => (
+            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12, color: '#64748b', borderBottom: '1px solid #e2e8f0' }}>
+              <span style={{ fontWeight: 600 }}>{label}</span><span>{value}</span>
             </div>
           ))}
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', marginTop: 8, background: '#6d28d9', borderRadius: 10, fontSize: 15, fontWeight: 800, color: '#fff' }}>
-            <span>TOTAL</span><span>{s(sale.total)}</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, background: INV_ORANGE, padding: '8px 12px', borderRadius: 4 }}>
+            <span style={{ fontSize: 14, fontWeight: 900, color: '#fff', letterSpacing: 1 }}>TOTAL</span>
+            <span style={{ fontSize: 14, fontWeight: 900, color: '#fff' }}>{fc(sale.total)}</span>
           </div>
           {sale.dueAmount > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 14px', marginTop: 6, background: '#fef9c3', borderRadius: 8, fontSize: 11, fontWeight: 600, color: '#92400e' }}>
-              <span>Amount Due</span><span>{s(sale.dueAmount)}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, background: '#fef3c7', padding: '5px 10px', borderRadius: 4, fontSize: 11, color: '#92400e', fontWeight: 700 }}>
+              <span>Due</span><span>{fc(sale.dueAmount)}</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* Payments */}
-      {sale.payments?.length > 0 && (
-        <div style={{ margin: '0 40px 20px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '12px 16px' }}>
-          <p style={{ margin: '0 0 8px', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: '#16a34a', fontWeight: 700 }}>Payment Received</p>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            {sale.payments.map((p: any) => (
-              <div key={p.id} style={{ fontSize: 11, color: '#14532d', fontWeight: 600 }}>
-                {p.method}: {s(p.amount)}{p.reference ? ` (Ref: ${p.reference})` : ''}
-              </div>
-            ))}
+      {/* BOTTOM */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', padding: '0 36px 20px' }}>
+        <div>
+          {sale.notes && <p style={{ margin: '0 0 4px', fontSize: 11, color: '#475569', fontStyle: 'italic' }}>{sale.notes}</p>}
+          <p style={{ margin: '0 0 3px', fontSize: 12, color: '#475569', fontStyle: 'italic' }}>Thanks for your business</p>
+          <p style={{ margin: 0, fontSize: 10, color: '#94a3b8' }}>Computer-generated invoice · {shopName}</p>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ borderTop: '2px solid ' + INV_NAVY, paddingTop: 4, width: 140 }}>
+            <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: INV_NAVY }}>{sale.cashierName}</p>
+            <p style={{ margin: 0, fontSize: 9, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1 }}>Authorised Signature</p>
           </div>
         </div>
-      )}
-
-      {/* Notes */}
-      {sale.notes && (
-        <div style={{ margin: '0 40px 20px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '12px 16px' }}>
-          <p style={{ margin: '0 0 4px', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: '#94a3b8', fontWeight: 700 }}>Notes</p>
-          <p style={{ margin: 0, fontSize: 11, color: '#475569' }}>{sale.notes}</p>
-        </div>
-      )}
-
-      {/* Footer */}
-      <div style={{ background: '#f8f5ff', borderTop: '2px solid #ede9fe', padding: '14px 40px', textAlign: 'center' }}>
-        <p style={{ margin: 0, fontSize: 11, color: '#7c3aed', fontWeight: 600 }}>Thank you for your purchase!</p>
-        <p style={{ margin: '3px 0 0', fontSize: 9, color: '#a78bfa' }}>This is a computer-generated invoice · {shopName}</p>
       </div>
+      <div style={{ height: 8, background: `linear-gradient(90deg, ${INV_NAVY} 60%, ${INV_ORANGE} 100%)` }} />
     </div>
   )
 }
