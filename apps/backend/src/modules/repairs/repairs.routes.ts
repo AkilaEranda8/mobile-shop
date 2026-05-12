@@ -21,6 +21,9 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
 router.post('/:id/status', async (req: Request, res: Response, next: NextFunction) => {
   try { sendSuccess(res, await repairsService.updateStatus(req.tenantId!, req.params.id, req.body.status, req.user!.email, req.body.note)) } catch (e) { next(e) }
 })
+router.patch('/:id/status', async (req: Request, res: Response, next: NextFunction) => {
+  try { sendSuccess(res, await repairsService.updateStatus(req.tenantId!, req.params.id, req.body.status, req.user!.email, req.body.note)) } catch (e) { next(e) }
+})
 router.post('/:id/notes', async (req: Request, res: Response, next: NextFunction) => {
   try { sendSuccess(res, await repairsService.addNote(req.tenantId!, req.params.id, req.body.text, req.user!.email, req.body.isPublic ?? false), 'Note added', 201) } catch (e) { next(e) }
 })
