@@ -45,7 +45,11 @@ async function request<T = unknown>(
   }
 
   const json = await res.json()
-  if (!res.ok) throw new Error(json.message || 'Request failed')
+  if (!res.ok) {
+    const err: any = new Error(json.message || 'Request failed')
+    err.status = res.status
+    throw err
+  }
   return json
 }
 

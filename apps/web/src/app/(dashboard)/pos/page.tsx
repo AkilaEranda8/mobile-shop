@@ -127,7 +127,21 @@ function RegisterCustomerModal({ onClose, onCreated }: { onClose: () => void; on
       toast.success('Customer registered')
       onCreated(res?.data)
       onClose()
-    } catch (e: any) { toast.error(e?.message ?? 'Failed') }
+    } catch (e: any) {
+      if (e?.status === 409 || e?.message?.toLowerCase().includes('already')) {
+        try {
+          const found: any = await customersApi.search(form.phone)
+          const existing = found?.data?.[0] ?? found?.[0]
+          if (existing) {
+            toast.success(`Existing customer selected: ${existing.name}`)
+            onCreated(existing)
+            onClose()
+            return
+          }
+        } catch { /* fall through */ }
+      }
+      toast.error(e?.message ?? 'Failed')
+    }
     finally { setLoading(false) }
   }
 
