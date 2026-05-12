@@ -89,6 +89,11 @@ export const usersApi = {
   remove: (id: string) => api.delete(`/users/${id}`),
 }
 
+export const tenantApi = {
+  get: (id: string) => api.get(`/tenants/${id}`),
+  update: (id: string, body: unknown) => api.put(`/tenants/${id}`, body),
+}
+
 export const productsApi = {
   list: (params?: Record<string, string>) =>
     api.get(`/products${params ? '?' + new URLSearchParams(params) : ''}`),
