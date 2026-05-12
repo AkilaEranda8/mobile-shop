@@ -73,20 +73,18 @@ export default function Header({ onMenuToggle, sidebarOpen }: HeaderProps) {
         </div>
 
         {/* Theme toggle */}
-        {mounted && (
-          <button
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all duration-200"
-            style={{
-              background: theme === 'dark' ? 'rgba(124,58,237,0.15)' : 'rgba(0,0,0,0.05)',
-              borderColor: theme === 'dark' ? 'rgba(124,58,237,0.35)' : 'rgba(0,0,0,0.1)',
-              color: theme === 'dark' ? '#a78bfa' : '#475569',
-            }}
-          >
-            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-            <span className="hidden sm:inline">{theme === 'dark' ? 'Light' : 'Dark'}</span>
-          </button>
-        )}
+        <button
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all duration-200"
+          style={{
+            background: theme === 'dark' ? 'rgba(124,58,237,0.15)' : 'rgba(0,0,0,0.05)',
+            borderColor: theme === 'dark' ? 'rgba(124,58,237,0.35)' : 'rgba(0,0,0,0.1)',
+            color: theme === 'dark' ? '#a78bfa' : '#475569',
+          }}
+        >
+          {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+          <span className="hidden sm:inline">{theme === 'dark' ? 'Light' : 'Dark'}</span>
+        </button>
 
         {/* Notifications */}
         <div className="relative">
