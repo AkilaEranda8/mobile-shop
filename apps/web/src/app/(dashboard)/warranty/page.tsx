@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import {
   Search, Shield, Plus, AlertTriangle, Eye, Loader2, X, Edit, Trash2,
   Phone, Calendar, Hash, CheckCircle, Clock, Package, User, Save,
+  Download, Mail, Send,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { useWarranties, useCustomers, useProducts } from '@/lib/hooks'
@@ -222,11 +223,46 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete }: {
   const now      = new Date()
   const daysLeft = Math.ceil((new Date(warranty.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
   const expiring = daysLeft <= 30 && daysLeft > 0 && warranty.status === 'ACTIVE'
+  const certRef  = useRef<HTMLDivElement>(null)
+
+  const [downloading, setDownloading] = useState(false)
+  const [emailLoading, setEmailLoading] = useState(false)
+  const [showEmailInput, setShowEmailInput] = useState(false)
+  const [emailTo, setEmailTo] = useState('')
+
+  const downloadPdf = async () => {
+    if (!certRef.current) return
+    setDownloading(true)
+    try {
+      const html2canvas = (await import('html2canvas')).default
+      const jsPDF = (await import('jspdf')).default
+      const canvas = await html2canvas(certRef.current, { scale: 2, backgroundColor: '#ffffff', useCORS: true })
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: [canvas.width / 2, canvas.height / 2] })
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width / 2, canvas.height / 2)
+      pdf.save(`Warranty_${warranty.warrantyCode}.pdf`)
+      toast.success('PDF downloaded')
+    } catch { toast.error('PDF generation failed') }
+    finally { setDownloading(false) }
+  }
+
+  const sendEmail = async () => {
+    setEmailLoading(true)
+    try {
+      const res: any = await warrantyApi.sendEmail(warranty.id, emailTo || undefined)
+      toast.success(`Sent to ${res?.data?.sentTo ?? emailTo}`)
+      setShowEmailInput(false); setEmailTo('')
+    } catch (err: any) {
+      if (err?.message?.includes('No email')) setShowEmailInput(true)
+      toast.error(err?.message ?? 'Email failed')
+    }
+    finally { setEmailLoading(false) }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
+        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623] z-10">
           <div className="flex items-center gap-2">
             <Shield size={16} className="text-violet-400" />
             <div>
@@ -234,11 +270,11 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete }: {
               <h3 className="text-sm font-bold text-white">{warranty.productName}</h3>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={onEdit} className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 transition-colors">
+          <div className="flex items-center gap-1.5">
+            <button onClick={onEdit} className="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 transition-colors">
               <Edit size={11} />Edit
             </button>
-            <button onClick={onDelete} className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">
+            <button onClick={onDelete} className="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">
               <Trash2 size={11} />Delete
             </button>
             <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
@@ -276,9 +312,9 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete }: {
           {/* Dates */}
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: 'Start Date',  value: formatDate(warranty.startDate),  icon: Calendar },
-              { label: 'End Date',    value: formatDate(warranty.endDate),    icon: Calendar },
-              { label: 'Duration',    value: `${warranty.monthsDuration} mo`, icon: Clock },
+              { label: 'Start Date', value: formatDate(warranty.startDate), icon: Calendar },
+              { label: 'End Date',   value: formatDate(warranty.endDate),   icon: Calendar },
+              { label: 'Duration',   value: `${warranty.monthsDuration} mo`, icon: Clock   },
             ].map(({ label, value, icon: Icon }) => (
               <div key={label} className="bg-white/3 rounded-xl p-3 border border-white/5 text-center">
                 <Icon size={12} className="mx-auto mb-1 text-slate-500" />
@@ -311,6 +347,94 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete }: {
           )}
 
           <p className="text-[10px] text-slate-600 flex items-center gap-1"><Calendar size={10} />Issued {formatDate(warranty.createdAt)}</p>
+
+          {/* ── Action buttons ── */}
+          <div className="pt-1 border-t border-white/5 space-y-2">
+            <div className="flex gap-2">
+              <button onClick={downloadPdf} disabled={downloading}
+                className="flex-1 flex items-center justify-center gap-2 py-2 text-xs rounded-xl bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 border border-violet-500/20 transition-colors disabled:opacity-50 font-semibold">
+                {downloading ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}Download PDF
+              </button>
+              <button
+                disabled={emailLoading}
+                className="flex-1 flex items-center justify-center gap-2 py-2 text-xs rounded-xl bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/20 transition-colors disabled:opacity-50 font-semibold"
+                onClick={() => setShowEmailInput(v => !v)}>
+                {emailLoading ? <Loader2 size={12} className="animate-spin" /> : <Mail size={12} />}Send Email
+              </button>
+            </div>
+            {showEmailInput && (
+              <div className="flex gap-2">
+                <input type="email" className="input-field flex-1 text-xs py-1.5" placeholder="Enter email address…"
+                  value={emailTo} onChange={e => setEmailTo(e.target.value)} autoFocus />
+                <button onClick={sendEmail} disabled={emailLoading || !emailTo}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-xl bg-cyan-500 text-white hover:bg-cyan-400 disabled:opacity-50 font-semibold transition-colors">
+                  {emailLoading ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}Send
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* ── Hidden Certificate for PDF ── */}
+          <div className="overflow-hidden h-0">
+            <div ref={certRef} style={{ width: 600, background: '#fff', fontFamily: 'Arial, sans-serif', borderRadius: 16, overflow: 'hidden' }}>
+              {/* Header */}
+              <div style={{ background: 'linear-gradient(135deg,#6d28d9,#7c3aed)', padding: '32px 36px 24px', textAlign: 'center' }}>
+                <div style={{ fontSize: 28, marginBottom: 4 }}>🛡️</div>
+                <p style={{ margin: 0, color: '#fff', fontSize: 20, fontWeight: 700, letterSpacing: .5 }}>WARRANTY CERTIFICATE</p>
+                <p style={{ margin: '4px 0 0', color: '#c4b5fd', fontSize: 12 }}>Official Warranty Document</p>
+                <div style={{ display: 'inline-block', margin: '14px auto 0', background: 'rgba(255,255,255,.15)', border: '1px solid rgba(255,255,255,.3)', borderRadius: 8, padding: '8px 24px', color: '#fff', fontFamily: 'monospace', fontSize: 18, letterSpacing: 2 }}>
+                  {warranty.warrantyCode}
+                </div>
+                <p style={{ margin: '10px 0 0', color: '#c4b5fd', fontSize: 11 }}>Issued: {formatDate(warranty.createdAt)}</p>
+              </div>
+              {/* Body */}
+              <div style={{ padding: '24px 36px' }}>
+                {/* Customer */}
+                <p style={{ margin: '0 0 8px', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, color: '#7c3aed', fontWeight: 700 }}>Customer Details</p>
+                <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+                  {[{ label: 'Name', value: warranty.customerName }, { label: 'Phone', value: warranty.customerPhone }].map(({ label, value }) => (
+                    <div key={label} style={{ flex: 1, background: '#f8f5ff', border: '1px solid #ede9fe', borderRadius: 8, padding: '10px 12px' }}>
+                      <p style={{ margin: '0 0 3px', fontSize: 9, color: '#8b5cf6' }}>{label}</p>
+                      <p style={{ margin: 0, fontSize: 13, color: '#1e1b4b', fontWeight: 600 }}>{value}</p>
+                    </div>
+                  ))}
+                </div>
+                {/* Product */}
+                <p style={{ margin: '0 0 8px', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, color: '#7c3aed', fontWeight: 700 }}>Product Details</p>
+                <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+                  {[{ label: 'Product', value: warranty.productName }, { label: 'Brand', value: warranty.brandName || '—' }].map(({ label, value }) => (
+                    <div key={label} style={{ flex: 1, background: '#f8f5ff', border: '1px solid #ede9fe', borderRadius: 8, padding: '10px 12px' }}>
+                      <p style={{ margin: '0 0 3px', fontSize: 9, color: '#8b5cf6' }}>{label}</p>
+                      <p style={{ margin: 0, fontSize: 13, color: '#1e1b4b', fontWeight: 600 }}>{value}</p>
+                    </div>
+                  ))}
+                </div>
+                {warranty.imei && (
+                  <div style={{ background: '#f8f5ff', border: '1px solid #ede9fe', borderRadius: 8, padding: '10px 12px', marginBottom: 20 }}>
+                    <p style={{ margin: '0 0 3px', fontSize: 9, color: '#8b5cf6' }}>IMEI / Serial</p>
+                    <p style={{ margin: 0, fontSize: 13, color: '#1e1b4b', fontWeight: 600, fontFamily: 'monospace' }}>{warranty.imei}</p>
+                  </div>
+                )}
+                {/* Dates */}
+                <p style={{ margin: '0 0 8px', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, color: '#16a34a', fontWeight: 700 }}>Warranty Period</p>
+                <div style={{ display: 'flex', gap: 12, marginBottom: 16, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '14px 18px' }}>
+                  {[{ label: 'Start Date', value: formatDate(warranty.startDate) }, { label: 'End Date', value: formatDate(warranty.endDate) }, { label: 'Duration', value: `${warranty.monthsDuration} months` }].map(({ label, value }) => (
+                    <div key={label} style={{ flex: 1 }}>
+                      <p style={{ margin: '0 0 2px', fontSize: 9, color: '#16a34a' }}>{label}</p>
+                      <p style={{ margin: 0, fontSize: 12, color: '#14532d', fontWeight: 700 }}>{value}</p>
+                    </div>
+                  ))}
+                </div>
+                {warranty.invoiceNumber && (
+                  <p style={{ fontSize: 11, color: '#64748b', margin: '0 0 4px' }}>Invoice: <strong>{warranty.invoiceNumber}</strong></p>
+                )}
+              </div>
+              {/* Footer */}
+              <div style={{ background: '#f8fafc', borderTop: '1px solid #e2e8f0', padding: '16px 36px', textAlign: 'center' }}>
+                <p style={{ margin: 0, fontSize: 10, color: '#94a3b8' }}>This is an official warranty certificate. Keep this document safe and present it when making a warranty claim.</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

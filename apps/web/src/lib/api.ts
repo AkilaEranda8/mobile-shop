@@ -143,6 +143,7 @@ export const warrantyApi = {
   update: (id: string, body: unknown) => api.put(`/warranties/${id}`, body),
   remove: (id: string) => api.delete(`/warranties/${id}`),
   addClaim: (id: string, body: unknown) => api.post(`/warranties/${id}/claims`, body),
+  sendEmail: (id: string, email?: string) => api.post(`/warranties/${id}/email`, { email }),
 }
 
 export const suppliersApi = {

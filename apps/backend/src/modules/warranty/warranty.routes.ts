@@ -5,6 +5,7 @@ import { authenticate } from '../../middleware/auth.middleware'
 import { AppError } from '../../middleware/error.middleware'
 import { getPagination } from '../../utils/pagination'
 import { generateWarrantyCode } from '../../utils/counters'
+import { sendMail, warrantyEmailHtml } from '../../utils/mailer'
 
 const router = Router()
 router.use(authenticate)
@@ -78,6 +79,26 @@ router.post('/:id/claims', async (req: Request, res: Response, next: NextFunctio
     if (!w) throw new AppError('Warranty not found', 404)
     const claim = await prisma.warrantyClaim.create({ data: { warrantyId: w.id, issue: req.body.issue } })
     sendSuccess(res, claim, 'Claim submitted', 201)
+  } catch (e) { next(e) }
+})
+
+router.post('/:id/email', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const w = await prisma.warranty.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! }, include: { claims: true } })
+    if (!w) throw new AppError('Warranty not found', 404)
+
+    // Resolve recipient: body.email → customer.email → error
+    let to: string = req.body.email ?? ''
+    if (!to && w.customerId) {
+      const customer = await prisma.customer.findUnique({ where: { id: w.customerId } })
+      to = customer?.email ?? ''
+    }
+    if (!to) throw new AppError('No email address found for this customer. Please provide one.', 400)
+
+    const tenant = await prisma.tenant.findUnique({ where: { id: req.tenantId! } })
+    const html   = warrantyEmailHtml(w, tenant?.name ?? 'Our Shop')
+    await sendMail(to, `Your Warranty Certificate – ${w.warrantyCode}`, html)
+    sendSuccess(res, { sentTo: to }, 'Warranty email sent')
   } catch (e) { next(e) }
 })
 
