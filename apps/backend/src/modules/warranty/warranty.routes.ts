@@ -43,6 +43,35 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   } catch (e) { next(e) }
 })
 
+router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const w = await prisma.warranty.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! } })
+    if (!w) throw new AppError('Warranty not found', 404)
+    const { customerName, customerPhone, productName, brandName, imei, startDate, endDate, monthsDuration, status } = req.body
+    const data: any = {}
+    if (customerName   !== undefined) data.customerName   = customerName
+    if (customerPhone  !== undefined) data.customerPhone  = customerPhone
+    if (productName    !== undefined) data.productName    = productName
+    if (brandName      !== undefined) data.brandName      = brandName
+    if (imei           !== undefined) data.imei           = imei
+    if (startDate      !== undefined) data.startDate      = new Date(startDate)
+    if (endDate        !== undefined) data.endDate        = new Date(endDate)
+    if (monthsDuration !== undefined) data.monthsDuration = Number(monthsDuration)
+    if (status         !== undefined) data.status         = status
+    const updated = await prisma.warranty.update({ where: { id: req.params.id }, data, include: { claims: true } })
+    sendSuccess(res, updated, 'Warranty updated')
+  } catch (e) { next(e) }
+})
+
+router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const w = await prisma.warranty.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! } })
+    if (!w) throw new AppError('Warranty not found', 404)
+    await prisma.warranty.delete({ where: { id: req.params.id } })
+    sendSuccess(res, null, 'Warranty deleted')
+  } catch (e) { next(e) }
+})
+
 router.post('/:id/claims', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const w = await prisma.warranty.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! } })

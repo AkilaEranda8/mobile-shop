@@ -1,46 +1,327 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Shield, Plus, AlertTriangle, CheckCircle, Clock, Eye, Loader2 } from 'lucide-react'
-import { formatDate, formatCurrency } from '@/lib/utils'
+import {
+  Search, Shield, Plus, AlertTriangle, Eye, Loader2, X, Edit, Trash2,
+  Phone, Calendar, Hash, CheckCircle, Clock, Package, User, Save,
+} from 'lucide-react'
+import { formatDate } from '@/lib/utils'
 import { useWarranties } from '@/lib/hooks'
+import { warrantyApi } from '@/lib/api'
+import toast from 'react-hot-toast'
 import type { Warranty } from '@/types'
 
 const statusColors: Record<string, string> = {
-  ACTIVE: 'bg-green-500/10 border-green-500/20 text-green-400',
-  EXPIRED: 'bg-slate-500/10 border-slate-500/20 text-slate-400',
-  VOID: 'bg-red-500/10 border-red-500/20 text-red-400',
-  CLAIMED: 'bg-blue-500/10 border-blue-500/20 text-blue-400',
+  ACTIVE:  'bg-green-500/10  border-green-500/20  text-green-400',
+  EXPIRED: 'bg-slate-500/10  border-slate-500/20  text-slate-400',
+  VOID:    'bg-red-500/10    border-red-500/20    text-red-400',
+  CLAIMED: 'bg-blue-500/10   border-blue-500/20   text-blue-400',
 }
 
+/* ── Add Warranty Modal ───────────────────────────────────────────────── */
+function AddWarrantyModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState({
+    customerName: '', customerPhone: '', productName: '', brandName: '',
+    imei: '', monthsDuration: '12', startDate: new Date().toISOString().slice(0, 10),
+    invoiceNumber: '', saleId: '', customerId: '', productId: '',
+  })
+  const [loading, setLoading] = useState(false)
+  const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm(p => ({ ...p, [k]: e.target.value }))
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); setLoading(true)
+    try {
+      const start = new Date(form.startDate)
+      const end   = new Date(start)
+      end.setMonth(end.getMonth() + Number(form.monthsDuration))
+      await warrantyApi.create({ ...form, monthsDuration: Number(form.monthsDuration), startDate: start, endDate: end })
+      toast.success('Warranty issued'); onSaved(); onClose()
+    } catch (err: any) { toast.error(err?.message ?? 'Failed to issue warranty') }
+    finally { setLoading(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
+          <h3 className="text-sm font-bold text-white">Issue New Warranty</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { k: 'customerName',  label: 'Customer Name *', req: true  },
+              { k: 'customerPhone', label: 'Phone *',          req: true  },
+              { k: 'productName',   label: 'Product Name *',  req: true  },
+              { k: 'brandName',     label: 'Brand *',         req: true  },
+              { k: 'imei',          label: 'IMEI / Serial',   req: false },
+              { k: 'invoiceNumber', label: 'Invoice No.',      req: false },
+            ].map(({ k, label, req }) => (
+              <div key={k}>
+                <label className="block text-xs text-slate-400 mb-1.5">{label}</label>
+                <input required={req} className="input-field" value={(form as any)[k]} onChange={f(k)} />
+              </div>
+            ))}
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">Start Date *</label>
+              <input type="date" required className="input-field" value={form.startDate} onChange={f('startDate')} />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">Duration (Months) *</label>
+              <select required className="input-field" value={form.monthsDuration} onChange={f('monthsDuration')}>
+                {[1,3,6,12,18,24,36].map(m => <option key={m} value={m}>{m} month{m > 1 ? 's' : ''}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
+            <button type="submit" disabled={loading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}Issue Warranty
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+/* ── View Details Modal ───────────────────────────────────────────────── */
+function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete }: {
+  warranty: Warranty; onClose: () => void; onEdit: () => void; onDelete: () => void
+}) {
+  const now      = new Date()
+  const daysLeft = Math.ceil((new Date(warranty.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+  const expiring = daysLeft <= 30 && daysLeft > 0 && warranty.status === 'ACTIVE'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
+          <div className="flex items-center gap-2">
+            <Shield size={16} className="text-violet-400" />
+            <div>
+              <p className="text-xs font-mono text-violet-400">{warranty.warrantyCode}</p>
+              <h3 className="text-sm font-bold text-white">{warranty.productName}</h3>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={onEdit} className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 transition-colors">
+              <Edit size={11} />Edit
+            </button>
+            <button onClick={onDelete} className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">
+              <Trash2 size={11} />Delete
+            </button>
+            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
+          </div>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* Status + days left */}
+          <div className="flex items-center justify-between p-3 bg-white/3 rounded-xl border border-white/5">
+            <span className={`text-xs px-3 py-1 rounded-full border font-semibold ${statusColors[warranty.status]}`}>
+              {warranty.status}
+            </span>
+            {expiring
+              ? <span className="text-xs text-yellow-400 flex items-center gap-1"><AlertTriangle size={11} />{daysLeft} days left</span>
+              : warranty.status === 'ACTIVE'
+                ? <span className="text-xs text-green-400 flex items-center gap-1"><CheckCircle size={11} />{daysLeft} days remaining</span>
+                : null}
+          </div>
+
+          {/* Customer + Product */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-white/3 rounded-xl p-3 border border-white/5">
+              <div className="flex items-center gap-1.5 mb-2"><User size={11} className="text-cyan-400" /><span className="text-[10px] text-slate-500 uppercase tracking-wide">Customer</span></div>
+              <p className="text-xs font-semibold text-slate-200">{warranty.customerName}</p>
+              <a href={`tel:${warranty.customerPhone}`} className="text-[11px] text-cyan-400 flex items-center gap-1 mt-0.5"><Phone size={9} />{warranty.customerPhone}</a>
+            </div>
+            <div className="bg-white/3 rounded-xl p-3 border border-white/5">
+              <div className="flex items-center gap-1.5 mb-2"><Package size={11} className="text-violet-400" /><span className="text-[10px] text-slate-500 uppercase tracking-wide">Product</span></div>
+              <p className="text-xs font-semibold text-slate-200">{warranty.productName}</p>
+              <p className="text-[11px] text-slate-500">{warranty.brandName}</p>
+              {warranty.imei && <p className="text-[10px] font-mono text-slate-600 mt-0.5">{warranty.imei}</p>}
+            </div>
+          </div>
+
+          {/* Dates */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Start Date',  value: formatDate(warranty.startDate),  icon: Calendar },
+              { label: 'End Date',    value: formatDate(warranty.endDate),    icon: Calendar },
+              { label: 'Duration',    value: `${warranty.monthsDuration} mo`, icon: Clock },
+            ].map(({ label, value, icon: Icon }) => (
+              <div key={label} className="bg-white/3 rounded-xl p-3 border border-white/5 text-center">
+                <Icon size={12} className="mx-auto mb-1 text-slate-500" />
+                <p className="text-xs font-semibold text-white">{value}</p>
+                <p className="text-[10px] text-slate-600">{label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Invoice */}
+          {warranty.invoiceNumber && (
+            <div className="flex items-center gap-2 p-3 bg-white/3 rounded-xl border border-white/5">
+              <Hash size={11} className="text-slate-500" />
+              <span className="text-xs text-slate-400">Invoice:</span>
+              <span className="text-xs text-slate-200 font-mono">{warranty.invoiceNumber}</span>
+            </div>
+          )}
+
+          {/* Claims */}
+          {warranty.claims?.length > 0 && (
+            <div className="bg-white/3 rounded-xl p-3 border border-white/5">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-2">Claims ({warranty.claims.length})</p>
+              {warranty.claims.map((c: any) => (
+                <div key={c.id} className="flex items-start gap-2 py-2 border-b border-white/5 last:border-0">
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded border flex-shrink-0 ${c.status === 'RESOLVED' ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'}`}>{c.status}</span>
+                  <p className="text-xs text-slate-300 flex-1">{c.issue}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p className="text-[10px] text-slate-600 flex items-center gap-1"><Calendar size={10} />Issued {formatDate(warranty.createdAt)}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Edit Warranty Modal ──────────────────────────────────────────────── */
+function EditWarrantyModal({ warranty, onClose, onSaved }: {
+  warranty: Warranty; onClose: () => void; onSaved: () => void
+}) {
+  const [form, setForm] = useState({
+    customerName:   warranty.customerName   ?? '',
+    customerPhone:  warranty.customerPhone  ?? '',
+    productName:    warranty.productName    ?? '',
+    brandName:      warranty.brandName      ?? '',
+    imei:           warranty.imei           ?? '',
+    monthsDuration: String(warranty.monthsDuration ?? 12),
+    startDate:      warranty.startDate?.slice(0, 10) ?? '',
+    endDate:        warranty.endDate?.slice(0, 10)   ?? '',
+    status:         warranty.status ?? 'ACTIVE',
+  })
+  const [loading, setLoading] = useState(false)
+  const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm(p => ({ ...p, [k]: e.target.value }))
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); setLoading(true)
+    try {
+      await warrantyApi.update(warranty.id, { ...form, monthsDuration: Number(form.monthsDuration) })
+      toast.success('Warranty updated'); onSaved(); onClose()
+    } catch (err: any) { toast.error(err?.message ?? 'Update failed') }
+    finally { setLoading(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
+          <div>
+            <p className="text-[10px] font-mono text-violet-400">{warranty.warrantyCode}</p>
+            <h3 className="text-sm font-bold text-white">Edit Warranty</h3>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { k: 'customerName',  label: 'Customer Name *', req: true  },
+              { k: 'customerPhone', label: 'Phone *',          req: true  },
+              { k: 'productName',   label: 'Product Name *',  req: true  },
+              { k: 'brandName',     label: 'Brand',           req: false },
+              { k: 'imei',          label: 'IMEI / Serial',   req: false },
+            ].map(({ k, label, req }) => (
+              <div key={k}>
+                <label className="block text-xs text-slate-400 mb-1.5">{label}</label>
+                <input required={req} className="input-field" value={(form as any)[k]} onChange={f(k)} />
+              </div>
+            ))}
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">Start Date</label>
+              <input type="date" className="input-field" value={form.startDate} onChange={f('startDate')} />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">End Date</label>
+              <input type="date" className="input-field" value={form.endDate} onChange={f('endDate')} />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">Duration (Months)</label>
+              <select className="input-field" value={form.monthsDuration} onChange={f('monthsDuration')}>
+                {[1,3,6,12,18,24,36].map(m => <option key={m} value={m}>{m} month{m > 1 ? 's' : ''}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">Status</label>
+              <select className="input-field" value={form.status} onChange={f('status')}>
+                {['ACTIVE','EXPIRED','CLAIMED','VOID'].map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
+            <button type="submit" disabled={loading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+/* ── Main Page ────────────────────────────────────────────────────────── */
 export default function WarrantyPage() {
-  const { data: warrantyData, loading } = useWarranties()
-  const [search, setSearch] = useState('')
-  const [tab, setTab] = useState<'all' | 'expiring' | 'claimed'>('all')
+  const { data: warrantyData, loading, refetch } = useWarranties()
+  const [search, setSearch]               = useState('')
+  const [tab, setTab]                     = useState<'all' | 'expiring' | 'claimed'>('all')
+  const [showAdd,   setShowAdd]           = useState(false)
+  const [viewW,     setViewW]             = useState<Warranty | null>(null)
+  const [editW,     setEditW]             = useState<Warranty | null>(null)
+  const [deletingId, setDeletingId]       = useState<string | null>(null)
   const warranties: Warranty[] = (warrantyData?.data ?? []) as Warranty[]
 
-  const now = new Date()
+  const now        = new Date()
   const thirtyDays = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
   const expiringCount = warranties.filter((w: Warranty) => new Date(w.endDate) <= thirtyDays && w.status === 'ACTIVE').length
 
   const filtered = warranties.filter((w: Warranty) => {
-    const matchSearch = w.customerName.toLowerCase().includes(search.toLowerCase()) ||
+    const m = w.customerName.toLowerCase().includes(search.toLowerCase()) ||
       w.productName.toLowerCase().includes(search.toLowerCase()) ||
       w.warrantyCode.toLowerCase().includes(search.toLowerCase())
-    if (tab === 'expiring') return matchSearch && new Date(w.endDate) <= thirtyDays && w.status === 'ACTIVE'
-    if (tab === 'claimed') return matchSearch && w.status === 'CLAIMED'
-    return matchSearch
+    if (tab === 'expiring') return m && new Date(w.endDate) <= thirtyDays && w.status === 'ACTIVE'
+    if (tab === 'claimed')  return m && w.status === 'CLAIMED'
+    return m
   })
+
+  const handleDelete = async (w: Warranty) => {
+    if (!confirm(`Delete warranty ${w.warrantyCode}? This cannot be undone.`)) return
+    setDeletingId(w.id)
+    try {
+      await warrantyApi.remove(w.id)
+      toast.success('Warranty deleted')
+      refetch()
+      if (viewW?.id === w.id) setViewW(null)
+    } catch (err: any) { toast.error(err?.message ?? 'Delete failed') }
+    finally { setDeletingId(null) }
+  }
 
   return (
     <div className="space-y-6">
+      {showAdd  && <AddWarrantyModal onClose={() => setShowAdd(false)} onSaved={() => { refetch(); setShowAdd(false) }} />}
+      {viewW    && <WarrantyDetailsModal warranty={viewW} onClose={() => setViewW(null)} onEdit={() => { setEditW(viewW); setViewW(null) }} onDelete={() => handleDelete(viewW)} />}
+      {editW    && <EditWarrantyModal   warranty={editW} onClose={() => setEditW(null)}  onSaved={() => { refetch(); setEditW(null) }} />}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
           <h1 className="page-title">Warranty Management</h1>
           <p className="page-subtitle">{warranties.length} warranties · {expiringCount} expiring soon</p>
         </div>
-        <button className="btn-primary text-sm flex items-center gap-2 sm:ml-auto">
+        <button onClick={() => setShowAdd(true)} className="btn-primary text-sm flex items-center gap-2 sm:ml-auto">
           <Plus size={14} />Issue Warranty
         </button>
       </div>
@@ -48,10 +329,10 @@ export default function WarrantyPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total Warranties', value: warranties.length, color: 'text-violet-400' },
-          { label: 'Active', value: warranties.filter((w: Warranty) => w.status === 'ACTIVE').length, color: 'text-green-400' },
-          { label: 'Expiring in 30d', value: expiringCount, color: 'text-yellow-400' },
-          { label: 'Claimed', value: warranties.filter((w: Warranty) => w.status === 'CLAIMED').length, color: 'text-blue-400' },
+          { label: 'Total',       value: warranties.length,                                                  color: 'text-violet-400' },
+          { label: 'Active',      value: warranties.filter((w: Warranty) => w.status === 'ACTIVE').length,  color: 'text-green-400'  },
+          { label: 'Expiring 30d',value: expiringCount,                                                      color: 'text-yellow-400' },
+          { label: 'Claimed',     value: warranties.filter((w: Warranty) => w.status === 'CLAIMED').length, color: 'text-blue-400'   },
         ].map(s => (
           <div key={s.label} className="card p-4">
             <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
@@ -64,24 +345,16 @@ export default function WarrantyPage() {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex gap-1 bg-white/3 p-1 rounded-xl">
           {[['all', 'All'], ['expiring', `Expiring (${expiringCount})`], ['claimed', 'Claims']].map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setTab(key as 'all' | 'expiring' | 'claimed')}
-              className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${tab === key ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white'}`}
-            >
+            <button key={key} onClick={() => setTab(key as any)}
+              className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${tab === key ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white'}`}>
               {label}
             </button>
           ))}
         </div>
         <div className="relative flex-1 max-w-md sm:ml-auto">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-          <input
-            type="text"
-            placeholder="Search warranty code, customer, product..."
-            className="input-field pl-9"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+          <input type="text" placeholder="Search code, customer, product…" className="input-field pl-9"
+            value={search} onChange={e => setSearch(e.target.value)} />
         </div>
       </div>
 
@@ -94,66 +367,62 @@ export default function WarrantyPage() {
                 <th className="table-header">Warranty Code</th>
                 <th className="table-header">Product</th>
                 <th className="table-header">Customer</th>
-                <th className="table-header">Sale Date</th>
+                <th className="table-header">Start</th>
                 <th className="table-header">Expires</th>
                 <th className="table-header text-center">Status</th>
                 <th className="table-header text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/3">
-              {filtered.map((warranty) => {
-                const daysLeft = Math.ceil((new Date(warranty.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-                const isExpiringSoon = daysLeft <= 30 && daysLeft > 0 && warranty.status === 'ACTIVE'
+              {loading && (
+                <tr><td colSpan={7} className="table-cell text-center py-8"><Loader2 size={18} className="animate-spin text-violet-400 mx-auto" /></td></tr>
+              )}
+              {filtered.map((w) => {
+                const daysLeft     = Math.ceil((new Date(w.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+                const isExpiring   = daysLeft <= 30 && daysLeft > 0 && w.status === 'ACTIVE'
+                const isDeleting   = deletingId === w.id
                 return (
-                  <tr key={warranty.id} className="hover:bg-white/2 transition-colors">
+                  <tr key={w.id} className="hover:bg-white/2 transition-colors">
                     <td className="table-cell">
                       <div className="flex items-center gap-2">
-                        <Shield size={14} className="text-violet-400 flex-shrink-0" />
-                        <span className="text-xs font-mono text-violet-300">{warranty.warrantyCode}</span>
+                        <Shield size={13} className="text-violet-400 flex-shrink-0" />
+                        <span className="text-xs font-mono text-violet-300">{w.warrantyCode}</span>
                       </div>
                     </td>
                     <td className="table-cell">
-                      <p className="text-sm text-slate-200 truncate max-w-[200px]">{warranty.productName}</p>
-                      {warranty.imei && <p className="text-xs text-slate-600 font-mono">{warranty.imei}</p>}
+                      <p className="text-sm text-slate-200 truncate max-w-[180px]">{w.productName}</p>
+                      {w.imei && <p className="text-xs text-slate-600 font-mono truncate max-w-[180px]">{w.imei}</p>}
                     </td>
                     <td className="table-cell">
-                      <p className="text-sm text-slate-300">{warranty.customerName}</p>
-                      <p className="text-xs text-slate-500">{warranty.customerPhone}</p>
+                      <p className="text-sm text-slate-300">{w.customerName}</p>
+                      <p className="text-xs text-slate-500">{w.customerPhone}</p>
+                    </td>
+                    <td className="table-cell"><span className="text-xs text-slate-400">{formatDate(w.startDate)}</span></td>
+                    <td className="table-cell">
+                      <span className={`text-xs ${isExpiring ? 'text-yellow-400 font-semibold' : 'text-slate-400'}`}>{formatDate(w.endDate)}</span>
+                      {isExpiring && <p className="text-[10px] text-yellow-500 flex items-center gap-0.5 mt-0.5"><AlertTriangle size={9} />{daysLeft}d left</p>}
+                    </td>
+                    <td className="table-cell text-center">
+                      <span className={`text-[11px] px-2 py-0.5 rounded-full border ${statusColors[w.status] || ''}`}>{w.status}</span>
                     </td>
                     <td className="table-cell">
-                      <span className="text-xs text-slate-400">{formatDate(warranty.startDate)}</span>
-                    </td>
-                    <td className="table-cell">
-                      <div>
-                        <span className={`text-xs ${isExpiringSoon ? 'text-yellow-400 font-semibold' : 'text-slate-400'}`}>
-                          {formatDate(warranty.endDate)}
-                        </span>
-                        {isExpiringSoon && (
-                          <p className="text-[10px] text-yellow-500 flex items-center gap-0.5">
-                            <AlertTriangle size={9} />{daysLeft}d left
-                          </p>
-                        )}
+                      <div className="flex items-center justify-center gap-1">
+                        <button onClick={() => setViewW(w)} className="p-1.5 text-slate-500 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors" title="View Details">
+                          <Eye size={13} />
+                        </button>
+                        <button onClick={() => setEditW(w)} className="p-1.5 text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors" title="Edit">
+                          <Edit size={13} />
+                        </button>
+                        <button onClick={() => handleDelete(w)} disabled={isDeleting} className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-40" title="Delete">
+                          {isDeleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                        </button>
                       </div>
-                    </td>
-                    <td className="table-cell text-center">
-                      <span className={`text-[11px] px-2 py-0.5 rounded-full border ${statusColors[warranty.status] || ''}`}>
-                        {warranty.status}
-                      </span>
-                    </td>
-                    <td className="table-cell text-center">
-                      <button className="p-1.5 text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors">
-                        <Eye size={13} />
-                      </button>
                     </td>
                   </tr>
                 )
               })}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="table-cell text-center py-8 text-slate-500 text-sm">
-                    No warranties found
-                  </td>
-                </tr>
+              {!loading && filtered.length === 0 && (
+                <tr><td colSpan={7} className="table-cell text-center py-8 text-slate-500 text-sm">No warranties found</td></tr>
               )}
             </tbody>
           </table>

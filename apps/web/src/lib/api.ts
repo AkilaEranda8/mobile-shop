@@ -135,6 +135,8 @@ export const warrantyApi = {
     api.get(`/warranties${params ? '?' + new URLSearchParams(params) : ''}`),
   verify: (code: string) => api.get(`/warranties/verify/${code}`),
   create: (body: unknown) => api.post('/warranties', body),
+  update: (id: string, body: unknown) => api.put(`/warranties/${id}`, body),
+  remove: (id: string) => api.delete(`/warranties/${id}`),
   addClaim: (id: string, body: unknown) => api.post(`/warranties/${id}/claims`, body),
 }
 
