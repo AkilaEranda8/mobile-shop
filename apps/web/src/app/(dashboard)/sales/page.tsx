@@ -45,7 +45,7 @@ function InvoiceTemplate({ sale, shopName, settings }: { sale: any; shopName: st
   const displayName = settings.shopName || shopName
 
   return (
-    <div style={{ width: 700, background: '#fff', fontFamily: "'Segoe UI',Arial,sans-serif", color: '#1e293b' }}>
+    <div style={{ width: 794, background: '#fff', fontFamily: "'Segoe UI',Arial,sans-serif", color: '#1e293b' }}>
 
       {/* HEADER */}
       <div style={{ background: INV_NAVY, position: 'relative', overflow: 'hidden', padding: '30px 36px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 110 }}>
@@ -182,12 +182,36 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
     if (!invoiceRef.current) return
     setDownloading(true)
     try {
-      const html2canvas = (await import('html2canvas')).default
-      const jsPDF       = (await import('jspdf')).default
-      const canvas  = await html2canvas(invoiceRef.current, { scale: 2, backgroundColor: '#ffffff', useCORS: true })
-      const imgData = canvas.toDataURL('image/png')
-      const pdf     = new jsPDF({ orientation: 'portrait', unit: 'px', format: [canvas.width / 2, canvas.height / 2] })
-      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width / 2, canvas.height / 2)
+      const { default: html2canvas } = await import('html2canvas')
+      const { jsPDF }               = await import('jspdf')
+      const A4_W_PX = 794, A4_W_MM = 210, A4_H_MM = 297
+      const wrapper = document.createElement('div')
+      wrapper.style.cssText = `position:fixed;top:-9999px;left:-9999px;width:${A4_W_PX}px;overflow:visible;`
+      const el = invoiceRef.current!
+      const clone = el.cloneNode(true) as HTMLElement
+      clone.style.cssText = `width:${A4_W_PX}px;max-width:${A4_W_PX}px;border-radius:0;`
+      wrapper.appendChild(clone)
+      document.body.appendChild(wrapper)
+      const canvas = await html2canvas(clone, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false, width: A4_W_PX, windowWidth: A4_W_PX })
+      document.body.removeChild(wrapper)
+      const imgData = canvas.toDataURL('image/jpeg', 0.95)
+      const imgH_MM = (canvas.height / canvas.width) * A4_W_MM
+      const pdf     = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+      if (imgH_MM <= A4_H_MM) {
+        pdf.addImage(imgData, 'JPEG', 0, 0, A4_W_MM, imgH_MM)
+      } else {
+        const scale = canvas.width / A4_W_MM
+        let yMM = 0
+        while (yMM < imgH_MM) {
+          const sliceHMM = Math.min(A4_H_MM, imgH_MM - yMM)
+          const tmp = document.createElement('canvas')
+          tmp.width = canvas.width; tmp.height = Math.ceil(sliceHMM * scale)
+          tmp.getContext('2d')!.drawImage(canvas, 0, yMM * scale, canvas.width, sliceHMM * scale, 0, 0, canvas.width, sliceHMM * scale)
+          if (yMM > 0) pdf.addPage()
+          pdf.addImage(tmp.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, A4_W_MM, sliceHMM)
+          yMM += sliceHMM
+        }
+      }
       pdf.save(`Invoice_${sale.invoiceNumber}.pdf`)
       toast.success('Invoice downloaded')
     } catch { toast.error('Download failed') }
