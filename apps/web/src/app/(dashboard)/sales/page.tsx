@@ -1,12 +1,13 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Search, Receipt, Eye, X, Calendar, User, Package,
   CreditCard, Loader2, ChevronDown, Hash, ShoppingBag,
-  Banknote, Smartphone, TrendingUp,
+  Banknote, Smartphone, TrendingUp, Download,
 } from 'lucide-react'
 import { salesApi } from '@/lib/api'
+import { authStorage } from '@/lib/auth'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
@@ -23,13 +24,151 @@ const methodIcon: Record<string, React.ReactNode> = {
   UPI:    <Smartphone size={11} />,
 }
 
+/* ── Printable Invoice Template ─────────────────────────────────────────── */
+function InvoiceTemplate({ sale, shopName }: { sale: any; shopName: string }) {
+  const s = (n: number) => formatCurrency(n)
+  return (
+    <div style={{ width: 680, background: '#fff', fontFamily: "'Segoe UI', Arial, sans-serif", padding: 0, color: '#1e293b' }}>
+      {/* Header band */}
+      <div style={{ background: 'linear-gradient(135deg,#6d28d9,#7c3aed)', padding: '32px 40px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <p style={{ margin: 0, color: '#fff', fontSize: 26, fontWeight: 800, letterSpacing: -0.5 }}>{shopName}</p>
+          <p style={{ margin: '4px 0 0', color: '#c4b5fd', fontSize: 12 }}>Sales Invoice</p>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <p style={{ margin: 0, color: '#fff', fontSize: 20, fontWeight: 700, fontFamily: 'monospace' }}>{sale.invoiceNumber}</p>
+          <p style={{ margin: '4px 0 0', color: '#c4b5fd', fontSize: 11 }}>{new Date(sale.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          <div style={{ display: 'inline-block', marginTop: 8, padding: '3px 12px', borderRadius: 99, background: sale.status === 'PAID' ? 'rgba(34,197,94,.2)' : 'rgba(250,204,21,.2)', border: `1px solid ${sale.status === 'PAID' ? 'rgba(34,197,94,.4)' : 'rgba(250,204,21,.4)'}`, color: sale.status === 'PAID' ? '#4ade80' : '#fde047', fontSize: 10, fontWeight: 700, letterSpacing: 1 }}>
+            {sale.status}
+          </div>
+        </div>
+      </div>
+
+      {/* Bill to + Cashier */}
+      <div style={{ display: 'flex', gap: 0, background: '#f8f5ff', borderBottom: '1px solid #ede9fe' }}>
+        <div style={{ flex: 1, padding: '16px 40px' }}>
+          <p style={{ margin: '0 0 6px', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: '#7c3aed', fontWeight: 700 }}>Bill To</p>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#1e1b4b' }}>{sale.customerName || 'Walk-in Customer'}</p>
+          {sale.customerPhone && <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>{sale.customerPhone}</p>}
+        </div>
+        <div style={{ flex: 1, padding: '16px 40px', borderLeft: '1px solid #ede9fe' }}>
+          <p style={{ margin: '0 0 6px', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: '#7c3aed', fontWeight: 700 }}>Served By</p>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#1e1b4b' }}>{sale.cashierName}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>
+            {sale.payments?.map((p: any) => p.method).join(' + ') || '—'}
+          </p>
+        </div>
+      </div>
+
+      {/* Items table */}
+      <div style={{ padding: '24px 40px 0' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: '#6d28d9' }}>
+              {['#', 'Product', 'SKU', 'Qty', 'Unit Price', 'Total'].map((h, i) => (
+                <th key={h} style={{ padding: '8px 10px', color: '#fff', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .5, textAlign: i >= 3 ? 'right' : 'left' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sale.items?.map((item: any, idx: number) => (
+              <tr key={item.id} style={{ background: idx % 2 === 0 ? '#fff' : '#faf5ff', borderBottom: '1px solid #ede9fe' }}>
+                <td style={{ padding: '9px 10px', fontSize: 11, color: '#94a3b8' }}>{idx + 1}</td>
+                <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 600, color: '#1e293b' }}>
+                  {item.productName}
+                  {item.imei && <span style={{ display: 'block', fontSize: 9, color: '#94a3b8', fontFamily: 'monospace' }}>IMEI: {item.imei}</span>}
+                </td>
+                <td style={{ padding: '9px 10px', fontSize: 10, color: '#94a3b8', fontFamily: 'monospace' }}>{item.sku}</td>
+                <td style={{ padding: '9px 10px', fontSize: 12, color: '#1e293b', textAlign: 'right' }}>{item.quantity}</td>
+                <td style={{ padding: '9px 10px', fontSize: 12, color: '#1e293b', textAlign: 'right' }}>{s(item.unitPrice)}</td>
+                <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 700, color: '#1e1b4b', textAlign: 'right' }}>{s(item.total)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Totals */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '16px 40px 20px' }}>
+        <div style={{ width: 240 }}>
+          {[
+            { label: 'Subtotal', value: s(sale.subtotal), bold: false },
+            ...(sale.discount ? [{ label: 'Discount', value: `− ${s(sale.discount)}`, bold: false, red: true }] : []),
+            ...(sale.tax ? [{ label: 'Tax (18%)', value: `+ ${s(sale.tax)}`, bold: false }] : []),
+          ].map(({ label, value, bold, red }: any) => (
+            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12, color: red ? '#dc2626' : '#64748b', fontWeight: bold ? 700 : 400 }}>
+              <span>{label}</span><span>{value}</span>
+            </div>
+          ))}
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', marginTop: 8, background: '#6d28d9', borderRadius: 10, fontSize: 15, fontWeight: 800, color: '#fff' }}>
+            <span>TOTAL</span><span>{s(sale.total)}</span>
+          </div>
+          {sale.dueAmount > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 14px', marginTop: 6, background: '#fef9c3', borderRadius: 8, fontSize: 11, fontWeight: 600, color: '#92400e' }}>
+              <span>Amount Due</span><span>{s(sale.dueAmount)}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Payments */}
+      {sale.payments?.length > 0 && (
+        <div style={{ margin: '0 40px 20px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '12px 16px' }}>
+          <p style={{ margin: '0 0 8px', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: '#16a34a', fontWeight: 700 }}>Payment Received</p>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            {sale.payments.map((p: any) => (
+              <div key={p.id} style={{ fontSize: 11, color: '#14532d', fontWeight: 600 }}>
+                {p.method}: {s(p.amount)}{p.reference ? ` (Ref: ${p.reference})` : ''}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Notes */}
+      {sale.notes && (
+        <div style={{ margin: '0 40px 20px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '12px 16px' }}>
+          <p style={{ margin: '0 0 4px', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: '#94a3b8', fontWeight: 700 }}>Notes</p>
+          <p style={{ margin: 0, fontSize: 11, color: '#475569' }}>{sale.notes}</p>
+        </div>
+      )}
+
+      {/* Footer */}
+      <div style={{ background: '#f8f5ff', borderTop: '2px solid #ede9fe', padding: '14px 40px', textAlign: 'center' }}>
+        <p style={{ margin: 0, fontSize: 11, color: '#7c3aed', fontWeight: 600 }}>Thank you for your purchase!</p>
+        <p style={{ margin: '3px 0 0', fontSize: 9, color: '#a78bfa' }}>This is a computer-generated invoice · {shopName}</p>
+      </div>
+    </div>
+  )
+}
+
 /* ── Sale Details Modal ──────────────────────────────────────────────────── */
 function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void }) {
+  const invoiceRef  = useRef<HTMLDivElement>(null)
+  const [downloading, setDownloading] = useState(false)
+  const shopName = authStorage.getUser()?.name?.split(' ')[0] + ' Shop' || 'Our Shop'
+
+  const downloadInvoice = async () => {
+    if (!invoiceRef.current) return
+    setDownloading(true)
+    try {
+      const html2canvas = (await import('html2canvas')).default
+      const jsPDF       = (await import('jspdf')).default
+      const canvas  = await html2canvas(invoiceRef.current, { scale: 2, backgroundColor: '#ffffff', useCORS: true })
+      const imgData = canvas.toDataURL('image/png')
+      const pdf     = new jsPDF({ orientation: 'portrait', unit: 'px', format: [canvas.width / 2, canvas.height / 2] })
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width / 2, canvas.height / 2)
+      pdf.save(`Invoice_${sale.invoiceNumber}.pdf`)
+      toast.success('Invoice downloaded')
+    } catch { toast.error('Download failed') }
+    finally { setDownloading(false) }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
+        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623] z-10">
           <div className="flex items-center gap-2">
             <Receipt size={15} className="text-violet-400" />
             <div>
@@ -41,6 +180,11 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
             <span className={`text-xs px-2.5 py-1 rounded-full border font-semibold ${statusColors[sale.status] ?? ''}`}>
               {sale.status}
             </span>
+            <button onClick={downloadInvoice} disabled={downloading}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 border border-violet-500/20 transition-colors disabled:opacity-50 font-semibold">
+              {downloading ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />}
+              {downloading ? 'Generating…' : 'Download PDF'}
+            </button>
             <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5">
               <X size={15} />
             </button>
@@ -51,10 +195,10 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
           {/* Meta */}
           <div className="grid grid-cols-2 gap-3">
             {[
-              { label: 'Date',     value: formatDate(sale.createdAt),         icon: Calendar },
-              { label: 'Cashier',  value: sale.cashierName,                   icon: User     },
-              { label: 'Invoice',  value: sale.invoiceNumber,                 icon: Hash     },
-              { label: 'Customer', value: sale.customerName || 'Walk-in',     icon: User     },
+              { label: 'Date',     value: formatDate(sale.createdAt),     icon: Calendar },
+              { label: 'Cashier',  value: sale.cashierName,               icon: User     },
+              { label: 'Invoice',  value: sale.invoiceNumber,             icon: Hash     },
+              { label: 'Customer', value: sale.customerName || 'Walk-in', icon: User     },
             ].map(({ label, value, icon: Icon }) => (
               <div key={label} className="bg-white/3 rounded-xl p-3 border border-white/5">
                 <div className="flex items-center gap-1.5 mb-1">
@@ -88,9 +232,9 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
           {/* Totals */}
           <div className="bg-white/3 rounded-xl border border-white/5 p-3 space-y-1.5">
             {[
-              { label: 'Subtotal',  value: formatCurrency(sale.subtotal) },
-              { label: 'Discount',  value: `- ${formatCurrency(sale.discount)}`, hide: !sale.discount },
-              { label: 'Tax',       value: `+ ${formatCurrency(sale.tax)}`,       hide: !sale.tax      },
+              { label: 'Subtotal', value: formatCurrency(sale.subtotal) },
+              { label: 'Discount', value: `- ${formatCurrency(sale.discount)}`, hide: !sale.discount },
+              { label: 'Tax',      value: `+ ${formatCurrency(sale.tax)}`,      hide: !sale.tax      },
             ].filter(r => !r.hide).map(({ label, value }) => (
               <div key={label} className="flex justify-between text-xs text-slate-400">
                 <span>{label}</span><span>{value}</span>
@@ -129,6 +273,13 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
               <p className="text-xs text-slate-300">{sale.notes}</p>
             </div>
           )}
+
+          {/* Hidden invoice for PDF capture */}
+          <div className="overflow-hidden h-0">
+            <div ref={invoiceRef}>
+              <InvoiceTemplate sale={sale} shopName={shopName} />
+            </div>
+          </div>
         </div>
       </div>
     </div>
