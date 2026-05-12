@@ -149,49 +149,58 @@ function InvoiceContent() {
       const { default: html2canvas } = await import('html2canvas')
       const { jsPDF }               = await import('jspdf')
 
-      const canvas = await html2canvas(el, {
+      /* ── A4 dimensions ── */
+      const A4_W_PX = 794   // A4 at 96 dpi
+      const A4_W_MM = 210
+      const A4_H_MM = 297
+
+      /* Clone into an offscreen container at exactly A4 width */
+      const wrapper = document.createElement('div')
+      wrapper.style.cssText = `position:fixed;top:-9999px;left:-9999px;width:${A4_W_PX}px;overflow:visible;`
+      const clone = el.cloneNode(true) as HTMLElement
+      clone.style.cssText = `width:${A4_W_PX}px;max-width:${A4_W_PX}px;border-radius:0;`
+      wrapper.appendChild(clone)
+      document.body.appendChild(wrapper)
+
+      const canvas = await html2canvas(clone, {
         scale:           2,
         useCORS:         true,
         backgroundColor: '#0b1425',
         logging:         false,
-        windowWidth:     el.scrollWidth,
-        windowHeight:    el.scrollHeight,
+        width:           A4_W_PX,
+        windowWidth:     A4_W_PX,
       })
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.95)
-      const pdf     = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-      const pdfW    = pdf.internal.pageSize.getWidth()
-      const pdfH    = pdf.internal.pageSize.getHeight()
-      const ratio   = canvas.width / canvas.height
-      const imgW    = pdfW
-      const imgH    = imgW / ratio
+      document.body.removeChild(wrapper)
 
-      if (imgH <= pdfH) {
-        pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH)
+      const pdf          = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+      const imgData      = canvas.toDataURL('image/jpeg', 0.95)
+      const imgH_MM      = (canvas.height / canvas.width) * A4_W_MM
+
+      /* Multi-page slicing */
+      if (imgH_MM <= A4_H_MM) {
+        pdf.addImage(imgData, 'JPEG', 0, 0, A4_W_MM, imgH_MM)
       } else {
-        let yPos   = 0
-        let remain = imgH
-        while (remain > 0) {
-          const sliceH = Math.min(pdfH, remain)
-          const sy     = (yPos / imgH) * canvas.height
-          const sh     = (sliceH / imgH) * canvas.height
-          const sliceCv = document.createElement('canvas')
-          sliceCv.width  = canvas.width
-          sliceCv.height = sh
-          sliceCv.getContext('2d')!.drawImage(canvas, 0, sy, canvas.width, sh, 0, 0, canvas.width, sh)
-          const sliceData = sliceCv.toDataURL('image/jpeg', 0.95)
-          if (yPos > 0) pdf.addPage()
-          pdf.addImage(sliceData, 'JPEG', 0, 0, imgW, sliceH)
-          yPos   += sliceH
-          remain -= sliceH
+        const scale   = canvas.width / A4_W_MM           // px per mm
+        let   yMM     = 0
+        while (yMM < imgH_MM) {
+          const sliceHMM = Math.min(A4_H_MM, imgH_MM - yMM)
+          const sy       = yMM   * scale
+          const sh       = sliceHMM * scale
+          const tmp      = document.createElement('canvas')
+          tmp.width      = canvas.width
+          tmp.height     = Math.ceil(sh)
+          tmp.getContext('2d')!.drawImage(canvas, 0, sy, canvas.width, sh, 0, 0, canvas.width, sh)
+          if (yMM > 0) pdf.addPage()
+          pdf.addImage(tmp.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, A4_W_MM, sliceHMM)
+          yMM += A4_H_MM
         }
       }
 
-      const fileName = po?.poNumber ? `Invoice-${po.poNumber}.pdf` : 'Purchase-Invoice.pdf'
-      pdf.save(fileName)
+      pdf.save(po?.poNumber ? `Invoice-${po.poNumber}.pdf` : 'Purchase-Invoice.pdf')
     } catch (e) {
-      console.error('PDF generation failed', e)
-      alert('PDF generation failed. Try using Print → Save as PDF instead.')
+      console.error('PDF error', e)
+      alert('PDF generation failed — use Print → Save as PDF instead.')
     } finally {
       setDownloading(false)
     }
