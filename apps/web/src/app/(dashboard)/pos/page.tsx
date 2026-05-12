@@ -10,6 +10,7 @@ import { formatCurrency } from '@/lib/utils'
 interface CartItem {
   productId: string
   name: string
+  sku: string
   price: number
   quantity: number
   imei?: string
@@ -41,7 +42,7 @@ export default function POSPage() {
     setCart(prev => {
       const existing = prev.find(i => i.productId === product.id)
       if (existing) return prev.map(i => i.productId === product.id ? { ...i, quantity: i.quantity + 1 } : i)
-      return [...prev, { productId: product.id, name: product.name, price: product.sellingPrice, quantity: 1 }]
+      return [...prev, { productId: product.id, name: product.name, sku: product.sku ?? '', price: product.sellingPrice, quantity: 1 }]
     })
   }
 
@@ -73,7 +74,7 @@ export default function POSPage() {
         paidAmount: total,
         dueAmount: 0,
         status: 'PAID',
-        items: cart.map(i => ({ productId: i.productId, productName: i.name, quantity: i.quantity, unitPrice: i.price, total: i.price * i.quantity, imei: i.imei })),
+        items: cart.map(i => ({ productId: i.productId, productName: i.name, sku: i.sku, quantity: i.quantity, unitPrice: i.price, total: i.price * i.quantity, imei: i.imei })),
         payments: [{ method: paymentMethod, amount: total }],
       })
       setCompletedSale(res.data)
