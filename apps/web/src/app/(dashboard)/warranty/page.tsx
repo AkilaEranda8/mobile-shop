@@ -6,7 +6,7 @@ import {
   Phone, Calendar, Hash, CheckCircle, Clock, Package, User, Save,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
-import { useWarranties, useCustomers } from '@/lib/hooks'
+import { useWarranties, useCustomers, useProducts } from '@/lib/hooks'
 import { warrantyApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import type { Warranty } from '@/types'
@@ -26,12 +26,17 @@ function AddWarrantyModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     monthsDuration: '12', startDate: new Date().toISOString().slice(0, 10),
     invoiceNumber: '', saleId: '', productId: '',
   })
-  const [loading,       setLoading]       = useState(false)
-  const [custSearch,    setCustSearch]    = useState('')
-  const [selCustomer,   setSelCustomer]   = useState<any>(null)
+  const [loading,      setLoading]      = useState(false)
+  const [custSearch,   setCustSearch]   = useState('')
+  const [selCustomer,  setSelCustomer]  = useState<any>(null)
+  const [prodSearch,   setProdSearch]   = useState('')
+  const [selProduct,   setSelProduct]   = useState<any>(null)
 
-  const { data: custData } = useCustomers()
+  const { data: custData }  = useCustomers()
+  const { data: prodData }  = useProducts()
   const allCustomers: any[] = (custData?.data ?? []) as any[]
+  const allProducts:  any[] = (prodData?.data  ?? []) as any[]
+
   const filteredCustomers = custSearch.length > 0
     ? allCustomers.filter(c =>
         c.name?.toLowerCase().includes(custSearch.toLowerCase()) ||
@@ -39,10 +44,23 @@ function AddWarrantyModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
       ).slice(0, 8)
     : []
 
+  const filteredProducts = prodSearch.length > 1
+    ? allProducts.filter(p =>
+        p.name?.toLowerCase().includes(prodSearch.toLowerCase()) ||
+        p.sku?.toLowerCase().includes(prodSearch.toLowerCase())
+      ).slice(0, 8)
+    : []
+
   const selectCustomer = (c: any) => {
     setSelCustomer(c)
     setForm(p => ({ ...p, customerName: c.name, customerPhone: c.phone ?? '', customerId: c.id }))
     setCustSearch('')
+  }
+
+  const selectProduct = (p: any) => {
+    setSelProduct(p)
+    setForm(prev => ({ ...prev, productName: p.name, brandName: p.brandName ?? p.brand ?? '', productId: p.id }))
+    setProdSearch('')
   }
 
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -118,10 +136,53 @@ function AddWarrantyModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
             )}
           </div>
 
+          {/* ── Product Selector ── */}
+          <div>
+            <label className="block text-xs text-slate-400 mb-1.5">Product *</label>
+            {selProduct ? (
+              <div className="flex items-center gap-2 px-3 py-2 bg-orange-500/10 border border-orange-500/20 rounded-xl">
+                <Package size={13} className="text-orange-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-orange-200 truncate">{selProduct.name}</p>
+                  <p className="text-[10px] text-orange-400">{selProduct.brandName ?? selProduct.brand ?? ''}{selProduct.sku ? ` · ${selProduct.sku}` : ''}</p>
+                </div>
+                <button type="button" onClick={() => { setSelProduct(null); setForm(p => ({ ...p, productName: '', brandName: '', productId: '' })) }}
+                  className="text-slate-500 hover:text-white flex-shrink-0"><X size={12} /></button>
+              </div>
+            ) : (
+              <div className="relative">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <input
+                  className="input-field pl-8"
+                  placeholder="Search by product name or SKU…"
+                  value={prodSearch}
+                  onChange={e => setProdSearch(e.target.value)}
+                />
+                {filteredProducts.length > 0 && (
+                  <div className="absolute z-20 top-full mt-1 w-full bg-[#0f1623] border border-white/10 rounded-xl shadow-2xl overflow-hidden">
+                    {filteredProducts.map((p: any) => (
+                      <button key={p.id} type="button" onClick={() => selectProduct(p)}
+                        className="w-full text-left px-3 py-2.5 hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 flex items-center gap-2">
+                        <Package size={13} className="text-orange-400 flex-shrink-0" />
+                        <div>
+                          <p className="text-xs font-medium text-slate-200">{p.name}</p>
+                          <p className="text-[10px] text-slate-500">{p.brandName ?? p.brand ?? ''}{p.sku ? ` · ${p.sku}` : ''} · Stock: {p.stock ?? 0}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {prodSearch.length > 1 && filteredProducts.length === 0 && (
+                  <div className="absolute z-20 top-full mt-1 w-full bg-[#0f1623] border border-white/10 rounded-xl shadow-xl p-3">
+                    <p className="text-xs text-slate-500 text-center">No products found</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             {[
-              { k: 'productName',   label: 'Product Name *',  req: true  },
-              { k: 'brandName',     label: 'Brand *',         req: true  },
               { k: 'imei',          label: 'IMEI / Serial',   req: false },
               { k: 'invoiceNumber', label: 'Invoice No.',      req: false },
             ].map(({ k, label, req }) => (
@@ -144,7 +205,7 @@ function AddWarrantyModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
 
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
-            <button type="submit" disabled={loading || !selCustomer} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+            <button type="submit" disabled={loading || !selCustomer || !selProduct} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
               {loading ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}Issue Warranty
             </button>
           </div>
