@@ -215,7 +215,7 @@ export default function CustomersPage() {
             {row.original.name.charAt(0)}
           </div>
           <div>
-            <p className="text-sm font-medium text-slate-200">{row.original.name}</p>
+            <p className="text-sm font-bold text-slate-200">{row.original.name}</p>
             {row.original.loyaltyPoints >= 500 && (
               <span className="flex items-center gap-1 text-[10px] text-yellow-400">
                 <Star size={9} className="fill-yellow-400" />VIP
@@ -230,7 +230,7 @@ export default function CustomersPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Contact" />,
       cell: ({ row }) => (
         <div className="flex flex-col gap-0.5">
-          <span className="flex items-center gap-1 text-xs text-slate-400"><Phone size={10} />{row.original.phone}</span>
+          <span className="flex items-center gap-1 text-xs font-medium text-slate-400"><Phone size={10} />{row.original.phone}</span>
           {row.original.email && <span className="flex items-center gap-1 text-xs text-slate-500"><Mail size={10} />{row.original.email}</span>}
         </div>
       ),
@@ -238,7 +238,7 @@ export default function CustomersPage() {
     {
       accessorKey: 'city',
       header: ({ column }) => <DataTableColumnHeader column={column} title="City" />,
-      cell: ({ row }) => <span className="flex items-center gap-1 text-xs text-slate-400"><MapPin size={10} />{row.original.city || '—'}</span>,
+      cell: ({ row }) => <span className="flex items-center gap-1 text-xs font-medium text-slate-400"><MapPin size={10} />{row.original.city || '—'}</span>,
     },
     {
       accessorKey: 'totalPurchases',
@@ -248,12 +248,12 @@ export default function CustomersPage() {
     {
       accessorKey: 'loyaltyPoints',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Points" />,
-      cell: ({ row }) => <span className="text-xs text-violet-400 font-medium">{row.original.loyaltyPoints} pts</span>,
+      cell: ({ row }) => <span className="text-xs text-violet-400 font-semibold">{row.original.loyaltyPoints} pts</span>,
     },
     {
       accessorKey: 'createdAt',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Joined" />,
-      cell: ({ row }) => <span className="text-xs text-slate-500">{formatDate(row.original.createdAt)}</span>,
+      cell: ({ row }) => <span className="text-xs font-medium text-slate-500">{formatDate(row.original.createdAt)}</span>,
     },
     {
       id: 'actions',
