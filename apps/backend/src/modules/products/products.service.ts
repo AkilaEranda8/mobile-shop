@@ -55,7 +55,26 @@ export const productsService = {
   async update(tenantId: string, id: string, body: any) {
     const p = await prisma.product.findFirst({ where: { id, tenantId } })
     if (!p) throw new AppError('Product not found', 404)
-    return prisma.product.update({ where: { id }, data: body })
+    const { name, description, sku, barcode, categoryId, brandId,
+            buyingPrice, sellingPrice, mrp, trackImei, warrantyMonths,
+            imageUrl, stock, minStock, isActive } = body
+    const data: any = {}
+    if (name           !== undefined) data.name           = name
+    if (description    !== undefined) data.description    = description
+    if (sku            !== undefined) data.sku            = sku
+    if (barcode        !== undefined) data.barcode        = barcode
+    if (categoryId     !== undefined) data.categoryId     = categoryId
+    if (brandId        !== undefined) data.brandId        = brandId
+    if (buyingPrice    !== undefined) data.buyingPrice    = Number(buyingPrice)
+    if (sellingPrice   !== undefined) data.sellingPrice   = Number(sellingPrice)
+    if (mrp            !== undefined) data.mrp            = Number(mrp)
+    if (trackImei      !== undefined) data.trackImei      = Boolean(trackImei)
+    if (warrantyMonths !== undefined) data.warrantyMonths = Number(warrantyMonths)
+    if (imageUrl       !== undefined) data.imageUrl       = imageUrl
+    if (stock          !== undefined) data.stock          = Number(stock)
+    if (minStock       !== undefined) data.minStock       = Number(minStock)
+    if (isActive       !== undefined) data.isActive       = Boolean(isActive)
+    return prisma.product.update({ where: { id }, data })
   },
 
   async remove(tenantId: string, id: string) {
