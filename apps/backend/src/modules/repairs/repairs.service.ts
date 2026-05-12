@@ -52,7 +52,24 @@ export const repairsService = {
   async update(tenantId: string, id: string, body: any) {
     const r = await prisma.repairTicket.findFirst({ where: { id, tenantId } })
     if (!r) throw new AppError('Repair ticket not found', 404)
-    return prisma.repairTicket.update({ where: { id }, data: body, include: { notes: true, spareParts: true, history: true } })
+    const { customerName, customerPhone, deviceBrand, deviceModel, deviceColor,
+            imei, reportedIssue, technicianId, technicianName, priority,
+            estimatedCost, actualCost, estimatedCompletion } = body
+    const data: any = {}
+    if (customerName        !== undefined) data.customerName        = customerName
+    if (customerPhone       !== undefined) data.customerPhone       = customerPhone
+    if (deviceBrand         !== undefined) data.deviceBrand         = deviceBrand
+    if (deviceModel         !== undefined) data.deviceModel         = deviceModel
+    if (deviceColor         !== undefined) data.deviceColor         = deviceColor
+    if (imei                !== undefined) data.imei                = imei
+    if (reportedIssue       !== undefined) data.reportedIssue       = reportedIssue
+    if (technicianId        !== undefined) data.technicianId        = technicianId
+    if (technicianName      !== undefined) data.technicianName      = technicianName
+    if (priority            !== undefined) data.priority            = priority
+    if (estimatedCost       !== undefined) data.estimatedCost       = Number(estimatedCost)
+    if (actualCost          !== undefined) data.actualCost          = Number(actualCost)
+    if (estimatedCompletion !== undefined) data.estimatedCompletion = estimatedCompletion ? new Date(estimatedCompletion) : null
+    return prisma.repairTicket.update({ where: { id }, data, include: { notes: true, spareParts: true, history: true } })
   },
 
   async updateStatus(tenantId: string, id: string, status: string, changedBy: string, note?: string) {
