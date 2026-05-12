@@ -27,5 +27,11 @@ router.patch('/:id/status', async (req: Request, res: Response, next: NextFuncti
 router.post('/:id/notes', async (req: Request, res: Response, next: NextFunction) => {
   try { sendSuccess(res, await repairsService.addNote(req.tenantId!, req.params.id, req.body.text, req.user!.email, req.body.isPublic ?? false), 'Note added', 201) } catch (e) { next(e) }
 })
+router.post('/:id/parts', async (req: Request, res: Response, next: NextFunction) => {
+  try { sendSuccess(res, await repairsService.addSparePart(req.tenantId!, req.params.id, req.body), 'Part added', 201) } catch (e) { next(e) }
+})
+router.delete('/:id/parts/:partId', async (req: Request, res: Response, next: NextFunction) => {
+  try { sendSuccess(res, await repairsService.removeSparePart(req.tenantId!, req.params.id, req.params.partId), 'Part removed') } catch (e) { next(e) }
+})
 
 export default router

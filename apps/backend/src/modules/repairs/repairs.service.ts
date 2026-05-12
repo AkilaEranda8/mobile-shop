@@ -88,4 +88,24 @@ export const repairsService = {
     if (!r) throw new AppError('Repair ticket not found', 404)
     return prisma.repairNote.create({ data: { repairId: id, text, authorName, isPublic } })
   },
+
+  async addSparePart(tenantId: string, repairId: string, body: any) {
+    const r = await prisma.repairTicket.findFirst({ where: { id: repairId, tenantId } })
+    if (!r) throw new AppError('Repair ticket not found', 404)
+    const product = await prisma.product.findFirst({ where: { id: body.productId, tenantId } })
+    if (!product) throw new AppError('Product not found', 404)
+    const qty      = Number(body.quantity) || 1
+    const unitCost = Number(body.unitCost) || Number(product.buyingPrice) || 0
+    const part = await prisma.repairSparePart.create({
+      data: { repairId, productId: body.productId, productName: product.name, quantity: qty, unitCost, total: qty * unitCost },
+    })
+    return prisma.repairTicket.findUnique({ where: { id: repairId }, include: { notes: true, spareParts: true, history: true } })
+  },
+
+  async removeSparePart(tenantId: string, repairId: string, partId: string) {
+    const r = await prisma.repairTicket.findFirst({ where: { id: repairId, tenantId } })
+    if (!r) throw new AppError('Repair ticket not found', 404)
+    await prisma.repairSparePart.deleteMany({ where: { id: partId, repairId } })
+    return prisma.repairTicket.findUnique({ where: { id: repairId }, include: { notes: true, spareParts: true, history: true } })
+  },
 }

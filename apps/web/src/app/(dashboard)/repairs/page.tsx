@@ -7,7 +7,7 @@ import {
   Calendar, Hash, Save, ArrowRight, MessageSquare, Package,
 } from 'lucide-react'
 import { formatCurrency, formatDate, getRepairStatusColor } from '@/lib/utils'
-import { useRepairs } from '@/lib/hooks'
+import { useRepairs, useProducts } from '@/lib/hooks'
 import { repairsApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import toast from 'react-hot-toast'
@@ -124,13 +124,53 @@ const priorityBadge = (p: string) => {
 }
 
 /* ── Repair Details Modal ─────────────────────────────────────────────── */
-function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange }: {
+function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh }: {
   repair: RepairTicket
   onClose: () => void
   onEdit: () => void
   onStatusChange: (id: string, status: string) => Promise<void>
+  onRefresh: () => void
 }) {
   const [changingStatus, setChangingStatus] = useState(false)
+  /* ── spare parts state ── */
+  const [showAddPart, setShowAddPart]       = useState(false)
+  const [partSearch,  setPartSearch]        = useState('')
+  const [partQty,     setPartQty]           = useState(1)
+  const [partCost,    setPartCost]          = useState('')
+  const [selProduct,  setSelProduct]        = useState<any>(null)
+  const [addingPart,  setAddingPart]        = useState(false)
+  const [removingId,  setRemovingId]        = useState<string | null>(null)
+  const { data: productsData } = useProducts()
+  const allProducts: any[] = (productsData?.data ?? []) as any[]
+  const filteredProducts = partSearch.length > 1
+    ? allProducts.filter(p => p.name.toLowerCase().includes(partSearch.toLowerCase()) || p.sku?.toLowerCase().includes(partSearch.toLowerCase())).slice(0, 8)
+    : []
+
+  const handleAddPart = async () => {
+    if (!selProduct) return
+    setAddingPart(true)
+    try {
+      await repairsApi.addPart(repair.id, {
+        productId: selProduct.id,
+        quantity:  partQty,
+        unitCost:  partCost ? Number(partCost) : undefined,
+      })
+      toast.success(`${selProduct.name} added`)
+      setShowAddPart(false); setPartSearch(''); setSelProduct(null); setPartQty(1); setPartCost('')
+      onRefresh()
+    } catch { toast.error('Failed to add part') }
+    finally { setAddingPart(false) }
+  }
+
+  const handleRemovePart = async (partId: string) => {
+    setRemovingId(partId)
+    try {
+      await repairsApi.removePart(repair.id, partId)
+      toast.success('Part removed')
+      onRefresh()
+    } catch { toast.error('Failed to remove part') }
+    finally { setRemovingId(null) }
+  }
   const currentIdx = STATUS_FLOW.indexOf(repair.status)
   const nextStatus = STATUS_FLOW[currentIdx + 1] ?? null
 
@@ -257,6 +297,96 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange }: {
               <p className="text-xs font-semibold text-slate-200 truncate">{repair.technicianName || '—'}</p>
               <p className="text-[10px] text-slate-600">Technician</p>
             </div>
+          </div>
+
+          {/* ── Spare Parts ── */}
+          <div className="bg-white/3 rounded-xl p-3 border border-white/5">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1.5">
+                <Package size={11} className="text-orange-400" />
+                <span className="text-[10px] text-slate-500 uppercase tracking-wide">Spare Parts</span>
+              </div>
+              <button onClick={() => setShowAddPart(v => !v)}
+                className="flex items-center gap-1 px-2 py-1 text-[10px] rounded-lg bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 border border-orange-500/20 transition-colors">
+                <Plus size={9} />{showAddPart ? 'Cancel' : 'Add Part'}
+              </button>
+            </div>
+
+            {/* Add part form */}
+            {showAddPart && (
+              <div className="mb-3 p-3 bg-white/3 rounded-xl border border-white/5 space-y-2">
+                {/* Product search */}
+                <div className="relative">
+                  <input
+                    className="input-field text-xs py-1.5"
+                    placeholder="Search inventory by name or SKU…"
+                    value={selProduct ? selProduct.name : partSearch}
+                    onChange={e => { setPartSearch(e.target.value); setSelProduct(null) }}
+                  />
+                  {filteredProducts.length > 0 && !selProduct && (
+                    <div className="absolute z-10 top-full mt-1 w-full bg-[#0f1623] border border-white/10 rounded-xl shadow-xl overflow-hidden">
+                      {filteredProducts.map((p: any) => (
+                        <button key={p.id} type="button"
+                          onClick={() => { setSelProduct(p); setPartSearch(''); setPartCost(String(p.buyingPrice ?? '')) }}
+                          className="w-full text-left px-3 py-2 hover:bg-white/5 transition-colors border-b border-white/5 last:border-0">
+                          <p className="text-xs text-slate-200 font-medium">{p.name}</p>
+                          <p className="text-[10px] text-slate-500">{p.sku ?? ''} · Stock: {p.stock} · {formatCurrency(p.buyingPrice)}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {selProduct && (
+                  <div className="flex items-center gap-1.5 px-2 py-1.5 bg-orange-500/10 rounded-lg border border-orange-500/20">
+                    <Package size={10} className="text-orange-400 flex-shrink-0" />
+                    <span className="text-xs text-orange-300 flex-1 truncate">{selProduct.name}</span>
+                    <button onClick={() => setSelProduct(null)} className="text-slate-500 hover:text-white"><X size={10} /></button>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] text-slate-500 mb-1">Quantity</label>
+                    <input type="number" min={1} className="input-field text-xs py-1.5"
+                      value={partQty} onChange={e => setPartQty(Number(e.target.value))} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-500 mb-1">Unit Cost (optional)</label>
+                    <input type="number" min={0} className="input-field text-xs py-1.5"
+                      placeholder={selProduct ? String(selProduct.buyingPrice ?? '') : ''}
+                      value={partCost} onChange={e => setPartCost(e.target.value)} />
+                  </div>
+                </div>
+                <button onClick={handleAddPart} disabled={!selProduct || addingPart}
+                  className="w-full py-1.5 text-xs rounded-lg bg-orange-500 hover:bg-orange-400 text-white font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors">
+                  {addingPart ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}Add to Repair
+                </button>
+              </div>
+            )}
+
+            {/* Existing parts list */}
+            {repair.spareParts?.length > 0 ? (
+              <div className="space-y-1.5">
+                {repair.spareParts.map((part: any) => (
+                  <div key={part.id} className="flex items-center gap-2 text-xs">
+                    <span className="flex-1 text-slate-300 truncate">{part.productName}</span>
+                    <span className="text-slate-500">×{part.quantity}</span>
+                    <span className="text-slate-400 font-medium w-20 text-right">{formatCurrency(part.total)}</span>
+                    <button onClick={() => handleRemovePart(part.id)} disabled={removingId === part.id}
+                      className="p-1 text-slate-600 hover:text-red-400 transition-colors disabled:opacity-40">
+                      {removingId === part.id ? <Loader2 size={10} className="animate-spin" /> : <X size={10} />}
+                    </button>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between pt-1.5 border-t border-white/5 text-xs font-semibold">
+                  <span className="text-slate-500">Total Parts Cost</span>
+                  <span className="text-white">{formatCurrency(repair.spareParts.reduce((s: number, p: any) => s + p.total, 0))}</span>
+                </div>
+              </div>
+            ) : (
+              !showAddPart && <p className="text-[11px] text-slate-600 text-center py-2">No spare parts added yet</p>
+            )}
           </div>
 
           {/* Status History */}
@@ -431,7 +561,7 @@ export default function RepairsPage() {
   return (
     <div className="space-y-6">
       {showAddModal  && <NewTicketModal onClose={() => setShowAddModal(false)} onSaved={refetch} />}
-      {detailRepair  && <RepairDetailsModal repair={detailRepair} onClose={() => setDetailRepair(null)} onEdit={() => { setEditRepair(detailRepair); setDetailRepair(null) }} onStatusChange={handleStatusUpdate} />}
+      {detailRepair  && <RepairDetailsModal repair={detailRepair} onClose={() => setDetailRepair(null)} onEdit={() => { setEditRepair(detailRepair); setDetailRepair(null) }} onStatusChange={handleStatusUpdate} onRefresh={async () => { refetch(); const res: any = await repairsApi.getById(detailRepair.id); setDetailRepair(res?.data ?? detailRepair) }} />}
       {editRepair    && <EditRepairModal   repair={editRepair}   onClose={() => setEditRepair(null)}   onSaved={() => { refetch(); setEditRepair(null) }} />}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">

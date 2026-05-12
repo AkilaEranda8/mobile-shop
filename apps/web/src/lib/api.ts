@@ -124,6 +124,10 @@ export const repairsApi = {
   update: (id: string, body: unknown) => api.put(`/repairs/${id}`, body),
   updateStatus: (id: string, status: string, note?: string) =>
     api.patch(`/repairs/${id}/status`, { status, note }),
+  addPart: (id: string, body: { productId: string; quantity: number; unitCost?: number }) =>
+    api.post(`/repairs/${id}/parts`, body),
+  removePart: (id: string, partId: string) =>
+    api.delete(`/repairs/${id}/parts/${partId}`),
 }
 
 export const warrantyApi = {
