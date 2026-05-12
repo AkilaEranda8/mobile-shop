@@ -1,7 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Smartphone, Search, Plus, CheckCircle, X, Loader2, Hash } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { Smartphone, Plus, CheckCircle, X, Loader2, Hash } from 'lucide-react'
+import { type ColumnDef } from '@tanstack/react-table'
+import { ClientSideTable } from '@/components/table/client-side-table'
+import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { useImeiRecords } from '@/lib/hooks'
 import { imeiApi, productsApi } from '@/lib/api'
 import toast from 'react-hot-toast'
@@ -98,16 +101,10 @@ function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
 }
 
 export default function IMEIPage() {
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('ALL')
   const [showAdd, setShowAdd] = useState(false)
   const [scanMode, setScanMode] = useState(false)
 
-  const params: Record<string, string> = {}
-  if (statusFilter !== 'ALL') params.status = statusFilter
-  if (search) params.search = search
-
-  const { data, loading, refetch } = useImeiRecords(params)
+  const { data, loading, refetch } = useImeiRecords()
   const records: any[] = (data?.data ?? []) as any[]
   const total = (data as any)?.meta?.total ?? records.length
 
@@ -117,6 +114,48 @@ export default function IMEIPage() {
     sold:     records.filter((d: any) => d.status === 'SOLD').length,
     inRepair: records.filter((d: any) => d.status === 'IN_REPAIR').length,
   }
+
+  const columns = useMemo<ColumnDef<any>[]>(() => [
+    {
+      id: 'device',
+      accessorFn: (row) => `${row.product?.name ?? ''} ${row.imei}`,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="IMEI / Device" />,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
+            <Smartphone size={14} className="text-violet-400" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-slate-200">{row.original.product?.name ?? '—'}</p>
+            <p className="text-xs font-mono text-slate-500">{row.original.imei}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'brand',
+      accessorFn: (row) => row.product?.brand?.name ?? '',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Brand" />,
+      cell: ({ row }) => <span className="text-xs text-slate-300">{row.original.product?.brand?.name ?? '—'}</span>,
+    },
+    {
+      accessorKey: 'status',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+      cell: ({ row }) => {
+        const st = statusConfig[row.original.status] ?? statusConfig['IN_STOCK']
+        return (
+          <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${st.color} ${st.bg} ${st.border}`}>
+            {st.label}
+          </span>
+        )
+      },
+    },
+    {
+      accessorKey: 'createdAt',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Added" />,
+      cell: ({ row }) => <span className="text-xs text-slate-500">{new Date(row.original.createdAt).toLocaleDateString('en-IN')}</span>,
+    },
+  ], [])
 
   const stats = [
     { label: 'Total Devices', value: total,          color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20' },
@@ -159,7 +198,7 @@ export default function IMEIPage() {
           <input
             autoFocus className="input-field max-w-xs font-mono"
             placeholder="Scan or type IMEI..."
-            onKeyDown={e => { if (e.key === 'Enter') { setSearch((e.target as HTMLInputElement).value); setScanMode(false) } }}
+            onKeyDown={e => { if (e.key === 'Enter') { setScanMode(false) } }}
           />
         </div>
       )}
@@ -173,83 +212,26 @@ export default function IMEIPage() {
         ))}
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-          <input
-            className="input-field pl-9" placeholder="Search by IMEI number..."
-            value={search} onChange={e => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          {['ALL', 'IN_STOCK', 'SOLD', 'IN_REPAIR', 'UNDER_WARRANTY_CLAIM', 'SCRAPPED'].map(s => (
-            <button key={s} onClick={() => setStatusFilter(s)}
-              className={`px-3 py-2 text-xs rounded-lg border whitespace-nowrap transition-colors ${statusFilter === s ? 'border-violet-500 bg-violet-500/15 text-violet-300' : 'border-white/10 text-slate-400 hover:border-white/20'}`}>
-              {s === 'ALL' ? 'All' : s.replace(/_/g, ' ')}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-white/5">
-                <th className="table-header">IMEI / Device</th>
-                <th className="table-header">Brand</th>
-                <th className="table-header text-center">Status</th>
-                <th className="table-header">Added</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/3">
-              {loading && (
-                <tr><td colSpan={4} className="py-16 text-center text-slate-500 text-sm">Loading...</td></tr>
-              )}
-              {!loading && records.map((d: any) => {
-                const st = statusConfig[d.status] ?? statusConfig['IN_STOCK']
-                const productName = d.product?.name ?? '—'
-                const brandName = d.product?.brand?.name ?? '—'
-                return (
-                  <tr key={d.id} className="hover:bg-white/2 transition-colors">
-                    <td className="table-cell">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
-                          <Smartphone size={14} className="text-violet-400" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-slate-200">{productName}</p>
-                          <p className="text-xs font-mono text-slate-500">{d.imei}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="table-cell">
-                      <span className="text-xs text-slate-300">{brandName}</span>
-                    </td>
-                    <td className="table-cell text-center">
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${st.color} ${st.bg} ${st.border}`}>
-                        {st.label}
-                      </span>
-                    </td>
-                    <td className="table-cell">
-                      <span className="text-xs text-slate-500">
-                        {new Date(d.createdAt).toLocaleDateString('en-IN')}
-                      </span>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-          {!loading && records.length === 0 && (
-            <div className="py-16 text-center">
-              <Smartphone size={32} className="text-slate-700 mx-auto mb-3" />
-              <p className="text-slate-500 text-sm">No IMEI records found</p>
-              <p className="text-slate-600 text-xs mt-1">Register a device IMEI to get started</p>
-            </div>
-          )}
-        </div>
-      </div>
+      <ClientSideTable
+        data={records}
+        columns={columns}
+        isLoading={loading}
+        pageCount={Math.ceil((records.length || 1) / 20)}
+        searchableColumns={[
+          { id: 'device', title: 'IMEI / Device' },
+        ]}
+        filterableColumns={[{
+          id: 'status',
+          title: 'Status',
+          options: [
+            { label: 'In Stock',  value: 'IN_STOCK'             },
+            { label: 'Sold',      value: 'SOLD'                 },
+            { label: 'In Repair', value: 'IN_REPAIR'            },
+            { label: 'Warranty',  value: 'UNDER_WARRANTY_CLAIM' },
+            { label: 'Scrapped',  value: 'SCRAPPED'             },
+          ],
+        }]}
+      />
     </div>
   )
 }

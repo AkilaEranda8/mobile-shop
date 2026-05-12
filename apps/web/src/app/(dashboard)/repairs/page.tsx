@@ -1,11 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
-  Plus, Search, Clock, CheckCircle, PhoneCall, Loader2, SlidersHorizontal, X,
+  Plus, Clock, CheckCircle, PhoneCall, Loader2, X,
   Eye, Edit, ChevronRight, Smartphone, User, Wrench, DollarSign, AlertTriangle,
   Calendar, Hash, Save, ArrowRight, MessageSquare, Package,
 } from 'lucide-react'
+import { type ColumnDef } from '@tanstack/react-table'
+import { ClientSideTable } from '@/components/table/client-side-table'
+import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
+import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency, formatDate, getRepairStatusColor } from '@/lib/utils'
 import { useRepairs, useProducts } from '@/lib/hooks'
 import { repairsApi } from '@/lib/api'
@@ -529,8 +533,6 @@ function EditRepairModal({ repair, onClose, onSaved }: {
 
 export default function RepairsPage() {
   const { data: repairsData, loading, refetch } = useRepairs()
-  const [selectedStatus, setSelectedStatus] = useState('ALL')
-  const [search, setSearch]                 = useState('')
   const [showAddModal, setShowAddModal]     = useState(false)
   const [detailRepair, setDetailRepair]     = useState<RepairTicket | null>(null)
   const [editRepair,   setEditRepair]       = useState<RepairTicket | null>(null)
@@ -545,18 +547,75 @@ export default function RepairsPage() {
     } catch { toast.error('Status update failed') }
   }
 
-  const filtered = repairs.filter(r => {
-    const matchSearch = r.ticketNumber.toLowerCase().includes(search.toLowerCase()) ||
-      r.customerName.toLowerCase().includes(search.toLowerCase()) ||
-      `${r.deviceBrand} ${r.deviceModel}`.toLowerCase().includes(search.toLowerCase())
-    const matchStatus = selectedStatus === 'ALL' || r.status === selectedStatus
-    return matchSearch && matchStatus
-  })
-
-  const statusCounts = statuses.reduce((acc, s) => {
-    acc[s] = s === 'ALL' ? repairs.length : repairs.filter((r: RepairTicket) => r.status === s).length
-    return acc
-  }, {} as Record<string, number>)
+  const columns = useMemo<ColumnDef<RepairTicket>[]>(() => [
+    {
+      accessorKey: 'ticketNumber',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Ticket #" />,
+      cell: ({ row }) => <span className="text-xs font-mono text-violet-400">{row.original.ticketNumber}</span>,
+    },
+    {
+      id: 'device',
+      accessorFn: (row) => `${row.deviceBrand} ${row.deviceModel}`,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Device" />,
+      cell: ({ row }) => (
+        <div>
+          <p className="text-sm font-medium text-white">{row.original.deviceBrand} {row.original.deviceModel}</p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'customerName',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Customer" />,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1.5">
+          <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center text-[10px] font-bold text-violet-300">
+            {row.original.customerName.charAt(0)}
+          </div>
+          <div>
+            <p className="text-xs text-slate-300">{row.original.customerName}</p>
+            <a href={`tel:${row.original.customerPhone}`} className="text-[10px] text-slate-500 hover:text-violet-400">{row.original.customerPhone}</a>
+          </div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'reportedIssue',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Issue" />,
+      cell: ({ row }) => <p className="text-xs text-slate-400 max-w-[200px] truncate">{row.original.reportedIssue}</p>,
+    },
+    {
+      accessorKey: 'priority',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Priority" />,
+      cell: ({ row }) => (
+        <span className={`text-[10px] px-1.5 py-0.5 rounded border ${priorityBadge(row.original.priority)}`}>
+          {row.original.priority}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'status',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+      cell: ({ row }) => (
+        <span className={`text-[11px] px-2 py-0.5 rounded-full border ${getRepairStatusColor(row.original.status)}`}>
+          {statusLabels[row.original.status] ?? row.original.status}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'createdAt',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
+      cell: ({ row }) => <span className="text-xs text-slate-500">{formatDate(row.original.createdAt)}</span>,
+    },
+    {
+      id: 'actions',
+      cell: ({ row }) => (
+        <TableActionsRow
+          showAction={{ action: () => setDetailRepair(row.original) }}
+          editAction={{ action: () => setEditRepair(row.original) }}
+        />
+      ),
+    },
+  ], [setDetailRepair, setEditRepair])
 
   return (
     <div className="space-y-6">
@@ -570,129 +629,49 @@ export default function RepairsPage() {
           <p className="page-subtitle">Finite State Machine · Kanban workflow</p>
         </div>
         <div className="flex gap-2 sm:ml-auto">
-          <button className="btn-secondary text-sm flex items-center gap-2">
-            <SlidersHorizontal size={14} />Filter
-          </button>
           <button onClick={() => setShowAddModal(true)} className="btn-primary text-sm flex items-center gap-2">
             <Plus size={14} />New Ticket
           </button>
         </div>
       </div>
 
-      {/* Status Pills */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {statuses.map(s => (
-          <button
-            key={s}
-            onClick={() => setSelectedStatus(s)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border whitespace-nowrap transition-colors ${selectedStatus === s ? 'border-violet-500 bg-violet-500/15 text-violet-300' : 'border-white/10 text-slate-400 hover:border-white/20'}`}
-          >
-            {statusLabels[s]}
-            <span className={`ml-0.5 text-[10px] px-1.5 py-0.5 rounded-full border ${selectedStatus === s ? 'bg-violet-500/20 border-violet-500/30 text-violet-300' : 'bg-white/5 border-white/10 text-slate-500'}`}>
-              {statusCounts[s]}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-        <input
-          type="text"
-          placeholder="Search ticket #, customer, device..."
-          className="input-field pl-9"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-      </div>
-
-      {/* Repair Cards */}
-      {loading && <p className="text-sm text-slate-500 py-4">Loading...</p>}
-      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filtered.map((repair) => {
-          const currentIdx = STATUS_FLOW.indexOf(repair.status)
-          const nextStatus = STATUS_FLOW[currentIdx + 1] ?? null
-          return (
-            <div key={repair.id} className="card p-4 hover:border-violet-500/20 transition-all flex flex-col">
-              {/* Header */}
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <p className="text-xs font-mono text-violet-400">{repair.ticketNumber}</p>
-                  <p className="text-sm font-semibold text-white mt-0.5">{repair.deviceBrand} {repair.deviceModel}</p>
-                </div>
-                <span className={`text-[11px] px-2 py-0.5 rounded-full border ${getRepairStatusColor(repair.status)}`}>
-                  {statusLabels[repair.status]}
-                </span>
-              </div>
-
-              {/* Customer */}
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center text-[10px] font-bold text-violet-300">
-                  {repair.customerName.charAt(0)}
-                </div>
-                <p className="text-xs text-slate-400">{repair.customerName}</p>
-                <a href={`tel:${repair.customerPhone}`} className="ml-auto text-slate-500 hover:text-violet-400">
-                  <PhoneCall size={13} />
-                </a>
-              </div>
-
-              {/* Problem */}
-              <p className="text-xs text-slate-500 mb-3 line-clamp-2 flex-1">{repair.reportedIssue}</p>
-
-              {/* Progress mini bar */}
-              <div className="flex gap-0.5 mb-3">
-                {STATUS_FLOW.map((s, i) => (
-                  <div key={s} className={`flex-1 h-1 rounded-full ${i <= currentIdx ? 'bg-violet-500' : 'bg-white/8'}`} />
-                ))}
-              </div>
-
-              {/* Footer */}
-              <div className="flex items-center justify-between pt-3 border-t border-white/5">
-                <div className="flex items-center gap-1.5">
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded border ${priorityBadge(repair.priority)}`}>
-                    {repair.priority}
-                  </span>
-                  {repair.technicianName && (
-                    <span className="text-[10px] text-slate-500 truncate max-w-[80px]">· {repair.technicianName}</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1">
-                  {/* Next status quick button */}
-                  {nextStatus && repair.status !== 'CANCELLED' && (
-                    <button
-                      onClick={() => handleStatusUpdate(repair.id, nextStatus)}
-                      className="flex items-center gap-0.5 px-2 py-1 text-[10px] rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 border border-violet-500/20 transition-colors"
-                      title={`Move to ${statusLabels[nextStatus]}`}
-                    >
-                      <ArrowRight size={9} />{statusLabels[nextStatus]}
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setDetailRepair(repair)}
-                    className="p-1.5 text-slate-500 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors"
-                    title="View Details"
-                  >
-                    <Eye size={13} />
-                  </button>
-                  <button
-                    onClick={() => setEditRepair(repair)}
-                    className="p-1.5 text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors"
-                    title="Edit"
-                  >
-                    <Edit size={13} />
-                  </button>
-                </div>
-              </div>
-
-              <p className="text-[10px] text-slate-600 flex items-center gap-1 mt-2">
-                <Clock size={9} />{formatDate(repair.createdAt)}
-                {repair.estimatedCost ? <span className="ml-auto font-semibold text-slate-400">{formatCurrency(repair.estimatedCost)}</span> : null}
-              </p>
-            </div>
-          )
-        })}
-      </div>
+      {/* Table */}
+      <ClientSideTable
+        data={repairs}
+        columns={columns}
+        isLoading={loading}
+        pageCount={Math.ceil((repairs.length || 1) / 20)}
+        searchableColumns={[
+          { id: 'ticketNumber',          title: 'Ticket #'  },
+          { id: 'customerName',           title: 'Customer'  },
+          { id: 'device' as any,          title: 'Device'    },
+        ]}
+        filterableColumns={[
+          {
+            id: 'status',
+            title: 'Status',
+            options: [
+              { label: 'Received',     value: 'RECEIVED'   },
+              { label: 'Diagnosed',    value: 'DIAGNOSED'  },
+              { label: 'In Repair',    value: 'IN_REPAIR'  },
+              { label: 'Quality Check',value: 'QC'         },
+              { label: 'Ready',        value: 'READY'      },
+              { label: 'Delivered',    value: 'DELIVERED'  },
+              { label: 'Cancelled',    value: 'CANCELLED'  },
+            ],
+          },
+          {
+            id: 'priority',
+            title: 'Priority',
+            options: [
+              { label: 'Urgent', value: 'URGENT' },
+              { label: 'High',   value: 'HIGH'   },
+              { label: 'Normal', value: 'NORMAL' },
+              { label: 'Low',    value: 'LOW'    },
+            ],
+          },
+        ]}
+      />
     </div>
   )
 }

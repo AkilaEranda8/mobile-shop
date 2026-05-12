@@ -1,7 +1,11 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { Search, Plus, Package, AlertTriangle, Download, Upload, QrCode, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText } from 'lucide-react'
+import { useState, useRef, useMemo } from 'react'
+import { Plus, Package, AlertTriangle, Download, Upload, QrCode, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText } from 'lucide-react'
+import { type ColumnDef } from '@tanstack/react-table'
+import { ClientSideTable } from '@/components/table/client-side-table'
+import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
+import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency } from '@/lib/utils'
 import { useProducts } from '@/lib/hooks'
 import { productsApi } from '@/lib/api'
@@ -362,20 +366,12 @@ function ProductDetailModal({ product, onClose }: { product: Product; onClose: (
 }
 
 export default function InventoryPage() {
-  const [search, setSearch] = useState('')
-  const [category, setCategory] = useState('All')
   const [showAddModal, setShowAddModal] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [editProduct, setEditProduct] = useState<Product | null>(null)
   const [viewProduct, setViewProduct] = useState<Product | null>(null)
   const { data: productsData, loading, refetch } = useProducts()
   const products: Product[] = (productsData?.data ?? []) as Product[]
-
-  const filtered = products.filter(p => {
-    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase())
-    const matchCat = category === 'All' || (p as any).categoryName === category
-    return matchSearch && matchCat
-  })
 
   const lowStockCount = products.filter(p => p.stock < p.minStock).length
 
@@ -384,6 +380,78 @@ export default function InventoryPage() {
     await productsApi.delete(id)
     refetch()
   }
+
+  const columns = useMemo<ColumnDef<Product>[]>(() => [
+    {
+      accessorKey: 'name',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Product" />,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
+            <Package size={14} className="text-violet-400" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-slate-200">{row.original.name}</p>
+            <p className="text-xs text-slate-500">{(row.original as any).brandName}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'sku',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="SKU" />,
+      cell: ({ row }) => <span className="text-xs font-mono text-slate-400">{row.original.sku}</span>,
+    },
+    {
+      id: 'categoryName',
+      accessorFn: (row) => (row as any).categoryName ?? '',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Category" />,
+      cell: ({ row }) => <span className="text-xs text-slate-400">{(row.original as any).categoryName}</span>,
+    },
+    {
+      accessorKey: 'sellingPrice',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Price" />,
+      cell: ({ row }) => <span className="text-sm font-semibold text-white">{formatCurrency(row.original.sellingPrice)}</span>,
+    },
+    {
+      accessorKey: 'stock',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Stock" />,
+      cell: ({ row }) => {
+        const isOut = row.original.stock === 0
+        const isLow = row.original.stock < row.original.minStock && row.original.stock > 0
+        return (
+          <div className="flex items-center gap-1.5">
+            <span className={`text-sm font-bold ${isOut ? 'text-red-400' : isLow ? 'text-yellow-400' : 'text-white'}`}>{row.original.stock}</span>
+            {isLow && <AlertTriangle size={10} className="text-yellow-500" />}
+          </div>
+        )
+      },
+    },
+    {
+      id: 'stockStatus',
+      accessorFn: (row) => row.stock === 0 ? 'Out of Stock' : row.stock < row.minStock ? 'Low Stock' : 'In Stock',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+      cell: ({ row }) => {
+        const isOut = row.original.stock === 0
+        const isLow = row.original.stock < row.original.minStock && row.original.stock > 0
+        return (
+          <span className={`text-[11px] px-2 py-0.5 rounded-full border ${isOut ? 'bg-red-500/10 border-red-500/20 text-red-400' : isLow ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400' : 'bg-green-500/10 border-green-500/20 text-green-400'}`}>
+            {isOut ? 'Out of Stock' : isLow ? 'Low Stock' : 'In Stock'}
+          </span>
+        )
+      },
+    },
+    {
+      id: 'actions',
+      cell: ({ row }) => (
+        <TableActionsRow
+          showAction={{ action: () => setViewProduct(row.original) }}
+          editAction={{ action: () => setEditProduct(row.original) }}
+          deleteAction={{ action: () => handleDelete(row.original.id, row.original.name) }}
+        />
+      ),
+    },
+  ], [handleDelete, setViewProduct, setEditProduct])
 
   return (
     <div className="space-y-6">
@@ -425,108 +493,40 @@ export default function InventoryPage() {
         ))}
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-          <input
-            type="text"
-            placeholder="Search by name, SKU..."
-            className="input-field pl-9"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-2 overflow-x-auto">
-          {categories.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setCategory(cat)}
-              className={`px-3 py-2 text-xs rounded-lg border whitespace-nowrap transition-colors ${category === cat ? 'border-violet-500 bg-violet-500/15 text-violet-300' : 'border-white/10 text-slate-400 hover:border-white/20'}`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Product Table */}
-      <div className="card overflow-hidden">
-        {loading && <div className="flex justify-center py-12"><Loader2 size={20} className="animate-spin text-violet-400" /></div>}
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-white/5">
-                <th className="table-header">Product</th>
-                <th className="table-header">SKU</th>
-                <th className="table-header">Category</th>
-                <th className="table-header text-right">Cost</th>
-                <th className="table-header text-right">Selling</th>
-                <th className="table-header text-center">Stock</th>
-                <th className="table-header text-center">Status</th>
-                <th className="table-header text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/3">
-              {filtered.map((product) => {
-                const isLow = product.stock < product.minStock && product.stock > 0
-                const isOut = product.stock === 0
-                return (
-                  <tr key={product.id} className="hover:bg-white/2 transition-colors">
-                    <td className="table-cell">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
-                          <Package size={14} className="text-violet-400" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-slate-200">{product.name}</p>
-                          <p className="text-xs text-slate-500">{product.brandName}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="table-cell">
-                      <span className="text-xs font-mono text-slate-400">{product.sku}</span>
-                    </td>
-                    <td className="table-cell">
-                      <span className="text-xs text-slate-400">{product.categoryName}</span>
-                    </td>
-                    <td className="table-cell text-right">
-                      <span className="text-sm text-slate-300">{formatCurrency(product.buyingPrice)}</span>
-                    </td>
-                    <td className="table-cell text-right">
-                      <span className="text-sm font-semibold text-white">{formatCurrency(product.sellingPrice)}</span>
-                    </td>
-                    <td className="table-cell text-center">
-                      <div className="flex flex-col items-center">
-                        <span className={`text-sm font-bold ${isOut ? 'text-red-400' : isLow ? 'text-yellow-400' : 'text-white'}`}>{product.stock}</span>
-                        {isLow && <AlertTriangle size={10} className="text-yellow-500 mt-0.5" />}
-                      </div>
-                    </td>
-                    <td className="table-cell text-center">
-                      <span className={`text-[11px] px-2 py-0.5 rounded-full border ${isOut ? 'bg-red-500/10 border-red-500/20 text-red-400' : isLow ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400' : 'bg-green-500/10 border-green-500/20 text-green-400'}`}>
-                        {isOut ? 'Out of Stock' : isLow ? 'Low Stock' : 'In Stock'}
-                      </span>
-                    </td>
-                    <td className="table-cell text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button onClick={() => setViewProduct(product)} className="p-1.5 text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors" title="View details">
-                          <QrCode size={13} />
-                        </button>
-                        <button onClick={() => setEditProduct(product)} className="p-1.5 text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors" title="Edit">
-                          <Edit size={13} />
-                        </button>
-                        <button onClick={() => handleDelete(product.id, product.name)} className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Delete">
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* Table */}
+      <ClientSideTable
+        data={products}
+        columns={columns}
+        isLoading={loading}
+        pageCount={Math.ceil((products.length || 1) / 20)}
+        searchableColumns={[
+          { id: 'name', title: 'Name' },
+          { id: 'sku',  title: 'SKU'  },
+        ]}
+        filterableColumns={[
+          {
+            id: 'categoryName',
+            title: 'Category',
+            options: [
+              { label: 'Smartphones', value: 'Smartphones' },
+              { label: 'Accessories', value: 'Accessories' },
+              { label: 'Tablets',     value: 'Tablets'     },
+              { label: 'Batteries',   value: 'Batteries'   },
+              { label: 'Screens',     value: 'Screens'     },
+              { label: 'Chargers',    value: 'Chargers'    },
+            ],
+          },
+          {
+            id: 'stockStatus' as any,
+            title: 'Stock Status',
+            options: [
+              { label: 'In Stock',     value: 'In Stock'     },
+              { label: 'Low Stock',    value: 'Low Stock'    },
+              { label: 'Out of Stock', value: 'Out of Stock' },
+            ],
+          },
+        ]}
+      />
     </div>
   )
 }

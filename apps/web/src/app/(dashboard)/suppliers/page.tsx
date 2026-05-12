@@ -1,8 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Plus, Truck, Phone, Mail, Package, Eye, Edit, Loader2, X, ChevronDown, Trash2, FileText, MapPin, Globe, Hash, ShoppingBag, TrendingUp, AlertCircle, Calendar, CheckCircle, Save } from 'lucide-react'
+import { Plus, Truck, Phone, Mail, Package, Eye, Edit, Loader2, X, ChevronDown, Trash2, FileText, MapPin, Globe, Hash, ShoppingBag, TrendingUp, AlertCircle, Calendar, CheckCircle, Save } from 'lucide-react'
+import { type ColumnDef } from '@tanstack/react-table'
+import { ClientSideTable } from '@/components/table/client-side-table'
+import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
+import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useSuppliers, usePurchaseOrders, useProducts } from '@/lib/hooks'
 import { suppliersApi } from '@/lib/api'
@@ -444,7 +448,6 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
 
 export default function SuppliersPage() {
   const router = useRouter()
-  const [search, setSearch]       = useState('')
   const [activeTab, setActiveTab] = useState<'suppliers' | 'orders'>('suppliers')
   const [showAddSupplier, setShowAddSupplier]     = useState(false)
   const [showNewPO, setShowNewPO]                 = useState(false)
@@ -455,15 +458,111 @@ export default function SuppliersPage() {
   const suppliers:      Supplier[]      = (suppliersData?.data ?? []) as Supplier[]
   const purchaseOrders: PurchaseOrder[] = (ordersData?.data    ?? []) as PurchaseOrder[]
 
-  const filteredSuppliers = suppliers.filter((s: Supplier) =>
-    s.name.toLowerCase().includes(search.toLowerCase()) ||
-    s.contactName?.toLowerCase().includes(search.toLowerCase())
-  )
+  const supplierColumns = useMemo<ColumnDef<Supplier>[]>(() => [
+    {
+      accessorKey: 'name',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Supplier" />,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500/20 to-cyan-500/20 border border-violet-500/20 flex items-center justify-center text-sm font-bold text-violet-300 flex-shrink-0">
+            {row.original.name.charAt(0)}
+          </div>
+          <div>
+            <p className="font-semibold text-slate-100 text-sm">{row.original.name}</p>
+            {row.original.contactName && <p className="text-xs text-slate-500">{row.original.contactName}</p>}
+          </div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'phone',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Phone" />,
+      cell: ({ row }) => (
+        <a href={`tel:${row.original.phone}`} className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-violet-300">
+          <Phone size={11} />{row.original.phone}
+        </a>
+      ),
+    },
+    {
+      accessorKey: 'city',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="City" />,
+      cell: ({ row }) => <span className="text-xs text-slate-400">{row.original.city || '—'}</span>,
+    },
+    {
+      accessorKey: 'totalOrders',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Orders" />,
+      cell: ({ row }) => <span className="text-sm font-semibold text-violet-400">{row.original.totalOrders}</span>,
+    },
+    {
+      accessorKey: 'outstandingDues',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Outstanding" />,
+      cell: ({ row }) => (
+        <span className={`text-sm font-bold ${(row.original as any).outstandingDues > 0 ? 'text-red-400' : 'text-green-400'}`}>
+          {formatCurrency((row.original as any).outstandingDues ?? 0)}
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      cell: ({ row }) => (
+        <TableActionsRow
+          showAction={{ action: () => setDetailSupplier(row.original) }}
+          editAction={{ action: () => setEditSupplier(row.original) }}
+        />
+      ),
+    },
+  ], [setDetailSupplier, setEditSupplier])
 
-  const filteredOrders = purchaseOrders.filter((po: PurchaseOrder) =>
-    po.supplierName.toLowerCase().includes(search.toLowerCase()) ||
-    po.poNumber.toLowerCase().includes(search.toLowerCase())
-  )
+  const poColumns = useMemo<ColumnDef<PurchaseOrder>[]>(() => [
+    {
+      accessorKey: 'poNumber',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="PO Number" />,
+      cell: ({ row }) => <span className="text-xs font-mono text-violet-300">{row.original.poNumber}</span>,
+    },
+    {
+      accessorKey: 'supplierName',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Supplier" />,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <Truck size={13} className="text-slate-500 flex-shrink-0" />
+          <span className="text-sm text-slate-200">{row.original.supplierName}</span>
+        </div>
+      ),
+    },
+    {
+      id: 'itemCount',
+      accessorFn: (row) => row.items.length,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Items" />,
+      cell: ({ row }) => <span className="text-xs text-slate-400">{row.original.items.length} items</span>,
+    },
+    {
+      accessorKey: 'total',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Total" />,
+      cell: ({ row }) => <span className="text-sm font-semibold text-white">{formatCurrency(row.original.total)}</span>,
+    },
+    {
+      accessorKey: 'createdAt',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Order Date" />,
+      cell: ({ row }) => <span className="text-xs text-slate-400">{formatDate(row.original.createdAt)}</span>,
+    },
+    {
+      accessorKey: 'status',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+      cell: ({ row }) => (
+        <span className={`text-[11px] px-2 py-0.5 rounded-full border ${poStatusColors[row.original.status] || ''}`}>
+          {row.original.status}
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      cell: ({ row }) => (
+        <TableActionsRow
+          dropMoreActions={[{ text: 'View Invoice', function: () => router.push(`/purchase-invoice?id=${row.original.id}`), icon: <FileText size={13} /> }]}
+        />
+      ),
+    },
+  ], [router])
 
   return (
     <div className="space-y-6">
@@ -500,129 +599,39 @@ export default function SuppliersPage() {
         ))}
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-        <input
-          type="text"
-          placeholder={activeTab === 'suppliers' ? 'Search suppliers...' : 'Search POs...'}
-          className="input-field pl-9"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-      </div>
-
       {activeTab === 'suppliers' ? (
-        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {(suppliersLoading || ordersLoading) && <div className="text-center py-8 text-slate-500 text-sm">Loading...</div>}
-          {filteredSuppliers.map((supplier: Supplier) => (
-            <div key={supplier.id} className="card p-5 hover:border-violet-500/20 transition-all">
-              <div className="flex items-start gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/20 to-cyan-500/20 border border-violet-500/20 flex items-center justify-center text-sm font-bold text-violet-300 flex-shrink-0">
-                  {supplier.name.charAt(0)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-slate-100 truncate">{supplier.name}</p>
-                  {supplier.contactName && (
-                    <p className="text-xs text-slate-500">{supplier.contactName}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => setDetailSupplier(supplier)} className="p-1.5 text-slate-500 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors" title="View Details">
-                    <Eye size={13} />
-                  </button>
-                  <button onClick={() => setEditSupplier(supplier)} className="p-1.5 text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors" title="Edit">
-                    <Edit size={13} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <a href={`tel:${supplier.phone}`} className="flex items-center gap-2 text-xs text-slate-400 hover:text-violet-300 transition-colors">
-                  <Phone size={11} />{supplier.phone}
-                </a>
-                {supplier.email && (
-                  <a href={`mailto:${supplier.email}`} className="flex items-center gap-2 text-xs text-slate-400 hover:text-violet-300 transition-colors">
-                    <Mail size={11} />{supplier.email}
-                  </a>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/5">
-                <div>
-                  <p className="text-xs text-slate-500">City</p>
-                  <p className="text-sm font-medium text-slate-300">{supplier.city}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-slate-500">Outstanding</p>
-                  <p className={`text-sm font-bold ${supplier.outstandingDues > 0 ? 'text-red-400' : 'text-green-400'}`}>
-                    {formatCurrency(supplier.outstandingDues)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <ClientSideTable
+          data={suppliers}
+          columns={supplierColumns}
+          isLoading={suppliersLoading}
+          pageCount={Math.ceil((suppliers.length || 1) / 20)}
+          searchableColumns={[
+            { id: 'name',        title: 'Name'    },
+            { id: 'contactName', title: 'Contact' },
+          ]}
+        />
       ) : (
-        <div className="card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-white/5">
-                  <th className="table-header">PO Number</th>
-                  <th className="table-header">Supplier</th>
-                  <th className="table-header">Items</th>
-                  <th className="table-header text-right">Total</th>
-                  <th className="table-header">Order Date</th>
-                  <th className="table-header">Expected</th>
-                  <th className="table-header text-center">Status</th>
-                  <th className="table-header text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/3">
-                {filteredOrders.map((po) => (
-                  <tr key={po.id} className="hover:bg-white/2 transition-colors">
-                    <td className="table-cell">
-                      <span className="text-xs font-mono text-violet-300">{po.poNumber}</span>
-                    </td>
-                    <td className="table-cell">
-                      <div className="flex items-center gap-2">
-                        <Truck size={13} className="text-slate-500 flex-shrink-0" />
-                        <span className="text-sm text-slate-200">{po.supplierName}</span>
-                      </div>
-                    </td>
-                    <td className="table-cell">
-                      <span className="text-xs text-slate-400">{po.items.length} items</span>
-                    </td>
-                    <td className="table-cell text-right">
-                      <span className="text-sm font-semibold text-white">{formatCurrency(po.total)}</span>
-                    </td>
-                    <td className="table-cell">
-                      <span className="text-xs text-slate-400">{formatDate(po.createdAt)}</span>
-                    </td>
-                    <td className="table-cell">
-                      <span className="text-xs text-slate-400">{po.expectedDelivery ? formatDate(po.expectedDelivery) : '—'}</span>
-                    </td>
-                    <td className="table-cell text-center">
-                      <span className={`text-[11px] px-2 py-0.5 rounded-full border ${poStatusColors[po.status] || ''}`}>
-                        {po.status}
-                      </span>
-                    </td>
-                    <td className="table-cell text-center">
-                      <button
-                        onClick={() => router.push(`/purchase-invoice?id=${po.id}`)}
-                        className="p-1.5 text-slate-500 hover:text-orange-400 hover:bg-orange-500/10 rounded-lg transition-colors"
-                        title="View Invoice"
-                      >
-                        <FileText size={13} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <ClientSideTable
+          data={purchaseOrders}
+          columns={poColumns}
+          isLoading={ordersLoading}
+          pageCount={Math.ceil((purchaseOrders.length || 1) / 20)}
+          searchableColumns={[
+            { id: 'poNumber',     title: 'PO #'     },
+            { id: 'supplierName', title: 'Supplier' },
+          ]}
+          filterableColumns={[{
+            id: 'status',
+            title: 'Status',
+            options: [
+              { label: 'Draft',    value: 'DRAFT'    },
+              { label: 'Sent',     value: 'SENT'     },
+              { label: 'Partial',  value: 'PARTIAL'  },
+              { label: 'Received', value: 'RECEIVED' },
+              { label: 'Closed',   value: 'CLOSED'   },
+            ],
+          }]}
+        />
       )}
     </div>
   )

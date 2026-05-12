@@ -1,11 +1,15 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import {
   Search, Shield, Plus, AlertTriangle, Eye, Loader2, X, Edit, Trash2,
   Phone, Calendar, Hash, CheckCircle, Clock, Package, User, Save,
   Download, Mail, Send,
 } from 'lucide-react'
+import { type ColumnDef } from '@tanstack/react-table'
+import { ClientSideTable } from '@/components/table/client-side-table'
+import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
+import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatDate } from '@/lib/utils'
 import { useWarranties, useCustomers, useProducts } from '@/lib/hooks'
 import { warrantyApi } from '@/lib/api'
@@ -529,7 +533,6 @@ function EditWarrantyModal({ warranty, onClose, onSaved }: {
 /* ── Main Page ────────────────────────────────────────────────────────── */
 export default function WarrantyPage() {
   const { data: warrantyData, loading, refetch } = useWarranties()
-  const [search, setSearch]               = useState('')
   const [tab, setTab]                     = useState<'all' | 'expiring' | 'claimed'>('all')
   const [showAdd,   setShowAdd]           = useState(false)
   const [viewW,     setViewW]             = useState<Warranty | null>(null)
@@ -541,13 +544,10 @@ export default function WarrantyPage() {
   const thirtyDays = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
   const expiringCount = warranties.filter((w: Warranty) => new Date(w.endDate) <= thirtyDays && w.status === 'ACTIVE').length
 
-  const filtered = warranties.filter((w: Warranty) => {
-    const m = w.customerName.toLowerCase().includes(search.toLowerCase()) ||
-      w.productName.toLowerCase().includes(search.toLowerCase()) ||
-      w.warrantyCode.toLowerCase().includes(search.toLowerCase())
-    if (tab === 'expiring') return m && new Date(w.endDate) <= thirtyDays && w.status === 'ACTIVE'
-    if (tab === 'claimed')  return m && w.status === 'CLAIMED'
-    return m
+  const tabFiltered = warranties.filter((w: Warranty) => {
+    if (tab === 'expiring') return new Date(w.endDate) <= thirtyDays && w.status === 'ACTIVE'
+    if (tab === 'claimed')  return w.status === 'CLAIMED'
+    return true
   })
 
   const handleDelete = async (w: Warranty) => {
@@ -561,6 +561,73 @@ export default function WarrantyPage() {
     } catch (err: any) { toast.error(err?.message ?? 'Delete failed') }
     finally { setDeletingId(null) }
   }
+
+  const columns = useMemo<ColumnDef<Warranty>[]>(() => [
+    {
+      accessorKey: 'warrantyCode',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Code" />,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <Shield size={13} className="text-violet-400 flex-shrink-0" />
+          <span className="text-xs font-mono text-violet-300">{row.original.warrantyCode}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'productName',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Product" />,
+      cell: ({ row }) => (
+        <div>
+          <p className="text-sm text-slate-200 truncate max-w-[180px]">{row.original.productName}</p>
+          {(row.original as any).imei && <p className="text-xs text-slate-600 font-mono">{(row.original as any).imei}</p>}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'customerName',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Customer" />,
+      cell: ({ row }) => (
+        <div>
+          <p className="text-sm text-slate-300">{row.original.customerName}</p>
+          <p className="text-xs text-slate-500">{(row.original as any).customerPhone}</p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'endDate',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Expires" />,
+      cell: ({ row }) => {
+        const today = new Date()
+        const daysLeft = Math.ceil((new Date(row.original.endDate).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+        const isExpiring = daysLeft <= 30 && daysLeft > 0 && row.original.status === 'ACTIVE'
+        return (
+          <div>
+            <span className={`text-xs ${isExpiring ? 'text-yellow-400 font-semibold' : 'text-slate-400'}`}>{formatDate(row.original.endDate)}</span>
+            {isExpiring && <p className="text-[10px] text-yellow-500 flex items-center gap-0.5 mt-0.5"><AlertTriangle size={9} />{daysLeft}d left</p>}
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: 'status',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+      cell: ({ row }) => (
+        <span className={`text-[11px] px-2 py-0.5 rounded-full border ${statusColors[(row.original as any).status] || ''}`}>
+          {row.original.status}
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      cell: ({ row }) => (
+        <TableActionsRow
+          showAction={{ action: () => setViewW(row.original) }}
+          editAction={{ action: () => setEditW(row.original) }}
+          deleteAction={{ action: () => handleDelete(row.original), disabled: deletingId === row.original.id }}
+        />
+      ),
+    },
+  ], [deletingId, handleDelete])
 
   return (
     <div className="space-y-6">
@@ -594,93 +661,38 @@ export default function WarrantyPage() {
         ))}
       </div>
 
-      {/* Tabs + Search */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="flex gap-1 bg-white/3 p-1 rounded-xl">
-          {[['all', 'All'], ['expiring', `Expiring (${expiringCount})`], ['claimed', 'Claims']].map(([key, label]) => (
-            <button key={key} onClick={() => setTab(key as any)}
-              className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${tab === key ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white'}`}>
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="relative flex-1 max-w-md sm:ml-auto">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-          <input type="text" placeholder="Search code, customer, product…" className="input-field pl-9"
-            value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
+      {/* Tabs */}
+      <div className="flex gap-1 bg-white/3 p-1 rounded-xl w-fit">
+        {[['all', 'All'], ['expiring', `Expiring (${expiringCount})`], ['claimed', 'Claims']].map(([key, label]) => (
+          <button key={key} onClick={() => setTab(key as any)}
+            className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${tab === key ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white'}`}>
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* Table */}
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-white/5">
-                <th className="table-header">Warranty Code</th>
-                <th className="table-header">Product</th>
-                <th className="table-header">Customer</th>
-                <th className="table-header">Start</th>
-                <th className="table-header">Expires</th>
-                <th className="table-header text-center">Status</th>
-                <th className="table-header text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/3">
-              {loading && (
-                <tr><td colSpan={7} className="table-cell text-center py-8"><Loader2 size={18} className="animate-spin text-violet-400 mx-auto" /></td></tr>
-              )}
-              {filtered.map((w) => {
-                const daysLeft     = Math.ceil((new Date(w.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-                const isExpiring   = daysLeft <= 30 && daysLeft > 0 && w.status === 'ACTIVE'
-                const isDeleting   = deletingId === w.id
-                return (
-                  <tr key={w.id} className="hover:bg-white/2 transition-colors">
-                    <td className="table-cell">
-                      <div className="flex items-center gap-2">
-                        <Shield size={13} className="text-violet-400 flex-shrink-0" />
-                        <span className="text-xs font-mono text-violet-300">{w.warrantyCode}</span>
-                      </div>
-                    </td>
-                    <td className="table-cell">
-                      <p className="text-sm text-slate-200 truncate max-w-[180px]">{w.productName}</p>
-                      {w.imei && <p className="text-xs text-slate-600 font-mono truncate max-w-[180px]">{w.imei}</p>}
-                    </td>
-                    <td className="table-cell">
-                      <p className="text-sm text-slate-300">{w.customerName}</p>
-                      <p className="text-xs text-slate-500">{w.customerPhone}</p>
-                    </td>
-                    <td className="table-cell"><span className="text-xs text-slate-400">{formatDate(w.startDate)}</span></td>
-                    <td className="table-cell">
-                      <span className={`text-xs ${isExpiring ? 'text-yellow-400 font-semibold' : 'text-slate-400'}`}>{formatDate(w.endDate)}</span>
-                      {isExpiring && <p className="text-[10px] text-yellow-500 flex items-center gap-0.5 mt-0.5"><AlertTriangle size={9} />{daysLeft}d left</p>}
-                    </td>
-                    <td className="table-cell text-center">
-                      <span className={`text-[11px] px-2 py-0.5 rounded-full border ${statusColors[w.status] || ''}`}>{w.status}</span>
-                    </td>
-                    <td className="table-cell">
-                      <div className="flex items-center justify-center gap-1">
-                        <button onClick={() => setViewW(w)} className="p-1.5 text-slate-500 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors" title="View Details">
-                          <Eye size={13} />
-                        </button>
-                        <button onClick={() => setEditW(w)} className="p-1.5 text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors" title="Edit">
-                          <Edit size={13} />
-                        </button>
-                        <button onClick={() => handleDelete(w)} disabled={isDeleting} className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-40" title="Delete">
-                          {isDeleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-              {!loading && filtered.length === 0 && (
-                <tr><td colSpan={7} className="table-cell text-center py-8 text-slate-500 text-sm">No warranties found</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <ClientSideTable
+        data={tabFiltered}
+        columns={columns}
+        isLoading={loading}
+        pageCount={Math.ceil((tabFiltered.length || 1) / 20)}
+        searchableColumns={[
+          { id: 'warrantyCode',  title: 'Code'     },
+          { id: 'customerName', title: 'Customer' },
+          { id: 'productName',  title: 'Product'  },
+        ]}
+        filterableColumns={[{
+          id: 'status',
+          title: 'Status',
+          options: [
+            { label: 'Active',  value: 'ACTIVE'  },
+            { label: 'Claimed', value: 'CLAIMED' },
+            { label: 'Void',    value: 'VOID'    },
+            { label: 'Expired', value: 'EXPIRED' },
+          ],
+        }]}
+      />
     </div>
   )
 }

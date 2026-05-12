@@ -1,7 +1,11 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { Search, Plus, Star, Phone, Mail, MapPin, Eye, Loader2, SlidersHorizontal, X, ShoppingBag, Wrench, CreditCard, Calendar, ChevronRight } from 'lucide-react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { Plus, Star, Phone, Mail, MapPin, Eye, Loader2, SlidersHorizontal, X, ShoppingBag, Wrench, CreditCard, Calendar, ChevronRight } from 'lucide-react'
+import { type ColumnDef } from '@tanstack/react-table'
+import { ClientSideTable } from '@/components/table/client-side-table'
+import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
+import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useCustomers } from '@/lib/hooks'
 import { customersApi } from '@/lib/api'
@@ -186,7 +190,6 @@ function AddCustomerModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
 
 /* ── Main Page ───────────────────────────────────────────────────────── */
 export default function CustomersPage() {
-  const [search, setSearch] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
   const [segment, setSegment] = useState('all')
@@ -197,17 +200,68 @@ export default function CustomersPage() {
   const customers: Customer[] = (customersData?.data ?? []) as Customer[]
 
   const activeSeg = SEGMENTS.find(s => s.key === segment) ?? SEGMENTS[0]
-
-  const filtered = customers
-    .filter(activeSeg.filter)
-    .filter(c =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.phone.includes(search) ||
-      (c.email ?? '').toLowerCase().includes(search.toLowerCase())
-    )
+  const segmentFiltered = customers.filter(activeSeg.filter)
 
   const totalDue       = customers.reduce((s, c) => s + c.totalDue, 0)
   const totalPurchases = customers.reduce((s, c) => s + c.totalPurchases, 0)
+
+  const columns = useMemo<ColumnDef<Customer>[]>(() => [
+    {
+      accessorKey: 'name',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Customer" />,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500/20 to-cyan-500/20 border border-violet-500/20 flex items-center justify-center text-sm font-bold text-violet-300 flex-shrink-0">
+            {row.original.name.charAt(0)}
+          </div>
+          <div>
+            <p className="text-sm font-medium text-slate-200">{row.original.name}</p>
+            {row.original.loyaltyPoints >= 500 && (
+              <span className="flex items-center gap-1 text-[10px] text-yellow-400">
+                <Star size={9} className="fill-yellow-400" />VIP
+              </span>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'phone',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Contact" />,
+      cell: ({ row }) => (
+        <div className="flex flex-col gap-0.5">
+          <span className="flex items-center gap-1 text-xs text-slate-400"><Phone size={10} />{row.original.phone}</span>
+          {row.original.email && <span className="flex items-center gap-1 text-xs text-slate-500"><Mail size={10} />{row.original.email}</span>}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'city',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="City" />,
+      cell: ({ row }) => <span className="flex items-center gap-1 text-xs text-slate-400"><MapPin size={10} />{row.original.city || '—'}</span>,
+    },
+    {
+      accessorKey: 'totalPurchases',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Purchases" />,
+      cell: ({ row }) => <span className="text-sm font-semibold text-green-400">{row.original.totalPurchases}</span>,
+    },
+    {
+      accessorKey: 'loyaltyPoints',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Points" />,
+      cell: ({ row }) => <span className="text-xs text-violet-400 font-medium">{row.original.loyaltyPoints} pts</span>,
+    },
+    {
+      accessorKey: 'createdAt',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Joined" />,
+      cell: ({ row }) => <span className="text-xs text-slate-500">{formatDate(row.original.createdAt)}</span>,
+    },
+    {
+      id: 'actions',
+      cell: ({ row }) => (
+        <TableActionsRow showAction={{ action: () => setDetailId(row.original.id) }} />
+      ),
+    },
+  ], [setDetailId])
 
   /* close segment dropdown on outside click */
   useEffect(() => {
@@ -229,7 +283,7 @@ export default function CustomersPage() {
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
           <h1 className="page-title">Customers</h1>
-          <p className="page-subtitle">{customers.length} registered · showing {filtered.length} in <span className="text-violet-400">{activeSeg.label}</span></p>
+          <p className="page-subtitle">{customers.length} registered · <span className="text-violet-400">{activeSeg.label}</span></p>
         </div>
         <div className="flex gap-2 sm:ml-auto items-center relative" ref={segmentRef}>
           <button
@@ -280,98 +334,17 @@ export default function CustomersPage() {
         ))}
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-        <input
-          type="text"
-          placeholder="Search by name, phone, email..."
-          className="input-field pl-9"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-      </div>
-
       {/* Table */}
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-white/5">
-                <th className="table-header">Customer</th>
-                <th className="table-header">Contact</th>
-                <th className="table-header">City</th>
-                <th className="table-header text-right">Purchases</th>
-                <th className="table-header text-center">Points</th>
-                <th className="table-header text-center">Repairs</th>
-                <th className="table-header">Joined</th>
-                <th className="table-header text-center">View</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/3">
-              {loading && (
-                <tr><td colSpan={8} className="py-12 text-center text-slate-500 text-sm">Loading customers...</td></tr>
-              )}
-              {!loading && filtered.map((customer) => (
-                <tr key={customer.id} className="hover:bg-white/2 transition-colors cursor-pointer" onClick={() => setDetailId(customer.id)}>
-                  <td className="table-cell">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500/20 to-cyan-500/20 border border-violet-500/20 flex items-center justify-center text-sm font-bold text-violet-300 flex-shrink-0">
-                        {customer.name.charAt(0)}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-slate-200">{customer.name}</p>
-                        {customer.loyaltyPoints >= 500 && (
-                          <span className="flex items-center gap-1 text-[10px] text-yellow-400">
-                            <Star size={9} className="fill-yellow-400" />VIP
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="table-cell">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="flex items-center gap-1 text-xs text-slate-400">
-                        <Phone size={10} />{customer.phone}
-                      </span>
-                      {customer.email && (
-                        <span className="flex items-center gap-1 text-xs text-slate-500">
-                          <Mail size={10} />{customer.email}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="table-cell">
-                    <span className="flex items-center gap-1 text-xs text-slate-400">
-                      <MapPin size={10} />{customer.city || '—'}
-                    </span>
-                  </td>
-                  <td className="table-cell text-right">
-                    <span className="text-sm font-semibold text-green-400">{customer.totalPurchases}</span>
-                  </td>
-                  <td className="table-cell text-center">
-                    <span className="text-xs text-violet-400 font-medium">{customer.loyaltyPoints} pts</span>
-                  </td>
-                  <td className="table-cell text-center">
-                    <span className="text-xs text-slate-400">{customer.totalRepairs}</span>
-                  </td>
-                  <td className="table-cell">
-                    <span className="text-xs text-slate-500">{formatDate(customer.createdAt)}</span>
-                  </td>
-                  <td className="table-cell text-center" onClick={e => { e.stopPropagation(); setDetailId(customer.id) }}>
-                    <button className="p-1.5 text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors">
-                      <Eye size={13} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {!loading && filtered.length === 0 && (
-                <tr><td colSpan={8} className="py-12 text-center text-slate-500 text-sm">No customers in this segment</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <ClientSideTable
+        data={segmentFiltered}
+        columns={columns}
+        isLoading={loading}
+        pageCount={Math.ceil((segmentFiltered.length || 1) / 20)}
+        searchableColumns={[
+          { id: 'name',  title: 'Name'  },
+          { id: 'phone', title: 'Phone' },
+        ]}
+      />
     </div>
   )
 }
