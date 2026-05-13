@@ -98,7 +98,7 @@ export default function LoginPage() {
 
       {/* ── Right login panel ── */}
       <div className="flex-1 flex items-center justify-center px-6 py-12 relative">
-        <div className="absolute inset-0 bg-[#0c1120] lg:border-l border-white/5 pointer-events-none" />
+        <div className="absolute inset-0 lg:border-l border-white/5 pointer-events-none" style={{ background: '#0c1120' }} />
 
         <div className="relative w-full max-w-sm">
           {/* mobile logo */}
@@ -106,12 +106,12 @@ export default function LoginPage() {
             <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-xl flex items-center justify-center">
               <span className="text-white font-black">H</span>
             </div>
-            <span className="text-xl font-bold text-white">Hexalyte</span>
+            <span className="text-xl font-bold" style={{ color: '#ffffff' }}>Hexalyte</span>
           </div>
 
           <div className="mb-8">
-            <h1 className="text-2xl font-bold text-white">Welcome back</h1>
-            <p className="text-slate-500 text-sm mt-1">Sign in to your dashboard</p>
+            <h1 className="text-2xl font-bold" style={{ color: '#ffffff' }}>Welcome back</h1>
+            <p className="text-sm mt-1" style={{ color: '#64748b' }}>Sign in to your dashboard</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -123,12 +123,12 @@ export default function LoginPage() {
             )}
 
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-2">Email address</label>
+              <label className="block text-xs font-medium mb-2" style={{ color: '#94a3b8' }}>Email address</label>
               <input
                 type="email"
                 placeholder="owner@yourshop.com"
-                className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-slate-600 outline-none transition-all border"
-                style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)' }}
+                className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all border"
+                style={{ background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)', color: '#ffffff' }}
                 onFocus={e => (e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)')}
                 onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
                 value={form.email}
@@ -138,13 +138,13 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-2">Password</label>
+              <label className="block text-xs font-medium mb-2" style={{ color: '#94a3b8' }}>Password</label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
-                  className="w-full px-4 py-3 pr-11 rounded-xl text-sm text-white placeholder-slate-600 outline-none transition-all border"
-                  style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)' }}
+                  className="w-full px-4 py-3 pr-11 rounded-xl text-sm outline-none transition-all border"
+                  style={{ background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)', color: '#ffffff' }}
                   onFocus={e => (e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)')}
                   onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
                   value={form.password}
@@ -154,7 +154,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 transition-colors" style={{ color: '#64748b' }}
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -174,8 +174,8 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-8 pt-6 border-t border-white/5 text-center">
-            <p className="text-xs text-slate-600">
+          <div className="mt-8 pt-6 text-center" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <p className="text-xs" style={{ color: '#475569' }}>
               Having trouble? Contact your system administrator
             </p>
           </div>
