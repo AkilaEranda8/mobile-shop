@@ -50,13 +50,9 @@ export default function LoginPage() {
         </div>
 
         {/* logo */}
-        <div className="relative flex items-center gap-3 mb-auto">
-          <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg shadow-violet-500/30">
-            <span className="text-white font-black text-lg">H</span>
-          </div>
-          <div>
-            <span className="text-xl font-bold text-white tracking-tight">Hexalyte</span>
-            <span className="block text-xs text-violet-400 -mt-0.5">Enterprise</span>
+        <div className="relative flex items-center mb-auto">
+          <div className="bg-white rounded-2xl px-5 py-3 shadow-lg shadow-black/30">
+            <img src="/logo.png" alt="Hexalyte Innovation" className="h-12 w-auto object-contain" />
           </div>
         </div>
 
@@ -102,11 +98,10 @@ export default function LoginPage() {
 
         <div className="relative w-full max-w-sm">
           {/* mobile logo */}
-          <div className="flex lg:hidden items-center gap-2.5 mb-8 justify-center">
-            <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-xl flex items-center justify-center">
-              <span className="text-white font-black">H</span>
+          <div className="flex lg:hidden justify-center mb-8">
+            <div className="bg-white rounded-2xl px-5 py-3 shadow-lg shadow-black/30">
+              <img src="/logo.png" alt="Hexalyte Innovation" className="h-10 w-auto object-contain" />
             </div>
-            <span className="text-xl font-bold" style={{ color: '#ffffff' }}>Hexalyte</span>
           </div>
 
           <div className="mb-8">
