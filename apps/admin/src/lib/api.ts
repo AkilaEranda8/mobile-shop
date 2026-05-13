@@ -34,6 +34,15 @@ async function req<T>(
   if (token) headers['Authorization'] = `Bearer ${token}`
 
   const res = await fetch(`${base}${path}`, { ...options, headers })
+
+  if (res.status === 401) {
+    adminAuth.clear()
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login'
+    }
+    throw new Error('Session expired. Please log in again.')
+  }
+
   const json = await res.json()
   if (!res.ok) throw new Error(json.message || 'Request failed')
   return json.data ?? json
