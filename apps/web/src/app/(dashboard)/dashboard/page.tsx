@@ -187,22 +187,34 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid sm:grid-cols-3 gap-4">
+        {/* Low Stock Alert - real data */}
         <div className="card p-4 border-yellow-500/20 bg-yellow-500/5">
           <div className="flex items-center gap-2.5 mb-2"><Package size={16} className="text-yellow-400" /><span className="text-sm font-semibold text-yellow-300">Low Stock Alert</span></div>
-          <p className="text-2xl font-bold text-white mb-1">3 items</p>
-          <p className="text-xs text-slate-500">OnePlus 12, S22 Battery, and 1 more are below reorder level</p>
+          <p className="text-2xl font-bold text-white mb-1">{s?.lowStockCount ?? 0} {(s?.lowStockCount ?? 0) === 1 ? 'item' : 'items'}</p>
+          <p className="text-xs text-slate-500">
+            {(s?.lowStockProducts ?? []).length === 0
+              ? 'All products are well stocked'
+              : (s.lowStockProducts as any[]).slice(0, 2).map((p: any) => p.name).join(', ')
+                + ((s.lowStockProducts as any[]).length > 2 ? ` and ${(s.lowStockProducts as any[]).length - 2} more below reorder level` : ' below reorder level')}
+          </p>
           <Link href="/dashboard/inventory" className="text-xs text-yellow-400 hover:text-yellow-300 mt-2 inline-flex items-center gap-1">View inventory <ArrowRight size={11} /></Link>
         </div>
+        {/* Warranty Expiring - real data */}
         <div className="card p-4 border-orange-500/20 bg-orange-500/5">
           <div className="flex items-center gap-2.5 mb-2"><Shield size={16} className="text-orange-400" /><span className="text-sm font-semibold text-orange-300">Warranty Expiring</span></div>
-          <p className="text-2xl font-bold text-white mb-1">7 warranties</p>
-          <p className="text-xs text-slate-500">Expiring within 30 days. SMS reminders scheduled.</p>
+          <p className="text-2xl font-bold text-white mb-1">{s?.expiringWarranties ?? 0} {(s?.expiringWarranties ?? 0) === 1 ? 'warranty' : 'warranties'}</p>
+          <p className="text-xs text-slate-500">
+            {(s?.expiringWarranties ?? 0) === 0 ? 'No warranties expiring soon' : 'Expiring within 30 days'}
+          </p>
           <Link href="/dashboard/warranty" className="text-xs text-orange-400 hover:text-orange-300 mt-2 inline-flex items-center gap-1">View warranties <ArrowRight size={11} /></Link>
         </div>
+        {/* Ready for Pickup - real data */}
         <div className="card p-4 border-blue-500/20 bg-blue-500/5">
           <div className="flex items-center gap-2.5 mb-2"><Wrench size={16} className="text-blue-400" /><span className="text-sm font-semibold text-blue-300">Ready for Pickup</span></div>
-          <p className="text-2xl font-bold text-white mb-1">2 devices</p>
-          <p className="text-xs text-slate-500">Repair jobs completed. Customers notified via SMS.</p>
+          <p className="text-2xl font-bold text-white mb-1">{s?.readyForPickup ?? 0} {(s?.readyForPickup ?? 0) === 1 ? 'device' : 'devices'}</p>
+          <p className="text-xs text-slate-500">
+            {(s?.readyForPickup ?? 0) === 0 ? 'No repairs ready for pickup' : 'Repair jobs completed, awaiting pickup'}
+          </p>
           <Link href="/dashboard/repairs" className="text-xs text-blue-400 hover:text-blue-300 mt-2 inline-flex items-center gap-1">View repairs <ArrowRight size={11} /></Link>
         </div>
       </div>

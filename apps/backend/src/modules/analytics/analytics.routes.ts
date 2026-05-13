@@ -13,14 +13,29 @@ router.get('/dashboard', async (req: Request, res: Response, next: NextFunction)
     const branchFilter = branchId ? { branchId } : {}
     const today = new Date(); today.setHours(0, 0, 0, 0)
     const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999)
-    const [todaySales, activeRepairs, totalCustomers, lowStockCount, totalRevenue] = await Promise.all([
+    const in30Days = new Date(); in30Days.setDate(in30Days.getDate() + 30)
+
+    const [todaySales, activeRepairs, totalCustomers, lowStockProducts, totalRevenue, expiringWarranties, readyForPickup] = await Promise.all([
       prisma.sale.aggregate({ where: { tenantId, ...branchFilter, createdAt: { gte: today, lte: todayEnd } }, _sum: { total: true }, _count: true }),
       prisma.repairTicket.count({ where: { tenantId, ...branchFilter, status: { notIn: ['DELIVERED', 'CANCELLED'] } } }),
       prisma.customer.count({ where: { tenantId } }),
-      prisma.product.count({ where: { tenantId, isActive: true, stock: { lte: 5 } } }),
+      prisma.product.findMany({ where: { tenantId, isActive: true, stock: { lte: 5 } }, select: { id: true, name: true, stock: true, minStock: true }, orderBy: { stock: 'asc' }, take: 5 }),
       prisma.sale.aggregate({ where: { tenantId, ...branchFilter }, _sum: { total: true } }),
+      prisma.warranty.count({ where: { tenantId, endDate: { lte: in30Days }, status: 'ACTIVE' } }),
+      prisma.repairTicket.count({ where: { tenantId, ...branchFilter, status: 'READY' } }),
     ])
-    sendSuccess(res, { todayRevenue: todaySales._sum.total ?? 0, todaySalesCount: todaySales._count, activeRepairs, totalCustomers, lowStockCount, totalRevenue: totalRevenue._sum.total ?? 0 })
+
+    sendSuccess(res, {
+      todayRevenue:    todaySales._sum.total ?? 0,
+      todaySalesCount: todaySales._count,
+      activeRepairs,
+      totalCustomers,
+      lowStockCount:    lowStockProducts.length,
+      lowStockProducts,
+      totalRevenue:    totalRevenue._sum.total ?? 0,
+      expiringWarranties,
+      readyForPickup,
+    })
   } catch (e) { next(e) }
 })
 
