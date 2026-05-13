@@ -51,7 +51,7 @@ export default function LoginPage() {
 
         {/* logo */}
         <div className="relative flex items-center mb-auto">
-          <img src="/logo.png" alt="Hexalyte Innovation" className="h-20 w-auto object-contain" style={{ mixBlendMode: 'screen' }} />
+          <img src="/logo.png" alt="Hexalyte Innovation" className="h-32 w-auto object-contain" style={{ mixBlendMode: 'screen' }} />
         </div>
 
         {/* headline */}
@@ -97,7 +97,7 @@ export default function LoginPage() {
         <div className="relative w-full max-w-sm">
           {/* mobile logo */}
           <div className="flex lg:hidden justify-center mb-8">
-            <img src="/logo.png" alt="Hexalyte Innovation" className="h-16 w-auto object-contain" style={{ mixBlendMode: 'screen' }} />
+            <img src="/logo.png" alt="Hexalyte Innovation" className="h-24 w-auto object-contain" style={{ mixBlendMode: 'screen' }} />
           </div>
 
           <div className="mb-8">
