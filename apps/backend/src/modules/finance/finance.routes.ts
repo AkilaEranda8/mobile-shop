@@ -32,17 +32,68 @@ router.post('/transactions', authorize('OWNER', 'MANAGER', 'CASHIER'), async (re
 
 router.get('/summary', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const tenantId = req.tenantId!
     const branchId = req.query.branchId as string | undefined
     const from = req.query.from ? new Date(req.query.from as string) : new Date(new Date().setDate(1))
-    const to = req.query.to ? new Date(req.query.to as string) : new Date()
-    const where: any = { tenantId: req.tenantId!, ...(branchId && { branchId }), createdAt: { gte: from, lte: to } }
-    const [income, expense] = await Promise.all([
-      prisma.transaction.aggregate({ where: { ...where, type: 'INCOME' }, _sum: { amount: true } }),
-      prisma.transaction.aggregate({ where: { ...where, type: 'EXPENSE' }, _sum: { amount: true } }),
+    const to   = req.query.to   ? new Date(req.query.to   as string) : new Date()
+    to.setHours(23, 59, 59, 999)
+
+    const txWhere: any = { tenantId, ...(branchId && { branchId }), createdAt: { gte: from, lte: to } }
+    const saleWhere: any = { tenantId, ...(branchId && { branchId }), createdAt: { gte: from, lte: to } }
+
+    const [txIncome, txExpense, salesAgg, cogsRaw] = await Promise.all([
+      // Manual income transactions (repair fees, other income)
+      prisma.transaction.aggregate({ where: { ...txWhere, type: 'INCOME'  }, _sum: { amount: true } }),
+      // Operating expense transactions (rent, salary, utilities, etc.)
+      prisma.transaction.aggregate({ where: { ...txWhere, type: 'EXPENSE' }, _sum: { amount: true } }),
+      // POS sales revenue
+      prisma.sale.aggregate({ where: saleWhere, _sum: { total: true }, _count: true }),
+      // COGS: qty sold × current buying price
+      branchId
+        ? prisma.$queryRaw<Array<{ cogs: number }>>`
+            SELECT COALESCE(SUM(si.quantity::float * p."buyingPrice"), 0)::float AS cogs
+            FROM   "SaleItem" si
+            JOIN   "Sale"    s ON s.id = si."saleId"
+            JOIN   "Product" p ON p.id = si."productId"
+            WHERE  s."tenantId" = ${tenantId}
+              AND  s."branchId" = ${branchId}
+              AND  s."createdAt" >= ${from}
+              AND  s."createdAt" <= ${to}
+          `
+        : prisma.$queryRaw<Array<{ cogs: number }>>`
+            SELECT COALESCE(SUM(si.quantity::float * p."buyingPrice"), 0)::float AS cogs
+            FROM   "SaleItem" si
+            JOIN   "Sale"    s ON s.id = si."saleId"
+            JOIN   "Product" p ON p.id = si."productId"
+            WHERE  s."tenantId" = ${tenantId}
+              AND  s."createdAt" >= ${from}
+              AND  s."createdAt" <= ${to}
+          `,
     ])
-    const totalIncome = income._sum.amount ?? 0
-    const totalExpense = expense._sum.amount ?? 0
-    sendSuccess(res, { totalIncome, totalExpense, profit: totalIncome - totalExpense, period: { from, to } })
+
+    const salesRevenue  = salesAgg._sum.total    ?? 0
+    const salesCount    = salesAgg._count
+    const cogs          = Number((cogsRaw as any[])[0]?.cogs ?? 0)
+    const otherIncome   = txIncome._sum.amount   ?? 0
+    const opExpenses    = txExpense._sum.amount  ?? 0
+
+    const totalRevenue  = salesRevenue + otherIncome
+    const totalExpense  = cogs + opExpenses
+    const grossProfit   = salesRevenue - cogs
+    const netProfit     = totalRevenue - totalExpense
+
+    sendSuccess(res, {
+      salesRevenue,
+      salesCount,
+      otherIncome,
+      totalIncome:  totalRevenue,
+      cogs,
+      opExpenses,
+      totalExpense,
+      grossProfit,
+      profit:       netProfit,
+      period: { from, to },
+    })
   } catch (e) { next(e) }
 })
 

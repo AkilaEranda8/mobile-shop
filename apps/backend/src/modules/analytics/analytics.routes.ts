@@ -30,7 +30,7 @@ router.get('/revenue', async (req: Request, res: Response, next: NextFunction) =
     const days = parseInt(req.query.days as string) || 30
     const from = new Date(); from.setDate(from.getDate() - days); from.setHours(0, 0, 0, 0)
 
-    // Group sales by calendar date directly
+    // 1. POS sales revenue per day
     const salesRaw: Array<{ date: Date; total: number }> = await prisma.$queryRaw`
       SELECT DATE_TRUNC('day', "createdAt" AT TIME ZONE 'UTC') AS date,
              COALESCE(SUM(total), 0)::float                    AS total
@@ -41,7 +41,20 @@ router.get('/revenue', async (req: Request, res: Response, next: NextFunction) =
       ORDER  BY 1 ASC
     `
 
-    // Group EXPENSE transactions by calendar date
+    // 2. COGS per day (qty sold × buying price at product level)
+    const cogsRaw: Array<{ date: Date; cogs: number }> = await prisma.$queryRaw`
+      SELECT DATE_TRUNC('day', s."createdAt" AT TIME ZONE 'UTC') AS date,
+             COALESCE(SUM(si.quantity::float * p."buyingPrice"), 0)::float AS cogs
+      FROM   "SaleItem" si
+      JOIN   "Sale"    s ON s.id = si."saleId"
+      JOIN   "Product" p ON p.id = si."productId"
+      WHERE  s."tenantId" = ${tenantId}
+        AND  s."createdAt" >= ${from}
+      GROUP  BY 1
+      ORDER  BY 1 ASC
+    `
+
+    // 3. Operating expenses per day (Transaction.EXPENSE)
     const expensesRaw: Array<{ date: Date; total: number }> = await prisma.$queryRaw`
       SELECT DATE_TRUNC('day', "createdAt" AT TIME ZONE 'UTC') AS date,
              COALESCE(SUM(amount), 0)::float                   AS total
@@ -53,25 +66,39 @@ router.get('/revenue', async (req: Request, res: Response, next: NextFunction) =
       ORDER  BY 1 ASC
     `
 
-    // Build a map of date → { revenue, expenses }
-    const map: Record<string, { totalRevenue: number; totalExpenses: number }> = {}
-    salesRaw.forEach((r) => {
-      const key = new Date(r.date).toISOString().split('T')[0]
-      map[key] = { totalRevenue: Number(r.total), totalExpenses: 0 }
-    })
-    expensesRaw.forEach((r) => {
-      const key = new Date(r.date).toISOString().split('T')[0]
-      if (!map[key]) map[key] = { totalRevenue: 0, totalExpenses: 0 }
-      map[key].totalExpenses = Number(r.total)
-    })
+    // 4. Other income per day (Transaction.INCOME — repair fees, service charges, etc.)
+    const incomeRaw: Array<{ date: Date; total: number }> = await prisma.$queryRaw`
+      SELECT DATE_TRUNC('day', "createdAt" AT TIME ZONE 'UTC') AS date,
+             COALESCE(SUM(amount), 0)::float                   AS total
+      FROM   "Transaction"
+      WHERE  "tenantId" = ${tenantId}
+        AND  type = 'INCOME'
+        AND  "createdAt" >= ${from}
+      GROUP  BY 1
+      ORDER  BY 1 ASC
+    `
+
+    // Merge all into date-keyed map
+    type DayData = { salesRevenue: number; cogs: number; opExpenses: number; otherIncome: number }
+    const map: Record<string, DayData> = {}
+    const ensure = (key: string) => { if (!map[key]) map[key] = { salesRevenue: 0, cogs: 0, opExpenses: 0, otherIncome: 0 } }
+
+    salesRaw.forEach  ((r) => { const k = new Date(r.date).toISOString().split('T')[0]; ensure(k); map[k].salesRevenue = Number(r.total) })
+    cogsRaw.forEach   ((r) => { const k = new Date(r.date).toISOString().split('T')[0]; ensure(k); map[k].cogs        = Number(r.cogs)  })
+    expensesRaw.forEach((r) => { const k = new Date(r.date).toISOString().split('T')[0]; ensure(k); map[k].opExpenses  = Number(r.total) })
+    incomeRaw.forEach ((r) => { const k = new Date(r.date).toISOString().split('T')[0]; ensure(k); map[k].otherIncome = Number(r.total) })
 
     const result = Object.entries(map)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, v]) => ({
         date,
-        totalRevenue:  v.totalRevenue,
-        totalExpenses: v.totalExpenses,
-        profit:        v.totalRevenue - v.totalExpenses,
+        totalRevenue:  v.salesRevenue + v.otherIncome,
+        salesRevenue:  v.salesRevenue,
+        otherIncome:   v.otherIncome,
+        cogs:          v.cogs,
+        totalExpenses: v.opExpenses,
+        grossProfit:   v.salesRevenue - v.cogs,
+        profit:        (v.salesRevenue + v.otherIncome) - v.cogs - v.opExpenses,
       }))
 
     sendSuccess(res, result)

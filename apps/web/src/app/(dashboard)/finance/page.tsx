@@ -107,10 +107,15 @@ export default function FinancePage() {
   const revenueArr: any[]  = Array.isArray(rawRevenue) ? rawRevenue : []
   const summary            = summaryData as any
 
-  const income  = summary?.totalIncome  ?? 0
-  const expense = summary?.totalExpense ?? 0
-  const profit  = income - expense
-  const margin  = income > 0 ? Math.round((profit / income) * 100) : 0
+  const salesRevenue = summary?.salesRevenue  ?? 0
+  const otherIncome  = summary?.otherIncome   ?? 0
+  const income       = summary?.totalIncome   ?? (salesRevenue + otherIncome)
+  const cogs         = summary?.cogs          ?? 0
+  const opExpenses   = summary?.opExpenses    ?? 0
+  const expense      = summary?.totalExpense  ?? (cogs + opExpenses)
+  const grossProfit  = summary?.grossProfit   ?? (salesRevenue - cogs)
+  const profit       = summary?.profit        ?? (income - expense)
+  const margin       = income > 0 ? Math.round((profit / income) * 100) : 0
 
   /* chart data from revenue summaries (last 8 weeks grouped by week) */
   const chartData = useMemo(() => {
@@ -171,20 +176,29 @@ export default function FinancePage() {
       </div>
 
       {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           {
-            label: 'Total Income',
-            value: formatCurrency(income),
-            sub: `${transactions.filter(t => t.type === 'INCOME').length} income records`,
+            label: 'Sales Revenue',
+            value: formatCurrency(salesRevenue),
+            sub: `+ ${formatCurrency(otherIncome)} other income`,
             icon: <ArrowUpRight size={18} />,
             color: '#16a34a',
             bg: 'rgba(21,128,61,0.08)',
             border: 'rgba(21,128,61,0.20)',
           },
           {
-            label: 'Total Expenses',
-            value: formatCurrency(expense),
+            label: 'Gross Profit',
+            value: formatCurrency(grossProfit),
+            sub: `COGS: ${formatCurrency(cogs)}`,
+            icon: <TrendingUp size={18} />,
+            color: '#0e7490',
+            bg: 'rgba(14,116,144,0.08)',
+            border: 'rgba(14,116,144,0.20)',
+          },
+          {
+            label: 'Operating Expenses',
+            value: formatCurrency(opExpenses),
             sub: `${transactions.filter(t => t.type === 'EXPENSE').length} expense records`,
             icon: <ArrowDownRight size={18} />,
             color: '#b91c1c',
