@@ -120,6 +120,13 @@ export function useTopProducts(params?: Record<string, string>) {
   )
 }
 
+export function useRepairsByStatus() {
+  return useApi<unknown[]>(
+    () => analyticsApi.repairsByStatus() as Promise<{ data: unknown[] }>,
+    [],
+  )
+}
+
 export function useImeiRecords(params?: Record<string, string>) {
   return useApi<{ data: unknown[]; meta: any }>(
     () => wrapPaginated(imeiApi.list.bind(null, params)),
