@@ -1,4 +1,5 @@
 import { prisma } from '../../config/database'
+import { AppError } from '../../middleware/error.middleware'
 import type { ConnectInput, UpdateConfigInput, SendInvoiceInput } from './whatsapp.schema'
 
 const META_API = 'https://graph.facebook.com/v19.0'
@@ -193,31 +194,40 @@ export const whatsappService = {
 
   async sendTestMessage(tenantId: string, phone: string) {
     const cfg = await prisma.whatsAppConfig.findUnique({ where: { tenantId } })
-    if (!cfg) throw new Error('WhatsApp not configured')
-    if (cfg.status !== 'connected') throw new Error('WhatsApp is not connected')
+    if (!cfg) throw new AppError('WhatsApp not configured', 400)
+    if (cfg.status !== 'connected') throw new AppError('WhatsApp is not connected', 400)
 
     const normalizedPhone = phone.startsWith('+') ? phone.slice(1) : phone
 
-    const result = await metaPost(`/${cfg.phoneNumberId}/messages`, cfg.accessToken, {
-      messaging_product: 'whatsapp',
-      to:                normalizedPhone,
-      type:              'text',
-      text:              { body: '✅ This is a test message from your Hexalyte dashboard. WhatsApp integration is working!' },
-    })
+    let result: any
+    let status = 'sent'
+    let metaErr: string | undefined
+    try {
+      result = await metaPost(`/${cfg.phoneNumberId}/messages`, cfg.accessToken, {
+        messaging_product: 'whatsapp',
+        to:                normalizedPhone,
+        type:              'text',
+        text:              { body: '✅ This is a test message from your Hexalyte dashboard. WhatsApp integration is working!' },
+      })
+    } catch (err: any) {
+      status  = 'failed'
+      metaErr = err?.message ?? 'Meta API error'
+    }
 
     await prisma.whatsAppMessage.create({
       data: {
         tenantId,
-        configId:     cfg.id,
-        to:           phone,
-        customerName: 'Test',
-        type:         'test',
-        preview:      'WhatsApp connection test message',
-        status:       'sent',
+        configId:      cfg.id,
+        to:            phone,
+        customerName:  'Test',
+        type:          'test',
+        preview:       'WhatsApp connection test message',
+        status,
         metaMessageId: result?.messages?.[0]?.id,
       },
-    })
+    }).catch(() => {})
 
+    if (metaErr) throw new AppError(metaErr, 400)
     return { success: true, message: 'Test message sent successfully!' }
   },
 
