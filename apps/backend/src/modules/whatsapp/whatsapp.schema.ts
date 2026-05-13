@@ -21,12 +21,12 @@ export const updateConfigSchema = z.object({
 })
 
 export const sendTestMessageSchema = z.object({
-  phone: z.string().regex(/^\+?[1-9]\d{6,14}$/, 'Invalid phone number format'),
+  phone: z.string().regex(/^\+?[0-9]\d{6,14}$/, 'Invalid phone number format'),
 })
 
 export const sendInvoiceSchema = z.object({
   orderId:      z.string().min(1, 'Order ID is required'),
-  phone:        z.string().regex(/^\+?[1-9]\d{6,14}$/, 'Invalid phone number'),
+  phone:        z.string().regex(/^\+?[0-9]\d{6,14}$/, 'Invalid phone number'),
   customerName: z.string().optional(),
   amount:       z.number().optional(),
 })

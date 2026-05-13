@@ -112,11 +112,19 @@ export default function ConnectionTab({ status, config, onStatusChange, onConfig
     finally { setTesting(false) }
   }
 
+  const normalizePhone = (p: string) => {
+    const digits = p.replace(/\D/g, '')
+    if (digits.startsWith('0') && digits.length === 10) return '+94' + digits.slice(1)
+    if (!p.startsWith('+')) return '+' + digits
+    return p.trim()
+  }
+
   const handleSendTest = async () => {
-    if (!/^\+?[1-9]\d{6,14}$/.test(testPhone)) { toast.error('Enter a valid phone number (e.g. +94771234567)'); return }
+    const normalized = normalizePhone(testPhone)
+    if (!/^\+[1-9]\d{6,14}$/.test(normalized)) { toast.error('Enter a valid phone number (e.g. 0771234567 or +94771234567)'); return }
     setSendingTest(true)
     try {
-      const res: any = await whatsappApi.sendTestMessage(testPhone)
+      const res: any = await whatsappApi.sendTestMessage(normalized)
       const r = res?.data ?? res
       toast.success(r?.message ?? 'Test message sent!')
       setShowTestInput(false); setTestPhone('')
@@ -251,7 +259,7 @@ export default function ConnectionTab({ status, config, onStatusChange, onConfig
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
                 <div className="flex gap-2 pt-1">
-                  <input className="input-field text-sm" placeholder="+94771234567"
+                  <input className="input-field text-sm" placeholder="0771234567 or +94771234567"
                     value={testPhone} onChange={e => setTestPhone(e.target.value)} />
                   <button onClick={handleSendTest} disabled={sendingTest}
                     className="btn-primary flex items-center gap-1.5 whitespace-nowrap disabled:opacity-60">
