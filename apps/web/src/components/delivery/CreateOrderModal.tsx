@@ -12,7 +12,7 @@ interface Props {
   onCreated: () => void
 }
 
-interface Item { description: string; quantity: number; unitPrice: number }
+interface Item { description: string; quantity: number; unitPrice: number; productId?: string; stock?: number }
 interface Product { id: string; name: string; sellingPrice: number; stock: number; sku: string }
 interface Customer { id: string; name: string; phone: string; email?: string }
 
@@ -78,8 +78,7 @@ export default function CreateOrderModal({ couriers, onClose, onCreated }: Props
   }
 
   const selectProduct = (idx: number, product: Product) => {
-    updateItem(idx, 'description', product.name)
-    updateItem(idx, 'unitPrice', product.sellingPrice)
+    setItems(i => i.map((it, n) => n === idx ? { ...it, description: product.name, unitPrice: product.sellingPrice, productId: product.id, stock: product.stock } : it))
     setProductSearch(s => s.map((v, n) => n === idx ? product.name : v))
     setShowDropdown(null)
   }
@@ -106,6 +105,11 @@ export default function CreateOrderModal({ couriers, onClose, onCreated }: Props
       toast.error('Fill in required fields'); return
     }
     if (items.some(i => !i.description)) { toast.error('All items need a description'); return }
+    const stockViolation = items.find(i => i.productId !== undefined && i.stock !== undefined && i.quantity > i.stock)
+    if (stockViolation) {
+      toast.error(`"${stockViolation.description}" has only ${stockViolation.stock} in stock — cannot order ${stockViolation.quantity}`)
+      return
+    }
     setSaving(true)
     try {
       await deliveryApi.createOrder({ ...form, items, subtotal })
@@ -261,13 +265,21 @@ export default function CreateOrderModal({ couriers, onClose, onCreated }: Props
                       <input className="input-field text-xs w-full" value={item.description}
                         onChange={e => {
                           updateItem(i, 'description', e.target.value)
+                          setItems(prev => prev.map((it, n) => n === i ? { ...it, productId: undefined, stock: undefined } : it))
                           setProductSearch(s => s.map((v, n) => n === i ? e.target.value : v))
                         }} placeholder="Item description" />
                     </div>
                     <div className="w-16">
-                      <label className="text-[10px] text-slate-500 mb-1 block">Qty</label>
-                      <input type="number" min={1} className="input-field text-xs w-full" value={item.quantity}
-                        onChange={e => updateItem(i, 'quantity', +e.target.value)} />
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[10px] text-slate-500">Qty</label>
+                        {item.stock !== undefined && (
+                          <span className={`text-[9px] font-semibold ${item.quantity > item.stock ? 'text-red-400' : 'text-green-400'}`}>
+                            /{item.stock}
+                          </span>
+                        )}
+                      </div>
+                      <input type="number" min={1} className={`input-field text-xs w-full ${item.stock !== undefined && item.quantity > item.stock ? 'border-red-500/50 text-red-400' : ''}`}
+                        value={item.quantity} onChange={e => updateItem(i, 'quantity', +e.target.value)} />
                     </div>
                     <div className="w-24">
                       <label className="text-[10px] text-slate-500 mb-1 block">Unit Price</label>
@@ -284,6 +296,9 @@ export default function CreateOrderModal({ couriers, onClose, onCreated }: Props
                       </button>
                     )}
                   </div>
+                  {item.stock !== undefined && item.quantity > item.stock && (
+                    <p className="text-[10px] text-red-400 mt-1">⚠ Only {item.stock} in stock — reduce quantity to continue</p>
+                  )}
                 </div>
               ))}
             </div>
