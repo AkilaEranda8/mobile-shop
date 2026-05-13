@@ -1,8 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Bell, Search, Menu, X, ChevronDown, Settings, LogOut, User, Wifi, WifiOff, Sun, Moon } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Bell, Search, Menu, X, ChevronDown, Settings, LogOut, User, Sun, Moon, AlertTriangle, Wrench, ShoppingBag, TrendingUp } from 'lucide-react'
 import { useTheme } from 'next-themes'
+import { useRouter } from 'next/navigation'
+import { authStorage } from '@/lib/auth'
+import { authApi } from '@/lib/api'
+import { useAnalyticsDashboard } from '@/lib/hooks'
+import { formatCurrency } from '@/lib/utils'
 
 interface HeaderProps {
   onMenuToggle: () => void
@@ -11,31 +16,52 @@ interface HeaderProps {
 
 export default function Header({ onMenuToggle, sidebarOpen }: HeaderProps) {
   const [notifOpen, setNotifOpen] = useState(false)
-  const [userOpen, setUserOpen] = useState(false)
+  const [userOpen, setUserOpen]   = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
   const { theme, setTheme } = useTheme()
-  const isOnline = true
+  const router = useRouter()
+  const user = authStorage.getUser()
 
-  useEffect(() => setMounted(true), [])
+  const { data: dashData } = useAnalyticsDashboard()
+  const dash = dashData as any
 
-  const notifications = [
-    { id: 1, type: 'warning', message: '3 items are running low on stock', time: '5m ago', read: false },
-    { id: 2, type: 'success', message: 'Repair REP-24048 is ready for pickup', time: '12m ago', read: false },
-    { id: 3, type: 'info', message: 'Warranty WRN-2023-00089 expires in 30 days', time: '1h ago', read: true },
-    { id: 4, type: 'success', message: 'PO-2405-001 received successfully', time: '3h ago', read: true },
-  ]
+  const initials = (user?.name ?? 'U').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+  const roleLabel = (user?.role ?? '').toLowerCase().replace('_', ' ')
 
-  const unreadCount = notifications.filter(n => !n.read).length
+  /* build live notifications from real dashboard data */
+  const notifications = useMemo(() => {
+    const list: { id: number; type: string; icon: any; message: string; unread: boolean }[] = []
+    if (dash?.lowStockCount > 0)
+      list.push({ id: 1, type: 'warning', icon: AlertTriangle, message: `${dash.lowStockCount} product${dash.lowStockCount > 1 ? 's are' : ' is'} running low on stock`, unread: true })
+    if (dash?.activeRepairs > 0)
+      list.push({ id: 2, type: 'info', icon: Wrench, message: `${dash.activeRepairs} repair job${dash.activeRepairs > 1 ? 's' : ''} currently in progress`, unread: false })
+    if (dash?.todaySalesCount > 0)
+      list.push({ id: 3, type: 'success', icon: ShoppingBag, message: `${dash.todaySalesCount} sale${dash.todaySalesCount > 1 ? 's' : ''} today — ${formatCurrency(dash.todayRevenue ?? 0)} revenue`, unread: false })
+    if (dash?.totalCustomers > 0)
+      list.push({ id: 4, type: 'success', icon: TrendingUp, message: `${dash.totalCustomers} total customers registered`, unread: false })
+    return list
+  }, [dash])
+
+  const unreadCount = notifications.filter(n => n.unread).length
+
+  const handleLogout = async () => {
+    try { await authApi.logout() } catch { /* ignore */ }
+    authStorage.clear()
+    router.replace('/login')
+  }
+
+  const typeColor: Record<string, string> = {
+    warning: 'bg-yellow-400',
+    success: 'bg-green-400',
+    info:    'bg-blue-400',
+  }
 
   return (
     <header className="h-14 flex items-center px-4 gap-4 sticky top-0 z-40 border-b transition-colors"
       style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-subtle)' }}>
-      {/* Menu toggle (mobile) */}
-      <button
-        onClick={onMenuToggle}
-        className="lg:hidden text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/5 transition-colors"
-      >
+
+      {/* Mobile menu toggle */}
+      <button onClick={onMenuToggle} className="lg:hidden p-1.5 rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'var(--text-muted)' }}>
         {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
       </button>
 
@@ -44,69 +70,43 @@ export default function Header({ onMenuToggle, sidebarOpen }: HeaderProps) {
         {searchOpen ? (
           <div className="relative">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input
-              autoFocus
-              type="text"
-              placeholder="Search products, customers, repairs..."
-              className="input-field pl-9 py-2 text-sm"
-              onBlur={() => setSearchOpen(false)}
-            />
+            <input autoFocus type="text" placeholder="Search products, customers, repairs..."
+              className="input-field pl-9 py-2 text-sm" onBlur={() => setSearchOpen(false)} />
           </div>
         ) : (
-          <button
-            onClick={() => setSearchOpen(true)}
+          <button onClick={() => setSearchOpen(true)}
             className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-all w-full max-w-xs border"
-            style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}
-          >
+            style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
             <Search size={14} />
             <span>Search...</span>
-            <kbd className="ml-auto text-[10px] border rounded px-1.5 py-0.5" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-muted)' }}>⌘K</kbd>
+            <kbd className="ml-auto text-[10px] border rounded px-1.5 py-0.5"
+              style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-muted)' }}>⌘K</kbd>
           </button>
         )}
       </div>
 
       <div className="flex items-center gap-2 ml-auto">
-        {/* Online status */}
-        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${isOnline ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
-          {isOnline ? <Wifi size={11} /> : <WifiOff size={11} />}
-          <span className="hidden sm:inline">{isOnline ? 'Online' : 'Offline'}</span>
-        </div>
 
         {/* Theme toggle */}
         <div className="flex items-center rounded-xl border p-0.5 gap-0.5"
           style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
-          <button
-            onClick={() => setTheme('light')}
+          <button onClick={() => setTheme('light')}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-200"
-            style={{
-              background: theme === 'light' ? '#ffffff' : 'transparent',
-              color: theme === 'light' ? '#7c3aed' : 'var(--text-muted)',
-              boxShadow: theme === 'light' ? '0 1px 3px rgba(0,0,0,0.12)' : 'none',
-            }}
-          >
-            <Sun size={13} />
-            <span className="hidden sm:inline">Light</span>
+            style={{ background: theme === 'light' ? '#ffffff' : 'transparent', color: theme === 'light' ? '#7c3aed' : 'var(--text-muted)', boxShadow: theme === 'light' ? '0 1px 3px rgba(0,0,0,0.12)' : 'none' }}>
+            <Sun size={13} /><span className="hidden sm:inline">Light</span>
           </button>
-          <button
-            onClick={() => setTheme('dark')}
+          <button onClick={() => setTheme('dark')}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-200"
-            style={{
-              background: theme === 'dark' ? '#1e1b4b' : 'transparent',
-              color: theme === 'dark' ? '#a78bfa' : 'var(--text-muted)',
-              boxShadow: theme === 'dark' ? '0 1px 3px rgba(0,0,0,0.3)' : 'none',
-            }}
-          >
-            <Moon size={13} />
-            <span className="hidden sm:inline">Dark</span>
+            style={{ background: theme === 'dark' ? '#1e1b4b' : 'transparent', color: theme === 'dark' ? '#a78bfa' : 'var(--text-muted)', boxShadow: theme === 'dark' ? '0 1px 3px rgba(0,0,0,0.3)' : 'none' }}>
+            <Moon size={13} /><span className="hidden sm:inline">Dark</span>
           </button>
         </div>
 
         {/* Notifications */}
         <div className="relative">
-          <button
-            onClick={() => { setNotifOpen(!notifOpen); setUserOpen(false) }}
-            className="relative p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors"
-          >
+          <button onClick={() => { setNotifOpen(!notifOpen); setUserOpen(false) }}
+            className="relative p-2 rounded-xl transition-colors hover:bg-white/5"
+            style={{ color: 'var(--text-muted)' }}>
             <Bell size={18} />
             {unreadCount > 0 && (
               <span className="absolute top-1 right-1 w-4 h-4 bg-violet-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
@@ -116,25 +116,27 @@ export default function Header({ onMenuToggle, sidebarOpen }: HeaderProps) {
           </button>
 
           {notifOpen && (
-            <div className="absolute right-0 top-full mt-2 w-80 rounded-2xl shadow-xl z-50 border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
-              <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
-                <span className="text-sm font-semibold text-white">Notifications</span>
-                <button className="text-xs text-violet-400 hover:text-violet-300">Mark all read</button>
+            <div className="absolute right-0 top-full mt-2 w-80 rounded-2xl shadow-xl z-50 border"
+              style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
+              <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Notifications</span>
+                {unreadCount > 0 && <span className="text-xs px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400">{unreadCount} new</span>}
               </div>
-              <div className="divide-y divide-white/5 max-h-80 overflow-y-auto">
+              <div className="divide-y max-h-72 overflow-y-auto" style={{ borderColor: 'var(--border-subtle)' }}>
+                {notifications.length === 0 && (
+                  <p className="text-xs text-center py-8" style={{ color: 'var(--text-muted)' }}>No notifications</p>
+                )}
                 {notifications.map((n) => (
-                  <div key={n.id} className={`px-4 py-3 flex gap-3 ${!n.read ? 'bg-white/2' : ''}`}>
-                    <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${n.type === 'warning' ? 'bg-yellow-400' : n.type === 'success' ? 'bg-green-400' : 'bg-blue-400'}`} />
-                    <div>
-                      <p className="text-xs text-slate-300">{n.message}</p>
-                      <p className="text-xs text-slate-600 mt-0.5">{n.time}</p>
+                  <div key={n.id} className="px-4 py-3 flex gap-3 transition-colors hover:bg-white/3">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${n.type === 'warning' ? 'bg-yellow-500/10' : n.type === 'success' ? 'bg-green-500/10' : 'bg-blue-500/10'}`}>
+                      <n.icon size={13} className={n.type === 'warning' ? 'text-yellow-400' : n.type === 'success' ? 'text-green-400' : 'text-blue-400'} />
                     </div>
-                    {!n.read && <div className="w-1.5 h-1.5 bg-violet-500 rounded-full ml-auto mt-1.5" />}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{n.message}</p>
+                    </div>
+                    {n.unread && <div className="w-1.5 h-1.5 bg-violet-500 rounded-full flex-shrink-0 mt-1.5" />}
                   </div>
                 ))}
-              </div>
-              <div className="px-4 py-3 border-t border-white/5">
-                <button className="text-xs text-slate-400 hover:text-slate-200 w-full text-center">View all notifications</button>
               </div>
             </div>
           )}
@@ -142,38 +144,40 @@ export default function Header({ onMenuToggle, sidebarOpen }: HeaderProps) {
 
         {/* User menu */}
         <div className="relative">
-          <button
-            onClick={() => { setUserOpen(!userOpen); setNotifOpen(false) }}
-            className="flex items-center gap-2 p-1.5 hover:bg-white/5 rounded-xl transition-colors"
-          >
+          <button onClick={() => { setUserOpen(!userOpen); setNotifOpen(false) }}
+            className="flex items-center gap-2 p-1.5 rounded-xl transition-colors hover:bg-white/5">
             <div className="w-7 h-7 rounded-full bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-300 font-bold text-xs">
-              S
+              {initials}
             </div>
-            <ChevronDown size={13} className="text-slate-500" />
+            <span className="hidden md:block text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{user?.name ?? 'User'}</span>
+            <ChevronDown size={13} style={{ color: 'var(--text-muted)' }} />
           </button>
 
           {userOpen && (
-            <div className="absolute right-0 top-full mt-2 w-52 rounded-2xl shadow-xl z-50 border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
-              <div className="px-4 py-3 border-b border-white/5">
-                <p className="text-sm font-semibold text-white">Subramaniam R</p>
-                <p className="text-xs text-slate-500">owner@mobilehub.com</p>
-                <span className="inline-block mt-1 text-xs bg-violet-600/20 text-violet-300 border border-violet-500/20 px-2 py-0.5 rounded-full">Owner</span>
+            <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl shadow-xl z-50 border"
+              style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
+              <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{user?.name ?? 'User'}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{user?.email ?? ''}</p>
+                <span className="inline-block mt-1.5 text-[10px] px-2 py-0.5 rounded-full capitalize bg-violet-600/20 text-violet-300 border border-violet-500/20">{roleLabel}</span>
               </div>
               <div className="p-1">
                 {[
                   { icon: User, label: 'My Profile' },
                   { icon: Settings, label: 'Settings' },
                 ].map((item) => (
-                  <button key={item.label} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors">
-                    <item.icon size={15} />
-                    {item.label}
+                  <button key={item.label} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-xl transition-colors"
+                    style={{ color: 'var(--text-muted)' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-subtle)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                    <item.icon size={15} />{item.label}
                   </button>
                 ))}
               </div>
-              <div className="border-t border-white/5 p-1">
-                <button className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-xl transition-colors">
-                  <LogOut size={15} />
-                  Sign out
+              <div className="border-t p-1" style={{ borderColor: 'var(--border-subtle)' }}>
+                <button onClick={handleLogout}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-xl transition-colors">
+                  <LogOut size={15} />Sign out
                 </button>
               </div>
             </div>
@@ -181,7 +185,6 @@ export default function Header({ onMenuToggle, sidebarOpen }: HeaderProps) {
         </div>
       </div>
 
-      {/* Click outside to close */}
       {(notifOpen || userOpen) && (
         <div className="fixed inset-0 z-40" onClick={() => { setNotifOpen(false); setUserOpen(false) }} />
       )}
