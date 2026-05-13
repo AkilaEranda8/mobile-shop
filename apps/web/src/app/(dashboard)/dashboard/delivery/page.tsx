@@ -89,6 +89,15 @@ export default function DeliveryPage() {
     catch (e: any) { toast.error(e?.message ?? 'Failed') }
   }
 
+  const handleMarkDelivered = async (order: DeliveryOrder) => {
+    if (!confirm(`Mark "${order.orderNumber}" as Delivered?`)) return
+    try {
+      await deliveryApi.updateOrder(order.id, { status: 'DELIVERED' })
+      toast.success(`${order.orderNumber} marked as Delivered`)
+      loadOrders()
+    } catch (e: any) { toast.error(e?.message ?? 'Failed to update status') }
+  }
+
   const handleRetryNotif = async (id: string) => {
     try { await deliveryApi.retryNotification(id); toast.success('Retried'); loadNotifs() }
     catch (e: any) { toast.error(e?.message ?? 'Failed') }
@@ -209,6 +218,13 @@ export default function DeliveryPage() {
               className="p-1.5 rounded-lg transition-colors"
               style={{ color: '#4ade80' }}>
               <MessageSquare size={13} />
+            </button>
+          )}
+          {['DISPATCHED', 'IN_TRANSIT', 'PACKED'].includes(row.original.status) && (
+            <button title="Mark as Delivered" onClick={() => handleMarkDelivered(row.original)}
+              className="p-1.5 rounded-lg transition-colors"
+              style={{ color: '#34d399' }}>
+              <CheckCircle2 size={13} />
             </button>
           )}
         </div>
