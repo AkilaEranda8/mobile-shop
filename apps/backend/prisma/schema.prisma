@@ -351,7 +351,7 @@ model Sale {
   cashierId       String?
   cashierName     String
   source          String     @default("POS")
-  deliveryOrderId String?
+  deliveryOrderId String?    @unique
   notes           String?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
