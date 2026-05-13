@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { X, Plus, Trash2, Loader2, Package, Search } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { deliveryApi, Courier } from '@/lib/delivery-api'
-import { productsApi } from '@/lib/api'
+import { productsApi, customersApi } from '@/lib/api'
 
 interface Props {
   couriers: Courier[]
@@ -14,6 +14,7 @@ interface Props {
 
 interface Item { description: string; quantity: number; unitPrice: number }
 interface Product { id: string; name: string; sellingPrice: number; stock: number; sku: string }
+interface Customer { id: string; name: string; phone: string; email?: string }
 
 export default function CreateOrderModal({ couriers, onClose, onCreated }: Props) {
   const [saving, setSaving] = useState(false)
@@ -24,25 +25,49 @@ export default function CreateOrderModal({ couriers, onClose, onCreated }: Props
   })
   const [items, setItems] = useState<Item[]>([{ description: '', quantity: 1, unitPrice: 0 }])
   const [products, setProducts] = useState<Product[]>([])
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [customerSearch, setCustomerSearch] = useState('')
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
   const [productSearch, setProductSearch] = useState<string[]>([''])
   const [showDropdown, setShowDropdown] = useState<number | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const customerDropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     productsApi.list({ limit: '500' }).then((res: any) => {
       setProducts(res?.data?.data ?? res?.data ?? [])
     }).catch(() => {})
+    customersApi.list({ limit: '500' }).then((res: any) => {
+      setCustomers(res?.data?.data ?? res?.data ?? [])
+    }).catch(() => {})
   }, [])
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node))
         setShowDropdown(null)
-      }
+      if (customerDropdownRef.current && !customerDropdownRef.current.contains(e.target as Node))
+        setShowCustomerDropdown(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
+
+  const filteredCustomers = () => {
+    const q = customerSearch.toLowerCase()
+    if (!q) return customers.slice(0, 8)
+    return customers.filter(c =>
+      c.name.toLowerCase().includes(q) || c.phone.includes(q)
+    ).slice(0, 8)
+  }
+
+  const selectCustomer = (c: Customer) => {
+    set('customerName', c.name)
+    set('customerPhone', c.phone)
+    set('customerEmail', c.email ?? '')
+    setCustomerSearch(c.name)
+    setShowCustomerDropdown(false)
+  }
 
   const filteredProducts = (idx: number) => {
     const q = productSearch[idx]?.toLowerCase() ?? ''
@@ -103,13 +128,39 @@ export default function CreateOrderModal({ couriers, onClose, onCreated }: Props
 
         <form onSubmit={handleSubmit} className="p-5 space-y-5">
           {/* Customer */}
-          <div>
+          <div ref={customerDropdownRef}>
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-3">Customer Details</p>
+            {/* Customer search */}
+            <div className="relative mb-3">
+              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+              <input
+                className="input-field text-sm w-full pl-7"
+                value={customerSearch}
+                placeholder="Search existing customer..."
+                onFocus={() => setShowCustomerDropdown(true)}
+                onChange={e => { setCustomerSearch(e.target.value); setShowCustomerDropdown(true) }}
+              />
+              {showCustomerDropdown && filteredCustomers().length > 0 && (
+                <div className="absolute z-50 left-0 right-0 top-full mt-1 rounded-xl shadow-2xl overflow-hidden"
+                  style={{ background: '#1a2235', border: '1px solid var(--border-default)' }}>
+                  {filteredCustomers().map(c => (
+                    <button key={c.id} type="button"
+                      className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-white/5 transition-colors"
+                      onMouseDown={() => selectCustomer(c)}>
+                      <div>
+                        <p className="text-xs font-medium text-white">{c.name}</p>
+                        <p className="text-[10px] text-slate-500">{c.phone}{c.email ? ` · ${c.email}` : ''}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs text-slate-400 mb-1">Name *</label>
                 <input className="input-field text-sm w-full" value={form.customerName}
-                  onChange={e => set('customerName', e.target.value)} placeholder="Customer name" />
+                  onChange={e => { set('customerName', e.target.value); setCustomerSearch(e.target.value) }} placeholder="Customer name" />
               </div>
               <div>
                 <label className="block text-xs text-slate-400 mb-1">Phone *</label>
