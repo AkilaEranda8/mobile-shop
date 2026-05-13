@@ -6,7 +6,7 @@ import {
   LayoutDashboard, ShoppingCart, Package, Users, Wrench,
   Shield, Truck, BarChart3, Settings, LogOut,
   CreditCard, Smartphone, FileText,
-  UserCheck, ChevronLeft, ChevronRight, Receipt, MessageSquare
+  UserCheck, ChevronLeft, ChevronRight, Receipt, MessageSquare, PackageCheck
 } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -64,9 +64,15 @@ const navItems = [
     ],
   },
   {
+    label: 'Delivery',
+    items: [
+      { href: '/dashboard/delivery', icon: PackageCheck, label: 'Delivery Orders', badge: 'NEW' },
+    ],
+  },
+  {
     label: 'Messaging',
     items: [
-      { href: '/dashboard/whatsapp', icon: MessageSquare, label: 'WhatsApp', badge: 'NEW' },
+      { href: '/dashboard/whatsapp', icon: MessageSquare, label: 'WhatsApp' },
     ],
   },
   {

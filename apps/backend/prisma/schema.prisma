@@ -138,7 +138,9 @@ model Tenant {
   purchaseOrders PurchaseOrder[]
   transactions   Transaction[]
   dailySummaries DailySummary[]
-  whatsAppConfig WhatsAppConfig?
+  whatsAppConfig  WhatsAppConfig?
+  couriers        Courier[]
+  deliveryOrders  DeliveryOrder[]
 }
 
 model Branch {
@@ -646,4 +648,160 @@ model WhatsAppMessage {
 
   @@index([tenantId])
   @@index([configId])
+}
+
+// ─────────────── Delivery / Courier / Tracking ───────────────
+
+enum DeliveryStatus {
+  PENDING
+  PACKED
+  AWAITING_TRACKING
+  DISPATCHED
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+}
+
+enum TrackingNumberStatus {
+  AVAILABLE
+  ASSIGNED
+  USED
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  RETRYING
+}
+
+model Courier {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  code        String
+  logoUrl     String?
+  website     String?
+  phone       String?
+  isActive    Boolean  @default(true)
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  trackingPool   TrackingNumber[]
+  deliveryOrders DeliveryOrder[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+model TrackingNumber {
+  id              String               @id @default(cuid())
+  tenantId        String
+  courierId       String
+  number          String
+  status          TrackingNumberStatus @default(AVAILABLE)
+  assignedAt      DateTime?
+  deliveryOrderId String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  courier       Courier        @relation(fields: [courierId], references: [id], onDelete: Cascade)
+  deliveryOrder DeliveryOrder? @relation(fields: [deliveryOrderId], references: [id])
+
+  @@unique([tenantId, number])
+  @@index([tenantId, courierId, status])
+}
+
+model DeliveryOrder {
+  id             String         @id @default(cuid())
+  tenantId       String
+  branchId       String?
+  orderNumber    String
+
+  customerName   String
+  customerPhone  String
+  customerEmail  String?
+
+  addressLine1   String
+  addressLine2   String?
+  city           String
+  district       String?
+  postalCode     String?
+
+  subtotal       Float          @default(0)
+  deliveryCharge Float          @default(0)
+  totalAmount    Float          @default(0)
+  codAmount      Float?
+  isCOD          Boolean        @default(false)
+
+  courierId      String?
+  trackingNumber String?
+
+  status         DeliveryStatus @default(PENDING)
+  notes          String?
+  createdById    String?
+  dispatchedAt   DateTime?
+  deliveredAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  tenant         Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  courier        Courier?              @relation(fields: [courierId], references: [id])
+  items          DeliveryItem[]
+  waybills       Waybill[]
+  notifications  DeliveryNotification[]
+  trackingNumbers TrackingNumber[]
+
+  @@unique([tenantId, orderNumber])
+  @@index([tenantId])
+  @@index([tenantId, status])
+}
+
+model DeliveryItem {
+  id              String  @id @default(cuid())
+  deliveryOrderId String
+  description     String
+  quantity        Int     @default(1)
+  unitPrice       Float   @default(0)
+  total           Float   @default(0)
+
+  deliveryOrder DeliveryOrder @relation(fields: [deliveryOrderId], references: [id], onDelete: Cascade)
+}
+
+model Waybill {
+  id              String   @id @default(cuid())
+  tenantId        String
+  deliveryOrderId String
+  waybillNumber   String
+  reprintCount    Int      @default(0)
+  printedAt       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  deliveryOrder DeliveryOrder @relation(fields: [deliveryOrderId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([deliveryOrderId])
+}
+
+model DeliveryNotification {
+  id              String             @id @default(cuid())
+  tenantId        String
+  deliveryOrderId String
+  channel         String             @default("whatsapp")
+  phone           String
+  message         String
+  status          NotificationStatus @default(PENDING)
+  errorMessage    String?
+  sentAt          DateTime?
+  retryCount      Int                @default(0)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  deliveryOrder DeliveryOrder @relation(fields: [deliveryOrderId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([deliveryOrderId])
 }
