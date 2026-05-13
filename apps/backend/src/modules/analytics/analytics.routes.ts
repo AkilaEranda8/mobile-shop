@@ -28,9 +28,53 @@ router.get('/revenue', async (req: Request, res: Response, next: NextFunction) =
   try {
     const tenantId = req.tenantId!
     const days = parseInt(req.query.days as string) || 30
-    const from = new Date(); from.setDate(from.getDate() - days)
-    const summaries = await prisma.dailySummary.findMany({ where: { tenantId, date: { gte: from } }, orderBy: { date: 'asc' } })
-    sendSuccess(res, summaries)
+    const from = new Date(); from.setDate(from.getDate() - days); from.setHours(0, 0, 0, 0)
+
+    // Group sales by calendar date directly
+    const salesRaw: Array<{ date: Date; total: number }> = await prisma.$queryRaw`
+      SELECT DATE_TRUNC('day', "createdAt" AT TIME ZONE 'UTC') AS date,
+             COALESCE(SUM(total), 0)::float                    AS total
+      FROM   "Sale"
+      WHERE  "tenantId" = ${tenantId}
+        AND  "createdAt" >= ${from}
+      GROUP  BY 1
+      ORDER  BY 1 ASC
+    `
+
+    // Group EXPENSE transactions by calendar date
+    const expensesRaw: Array<{ date: Date; total: number }> = await prisma.$queryRaw`
+      SELECT DATE_TRUNC('day', "createdAt" AT TIME ZONE 'UTC') AS date,
+             COALESCE(SUM(amount), 0)::float                   AS total
+      FROM   "Transaction"
+      WHERE  "tenantId" = ${tenantId}
+        AND  type = 'EXPENSE'
+        AND  "createdAt" >= ${from}
+      GROUP  BY 1
+      ORDER  BY 1 ASC
+    `
+
+    // Build a map of date → { revenue, expenses }
+    const map: Record<string, { totalRevenue: number; totalExpenses: number }> = {}
+    salesRaw.forEach((r) => {
+      const key = new Date(r.date).toISOString().split('T')[0]
+      map[key] = { totalRevenue: Number(r.total), totalExpenses: 0 }
+    })
+    expensesRaw.forEach((r) => {
+      const key = new Date(r.date).toISOString().split('T')[0]
+      if (!map[key]) map[key] = { totalRevenue: 0, totalExpenses: 0 }
+      map[key].totalExpenses = Number(r.total)
+    })
+
+    const result = Object.entries(map)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, v]) => ({
+        date,
+        totalRevenue:  v.totalRevenue,
+        totalExpenses: v.totalExpenses,
+        profit:        v.totalRevenue - v.totalExpenses,
+      }))
+
+    sendSuccess(res, result)
   } catch (e) { next(e) }
 })
 
@@ -52,7 +96,7 @@ router.get('/top-products', async (req: Request, res: Response, next: NextFuncti
 router.get('/repairs-by-status', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const counts = await prisma.repairTicket.groupBy({ by: ['status'], where: { tenantId: req.tenantId! }, _count: true })
-    sendSuccess(res, counts)
+    sendSuccess(res, counts.map((c: any) => ({ status: c.status, count: typeof c._count === 'object' ? (c._count._all ?? 0) : (c._count ?? 0) })))
   } catch (e) { next(e) }
 })
 

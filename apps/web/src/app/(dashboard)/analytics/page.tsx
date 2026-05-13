@@ -21,15 +21,11 @@ const TOOLTIP_STYLE = {
   color: 'var(--text-primary)',
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  RECEIVED: '#6d28d9', DIAGNOSED: '#1d4ed8', IN_REPAIR: '#b45309',
-  QUALITY_CHECK: '#0e7490', READY: '#15803d', DELIVERED: '#166534', CANCELLED: '#b91c1c',
-}
 const PIE_COLORS = ['#6d28d9','#1d4ed8','#b45309','#0e7490','#15803d','#166534','#b91c1c']
 
 const STATUS_LABELS: Record<string, string> = {
   RECEIVED: 'Received', DIAGNOSED: 'Diagnosed', IN_REPAIR: 'In Repair',
-  QUALITY_CHECK: 'Quality', READY: 'Ready', DELIVERED: 'Delivered', CANCELLED: 'Cancelled',
+  QC: 'QC Check', READY: 'Ready', DELIVERED: 'Delivered', CANCELLED: 'Cancelled',
 }
 
 export default function AnalyticsPage() {
@@ -61,7 +57,7 @@ export default function AnalyticsPage() {
   /* repair status pie */
   const repairPie = repairStatus.map((r: any, i: number) => ({
     name:  STATUS_LABELS[r.status] ?? r.status,
-    value: r._count ?? 0,
+    value: r.count ?? r._count ?? 0,
     fill:  PIE_COLORS[i % PIE_COLORS.length],
   }))
   const totalRepairs = repairPie.reduce((s, r) => s + r.value, 0)
