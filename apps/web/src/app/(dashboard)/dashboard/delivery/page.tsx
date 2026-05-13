@@ -486,7 +486,7 @@ export default function DeliveryPage() {
             columns={notifColumns}
             isLoading={false}
             pageCount={Math.ceil((notifs.length || 1) / 20)}
-            searchableColumns={[{ id: 'order', title: 'Order #' }]}
+            searchableColumns={[{ id: 'phone', title: 'Phone' }]}
             filterableColumns={[{
               id: 'status', title: 'Status',
               options: [

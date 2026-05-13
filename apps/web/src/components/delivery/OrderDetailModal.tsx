@@ -1,9 +1,8 @@
 'use client'
 
-import { X, Printer, Hash, MessageSquare, MapPin, Phone, Mail, Truck, Calendar } from 'lucide-react'
+import { X, Printer, Hash, MessageSquare, MapPin, Phone, Truck, Calendar } from 'lucide-react'
 import { DeliveryOrder } from '@/lib/delivery-api'
-import { formatDate, getDeliveryStatusColor } from '@/lib/utils'
-import { formatCurrency } from '@/lib/utils'
+import { formatDate, formatCurrency, getDeliveryStatusColor } from '@/lib/utils'
 
 const statusLabels: Record<string, string> = {
   PENDING: 'Pending', PACKED: 'Packed', AWAITING_TRACKING: 'Awaiting Tracking',
