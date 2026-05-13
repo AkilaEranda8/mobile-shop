@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useMemo } from 'react'
-import { Plus, Package, AlertTriangle, Download, Upload, QrCode, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp } from 'lucide-react'
+import { Plus, Package, AlertTriangle, Download, Upload, QrCode, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -334,31 +334,107 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
   )
 }
 
-function ProductDetailModal({ product, onClose }: { product: Product; onClose: () => void }) {
+function ProductDetailModal({ product, onClose, onEdit }: { product: Product; onClose: () => void; onEdit?: () => void }) {
+  const p = product as any
+  const margin     = product.sellingPrice - product.buyingPrice
+  const marginPct  = product.buyingPrice > 0 ? ((margin / product.buyingPrice) * 100).toFixed(1) : '0'
+  const stockValue = product.buyingPrice * product.stock
+  const isOut = product.stock === 0
+  const isLow = product.stock < product.minStock && product.stock > 0
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl">
-        <div className="flex items-center justify-between p-5 border-b border-white/5">
-          <h3 className="text-base font-semibold text-white">Product Details</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
-        </div>
-        <div className="p-5 space-y-3">
-          <div className="w-full h-24 bg-gradient-to-br from-violet-500/10 to-cyan-500/10 rounded-xl flex items-center justify-center border border-violet-500/10">
-            <Package size={36} className="text-violet-400 opacity-50" />
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
+          <div className="flex items-center gap-2">
+            <Package size={15} className="text-violet-400" />
+            <h3 className="text-sm font-semibold text-white">Product Details</h3>
           </div>
-          {[
-            ['Name', product.name],
-            ['SKU', product.sku],
-            ['Category', (product as any).categoryName],
-            ['Brand', (product as any).brandName],
-            ['Stock', String(product.stock)],
-            ['Selling Price', `₹${product.sellingPrice}`],
-          ].map(([k, v]) => v ? (
-            <div key={k} className="flex justify-between text-sm border-b border-white/5 pb-2">
-              <span className="text-slate-500">{k}</span>
-              <span className="text-slate-200 font-medium">{v}</span>
+          <div className="flex items-center gap-2">
+            {onEdit && (
+              <button onClick={onEdit} className="flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 px-2.5 py-1.5 rounded-lg border border-violet-500/20 hover:bg-violet-500/10 transition-colors">
+                <Edit size={11} /> Edit
+              </button>
+            )}
+            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
+          </div>
+        </div>
+
+        <div className="p-5 space-y-5">
+          {/* Hero banner */}
+          <div className="w-full h-28 bg-gradient-to-br from-violet-600/20 via-violet-500/10 to-cyan-500/10 rounded-2xl flex flex-col items-center justify-center border border-violet-500/15 relative overflow-hidden">
+            <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle at 30% 50%, #7c3aed 0%, transparent 60%)' }} />
+            <Package size={32} className="text-violet-400 mb-1.5 opacity-80" />
+            <p className="text-xs text-violet-300 font-mono">{product.sku}</p>
+          </div>
+
+          {/* Name + brand */}
+          <div>
+            <h2 className="text-lg font-bold text-white leading-tight">{product.name}</h2>
+            <div className="flex items-center gap-2 mt-1.5">
+              {p.brandName && <span className="text-[11px] px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300">{p.brandName}</span>}
+              {p.categoryName && <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-500/10 border border-slate-500/20 text-slate-400">{p.categoryName}</span>}
+              <span className={`text-[11px] px-2 py-0.5 rounded-full border ${
+                isOut ? 'bg-red-500/10 border-red-500/20 text-red-400'
+                : isLow ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'
+                : 'bg-green-500/10 border-green-500/20 text-green-400'
+              }`}>{isOut ? 'Out of Stock' : isLow ? 'Low Stock' : 'In Stock'}</span>
             </div>
-          ) : null)}
+          </div>
+
+          {/* Price cards */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl p-3 text-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+              <div className="flex items-center justify-center gap-1 mb-1"><ArrowDownRight size={11} className="text-slate-500" /><span className="text-[10px] text-slate-500 uppercase tracking-wide">Buying</span></div>
+              <p className="text-sm font-bold text-white">{formatCurrency(product.buyingPrice)}</p>
+            </div>
+            <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)' }}>
+              <div className="flex items-center justify-center gap-1 mb-1"><ShoppingCart size={11} className="text-violet-400" /><span className="text-[10px] text-violet-400 uppercase tracking-wide">Selling</span></div>
+              <p className="text-sm font-bold text-violet-300">{formatCurrency(product.sellingPrice)}</p>
+            </div>
+            <div className="rounded-xl p-3 text-center" style={{ background: margin >= 0 ? 'rgba(21,128,61,0.08)' : 'rgba(185,28,28,0.08)', border: margin >= 0 ? '1px solid rgba(21,128,61,0.2)' : '1px solid rgba(185,28,28,0.2)' }}>
+              <div className="flex items-center justify-center gap-1 mb-1"><ArrowUpRight size={11} className={margin >= 0 ? 'text-green-400' : 'text-red-400'} /><span className={`text-[10px] uppercase tracking-wide ${margin >= 0 ? 'text-green-400' : 'text-red-400'}`}>Margin</span></div>
+              <p className={`text-sm font-bold ${margin >= 0 ? 'text-green-300' : 'text-red-300'}`}>{marginPct}%</p>
+            </div>
+          </div>
+
+          {/* Stats row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl p-3 flex items-center gap-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+              <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
+                <Layers size={14} className="text-violet-400" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Stock Qty</p>
+                <p className={`text-base font-bold ${isOut ? 'text-red-400' : isLow ? 'text-yellow-400' : 'text-white'}`}>{product.stock}</p>
+              </div>
+            </div>
+            <div className="rounded-xl p-3 flex items-center gap-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+              <div className="w-8 h-8 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-center flex-shrink-0">
+                <BarChart2 size={14} className="text-green-400" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Stock Value</p>
+                <p className="text-sm font-bold text-white">{formatCurrency(stockValue)}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Details list */}
+          <div className="space-y-0 rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
+            {([
+              ['SKU',           product.sku,              'font-mono text-xs'],
+              ['Profit / unit', formatCurrency(margin),   margin >= 0 ? 'text-green-400' : 'text-red-400'],
+              ['Min Stock Alert', String(product.minStock), 'text-yellow-400'],
+              ['Description',   p.description ?? '—',    ''],
+            ] as [string, string, string][]).map(([label, value, cls], i, arr) => (
+              <div key={label} className={`flex items-center justify-between px-4 py-2.5 text-sm ${ i < arr.length - 1 ? 'border-b' : '' }`} style={{ borderColor: 'var(--border-subtle)', background: i % 2 === 0 ? 'var(--bg-subtle)' : 'transparent' }}>
+                <span className="text-slate-500 text-xs">{label}</span>
+                <span className={`font-medium text-xs ${cls || 'text-slate-200'} max-w-[60%] text-right truncate`}>{value}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -391,7 +467,7 @@ export default function InventoryPage() {
             <Package size={14} className="text-violet-400" />
           </div>
           <div>
-            <p className="text-sm font-medium text-slate-200">{row.original.name}</p>
+            <button className="text-sm font-medium text-slate-200 hover:text-violet-400 text-left transition-colors" onClick={() => setViewProduct(row.original)}>{row.original.name}</button>
             <p className="text-xs text-slate-500">{(row.original as any).brandName}</p>
           </div>
         </div>
@@ -458,7 +534,7 @@ export default function InventoryPage() {
       {showAddModal && <AddProductModal onClose={() => setShowAddModal(false)} onSaved={refetch} />}
       {showImport  && <ImportModal onClose={() => setShowImport(false)} onSaved={refetch} />}
       {editProduct && <EditProductModal product={editProduct} onClose={() => setEditProduct(null)} onSaved={refetch} />}
-      {viewProduct && <ProductDetailModal product={viewProduct} onClose={() => setViewProduct(null)} />}
+      {viewProduct && <ProductDetailModal product={viewProduct} onClose={() => setViewProduct(null)} onEdit={() => { setEditProduct(viewProduct); setViewProduct(null) }} />}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
