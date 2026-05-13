@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: hexalyte_secret
       POSTGRES_DB: hexalyte
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./apps/backend/src/database/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -23,12 +23,12 @@ services:
     image: redis:7-alpine
     container_name: hexalyte_redis
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     networks:
       - hexalyte-network
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --protected-mode yes --requirepass "HxR3d1s@2025#Secure" --bind 0.0.0.0 --rename-command FLUSHALL "" --rename-command FLUSHDB "" --rename-command CONFIG "" --rename-command DEBUG "" --rename-command SLAVEOF "" --rename-command REPLICAOF ""
 
   backend:
     build:
@@ -39,7 +39,7 @@ services:
       NODE_ENV: development
       PORT: 3001
       DATABASE_URL: postgresql://hexalyte:hexalyte_secret@postgres:5432/hexalyte
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:HxR3d1s@2025#Secure@redis:6379
       JWT_SECRET: hexalyte-super-secret-jwt-key-for-development-only
       JWT_EXPIRES_IN: 15m
       JWT_REFRESH_EXPIRES_IN: 7d
@@ -53,7 +53,7 @@ services:
       AWS_REGION: ap-south-1
       AWS_S3_BUCKET: hexalyte-storage
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     depends_on:
       postgres:
         condition: service_healthy
@@ -78,7 +78,7 @@ services:
       NEXTAUTH_SECRET: hexalyte-admin-nextauth-secret-dev
       NEXTAUTH_URL: https://admin2.hexalyte.com
     ports:
-      - "3002:3002"
+      - "127.0.0.1:3002:3002"
     depends_on:
       - backend
     networks:
@@ -98,7 +98,7 @@ services:
       NEXTAUTH_SECRET: your-nextauth-secret-min-32-chars
       NEXTAUTH_URL: https://app.hexalyte.com
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       - backend
     networks:
