@@ -5,12 +5,10 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, ShoppingCart, Package, Users, Wrench,
   Shield, Truck, BarChart3, Settings, LogOut,
-  CreditCard, Zap, Smartphone, FileText,
-  UserCheck, ChevronLeft, ChevronRight,
-  Receipt, Sun, Moon
+  CreditCard, Smartphone, FileText,
+  UserCheck, ChevronLeft, ChevronRight, Receipt
 } from 'lucide-react'
 import { useState } from 'react'
-import { useTheme } from 'next-themes'
 import { cn } from '@/lib/utils'
 import { authStorage } from '@/lib/auth'
 import { authApi } from '@/lib/api'
@@ -81,7 +79,6 @@ interface SidebarProps {
 export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const { theme, setTheme } = useTheme()
   const user = authStorage.getUser()
 
   const handleLogout = async () => {
@@ -122,21 +119,6 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
             <span className="block text-xs text-violet-400 -mt-0.5">Enterprise</span>
           </div>
         )}
-      </div>
-
-      {/* Platform Admin — top of sidebar */}
-      <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-        <Link
-          href="/admin"
-          className={cn(
-            'flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-500 hover:text-amber-300 hover:bg-amber-500/5 transition-colors text-xs',
-            collapsed && 'justify-center px-2'
-          )}
-          title={collapsed ? 'Platform Admin' : undefined}
-        >
-          <Zap size={13} className="text-amber-400 flex-shrink-0" />
-          {!collapsed && <span>Platform Admin</span>}
-        </Link>
       </div>
 
       {/* Navigation */}
@@ -186,47 +168,6 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           </div>
         ))}
       </nav>
-
-      {/* Dark / Light Mode Toggle */}
-      <div className="px-3 py-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-        {collapsed ? (
-          <button
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="w-full flex justify-center p-2 rounded-lg transition-colors hover:bg-white/5"
-            title={theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'}
-          >
-            {theme === 'dark'
-              ? <Sun size={15} className="text-amber-400" />
-              : <Moon size={15} className="text-violet-400" />
-            }
-          </button>
-        ) : (
-          <div className="flex items-center rounded-xl border p-0.5 gap-0.5" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
-            <button
-              onClick={() => setTheme('light')}
-              className="flex flex-1 items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-all duration-200"
-              style={{
-                background: theme === 'light' ? '#ffffff' : 'transparent',
-                color: theme === 'light' ? '#7c3aed' : 'var(--text-muted)',
-                boxShadow: theme === 'light' ? '0 1px 3px rgba(0,0,0,0.12)' : 'none',
-              }}
-            >
-              <Sun size={12} />Light
-            </button>
-            <button
-              onClick={() => setTheme('dark')}
-              className="flex flex-1 items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-all duration-200"
-              style={{
-                background: theme === 'dark' ? '#1e1b4b' : 'transparent',
-                color: theme === 'dark' ? '#a78bfa' : 'var(--text-muted)',
-                boxShadow: theme === 'dark' ? '0 1px 3px rgba(0,0,0,0.3)' : 'none',
-              }}
-            >
-              <Moon size={12} />Dark
-            </button>
-          </div>
-        )}
-      </div>
 
       {/* User section — no avatar */}
       <div className={cn('border-t p-3', collapsed && 'flex justify-center')} style={{ borderColor: 'var(--border-subtle)' }}>
