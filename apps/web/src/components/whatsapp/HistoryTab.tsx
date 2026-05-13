@@ -8,18 +8,6 @@ import {
 } from 'lucide-react'
 import { whatsappApi, type InvoiceHistoryItem } from '@/lib/whatsapp-api'
 
-const MOCK: InvoiceHistoryItem[] = [
-  { id: '1',  orderId: 'ORD-0041', customerName: 'Akila Perera',         phone: '+94771234567', amount: 24500,  status: 'delivered', sentAt: new Date(Date.now() - 1800000).toISOString()  },
-  { id: '2',  orderId: 'ORD-0040', customerName: 'Nimal Silva',           phone: '+94712345678', amount: 8900,   status: 'delivered', sentAt: new Date(Date.now() - 7200000).toISOString()  },
-  { id: '3',  orderId: 'ORD-0039', customerName: 'Sunil Raj',             phone: '+94723456789', amount: 45000,  status: 'failed',    sentAt: new Date(Date.now() - 10800000).toISOString() },
-  { id: '4',  orderId: 'ORD-0038', customerName: 'Dilani Fernando',       phone: '+94734567890', amount: 12000,  status: 'pending',   sentAt: new Date(Date.now() - 14400000).toISOString() },
-  { id: '5',  orderId: 'ORD-0037', customerName: 'Chamara Wijesinghe',    phone: '+94745678901', amount: 67500,  status: 'delivered', sentAt: new Date(Date.now() - 86400000).toISOString() },
-  { id: '6',  orderId: 'ORD-0036', customerName: 'Tharanga Bandara',      phone: '+94756789012', amount: 15000,  status: 'delivered', sentAt: new Date(Date.now() - 172800000).toISOString()},
-  { id: '7',  orderId: 'ORD-0035', customerName: 'Prasad Jayawardena',    phone: '+94767890123', amount: 33500,  status: 'failed',    sentAt: new Date(Date.now() - 259200000).toISOString()},
-  { id: '8',  orderId: 'ORD-0034', customerName: 'Madhavi Kumari',        phone: '+94778901234', amount: 9800,   status: 'delivered', sentAt: new Date(Date.now() - 345600000).toISOString()},
-  { id: '9',  orderId: 'ORD-0033', customerName: 'Ruwan Dissanayake',     phone: '+94789012345', amount: 56000,  status: 'delivered', sentAt: new Date(Date.now() - 432000000).toISOString()},
-  { id: '10', orderId: 'ORD-0032', customerName: 'Kavindi Perera',        phone: '+94790123456', amount: 21500,  status: 'pending',   sentAt: new Date(Date.now() - 518400000).toISOString()},
-]
 
 const STATUS_CFG = {
   delivered: { Icon: CheckCircle2, color: 'text-green-400',  bg: 'bg-green-500/10',  border: 'border-green-500/20',  label: 'Delivered' },
@@ -42,8 +30,8 @@ export default function HistoryTab() {
     try {
       const res: any = await whatsappApi.getInvoiceHistory()
       const data = res?.data ?? res
-      setItems(Array.isArray(data) && data.length ? data : MOCK)
-    } catch { setItems(MOCK) }
+      setItems(Array.isArray(data) ? data : [])
+    } catch { setItems([]) }
     finally { setLoading(false) }
   }
 

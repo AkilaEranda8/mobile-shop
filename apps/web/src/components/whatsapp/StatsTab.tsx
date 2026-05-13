@@ -9,26 +9,6 @@ import {
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { whatsappApi, type WAStats, type RecentMessage } from '@/lib/whatsapp-api'
 
-const MOCK_STATS: WAStats = {
-  totalSent: 156, delivered: 142, failed: 8, pending: 6,
-  invoicesSent: 98, deliveryRate: 91.0,
-  monthlyData: [
-    { month: 'Dec', sent: 18, delivered: 16 },
-    { month: 'Jan', sent: 24, delivered: 22 },
-    { month: 'Feb', sent: 19, delivered: 17 },
-    { month: 'Mar', sent: 31, delivered: 29 },
-    { month: 'Apr', sent: 28, delivered: 25 },
-    { month: 'May', sent: 36, delivered: 33 },
-  ],
-}
-
-const MOCK_MSGS: RecentMessage[] = [
-  { id: '1', to: '+94771234567', customerName: 'Akila Perera',        type: 'invoice', preview: 'Invoice #ORD-001 · LKR 24,500', status: 'delivered', timestamp: new Date(Date.now() - 1800000).toISOString() },
-  { id: '2', to: '+94712345678', customerName: 'Nimal Silva',          type: 'invoice', preview: 'Invoice #ORD-002 · LKR 8,900',  status: 'read',      timestamp: new Date(Date.now() - 7200000).toISOString() },
-  { id: '3', to: '+94777777777', customerName: 'Test',                 type: 'test',    preview: 'WhatsApp connection test',       status: 'delivered', timestamp: new Date(Date.now() - 10800000).toISOString() },
-  { id: '4', to: '+94723456789', customerName: 'Sunil Raj',            type: 'invoice', preview: 'Invoice #ORD-003 · LKR 45,000', status: 'failed',    timestamp: new Date(Date.now() - 14400000).toISOString() },
-  { id: '5', to: '+94734567890', customerName: 'Dilani Fernando',      type: 'invoice', preview: 'Invoice #ORD-004 · LKR 12,000', status: 'sent',      timestamp: new Date(Date.now() - 18000000).toISOString() },
-]
 
 const MSG_STATUS: Record<string, { color: string; bg: string; border: string }> = {
   read:      { color: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/20'   },
@@ -73,8 +53,8 @@ export default function StatsTab() {
         whatsappApi.getStats().then((r: any) => r?.data ?? r).catch(() => null),
         whatsappApi.getRecentMessages().then((r: any) => r?.data ?? r).catch(() => null),
       ])
-      setStats(s ?? MOCK_STATS)
-      setMessages(Array.isArray(m) ? m : MOCK_MSGS)
+      setStats(s ?? null)
+      setMessages(Array.isArray(m) ? m : [])
       setLoading(false)
     }
     load()
@@ -92,6 +72,14 @@ export default function StatsTab() {
   if (loading) return (
     <div className="flex items-center justify-center py-24">
       <Loader2 size={22} className="animate-spin text-violet-400" />
+    </div>
+  )
+
+  if (!stats) return (
+    <div className="flex flex-col items-center justify-center py-24 gap-3">
+      <MessageSquare size={36} className="text-slate-600" />
+      <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>No statistics yet</p>
+      <p className="text-xs text-slate-500">Connect WhatsApp and send messages to see stats here</p>
     </div>
   )
 
