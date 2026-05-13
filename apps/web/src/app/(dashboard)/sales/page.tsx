@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   Receipt, Eye, X, Calendar, User, Package,
   CreditCard, Loader2, Hash, ShoppingBag,
-  Banknote, Smartphone, TrendingUp, Download,
+  Banknote, Smartphone, TrendingUp, Download, Truck,
 } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
@@ -371,7 +371,17 @@ export default function SalesPage() {
     {
       accessorKey: 'invoiceNumber',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Invoice" />,
-      cell: ({ row }) => <span className="font-mono text-xs text-violet-400">{row.original.invoiceNumber}</span>,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1.5">
+          <span className="font-mono text-xs text-violet-400">{row.original.invoiceNumber}</span>
+          {row.original.source === 'DELIVERY' && (
+            <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded font-semibold"
+              style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.2)' }}>
+              <Truck size={9} /> Delivery
+            </span>
+          )}
+        </div>
+      ),
     },
     {
       accessorKey: 'createdAt',

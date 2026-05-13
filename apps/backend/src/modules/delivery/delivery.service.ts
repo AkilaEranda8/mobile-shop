@@ -1,5 +1,6 @@
 import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
+import { generateInvoiceNumber } from '../../utils/counters'
 import type {
   CreateDeliveryOrderInput,
   UpdateDeliveryOrderInput,
@@ -7,6 +8,83 @@ import type {
   CreateCourierInput,
   BulkAddTrackingInput,
 } from './delivery.schema'
+
+// ── Auto-create Sale when delivery is marked DELIVERED ──────────────────────
+
+async function createDeliverySale(tenantId: string, orderId: string) {
+  const order = await prisma.deliveryOrder.findUnique({
+    where:   { id: orderId },
+    include: { items: true },
+  })
+  if (!order) return
+
+  // Avoid duplicate sale
+  const existing = await prisma.sale.findFirst({ where: { deliveryOrderId: orderId } })
+  if (existing) return
+
+  const invoiceNumber = await generateInvoiceNumber(tenantId)
+
+  // Find first branch for the tenant (delivery orders may not have a branch)
+  const branchId = order.branchId ?? (
+    (await prisma.branch.findFirst({ where: { tenantId }, select: { id: true } }))?.id ?? null
+  )
+
+  // Find cashier: prefer the createdBy user, else first owner/manager
+  let cashierId: string | null = order.createdById ?? null
+  let cashierName = 'Delivery'
+  if (cashierId) {
+    const u = await prisma.user.findFirst({ where: { id: cashierId }, select: { id: true, name: true } })
+    if (u) { cashierName = u.name } else { cashierId = null }
+  }
+  if (!cashierId) {
+    const u = await prisma.user.findFirst({
+      where: { tenantId, role: { in: ['OWNER', 'MANAGER'] } },
+      select: { id: true, name: true },
+    })
+    if (u) { cashierId = u.id; cashierName = u.name }
+  }
+
+  await prisma.sale.create({
+    data: {
+      tenantId,
+      branchId:       branchId  ?? undefined,
+      invoiceNumber,
+      customerName:   order.customerName,
+      customerPhone:  order.customerPhone,
+      subtotal:       order.subtotal,
+      discount:       0,
+      tax:            0,
+      total:          order.totalAmount,
+      paidAmount:     order.totalAmount,
+      dueAmount:      0,
+      status:         'PAID',
+      cashierId:      cashierId ?? undefined,
+      cashierName,
+      source:         'DELIVERY',
+      deliveryOrderId: order.id,
+      notes:          `Delivery Order: ${order.orderNumber}`,
+      items: {
+        create: order.items.map((item: any) => ({
+          productId:     null,
+          productName:   item.description,
+          sku:           '',
+          quantity:      item.quantity,
+          unitPrice:     item.unitPrice,
+          discount:      0,
+          total:         item.total,
+          warrantyMonths: 0,
+        })),
+      },
+      payments: {
+        create: [{
+          method:    'CASH',
+          amount:    order.totalAmount,
+          reference: order.orderNumber,
+        }],
+      },
+    },
+  })
+}
 
 // ── Sequence helper ───────────────────────────────────────────────────────────
 
@@ -172,7 +250,16 @@ export const deliveryService = {
     if (input.status === 'DISPATCHED' && !existing.dispatchedAt) data.dispatchedAt = new Date()
     if (input.status === 'DELIVERED'  && !existing.deliveredAt)  data.deliveredAt  = new Date()
 
-    return prisma.deliveryOrder.update({ where: { id }, data, include: { items: true, courier: true } })
+    const updated = await prisma.deliveryOrder.update({ where: { id }, data, include: { items: true, courier: true } })
+
+    // Auto-create sale record when first marked as DELIVERED
+    if (input.status === 'DELIVERED' && existing.status !== 'DELIVERED') {
+      createDeliverySale(tenantId, id).catch(err =>
+        console.error(`[DeliverySale] Failed to create sale for order ${id}:`, err)
+      )
+    }
+
+    return updated
   },
 
   async assignTracking(tenantId: string, id: string, input: AssignTrackingInput) {

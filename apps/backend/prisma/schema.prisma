@@ -334,49 +334,52 @@ model Customer {
 // ─────────────── POS / Sale ───────────────
 
 model Sale {
-  id             String     @id @default(cuid())
-  tenantId       String
-  branchId       String
-  invoiceNumber  String     @unique
-  customerId     String?
-  customerName   String?
-  customerPhone  String?
-  subtotal       Float
-  discount       Float      @default(0)
-  tax            Float      @default(0)
-  total          Float
-  paidAmount     Float
-  dueAmount      Float      @default(0)
-  status         SaleStatus @default(PAID)
-  cashierId      String
-  cashierName    String
-  notes          String?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  id              String     @id @default(cuid())
+  tenantId        String
+  branchId        String?
+  invoiceNumber   String     @unique
+  customerId      String?
+  customerName    String?
+  customerPhone   String?
+  subtotal        Float
+  discount        Float      @default(0)
+  tax             Float      @default(0)
+  total           Float
+  paidAmount      Float
+  dueAmount       Float      @default(0)
+  status          SaleStatus @default(PAID)
+  cashierId       String?
+  cashierName     String
+  source          String     @default("POS")
+  deliveryOrderId String?
+  notes           String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
-  tenant   Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch   Branch       @relation(fields: [branchId], references: [id])
-  customer Customer?    @relation(fields: [customerId], references: [id])
-  cashier  User         @relation("SaleCashier", fields: [cashierId], references: [id])
-  items    SaleItem[]
-  payments SalePayment[]
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch        Branch?        @relation(fields: [branchId], references: [id])
+  customer      Customer?      @relation(fields: [customerId], references: [id])
+  cashier       User?          @relation("SaleCashier", fields: [cashierId], references: [id])
+  deliveryOrder DeliveryOrder? @relation(fields: [deliveryOrderId], references: [id])
+  items         SaleItem[]
+  payments      SalePayment[]
 }
 
 model SaleItem {
-  id             String @id @default(cuid())
+  id             String  @id @default(cuid())
   saleId         String
-  productId      String
+  productId      String?
   productName    String
-  sku            String
+  sku            String  @default("")
   imei           String?
   quantity       Int
   unitPrice      Float
-  discount       Float  @default(0)
+  discount       Float   @default(0)
   total          Float
-  warrantyMonths Int    @default(0)
+  warrantyMonths Int     @default(0)
 
-  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
+  sale    Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
 }
 
 model SalePayment {
@@ -753,6 +756,7 @@ model DeliveryOrder {
   waybills       Waybill[]
   notifications  DeliveryNotification[]
   trackingNumbers TrackingNumber[]
+  sale           Sale?
 
   @@unique([tenantId, orderNumber])
   @@index([tenantId])
