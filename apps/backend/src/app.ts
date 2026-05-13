@@ -22,6 +22,7 @@ import suppliersRoutes from './modules/suppliers/suppliers.routes'
 import financeRoutes from './modules/finance/finance.routes'
 import analyticsRoutes from './modules/analytics/analytics.routes'
 import adminRoutes from './modules/admin/admin.routes'
+import whatsappRoutes from './modules/whatsapp/whatsapp.routes'
 
 const app = express()
 
@@ -70,6 +71,7 @@ app.use(`${API}/warranties`, warrantyRoutes)
 app.use(`${API}/suppliers`, suppliersRoutes)
 app.use(`${API}/finance`, financeRoutes)
 app.use(`${API}/analytics`, analyticsRoutes)
+app.use(`${API}/whatsapp`, whatsappRoutes)
 app.use('/admin/v1', adminRoutes)
 
 app.use(notFound)

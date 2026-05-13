@@ -138,6 +138,7 @@ model Tenant {
   purchaseOrders PurchaseOrder[]
   transactions   Transaction[]
   dailySummaries DailySummary[]
+  whatsAppConfig WhatsAppConfig?
 }
 
 model Branch {
@@ -598,4 +599,51 @@ model DailySummary {
   branch Branch @relation(fields: [branchId], references: [id])
 
   @@unique([tenantId, branchId, date])
+}
+
+// ─────────────── WhatsApp Integration ───────────────
+
+model WhatsAppConfig {
+  id               String    @id @default(cuid())
+  tenantId         String    @unique
+  accessToken      String
+  phoneNumberId    String
+  wabaId           String
+  verifyToken      String
+  enabled          Boolean   @default(false)
+  autoSendInvoice  Boolean   @default(false)
+  sendPdfInvoice   Boolean   @default(false)
+  validatePhones   Boolean   @default(true)
+  invoiceTemplate  String    @default("")
+  status           String    @default("disconnected")
+  phoneNumber      String?
+  displayName      String?
+  qualityRating    String?
+  lastCheckedAt    DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  messages WhatsAppMessage[]
+}
+
+model WhatsAppMessage {
+  id           String   @id @default(cuid())
+  tenantId     String
+  configId     String
+  orderId      String?
+  to           String
+  customerName String?
+  type         String
+  preview      String
+  status       String   @default("sent")
+  metaMessageId String?
+  amount       Float?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  config WhatsAppConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([configId])
 }
