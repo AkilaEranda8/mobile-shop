@@ -46,7 +46,7 @@ export default function LoginPage() {
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute -top-32 -left-32 w-[500px] h-[500px] bg-violet-700/20 rounded-full blur-3xl" />
           <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-cyan-600/10 rounded-full blur-3xl" />
-          <div className="absolute inset-0 bg-gradient-to-br from-violet-950/40 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-br from-violet-950/20 via-transparent to-transparent" />
         </div>
 
         {/* logo */}
@@ -62,14 +62,14 @@ export default function LoginPage() {
 
         {/* headline */}
         <div className="relative mt-16 mb-10">
-          <h2 className="text-4xl font-bold text-white leading-tight">
+          <h2 className="text-4xl font-bold leading-tight" style={{ color: '#f1f5f9' }}>
             Run your entire<br />
             <span className="bg-gradient-to-r from-violet-400 to-cyan-400 bg-clip-text text-transparent">
               mobile shop
             </span><br />
             from one place
           </h2>
-          <p className="text-slate-400 mt-4 text-sm leading-relaxed max-w-sm">
+          <p className="mt-4 text-sm leading-relaxed max-w-sm" style={{ color: '#94a3b8' }}>
             Hexalyte brings POS, repairs, inventory, finance and customer management into a single powerful platform.
           </p>
         </div>
@@ -77,21 +77,21 @@ export default function LoginPage() {
         {/* feature grid */}
         <div className="relative grid grid-cols-2 gap-3 mb-auto">
           {features.map(({ icon: Icon, label, desc }) => (
-            <div key={label} className="flex items-start gap-3 p-3 rounded-xl bg-white/3 border border-white/5 hover:border-violet-500/20 transition-colors">
+            <div key={label} className="flex items-start gap-3 p-3 rounded-xl border hover:border-violet-500/30 transition-colors" style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.08)' }}>
               <div className="w-8 h-8 rounded-lg bg-violet-500/15 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
                 <Icon size={14} className="text-violet-400" />
               </div>
               <div>
-                <p className="text-xs font-semibold text-slate-200">{label}</p>
-                <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">{desc}</p>
+                <p className="text-xs font-semibold" style={{ color: '#e2e8f0' }}>{label}</p>
+                <p className="text-[11px] mt-0.5 leading-snug" style={{ color: '#64748b' }}>{desc}</p>
               </div>
             </div>
           ))}
         </div>
 
         {/* trust line */}
-        <div className="relative mt-8 flex items-center gap-2 text-xs text-slate-600">
-          <Shield size={12} className="text-slate-600" />
+        <div className="relative mt-8 flex items-center gap-2 text-xs" style={{ color: '#475569' }}>
+          <Shield size={12} />
           <span>256-bit encryption · JWT RS256 · Multi-branch support</span>
         </div>
       </div>
