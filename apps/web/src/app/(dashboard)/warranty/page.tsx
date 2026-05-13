@@ -649,14 +649,19 @@ export default function WarrantyPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total',       value: warranties.length,                                                  color: 'text-violet-400' },
-          { label: 'Active',      value: warranties.filter((w: Warranty) => w.status === 'ACTIVE').length,  color: 'text-green-400'  },
-          { label: 'Expiring 30d',value: expiringCount,                                                      color: 'text-yellow-400' },
-          { label: 'Claimed',     value: warranties.filter((w: Warranty) => w.status === 'CLAIMED').length, color: 'text-blue-400'   },
-        ].map(s => (
-          <div key={s.label} className="card p-4">
-            <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
-            <p className="text-xs text-slate-500 mt-0.5">{s.label}</p>
+          { label: 'Total Warranties', value: warranties.length,                                                  icon: Shield,        color: 'violet' },
+          { label: 'Active',           value: warranties.filter((w: Warranty) => w.status === 'ACTIVE').length,  icon: CheckCircle,   color: 'green'  },
+          { label: 'Expiring 30d',     value: expiringCount,                                                      icon: AlertTriangle, color: 'yellow' },
+          { label: 'Claimed',          value: warranties.filter((w: Warranty) => w.status === 'CLAIMED').length, icon: Clock,         color: 'blue'   },
+        ].map(({ label, value, icon: Icon, color }) => (
+          <div key={label} className="card p-4 flex items-center gap-3">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20`}>
+              <Icon size={15} className={`text-${color}-400`} />
+            </div>
+            <div>
+              <p className="text-lg font-bold text-white">{value}</p>
+              <p className="text-[11px] text-slate-500">{label}</p>
+            </div>
           </div>
         ))}
       </div>

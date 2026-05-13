@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { Plus, Star, Phone, Mail, MapPin, Eye, Loader2, SlidersHorizontal, X, ShoppingBag, Wrench, CreditCard, Calendar, ChevronRight } from 'lucide-react'
+import { Plus, Star, Phone, Mail, MapPin, Eye, Loader2, SlidersHorizontal, X, ShoppingBag, Wrench, CreditCard, Calendar, ChevronRight, Users } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -322,14 +322,19 @@ export default function CustomersPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total Customers',  value: customers.length.toString(),                                          color: 'text-violet-400' },
-          { label: 'Total Outstanding', value: formatCurrency(totalDue),                                            color: 'text-red-400'    },
-          { label: 'Total Purchases',  value: totalPurchases.toString(),                                            color: 'text-blue-400'   },
-          { label: 'VIP Members',      value: customers.filter(c => c.loyaltyPoints >= 500).length.toString(),      color: 'text-yellow-400' },
-        ].map(s => (
-          <div key={s.label} className="card p-4">
-            <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
-            <p className="text-xs text-slate-500 mt-0.5">{s.label}</p>
+          { label: 'Total Customers',   value: customers.length.toString(),                                     icon: Users,       color: 'violet' },
+          { label: 'Total Outstanding', value: formatCurrency(totalDue),                                        icon: CreditCard,  color: 'red'    },
+          { label: 'Total Purchases',   value: totalPurchases.toString(),                                       icon: ShoppingBag, color: 'blue'   },
+          { label: 'VIP Members',       value: customers.filter(c => c.loyaltyPoints >= 500).length.toString(), icon: Star,        color: 'yellow' },
+        ].map(({ label, value, icon: Icon, color }) => (
+          <div key={label} className="card p-4 flex items-center gap-3">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20`}>
+              <Icon size={15} className={`text-${color}-400`} />
+            </div>
+            <div>
+              <p className="text-lg font-bold text-white">{value}</p>
+              <p className="text-[11px] text-slate-500">{label}</p>
+            </div>
           </div>
         ))}
       </div>

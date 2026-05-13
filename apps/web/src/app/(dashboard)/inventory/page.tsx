@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useMemo } from 'react'
-import { Plus, Package, AlertTriangle, Download, Upload, QrCode, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText } from 'lucide-react'
+import { Plus, Package, AlertTriangle, Download, Upload, QrCode, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -481,14 +481,19 @@ export default function InventoryPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total SKUs', value: products.length, color: 'text-violet-400', bg: 'bg-violet-500/10 border-violet-500/20' },
-          { label: 'Total Stock Value', value: formatCurrency(products.reduce((s, p) => s + p.buyingPrice * p.stock, 0)), color: 'text-green-400', bg: 'bg-green-500/10 border-green-500/20' },
-          { label: 'Low Stock', value: lowStockCount, color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/20' },
-          { label: 'Out of Stock', value: products.filter(p => p.stock === 0).length, color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/20' },
-        ].map(stat => (
-          <div key={stat.label} className={`card p-4 border ${stat.bg}`}>
-            <p className={`text-xl font-bold ${stat.color}`}>{stat.value}</p>
-            <p className="text-xs text-slate-500 mt-0.5">{stat.label}</p>
+          { label: 'Total SKUs',       value: products.length,                                                         icon: Package,       color: 'violet' },
+          { label: 'Stock Value',      value: formatCurrency(products.reduce((s, p) => s + p.buyingPrice * p.stock, 0)), icon: TrendingUp,    color: 'green'  },
+          { label: 'Low Stock',        value: lowStockCount,                                                            icon: AlertTriangle, color: 'yellow' },
+          { label: 'Out of Stock',     value: products.filter(p => p.stock === 0).length,                               icon: AlertCircle,   color: 'red'    },
+        ].map(({ label, value, icon: Icon, color }) => (
+          <div key={label} className="card p-4 flex items-center gap-3">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20`}>
+              <Icon size={15} className={`text-${color}-400`} />
+            </div>
+            <div>
+              <p className="text-lg font-bold text-white">{value}</p>
+              <p className="text-[11px] text-slate-500">{label}</p>
+            </div>
           </div>
         ))}
       </div>

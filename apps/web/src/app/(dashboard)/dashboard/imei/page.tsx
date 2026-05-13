@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { Smartphone, Plus, CheckCircle, X, Loader2, Hash } from 'lucide-react'
+import { Smartphone, Plus, CheckCircle, X, Loader2, Hash, ShoppingBag, Wrench } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -158,10 +158,10 @@ export default function IMEIPage() {
   ], [])
 
   const stats = [
-    { label: 'Total Devices', value: total,          color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20' },
-    { label: 'In Stock',      value: counts.inStock,  color: 'text-green-400',  bg: 'bg-green-500/10',  border: 'border-green-500/20'  },
-    { label: 'Sold',          value: counts.sold,     color: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/20'   },
-    { label: 'In Repair',     value: counts.inRepair, color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20' },
+    { label: 'Total Devices', value: total,          icon: Smartphone,   color: 'violet' },
+    { label: 'In Stock',      value: counts.inStock,  icon: CheckCircle,  color: 'green'  },
+    { label: 'Sold',          value: counts.sold,     icon: ShoppingBag,  color: 'blue'   },
+    { label: 'In Repair',     value: counts.inRepair, icon: Wrench,       color: 'yellow' },
   ]
 
   return (
@@ -204,10 +204,15 @@ export default function IMEIPage() {
       )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map(s => (
-          <div key={s.label} className={`card p-4 border ${s.border} ${s.bg}`}>
-            <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
-            <p className="text-xs text-slate-500 mt-0.5">{s.label}</p>
+        {stats.map(({ label, value, icon: Icon, color }) => (
+          <div key={label} className="card p-4 flex items-center gap-3">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20`}>
+              <Icon size={15} className={`text-${color}-400`} />
+            </div>
+            <div>
+              <p className="text-lg font-bold text-white">{value}</p>
+              <p className="text-[11px] text-slate-500">{label}</p>
+            </div>
           </div>
         ))}
       </div>
