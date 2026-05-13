@@ -4,12 +4,13 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, ShoppingCart, Package, Users, Wrench,
-  Shield, Truck, BarChart3, Settings, Building2, LogOut,
-  ChevronDown, CreditCard, Zap, Smartphone, FileText,
-  UserCheck, DollarSign, ChevronLeft, ChevronRight,
-  PieChart, Receipt, Activity, Tag
+  Shield, Truck, BarChart3, Settings, LogOut,
+  CreditCard, Zap, Smartphone, FileText,
+  UserCheck, ChevronLeft, ChevronRight,
+  Receipt, Sun, Moon
 } from 'lucide-react'
 import { useState } from 'react'
+import { useTheme } from 'next-themes'
 import { cn } from '@/lib/utils'
 import { authStorage } from '@/lib/auth'
 import { authApi } from '@/lib/api'
@@ -80,7 +81,7 @@ interface SidebarProps {
 export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const [branchOpen, setBranchOpen] = useState(false)
+  const { theme, setTheme } = useTheme()
   const user = authStorage.getUser()
 
   const handleLogout = async () => {
@@ -123,34 +124,20 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
         )}
       </div>
 
-      {/* Branch Selector */}
-      {!collapsed && (
-        <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-          <button
-            onClick={() => setBranchOpen(!branchOpen)}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border hover:border-violet-500/20 transition-colors"
-            style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}
-          >
-            <Building2 size={14} className="text-violet-400 flex-shrink-0" />
-            <span className="flex-1 text-left text-xs truncate" style={{ color: 'var(--text-secondary)' }}>Main Branch</span>
-            <ChevronDown size={11} className={`transition-transform flex-shrink-0 ${branchOpen ? 'rotate-180' : ''}`} style={{ color: 'var(--text-muted)' } as any} />
-          </button>
-          {branchOpen && (
-            <div className="mt-1 border rounded-lg overflow-hidden shadow-xl" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
-              {['Main Branch', 'T Nagar Showroom', 'Velachery Branch'].map((branch) => (
-                <button
-                  key={branch}
-                  className="w-full text-left px-3 py-2 text-xs hover:text-white hover:bg-white/5 transition-colors"
-                  style={{ color: 'var(--text-muted)' }}
-                  onClick={() => setBranchOpen(false)}
-                >
-                  {branch}
-                </button>
-              ))}
-            </div>
+      {/* Platform Admin — top of sidebar */}
+      <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+        <Link
+          href="/admin"
+          className={cn(
+            'flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-500 hover:text-amber-300 hover:bg-amber-500/5 transition-colors text-xs',
+            collapsed && 'justify-center px-2'
           )}
-        </div>
-      )}
+          title={collapsed ? 'Platform Admin' : undefined}
+        >
+          <Zap size={13} className="text-amber-400 flex-shrink-0" />
+          {!collapsed && <span>Platform Admin</span>}
+        </Link>
+      </div>
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-3 scrollbar-thin">
@@ -200,36 +187,68 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
         ))}
       </nav>
 
-      {/* Admin Console Link */}
-      {!collapsed && (
-        <div className="px-3 py-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-          <Link href="/admin" className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-500 hover:text-amber-300 hover:bg-amber-500/5 transition-colors text-xs">
-            <Zap size={13} className="text-amber-400" />
-            <span>Platform Admin</span>
-          </Link>
-        </div>
-      )}
+      {/* Dark / Light Mode Toggle */}
+      <div className="px-3 py-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+        {collapsed ? (
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="w-full flex justify-center p-2 rounded-lg transition-colors hover:bg-white/5"
+            title={theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'}
+          >
+            {theme === 'dark'
+              ? <Sun size={15} className="text-amber-400" />
+              : <Moon size={15} className="text-violet-400" />
+            }
+          </button>
+        ) : (
+          <div className="flex items-center rounded-xl border p-0.5 gap-0.5" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
+            <button
+              onClick={() => setTheme('light')}
+              className="flex flex-1 items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-all duration-200"
+              style={{
+                background: theme === 'light' ? '#ffffff' : 'transparent',
+                color: theme === 'light' ? '#7c3aed' : 'var(--text-muted)',
+                boxShadow: theme === 'light' ? '0 1px 3px rgba(0,0,0,0.12)' : 'none',
+              }}
+            >
+              <Sun size={12} />Light
+            </button>
+            <button
+              onClick={() => setTheme('dark')}
+              className="flex flex-1 items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-all duration-200"
+              style={{
+                background: theme === 'dark' ? '#1e1b4b' : 'transparent',
+                color: theme === 'dark' ? '#a78bfa' : 'var(--text-muted)',
+                boxShadow: theme === 'dark' ? '0 1px 3px rgba(0,0,0,0.3)' : 'none',
+              }}
+            >
+              <Moon size={12} />Dark
+            </button>
+          </div>
+        )}
+      </div>
 
-      {/* User section */}
+      {/* User section — no avatar */}
       <div className={cn('border-t p-3', collapsed && 'flex justify-center')} style={{ borderColor: 'var(--border-subtle)' }}>
         {collapsed ? (
           <button
             onClick={handleLogout}
-            className="w-8 h-8 rounded-full bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-300 font-bold text-xs hover:border-red-400/40 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+            className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
             title="Logout"
           >
-            {user?.name?.[0]?.toUpperCase() ?? 'U'}
+            <LogOut size={15} />
           </button>
         ) : (
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-600/30 to-cyan-600/20 border border-violet-500/30 flex items-center justify-center text-violet-300 font-bold text-sm flex-shrink-0">
-              {user?.name?.[0]?.toUpperCase() ?? 'U'}
-            </div>
+          <div className="flex items-center gap-2.5 px-1">
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-200 truncate">{user?.name ?? 'User'}</p>
-              <p className="text-xs text-slate-500 truncate capitalize">{user?.role?.toLowerCase() ?? ''}</p>
+              <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{user?.name ?? 'User'}</p>
+              <p className="text-xs truncate capitalize" style={{ color: 'var(--text-muted)' }}>{user?.role?.toLowerCase() ?? ''}</p>
             </div>
-            <button onClick={handleLogout} className="text-slate-600 hover:text-red-400 p-1.5 rounded-lg hover:bg-red-500/10 transition-colors flex-shrink-0" title="Logout">
+            <button onClick={handleLogout} className="p-1.5 rounded-lg transition-colors flex-shrink-0" style={{ color: 'var(--text-muted)' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f87171'; (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.1)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+              title="Logout"
+            >
               <LogOut size={14} />
             </button>
           </div>
