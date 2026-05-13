@@ -1,137 +1,178 @@
 'use client'
 
-import { useState } from 'react'
-import { FileText, Download, TrendingUp, TrendingDown, Package, Users, Wrench, BarChart3, Calendar, FileDown } from 'lucide-react'
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { useRevenue, useTopProducts, useAnalyticsDashboard, useFinanceSummary } from '@/lib/hooks'
+import { useMemo } from 'react'
+import {
+  TrendingUp, TrendingDown, Package, Users, Wrench,
+  BarChart3, ShoppingCart, DollarSign, AlertTriangle, Activity
+} from 'lucide-react'
+import {
+  AreaChart, Area, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell
+} from 'recharts'
+import {
+  useRevenue, useTopProducts, useAnalyticsDashboard,
+  useFinanceSummary, useRepairsByStatus
+} from '@/lib/hooks'
 import { formatCurrency } from '@/lib/utils'
 
-const reportTypes = [
-  { id: 'daily-sales',   icon: TrendingUp,  title: 'Daily Sales Report',    desc: 'Sales, revenue & transactions for today',    color: 'text-green-400',  bg: 'bg-green-500/10',  border: 'border-green-500/20'  },
-  { id: 'monthly-sales', icon: BarChart3,    title: 'Monthly Sales Report',  desc: 'Monthly performance with trends',             color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20' },
-  { id: 'profit-loss',   icon: TrendingDown, title: 'Profit & Loss',         desc: 'Revenue, costs, and net profit summary',      color: 'text-cyan-400',   bg: 'bg-cyan-500/10',   border: 'border-cyan-500/20'   },
-  { id: 'inventory',     icon: Package,      title: 'Inventory Report',      desc: 'Stock levels, low stock, dead stock',         color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20' },
-  { id: 'customer',      icon: Users,        title: 'Customer Analytics',    desc: 'Customer acquisition & retention',            color: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/20'   },
-  { id: 'repair',        icon: Wrench,       title: 'Repair Performance',    desc: 'Technician performance & TAT',                color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20' },
-]
+const TOOLTIP_STYLE = {
+  backgroundColor: 'var(--bg-card)',
+  border: '1px solid var(--border-default)',
+  borderRadius: '10px',
+  fontSize: '12px',
+  color: 'var(--text-primary)',
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  RECEIVED: 'Received', DIAGNOSED: 'Diagnosed', IN_REPAIR: 'In Repair',
+  QC: 'QC', READY: 'Ready', DELIVERED: 'Delivered', CANCELLED: 'Cancelled',
+}
+const PIE_COLORS = ['#6d28d9','#1d4ed8','#b45309','#0e7490','#15803d','#166534','#b91c1c']
 
 export default function ReportsPage() {
-  const [generating, setGenerating] = useState<string | null>(null)
+  const { data: dashData }       = useAnalyticsDashboard()
+  const { data: summaryData }    = useFinanceSummary()
+  const { data: revenueData }    = useRevenue({ days: '30' })
+  const { data: topProductsRaw } = useTopProducts({ limit: '8' })
+  const { data: repairStatusRaw } = useRepairsByStatus()
 
-  const { data: dashData }    = useAnalyticsDashboard()
-  const { data: summaryData } = useFinanceSummary()
-  const { data: revenueData } = useRevenue({ days: '180' })
-  const { data: topProducts } = useTopProducts({ limit: '5' })
+  const dash      = dashData as any
+  const summary   = summaryData as any
+  const revenue: any[]     = Array.isArray(revenueData)     ? revenueData     : []
+  const products: any[]    = Array.isArray(topProductsRaw)  ? topProductsRaw  : []
+  const repairStatus: any[] = Array.isArray(repairStatusRaw) ? repairStatusRaw : []
 
-  const dash    = dashData as any
-  const summary = summaryData as any
-  const revenue: any[] = Array.isArray(revenueData) ? revenueData : []
-  const products: any[] = Array.isArray(topProducts) ? topProducts : []
+  const totalRevenue30 = revenue.reduce((s, r) => s + (r.totalRevenue ?? 0), 0)
+  const totalProfit30  = revenue.reduce((s, r) => s + (r.profit       ?? 0), 0)
 
-  const maxRevenue = Math.max(...products.map((p: any) => p.quantitySold ?? 1), 1)
+  const chartData = useMemo(() => revenue.map((r: any) => ({
+    date:    new Date(r.date).toLocaleDateString('en-LK', { day: 'numeric', month: 'short' }),
+    Revenue: r.totalRevenue ?? 0,
+    Profit:  r.profit       ?? 0,
+  })), [revenue])
 
-  const chartData = revenue.map((r: any) => ({
-    date: new Date(r.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
-    revenue: Math.round((r.totalRevenue ?? 0) / 1000),
-    profit: Math.round((r.profit ?? 0) / 1000),
-  })).slice(-30)
+  const maxQty = Math.max(...products.map((p: any) => p.quantitySold ?? 1), 1)
 
-  const handleGenerate = (id: string) => {
-    setGenerating(id)
-    setTimeout(() => setGenerating(null), 1500)
-  }
+  const repairPie = repairStatus.map((r: any, i: number) => ({
+    name:  STATUS_LABELS[r.status] ?? r.status,
+    value: r.count ?? r._count ?? 0,
+    fill:  PIE_COLORS[i % PIE_COLORS.length],
+  }))
+  const totalRepairs = repairPie.reduce((s, r) => s + r.value, 0)
+
+  const kpis = [
+    { label: 'All-time Revenue',  value: formatCurrency(dash?.totalRevenue ?? 0),   sub: `${dash?.todaySalesCount ?? 0} sales today`,   icon: <DollarSign size={15} />, color: '#6d28d9', bg: 'rgba(109,40,217,0.08)', border: 'rgba(109,40,217,0.20)' },
+    { label: "Today's Revenue",   value: formatCurrency(dash?.todayRevenue  ?? 0),   sub: 'Live today',                                   icon: <TrendingUp size={15} />, color: '#15803d', bg: 'rgba(21,128,61,0.08)',  border: 'rgba(21,128,61,0.20)'  },
+    { label: '30d Net Profit',    value: formatCurrency(totalProfit30),               sub: `30d Revenue: ${formatCurrency(totalRevenue30)}`, icon: <BarChart3 size={15} />, color: '#0e7490', bg: 'rgba(14,116,144,0.08)', border: 'rgba(14,116,144,0.20)' },
+    { label: 'MTD Profit',        value: formatCurrency(summary?.profit ?? 0),        sub: `Income: ${formatCurrency(summary?.totalIncome ?? 0)}`, icon: <TrendingDown size={15} />, color: '#b45309', bg: 'rgba(180,83,9,0.08)',   border: 'rgba(180,83,9,0.20)'   },
+    { label: 'Total Customers',   value: (dash?.totalCustomers ?? 0).toLocaleString(), sub: `${dash?.lowStockCount ?? 0} low-stock items`,  icon: <Users size={15} />,     color: '#1d4ed8', bg: 'rgba(29,78,216,0.08)',  border: 'rgba(29,78,216,0.20)'  },
+    { label: 'Active Repairs',    value: (dash?.activeRepairs  ?? 0).toString(),       sub: `${totalRepairs} total repair records`,         icon: <Wrench size={15} />,    color: '#c2410c', bg: 'rgba(194,65,12,0.08)',  border: 'rgba(194,65,12,0.20)'  },
+  ]
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <div>
-          <h1 className="page-title">Reports & Analytics</h1>
-          <p className="page-subtitle">Generate, export and schedule business reports</p>
-        </div>
+
+      {/* ── Header ── */}
+      <div>
+        <h1 className="page-title">Reports & Analytics</h1>
+        <p className="page-subtitle">Live business performance · All real data</p>
       </div>
 
-      {/* KPI Cards — real data */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="card p-4">
-          <p className="text-xs text-slate-500 mb-2">Total Revenue</p>
-          <p className="text-xl font-bold text-white">{formatCurrency(dash?.totalRevenue ?? 0)}</p>
-          <span className="text-xs text-green-400 flex items-center gap-1 mt-1"><TrendingUp size={11} />All time</span>
-        </div>
-        <div className="card p-4">
-          <p className="text-xs text-slate-500 mb-2">Today Revenue</p>
-          <p className="text-xl font-bold text-white">{formatCurrency(dash?.todayRevenue ?? 0)}</p>
-          <span className="text-xs text-slate-500 mt-1">{dash?.todaySalesCount ?? 0} sales today</span>
-        </div>
-        <div className="card p-4">
-          <p className="text-xs text-slate-500 mb-2">Net Profit</p>
-          <p className="text-xl font-bold text-white">{formatCurrency(summary?.profit ?? 0)}</p>
-          <span className="text-xs text-cyan-400 flex items-center gap-1 mt-1"><TrendingUp size={11} />This period</span>
-        </div>
-        <div className="card p-4">
-          <p className="text-xs text-slate-500 mb-2">Total Customers</p>
-          <p className="text-xl font-bold text-white">{(dash?.totalCustomers ?? 0).toLocaleString()}</p>
-          <span className="text-xs text-slate-500 mt-1">{dash?.activeRepairs ?? 0} active repairs</span>
-        </div>
-      </div>
-
-      {/* Charts Row */}
-      <div className="grid lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-sm font-semibold text-white">Revenue & Profit Trend</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Last 30 days (₹ thousands)</p>
+      {/* ── KPI Grid ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        {kpis.map(({ label, value, sub, icon, color, bg, border }) => (
+          <div key={label} className="card p-4" style={{ borderColor: border, background: bg }}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{label}</span>
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ color, background: bg, border: `1px solid ${border}` }}>{icon}</div>
             </div>
-            <button className="text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1 border border-violet-500/20 px-2.5 py-1.5 rounded-lg hover:bg-violet-500/5 transition-colors">
-              <FileDown size={12} />Export
-            </button>
+            <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
+            <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{sub}</p>
           </div>
-          {chartData.length === 0 ? (
-            <div className="h-[180px] flex items-center justify-center text-slate-600 text-sm">No data yet</div>
+        ))}
+      </div>
+
+      {/* ── Revenue & Profit Trend ── */}
+      <div className="card p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Revenue & Profit Trend</h3>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Last 30 days (LKR)</p>
+          </div>
+          <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ background: '#6d28d9' }} />Revenue</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ background: '#06b6d4' }} />Profit</span>
+          </div>
+        </div>
+        {chartData.length === 0 ? (
+          <div className="h-44 flex items-center justify-center text-sm" style={{ color: 'var(--text-muted)' }}>No sales data yet</div>
+        ) : (
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={chartData}>
+              <defs>
+                <linearGradient id="rg" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#6d28d9" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#6d28d9" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#06b6d4" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any) => formatCurrency(v)} />
+              <Area type="monotone" dataKey="Revenue" stroke="#6d28d9" strokeWidth={2} fill="url(#rg)" />
+              <Area type="monotone" dataKey="Profit"  stroke="#06b6d4" strokeWidth={2} fill="url(#pg)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-4">
+        {/* ── Top Products by Units Sold ── */}
+        <div className="card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Package size={14} className="text-violet-400" />
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Top Products — Units Sold</h3>
+          </div>
+          {products.length === 0 ? (
+            <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>No sales data yet</p>
           ) : (
-            <ResponsiveContainer width="100%" height={180}>
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="rg" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#7c3aed" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#475569' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: '#475569' }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ backgroundColor: '#0f1623', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '12px' }} />
-                <Area type="monotone" dataKey="revenue" stroke="#7c3aed" strokeWidth={2} fill="url(#rg)" name="Revenue (₹k)" />
-                <Area type="monotone" dataKey="profit" stroke="#06b6d4" strokeWidth={2} fill="url(#pg)" name="Profit (₹k)" />
-              </AreaChart>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={products.slice(0,6)} layout="vertical" barSize={10}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="productName" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} width={100}
+                  tickFormatter={(v: string) => v.length > 14 ? v.slice(0, 14) + '…' : v} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
+                <Bar dataKey="quantitySold" fill="#6d28d9" name="Units Sold" radius={[0, 4, 4, 0]} />
+              </BarChart>
             </ResponsiveContainer>
           )}
         </div>
 
-        {/* Top Products */}
+        {/* ── Top Products by Revenue ── */}
         <div className="card p-5">
-          <h3 className="text-sm font-semibold text-white mb-4">Top Selling Products</h3>
+          <div className="flex items-center gap-2 mb-4">
+            <ShoppingCart size={14} className="text-cyan-500" />
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Top Products — Revenue</h3>
+          </div>
           {products.length === 0 ? (
-            <p className="text-xs text-slate-600 text-center py-8">No sales data yet</p>
+            <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>No sales data yet</p>
           ) : (
-            <div className="space-y-3">
-              {products.map((p: any, i: number) => (
-                <div key={p.productId} className="flex items-center gap-3">
-                  <span className="text-xs text-slate-600 w-4 font-bold">#{i + 1}</span>
-                  <div className="flex-1">
+            <div className="space-y-2.5">
+              {products.slice(0, 6).map((p: any, i: number) => (
+                <div key={p.productId ?? i} className="flex items-center gap-3">
+                  <span className="text-xs font-bold w-5 text-center rounded py-0.5" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>{i+1}</span>
+                  <div className="flex-1 min-w-0">
                     <div className="flex justify-between text-xs mb-1">
-                      <span className="text-slate-300 font-medium truncate max-w-[120px]">{p.productName}</span>
-                      <span className="text-slate-500 flex-shrink-0">{p.quantitySold} units</span>
+                      <span className="font-medium truncate max-w-[130px]" style={{ color: 'var(--text-primary)' }}>{p.productName}</span>
+                      <span className="flex-shrink-0 font-semibold" style={{ color: '#6d28d9' }}>{formatCurrency(p.revenue ?? 0)}</span>
                     </div>
-                    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-violet-500 to-cyan-500 rounded-full"
-                        style={{ width: `${(p.quantitySold / maxRevenue) * 100}%` }}
-                      />
+                    <div className="h-1 rounded-full overflow-hidden" style={{ background: 'var(--bg-subtle)' }}>
+                      <div className="h-full rounded-full" style={{ width: `${products[0]?.revenue ? Math.round((p.revenue / products[0].revenue) * 100) : 0}%`, background: 'linear-gradient(90deg,#6d28d9,#06b6d4)' }} />
                     </div>
                   </div>
                 </div>
@@ -141,64 +182,64 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* Report Types */}
-      <div>
-        <h3 className="text-sm font-semibold text-white mb-3">Generate Reports</h3>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {reportTypes.map(r => (
-            <div key={r.id} className={`card p-4 border ${r.border} hover:border-opacity-60 transition-all`}>
-              <div className="flex items-start gap-3">
-                <div className={`w-9 h-9 rounded-xl ${r.bg} border ${r.border} flex items-center justify-center flex-shrink-0`}>
-                  <r.icon size={16} className={r.color} />
+      {/* ── Repair Status Distribution ── */}
+      <div className="card p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Activity size={14} className="text-amber-500" />
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Repair Jobs Status Distribution</h3>
+          {totalRepairs > 0 && (
+            <span className="ml-auto text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>
+              {totalRepairs} total
+            </span>
+          )}
+        </div>
+        {repairPie.length === 0 ? (
+          <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>No repair data yet</p>
+        ) : (
+          <div className="flex flex-col sm:flex-row items-center gap-6">
+            <ResponsiveContainer width={180} height={180}>
+              <PieChart>
+                <Pie data={repairPie} cx="50%" cy="50%" innerRadius={45} outerRadius={75} dataKey="value" strokeWidth={0}>
+                  {repairPie.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                </Pie>
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {repairPie.map((r) => (
+                <div key={r.name} className="rounded-xl p-3 text-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+                  <div className="w-3 h-3 rounded-full mx-auto mb-1.5" style={{ backgroundColor: r.fill }} />
+                  <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{r.value}</p>
+                  <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{r.name}</p>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-white">{r.title}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{r.desc}</p>
-                </div>
-              </div>
-              <div className="flex gap-2 mt-4">
-                <button
-                  onClick={() => handleGenerate(r.id)}
-                  disabled={generating === r.id}
-                  className={`flex-1 text-xs py-1.5 px-3 rounded-lg border transition-colors flex items-center justify-center gap-1.5 ${r.border} ${r.bg} ${r.color} hover:opacity-80 disabled:opacity-50`}
-                >
-                  {generating === r.id ? <span className="animate-pulse">Generating...</span> : <><FileText size={11} />Preview</>}
-                </button>
-                <button className="flex-1 text-xs py-1.5 px-3 rounded-lg border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-colors flex items-center justify-center gap-1.5">
-                  <Download size={11} />Export PDF
-                </button>
-              </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Business Summary ── */}
+      <div className="card p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <AlertTriangle size={14} className="text-amber-500" />
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Business Health Summary</h3>
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { label: 'Revenue Growth', value: chartData.length >= 2 ? (((chartData[chartData.length-1]?.Revenue ?? 0) - (chartData[0]?.Revenue ?? 0)) / Math.max(chartData[0]?.Revenue ?? 1, 1) * 100).toFixed(1) + '%' : 'N/A', color: '#15803d', desc: '30-day change' },
+            { label: 'Avg Daily Revenue', value: formatCurrency(revenue.length > 0 ? Math.round(totalRevenue30 / revenue.length) : 0), color: '#6d28d9', desc: 'Last 30 days' },
+            { label: 'Profit Margin', value: totalRevenue30 > 0 ? Math.round((totalProfit30 / totalRevenue30) * 100) + '%' : '0%', color: '#0e7490', desc: '30-day margin' },
+            { label: 'Low Stock Items', value: (dash?.lowStockCount ?? 0).toString(), color: dash?.lowStockCount > 0 ? '#b91c1c' : '#15803d', desc: '≤5 units remaining' },
+          ].map(({ label, value, color, desc }) => (
+            <div key={label} className="rounded-xl p-4 text-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+              <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
+              <p className="text-2xl font-black" style={{ color }}>{value}</p>
+              <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>{desc}</p>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Scheduled Reports */}
-      <div className="card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-white">Scheduled Reports</h3>
-          <button className="btn-secondary text-xs flex items-center gap-1.5"><Calendar size={12} />Schedule New</button>
-        </div>
-        <div className="space-y-3">
-          {[
-            { name: 'Daily Sales Summary',    freq: 'Every day at 9:00 PM',   next: 'Today 9:00 PM',  active: true  },
-            { name: 'Weekly Inventory Report', freq: 'Every Monday 8:00 AM',  next: 'Mon, 13 May',    active: true  },
-            { name: 'Monthly P&L Report',      freq: '1st of every month',    next: '1 Jun 2024',     active: false },
-          ].map(s => (
-            <div key={s.name} className="flex items-center gap-4 p-3 rounded-xl bg-white/2 border border-white/5">
-              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${s.active ? 'bg-green-400' : 'bg-slate-600'}`} />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-200">{s.name}</p>
-                <p className="text-xs text-slate-500">{s.freq}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-slate-400">Next: {s.next}</p>
-                <span className={`text-[10px] ${s.active ? 'text-green-400' : 'text-slate-500'}`}>{s.active ? 'Active' : 'Paused'}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   )
 }
