@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "prisma db push --skip-generate && prisma generate && tsx watch src/server.ts",
+    "dev": "prisma db push --skip-generate --accept-data-loss && prisma generate && tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "db:generate": "prisma generate",
