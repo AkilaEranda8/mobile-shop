@@ -6,7 +6,7 @@ import {
   LayoutDashboard, ShoppingCart, Package, Users, Wrench,
   Shield, Truck, BarChart3, Settings, LogOut,
   CreditCard, Smartphone, FileText,
-  UserCheck, ChevronLeft, ChevronRight, Receipt
+  UserCheck, ChevronLeft, ChevronRight, Receipt, MessageSquare
 } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -61,6 +61,12 @@ const navItems = [
     label: 'HR & Staff',
     items: [
       { href: '/dashboard/staff', icon: UserCheck, label: 'Staff & Roles', badge: 'NEW' },
+    ],
+  },
+  {
+    label: 'Messaging',
+    items: [
+      { href: '/dashboard/whatsapp', icon: MessageSquare, label: 'WhatsApp', badge: 'NEW' },
     ],
   },
   {

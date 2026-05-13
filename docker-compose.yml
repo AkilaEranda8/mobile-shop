@@ -28,7 +28,7 @@ services:
       - redis_data:/data
     networks:
       - hexalyte-network
-    command: redis-server --appendonly yes --protected-mode yes --requirepass "HxR3d1s@2025#Secure" --bind 0.0.0.0 --rename-command FLUSHALL "" --rename-command FLUSHDB "" --rename-command CONFIG "" --rename-command DEBUG "" --rename-command SLAVEOF "" --rename-command REPLICAOF ""
+    command: redis-server --appendonly yes --protected-mode yes --requirepass "HxR3d1s@2025#Secure" --bind 0.0.0.0 --rename-command CONFIG "HxCFG_DISABLED_7x9" --rename-command DEBUG "" --rename-command SLAVEOF "" --rename-command REPLICAOF ""
 
   backend:
     build:
