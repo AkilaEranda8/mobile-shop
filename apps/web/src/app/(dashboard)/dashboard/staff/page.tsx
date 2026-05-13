@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { UserCheck, Plus, Search, CheckCircle, XCircle, X, Loader2, Mail, Phone, Clock, MoreVertical } from 'lucide-react'
+import { UserCheck, Plus, Search, CheckCircle, XCircle, X, Loader2, Mail, Clock, Edit2, Trash2, AlertTriangle } from 'lucide-react'
 import { useUsers } from '@/lib/hooks'
 import { usersApi } from '@/lib/api'
 import toast from 'react-hot-toast'
@@ -28,8 +28,25 @@ const permissionMatrix = [
   { feature: 'Settings', owner: true, manager: false, technician: false, sales: false },
 ]
 
-function AddStaffModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({ name: '', email: '', phone: '', role: 'CASHIER', password: '' })
+const ROLE_OPTIONS = [
+  { value: 'MANAGER',    label: 'Manager'    },
+  { value: 'TECHNICIAN', label: 'Technician' },
+  { value: 'SALES_STAFF',label: 'Sales Staff'},
+  { value: 'ACCOUNTANT', label: 'Accountant' },
+]
+
+function StaffFormModal({
+  staff, onClose, onSaved,
+}: { staff?: any; onClose: () => void; onSaved: () => void }) {
+  const isEdit = !!staff
+  const [form, setForm] = useState({
+    name:     staff?.name     ?? '',
+    email:    staff?.email    ?? '',
+    phone:    staff?.phone    ?? '',
+    role:     staff?.role     ?? 'SALES_STAFF',
+    password: '',
+    isActive: staff?.isActive ?? true,
+  })
   const [loading, setLoading] = useState(false)
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(p => ({ ...p, [k]: e.target.value }))
 
@@ -37,12 +54,19 @@ function AddStaffModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
     e.preventDefault()
     setLoading(true)
     try {
-      await usersApi.create(form)
-      toast.success('Staff member added')
+      if (isEdit) {
+        const body: any = { name: form.name, phone: form.phone, role: form.role, isActive: form.isActive }
+        if (form.password) body.password = form.password
+        await usersApi.update(staff.id, body)
+        toast.success('Staff member updated')
+      } else {
+        await usersApi.create(form)
+        toast.success('Staff member added')
+      }
       onSaved()
       onClose()
     } catch (err: any) {
-      toast.error(err?.message ?? 'Failed to add staff')
+      toast.error(err?.message ?? (isEdit ? 'Failed to update' : 'Failed to add staff'))
     } finally {
       setLoading(false)
     }
@@ -50,46 +74,87 @@ function AddStaffModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl">
-        <div className="flex items-center justify-between p-5 border-b border-white/5">
-          <h3 className="text-base font-semibold text-white">Add Staff Member</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
+      <div className="w-full max-w-lg rounded-2xl shadow-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center">
+              <UserCheck size={14} className="text-violet-400" />
+            </div>
+            <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+              {isEdit ? 'Edit Staff Member' : 'Add Staff Member'}
+            </h3>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><X size={15} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <label className="block text-xs text-slate-400 mb-1.5">Full Name *</label>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Full Name *</label>
               <input required className="input-field" placeholder="Arjun Kumar" value={form.name} onChange={f('name')} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Email *</label>
-              <input required type="email" className="input-field" placeholder="staff@shop.com" value={form.email} onChange={f('email')} />
+              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Email *</label>
+              <input required type="email" className="input-field" placeholder="staff@shop.com" value={form.email} onChange={f('email')} disabled={isEdit} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Phone *</label>
-              <input required className="input-field" placeholder="9876543210" value={form.phone} onChange={f('phone')} />
+              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Phone</label>
+              <input className="input-field" placeholder="9876543210" value={form.phone} onChange={f('phone')} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Role</label>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Role</label>
               <select className="input-field" value={form.role} onChange={f('role')}>
-                <option value="MANAGER">Manager</option>
-                <option value="TECHNICIAN">Technician</option>
-                <option value="SALES_STAFF">Sales Staff</option>
-                <option value="ACCOUNTANT">Accountant</option>
+                {ROLE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
             </div>
+            {isEdit && (
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Status</label>
+                <select className="input-field" value={form.isActive ? 'true' : 'false'}
+                  onChange={e => setForm(p => ({ ...p, isActive: e.target.value === 'true' }))}>
+                  <option value="true">Active</option>
+                  <option value="false">Inactive</option>
+                </select>
+              </div>
+            )}
             <div className="col-span-2">
-              <label className="block text-xs text-slate-400 mb-1.5">Temporary Password *</label>
-              <input required type="password" className="input-field" placeholder="Min 8 characters" value={form.password} onChange={f('password')} />
+              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>
+                {isEdit ? 'New Password (leave blank to keep current)' : 'Temporary Password *'}
+              </label>
+              <input type="password" className="input-field" placeholder="Min 8 characters"
+                required={!isEdit} value={form.password} onChange={f('password')} />
             </div>
           </div>
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
             <button type="submit" disabled={loading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
-              {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}Add Member
+              {loading ? <Loader2 size={14} className="animate-spin" /> : isEdit ? <Edit2 size={14} /> : <Plus size={14} />}
+              {isEdit ? 'Save Changes' : 'Add Member'}
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  )
+}
+
+function DeleteConfirmModal({ name, onConfirm, onClose, loading }: { name: string; onConfirm: () => void; onClose: () => void; loading: boolean }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-sm rounded-2xl shadow-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+        <div className="p-6 text-center">
+          <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle size={20} className="text-red-400" />
+          </div>
+          <h3 className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>Remove Staff Member</h3>
+          <p className="text-xs mb-5" style={{ color: 'var(--text-muted)' }}>Are you sure you want to remove <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{name}</span>? This cannot be undone.</p>
+          <div className="flex gap-3">
+            <button onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
+            <button onClick={onConfirm} disabled={loading}
+              className="flex-1 text-sm flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-60">
+              {loading ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}Remove
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -99,14 +164,34 @@ export default function StaffPage() {
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<'staff' | 'permissions'>('staff')
   const [showAdd, setShowAdd] = useState(false)
+  const [editStaff, setEditStaff] = useState<any>(null)
+  const [deleteTarget, setDeleteTarget] = useState<any>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   const { data, loading, refetch } = useUsers(search ? { search } : undefined)
   const users: any[] = (data?.data ?? []) as any[]
   const activeCount = users.filter((u: any) => u.isActive).length
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeleteLoading(true)
+    try {
+      await usersApi.remove(deleteTarget.id)
+      toast.success(`${deleteTarget.name} removed`)
+      setDeleteTarget(null)
+      refetch()
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to remove staff')
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
-      {showAdd && <AddStaffModal onClose={() => setShowAdd(false)} onSaved={refetch} />}
+      {showAdd      && <StaffFormModal onClose={() => setShowAdd(false)} onSaved={refetch} />}
+      {editStaff    && <StaffFormModal staff={editStaff} onClose={() => setEditStaff(null)} onSaved={refetch} />}
+      {deleteTarget && <DeleteConfirmModal name={deleteTarget.name} loading={deleteLoading} onConfirm={handleDelete} onClose={() => setDeleteTarget(null)} />}
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
@@ -151,8 +236,9 @@ export default function StaffPage() {
                       <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${role.color} ${role.bg} ${role.border}`}>{role.label}</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <div className={`w-1.5 h-1.5 rounded-full ${s.isActive ? 'bg-green-400' : 'bg-slate-500'}`} />
-                      <button className="p-1 text-slate-600 hover:text-slate-400 rounded"><MoreVertical size={14} /></button>
+                      <div className={`w-1.5 h-1.5 rounded-full mr-1 ${s.isActive ? 'bg-green-400' : 'bg-slate-500'}`} />
+                      <button onClick={() => setEditStaff(s)} className="p-1.5 rounded-lg text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 transition-colors" title="Edit"><Edit2 size={13} /></button>
+                      <button onClick={() => setDeleteTarget(s)} className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors" title="Remove"><Trash2 size={13} /></button>
                     </div>
                   </div>
                   <div className="space-y-1.5">
