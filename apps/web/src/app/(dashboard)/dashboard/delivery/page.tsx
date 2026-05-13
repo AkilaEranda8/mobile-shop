@@ -188,14 +188,30 @@ export default function DeliveryPage() {
     {
       id: 'actions',
       cell: ({ row }) => (
-        <TableActionsRow
-          showAction={{ action: () => setShowDetail(row.original) }}
-          extraActions={[
-            { label: 'Waybill',           icon: <Printer size={12} />,      action: () => handleGenerateWaybill(row.original) },
-            ...(!row.original.trackingNumber ? [{ label: 'Assign Tracking', icon: <Hash size={12} />, action: () => setShowTracking(row.original) }] : []),
-            ...(row.original.trackingNumber  ? [{ label: 'Resend WhatsApp', icon: <MessageSquare size={12} />, action: () => handleResendWhatsApp(row.original.id) }] : []),
-          ]}
-        />
+        <div className="flex items-center gap-1">
+          <TableActionsRow
+            showAction={{ action: () => setShowDetail(row.original) }}
+          />
+          <button title="Generate Waybill" onClick={() => handleGenerateWaybill(row.original)}
+            className="p-1.5 rounded-lg transition-colors hover:bg-white/5"
+            style={{ color: 'var(--text-muted)' }}>
+            <Printer size={13} />
+          </button>
+          {!row.original.trackingNumber && (
+            <button title="Assign Tracking" onClick={() => setShowTracking(row.original)}
+              className="p-1.5 rounded-lg transition-colors"
+              style={{ color: '#a78bfa' }}>
+              <Hash size={13} />
+            </button>
+          )}
+          {row.original.trackingNumber && (
+            <button title="Resend WhatsApp" onClick={() => handleResendWhatsApp(row.original.id)}
+              className="p-1.5 rounded-lg transition-colors"
+              style={{ color: '#4ade80' }}>
+              <MessageSquare size={13} />
+            </button>
+          )}
+        </div>
       ),
     },
   ], [])
