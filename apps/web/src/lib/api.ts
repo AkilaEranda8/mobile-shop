@@ -166,6 +166,8 @@ export const financeApi = {
   create: (body: unknown) => api.post('/finance/transactions', body),
   summary: (params?: Record<string, string>) =>
     api.get(`/finance/summary${params ? '?' + new URLSearchParams(params) : ''}`),
+  dailySummaries: (params?: Record<string, string>) =>
+    api.get(`/finance/daily-summaries${params ? '?' + new URLSearchParams(params) : ''}`),
 }
 
 export const imeiApi = {
