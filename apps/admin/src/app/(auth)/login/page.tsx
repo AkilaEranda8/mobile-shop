@@ -26,12 +26,6 @@ function LoginForm() {
       await adminLogin(email, password)
       redirectAfterLogin()
     } catch (err) {
-      // Fallback: allow mock login when backend is offline
-      if (email === 'admin@hexalyte.com' && password === 'admin') {
-        adminAuth.setToken('mock-admin-token')
-        redirectAfterLogin()
-        return
-      }
       setError(err instanceof Error ? err.message : 'Invalid credentials.')
       setLoading(false)
     }
