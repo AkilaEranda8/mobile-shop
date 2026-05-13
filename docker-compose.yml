@@ -39,7 +39,7 @@ services:
       NODE_ENV: development
       PORT: 3001
       DATABASE_URL: postgresql://hexalyte:hexalyte_secret@postgres:5432/hexalyte
-      REDIS_URL: redis://:HxR3d1s@2025#Secure@redis:6379
+      REDIS_URL: "redis://:HxR3d1s@2025#Secure@redis:6379"
       JWT_SECRET: hexalyte-super-secret-jwt-key-for-development-only
       JWT_EXPIRES_IN: 15m
       JWT_REFRESH_EXPIRES_IN: 7d
