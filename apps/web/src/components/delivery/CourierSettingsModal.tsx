@@ -45,27 +45,25 @@ export default function CourierSettingsModal({ couriers, onClose, onRefresh }: P
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-2xl shadow-2xl max-h-[80vh] overflow-y-auto"
-        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-        <div className="flex items-center justify-between p-5 border-b border-slate-700/50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[82vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
           <div className="flex items-center gap-2">
-            <Truck size={18} className="text-violet-400" />
-            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Courier Settings</h2>
+            <Truck size={16} className="text-violet-400" />
+            <h3 className="text-base font-semibold text-white">Courier Settings</h3>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => setShowForm(p => !p)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm">
+            <button onClick={() => setShowForm(p => !p)} className="btn-primary text-sm flex items-center gap-1.5">
               <Plus size={13} /> Add
             </button>
-            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white"><X size={16} /></button>
+            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors"><X size={16} /></button>
           </div>
         </div>
 
         <div className="p-5 space-y-4">
           {showForm && (
-            <form onSubmit={handleCreate} className="rounded-xl p-4 space-y-3 border border-slate-700">
-              <p className="text-sm font-medium text-violet-400">New Courier</p>
+            <form onSubmit={handleCreate} className="rounded-xl p-4 space-y-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+              <p className="text-xs font-semibold text-violet-400 uppercase tracking-wider">New Courier</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-slate-400 block mb-1">Name *</label>
@@ -93,10 +91,8 @@ export default function CourierSettingsModal({ couriers, onClose, onRefresh }: P
                 <span className="text-sm text-slate-300">Set as default</span>
               </label>
               <div className="flex gap-2">
-                <button type="button" onClick={() => setShowForm(false)}
-                  className="flex-1 py-2 rounded-lg border border-slate-600 text-slate-300 text-sm">Cancel</button>
-                <button type="submit" disabled={saving}
-                  className="flex-1 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm disabled:opacity-60 flex items-center justify-center gap-1.5">
+                <button type="button" onClick={() => setShowForm(false)} className="btn-secondary flex-1 text-sm">Cancel</button>
+                <button type="submit" disabled={saving} className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5 disabled:opacity-60">
                   {saving ? <Loader2 size={13} className="animate-spin" /> : null} Save
                 </button>
               </div>
@@ -108,7 +104,8 @@ export default function CourierSettingsModal({ couriers, onClose, onRefresh }: P
               <p className="text-center text-slate-500 py-6 text-sm">No couriers yet</p>
             )}
             {couriers.map(c => (
-              <div key={c.id} className="flex items-center gap-3 p-3 rounded-lg border border-slate-700/50 hover:border-slate-600">
+              <div key={c.id} className="flex items-center gap-3 p-3 rounded-xl transition-colors"
+                style={{ border: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                 <div className="w-9 h-9 rounded-lg bg-violet-500/20 flex items-center justify-center">
                   <Truck size={16} className="text-violet-400" />
                 </div>

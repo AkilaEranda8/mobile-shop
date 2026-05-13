@@ -48,21 +48,20 @@ export default function CreateOrderModal({ couriers, onClose, onCreated }: Props
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl"
-        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-        <div className="flex items-center justify-between p-5 border-b border-slate-700/50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
           <div className="flex items-center gap-2">
-            <Package size={18} className="text-violet-400" />
-            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>New Delivery Order</h2>
+            <Package size={16} className="text-violet-400" />
+            <h3 className="text-base font-semibold text-white">New Delivery Order</h3>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white"><X size={16} /></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors"><X size={16} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-5">
           {/* Customer */}
           <div>
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">Customer Details</p>
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-3">Customer Details</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs text-slate-400 mb-1">Name *</label>
@@ -84,7 +83,7 @@ export default function CreateOrderModal({ couriers, onClose, onCreated }: Props
 
           {/* Address */}
           <div>
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">Delivery Address</p>
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-3">Delivery Address</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
                 <label className="block text-xs text-slate-400 mb-1">Address Line 1 *</label>
@@ -117,7 +116,7 @@ export default function CreateOrderModal({ couriers, onClose, onCreated }: Props
           {/* Items */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Order Items</p>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Order Items</p>
               <button type="button" onClick={addItem}
                 className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300">
                 <Plus size={12} /> Add Item
@@ -178,23 +177,19 @@ export default function CreateOrderModal({ couriers, onClose, onCreated }: Props
           </div>
 
           {/* Summary */}
-          <div className="rounded-lg p-3 bg-slate-800/50 space-y-1 text-sm">
-            <div className="flex justify-between text-slate-400"><span>Subtotal</span><span>LKR {subtotal.toLocaleString()}</span></div>
-            <div className="flex justify-between text-slate-400"><span>Delivery</span><span>LKR {form.deliveryCharge.toLocaleString()}</span></div>
-            <div className="flex justify-between font-bold border-t border-slate-700 pt-1 mt-1" style={{ color: 'var(--text-primary)' }}>
+          <div className="rounded-xl p-3 space-y-1 text-sm" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+            <div className="flex justify-between" style={{ color: 'var(--text-muted)' }}><span>Subtotal</span><span>LKR {subtotal.toLocaleString()}</span></div>
+            <div className="flex justify-between" style={{ color: 'var(--text-muted)' }}><span>Delivery</span><span>LKR {form.deliveryCharge.toLocaleString()}</span></div>
+            <div className="flex justify-between font-bold pt-1" style={{ borderTop: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}>
               <span>Total</span><span>LKR {total.toLocaleString()}</span>
             </div>
           </div>
 
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose}
-              className="flex-1 py-2.5 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 text-sm font-medium">
-              Cancel
-            </button>
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
             <button type="submit" disabled={saving}
-              className="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium disabled:opacity-60 flex items-center justify-center gap-2">
-              {saving ? <Loader2 size={14} className="animate-spin" /> : null}
-              Create Order
+              className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+              {saving ? <Loader2 size={14} className="animate-spin" /> : null}Create Order
             </button>
           </div>
         </form>

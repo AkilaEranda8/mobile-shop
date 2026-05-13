@@ -1,19 +1,21 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { type ColumnDef } from '@tanstack/react-table'
+import { ClientSideTable } from '@/components/table/client-side-table'
+import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
+import { TableActionsRow } from '@/components/table/table-actions-row'
 import {
-  Truck, Plus, Search, Filter, RefreshCw, Package, CheckCircle2,
-  Clock, Loader2, Bell, Settings, QrCode, Hash, ChevronDown,
-  MapPin, Phone, MessageSquare, Printer, MoreVertical, X, Upload,
-  Trash2, Eye, Send, AlertCircle,
+  Truck, Plus, RefreshCw, Package, CheckCircle2,
+  Clock, Loader2, Hash, MapPin, Phone, MessageSquare,
+  Printer, Upload, Settings,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
   deliveryApi, DeliveryOrder, Courier, TrackingNumber,
-  DeliveryNotification, DeliveryStats, STATUS_COLORS, STATUS_LABELS,
-  DeliveryStatus,
+  DeliveryNotification, DeliveryStats,
 } from '@/lib/delivery-api'
+import { formatCurrency, formatDate, getDeliveryStatusColor } from '@/lib/utils'
 import CreateOrderModal from '@/components/delivery/CreateOrderModal'
 import AssignTrackingModal from '@/components/delivery/AssignTrackingModal'
 import WaybillPreview from '@/components/delivery/WaybillPreview'
@@ -24,16 +26,10 @@ import OrderDetailModal from '@/components/delivery/OrderDetailModal'
 const TABS = ['Orders', 'Tracking Pool', 'Couriers', 'Notifications'] as const
 type Tab = typeof TABS[number]
 
-const STATUS_FILTERS: Array<{ value: string; label: string }> = [
-  { value: 'ALL',               label: 'All'              },
-  { value: 'PENDING',           label: 'Pending'          },
-  { value: 'PACKED',            label: 'Packed'           },
-  { value: 'AWAITING_TRACKING', label: 'Awaiting Tracking'},
-  { value: 'DISPATCHED',        label: 'Dispatched'       },
-  { value: 'IN_TRANSIT',        label: 'In Transit'       },
-  { value: 'DELIVERED',         label: 'Delivered'        },
-  { value: 'CANCELLED',         label: 'Cancelled'        },
-]
+const statusLabels: Record<string, string> = {
+  PENDING: 'Pending', PACKED: 'Packed', AWAITING_TRACKING: 'Awaiting Tracking',
+  DISPATCHED: 'Dispatched', IN_TRANSIT: 'In Transit', DELIVERED: 'Delivered', CANCELLED: 'Cancelled',
+}
 
 export default function DeliveryPage() {
   const [tab, setTab]           = useState<Tab>('Orders')
@@ -43,10 +39,6 @@ export default function DeliveryPage() {
   const [tracking, setTracking] = useState<TrackingNumber[]>([])
   const [notifs, setNotifs]     = useState<DeliveryNotification[]>([])
   const [loading, setLoading]   = useState(true)
-  const [search, setSearch]     = useState('')
-  const [statusFilter, setStatusFilter] = useState('ALL')
-  const [page, setPage]         = useState(1)
-  const [total, setTotal]       = useState(0)
 
   const [showCreate,   setShowCreate]   = useState(false)
   const [showTracking, setShowTracking] = useState<DeliveryOrder | null>(null)
@@ -58,54 +50,32 @@ export default function DeliveryPage() {
   const loadOrders = useCallback(async () => {
     setLoading(true)
     try {
-      const res: any = await deliveryApi.getOrders({ status: statusFilter, search: search || undefined, page, limit: 20 })
+      const res: any = await deliveryApi.getOrders({ limit: 200 })
       const d = res?.data ?? res
-      setOrders(d?.orders ?? [])
-      setTotal(d?.total ?? 0)
+      setOrders(d?.orders ?? d ?? [])
     } catch { toast.error('Failed to load orders') }
     finally { setLoading(false) }
-  }, [statusFilter, search, page])
+  }, [])
 
   const loadStats = useCallback(async () => {
-    try {
-      const res: any = await deliveryApi.getStats()
-      setStats(res?.data ?? res)
-    } catch {}
+    try { const res: any = await deliveryApi.getStats(); setStats(res?.data ?? res) } catch {}
   }, [])
 
   const loadCouriers = useCallback(async () => {
-    try {
-      const res: any = await deliveryApi.getCouriers()
-      setCouriers(res?.data ?? res ?? [])
-    } catch {}
+    try { const res: any = await deliveryApi.getCouriers(); setCouriers(res?.data ?? res ?? []) } catch {}
   }, [])
 
   const loadTracking = useCallback(async () => {
-    try {
-      const res: any = await deliveryApi.getTracking()
-      setTracking(res?.data ?? res ?? [])
-    } catch {}
+    try { const res: any = await deliveryApi.getTracking(); setTracking(res?.data ?? res ?? []) } catch {}
   }, [])
 
   const loadNotifs = useCallback(async () => {
-    try {
-      const res: any = await deliveryApi.getNotifications()
-      setNotifs(res?.data ?? res ?? [])
-    } catch {}
+    try { const res: any = await deliveryApi.getNotifications(); setNotifs(res?.data ?? res ?? []) } catch {}
   }, [])
 
-  useEffect(() => { loadOrders(); loadStats() }, [loadOrders, loadStats])
-  useEffect(() => { if (tab === 'Couriers') loadCouriers() }, [tab, loadCouriers])
+  useEffect(() => { loadOrders(); loadStats(); loadCouriers() }, [loadOrders, loadStats, loadCouriers])
   useEffect(() => { if (tab === 'Tracking Pool') loadTracking() }, [tab, loadTracking])
   useEffect(() => { if (tab === 'Notifications') loadNotifs() }, [tab, loadNotifs])
-
-  const handleSeedCouriers = async () => {
-    try {
-      await deliveryApi.seedCouriers()
-      loadCouriers()
-      toast.success('Default couriers added')
-    } catch (e: any) { toast.error(e?.message ?? 'Failed') }
-  }
 
   const handleGenerateWaybill = async (order: DeliveryOrder) => {
     try {
@@ -115,59 +85,270 @@ export default function DeliveryPage() {
   }
 
   const handleResendWhatsApp = async (id: string) => {
-    try {
-      await deliveryApi.resendWhatsApp(id)
-      toast.success('WhatsApp notification sent')
-    } catch (e: any) { toast.error(e?.message ?? 'Failed') }
+    try { await deliveryApi.resendWhatsApp(id); toast.success('WhatsApp notification sent') }
+    catch (e: any) { toast.error(e?.message ?? 'Failed') }
   }
 
   const handleRetryNotif = async (id: string) => {
-    try {
-      await deliveryApi.retryNotification(id)
-      toast.success('Retried')
-      loadNotifs()
-    } catch (e: any) { toast.error(e?.message ?? 'Failed') }
+    try { await deliveryApi.retryNotification(id); toast.success('Retried'); loadNotifs() }
+    catch (e: any) { toast.error(e?.message ?? 'Failed') }
   }
 
-  return (
-    <div className="space-y-6 p-4 md:p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+  const handleSeedCouriers = async () => {
+    try { await deliveryApi.seedCouriers(); loadCouriers(); toast.success('Default couriers added') }
+    catch (e: any) { toast.error(e?.message ?? 'Failed') }
+  }
+
+  /* ── Order Columns ───────────────────────────────────────────── */
+  const orderColumns = useMemo<ColumnDef<DeliveryOrder>[]>(() => [
+    {
+      accessorKey: 'orderNumber',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Order #" />,
+      cell: ({ row }) => (
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Delivery Orders</h1>
-          <p className="text-sm text-slate-400 mt-0.5">Manage courier deliveries, waybills & tracking</p>
+          <button onClick={() => setShowDetail(row.original)}
+            className="text-xs font-mono font-semibold text-violet-400 hover:underline">
+            {row.original.orderNumber}
+          </button>
+          <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{formatDate(row.original.createdAt)}</p>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <button onClick={() => setShowPool(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors">
-            <Hash size={14} /> Tracking Pool
+      ),
+    },
+    {
+      accessorKey: 'customerName',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Customer" />,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-full bg-violet-500/20 flex items-center justify-center text-[11px] font-bold text-violet-300 flex-shrink-0">
+            {row.original.customerName.charAt(0)}
+          </div>
+          <div>
+            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{row.original.customerName}</p>
+            <p className="text-[10px] flex items-center gap-0.5" style={{ color: 'var(--text-muted)' }}>
+              <Phone size={9} />{row.original.customerPhone}
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'destination',
+      accessorFn: (r) => `${r.city} ${r.district ?? ''}`,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Destination" />,
+      cell: ({ row }) => (
+        <div>
+          <p className="text-xs flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
+            <MapPin size={10} className="flex-shrink-0 text-violet-400" />
+            {row.original.city}{row.original.district ? `, ${row.original.district}` : ''}
+          </p>
+          <p className="text-[10px] truncate max-w-[140px]" style={{ color: 'var(--text-muted)' }}>
+            {row.original.addressLine1}
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: 'courier',
+      accessorFn: (r) => r.trackingNumber ?? '',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Courier / Tracking" />,
+      cell: ({ row }) => row.original.courier ? (
+        <div>
+          <p className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{row.original.courier.name}</p>
+          <p className="text-[11px] font-mono text-violet-400">{row.original.trackingNumber ?? '—'}</p>
+        </div>
+      ) : (
+        <span className="text-[11px] px-2 py-0.5 rounded border bg-yellow-500/10 border-yellow-500/20 text-yellow-400">
+          Not assigned
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'totalAmount',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Amount" />,
+      cell: ({ row }) => (
+        <div>
+          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+            {formatCurrency(row.original.totalAmount)}
+          </p>
+          {row.original.isCOD && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded border bg-orange-500/10 border-orange-500/20 text-orange-400">COD</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'status',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+      cell: ({ row }) => (
+        <span className={`text-[11px] px-2 py-0.5 rounded-full border font-medium ${getDeliveryStatusColor(row.original.status)}`}>
+          {statusLabels[row.original.status] ?? row.original.status}
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      cell: ({ row }) => (
+        <TableActionsRow
+          showAction={{ action: () => setShowDetail(row.original) }}
+          extraActions={[
+            { label: 'Waybill',           icon: <Printer size={12} />,      action: () => handleGenerateWaybill(row.original) },
+            ...(!row.original.trackingNumber ? [{ label: 'Assign Tracking', icon: <Hash size={12} />, action: () => setShowTracking(row.original) }] : []),
+            ...(row.original.trackingNumber  ? [{ label: 'Resend WhatsApp', icon: <MessageSquare size={12} />, action: () => handleResendWhatsApp(row.original.id) }] : []),
+          ]}
+        />
+      ),
+    },
+  ], [])
+
+  /* ── Tracking Pool Columns ───────────────────────────────────── */
+  const trackingColumns = useMemo<ColumnDef<TrackingNumber>[]>(() => [
+    {
+      accessorKey: 'number',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Tracking Number" />,
+      cell: ({ row }) => <span className="text-xs font-mono text-violet-400">{row.original.number}</span>,
+    },
+    {
+      id: 'courierName',
+      accessorFn: (r) => r.courier.name,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Courier" />,
+      cell: ({ row }) => <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{row.original.courier.name}</span>,
+    },
+    {
+      accessorKey: 'status',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+      cell: ({ row }) => (
+        <span className={`text-[11px] px-2 py-0.5 rounded-full border font-medium ${
+          row.original.status === 'AVAILABLE' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+          row.original.status === 'ASSIGNED'  ? 'bg-violet-500/20 text-violet-400 border-violet-500/30' :
+          'bg-slate-500/20 text-slate-400 border-slate-500/30'}`}>
+          {row.original.status}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'assignedAt',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Assigned At" />,
+      cell: ({ row }) => <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+        {row.original.assignedAt ? formatDate(row.original.assignedAt) : '—'}
+      </span>,
+    },
+  ], [])
+
+  /* ── Notification Columns ────────────────────────────────────── */
+  const notifColumns = useMemo<ColumnDef<DeliveryNotification>[]>(() => [
+    {
+      id: 'order',
+      accessorFn: (r) => r.deliveryOrder?.orderNumber ?? '',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Order" />,
+      cell: ({ row }) => (
+        <div>
+          <p className="text-xs font-mono text-violet-400">{row.original.deliveryOrder?.orderNumber}</p>
+          <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{row.original.deliveryOrder?.customerName}</p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'phone',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Phone" />,
+      cell: ({ row }) => <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{row.original.phone}</span>,
+    },
+    {
+      accessorKey: 'status',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+      cell: ({ row }) => (
+        <span className={`text-[11px] px-2 py-0.5 rounded-full border font-medium ${
+          row.original.status === 'SENT'     ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+          row.original.status === 'FAILED'   ? 'bg-red-500/20 text-red-400 border-red-500/30' :
+          row.original.status === 'RETRYING' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
+          'bg-slate-500/20 text-slate-400 border-slate-500/30'}`}>
+          {row.original.status}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'sentAt',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Sent At" />,
+      cell: ({ row }) => <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+        {row.original.sentAt ? formatDate(row.original.sentAt, 'long') : '—'}
+      </span>,
+    },
+    {
+      accessorKey: 'retryCount',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Retries" />,
+      cell: ({ row }) => <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{row.original.retryCount}</span>,
+    },
+    {
+      id: 'actions',
+      cell: ({ row }) => row.original.status !== 'SENT' ? (
+        <button onClick={() => handleRetryNotif(row.original.id)}
+          className="text-xs px-2.5 py-1 rounded-lg font-medium text-white"
+          style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)' }}>
+          Retry
+        </button>
+      ) : null,
+    },
+  ], [])
+
+  return (
+    <div className="space-y-6">
+      {/* Modals */}
+      {showCreate && (
+        <CreateOrderModal couriers={couriers} onClose={() => setShowCreate(false)}
+          onCreated={() => { setShowCreate(false); loadOrders(); loadStats() }} />
+      )}
+      {showTracking && (
+        <AssignTrackingModal order={showTracking} couriers={couriers}
+          onClose={() => setShowTracking(null)}
+          onAssigned={() => { setShowTracking(null); loadOrders(); loadStats() }} />
+      )}
+      {showWaybill  && <WaybillPreview order={showWaybill} onClose={() => setShowWaybill(null)} />}
+      {showCouriers && <CourierSettingsModal couriers={couriers} onClose={() => setShowCouriers(false)} onRefresh={loadCouriers} />}
+      {showPool     && <TrackingPoolModal couriers={couriers} onClose={() => setShowPool(false)} onRefresh={loadTracking} />}
+      {showDetail   && (
+        <OrderDetailModal order={showDetail} onClose={() => setShowDetail(null)}
+          onAssignTracking={(o) => { setShowDetail(null); setShowTracking(o) }}
+          onGenerateWaybill={handleGenerateWaybill}
+          onResendWhatsApp={handleResendWhatsApp} />
+      )}
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        <div>
+          <h1 className="page-title">Delivery Orders</h1>
+          <p className="page-subtitle">Courier dispatch · Waybills · Tracking · WhatsApp notifications</p>
+        </div>
+        <div className="flex gap-2 sm:ml-auto">
+          <button onClick={() => setShowPool(true)} className="btn-secondary text-sm flex items-center gap-2">
+            <Hash size={13} /> Tracking Pool
           </button>
-          <button onClick={() => setShowCouriers(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors">
-            <Settings size={14} /> Couriers
+          <button onClick={() => setShowCouriers(true)} className="btn-secondary text-sm flex items-center gap-2">
+            <Settings size={13} /> Couriers
           </button>
-          <button onClick={() => setShowCreate(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-violet-600 hover:bg-violet-700 text-white transition-colors">
+          <button onClick={() => setShowCreate(true)} className="btn-primary text-sm flex items-center gap-2">
             <Plus size={14} /> New Order
           </button>
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats */}
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {[
-            { label: 'Total',            value: stats.total,            icon: Package,      color: 'text-slate-300' },
-            { label: 'Pending',          value: stats.pending,          icon: Clock,        color: 'text-yellow-400' },
-            { label: 'Awaiting Track.',  value: stats.awaitingTracking, icon: Hash,         color: 'text-orange-400' },
-            { label: 'Dispatched',       value: stats.dispatched,       icon: Truck,        color: 'text-violet-400' },
-            { label: 'Delivered',        value: stats.delivered,        icon: CheckCircle2, color: 'text-green-400' },
-          ].map(({ label, value, icon: Icon, color }) => (
-            <div key={label} className="card p-4 flex items-center gap-3">
-              <Icon size={20} className={color} />
+          {([
+            { label: 'Total',           value: stats.total,            icon: Package,      color: 'var(--text-secondary)' },
+            { label: 'Pending',         value: stats.pending,          icon: Clock,        color: '#facc15' },
+            { label: 'Awaiting Track.', value: stats.awaitingTracking, icon: Hash,         color: '#fb923c' },
+            { label: 'Dispatched',      value: stats.dispatched,       icon: Truck,        color: '#a78bfa' },
+            { label: 'Delivered',       value: stats.delivered,        icon: CheckCircle2, color: '#4ade80' },
+          ] as const).map(({ label, value, icon: Icon, color }) => (
+            <div key={label} className="rounded-xl p-4 flex items-center gap-3"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                <Icon size={16} style={{ color }} />
+              </div>
               <div>
-                <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
-                <p className="text-xs text-slate-400">{label}</p>
+                <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
+                <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{label}</p>
               </div>
             </div>
           ))}
@@ -175,206 +356,97 @@ export default function DeliveryPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-slate-700/50">
+      <div className="flex gap-0 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
         {TABS.map(t => (
           <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
-              tab === t ? 'border-violet-500 text-violet-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}>{t}</button>
+            className="px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px"
+            style={{
+              borderBottomColor: tab === t ? '#7c3aed' : 'transparent',
+              color: tab === t ? '#a78bfa' : 'var(--text-muted)',
+            }}>{t}</button>
         ))}
       </div>
 
       {/* Orders Tab */}
       {tab === 'Orders' && (
-        <div className="space-y-4">
-          {/* Filters */}
-          <div className="flex gap-2 flex-wrap">
-            <div className="relative flex-1 min-w-48">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input className="input-field pl-8 text-sm w-full" placeholder="Search orders, customers, tracking..."
-                value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} />
-            </div>
-            <select className="input-field text-sm w-44"
-              value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }}>
-              {STATUS_FILTERS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-            </select>
-            <button onClick={loadOrders} className="px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors">
-              <RefreshCw size={14} />
-            </button>
-          </div>
-
-          {/* Table */}
-          <div className="card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-700/50">
-                    {['Order #', 'Customer', 'Destination', 'Courier / Tracking', 'Amount', 'Status', 'Actions'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr><td colSpan={7} className="px-4 py-12 text-center">
-                      <Loader2 size={22} className="animate-spin mx-auto text-violet-400" />
-                    </td></tr>
-                  ) : orders.length === 0 ? (
-                    <tr><td colSpan={7} className="px-4 py-12 text-center text-slate-500">
-                      <Truck size={32} className="mx-auto mb-2 opacity-30" />
-                      No delivery orders found
-                    </td></tr>
-                  ) : orders.map(order => (
-                    <tr key={order.id} className="border-b border-slate-700/30 hover:bg-slate-800/30 transition-colors">
-                      <td className="px-4 py-3">
-                        <button onClick={() => setShowDetail(order)} className="font-mono font-semibold text-violet-400 hover:underline">
-                          {order.orderNumber}
-                        </button>
-                        <p className="text-xs text-slate-500">{new Date(order.createdAt).toLocaleDateString()}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{order.customerName}</p>
-                        <p className="text-xs text-slate-400 flex items-center gap-1"><Phone size={10} />{order.customerPhone}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="text-xs text-slate-300 flex items-center gap-1"><MapPin size={10} className="shrink-0" />
-                          {order.city}{order.district ? `, ${order.district}` : ''}
-                        </p>
-                        <p className="text-xs text-slate-500 truncate max-w-32">{order.addressLine1}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        {order.courier ? (
-                          <>
-                            <p className="text-xs font-medium text-slate-300">{order.courier.name}</p>
-                            <p className="text-xs font-mono text-violet-300">{order.trackingNumber ?? '—'}</p>
-                          </>
-                        ) : <span className="text-xs text-slate-500">Not assigned</span>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-                          LKR {order.totalAmount.toLocaleString()}
-                        </p>
-                        {order.isCOD && <span className="text-xs bg-orange-500/20 text-orange-300 px-1.5 py-0.5 rounded">COD</span>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${STATUS_COLORS[order.status]}`}>
-                          {STATUS_LABELS[order.status]}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-1.5">
-                          <button title="Generate Waybill" onClick={() => handleGenerateWaybill(order)}
-                            className="p-1.5 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors">
-                            <Printer size={13} />
-                          </button>
-                          {!order.trackingNumber && (
-                            <button title="Assign Tracking" onClick={() => setShowTracking(order)}
-                              className="p-1.5 rounded hover:bg-violet-700 text-violet-400 hover:text-white transition-colors">
-                              <Hash size={13} />
-                            </button>
-                          )}
-                          {order.trackingNumber && (
-                            <button title="Resend WhatsApp" onClick={() => handleResendWhatsApp(order.id)}
-                              className="p-1.5 rounded hover:bg-green-700 text-green-400 hover:text-white transition-colors">
-                              <MessageSquare size={13} />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {/* Pagination */}
-            {total > 20 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-700/50">
-                <p className="text-xs text-slate-400">Showing {(page-1)*20+1}–{Math.min(page*20, total)} of {total}</p>
-                <div className="flex gap-2">
-                  <button disabled={page === 1} onClick={() => setPage(p => p-1)}
-                    className="px-3 py-1.5 rounded text-xs bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-slate-300">Prev</button>
-                  <button disabled={page*20 >= total} onClick={() => setPage(p => p+1)}
-                    className="px-3 py-1.5 rounded text-xs bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-slate-300">Next</button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        <ClientSideTable
+          data={orders}
+          columns={orderColumns}
+          isLoading={loading}
+          pageCount={Math.ceil((orders.length || 1) / 20)}
+          searchableColumns={[
+            { id: 'orderNumber',  title: 'Order #'  },
+            { id: 'customerName', title: 'Customer' },
+            { id: 'courier',      title: 'Tracking' },
+          ]}
+          filterableColumns={[
+            {
+              id: 'status',
+              title: 'Status',
+              options: Object.entries(statusLabels).map(([v, l]) => ({ value: v, label: l })),
+            },
+          ]}
+        />
       )}
 
       {/* Tracking Pool Tab */}
       {tab === 'Tracking Pool' && (
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-slate-400">{tracking.length} tracking numbers in pool</p>
-            <button onClick={() => setShowPool(true)}
-              className="btn-primary flex items-center gap-1.5 text-sm"><Upload size={14} /> Bulk Add</button>
+          <div className="flex justify-end">
+            <button onClick={() => setShowPool(true)} className="btn-primary text-sm flex items-center gap-2">
+              <Upload size={13} /> Bulk Add
+            </button>
           </div>
-          <div className="card overflow-hidden">
-            <table className="w-full text-sm">
-              <thead><tr className="border-b border-slate-700/50">
-                {['Tracking Number', 'Courier', 'Status', 'Assigned At'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">{h}</th>
-                ))}
-              </tr></thead>
-              <tbody>
-                {tracking.length === 0 ? (
-                  <tr><td colSpan={4} className="px-4 py-10 text-center text-slate-500">No tracking numbers. Add some above.</td></tr>
-                ) : tracking.map(t => (
-                  <tr key={t.id} className="border-b border-slate-700/30 hover:bg-slate-800/30">
-                    <td className="px-4 py-3 font-mono text-violet-300">{t.number}</td>
-                    <td className="px-4 py-3 text-slate-300">{t.courier.name}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                        t.status === 'AVAILABLE' ? 'bg-green-500/20 text-green-300' :
-                        t.status === 'ASSIGNED'  ? 'bg-violet-500/20 text-violet-300' :
-                        'bg-slate-500/20 text-slate-400'}`}>{t.status}</span>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-slate-400">
-                      {t.assignedAt ? new Date(t.assignedAt).toLocaleDateString() : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ClientSideTable
+            data={tracking}
+            columns={trackingColumns}
+            isLoading={false}
+            pageCount={Math.ceil((tracking.length || 1) / 20)}
+            searchableColumns={[{ id: 'number', title: 'Tracking #' }]}
+            filterableColumns={[{
+              id: 'status', title: 'Status',
+              options: [
+                { label: 'Available', value: 'AVAILABLE' },
+                { label: 'Assigned',  value: 'ASSIGNED'  },
+                { label: 'Used',      value: 'USED'      },
+              ],
+            }]}
+          />
         </div>
       )}
 
       {/* Couriers Tab */}
       {tab === 'Couriers' && (
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-slate-400">{couriers.length} couriers configured</p>
-            <div className="flex gap-2">
-              <button onClick={handleSeedCouriers}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors">
-                <RefreshCw size={13} /> Add Defaults
-              </button>
-              <button onClick={() => setShowCouriers(true)} className="btn-primary flex items-center gap-1.5 text-sm">
-                <Plus size={14} /> Add Courier
-              </button>
-            </div>
+          <div className="flex justify-end gap-2">
+            <button onClick={handleSeedCouriers} className="btn-secondary text-sm flex items-center gap-2">
+              <RefreshCw size={13} /> Add Defaults
+            </button>
+            <button onClick={() => setShowCouriers(true)} className="btn-primary text-sm flex items-center gap-2">
+              <Plus size={14} /> Add Courier
+            </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {couriers.length === 0 ? (
-              <div className="col-span-3 card p-10 text-center text-slate-500">
+              <div className="col-span-3 rounded-xl p-10 text-center text-sm"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
                 No couriers yet. Click "Add Defaults" to add Koombiyo, Domex, Pronto, CityPak.
               </div>
             ) : couriers.map(c => (
-              <div key={c.id} className="card p-4 flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-violet-500/20 flex items-center justify-center shrink-0">
-                  <Truck size={18} className="text-violet-400" />
+              <div key={c.id} className="rounded-xl p-4 flex items-start gap-3"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+                <div className="w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center flex-shrink-0">
+                  <Truck size={17} className="text-violet-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{c.name}</p>
-                    {c.isDefault && <span className="text-xs bg-violet-500/20 text-violet-300 px-1.5 py-0.5 rounded">Default</span>}
-                    {!c.isActive && <span className="text-xs bg-red-500/20 text-red-300 px-1.5 py-0.5 rounded">Inactive</span>}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{c.name}</p>
+                    {c.isDefault && <span className="text-[10px] px-1.5 py-0.5 rounded border bg-violet-500/10 border-violet-500/20 text-violet-400">Default</span>}
+                    {!c.isActive && <span className="text-[10px] px-1.5 py-0.5 rounded border bg-red-500/10 border-red-500/20 text-red-400">Inactive</span>}
                   </div>
-                  <p className="text-xs text-slate-400 font-mono">{c.code}</p>
-                  {c.phone && <p className="text-xs text-slate-400 mt-1">{c.phone}</p>}
-                  <div className="flex gap-3 mt-2 text-xs text-slate-500">
+                  <p className="text-[11px] font-mono mt-0.5" style={{ color: 'var(--text-muted)' }}>{c.code}</p>
+                  {c.phone && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{c.phone}</p>}
+                  <div className="flex gap-3 mt-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>
                     <span>{c._count?.trackingPool ?? 0} tracking #s</span>
                     <span>{c._count?.deliveryOrders ?? 0} orders</span>
                   </div>
@@ -388,98 +460,28 @@ export default function DeliveryPage() {
       {/* Notifications Tab */}
       {tab === 'Notifications' && (
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-slate-400">{notifs.length} notification logs</p>
-            <button onClick={loadNotifs} className="px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors">
-              <RefreshCw size={14} />
+          <div className="flex justify-end">
+            <button onClick={loadNotifs} className="btn-secondary text-sm flex items-center gap-2">
+              <RefreshCw size={13} /> Refresh
             </button>
           </div>
-          <div className="card overflow-hidden">
-            <table className="w-full text-sm">
-              <thead><tr className="border-b border-slate-700/50">
-                {['Order', 'Customer', 'Phone', 'Status', 'Sent At', 'Retries', ''].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">{h}</th>
-                ))}
-              </tr></thead>
-              <tbody>
-                {notifs.length === 0 ? (
-                  <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-500">No notification logs.</td></tr>
-                ) : notifs.map(n => (
-                  <tr key={n.id} className="border-b border-slate-700/30 hover:bg-slate-800/30">
-                    <td className="px-4 py-3 font-mono text-xs text-violet-300">{n.deliveryOrder?.orderNumber}</td>
-                    <td className="px-4 py-3 text-slate-300">{n.deliveryOrder?.customerName}</td>
-                    <td className="px-4 py-3 text-xs text-slate-400">{n.phone}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                        n.status === 'SENT'     ? 'bg-green-500/20 text-green-300' :
-                        n.status === 'FAILED'   ? 'bg-red-500/20 text-red-300' :
-                        n.status === 'RETRYING' ? 'bg-yellow-500/20 text-yellow-300' :
-                        'bg-slate-500/20 text-slate-400'}`}>{n.status}</span>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-slate-400">
-                      {n.sentAt ? new Date(n.sentAt).toLocaleString() : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-slate-400">{n.retryCount}</td>
-                    <td className="px-4 py-3">
-                      {n.status !== 'SENT' && (
-                        <button onClick={() => handleRetryNotif(n.id)}
-                          className="text-xs px-2 py-1 rounded bg-violet-600 hover:bg-violet-700 text-white">
-                          Retry
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ClientSideTable
+            data={notifs}
+            columns={notifColumns}
+            isLoading={false}
+            pageCount={Math.ceil((notifs.length || 1) / 20)}
+            searchableColumns={[{ id: 'order', title: 'Order #' }]}
+            filterableColumns={[{
+              id: 'status', title: 'Status',
+              options: [
+                { label: 'Sent',     value: 'SENT'     },
+                { label: 'Failed',   value: 'FAILED'   },
+                { label: 'Retrying', value: 'RETRYING' },
+                { label: 'Pending',  value: 'PENDING'  },
+              ],
+            }]}
+          />
         </div>
-      )}
-
-      {/* Modals */}
-      {showCreate && (
-        <CreateOrderModal
-          couriers={couriers}
-          onClose={() => setShowCreate(false)}
-          onCreated={() => { setShowCreate(false); loadOrders(); loadStats() }}
-        />
-      )}
-      {showTracking && (
-        <AssignTrackingModal
-          order={showTracking}
-          couriers={couriers}
-          onClose={() => setShowTracking(null)}
-          onAssigned={() => { setShowTracking(null); loadOrders(); loadStats() }}
-        />
-      )}
-      {showWaybill && (
-        <WaybillPreview
-          order={showWaybill}
-          onClose={() => setShowWaybill(null)}
-        />
-      )}
-      {showCouriers && (
-        <CourierSettingsModal
-          couriers={couriers}
-          onClose={() => setShowCouriers(false)}
-          onRefresh={loadCouriers}
-        />
-      )}
-      {showPool && (
-        <TrackingPoolModal
-          couriers={couriers}
-          onClose={() => setShowPool(false)}
-          onRefresh={loadTracking}
-        />
-      )}
-      {showDetail && (
-        <OrderDetailModal
-          order={showDetail}
-          onClose={() => setShowDetail(null)}
-          onAssignTracking={(o) => { setShowDetail(null); setShowTracking(o) }}
-          onGenerateWaybill={handleGenerateWaybill}
-          onResendWhatsApp={handleResendWhatsApp}
-        />
       )}
     </div>
   )

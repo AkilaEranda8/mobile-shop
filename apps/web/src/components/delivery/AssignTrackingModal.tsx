@@ -32,21 +32,20 @@ export default function AssignTrackingModal({ order, couriers, onClose, onAssign
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl shadow-2xl"
-        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-        <div className="flex items-center justify-between p-5 border-b border-slate-700/50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
+        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
           <div className="flex items-center gap-2">
-            <Hash size={18} className="text-violet-400" />
-            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Assign Tracking</h2>
+            <Hash size={16} className="text-violet-400" />
+            <h3 className="text-base font-semibold text-white">Assign Tracking</h3>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white"><X size={16} /></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors"><X size={16} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div className="rounded-lg p-3 bg-slate-800/50 text-sm">
-            <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{order.orderNumber}</p>
-            <p className="text-slate-400">{order.customerName} · {order.city}</p>
+          <div className="rounded-xl p-3.5 text-sm" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+            <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{order.orderNumber}</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{order.customerName} · {order.city}</p>
           </div>
 
           <div>
@@ -74,12 +73,9 @@ export default function AssignTrackingModal({ order, couriers, onClose, onAssign
           </label>
 
           <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose}
-              className="flex-1 py-2.5 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 text-sm font-medium">
-              Cancel
-            </button>
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
             <button type="submit" disabled={saving}
-              className="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium disabled:opacity-60 flex items-center justify-center gap-2">
+              className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
               {saving ? <Loader2 size={14} className="animate-spin" /> : <Hash size={14} />}
               Assign & Dispatch
             </button>

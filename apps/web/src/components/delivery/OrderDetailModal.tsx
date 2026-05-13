@@ -1,7 +1,14 @@
 'use client'
 
-import { X, Printer, Hash, MessageSquare, MapPin, Phone, Mail, Package } from 'lucide-react'
-import { DeliveryOrder, STATUS_COLORS, STATUS_LABELS } from '@/lib/delivery-api'
+import { X, Printer, Hash, MessageSquare, MapPin, Phone, Mail, Truck, Calendar } from 'lucide-react'
+import { DeliveryOrder } from '@/lib/delivery-api'
+import { formatDate, getDeliveryStatusColor } from '@/lib/utils'
+import { formatCurrency } from '@/lib/utils'
+
+const statusLabels: Record<string, string> = {
+  PENDING: 'Pending', PACKED: 'Packed', AWAITING_TRACKING: 'Awaiting Tracking',
+  DISPATCHED: 'Dispatched', IN_TRANSIT: 'In Transit', DELIVERED: 'Delivered', CANCELLED: 'Cancelled',
+}
 
 interface Props {
   order: DeliveryOrder
@@ -13,113 +20,148 @@ interface Props {
 
 export default function OrderDetailModal({ order, onClose, onAssignTracking, onGenerateWaybill, onResendWhatsApp }: Props) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-xl rounded-2xl shadow-2xl max-h-[88vh] overflow-y-auto"
-        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-        <div className="flex items-center justify-between p-5 border-b border-slate-700/50">
-          <div>
-            <p className="font-mono font-bold text-violet-400 text-lg">{order.orderNumber}</p>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[order.status]}`}>
-              {STATUS_LABELS[order.status]}
-            </span>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="w-full max-w-xl max-h-[92vh] overflow-y-auto rounded-2xl shadow-2xl"
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+
+        {/* Header */}
+        <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4"
+          style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border-subtle)' }}>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center">
+              <Truck size={16} className="text-violet-400" />
+            </div>
+            <div>
+              <p className="text-[11px] font-mono font-semibold text-violet-400 leading-none">{order.orderNumber}</p>
+              <h3 className="text-sm font-bold mt-0.5" style={{ color: 'var(--text-primary)' }}>{order.customerName}</h3>
+            </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white"><X size={16} /></button>
+          <div className="flex items-center gap-2">
+            <span className={`text-[11px] px-2.5 py-1 rounded-full border font-medium ${getDeliveryStatusColor(order.status)}`}>
+              {statusLabels[order.status] ?? order.status}
+            </span>
+            <button onClick={onClose} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}>
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
-        <div className="p-5 space-y-5">
+        <div className="p-5 space-y-4">
           {/* Action Buttons */}
           <div className="flex gap-2 flex-wrap">
             <button onClick={() => onGenerateWaybill(order)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm">
-              <Printer size={13} /> Waybill
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg font-medium transition-colors"
+              style={{ background: 'var(--bg-subtle)', color: 'var(--text-secondary)', border: '1px solid var(--border-default)' }}>
+              <Printer size={11} /> Waybill
             </button>
             {!order.trackingNumber && (
               <button onClick={() => onAssignTracking(order)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm">
-                <Hash size={13} /> Assign Tracking
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg font-semibold text-white transition-all"
+                style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', boxShadow: '0 2px 8px rgba(124,58,237,0.3)' }}>
+                <Hash size={11} /> Assign Tracking
               </button>
             )}
             {order.trackingNumber && (
               <button onClick={() => onResendWhatsApp(order.id)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm">
-                <MessageSquare size={13} /> Resend WhatsApp
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg font-medium transition-colors"
+                style={{ background: 'rgba(34,197,94,0.1)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.2)' }}>
+                <MessageSquare size={11} /> Resend WhatsApp
               </button>
             )}
           </div>
 
-          {/* Customer */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <p className="text-xs text-slate-400 uppercase tracking-wider">Customer</p>
-              <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{order.customerName}</p>
-              <p className="text-sm text-slate-300 flex items-center gap-1"><Phone size={12} />{order.customerPhone}</p>
-              {order.customerEmail && <p className="text-sm text-slate-400 flex items-center gap-1"><Mail size={12} />{order.customerEmail}</p>}
+          {/* Customer + Address */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl p-3.5" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+              <div className="flex items-center gap-1.5 mb-2">
+                <Phone size={13} className="text-cyan-400" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Customer</span>
+              </div>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{order.customerName}</p>
+              <a href={`tel:${order.customerPhone}`} className="text-xs flex items-center gap-1 text-cyan-500 hover:underline mt-0.5">
+                <Phone size={10} />{order.customerPhone}
+              </a>
+              {order.customerEmail && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{order.customerEmail}</p>}
             </div>
-            <div className="space-y-1">
-              <p className="text-xs text-slate-400 uppercase tracking-wider">Delivery Address</p>
-              <p className="text-sm text-slate-300 flex items-start gap-1">
-                <MapPin size={12} className="mt-0.5 shrink-0" />
-                <span>{order.addressLine1}{order.addressLine2 ? `, ${order.addressLine2}` : ''}, {order.city}{order.district ? `, ${order.district}` : ''} {order.postalCode ?? ''}</span>
+            <div className="rounded-xl p-3.5" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+              <div className="flex items-center gap-1.5 mb-2">
+                <MapPin size={13} className="text-violet-400" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Address</span>
+              </div>
+              <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                {order.addressLine1}{order.addressLine2 ? `, ${order.addressLine2}` : ''}<br />
+                {order.city}{order.district ? `, ${order.district}` : ''} {order.postalCode ?? ''}
               </p>
             </div>
           </div>
 
           {/* Courier & Tracking */}
           {(order.courier || order.trackingNumber) && (
-            <div className="rounded-xl p-3 bg-violet-500/10 border border-violet-500/20 space-y-1">
-              <p className="text-xs text-violet-400 uppercase tracking-wider">Courier & Tracking</p>
-              {order.courier && <p className="font-medium text-slate-200">{order.courier.name} ({order.courier.code})</p>}
-              {order.trackingNumber && <p className="font-mono text-violet-300 text-lg font-bold">{order.trackingNumber}</p>}
-              {order.dispatchedAt && <p className="text-xs text-slate-400">Dispatched: {new Date(order.dispatchedAt).toLocaleString()}</p>}
+            <div className="rounded-xl p-4" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+              <div className="flex items-center gap-1.5 mb-2">
+                <Truck size={13} className="text-violet-400" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Courier & Tracking</span>
+              </div>
+              {order.courier && <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{order.courier.name} ({order.courier.code})</p>}
+              {order.trackingNumber && <p className="font-mono text-violet-400 text-base font-bold mt-0.5">{order.trackingNumber}</p>}
+              {order.dispatchedAt && (
+                <p className="text-xs mt-1 flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
+                  <Calendar size={10} />Dispatched: {formatDate(order.dispatchedAt, 'long')}
+                </p>
+              )}
             </div>
           )}
 
           {/* Items */}
-          <div>
-            <p className="text-xs text-slate-400 uppercase tracking-wider mb-2">Order Items</p>
-            <div className="rounded-xl overflow-hidden border border-slate-700/50">
-              <table className="w-full text-sm">
-                <thead className="border-b border-slate-700/50">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-xs text-slate-400">Description</th>
-                    <th className="px-3 py-2 text-center text-xs text-slate-400">Qty</th>
-                    <th className="px-3 py-2 text-right text-xs text-slate-400">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {order.items.map((item, i) => (
-                    <tr key={i} className="border-b border-slate-700/30">
-                      <td className="px-3 py-2" style={{ color: 'var(--text-primary)' }}>{item.description}</td>
-                      <td className="px-3 py-2 text-center text-slate-300">{item.quantity}</td>
-                      <td className="px-3 py-2 text-right text-slate-300">LKR {item.total.toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
+            <div className="px-4 py-2.5" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Order Items</span>
             </div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  <th className="px-4 py-2 text-left text-[10px] font-medium uppercase" style={{ color: 'var(--text-muted)' }}>Description</th>
+                  <th className="px-4 py-2 text-center text-[10px] font-medium uppercase" style={{ color: 'var(--text-muted)' }}>Qty</th>
+                  <th className="px-4 py-2 text-right text-[10px] font-medium uppercase" style={{ color: 'var(--text-muted)' }}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {order.items.map((item, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                    <td className="px-4 py-2.5 text-sm" style={{ color: 'var(--text-primary)' }}>{item.description}</td>
+                    <td className="px-4 py-2.5 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>{item.quantity}</td>
+                    <td className="px-4 py-2.5 text-right text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(item.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
           {/* Totals */}
-          <div className="rounded-xl p-3 bg-slate-800/50 space-y-1 text-sm">
-            <div className="flex justify-between text-slate-400"><span>Subtotal</span><span>LKR {order.subtotal.toLocaleString()}</span></div>
-            <div className="flex justify-between text-slate-400"><span>Delivery</span><span>LKR {order.deliveryCharge.toLocaleString()}</span></div>
-            <div className="flex justify-between font-bold border-t border-slate-700 pt-1" style={{ color: 'var(--text-primary)' }}>
-              <span>Total</span><span>LKR {order.totalAmount.toLocaleString()}</span>
+          <div className="rounded-xl p-4 space-y-1.5 text-sm" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+            <div className="flex justify-between" style={{ color: 'var(--text-muted)' }}><span>Subtotal</span><span>{formatCurrency(order.subtotal)}</span></div>
+            <div className="flex justify-between" style={{ color: 'var(--text-muted)' }}><span>Delivery Charge</span><span>{formatCurrency(order.deliveryCharge)}</span></div>
+            <div className="flex justify-between font-bold pt-1.5" style={{ borderTop: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}>
+              <span>Total</span><span>{formatCurrency(order.totalAmount)}</span>
             </div>
             {order.isCOD && (
-              <div className="flex justify-between text-orange-300 font-medium pt-1">
-                <span>COD Amount</span><span>LKR {(order.codAmount ?? order.totalAmount).toLocaleString()}</span>
+              <div className="flex justify-between font-medium" style={{ color: '#fb923c' }}>
+                <span>COD Amount</span><span>{formatCurrency(order.codAmount ?? order.totalAmount)}</span>
               </div>
             )}
           </div>
 
           {order.notes && (
-            <div className="text-sm text-slate-400 rounded-lg p-3 bg-slate-800/50">
-              <span className="font-medium text-slate-300">Note:</span> {order.notes}
+            <div className="rounded-xl p-3.5 text-sm" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+              <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>Note: </span>
+              <span style={{ color: 'var(--text-muted)' }}>{order.notes}</span>
             </div>
           )}
 
-          <p className="text-xs text-slate-500">Created: {new Date(order.createdAt).toLocaleString()}</p>
+          <div className="flex items-center justify-between text-[11px] pt-1" style={{ color: 'var(--text-muted)' }}>
+            <span className="flex items-center gap-1.5"><Calendar size={11} />Created {formatDate(order.createdAt)}</span>
+            {order.deliveredAt && <span className="flex items-center gap-1.5"><Calendar size={11} />Delivered {formatDate(order.deliveredAt)}</span>}
+          </div>
         </div>
       </div>
     </div>

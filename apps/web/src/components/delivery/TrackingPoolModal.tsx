@@ -35,15 +35,14 @@ export default function TrackingPoolModal({ couriers, onClose, onRefresh }: Prop
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl shadow-2xl"
-        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-        <div className="flex items-center justify-between p-5 border-b border-slate-700/50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
+        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
           <div className="flex items-center gap-2">
-            <Hash size={18} className="text-violet-400" />
-            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Tracking Number Pool</h2>
+            <Hash size={16} className="text-violet-400" />
+            <h3 className="text-base font-semibold text-white">Tracking Number Pool</h3>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white"><X size={16} /></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors"><X size={16} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
@@ -69,18 +68,15 @@ export default function TrackingPoolModal({ couriers, onClose, onRefresh }: Prop
           </div>
 
           {result && (
-            <div className="rounded-lg p-3 bg-green-500/10 border border-green-500/30 text-sm text-green-300">
+            <div className="rounded-xl p-3.5 text-sm" style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', color: '#4ade80' }}>
               ✅ {result.added} added{result.duplicates > 0 ? ` · ${result.duplicates} duplicates skipped` : ''}
             </div>
           )}
 
           <div className="flex gap-3">
-            <button type="button" onClick={onClose}
-              className="flex-1 py-2.5 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 text-sm font-medium">
-              Close
-            </button>
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Close</button>
             <button type="submit" disabled={saving}
-              className="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium disabled:opacity-60 flex items-center justify-center gap-2">
+              className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
               {saving ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
               Add to Pool
             </button>
