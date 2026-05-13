@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
-import { X, Plus, Trash2, Loader2, Package } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { X, Plus, Trash2, Loader2, Package, Search } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { deliveryApi, Courier } from '@/lib/delivery-api'
+import { productsApi } from '@/lib/api'
 
 interface Props {
   couriers: Courier[]
@@ -12,6 +13,7 @@ interface Props {
 }
 
 interface Item { description: string; quantity: number; unitPrice: number }
+interface Product { id: string; name: string; sellingPrice: number; stock: number; sku: string }
 
 export default function CreateOrderModal({ couriers, onClose, onCreated }: Props) {
   const [saving, setSaving] = useState(false)
@@ -21,11 +23,52 @@ export default function CreateOrderModal({ couriers, onClose, onCreated }: Props
     deliveryCharge: 0, isCOD: false, codAmount: 0, notes: '',
   })
   const [items, setItems] = useState<Item[]>([{ description: '', quantity: 1, unitPrice: 0 }])
+  const [products, setProducts] = useState<Product[]>([])
+  const [productSearch, setProductSearch] = useState<string[]>([''])
+  const [showDropdown, setShowDropdown] = useState<number | null>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    productsApi.list({ limit: '500' }).then((res: any) => {
+      setProducts(res?.data?.data ?? res?.data ?? [])
+    }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(null)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const filteredProducts = (idx: number) => {
+    const q = productSearch[idx]?.toLowerCase() ?? ''
+    if (!q) return products.slice(0, 8)
+    return products.filter(p =>
+      p.name.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q)
+    ).slice(0, 8)
+  }
+
+  const selectProduct = (idx: number, product: Product) => {
+    updateItem(idx, 'description', product.name)
+    updateItem(idx, 'unitPrice', product.sellingPrice)
+    setProductSearch(s => s.map((v, n) => n === idx ? product.name : v))
+    setShowDropdown(null)
+  }
 
   const set = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }))
 
-  const addItem = () => setItems(i => [...i, { description: '', quantity: 1, unitPrice: 0 }])
-  const removeItem = (idx: number) => setItems(i => i.filter((_, n) => n !== idx))
+  const addItem = () => {
+    setItems(i => [...i, { description: '', quantity: 1, unitPrice: 0 }])
+    setProductSearch(s => [...s, ''])
+  }
+  const removeItem = (idx: number) => {
+    setItems(i => i.filter((_, n) => n !== idx))
+    setProductSearch(s => s.filter((_, n) => n !== idx))
+  }
   const updateItem = (idx: number, k: string, v: any) =>
     setItems(i => i.map((it, n) => n === idx ? { ...it, [k]: v } : it))
 
@@ -114,7 +157,7 @@ export default function CreateOrderModal({ couriers, onClose, onCreated }: Props
           </div>
 
           {/* Items */}
-          <div>
+          <div ref={dropdownRef}>
             <div className="flex items-center justify-between mb-3">
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Order Items</p>
               <button type="button" onClick={addItem}
@@ -122,29 +165,74 @@ export default function CreateOrderModal({ couriers, onClose, onCreated }: Props
                 <Plus size={12} /> Add Item
               </button>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {items.map((item, i) => (
-                <div key={i} className="flex gap-2 items-end">
-                  <div className="flex-1">
-                    <input className="input-field text-sm w-full" value={item.description}
-                      onChange={e => updateItem(i, 'description', e.target.value)} placeholder="Description" />
+                <div key={i} className="rounded-xl p-3 space-y-2" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+                  {/* Product search row */}
+                  <div className="relative">
+                    <div className="relative">
+                      <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                      <input
+                        className="input-field text-sm w-full pl-7"
+                        value={productSearch[i] ?? ''}
+                        placeholder="Search product from inventory..."
+                        onFocus={() => setShowDropdown(i)}
+                        onChange={e => {
+                          setProductSearch(s => s.map((v, n) => n === i ? e.target.value : v))
+                          updateItem(i, 'description', e.target.value)
+                          setShowDropdown(i)
+                        }}
+                      />
+                    </div>
+                    {showDropdown === i && filteredProducts(i).length > 0 && (
+                      <div className="absolute z-50 left-0 right-0 top-full mt-1 rounded-xl shadow-2xl overflow-hidden"
+                        style={{ background: '#1a2235', border: '1px solid var(--border-default)' }}>
+                        {filteredProducts(i).map(p => (
+                          <button key={p.id} type="button"
+                            className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-white/5 transition-colors"
+                            onMouseDown={() => selectProduct(i, p)}>
+                            <div>
+                              <p className="text-xs font-medium text-white">{p.name}</p>
+                              <p className="text-[10px] text-slate-500">{p.sku} · Stock: {p.stock}</p>
+                            </div>
+                            <span className="text-xs font-semibold text-violet-400 ml-3 whitespace-nowrap">
+                              LKR {p.sellingPrice.toLocaleString()}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div className="w-16">
-                    <input type="number" min={1} className="input-field text-sm w-full" value={item.quantity}
-                      onChange={e => updateItem(i, 'quantity', +e.target.value)} placeholder="Qty" />
+                  {/* Qty / Price / Total row */}
+                  <div className="flex gap-2 items-center">
+                    <div className="flex-1">
+                      <label className="text-[10px] text-slate-500 mb-1 block">Description</label>
+                      <input className="input-field text-xs w-full" value={item.description}
+                        onChange={e => {
+                          updateItem(i, 'description', e.target.value)
+                          setProductSearch(s => s.map((v, n) => n === i ? e.target.value : v))
+                        }} placeholder="Item description" />
+                    </div>
+                    <div className="w-16">
+                      <label className="text-[10px] text-slate-500 mb-1 block">Qty</label>
+                      <input type="number" min={1} className="input-field text-xs w-full" value={item.quantity}
+                        onChange={e => updateItem(i, 'quantity', +e.target.value)} />
+                    </div>
+                    <div className="w-24">
+                      <label className="text-[10px] text-slate-500 mb-1 block">Unit Price</label>
+                      <input type="number" min={0} className="input-field text-xs w-full" value={item.unitPrice}
+                        onChange={e => updateItem(i, 'unitPrice', +e.target.value)} />
+                    </div>
+                    <div className="w-20 text-right">
+                      <label className="text-[10px] text-slate-500 mb-1 block">Total</label>
+                      <p className="text-xs font-semibold text-white pt-1">{(item.quantity * item.unitPrice).toLocaleString()}</p>
+                    </div>
+                    {items.length > 1 && (
+                      <button type="button" onClick={() => removeItem(i)} className="pt-4 text-red-400 hover:text-red-300">
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
-                  <div className="w-24">
-                    <input type="number" min={0} className="input-field text-sm w-full" value={item.unitPrice}
-                      onChange={e => updateItem(i, 'unitPrice', +e.target.value)} placeholder="Price" />
-                  </div>
-                  <div className="w-20 text-right text-sm text-slate-300 pb-2">
-                    {(item.quantity * item.unitPrice).toLocaleString()}
-                  </div>
-                  {items.length > 1 && (
-                    <button type="button" onClick={() => removeItem(i)} className="pb-2 text-red-400 hover:text-red-300">
-                      <Trash2 size={14} />
-                    </button>
-                  )}
                 </div>
               ))}
             </div>
