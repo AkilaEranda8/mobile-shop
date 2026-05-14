@@ -11,6 +11,7 @@ import { authStorage } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { getInvoiceSettings, type InvoiceSettings } from '@/lib/invoiceSettings'
+import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrint'
 
 interface CartItem {
   productId: string
@@ -304,6 +305,7 @@ export default function POSPage() {
   const [editPriceId, setEditPriceId]           = useState<string | null>(null)
   const [editPriceVal, setEditPriceVal]         = useState('')
   const [downloading, setDownloading]           = useState(false)
+  const [showA4Invoice, setShowA4Invoice]       = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL')
   const [categories, setCategories]             = useState<{ id: string; name: string }[]>([])
   const invoiceRef                              = useRef<HTMLDivElement>(null)
@@ -596,6 +598,10 @@ export default function POSPage() {
             </div>
 
             <div className="p-4 border-t border-white/5 space-y-2">
+              <button onClick={() => setShowA4Invoice(true)}
+                className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-semibold rounded-xl bg-white/5 text-slate-200 hover:bg-white/10 border border-white/10 transition-colors">
+                <Receipt size={13} /> View A4 Invoice
+              </button>
               <button onClick={downloadInvoice} disabled={downloading}
                 className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-semibold rounded-xl bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 border border-violet-500/20 transition-colors disabled:opacity-50">
                 {downloading ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
@@ -772,6 +778,60 @@ export default function POSPage() {
       {showRegister && (
         <RegisterCustomerModal onClose={() => setShowRegister(false)} onCreated={handleCustomerCreated} />
       )}
+
+      {/* ── A4 Invoice Modal ── */}
+      {showA4Invoice && completedSale && (() => {
+        const a4Data: InvoiceData = {
+          companyName:     invoiceSettings.shopName || shopName,
+          companySlogan:   invoiceSettings.slogan   || 'Sales & Service',
+          companyAddress:  invoiceSettings.address  || '',
+          companyPhone:    invoiceSettings.phone    || '',
+          companyEmail:    invoiceSettings.email    || '',
+          companyWebsite:  invoiceSettings.website  || '',
+          invoiceNumber:   completedSale.invoiceNumber || `INV-${Date.now()}`,
+          dueDate:         completedSale.createdAt
+            ? new Date(completedSale.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
+            : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }),
+          customerName:    completedSale.customerName  || 'Walk-in Customer',
+          customerEmail:   completedSale.customerEmail || '',
+          customerAddress: completedSale.customerPhone ? `Phone: ${completedSale.customerPhone}` : '',
+          items: completedSale.items?.map((i: any) => ({
+            description: i.productName,
+            details:     i.sku ? `SKU: ${i.sku}${i.imei ? '  ·  IMEI: ' + i.imei : ''}` : undefined,
+            price:       i.unitPrice,
+            qty:         i.quantity,
+          })) ?? [],
+          bankName:  invoiceSettings.bankDetails?.split('\n')?.[0] || '',
+          accNumber: invoiceSettings.bankDetails?.split('\n')?.[1] || '',
+          accHolder: invoiceSettings.shopName || shopName,
+          swiftCode: '',
+          taxRate:      0,
+          discountRate: subtotal > 0 ? Math.round((discountAmount / subtotal) * 100) : 0,
+          terms: [
+            'Payment is due upon receipt of this invoice.',
+            'All sales are final unless otherwise agreed.',
+            invoiceSettings.footerNote || 'Thank you for your business!',
+          ],
+          signatoryName:  invoiceSettings.shopName || shopName,
+          signatoryTitle: 'Authorized Signatory',
+        }
+        return (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm overflow-y-auto">
+            <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 bg-[#0a0f1a]/95 border-b border-white/10 backdrop-blur">
+              <div className="flex items-center gap-2">
+                <Receipt size={15} className="text-violet-400" />
+                <span className="text-sm font-bold text-white">A4 Invoice</span>
+                <span className="text-xs text-slate-500 font-mono">{completedSale.invoiceNumber}</span>
+              </div>
+              <button onClick={() => setShowA4Invoice(false)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-400 hover:text-white hover:bg-white/10 rounded-lg border border-white/10 transition-colors">
+                <X size={13} /> Close
+              </button>
+            </div>
+            <InvoicePrint data={a4Data} />
+          </div>
+        )
+      })()}
     </div>
   )
 }
