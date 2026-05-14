@@ -207,8 +207,8 @@ export const whatsappService = {
       result = await metaPost(`/${cfg.phoneNumberId}/messages`, cfg.accessToken, {
         messaging_product: 'whatsapp',
         to:                normalizedPhone,
-        type:              'text',
-        text:              { body: '\u2705 This is a test message from your Hexalyte dashboard. WhatsApp integration is working!' },
+        type:              'template',
+        template:          { name: 'hello_world', language: { code: 'en_US' } },
       })
       // Update DB status to connected since send succeeded
       await prisma.whatsAppConfig.update({
