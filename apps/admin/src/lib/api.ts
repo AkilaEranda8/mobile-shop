@@ -169,3 +169,15 @@ export async function fetchMrrChart(): Promise<MrrPoint[]> {
 export async function fetchHealth(): Promise<HealthData> {
   return req<HealthData>(ADMIN_BASE, '/health')
 }
+
+export interface ServerStats {
+  process: {
+    nodeVersion: string; platform: string; uptimeSeconds: number
+    heapUsedMB: number; heapTotalMB: number; rssMB: number; externalMB: number
+  }
+  db: { tables: { name: string; rows: number }[] }
+}
+
+export async function fetchServerStats(): Promise<ServerStats> {
+  return req<ServerStats>(ADMIN_BASE, '/server-stats')
+}

@@ -238,8 +238,49 @@ router.get('/users', async (req: Request, res: Response, next: NextFunction) => 
 // ── Revoke tenant sessions (mark users inactive) ──────────────────────────────
 router.post('/tenants/:id/revoke-sessions', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    await prisma.user.updateMany({ where: { tenantId: req.params.id }, data: { lastLoginAt: null } })
+    await prisma.refreshToken.deleteMany({ where: { user: { tenantId: req.params.id } } })
     sendSuccess(res, null, 'Sessions revoked')
+  } catch (e) { next(e) }
+})
+
+// ── Server & DB Stats ────────────────────────────────────────────────────────
+router.get('/server-stats', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const mem = process.memoryUsage()
+    const uptimeSec = process.uptime()
+
+    const [
+      tenants, users, sales, repairs, customers, products,
+    ] = await Promise.all([
+      prisma.tenant.count(),
+      prisma.user.count(),
+      prisma.sale.count(),
+      prisma.repairTicket.count(),
+      prisma.customer.count(),
+      prisma.product.count(),
+    ])
+
+    sendSuccess(res, {
+      process: {
+        nodeVersion: process.version,
+        platform:    process.platform,
+        uptimeSeconds: Math.floor(uptimeSec),
+        heapUsedMB:  Math.round(mem.heapUsed  / 1024 / 1024),
+        heapTotalMB: Math.round(mem.heapTotal / 1024 / 1024),
+        rssMB:       Math.round(mem.rss       / 1024 / 1024),
+        externalMB:  Math.round(mem.external  / 1024 / 1024),
+      },
+      db: {
+        tables: [
+          { name: 'tenants',        rows: tenants },
+          { name: 'users',          rows: users },
+          { name: 'sales',          rows: sales },
+          { name: 'repair_tickets', rows: repairs },
+          { name: 'customers',      rows: customers },
+          { name: 'products',       rows: products },
+        ],
+      },
+    })
   } catch (e) { next(e) }
 })
 
