@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import {
-  RotateCcw, X, Eye, Package, Loader2,
-  TrendingDown, Hash, AlertTriangle, CheckCircle,
+  RotateCcw, X, Package, Loader2,
+  TrendingDown, AlertTriangle,
   CreditCard, Banknote, Smartphone, ArrowUpRight,
+  Search, Minus, Plus,
 } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
@@ -14,11 +15,224 @@ import { salesApi } from '@/lib/api'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
+const RETURN_REASONS = [
+  'Defective / Damaged',
+  'Wrong Item Delivered',
+  'Customer Changed Mind',
+  'Duplicate Order',
+  'Quality Not as Expected',
+  'Other',
+]
+
 const methodIcon: Record<string, React.ReactNode> = {
   CASH:          <Banknote   size={11} />,
   CARD:          <CreditCard size={11} />,
   UPI:           <Smartphone size={11} />,
   BANK_TRANSFER: <ArrowUpRight size={11} />,
+}
+
+/* ── Process Return Modal ────────────────────────────────────────────────── */
+function ProcessReturnModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const [step,         setStep]         = useState<'search' | 'items'>('search')
+  const [query,        setQuery]        = useState('')
+  const [results,      setResults]      = useState<any[]>([])
+  const [searching,    setSearching]    = useState(false)
+  const [sale,         setSale]         = useState<any>(null)
+  const [qtys,         setQtys]         = useState<Record<string, number>>({})
+  const [reason,       setReason]       = useState(RETURN_REASONS[0])
+  const [refundMethod, setRefundMethod] = useState('CASH')
+  const [notes,        setNotes]        = useState('')
+  const [loading,      setLoading]      = useState(false)
+
+  const search = async () => {
+    if (!query.trim()) return
+    setSearching(true)
+    try {
+      const res: any = await salesApi.list({ search: query, limit: '10' })
+      const data = (res?.data ?? []).filter((s: any) => s.status !== 'RETURNED' && (s._count?.returns ?? 0) === 0)
+      setResults(data)
+    } catch { /* silent */ }
+    finally { setSearching(false) }
+  }
+
+  const selectSale = (s: any) => {
+    setSale(s)
+    setQtys(Object.fromEntries((s.items ?? []).map((i: any) => [i.id, 0])))
+    setStep('items')
+  }
+
+  const adjust = (id: string, max: number, delta: number) =>
+    setQtys(p => ({ ...p, [id]: Math.max(0, Math.min(max, (p[id] ?? 0) + delta)) }))
+
+  const selectedItems = (sale?.items ?? []).filter((i: any) => qtys[i.id] > 0)
+  const refundAmount  = selectedItems.reduce((s: number, i: any) => s + i.unitPrice * qtys[i.id], 0)
+
+  const handleSubmit = async () => {
+    if (!selectedItems.length) return toast.error('Select at least one item to return')
+    setLoading(true)
+    try {
+      await salesApi.processReturn(sale.id, {
+        items: selectedItems.map((i: any) => ({
+          productId:   i.productId,
+          productName: i.productName,
+          quantity:    qtys[i.id],
+          unitPrice:   i.unitPrice,
+          total:       i.unitPrice * qtys[i.id],
+        })),
+        reason,
+        refundMethod,
+        notes: notes || undefined,
+      })
+      toast.success('Return processed — stock restored & refund recorded')
+      onDone(); onClose()
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to process return')
+    } finally { setLoading(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+        <div className="h-1 w-full bg-gradient-to-r from-rose-500 to-orange-500" />
+
+        <div className="flex items-center justify-between p-5 border-b border-white/5">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/20 flex items-center justify-center">
+              <RotateCcw size={15} className="text-rose-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">New Return</h3>
+              <p className="text-xs text-slate-500">
+                {step === 'search' ? 'Search invoice to process return' : `${sale?.invoiceNumber} · ${sale?.customerName || 'Walk-in'}`}
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={15} /></button>
+        </div>
+
+        <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+          {step === 'search' ? (
+            <>
+              <div className="flex gap-2">
+                <input
+                  className="input-field flex-1"
+                  placeholder="Search by invoice # or customer name..."
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && search()}
+                />
+                <button onClick={search} disabled={searching}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold disabled:opacity-50 transition-colors">
+                  {searching ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
+                  Search
+                </button>
+              </div>
+
+              {results.length > 0 && (
+                <div className="space-y-2">
+                  {results.map((s: any) => (
+                    <button key={s.id} onClick={() => selectSale(s)}
+                      className="w-full flex items-center justify-between p-3 rounded-lg bg-white/3 border border-white/5 hover:border-rose-500/30 hover:bg-rose-500/5 transition-all text-left">
+                      <div>
+                        <p className="text-xs font-mono font-bold text-violet-400">{s.invoiceNumber}</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">{s.customerName || 'Walk-in'} · {s.items?.length ?? 0} items</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-bold text-white">{formatCurrency(s.total)}</p>
+                        <p className="text-[10px] text-slate-500">{new Date(s.createdAt).toLocaleDateString()}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {results.length === 0 && query && !searching && (
+                <p className="text-center text-xs text-slate-500 py-4">No returnable orders found</p>
+              )}
+            </>
+          ) : (
+            <>
+              <button onClick={() => { setStep('search'); setResults([]); }}
+                className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors">
+                ← Back to search
+              </button>
+
+              <div>
+                <p className="text-xs text-slate-400 uppercase tracking-wide mb-2">Select items to return</p>
+                <div className="space-y-2">
+                  {(sale?.items ?? []).map((item: any) => (
+                    <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-white/3 border border-white/5">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-white truncate">{item.productName}</p>
+                        <p className="text-[10px] text-slate-500">Sold: {item.quantity} × {formatCurrency(item.unitPrice)}</p>
+                      </div>
+                      <div className="flex items-center gap-2 ml-3">
+                        <button onClick={() => adjust(item.id, item.quantity, -1)}
+                          className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400">
+                          <Minus size={10} />
+                        </button>
+                        <span className={`w-7 text-center text-sm font-bold ${qtys[item.id] > 0 ? 'text-rose-400' : 'text-slate-500'}`}>
+                          {qtys[item.id]}
+                        </span>
+                        <button onClick={() => adjust(item.id, item.quantity, +1)}
+                          className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400">
+                          <Plus size={10} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-400 mb-1.5">Return Reason</label>
+                <select value={reason} onChange={e => setReason(e.target.value)} className="input-field">
+                  {RETURN_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-400 mb-1.5">Refund Method</label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {['CASH','CARD','UPI','BANK_TRANSFER'].map(m => (
+                    <button key={m} type="button" onClick={() => setRefundMethod(m)}
+                      className={`py-1.5 text-[10px] font-semibold rounded-lg border transition-colors ${
+                        refundMethod === m
+                          ? 'bg-rose-500/20 border-rose-500/40 text-rose-300'
+                          : 'border-white/10 text-slate-500 hover:border-white/20 hover:text-slate-300'
+                      }`}>{m.replace('_',' ')}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-400 mb-1.5">Notes (optional)</label>
+                <input className="input-field" placeholder="Additional details..." value={notes} onChange={e => setNotes(e.target.value)} />
+              </div>
+
+              {refundAmount > 0 && (
+                <div className="flex items-center justify-between p-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle size={13} className="text-rose-400" />
+                    <span className="text-xs text-rose-300">Refund amount</span>
+                  </div>
+                  <span className="text-sm font-bold text-rose-400">{formatCurrency(refundAmount)}</span>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-1">
+                <button onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
+                <button onClick={handleSubmit} disabled={loading || !selectedItems.length}
+                  className="flex-1 text-sm flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-rose-500 hover:bg-rose-600 text-white font-semibold disabled:opacity-50 transition-colors">
+                  {loading ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}
+                  {loading ? 'Processing...' : 'Process Return'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 /* ── Return Detail Modal ─────────────────────────────────────────────────── */
@@ -109,7 +323,8 @@ export default function ReturnsPage() {
   const [returns,    setReturns]    = useState<any[]>([])
   const [meta,       setMeta]       = useState<any>(null)
   const [loading,    setLoading]    = useState(true)
-  const [detailRet,  setDetailRet]  = useState<any>(null)
+  const [detailRet,     setDetailRet]     = useState<any>(null)
+  const [showNewReturn, setShowNewReturn] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -201,9 +416,16 @@ export default function ReturnsPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div>
-        <h1 className="page-title">Returns</h1>
-        <p className="page-subtitle">Track all product returns and refunds</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="page-title">Returns</h1>
+          <p className="page-subtitle">Track all product returns and refunds</p>
+        </div>
+        <button onClick={() => setShowNewReturn(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-sm font-semibold transition-colors shadow-lg shadow-rose-500/20">
+          <RotateCcw size={14} />
+          New Return
+        </button>
       </div>
 
       {/* Stats */}
@@ -263,7 +485,8 @@ export default function ReturnsPage() {
         }]}
       />
 
-      {detailRet && <ReturnDetailModal ret={detailRet} onClose={() => setDetailRet(null)} />}
+      {detailRet     && <ReturnDetailModal ret={detailRet} onClose={() => setDetailRet(null)} />}
+      {showNewReturn && <ProcessReturnModal onClose={() => setShowNewReturn(false)} onDone={load} />}
     </div>
   )
 }
