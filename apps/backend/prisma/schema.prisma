@@ -123,6 +123,7 @@ model Tenant {
   ownerEmail          String
   ownerName           String
   mrr                 Float            @default(0)
+  invoiceSettings     Json?
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
 

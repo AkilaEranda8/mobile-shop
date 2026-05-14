@@ -60,3 +60,22 @@ export function getInvoiceSettings(): InvoiceSettings {
 export function saveInvoiceSettings(s: InvoiceSettings) {
   localStorage.setItem(INVOICE_SETTINGS_KEY, JSON.stringify(s))
 }
+
+export async function fetchInvoiceSettings(tenantId: string): Promise<InvoiceSettings> {
+  try {
+    const { tenantApi } = await import('./api')
+    const res: any = await tenantApi.getInvoiceSettings(tenantId)
+    const data = res?.data ?? res
+    const merged = { ...DEFAULT_INVOICE_SETTINGS, ...data }
+    saveInvoiceSettings(merged)
+    return merged
+  } catch {
+    return getInvoiceSettings()
+  }
+}
+
+export async function pushInvoiceSettings(tenantId: string, s: InvoiceSettings): Promise<void> {
+  saveInvoiceSettings(s)
+  const { tenantApi } = await import('./api')
+  await tenantApi.updateInvoiceSettings(tenantId, s)
+}

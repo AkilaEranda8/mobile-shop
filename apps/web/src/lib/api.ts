@@ -96,6 +96,8 @@ export const usersApi = {
 export const tenantApi = {
   get: (id: string) => api.get(`/tenants/${id}`),
   update: (id: string, body: unknown) => api.put(`/tenants/${id}`, body),
+  getInvoiceSettings: (id: string) => api.get(`/tenants/${id}/invoice-settings`),
+  updateInvoiceSettings: (id: string, body: unknown) => api.patch(`/tenants/${id}/invoice-settings`, body),
 }
 
 export const productsApi = {

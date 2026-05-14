@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { authApi, usersApi, tenantApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
-import { type InvoiceSettings, getInvoiceSettings, saveInvoiceSettings } from '@/lib/invoiceSettings'
+import { type InvoiceSettings, getInvoiceSettings, fetchInvoiceSettings, pushInvoiceSettings } from '@/lib/invoiceSettings'
 import { ImageIcon, Trash2 as TrashIcon } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -166,9 +166,29 @@ export default function SettingsPage() {
   }
 
   /* ── Invoice Settings ── */
-  const [invoiceForm, setInvoiceForm] = useState<InvoiceSettings>(() => getInvoiceSettings())
+  const [invoiceForm, setInvoiceForm]   = useState<InvoiceSettings>(() => getInvoiceSettings())
+  const [invoiceLoading, setInvoiceLoading] = useState(false)
+  const [invoiceSaving, setInvoiceSaving]   = useState(false)
   const setInv = (patch: Partial<InvoiceSettings>) => setInvoiceForm(p => ({ ...p, ...patch }))
-  const saveInvoice = () => { saveInvoiceSettings(invoiceForm); toast.success('Invoice settings saved') }
+
+  useEffect(() => {
+    if (!currentUser?.tenantId) return
+    setInvoiceLoading(true)
+    fetchInvoiceSettings(currentUser.tenantId)
+      .then(s => setInvoiceForm(s))
+      .catch(() => {})
+      .finally(() => setInvoiceLoading(false))
+  }, [currentUser?.tenantId])
+
+  const saveInvoice = async () => {
+    if (!currentUser?.tenantId) return
+    setInvoiceSaving(true)
+    try {
+      await pushInvoiceSettings(currentUser.tenantId, invoiceForm)
+      toast.success('Invoice settings saved')
+    } catch { toast.error('Save failed') }
+    finally { setInvoiceSaving(false) }
+  }
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -270,12 +290,18 @@ export default function SettingsPage() {
               <div className="card p-5 flex items-center justify-between">
                 <div>
                   <h2 className="text-base font-semibold text-white flex items-center gap-2"><FileText size={15} className="text-violet-400" /> Invoice Customize</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Customize every detail that appears on your A4 invoice PDF</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Saved per tenant in database — shared across all users &amp; devices</p>
                 </div>
-                <button onClick={saveInvoice} className="btn-primary text-sm flex items-center gap-2">
-                  <Save size={13} /> Save All
+                <button onClick={saveInvoice} disabled={invoiceSaving || invoiceLoading} className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
+                  {invoiceSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Save All
                 </button>
               </div>
+
+              {invoiceLoading && (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 size={20} className="animate-spin text-violet-400" />
+                </div>
+              )}
 
               {/* ── 1. Company Info ── */}
               <div className="card p-5 space-y-4">
@@ -426,8 +452,8 @@ export default function SettingsPage() {
 
               {/* Save button bottom */}
               <div className="flex justify-end">
-                <button onClick={saveInvoice} className="btn-primary flex items-center gap-2">
-                  <Save size={14} /> Save Invoice Settings
+                <button onClick={saveInvoice} disabled={invoiceSaving || invoiceLoading} className="btn-primary flex items-center gap-2 disabled:opacity-60">
+                  {invoiceSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={14} />} Save Invoice Settings
                 </button>
               </div>
             </div>

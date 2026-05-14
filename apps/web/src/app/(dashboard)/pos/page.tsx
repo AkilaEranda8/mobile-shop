@@ -10,7 +10,7 @@ import { salesApi, customersApi, productsApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
-import { getInvoiceSettings, type InvoiceSettings } from '@/lib/invoiceSettings'
+import { getInvoiceSettings, fetchInvoiceSettings, type InvoiceSettings } from '@/lib/invoiceSettings'
 import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrint'
 
 interface CartItem {
@@ -354,9 +354,14 @@ export default function POSPage() {
   const tax            = 0
   const total          = afterDiscount
 
-  const shopName = authStorage.getUser()?.name?.split(' ')[0] + ' Shop' || 'Our Shop'
+  const currentUser = authStorage.getUser()
+  const shopName = currentUser?.name?.split(' ')[0] + ' Shop' || 'Our Shop'
   const [invoiceSettings, setInvoiceSettings] = useState<InvoiceSettings>(() => getInvoiceSettings())
-  useEffect(() => { setInvoiceSettings(getInvoiceSettings()) }, [completedSale])
+
+  useEffect(() => {
+    if (!currentUser?.tenantId) return
+    fetchInvoiceSettings(currentUser.tenantId).then(s => setInvoiceSettings(s)).catch(() => {})
+  }, [currentUser?.tenantId])
 
   // Auto-download invoice after sale completes
   useEffect(() => {

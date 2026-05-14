@@ -16,6 +16,21 @@ export const tenantsService = {
     return prisma.tenant.update({ where: { id }, data: body as any, include: { branches: true } })
   },
 
+  async getInvoiceSettings(tenantId: string) {
+    const t = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { invoiceSettings: true } })
+    if (!t) throw new AppError('Tenant not found', 404)
+    return (t.invoiceSettings ?? {}) as Record<string, unknown>
+  },
+
+  async updateInvoiceSettings(tenantId: string, settings: Record<string, unknown>) {
+    const t = await prisma.tenant.update({
+      where: { id: tenantId },
+      data: { invoiceSettings: settings as any },
+      select: { invoiceSettings: true },
+    })
+    return t.invoiceSettings
+  },
+
   // Branch CRUD
   async getBranches(tenantId: string) {
     return prisma.branch.findMany({ where: { tenantId } })
