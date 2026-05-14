@@ -23,148 +23,198 @@ interface CartItem {
 }
 
 /* ── Invoice Template ───────────────────────────────────────────────────── */
-const C_HDR    = '#1a2e28'   // dark header background
-const C_TEAL   = '#00c896'   // accent teal
-const C_TABLE  = '#1e2d28'   // dark table row background
-const C_LIGHT  = '#f7f9f8'   // light section background
-const C_BORDER = '#e4ebe8'   // border color
-const C_DARK   = '#111b17'   // primary text
-const C_MUTED  = '#6b7b74'   // muted text
+const IV = {
+  hdr:    '#0d2b22',
+  teal:   '#00c896',
+  teal2:  '#00a87e',
+  dark:   '#0f1f18',
+  body:   '#ffffff',
+  light:  '#f4faf7',
+  border: '#d6ede6',
+  muted:  '#5a7a6e',
+  row1:   '#ffffff',
+  row2:   '#f0faf5',
+}
 
 function InvoiceTemplate({ sale, shopName, settings }: { sale: any; shopName: string; settings: InvoiceSettings }) {
   const fc = formatCurrency
   const now = sale.createdAt ? new Date(sale.createdAt) : new Date()
   const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
   const displayName = settings.shopName || shopName
   const isPaid = !sale.dueAmount || sale.dueAmount === 0
 
   return (
-    <div style={{ width: 520, background: '#ffffff', fontFamily: "'Segoe UI', system-ui, Arial, sans-serif", color: C_DARK, borderRadius: 0 }}>
+    <div style={{ width: 740, background: IV.body, fontFamily: "'Segoe UI', system-ui, Arial, sans-serif", color: IV.dark, boxShadow: '0 0 0 1px #d6ede6' }}>
 
-      {/* ═══ HEADER ═══════════════════════════════════════════════════════ */}
-      <div style={{ background: C_HDR, padding: '28px 32px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <p style={{ margin: 0, color: '#ffffff', fontSize: 22, fontWeight: 800, lineHeight: 1.1 }}>{displayName}</p>
-          <p style={{ margin: '5px 0 0', color: '#7ea898', fontSize: 10, letterSpacing: 0.4 }}>{settings.slogan || 'Sales & Service'}</p>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <p style={{ margin: 0, color: C_TEAL, fontSize: 26, fontWeight: 900, letterSpacing: 1, lineHeight: 1 }}>INVOICE</p>
-          <p style={{ margin: '5px 0 0', color: '#7ea898', fontSize: 11, fontFamily: 'monospace' }}>{sale.invoiceNumber}</p>
-        </div>
-      </div>
+      {/* ═══ TOP ACCENT BAR ════════════════════════════════════════════════ */}
+      <div style={{ height: 5, background: `linear-gradient(90deg, ${IV.teal} 0%, ${IV.teal2} 100%)` }} />
 
-      {/* ═══ DATE / STATUS STRIP ══════════════════════════════════════════ */}
-      <div style={{ background: C_LIGHT, borderBottom: `1px solid ${C_BORDER}`, padding: '12px 32px', display: 'flex', gap: 32 }}>
+      {/* ═══ HEADER ════════════════════════════════════════════════════════ */}
+      <div style={{ background: IV.hdr, padding: '32px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {/* Left — Brand */}
         <div>
-          <p style={{ margin: 0, fontSize: 9, fontWeight: 700, color: C_MUTED, textTransform: 'uppercase', letterSpacing: 1 }}>Issue Date</p>
-          <p style={{ margin: '3px 0 0', fontSize: 12, fontWeight: 600, color: C_DARK }}>{dateStr}</p>
-        </div>
-        <div>
-          <p style={{ margin: 0, fontSize: 9, fontWeight: 700, color: C_MUTED, textTransform: 'uppercase', letterSpacing: 1 }}>Cashier</p>
-          <p style={{ margin: '3px 0 0', fontSize: 12, fontWeight: 600, color: C_DARK }}>{sale.cashierName || '—'}</p>
-        </div>
-        <div>
-          <p style={{ margin: 0, fontSize: 9, fontWeight: 700, color: C_MUTED, textTransform: 'uppercase', letterSpacing: 1 }}>Status</p>
-          <div style={{ marginTop: 3, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: C_DARK }}>{isPaid ? 'Paid in full' : 'Partial payment'}</p>
-            <span style={{ background: isPaid ? C_TEAL : '#f59e0b', color: isPaid ? '#fff' : '#fff', fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 99, letterSpacing: 0.5 }}>
-              {isPaid ? 'PAID' : 'DUE'}
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: IV.teal, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ color: '#fff', fontSize: 16, fontWeight: 900 }}>{displayName.charAt(0).toUpperCase()}</span>
+            </div>
+            <p style={{ margin: 0, color: '#ffffff', fontSize: 22, fontWeight: 800, letterSpacing: 0.3 }}>{displayName}</p>
           </div>
+          <p style={{ margin: 0, color: '#6aaf96', fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase' }}>{settings.slogan || 'Sales & Service'}</p>
+          {(settings.phone || settings.email) && (
+            <p style={{ margin: '8px 0 0', color: '#3d6b5a', fontSize: 10 }}>
+              {settings.phone}{settings.phone && settings.email ? '  ·  ' : ''}{settings.email}
+            </p>
+          )}
+        </div>
+        {/* Right — Invoice ID */}
+        <div style={{ textAlign: 'right' }}>
+          <p style={{ margin: 0, color: IV.teal, fontSize: 32, fontWeight: 900, letterSpacing: 2, lineHeight: 1 }}>INVOICE</p>
+          <p style={{ margin: '8px 0 0', color: '#9dd4bf', fontSize: 12, fontFamily: 'monospace', letterSpacing: 0.5 }}>{sale.invoiceNumber}</p>
+          <p style={{ margin: '3px 0 0', color: '#3d6b5a', fontSize: 10 }}>{dateStr} · {timeStr}</p>
         </div>
       </div>
 
-      {/* ═══ BILL FROM / BILL TO ══════════════════════════════════════════ */}
-      <div style={{ display: 'flex', padding: '20px 32px', gap: 24, borderBottom: `1px solid ${C_BORDER}` }}>
-        <div style={{ flex: 1 }}>
-          <p style={{ margin: '0 0 8px', fontSize: 9, fontWeight: 700, color: C_MUTED, textTransform: 'uppercase', letterSpacing: 1 }}>Bill From</p>
-          <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 700, color: C_DARK }}>{displayName}</p>
-          {settings.address && <p style={{ margin: '1px 0', fontSize: 11, color: C_MUTED }}>{settings.address}</p>}
-          {settings.phone   && <p style={{ margin: '1px 0', fontSize: 11, color: C_MUTED }}>{settings.phone}</p>}
-          {settings.email   && <p style={{ margin: '1px 0', fontSize: 11, color: C_MUTED }}>{settings.email}</p>}
-        </div>
-        <div style={{ flex: 1 }}>
-          <p style={{ margin: '0 0 8px', fontSize: 9, fontWeight: 700, color: C_MUTED, textTransform: 'uppercase', letterSpacing: 1 }}>Bill To</p>
-          <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 700, color: C_DARK }}>{sale.customerName || 'Walk-in Customer'}</p>
-          {sale.customerPhone && <p style={{ margin: '1px 0', fontSize: 11, color: C_MUTED }}>{sale.customerPhone}</p>}
+      {/* ═══ META STRIP ════════════════════════════════════════════════════ */}
+      <div style={{ background: IV.light, borderTop: `3px solid ${IV.teal}`, borderBottom: `1px solid ${IV.border}`, padding: '14px 40px', display: 'flex', gap: 40, alignItems: 'center' }}>
+        {[
+          { label: 'Issue Date', value: dateStr },
+          { label: 'Cashier',    value: sale.cashierName || '—' },
+          { label: 'Payment',    value: sale.payments?.map((p: any) => p.method).join(' + ') || '—' },
+        ].map(({ label, value }) => (
+          <div key={label}>
+            <p style={{ margin: 0, fontSize: 9, fontWeight: 700, color: IV.muted, textTransform: 'uppercase', letterSpacing: 1.2 }}>{label}</p>
+            <p style={{ margin: '3px 0 0', fontSize: 12, fontWeight: 600, color: IV.dark }}>{value}</p>
+          </div>
+        ))}
+        <div style={{ marginLeft: 'auto' }}>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            background: isPaid ? IV.teal : '#f59e0b',
+            color: '#fff', fontSize: 10, fontWeight: 800,
+            padding: '5px 14px', borderRadius: 99, letterSpacing: 1,
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.6)', display: 'inline-block' }} />
+            {isPaid ? 'PAID' : 'PARTIAL'}
+          </span>
         </div>
       </div>
 
-      {/* ═══ ITEMS TABLE ══════════════════════════════════════════════════ */}
+      {/* ═══ BILL FROM / BILL TO ═══════════════════════════════════════════ */}
+      <div style={{ display: 'flex', borderBottom: `1px solid ${IV.border}` }}>
+        {[
+          {
+            label: 'Bill From',
+            name: displayName,
+            lines: [settings.address, settings.phone, settings.email].filter(Boolean),
+            color: IV.teal,
+          },
+          {
+            label: 'Bill To',
+            name: sale.customerName || 'Walk-in Customer',
+            lines: [sale.customerPhone].filter(Boolean),
+            color: '#6366f1',
+          },
+        ].map((col, i) => (
+          <div key={i} style={{ flex: 1, padding: '20px 40px', borderRight: i === 0 ? `1px solid ${IV.border}` : undefined }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+              <div style={{ width: 3, height: 16, borderRadius: 2, background: col.color }} />
+              <p style={{ margin: 0, fontSize: 9, fontWeight: 800, color: col.color, textTransform: 'uppercase', letterSpacing: 1.2 }}>{col.label}</p>
+            </div>
+            <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: IV.dark }}>{col.name}</p>
+            {col.lines.map((line, j) => (
+              <p key={j} style={{ margin: '2px 0', fontSize: 11, color: IV.muted }}>{line}</p>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      {/* ═══ ITEMS TABLE ═══════════════════════════════════════════════════ */}
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
-          <tr style={{ background: C_TABLE }}>
-            <th style={{ padding: '10px 32px 10px 32px', color: '#9db8ae', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, textAlign: 'left' }}>Description</th>
-            <th style={{ padding: '10px 12px', color: '#9db8ae', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, textAlign: 'right' }}>Rate</th>
-            <th style={{ padding: '10px 12px', color: '#9db8ae', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, textAlign: 'center' }}>Qty</th>
-            <th style={{ padding: '10px 32px 10px 12px', color: '#9db8ae', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, textAlign: 'right' }}>Amount</th>
+          <tr style={{ background: IV.hdr }}>
+            <th style={{ padding: '11px 40px', color: '#6aaf96', fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left', width: '45%' }}>Description</th>
+            <th style={{ padding: '11px 16px', color: '#6aaf96', fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'right' }}>Unit Price</th>
+            <th style={{ padding: '11px 16px', color: '#6aaf96', fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'center' }}>Qty</th>
+            <th style={{ padding: '11px 40px 11px 16px', color: IV.teal, fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'right' }}>Amount</th>
           </tr>
         </thead>
         <tbody>
           {sale.items?.map((item: any, idx: number) => (
-            <tr key={item.id ?? idx} style={{ background: idx % 2 === 0 ? '#ffffff' : C_LIGHT, borderBottom: `1px solid ${C_BORDER}` }}>
-              <td style={{ padding: '12px 32px 12px 32px' }}>
-                <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: C_DARK }}>{item.productName}</p>
+            <tr key={item.id ?? idx} style={{ background: idx % 2 === 0 ? IV.row1 : IV.row2, borderBottom: `1px solid ${IV.border}` }}>
+              <td style={{ padding: '13px 40px' }}>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: IV.dark }}>{item.productName}</p>
                 {(item.sku || item.imei) && (
-                  <p style={{ margin: '2px 0 0', fontSize: 9, color: C_MUTED, fontFamily: 'monospace' }}>
+                  <p style={{ margin: '3px 0 0', fontSize: 9.5, color: IV.muted, fontFamily: 'monospace' }}>
                     {item.sku && `SKU: ${item.sku}`}{item.imei ? '  ·  IMEI: ' + item.imei : ''}
                   </p>
                 )}
               </td>
-              <td style={{ padding: '12px', fontSize: 12, color: C_MUTED, textAlign: 'right', whiteSpace: 'nowrap' }}>{fc(item.unitPrice)}</td>
-              <td style={{ padding: '12px', textAlign: 'center' }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: C_DARK }}>{item.quantity}</span>
+              <td style={{ padding: '13px 16px', fontSize: 12, color: IV.muted, textAlign: 'right', whiteSpace: 'nowrap' }}>{fc(item.unitPrice)}</td>
+              <td style={{ padding: '13px 16px', textAlign: 'center' }}>
+                <span style={{ display: 'inline-block', background: `${IV.teal}20`, color: IV.teal2, fontWeight: 800, fontSize: 11, padding: '2px 10px', borderRadius: 99 }}>{item.quantity}</span>
               </td>
-              <td style={{ padding: '12px 32px 12px 12px', fontSize: 12, fontWeight: 700, color: C_DARK, textAlign: 'right', whiteSpace: 'nowrap' }}>{fc(item.total)}</td>
+              <td style={{ padding: '13px 40px 13px 16px', fontSize: 13, fontWeight: 700, color: IV.dark, textAlign: 'right', whiteSpace: 'nowrap' }}>{fc(item.total)}</td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      {/* ═══ TOTALS ═══════════════════════════════════════════════════════ */}
-      <div style={{ padding: '16px 32px 20px', borderTop: `1px solid ${C_BORDER}` }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', width: 220, fontSize: 12, color: C_MUTED }}>
-            <span>Subtotal</span><span style={{ fontWeight: 600, color: C_DARK }}>{fc(sale.subtotal)}</span>
+      {/* ═══ TOTALS + NOTES ROW ════════════════════════════════════════════ */}
+      <div style={{ display: 'flex', borderTop: `2px solid ${IV.border}` }}>
+
+        {/* Left — payment note */}
+        <div style={{ flex: 1.4, padding: '22px 40px', borderRight: `1px solid ${IV.border}` }}>
+          <p style={{ margin: '0 0 10px', fontSize: 9.5, fontWeight: 700, color: IV.muted, textTransform: 'uppercase', letterSpacing: 1 }}>Payment Info</p>
+          {sale.payments?.map((p: any, i: number) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: IV.teal, flexShrink: 0 }} />
+              <span style={{ fontSize: 12, color: IV.dark, fontWeight: 600 }}>{p.method}</span>
+              <span style={{ fontSize: 12, color: IV.muted, marginLeft: 'auto' }}>{fc(p.amount)}</span>
+            </div>
+          ))}
+          {settings.bankDetails && (
+            <p style={{ margin: '10px 0 0', fontSize: 10, color: IV.muted, lineHeight: 1.6, borderTop: `1px solid ${IV.border}`, paddingTop: 8 }}>{settings.bankDetails}</p>
+          )}
+        </div>
+
+        {/* Right — totals */}
+        <div style={{ flex: 1, padding: '22px 40px', background: IV.light }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 12, color: IV.muted }}>
+            <span>Subtotal</span>
+            <span style={{ fontWeight: 600, color: IV.dark }}>{fc(sale.subtotal)}</span>
           </div>
           {sale.discount > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', width: 220, fontSize: 12, color: '#e53935' }}>
-              <span>Discount</span><span style={{ fontWeight: 600 }}>− {fc(sale.discount)}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 12, color: '#e53935' }}>
+              <span>Discount</span>
+              <span style={{ fontWeight: 600 }}>− {fc(sale.discount)}</span>
             </div>
           )}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: 220, marginTop: 4, paddingTop: 8, borderTop: `1.5px solid ${C_BORDER}` }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: C_MUTED }}>Total due</span>
-            <span style={{ fontSize: 16, fontWeight: 900, color: C_TEAL }}>{fc(sale.total)}</span>
+          <div style={{ height: 1, background: IV.border, margin: '10px 0' }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: IV.muted }}>Total due</span>
+            <span style={{ fontSize: 20, fontWeight: 900, color: IV.teal }}>{fc(sale.total)}</span>
           </div>
           {sale.dueAmount > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', width: 220, fontSize: 11, color: '#f59e0b', fontWeight: 700 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, padding: '6px 10px', background: '#fff8ec', borderRadius: 6, fontSize: 11, color: '#b45309', fontWeight: 700 }}>
               <span>Outstanding</span><span>{fc(sale.dueAmount)}</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* ═══ PAYMENT DETAILS ══════════════════════════════════════════════ */}
-      <div style={{ margin: '0 32px 20px', padding: '12px 16px', border: `1px solid ${C_BORDER}`, borderRadius: 6, background: C_LIGHT }}>
-        <span style={{ fontSize: 10, fontWeight: 700, color: C_DARK }}>Payment details: </span>
-        {sale.payments?.map((p: any, i: number) => (
-          <span key={i} style={{ fontSize: 10, color: C_MUTED }}>
-            {p.method} — {fc(p.amount)}{i < sale.payments.length - 1 ? '  ·  ' : ''}
-          </span>
-        ))}
-        {settings.bankDetails && (
-          <p style={{ margin: '4px 0 0', fontSize: 10, color: C_MUTED }}>{settings.bankDetails}</p>
-        )}
-      </div>
-
-      {/* ═══ FOOTER ═══════════════════════════════════════════════════════ */}
-      <div style={{ borderTop: `1px solid ${C_BORDER}`, padding: '12px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: C_LIGHT }}>
-        <p style={{ margin: 0, fontSize: 10, color: C_MUTED, fontStyle: 'italic' }}>{settings.footerNote || 'Thank you for your business.'}</p>
-        <div style={{ textAlign: 'right' }}>
-          {settings.website && <p style={{ margin: 0, fontSize: 9.5, color: C_MUTED }}>{settings.website}</p>}
-          {settings.phone   && <p style={{ margin: '1px 0 0', fontSize: 9.5, color: C_MUTED }}>{settings.phone}</p>}
+      {/* ═══ FOOTER ════════════════════════════════════════════════════════ */}
+      <div style={{ background: IV.hdr, padding: '14px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <p style={{ margin: 0, fontSize: 10.5, color: '#6aaf96', fontStyle: 'italic' }}>{settings.footerNote || 'Thank you for your business!'}</p>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+          {settings.website && <p style={{ margin: 0, fontSize: 9.5, color: '#3d6b5a' }}>{settings.website}</p>}
+          {settings.phone   && <p style={{ margin: 0, fontSize: 9.5, color: '#3d6b5a' }}>{settings.phone}</p>}
+          <p style={{ margin: 0, fontSize: 9, color: '#1e4035' }}>Powered by Hexalyte</p>
         </div>
       </div>
+
+      {/* ═══ BOTTOM ACCENT BAR ═════════════════════════════════════════════ */}
+      <div style={{ height: 4, background: `linear-gradient(90deg, ${IV.teal2} 0%, ${IV.teal} 50%, ${IV.teal2} 100%)` }} />
     </div>
   )
 }
