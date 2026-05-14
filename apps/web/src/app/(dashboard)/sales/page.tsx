@@ -515,25 +515,36 @@ export default function SalesPage() {
 
   useEffect(() => { load() }, [load])
 
-  const totalRevenue = sales.reduce((s, r) => s + (r.total ?? 0), 0)
-  const paidCount    = sales.filter(r => r.status === 'PAID').length
-  const partialCount = sales.filter(r => r.status === 'PARTIAL').length
+  const totalRevenue  = sales.reduce((s, r) => s + (r.total ?? 0), 0)
+  const paidCount     = sales.filter(r => r.status === 'PAID').length
+  const partialCount  = sales.filter(r => r.status === 'PARTIAL').length
+  const returnedCount = sales.filter(r => r.status === 'RETURNED' || (r._count?.returns ?? 0) > 0).length
 
   const columns = useMemo<ColumnDef<any>[]>(() => [
     {
       accessorKey: 'invoiceNumber',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Invoice" />,
-      cell: ({ row }) => (
-        <div className="flex items-center gap-1.5">
-          <span className="font-mono text-xs text-violet-400">{row.original.invoiceNumber}</span>
-          {row.original.source === 'DELIVERY' && (
-            <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded font-semibold"
-              style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.2)' }}>
-              <Truck size={9} /> Delivery
-            </span>
-          )}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const s = row.original
+        const returnCount = s._count?.returns ?? 0
+        return (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-mono text-xs text-violet-400">{s.invoiceNumber}</span>
+            {s.source === 'DELIVERY' && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded font-semibold"
+                style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.2)' }}>
+                <Truck size={9} /> Delivery
+              </span>
+            )}
+            {returnCount > 0 && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full font-semibold"
+                style={{ background: 'rgba(244,63,94,0.12)', color: '#fb7185', border: '1px solid rgba(244,63,94,0.25)' }}>
+                <RotateCcw size={8} /> {returnCount} return{returnCount > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+        )
+      },
     },
     {
       accessorKey: 'createdAt',
@@ -601,7 +612,7 @@ export default function SalesPage() {
           { label: 'Total Sales',   value: String(meta?.total ?? '—'), icon: ShoppingBag, color: 'violet' },
           { label: 'Revenue',       value: formatCurrency(totalRevenue), icon: TrendingUp,  color: 'green'  },
           { label: 'Paid',          value: String(paidCount),            icon: Receipt,     color: 'green'  },
-          { label: 'Partial / Due', value: String(partialCount),          icon: CreditCard,  color: 'yellow' },
+          { label: 'Returned',      value: String(returnedCount),        icon: RotateCcw,   color: 'rose'   },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="card p-4 flex items-center gap-3">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20`}>
@@ -632,6 +643,7 @@ export default function SalesPage() {
             { label: 'Paid',     value: 'PAID'     },
             { label: 'Partial',  value: 'PARTIAL'  },
             { label: 'Unpaid',   value: 'UNPAID'   },
+            { label: 'Returned', value: 'RETURNED' },
             { label: 'Refunded', value: 'REFUNDED' },
           ],
         }]}
