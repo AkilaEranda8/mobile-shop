@@ -79,7 +79,7 @@ export const SAMPLE_INVOICE: InvoiceData = {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 const fmt = (n: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
+  'LKR ' + new Intl.NumberFormat('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
