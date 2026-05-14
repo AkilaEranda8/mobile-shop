@@ -586,7 +586,7 @@ export default function SalesPage() {
         const s = row.original
         return (
           <div className="flex items-center gap-2">
-            {s.status !== 'RETURNED' && (
+            {s.status !== 'RETURNED' && (s._count?.returns ?? 0) === 0 && (
               <button onClick={() => setReturnSale(s)}
                 className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-colors">
                 <RotateCcw size={10} />Return

@@ -46,7 +46,8 @@ router.post('/:id/returns', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req
       include: { items: true },
     })
     if (!sale) throw new AppError('Sale not found', 404)
-    if (sale.status === 'RETURNED') throw new AppError('Sale already fully returned', 400)
+    const existingReturn = await prisma.saleReturn.findFirst({ where: { saleId: sale.id } })
+    if (existingReturn) throw new AppError('A return has already been processed for this order', 400)
 
     const { items, reason, refundMethod, notes } = req.body
     if (!items?.length) throw new AppError('No items provided for return', 400)
