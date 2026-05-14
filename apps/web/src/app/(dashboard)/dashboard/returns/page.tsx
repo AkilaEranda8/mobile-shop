@@ -352,7 +352,7 @@ export default function ReturnsPage() {
       accessorKey: 'returnNumber',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Return #" />,
       cell: ({ row }) => (
-        <span className="font-mono text-xs text-rose-400">{row.original.returnNumber}</span>
+        <span className="font-mono text-xs text-rose-600 dark:text-rose-400">{row.original.returnNumber}</span>
       ),
     },
     {
@@ -374,7 +374,7 @@ export default function ReturnsPage() {
       accessorKey: 'reason',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Reason" />,
       cell: ({ row }) => (
-        <span className="text-xs px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-300 font-medium">
+        <span className="text-xs px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-500/10 border border-rose-300 dark:border-rose-500/20 text-rose-700 dark:text-rose-300 font-medium">
           {row.original.reason}
         </span>
       ),
@@ -402,7 +402,7 @@ export default function ReturnsPage() {
       accessorKey: 'refundAmount',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Refund" />,
       cell: ({ row }) => (
-        <span className="text-sm font-bold text-rose-400">{formatCurrency(row.original.refundAmount)}</span>
+        <span className="text-sm font-bold text-rose-600 dark:text-rose-400">{formatCurrency(row.original.refundAmount)}</span>
       ),
     },
     {
@@ -454,9 +454,9 @@ export default function ReturnsPage() {
           <p className="text-xs text-muted-foreground uppercase tracking-wide mb-3">Top Return Reasons</p>
           <div className="flex flex-wrap gap-2">
             {reasonCounts.map(([reason, count]) => (
-              <div key={reason} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-500/8 border border-rose-500/15">
-                <span className="text-xs font-semibold text-rose-600 dark:text-rose-300">{reason}</span>
-                <span className="text-[10px] font-bold text-rose-500 bg-rose-500/15 px-1.5 py-0.5 rounded-full">{count}</span>
+              <div key={reason} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-100 dark:bg-rose-500/10 border border-rose-300 dark:border-rose-500/20">
+                <span className="text-xs font-semibold text-rose-700 dark:text-rose-300">{reason}</span>
+                <span className="text-[10px] font-bold text-white bg-rose-500 px-1.5 py-0.5 rounded-full">{count}</span>
               </div>
             ))}
           </div>
