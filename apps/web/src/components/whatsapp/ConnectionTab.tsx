@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
-  whatsappApi, saveLocalWAConfig,
+  whatsappApi, saveLocalWAConfig, clearLocalWAData,
   type WAStatus, type WAStatusInfo, type WAConfig,
 } from '@/lib/whatsapp-api'
 
@@ -78,8 +78,9 @@ export default function ConnectionTab({ status, config, onStatusChange, onConfig
   const [sendingTest,setSendingTest]= useState(false)
   const [testPhone,  setTestPhone]  = useState('')
   const [showTestInput, setShowTestInput] = useState(false)
-  const [enabled, setEnabled] = useState(config.enabled ?? false)
-  const [copied, setCopied]   = useState(false)
+  const [enabled,        setEnabled]        = useState(config.enabled ?? false)
+  const [copied,         setCopied]          = useState(false)
+  const [disconnecting,  setDisconnecting]   = useState(false)
 
   const currentStatus = status?.status ?? 'disconnected'
   const scfg          = STATUS_CFG[currentStatus]
@@ -130,6 +131,22 @@ export default function ConnectionTab({ status, config, onStatusChange, onConfig
       setShowTestInput(false); setTestPhone('')
     } catch (err: any) { toast.error(err?.message ?? 'Failed to send test message') }
     finally { setSendingTest(false) }
+  }
+
+  const handleDisconnect = async () => {
+    if (!confirm('Disconnect WhatsApp? This will clear all saved credentials.')) return
+    setDisconnecting(true)
+    try {
+      await whatsappApi.disconnect().catch(() => {})
+      clearLocalWAData()
+      setForm({ accessToken: '', phoneNumberId: '', wabaId: '', verifyToken: '' })
+      setEnabled(false)
+      onStatusChange({ status: 'disconnected' })
+      onConfigChange({ accessToken: '', phoneNumberId: '', wabaId: '', verifyToken: '', enabled: false })
+      toast.success('WhatsApp disconnected successfully')
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to disconnect')
+    } finally { setDisconnecting(false) }
   }
 
   const handleToggle = async (val: boolean) => {
@@ -235,11 +252,19 @@ export default function ConnectionTab({ status, config, onStatusChange, onConfig
 
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-2 pt-1">
-            <button onClick={handleSave} disabled={saving}
+            <button onClick={handleSave} disabled={saving || disconnecting}
               className="btn-primary flex items-center gap-2 disabled:opacity-60">
               {saving ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
               {currentStatus === 'connected' ? 'Update Credentials' : 'Connect WhatsApp'}
             </button>
+            {currentStatus === 'connected' && (
+              <button onClick={handleDisconnect} disabled={disconnecting || saving}
+                className="flex items-center gap-2 px-3.5 py-1.5 text-sm font-medium rounded-lg border transition-all disabled:opacity-40"
+                style={{ borderColor: 'rgba(239,68,68,0.4)', color: '#f87171', background: 'rgba(239,68,68,0.08)' }}>
+                {disconnecting ? <Loader2 size={13} className="animate-spin" /> : <WifiOff size={13} />}
+                Disconnect
+              </button>
+            )}
             <button onClick={handleTest} disabled={testing || currentStatus !== 'connected'}
               className="flex items-center gap-2 px-3.5 py-1.5 text-sm font-medium rounded-lg border transition-all disabled:opacity-40"
               style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-subtle)' }}>

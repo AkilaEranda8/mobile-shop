@@ -7,7 +7,7 @@ import {
   BarChart2, History, FileText, Loader2, MessageSquare,
 } from 'lucide-react'
 import {
-  whatsappApi, getLocalWAConfig,
+  whatsappApi, getLocalWAConfig, getLocalWAStatus, saveLocalWAStatus, clearLocalWAData,
   type WAStatusInfo, type WAConfig,
 } from '@/lib/whatsapp-api'
 import ConnectionTab     from '@/components/whatsapp/ConnectionTab'
@@ -42,12 +42,19 @@ export default function WhatsAppPage() {
         whatsappApi.getStatus().then((r: any) => r?.data ?? r).catch(() => null),
         whatsappApi.getConfig().then((r: any) => r?.data ?? r).catch(() => null),
       ])
-      if (s) setStatus(s)
+      // If API unreachable, fall back to locally persisted status
+      setStatus(s ?? getLocalWAStatus())
       if (c) setConfig(c)
       setInitialLoad(false)
     }
     load()
   }, [])
+
+  const handleStatusChange = (s: WAStatusInfo) => {
+    setStatus(s)
+    if (s.status === 'connected') saveLocalWAStatus(s)
+    else clearLocalWAData()
+  }
 
   const currentStatus = status?.status ?? 'disconnected'
   const badge         = STATUS_BADGE[currentStatus]
@@ -126,7 +133,7 @@ export default function WhatsAppPage() {
             <ConnectionTab
               status={status}
               config={config}
-              onStatusChange={s => setStatus(s)}
+              onStatusChange={handleStatusChange}
               onConfigChange={c => setConfig(prev => ({ ...prev, ...c }))}
             />
           )}

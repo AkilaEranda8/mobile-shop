@@ -71,6 +71,7 @@ export const whatsappApi = {
 }
 
 export const WA_CONFIG_KEY = 'hx_wa_config'
+export const WA_STATUS_KEY = 'hx_wa_status'
 
 export function getLocalWAConfig(): Partial<WAConfig> {
   if (typeof window === 'undefined') return {}
@@ -79,4 +80,18 @@ export function getLocalWAConfig(): Partial<WAConfig> {
 
 export function saveLocalWAConfig(cfg: Partial<WAConfig>) {
   localStorage.setItem(WA_CONFIG_KEY, JSON.stringify(cfg))
+}
+
+export function getLocalWAStatus(): WAStatusInfo | null {
+  if (typeof window === 'undefined') return null
+  try { return JSON.parse(localStorage.getItem(WA_STATUS_KEY) ?? 'null') } catch { return null }
+}
+
+export function saveLocalWAStatus(s: WAStatusInfo) {
+  localStorage.setItem(WA_STATUS_KEY, JSON.stringify(s))
+}
+
+export function clearLocalWAData() {
+  localStorage.removeItem(WA_STATUS_KEY)
+  localStorage.removeItem(WA_CONFIG_KEY)
 }
