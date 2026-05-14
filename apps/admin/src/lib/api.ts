@@ -296,3 +296,27 @@ export async function fetchActivityLogs(params?: ActivityLogParams): Promise<Act
   const qs = Object.keys(p).length ? '?' + new URLSearchParams(p) : ''
   return req<ActivityLogResponse>(ADMIN_BASE, `/activity-logs${qs}`)
 }
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+export type PlatformConfigMap = Record<string, string>
+
+export async function fetchPlatformConfig(): Promise<PlatformConfigMap> {
+  return req<PlatformConfigMap>(ADMIN_BASE, '/settings/config')
+}
+export async function savePlatformConfig(data: PlatformConfigMap): Promise<null> {
+  return req<null>(ADMIN_BASE, '/settings/config', { method: 'PUT', body: JSON.stringify(data) })
+}
+
+export interface AdminUserRow {
+  id: string; name: string; email: string; role: string
+  isActive: boolean; createdAt: string; lastLoginAt: string | null
+}
+export async function fetchAdminUsers(): Promise<AdminUserRow[]> {
+  return req<AdminUserRow[]>(ADMIN_BASE, '/settings/admins')
+}
+export async function createAdminUser(data: { name: string; email: string; password: string }): Promise<AdminUserRow> {
+  return req<AdminUserRow>(ADMIN_BASE, '/settings/admins', { method: 'POST', body: JSON.stringify(data) })
+}
+export async function deleteAdminUser(id: string): Promise<null> {
+  return req<null>(ADMIN_BASE, `/settings/admins/${id}`, { method: 'DELETE' })
+}

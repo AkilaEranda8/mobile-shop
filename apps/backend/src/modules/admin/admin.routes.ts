@@ -754,4 +754,98 @@ router.delete('/announcements/:id', async (req: Request, res: Response, next: Ne
   } catch (e) { next(e) }
 })
 
+// ── Settings ──────────────────────────────────────────────────────────────────
+const CONFIG_DEFAULTS: Record<string, string> = {
+  'platform.name':              'Hexalyte',
+  'platform.supportEmail':      'support@hexalyte.com',
+  'platform.trialDays':         '14',
+  'feature.whatsappReceipts':   'true',
+  'feature.advancedAnalytics':  'true',
+  'feature.multiCurrency':      'false',
+  'feature.apiAccess':          'false',
+  'feature.customDomain':       'false',
+  'email.fromEmail':            'noreply@hexalyte.com',
+  'email.fromName':             'Hexalyte Platform',
+  'email.apiKey':               '',
+  'sms.provider':               'Twilio',
+  'sms.apiKey':                 '',
+  'sms.senderId':               '',
+  'security.sessionTimeoutMin': '120',
+  'security.maxLoginAttempts':  '5',
+  'security.ipWhitelist':       '',
+  'security.enforce2FA':        'true',
+  'maintenance.enabled':        'false',
+}
+
+router.get('/settings/config', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const rows = await prisma.platformConfig.findMany()
+    const map: Record<string, string> = { ...CONFIG_DEFAULTS }
+    for (const r of rows) map[r.key] = r.value
+    sendSuccess(res, map)
+  } catch (e) { next(e) }
+})
+
+router.put('/settings/config', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const updates = req.body as Record<string, string>
+    await Promise.all(
+      Object.entries(updates).map(([key, value]) =>
+        prisma.platformConfig.upsert({ where: { key }, update: { value }, create: { key, value } })
+      )
+    )
+    sendSuccess(res, null, 'Config saved')
+  } catch (e) { next(e) }
+})
+
+router.get('/settings/admins', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const admins = await prisma.user.findMany({
+      where: { role: 'PLATFORM_ADMIN' },
+      select: {
+        id: true, name: true, email: true, role: true,
+        isActive: true, createdAt: true,
+        refreshTokens: { select: { createdAt: true }, orderBy: { createdAt: 'desc' }, take: 1 },
+      },
+      orderBy: { createdAt: 'asc' },
+    })
+    const result = admins.map(a => ({
+      id: a.id, name: a.name, email: a.email, role: a.role,
+      isActive: a.isActive, createdAt: a.createdAt,
+      lastLoginAt: a.refreshTokens[0]?.createdAt ?? null,
+    }))
+    sendSuccess(res, result)
+  } catch (e) { next(e) }
+})
+
+router.post('/settings/admins', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { name, email, password, adminRole = 'SUPPORT_ADMIN' } = req.body
+    if (!name || !email || !password) throw new AppError('name, email and password are required', 400)
+    const existing = await prisma.user.findFirst({ where: { email } })
+    if (existing) throw new AppError('Email already in use', 409)
+    const bcrypt = await import('bcryptjs')
+    const hashed = await bcrypt.default.hash(password, 12)
+    const requester = (req as any).user
+    const created = await prisma.user.create({
+      data: {
+        tenantId: requester.tenantId,
+        name, email,
+        password: hashed,
+        role: 'PLATFORM_ADMIN',
+      },
+    })
+    sendSuccess(res, { id: created.id, name: created.name, email: created.email, role: created.role, createdAt: created.createdAt }, 'Admin created', 201)
+  } catch (e) { next(e) }
+})
+
+router.delete('/settings/admins/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const requester = (req as any).user
+    if (req.params.id === requester.userId) throw new AppError('Cannot delete yourself', 400)
+    await prisma.user.update({ where: { id: req.params.id }, data: { isActive: false } })
+    sendSuccess(res, null, 'Admin deactivated')
+  } catch (e) { next(e) }
+})
+
 export default router

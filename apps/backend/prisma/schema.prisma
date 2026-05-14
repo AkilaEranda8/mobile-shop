@@ -811,6 +811,13 @@ model DeliveryNotification {
   @@index([deliveryOrderId])
 }
 
+// ─────────────── Platform Config ───────────────
+model PlatformConfig {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
 // ─────────────── Support Notes ───────────────
 model SupportNote {
   id        String   @id @default(cuid())
