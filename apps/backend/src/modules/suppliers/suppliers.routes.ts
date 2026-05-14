@@ -9,6 +9,22 @@ import { generatePONumber } from '../../utils/counters'
 const router = Router()
 router.use(authenticate)
 
+async function recalcSupplierStats(supplierId: string, tenantId: string) {
+  const agg = await prisma.purchaseOrder.aggregate({
+    where: { supplierId, tenantId },
+    _count: { id: true },
+    _sum:   { total: true, dueAmount: true },
+  })
+  await prisma.supplier.update({
+    where: { id: supplierId },
+    data: {
+      totalOrders:        agg._count.id          ?? 0,
+      totalPurchaseValue: agg._sum.total          ?? 0,
+      outstandingDues:    agg._sum.dueAmount      ?? 0,
+    },
+  })
+}
+
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { skip, limit, page, search } = getPagination(req)
@@ -86,6 +102,7 @@ router.post('/purchase-orders', authorize('OWNER', 'MANAGER'), async (req: Reque
       },
       include: { items: true },
     })
+    await recalcSupplierStats(supplierId, req.tenantId!)
     sendSuccess(res, po, 'Purchase order created', 201)
   } catch (e) { next(e) }
 })
@@ -155,6 +172,7 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
       include: { items: true },
     })
 
+    await recalcSupplierStats(po.supplierId, req.tenantId!)
     sendSuccess(res, updated)
   } catch (e) { next(e) }
 })
