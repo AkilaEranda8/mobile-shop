@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Wifi, WifiOff, AlertTriangle, Settings2,
+  Wifi, WifiOff, AlertTriangle, Settings2, RefreshCw,
   BarChart2, History, FileText, Loader2, MessageSquare,
 } from 'lucide-react'
 import {
@@ -36,18 +36,62 @@ export default function WhatsAppPage() {
   const [config,      setConfig]      = useState<Partial<WAConfig>>(getLocalWAConfig)
   const [initialLoad, setInitialLoad] = useState(true)
 
+  const silentReconnect = async (savedConfig: Partial<WAConfig>): Promise<WAStatusInfo | null> => {
+    if (!savedConfig.accessToken || !savedConfig.phoneNumberId || !savedConfig.wabaId) return null
+    try {
+      const r: any = await whatsappApi.connect(savedConfig)
+      const info: WAStatusInfo = r?.data ?? r
+      if (info?.status === 'connected') { saveLocalWAStatus(info); return info }
+    } catch {}
+    return null
+  }
+
   useEffect(() => {
     const load = async () => {
+      const localStatus = getLocalWAStatus()
+      const localConfig = getLocalWAConfig()
       const [s, c] = await Promise.all([
         whatsappApi.getStatus().then((r: any) => r?.data ?? r).catch(() => null),
         whatsappApi.getConfig().then((r: any) => r?.data ?? r).catch(() => null),
       ])
-      // If API unreachable, fall back to locally persisted status
-      setStatus(s ?? getLocalWAStatus())
+      let resolved: WAStatusInfo | null = s ?? localStatus
+      // Auto-reconnect: API says disconnected but we have saved credentials
+      if (
+        resolved?.status !== 'connected' &&
+        localStatus?.status === 'connected' &&
+        localConfig?.accessToken
+      ) {
+        const reconnected = await silentReconnect(localConfig)
+        if (reconnected) resolved = reconnected
+      }
+      setStatus(resolved)
       if (c) setConfig(c)
       setInitialLoad(false)
     }
     load()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Poll every 5 min — refresh status and auto-reconnect if needed
+  useEffect(() => {
+    const poll = async () => {
+      const localConfig = getLocalWAConfig()
+      const s: any = await whatsappApi.getStatus().then((r: any) => r?.data ?? r).catch(() => null)
+      if (s) {
+        if (s.status === 'connected') {
+          setStatus(s); saveLocalWAStatus(s)
+        } else if (localConfig?.accessToken) {
+          const reconnected = await silentReconnect(localConfig)
+          if (reconnected) setStatus(reconnected)
+          else setStatus(s)
+        } else {
+          setStatus(s)
+        }
+      }
+    }
+    const id = setInterval(poll, 5 * 60 * 1000)
+    return () => clearInterval(id)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleStatusChange = (s: WAStatusInfo) => {
@@ -87,6 +131,11 @@ export default function WhatsAppPage() {
               {status?.phoneNumber && (
                 <span className="ml-1 opacity-70">· {status.phoneNumber}</span>
               )}
+            </span>
+          )}
+          {currentStatus === 'connected' && (
+            <span className="text-xs px-2 py-1 rounded-lg border text-green-400 bg-green-500/10 border-green-500/20 font-medium flex items-center gap-1">
+              <RefreshCw size={10} /> Auto-reconnect
             </span>
           )}
           <span className="text-xs px-2 py-1 rounded-lg border text-violet-400 bg-violet-500/10 border-violet-500/20 font-medium">
