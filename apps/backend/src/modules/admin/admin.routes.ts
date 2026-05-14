@@ -153,27 +153,87 @@ router.get('/subscriptions', async (req: Request, res: Response, next: NextFunct
 // ── Platform Analytics ────────────────────────────────────────────────────────
 router.get('/analytics', async (_req: Request, res: Response, next: NextFunction) => {
   try {
+    const now = new Date()
+    const sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    const thirtyDaysAgo = new Date(now); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
     const [
       totalSalesAgg, totalRepairs, totalCustomers,
       tenantsByPlan, topTenantsByRevenue,
+      newTenantsThisMonth, activeTenantsCount,
     ] = await Promise.all([
       prisma.sale.aggregate({ _sum: { total: true }, _count: true }),
       prisma.repairTicket.count(),
       prisma.customer.count(),
       prisma.tenant.groupBy({ by: ['plan'], _count: true, _sum: { mrr: true } }),
       prisma.tenant.findMany({
-        select: { id: true, name: true, mrr: true, plan: true, _count: { select: { sales: true } } },
+        select: { id: true, name: true, mrr: true, plan: true, status: true,
+          _count: { select: { sales: true, users: true } } },
         orderBy: { mrr: 'desc' },
         take: 10,
       }),
+      prisma.tenant.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
+      prisma.tenant.count({ where: { status: 'ACTIVE' } }),
     ])
+
+    // Monthly GMV trend — last 12 months
+    const gmvMonths: { month: string; gmv: number; invoices: number }[] = []
+    for (let i = 11; i >= 0; i--) {
+      const from = new Date(now); from.setMonth(from.getMonth() - i); from.setDate(1); from.setHours(0, 0, 0, 0)
+      const to   = new Date(from); to.setMonth(to.getMonth() + 1)
+      const agg  = await prisma.sale.aggregate({
+        where: { createdAt: { gte: from, lt: to } },
+        _sum: { total: true }, _count: true,
+      })
+      gmvMonths.push({
+        month: from.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }),
+        gmv: Number(agg._sum.total ?? 0),
+        invoices: agg._count,
+      })
+    }
+
+    // New tenants per month — last 12 months
+    const tenantMonths: { month: string; newTenants: number; cumulative: number }[] = []
+    let cumulative = 0
+    for (let i = 11; i >= 0; i--) {
+      const from = new Date(now); from.setMonth(from.getMonth() - i); from.setDate(1); from.setHours(0, 0, 0, 0)
+      const to   = new Date(from); to.setMonth(to.getMonth() + 1)
+      const cnt  = await prisma.tenant.count({ where: { createdAt: { gte: from, lt: to } } })
+      cumulative += cnt
+      tenantMonths.push({
+        month: from.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }),
+        newTenants: cnt,
+        cumulative,
+      })
+    }
+
+    // Inactive tenants — no sales in last 7 days
+    const activeSalesTenantIds = await prisma.sale.findMany({
+      where: { createdAt: { gte: sevenDaysAgo } },
+      select: { tenantId: true },
+      distinct: ['tenantId'],
+    })
+    const activeTenantIdSet = new Set(activeSalesTenantIds.map(s => s.tenantId))
+    const allActiveTenants = await prisma.tenant.findMany({
+      where: { status: { in: ['ACTIVE', 'TRIAL'] } },
+      select: { id: true, name: true, plan: true, status: true, mrr: true, createdAt: true },
+    })
+    const inactiveTenants = allActiveTenants
+      .filter(t => !activeTenantIdSet.has(t.id))
+      .slice(0, 20)
+
     sendSuccess(res, {
       totalGMV: totalSalesAgg._sum.total ?? 0,
       totalInvoices: totalSalesAgg._count,
       totalRepairs,
       totalCustomers,
+      newTenantsThisMonth,
+      activeTenantsCount,
       tenantsByPlan,
       topTenantsByRevenue,
+      gmvMonths,
+      tenantMonths,
+      inactiveTenants,
     })
   } catch (e) { next(e) }
 })

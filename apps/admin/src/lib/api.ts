@@ -67,9 +67,20 @@ export interface SubscriptionRow {
   status: string; mrr: number | null; subscriptionEndsAt: string | null; trialEndsAt: string | null
 }
 
+export interface GmvMonth      { month: string; gmv: number; invoices: number }
+export interface TenantMonth   { month: string; newTenants: number; cumulative: number }
+export interface PlanRow       { plan: string; _count: number; _sum: { mrr: number | null } }
+export interface TopTenant     { id: string; name: string; mrr: number | null; plan: string; status: string; _count: { sales: number; users: number } }
+export interface InactiveTenant { id: string; name: string; plan: string; status: string; mrr: number | null; createdAt: string }
+
 export interface AnalyticsData {
   totalGMV: number; totalInvoices: number; totalRepairs: number
-  totalCustomers: number; tenantsByPlan: unknown[]; topTenantsByRevenue: unknown[]
+  totalCustomers: number; newTenantsThisMonth: number; activeTenantsCount: number
+  tenantsByPlan: PlanRow[]
+  topTenantsByRevenue: TopTenant[]
+  gmvMonths: GmvMonth[]
+  tenantMonths: TenantMonth[]
+  inactiveTenants: InactiveTenant[]
 }
 
 export interface MrrPoint { month: string; mrr: number }
