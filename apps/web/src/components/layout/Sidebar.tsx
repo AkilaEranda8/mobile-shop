@@ -56,6 +56,7 @@ const navItems = [
     label: 'Reports',
     items: [
       { href: '/dashboard/reports', icon: FileText, label: 'Reports', badge: 'NEW' },
+      { href: '/dashboard/invoice', icon: Receipt, label: 'Invoice', badge: 'NEW' },
     ],
   },
   {
