@@ -453,10 +453,25 @@ export default function SuppliersPage() {
   const [showNewPO, setShowNewPO]                 = useState(false)
   const [detailSupplier, setDetailSupplier]       = useState<Supplier | null>(null)
   const [editSupplier,   setEditSupplier]         = useState<Supplier | null>(null)
+  const [markReceiving,  setMarkReceiving]        = useState<string | null>(null)
   const { data: suppliersData, loading: suppliersLoading, refetch: refetchSuppliers } = useSuppliers()
   const { data: ordersData,    loading: ordersLoading,    refetch: refetchOrders    } = usePurchaseOrders()
   const suppliers:      Supplier[]      = (suppliersData?.data ?? []) as Supplier[]
   const purchaseOrders: PurchaseOrder[] = (ordersData?.data    ?? []) as PurchaseOrder[]
+
+  const handleMarkReceived = async (po: PurchaseOrder) => {
+    if (!confirm(`Mark "${po.poNumber}" as RECEIVED?\nThis will restock all items in your inventory.`)) return
+    setMarkReceiving(po.id)
+    try {
+      await suppliersApi.updatePO(po.id, { status: 'RECEIVED' })
+      toast.success(`${po.poNumber} received — inventory updated`)
+      refetchOrders()
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to update PO')
+    } finally {
+      setMarkReceiving(null)
+    }
+  }
 
   const supplierColumns = useMemo<ColumnDef<Supplier>[]>(() => [
     {
@@ -556,13 +571,30 @@ export default function SuppliersPage() {
     },
     {
       id: 'actions',
-      cell: ({ row }) => (
-        <TableActionsRow
-          dropMoreActions={[{ text: 'View Invoice', function: () => router.push(`/purchase-invoice?id=${row.original.id}`), icon: <FileText size={13} /> }]}
-        />
-      ),
+      cell: ({ row }) => {
+        const po = row.original
+        const canReceive = !['RECEIVED', 'CLOSED'].includes(po.status)
+        return (
+          <div className="flex items-center gap-2">
+            {canReceive && (
+              <button
+                onClick={() => handleMarkReceived(po)}
+                disabled={markReceiving === po.id}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-colors disabled:opacity-50">
+                {markReceiving === po.id
+                  ? <Loader2 size={10} className="animate-spin" />
+                  : <CheckCircle size={10} />}
+                Receive
+              </button>
+            )}
+            <TableActionsRow
+              dropMoreActions={[{ text: 'View Invoice', function: () => router.push(`/purchase-invoice?id=${po.id}`), icon: <FileText size={13} /> }]}
+            />
+          </div>
+        )
+      },
     },
-  ], [router])
+  ], [router, markReceiving, handleMarkReceived])
 
   return (
     <div className="space-y-6">

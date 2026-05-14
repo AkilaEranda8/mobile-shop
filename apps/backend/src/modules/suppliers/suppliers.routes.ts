@@ -82,9 +82,52 @@ router.post('/purchase-orders', authorize('OWNER', 'MANAGER'), async (req: Reque
 
 router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const po = await prisma.purchaseOrder.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! } })
+    const po = await prisma.purchaseOrder.findFirst({
+      where: { id: req.params.id, tenantId: req.tenantId! },
+      include: { items: true },
+    })
     if (!po) throw new AppError('Purchase order not found', 404)
-    sendSuccess(res, await prisma.purchaseOrder.update({ where: { id: req.params.id }, data: { status: req.body.status, paidAmount: req.body.paidAmount, receivedAt: req.body.receivedAt } }))
+
+    const newStatus = req.body.status as string | undefined
+    const wasAlreadyReceived = po.status === 'RECEIVED'
+
+    // ── Restock inventory when marking as RECEIVED ─────────────────────────
+    if (newStatus === 'RECEIVED' && !wasAlreadyReceived) {
+      const itemsWithProduct = po.items.filter((i: any) => i.productId)
+
+      await Promise.all(
+        itemsWithProduct.map((item: any) =>
+          prisma.product.update({
+            where: { id: item.productId },
+            data: { stock: { increment: item.quantity } },
+          })
+        )
+      )
+
+      await prisma.stockMovement.createMany({
+        data: itemsWithProduct.map((item: any) => ({
+          productId:   item.productId,
+          branchId:    po.branchId,
+          type:        'PURCHASE' as const,
+          quantity:    item.quantity,
+          reference:   po.poNumber,
+          note:        `Received via PO ${po.poNumber}`,
+          performedBy: req.user?.userId ?? 'system',
+        })),
+      })
+    }
+
+    const updated = await prisma.purchaseOrder.update({
+      where: { id: req.params.id },
+      data: {
+        status:     newStatus              ?? po.status,
+        paidAmount: req.body.paidAmount    ?? po.paidAmount,
+        receivedAt: newStatus === 'RECEIVED' ? new Date() : (req.body.receivedAt ?? po.receivedAt),
+      },
+      include: { items: true },
+    })
+
+    sendSuccess(res, updated)
   } catch (e) { next(e) }
 })
 
