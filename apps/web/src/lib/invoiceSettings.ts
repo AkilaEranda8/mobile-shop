@@ -1,25 +1,51 @@
 export const INVOICE_SETTINGS_KEY = 'hx_invoice_settings'
 
 export interface InvoiceSettings {
-  shopName:    string
-  slogan:      string
-  phone:       string
-  bankDetails: string
-  email:      string
-  address:    string
-  website:    string
-  footerNote: string
+  shopName:       string
+  slogan:         string
+  logo:           string
+  phone:          string
+  email:          string
+  address:        string
+  website:        string
+  bankName:       string
+  accNumber:      string
+  accHolder:      string
+  swiftCode:      string
+  currency:       string
+  taxRate:        number
+  discountRate:   number
+  terms:          string[]
+  signatoryName:  string
+  signatoryTitle: string
+  footerNote:     string
+  bankDetails:    string
 }
 
 export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
-  shopName:    '',
-  slogan:      '',
-  phone:       '',
-  bankDetails: '',
-  email:      '',
-  address:    '',
-  website:    '',
-  footerNote: 'Thank you for your business!',
+  shopName:       '',
+  slogan:         '',
+  logo:           '',
+  phone:          '',
+  email:          '',
+  address:        '',
+  website:        '',
+  bankName:       '',
+  accNumber:      '',
+  accHolder:      '',
+  swiftCode:      '',
+  currency:       'LKR',
+  taxRate:        0,
+  discountRate:   0,
+  terms:          [
+    'Payment is due upon receipt of this invoice.',
+    'All sales are final unless otherwise agreed.',
+    'Thank you for your business!',
+  ],
+  signatoryName:  '',
+  signatoryTitle: 'Authorized Signatory',
+  footerNote:     'Thank you for your business!',
+  bankDetails:    '',
 }
 
 export function getInvoiceSettings(): InvoiceSettings {
@@ -29,4 +55,8 @@ export function getInvoiceSettings(): InvoiceSettings {
   } catch {
     return DEFAULT_INVOICE_SETTINGS
   }
+}
+
+export function saveInvoiceSettings(s: InvoiceSettings) {
+  localStorage.setItem(INVOICE_SETTINGS_KEY, JSON.stringify(s))
 }

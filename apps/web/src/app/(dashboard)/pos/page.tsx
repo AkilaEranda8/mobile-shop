@@ -425,13 +425,15 @@ export default function POSPage() {
 
   const buildA4Data = (): InvoiceData | null => {
     if (!completedSale) return null
+    const s = invoiceSettings
     return {
-      companyName:     invoiceSettings.shopName || shopName,
-      companySlogan:   invoiceSettings.slogan   || 'Sales & Service',
-      companyAddress:  invoiceSettings.address  || '',
-      companyPhone:    invoiceSettings.phone    || '',
-      companyEmail:    invoiceSettings.email    || '',
-      companyWebsite:  invoiceSettings.website  || '',
+      companyName:     s.shopName    || shopName,
+      companySlogan:   s.slogan      || 'Sales & Service',
+      companyLogo:     s.logo        || undefined,
+      companyAddress:  s.address     || '',
+      companyPhone:    s.phone       || '',
+      companyEmail:    s.email       || '',
+      companyWebsite:  s.website     || '',
       invoiceNumber:   completedSale.invoiceNumber || `INV-${Date.now()}`,
       dueDate:         completedSale.createdAt
         ? new Date(completedSale.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -445,19 +447,20 @@ export default function POSPage() {
         price:       i.unitPrice,
         qty:         i.quantity,
       })) ?? [],
-      bankName:  invoiceSettings.bankDetails?.split('\n')?.[0] || '',
-      accNumber: invoiceSettings.bankDetails?.split('\n')?.[1] || '',
-      accHolder: invoiceSettings.shopName || shopName,
-      swiftCode: '',
-      taxRate:      0,
-      discountRate: subtotal > 0 ? Math.round((discountAmount / subtotal) * 100) : 0,
-      terms: [
+      bankName:  s.bankName  || '',
+      accNumber: s.accNumber || '',
+      accHolder: s.accHolder || s.shopName || shopName,
+      swiftCode: s.swiftCode || '',
+      currency:      s.currency     || 'LKR',
+      taxRate:       s.taxRate      ?? 0,
+      discountRate:  subtotal > 0 ? Math.round((discountAmount / subtotal) * 100) : (s.discountRate ?? 0),
+      terms:         s.terms?.length ? s.terms : [
         'Payment is due upon receipt of this invoice.',
         'All sales are final unless otherwise agreed.',
-        invoiceSettings.footerNote || 'Thank you for your business!',
+        s.footerNote || 'Thank you for your business!',
       ],
-      signatoryName:  invoiceSettings.shopName || shopName,
-      signatoryTitle: 'Authorized Signatory',
+      signatoryName:  s.signatoryName  || s.shopName || shopName,
+      signatoryTitle: s.signatoryTitle || 'Authorized Signatory',
     }
   }
 

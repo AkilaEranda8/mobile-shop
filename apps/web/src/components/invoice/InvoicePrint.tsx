@@ -37,6 +37,7 @@ export interface InvoiceData {
   terms:          string[]
   signatoryName:  string
   signatoryTitle: string
+  currency?:      string
 }
 
 // ── Sample data ───────────────────────────────────────────────────────────────
@@ -78,8 +79,8 @@ export const SAMPLE_INVOICE: InvoiceData = {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const fmt = (n: number) =>
-  'LKR ' + new Intl.NumberFormat('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+const makeFmt = (currency = 'LKR') => (n: number) =>
+  currency + ' ' + new Intl.NumberFormat('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -88,6 +89,7 @@ function InvoicePrint({ data = SAMPLE_INVOICE, hideControls = false }, outerRef)
   const localRef = useRef<HTMLDivElement>(null)
   const invoiceRef = (outerRef as React.RefObject<HTMLDivElement>) ?? localRef
 
+  const fmt       = makeFmt(data.currency)
   const subtotal  = data.items.reduce((s, i) => s + i.price * i.qty, 0)
   const tax       = subtotal * (data.taxRate / 100)
   const discount  = subtotal * (data.discountRate / 100)

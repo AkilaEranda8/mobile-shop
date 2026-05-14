@@ -7,7 +7,8 @@ import {
 } from 'lucide-react'
 import { authApi, usersApi, tenantApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
-import { INVOICE_SETTINGS_KEY, type InvoiceSettings, getInvoiceSettings } from '@/lib/invoiceSettings'
+import { type InvoiceSettings, getInvoiceSettings, saveInvoiceSettings } from '@/lib/invoiceSettings'
+import { ImageIcon, Trash2 as TrashIcon } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const tabs = [
@@ -166,9 +167,22 @@ export default function SettingsPage() {
 
   /* ── Invoice Settings ── */
   const [invoiceForm, setInvoiceForm] = useState<InvoiceSettings>(() => getInvoiceSettings())
-  const saveInvoice = () => {
-    localStorage.setItem(INVOICE_SETTINGS_KEY, JSON.stringify(invoiceForm))
-    toast.success('Invoice settings saved')
+  const setInv = (patch: Partial<InvoiceSettings>) => setInvoiceForm(p => ({ ...p, ...patch }))
+  const saveInvoice = () => { saveInvoiceSettings(invoiceForm); toast.success('Invoice settings saved') }
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 500 * 1024) { toast.error('Logo must be under 500 KB'); return }
+    const reader = new FileReader()
+    reader.onload = ev => setInv({ logo: ev.target?.result as string })
+    reader.readAsDataURL(file)
+  }
+
+  const addTerm    = () => setInv({ terms: [...(invoiceForm.terms ?? []), ''] })
+  const removeTerm = (i: number) => setInv({ terms: invoiceForm.terms.filter((_, idx) => idx !== i) })
+  const updateTerm = (i: number, val: string) => {
+    const t = [...invoiceForm.terms]; t[i] = val; setInv({ terms: t })
   }
 
   const ROLES = ['OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN']
@@ -248,44 +262,173 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* ── INVOICE ── */}
+          {/* ── INVOICE CUSTOMIZE ── */}
           {activeTab === 'invoice' && (
-            <div className="card p-6 space-y-5">
-              <div className="flex items-center justify-between border-b border-white/5 pb-3">
+            <div className="space-y-5">
+
+              {/* Header */}
+              <div className="card p-5 flex items-center justify-between">
                 <div>
-                  <h2 className="text-base font-semibold text-white">Invoice Settings</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">These details appear on every downloaded invoice PDF</p>
+                  <h2 className="text-base font-semibold text-white flex items-center gap-2"><FileText size={15} className="text-violet-400" /> Invoice Customize</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">Customize every detail that appears on your A4 invoice PDF</p>
                 </div>
                 <button onClick={saveInvoice} className="btn-primary text-sm flex items-center gap-2">
-                  <Save size={13} />Save
+                  <Save size={13} /> Save All
                 </button>
               </div>
-              <div className="grid sm:grid-cols-2 gap-4">
-                {[
-                  { k: 'shopName',   label: 'Shop / Business Name', ph: 'e.g. Akila Mobile Shop',        col: '' },
-                  { k: 'slogan',     label: 'Slogan / Tagline',      ph: 'e.g. Your Trusted Mobile Store', col: '' },
-                  { k: 'phone',      label: 'Contact Phone',          ph: '+94 77 123 4567',                col: '' },
-                  { k: 'email',      label: 'Contact Email',          ph: 'shop@example.com',               col: '' },
-                  { k: 'website',    label: 'Website',                ph: 'www.example.com',                col: '' },
-                  { k: 'address',    label: 'Address',                ph: '123 Main St, Colombo',           col: '' },
-                ].map(({ k, label, ph }) => (
-                  <div key={k}>
-                    <label className="block text-xs text-slate-400 mb-1.5">{label}</label>
-                    <input className="input-field" placeholder={ph}
-                      value={(invoiceForm as any)[k]}
-                      onChange={e => setInvoiceForm(p => ({ ...p, [k]: e.target.value }))} />
+
+              {/* ── 1. Company Info ── */}
+              <div className="card p-5 space-y-4">
+                <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Company Info</p>
+
+                {/* Logo upload */}
+                <div>
+                  <label className="block text-xs text-slate-400 mb-2">Company Logo</label>
+                  <div className="flex items-center gap-4">
+                    <div className="w-20 h-20 rounded-xl border-2 border-dashed border-white/10 flex items-center justify-center bg-white/3 overflow-hidden flex-shrink-0">
+                      {invoiceForm.logo
+                        ? <img src={invoiceForm.logo} alt="logo" className="w-full h-full object-contain p-1" />
+                        : <ImageIcon size={22} className="text-slate-600" />}
+                    </div>
+                    <div className="space-y-2">
+                      <label className="cursor-pointer flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg border border-white/10 text-slate-300 hover:bg-white/5 transition-colors">
+                        <Plus size={12} /> Upload Logo
+                        <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                      </label>
+                      {invoiceForm.logo && (
+                        <button onClick={() => setInv({ logo: '' })} className="flex items-center gap-2 px-3 py-2 text-xs rounded-lg border border-red-500/20 text-red-400 hover:bg-red-500/10 transition-colors">
+                          <TrashIcon size={12} /> Remove
+                        </button>
+                      )}
+                      <p className="text-[10px] text-slate-600">Max 500 KB · PNG, JPG, SVG</p>
+                    </div>
                   </div>
-                ))}
-                <div className="sm:col-span-2">
-                  <label className="block text-xs text-slate-400 mb-1.5">Footer Note</label>
-                  <input className="input-field" placeholder="e.g. Thank you for your business!"
-                    value={invoiceForm.footerNote}
-                    onChange={e => setInvoiceForm(p => ({ ...p, footerNote: e.target.value }))} />
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {([
+                    { k: 'shopName', label: 'Business Name', ph: 'e.g. Akila Mobile Shop' },
+                    { k: 'slogan',   label: 'Slogan / Tagline', ph: 'e.g. Your Trusted Store' },
+                    { k: 'phone',    label: 'Phone', ph: '+94 77 123 4567' },
+                    { k: 'email',    label: 'Email', ph: 'shop@example.com' },
+                    { k: 'website',  label: 'Website', ph: 'www.example.com' },
+                  ] as { k: keyof InvoiceSettings; label: string; ph: string }[]).map(({ k, label, ph }) => (
+                    <div key={k}>
+                      <label className="block text-xs text-slate-400 mb-1.5">{label}</label>
+                      <input className="input-field" placeholder={ph}
+                        value={invoiceForm[k] as string}
+                        onChange={e => setInv({ [k]: e.target.value })} />
+                    </div>
+                  ))}
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs text-slate-400 mb-1.5">Address</label>
+                    <textarea rows={2} className="input-field resize-none" placeholder="123 Main St, Colombo, Sri Lanka"
+                      value={invoiceForm.address} onChange={e => setInv({ address: e.target.value })} />
+                  </div>
                 </div>
               </div>
-              <div className="pt-3 border-t border-white/5 text-xs text-slate-500 space-y-1">
-                <p className="font-semibold text-slate-400">Preview</p>
-                <p>These values will appear in the <span className="text-violet-400">Invoice To / From</span>, <span className="text-violet-400">Contact Info</span>, and <span className="text-violet-400">Footer</span> sections of all invoices.</p>
+
+              {/* ── 2. Payment Details ── */}
+              <div className="card p-5 space-y-4">
+                <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Payment Details</p>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {([
+                    { k: 'bankName',  label: 'Bank Name',       ph: 'e.g. Bank of Ceylon' },
+                    { k: 'accNumber', label: 'Account Number',  ph: '0012345678901' },
+                    { k: 'accHolder', label: 'Account Holder',  ph: 'Akila Eranda' },
+                    { k: 'swiftCode', label: 'Swift / Branch Code', ph: 'BCEYLKLX' },
+                  ] as { k: keyof InvoiceSettings; label: string; ph: string }[]).map(({ k, label, ph }) => (
+                    <div key={k}>
+                      <label className="block text-xs text-slate-400 mb-1.5">{label}</label>
+                      <input className="input-field" placeholder={ph}
+                        value={invoiceForm[k] as string}
+                        onChange={e => setInv({ [k]: e.target.value })} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── 3. Invoice Options ── */}
+              <div className="card p-5 space-y-4">
+                <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Invoice Options</p>
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1.5">Currency</label>
+                    <select className="input-field" value={invoiceForm.currency} onChange={e => setInv({ currency: e.target.value })}>
+                      {['LKR','USD','EUR','GBP','INR','AUD','CAD','SGD'].map(c => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1.5">Tax Rate (%)</label>
+                    <input type="number" min={0} max={100} className="input-field" placeholder="0"
+                      value={invoiceForm.taxRate}
+                      onChange={e => setInv({ taxRate: parseFloat(e.target.value) || 0 })} />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1.5">Default Discount (%)</label>
+                    <input type="number" min={0} max={100} className="input-field" placeholder="0"
+                      value={invoiceForm.discountRate}
+                      onChange={e => setInv({ discountRate: parseFloat(e.target.value) || 0 })} />
+                  </div>
+                </div>
+              </div>
+
+              {/* ── 4. Terms & Conditions ── */}
+              <div className="card p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Terms &amp; Conditions</p>
+                  <button onClick={addTerm} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-violet-500/30 text-violet-400 hover:bg-violet-500/10 transition-colors">
+                    <Plus size={11} /> Add Line
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {(invoiceForm.terms ?? []).map((t, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-xs text-slate-600 w-5 text-right flex-shrink-0">{i + 1}.</span>
+                      <input className="input-field flex-1 text-xs py-2"
+                        value={t} placeholder={`Term ${i + 1}`}
+                        onChange={e => updateTerm(i, e.target.value)} />
+                      <button onClick={() => removeTerm(i)} className="p-1.5 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                  {(invoiceForm.terms ?? []).length === 0 && (
+                    <p className="text-xs text-slate-600 italic">No terms added. Click &quot;Add Line&quot; to add one.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* ── 5. Signatory ── */}
+              <div className="card p-5 space-y-4">
+                <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Signatory</p>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1.5">Signatory Name</label>
+                    <input className="input-field" placeholder="e.g. Akila Eranda"
+                      value={invoiceForm.signatoryName}
+                      onChange={e => setInv({ signatoryName: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1.5">Title / Designation</label>
+                    <input className="input-field" placeholder="e.g. Authorized Signatory"
+                      value={invoiceForm.signatoryTitle}
+                      onChange={e => setInv({ signatoryTitle: e.target.value })} />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs text-slate-400 mb-1.5">Footer Note</label>
+                    <input className="input-field" placeholder="e.g. Thank you for your business!"
+                      value={invoiceForm.footerNote}
+                      onChange={e => setInv({ footerNote: e.target.value })} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Save button bottom */}
+              <div className="flex justify-end">
+                <button onClick={saveInvoice} className="btn-primary flex items-center gap-2">
+                  <Save size={14} /> Save Invoice Settings
+                </button>
               </div>
             </div>
           )}
