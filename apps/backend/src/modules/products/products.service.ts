@@ -42,12 +42,12 @@ export const productsService = {
     }
     if (!body.categoryId) throw new AppError('Category is required', 400)
 
-    if (!body.brandId && body.brandName) {
-      let brand = await prisma.brand.findFirst({ where: { tenantId, name: body.brandName } })
-      if (!brand) brand = await prisma.brand.create({ data: { tenantId, name: body.brandName } })
+    if (!body.brandId) {
+      const brandName = body.brandName?.trim() || 'General'
+      let brand = await prisma.brand.findFirst({ where: { tenantId, name: brandName } })
+      if (!brand) brand = await prisma.brand.create({ data: { tenantId, name: brandName } })
       body.brandId = brand.id
     }
-    if (!body.brandId) throw new AppError('Brand is required', 400)
 
     const { categoryName, brandName, ...productData } = body
     const raw: any = await prisma.product.create({ data: { ...productData, tenantId }, include: { category: { select: { name: true } }, brand: { select: { name: true } } } })
