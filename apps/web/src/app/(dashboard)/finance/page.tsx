@@ -123,7 +123,7 @@ export default function FinancePage() {
     return revenueArr.slice(-10).map((d: any) => ({
       label: new Date(d.date).toLocaleDateString('en-LK', { day: 'numeric', month: 'short' }),
       revenue:  Math.round((d.totalRevenue  ?? 0)),
-      expenses: Math.round((d.totalExpenses ?? 0)),
+      expenses: Math.round((d.totalExpenses ?? 0) + (d.cogs ?? 0)),
       profit:   Math.round((d.profit        ?? 0)),
     }))
   }, [revenueArr])

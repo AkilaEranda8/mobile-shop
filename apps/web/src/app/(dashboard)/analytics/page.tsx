@@ -46,7 +46,7 @@ export default function AnalyticsPage() {
     date:     new Date(d.date).toLocaleDateString('en-LK', { month: 'short', day: 'numeric' }),
     Revenue:  d.totalRevenue  ?? d.revenue  ?? 0,
     Profit:   d.profit        ?? 0,
-    Expenses: d.totalExpenses ?? d.expenses ?? 0,
+    Expenses: (d.totalExpenses ?? d.expenses ?? 0) + (d.cogs ?? 0),
   })), [revenueArr])
 
   const totalRevenue = revenueArr.reduce((s, d) => s + (d.totalRevenue ?? d.revenue ?? 0), 0)

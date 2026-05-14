@@ -39,16 +39,16 @@ router.get('/summary', async (req: Request, res: Response, next: NextFunction) =
     to.setHours(23, 59, 59, 999)
 
     const txWhere: any = { tenantId, ...(branchId && { branchId }), createdAt: { gte: from, lte: to } }
-    const saleWhere: any = { tenantId, ...(branchId && { branchId }), createdAt: { gte: from, lte: to } }
+    const saleWhere: any = { tenantId, ...(branchId && { branchId }), status: { not: 'RETURNED' }, createdAt: { gte: from, lte: to } }
 
     const [txIncome, txExpense, salesAgg, cogsRaw] = await Promise.all([
       // Manual income transactions (repair fees, other income)
       prisma.transaction.aggregate({ where: { ...txWhere, type: 'INCOME'  }, _sum: { amount: true } }),
-      // Operating expense transactions (rent, salary, utilities, etc.)
-      prisma.transaction.aggregate({ where: { ...txWhere, type: 'EXPENSE' }, _sum: { amount: true } }),
-      // POS sales revenue
+      // Operating expense transactions (rent, salary, utilities — exclude Refunds since returned sales excluded above)
+      prisma.transaction.aggregate({ where: { ...txWhere, type: 'EXPENSE', category: { not: 'Refund' } }, _sum: { amount: true } }),
+      // POS sales revenue (exclude returned orders)
       prisma.sale.aggregate({ where: saleWhere, _sum: { total: true }, _count: true }),
-      // COGS: qty sold × current buying price
+      // COGS: qty sold × current buying price (exclude returned orders)
       branchId
         ? prisma.$queryRaw<Array<{ cogs: number }>>`
             SELECT COALESCE(SUM(si.quantity::float * p."buyingPrice"), 0)::float AS cogs
@@ -59,6 +59,7 @@ router.get('/summary', async (req: Request, res: Response, next: NextFunction) =
               AND  s."branchId" = ${branchId}
               AND  s."createdAt" >= ${from}
               AND  s."createdAt" <= ${to}
+              AND  s.status != 'RETURNED'
           `
         : prisma.$queryRaw<Array<{ cogs: number }>>`
             SELECT COALESCE(SUM(si.quantity::float * p."buyingPrice"), 0)::float AS cogs
@@ -68,6 +69,7 @@ router.get('/summary', async (req: Request, res: Response, next: NextFunction) =
             WHERE  s."tenantId" = ${tenantId}
               AND  s."createdAt" >= ${from}
               AND  s."createdAt" <= ${to}
+              AND  s.status != 'RETURNED'
           `,
     ])
 

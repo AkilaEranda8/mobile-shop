@@ -16,11 +16,11 @@ router.get('/dashboard', async (req: Request, res: Response, next: NextFunction)
     const in30Days = new Date(); in30Days.setDate(in30Days.getDate() + 30)
 
     const [todaySales, activeRepairs, totalCustomers, lowStockProducts, totalRevenue, expiringWarranties, readyForPickup] = await Promise.all([
-      prisma.sale.aggregate({ where: { tenantId, ...branchFilter, createdAt: { gte: today, lte: todayEnd } }, _sum: { total: true }, _count: true }),
+      prisma.sale.aggregate({ where: { tenantId, ...branchFilter, status: { not: 'RETURNED' }, createdAt: { gte: today, lte: todayEnd } }, _sum: { total: true }, _count: true }),
       prisma.repairTicket.count({ where: { tenantId, ...branchFilter, status: { notIn: ['DELIVERED', 'CANCELLED'] } } }),
       prisma.customer.count({ where: { tenantId } }),
       prisma.product.findMany({ where: { tenantId, isActive: true, stock: { lte: 5 } }, select: { id: true, name: true, stock: true, minStock: true }, orderBy: { stock: 'asc' }, take: 5 }),
-      prisma.sale.aggregate({ where: { tenantId, ...branchFilter }, _sum: { total: true } }),
+      prisma.sale.aggregate({ where: { tenantId, ...branchFilter, status: { not: 'RETURNED' } }, _sum: { total: true } }),
       prisma.warranty.count({ where: { tenantId, endDate: { lte: in30Days }, status: 'ACTIVE' } }),
       prisma.repairTicket.count({ where: { tenantId, ...branchFilter, status: 'READY' } }),
     ])
@@ -45,18 +45,19 @@ router.get('/revenue', async (req: Request, res: Response, next: NextFunction) =
     const days = parseInt(req.query.days as string) || 30
     const from = new Date(); from.setDate(from.getDate() - days); from.setHours(0, 0, 0, 0)
 
-    // 1. POS sales revenue per day
+    // 1. POS sales revenue per day (exclude returned orders)
     const salesRaw: Array<{ date: Date; total: number }> = await prisma.$queryRaw`
       SELECT DATE_TRUNC('day', "createdAt" AT TIME ZONE 'UTC') AS date,
              COALESCE(SUM(total), 0)::float                    AS total
       FROM   "Sale"
       WHERE  "tenantId" = ${tenantId}
         AND  "createdAt" >= ${from}
+        AND  status != 'RETURNED'
       GROUP  BY 1
       ORDER  BY 1 ASC
     `
 
-    // 2. COGS per day (qty sold × buying price at product level)
+    // 2. COGS per day (exclude returned orders)
     const cogsRaw: Array<{ date: Date; cogs: number }> = await prisma.$queryRaw`
       SELECT DATE_TRUNC('day', s."createdAt" AT TIME ZONE 'UTC') AS date,
              COALESCE(SUM(si.quantity::float * p."buyingPrice"), 0)::float AS cogs
@@ -65,17 +66,19 @@ router.get('/revenue', async (req: Request, res: Response, next: NextFunction) =
       JOIN   "Product" p ON p.id = si."productId"
       WHERE  s."tenantId" = ${tenantId}
         AND  s."createdAt" >= ${from}
+        AND  s.status != 'RETURNED'
       GROUP  BY 1
       ORDER  BY 1 ASC
     `
 
-    // 3. Operating expenses per day (Transaction.EXPENSE)
+    // 3. Operating expenses per day (exclude Refund category — already handled by excluding returned sales)
     const expensesRaw: Array<{ date: Date; total: number }> = await prisma.$queryRaw`
       SELECT DATE_TRUNC('day', "createdAt" AT TIME ZONE 'UTC') AS date,
              COALESCE(SUM(amount), 0)::float                   AS total
       FROM   "Transaction"
       WHERE  "tenantId" = ${tenantId}
         AND  type = 'EXPENSE'
+        AND  category != 'Refund'
         AND  "createdAt" >= ${from}
       GROUP  BY 1
       ORDER  BY 1 ASC
@@ -126,7 +129,7 @@ router.get('/top-products', async (req: Request, res: Response, next: NextFuncti
     const limit = parseInt(req.query.limit as string) || 10
     const items = await prisma.saleItem.groupBy({
       by: ['productId', 'productName'],
-      where: { sale: { tenantId } },
+      where: { sale: { tenantId, status: { not: 'RETURNED' } } },
       _sum: { quantity: true, total: true },
       orderBy: { _sum: { total: 'desc' } },
       take: limit,
