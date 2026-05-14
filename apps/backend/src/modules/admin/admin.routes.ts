@@ -424,6 +424,138 @@ router.get('/activity-logs', async (req: Request, res: Response, next: NextFunct
   } catch (e) { next(e) }
 })
 
+// ── Platform Notifications (synthesised smart alerts) ────────────────────────
+router.get('/notifications', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const now  = new Date()
+    const in7d = new Date(now.getTime() + 7  * 86400_000)
+    const in3d = new Date(now.getTime() + 3  * 86400_000)
+    const ago30d = new Date(now.getTime() - 30 * 86400_000)
+    const ago24h = new Date(now.getTime() - 86400_000)
+
+    const [
+      expiringSubscriptions, expiringTrials, suspendedTenants,
+      newTenants, recentWarrantyClaims, pendingRepairs,
+    ] = await Promise.all([
+      prisma.tenant.findMany({
+        where: { status: 'ACTIVE', subscriptionEndsAt: { lte: in7d, gte: now } },
+        select: { id: true, name: true, plan: true, subscriptionEndsAt: true },
+      }),
+      prisma.tenant.findMany({
+        where: { status: 'TRIAL', trialEndsAt: { lte: in3d, gte: now } },
+        select: { id: true, name: true, trialEndsAt: true },
+      }),
+      prisma.tenant.findMany({
+        where: { status: 'SUSPENDED', updatedAt: { gte: ago30d } },
+        select: { id: true, name: true, plan: true, updatedAt: true },
+        orderBy: { updatedAt: 'desc' }, take: 20,
+      }),
+      prisma.tenant.findMany({
+        where: { createdAt: { gte: ago24h } },
+        select: { id: true, name: true, plan: true, createdAt: true, ownerEmail: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.warrantyClaim.findMany({
+        where: { createdAt: { gte: ago24h } },
+        select: { id: true, issue: true, createdAt: true, warranty: { select: { tenant: { select: { name: true } } } } },
+        orderBy: { createdAt: 'desc' }, take: 30,
+      }),
+      prisma.repairTicket.findMany({
+        where: { status: 'RECEIVED' },
+        select: { tenantId: true },
+      }),
+    ])
+
+    type Notif = { id: string; type: string; title: string; message: string; severity: string; createdAt: string; tenantId?: string }
+    const items: Notif[] = []
+
+    for (const t of expiringSubscriptions) {
+      const days = Math.round((new Date(t.subscriptionEndsAt!).getTime() - now.getTime()) / 86400_000)
+      items.push({
+        id: `sub-exp-${t.id}`,
+        type: 'SUBSCRIPTION_EXPIRING',
+        title: `Subscription expiring in ${days}d`,
+        message: `${t.name} (${t.plan}) subscription ends on ${new Date(t.subscriptionEndsAt!).toLocaleDateString('en-LK', { day: 'numeric', month: 'short' })}`,
+        severity: days <= 2 ? 'ERROR' : 'WARN',
+        createdAt: now.toISOString(),
+        tenantId: t.id,
+      })
+    }
+
+    for (const t of expiringTrials) {
+      const days = Math.round((new Date(t.trialEndsAt!).getTime() - now.getTime()) / 86400_000)
+      items.push({
+        id: `trial-exp-${t.id}`,
+        type: 'TRIAL_EXPIRING',
+        title: `Trial expiring in ${days}d`,
+        message: `${t.name} trial ends on ${new Date(t.trialEndsAt!).toLocaleDateString('en-LK', { day: 'numeric', month: 'short' })}. Consider reaching out for conversion.`,
+        severity: 'WARN',
+        createdAt: now.toISOString(),
+        tenantId: t.id,
+      })
+    }
+
+    for (const t of suspendedTenants) {
+      items.push({
+        id: `suspended-${t.id}`,
+        type: 'TENANT_SUSPENDED',
+        title: 'Tenant suspended',
+        message: `${t.name} (${t.plan}) was suspended.`,
+        severity: 'ERROR',
+        createdAt: (t.updatedAt as Date).toISOString(),
+        tenantId: t.id,
+      })
+    }
+
+    for (const t of newTenants) {
+      items.push({
+        id: `new-tenant-${t.id}`,
+        type: 'NEW_TENANT',
+        title: 'New tenant registered',
+        message: `${t.name} joined on ${t.plan} plan · ${t.ownerEmail}`,
+        severity: 'INFO',
+        createdAt: (t.createdAt as Date).toISOString(),
+        tenantId: t.id,
+      })
+    }
+
+    for (const w of recentWarrantyClaims) {
+      items.push({
+        id: `wc-${w.id}`,
+        type: 'WARRANTY_CLAIM',
+        title: 'New warranty claim',
+        message: `${w.warranty?.tenant?.name ?? 'Unknown'}: ${(w.issue ?? '').slice(0, 80)}`,
+        severity: 'WARN',
+        createdAt: (w.createdAt as Date).toISOString(),
+      })
+    }
+
+    // Group pending repairs by tenant and flag those with >= 10 pending
+    const repairByTenant: Record<string, number> = {}
+    for (const r of pendingRepairs) repairByTenant[r.tenantId] = (repairByTenant[r.tenantId] ?? 0) + 1
+    for (const [tenantId, count] of Object.entries(repairByTenant)) {
+      if (count >= 10) {
+        items.push({
+          id: `high-repairs-${tenantId}`,
+          type: 'HIGH_REPAIR_QUEUE',
+          title: 'High repair queue',
+          message: `Tenant has ${count} pending repair tickets.`,
+          severity: count >= 20 ? 'ERROR' : 'WARN',
+          createdAt: now.toISOString(),
+          tenantId,
+        })
+      }
+    }
+
+    items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+    const summary = { INFO: 0, WARN: 0, ERROR: 0 }
+    for (const n of items) summary[n.severity as keyof typeof summary] = (summary[n.severity as keyof typeof summary] ?? 0) + 1
+
+    sendSuccess(res, { data: items, total: items.length, summary })
+  } catch (e) { next(e) }
+})
+
 // ── Server & DB Stats ────────────────────────────────────────────────────────
 router.get('/server-stats', async (_req: Request, res: Response, next: NextFunction) => {
   try {

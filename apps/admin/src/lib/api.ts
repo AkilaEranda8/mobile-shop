@@ -206,6 +206,19 @@ export async function fetchServerStats(): Promise<ServerStats> {
   return req<ServerStats>(ADMIN_BASE, '/server-stats')
 }
 
+// ─── Notifications ────────────────────────────────────────────────────────────
+export interface PlatformNotification {
+  id: string; type: string; title: string; message: string
+  severity: string; createdAt: string; tenantId?: string
+}
+export interface NotificationResponse {
+  data: PlatformNotification[]; total: number
+  summary: { INFO: number; WARN: number; ERROR: number }
+}
+export async function fetchNotifications(): Promise<NotificationResponse> {
+  return req<NotificationResponse>(ADMIN_BASE, '/notifications')
+}
+
 // ─── Activity Logs ────────────────────────────────────────────────────────────
 export interface ActivityLog {
   id: string; timestamp: string; eventType: string; severity: string
