@@ -185,4 +185,7 @@ export const analyticsApi = {
   topProducts: (params?: Record<string, string>) =>
     api.get(`/analytics/top-products${params ? '?' + new URLSearchParams(params) : ''}`),
   repairsByStatus: () => api.get('/analytics/repairs-by-status'),
+  inventorySummary: () => api.get('/analytics/inventory-summary'),
+  deliverySummary: (params?: Record<string, string>) =>
+    api.get(`/analytics/delivery-summary${params ? '?' + new URLSearchParams(params) : ''}`),
 }

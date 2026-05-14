@@ -127,6 +127,20 @@ export function useRepairsByStatus() {
   )
 }
 
+export function useInventorySummary() {
+  return useApi<unknown>(
+    () => analyticsApi.inventorySummary() as Promise<{ data: unknown }>,
+    [],
+  )
+}
+
+export function useDeliverySummary(params?: Record<string, string>) {
+  return useApi<unknown>(
+    () => analyticsApi.deliverySummary(params) as Promise<{ data: unknown }>,
+    [JSON.stringify(params)],
+  )
+}
+
 export function useImeiRecords(params?: Record<string, string>) {
   return useApi<{ data: unknown[]; meta: any }>(
     () => wrapPaginated(imeiApi.list.bind(null, params)),

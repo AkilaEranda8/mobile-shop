@@ -142,4 +142,65 @@ router.get('/repairs-by-status', async (req: Request, res: Response, next: NextF
   } catch (e) { next(e) }
 })
 
+router.get('/inventory-summary', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenantId = req.tenantId!
+    const products = await prisma.product.findMany({
+      where: { tenantId, isActive: true },
+      select: { id: true, stock: true, minStock: true, buyingPrice: true, sellingPrice: true, category: { select: { name: true } } },
+    })
+
+    const catMap: Record<string, { name: string; products: number; totalStock: number; stockValue: number; lowStock: number; outOfStock: number }> = {}
+    let totalStockValue = 0, totalProducts = 0, totalLow = 0, totalOut = 0
+
+    products.forEach(p => {
+      const cat = (p as any).category?.name ?? 'Uncategorised'
+      if (!catMap[cat]) catMap[cat] = { name: cat, products: 0, totalStock: 0, stockValue: 0, lowStock: 0, outOfStock: 0 }
+      const val = p.stock * p.buyingPrice
+      catMap[cat].products++; catMap[cat].totalStock += p.stock; catMap[cat].stockValue += val
+      if (p.stock === 0) { catMap[cat].outOfStock++; totalOut++ }
+      else if (p.stock < p.minStock) { catMap[cat].lowStock++; totalLow++ }
+      totalStockValue += val; totalProducts++
+    })
+
+    sendSuccess(res, {
+      totalProducts, totalStockValue, lowStockCount: totalLow, outOfStockCount: totalOut,
+      byCategory: Object.values(catMap).sort((a, b) => b.stockValue - a.stockValue),
+    })
+  } catch (e) { next(e) }
+})
+
+router.get('/delivery-summary', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenantId = req.tenantId!
+    const days = parseInt(req.query.days as string) || 30
+    const from = new Date(); from.setDate(from.getDate() - days); from.setHours(0, 0, 0, 0)
+
+    const [byStatus, revenue, codTotal] = await Promise.all([
+      prisma.deliveryOrder.groupBy({
+        by: ['status'], where: { tenantId, createdAt: { gte: from } }, _count: true, _sum: { totalAmount: true },
+      }),
+      prisma.deliveryOrder.aggregate({
+        where: { tenantId, createdAt: { gte: from } },
+        _sum: { totalAmount: true, deliveryCharge: true, codAmount: true }, _count: true,
+      }),
+      prisma.deliveryOrder.count({ where: { tenantId, isCOD: true, createdAt: { gte: from } } }),
+    ])
+
+    sendSuccess(res, {
+      totalOrders:      revenue._count,
+      totalRevenue:     revenue._sum.totalAmount ?? 0,
+      totalDeliveryFee: revenue._sum.deliveryCharge ?? 0,
+      totalCOD:         revenue._sum.codAmount ?? 0,
+      codOrders:        codTotal,
+      prepaidOrders:    revenue._count - codTotal,
+      byStatus: byStatus.map((s: any) => ({
+        status: s.status,
+        count:  typeof s._count === 'object' ? s._count._all ?? 0 : s._count ?? 0,
+        revenue: s._sum?.totalAmount ?? 0,
+      })),
+    })
+  } catch (e) { next(e) }
+})
+
 export default router
