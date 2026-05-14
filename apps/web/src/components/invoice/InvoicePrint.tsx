@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, forwardRef } from 'react'
 import { Download, Printer, Phone, Mail, Globe, MapPin } from 'lucide-react'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -83,8 +83,10 @@ const fmt = (n: number) =>
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function InvoicePrint({ data = SAMPLE_INVOICE }: { data?: InvoiceData }) {
-  const invoiceRef = useRef<HTMLDivElement>(null)
+const InvoicePrint = forwardRef<HTMLDivElement, { data?: InvoiceData; hideControls?: boolean }>(
+function InvoicePrint({ data = SAMPLE_INVOICE, hideControls = false }, outerRef) {
+  const localRef = useRef<HTMLDivElement>(null)
+  const invoiceRef = (outerRef as React.RefObject<HTMLDivElement>) ?? localRef
 
   const subtotal  = data.items.reduce((s, i) => s + i.price * i.qty, 0)
   const tax       = subtotal * (data.taxRate / 100)
@@ -134,9 +136,9 @@ export default function InvoicePrint({ data = SAMPLE_INVOICE }: { data?: Invoice
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8 px-4">
+    <div className={hideControls ? '' : 'min-h-screen bg-gray-100 py-8 px-4'}>
       {/* ── Action buttons ── */}
-      <div className="flex items-center justify-center gap-3 mb-6 print:hidden">
+      {!hideControls && <div className="flex items-center justify-center gap-3 mb-6 print:hidden">
         <button
           onClick={handlePrint}
           className="flex items-center gap-2 px-5 py-2.5 bg-[#2E2E2E] text-white rounded-lg text-sm font-medium hover:bg-black transition-colors shadow"
@@ -149,7 +151,7 @@ export default function InvoicePrint({ data = SAMPLE_INVOICE }: { data?: Invoice
         >
           <Download size={16} /> Download PDF
         </button>
-      </div>
+      </div>}
 
       {/* ── A4 Invoice sheet ── */}
       <div
@@ -345,4 +347,6 @@ export default function InvoicePrint({ data = SAMPLE_INVOICE }: { data?: Invoice
       </div>
     </div>
   )
-}
+})
+
+export default InvoicePrint

@@ -308,7 +308,7 @@ export default function POSPage() {
   const [showA4Invoice, setShowA4Invoice]       = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL')
   const [categories, setCategories]             = useState<{ id: string; name: string }[]>([])
-  const invoiceRef                              = useRef<HTMLDivElement>(null)
+  const a4Ref                                   = useRef<HTMLDivElement>(null)
 
   const { data: productsData } = useProducts({ limit: '500' })
   const { data: customersData, refetch: refetchCustomers } = useCustomers({ limit: '200' })
@@ -423,25 +423,57 @@ export default function POSPage() {
     }
   }
 
+  const buildA4Data = (): InvoiceData | null => {
+    if (!completedSale) return null
+    return {
+      companyName:     invoiceSettings.shopName || shopName,
+      companySlogan:   invoiceSettings.slogan   || 'Sales & Service',
+      companyAddress:  invoiceSettings.address  || '',
+      companyPhone:    invoiceSettings.phone    || '',
+      companyEmail:    invoiceSettings.email    || '',
+      companyWebsite:  invoiceSettings.website  || '',
+      invoiceNumber:   completedSale.invoiceNumber || `INV-${Date.now()}`,
+      dueDate:         completedSale.createdAt
+        ? new Date(completedSale.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
+        : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }),
+      customerName:    completedSale.customerName  || 'Walk-in Customer',
+      customerEmail:   completedSale.customerEmail || '',
+      customerAddress: completedSale.customerPhone ? `Phone: ${completedSale.customerPhone}` : '',
+      items: completedSale.items?.map((i: any) => ({
+        description: i.productName,
+        details:     i.sku ? `SKU: ${i.sku}${i.imei ? '  ·  IMEI: ' + i.imei : ''}` : undefined,
+        price:       i.unitPrice,
+        qty:         i.quantity,
+      })) ?? [],
+      bankName:  invoiceSettings.bankDetails?.split('\n')?.[0] || '',
+      accNumber: invoiceSettings.bankDetails?.split('\n')?.[1] || '',
+      accHolder: invoiceSettings.shopName || shopName,
+      swiftCode: '',
+      taxRate:      0,
+      discountRate: subtotal > 0 ? Math.round((discountAmount / subtotal) * 100) : 0,
+      terms: [
+        'Payment is due upon receipt of this invoice.',
+        'All sales are final unless otherwise agreed.',
+        invoiceSettings.footerNote || 'Thank you for your business!',
+      ],
+      signatoryName:  invoiceSettings.shopName || shopName,
+      signatoryTitle: 'Authorized Signatory',
+    }
+  }
+
   const downloadInvoice = async () => {
-    if (!invoiceRef.current) return
+    if (!a4Ref.current) return
     setDownloading(true)
     try {
       const { default: html2canvas } = await import('html2canvas')
       const { jsPDF }               = await import('jspdf')
-      const A4_W_PX = 794, A4_W_MM = 210, A4_H_MM = 297
-      const wrapper = document.createElement('div')
-      wrapper.style.cssText = `position:fixed;top:-9999px;left:-9999px;width:${A4_W_PX}px;overflow:visible;`
-      const el = invoiceRef.current!
-      const clone = el.cloneNode(true) as HTMLElement
-      clone.style.cssText = `width:${A4_W_PX}px;max-width:${A4_W_PX}px;border-radius:0;`
-      wrapper.appendChild(clone)
-      document.body.appendChild(wrapper)
-      const canvas = await html2canvas(clone, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false, width: A4_W_PX, windowWidth: A4_W_PX })
-      document.body.removeChild(wrapper)
-      const imgData  = canvas.toDataURL('image/jpeg', 0.95)
-      const imgH_MM  = (canvas.height / canvas.width) * A4_W_MM
-      const pdf      = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+      const A4_W_MM = 210, A4_H_MM = 297
+      const canvas = await html2canvas(a4Ref.current, {
+        scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false,
+      })
+      const imgData = canvas.toDataURL('image/jpeg', 0.95)
+      const imgH_MM = (canvas.height / canvas.width) * A4_W_MM
+      const pdf     = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
       if (imgH_MM <= A4_H_MM) {
         pdf.addImage(imgData, 'JPEG', 0, 0, A4_W_MM, imgH_MM)
       } else {
@@ -610,12 +642,12 @@ export default function POSPage() {
               <button onClick={handleNewSale} className="btn-primary w-full text-sm">New Sale</button>
             </div>
 
-            {/* Hidden invoice for PDF */}
-            <div style={{ position: 'fixed', left: '-9999px', top: 0, pointerEvents: 'none' }}>
-              <div ref={invoiceRef}>
-                <InvoiceTemplate sale={{ ...completedSale, subtotal, discount: discountAmount, tax, total }} shopName={shopName} settings={invoiceSettings} />
+            {/* Hidden A4 invoice for PDF capture */}
+            {completedSale && (() => { const d = buildA4Data(); return d ? (
+              <div style={{ position: 'fixed', left: '-9999px', top: 0, width: 794, pointerEvents: 'none' }}>
+                <InvoicePrint ref={a4Ref} data={d} hideControls />
               </div>
-            </div>
+            ) : null })()}
           </div>
 
         ) : (
@@ -781,40 +813,8 @@ export default function POSPage() {
 
       {/* ── A4 Invoice Modal ── */}
       {showA4Invoice && completedSale && (() => {
-        const a4Data: InvoiceData = {
-          companyName:     invoiceSettings.shopName || shopName,
-          companySlogan:   invoiceSettings.slogan   || 'Sales & Service',
-          companyAddress:  invoiceSettings.address  || '',
-          companyPhone:    invoiceSettings.phone    || '',
-          companyEmail:    invoiceSettings.email    || '',
-          companyWebsite:  invoiceSettings.website  || '',
-          invoiceNumber:   completedSale.invoiceNumber || `INV-${Date.now()}`,
-          dueDate:         completedSale.createdAt
-            ? new Date(completedSale.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
-            : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }),
-          customerName:    completedSale.customerName  || 'Walk-in Customer',
-          customerEmail:   completedSale.customerEmail || '',
-          customerAddress: completedSale.customerPhone ? `Phone: ${completedSale.customerPhone}` : '',
-          items: completedSale.items?.map((i: any) => ({
-            description: i.productName,
-            details:     i.sku ? `SKU: ${i.sku}${i.imei ? '  ·  IMEI: ' + i.imei : ''}` : undefined,
-            price:       i.unitPrice,
-            qty:         i.quantity,
-          })) ?? [],
-          bankName:  invoiceSettings.bankDetails?.split('\n')?.[0] || '',
-          accNumber: invoiceSettings.bankDetails?.split('\n')?.[1] || '',
-          accHolder: invoiceSettings.shopName || shopName,
-          swiftCode: '',
-          taxRate:      0,
-          discountRate: subtotal > 0 ? Math.round((discountAmount / subtotal) * 100) : 0,
-          terms: [
-            'Payment is due upon receipt of this invoice.',
-            'All sales are final unless otherwise agreed.',
-            invoiceSettings.footerNote || 'Thank you for your business!',
-          ],
-          signatoryName:  invoiceSettings.shopName || shopName,
-          signatoryTitle: 'Authorized Signatory',
-        }
+        const a4Data = buildA4Data()
+        if (!a4Data) return null
         return (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm overflow-y-auto">
             <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 bg-[#0a0f1a]/95 border-b border-white/10 backdrop-blur">
