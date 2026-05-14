@@ -751,7 +751,7 @@ export default function SuppliersPage() {
           <div className="flex items-center gap-2">
             {(s as any).outstandingDues > 0 && (
               <button onClick={() => setPaySupplier(s)}
-                className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors">
+                className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors shadow-sm">
                 <CreditCard size={10} />Pay
               </button>
             )}
