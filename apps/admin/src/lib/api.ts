@@ -134,6 +134,12 @@ export async function fetchSubscriptions(status?: string) {
   return req<{ data: SubscriptionRow[]; mrrTotal: number }>(ADMIN_BASE, `/subscriptions${qs}`)
 }
 
+export async function updateSubscription(id: string, data: { plan?: string; status?: string; mrr?: number; subscriptionEndsAt?: string }) {
+  return req<SubscriptionRow>(ADMIN_BASE, `/tenants/${id}`, {
+    method: 'PATCH', body: JSON.stringify(data),
+  })
+}
+
 // ─── Analytics ────────────────────────────────────────────────────────────────
 export async function fetchAnalytics(): Promise<AnalyticsData> {
   return req<AnalyticsData>(ADMIN_BASE, '/analytics')
