@@ -23,209 +23,148 @@ interface CartItem {
 }
 
 /* ── Invoice Template ───────────────────────────────────────────────────── */
-const INV_BG     = '#ffffff'
-const INV_DARK   = '#0f172a'
-const INV_ACCENT = '#6366f1'
-const INV_GOLD   = '#f59e0b'
-const INV_LIGHT  = '#f8fafc'
-const INV_BORDER = '#e2e8f0'
-const INV_MUTED  = '#64748b'
-
-function InfoRow({ label, value }: { label: string; value?: string | null }) {
-  if (!value) return null
-  return (
-    <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
-      <span style={{ fontSize: 10, color: INV_MUTED, minWidth: 54, flexShrink: 0 }}>{label}</span>
-      <span style={{ fontSize: 10, color: INV_DARK, fontWeight: 600 }}>{value}</span>
-    </div>
-  )
-}
+const C_HDR    = '#1a2e28'   // dark header background
+const C_TEAL   = '#00c896'   // accent teal
+const C_TABLE  = '#1e2d28'   // dark table row background
+const C_LIGHT  = '#f7f9f8'   // light section background
+const C_BORDER = '#e4ebe8'   // border color
+const C_DARK   = '#111b17'   // primary text
+const C_MUTED  = '#6b7b74'   // muted text
 
 function InvoiceTemplate({ sale, shopName, settings }: { sale: any; shopName: string; settings: InvoiceSettings }) {
   const fc = formatCurrency
   const now = sale.createdAt ? new Date(sale.createdAt) : new Date()
-  const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+  const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
   const displayName = settings.shopName || shopName
-  const payMethod = sale.payments?.map((p: any) => p.method).join(' + ') || '—'
   const isPaid = !sale.dueAmount || sale.dueAmount === 0
 
   return (
-    <div style={{ width: 794, background: INV_BG, fontFamily: "'Segoe UI', system-ui, Arial, sans-serif", color: INV_DARK }}>
+    <div style={{ width: 520, background: '#ffffff', fontFamily: "'Segoe UI', system-ui, Arial, sans-serif", color: C_DARK, borderRadius: 0 }}>
 
       {/* ═══ HEADER ═══════════════════════════════════════════════════════ */}
-      <div style={{ background: INV_DARK, position: 'relative', overflow: 'hidden', display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', minHeight: 120 }}>
-
-        {/* Left accent stripe */}
-        <div style={{ width: 6, background: `linear-gradient(180deg, ${INV_ACCENT} 0%, ${INV_GOLD} 100%)`, flexShrink: 0 }} />
-
-        {/* Shop info */}
-        <div style={{ flex: 1, padding: '28px 28px 28px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <p style={{ margin: 0, color: '#fff', fontSize: 26, fontWeight: 900, letterSpacing: 0.5, lineHeight: 1 }}>{displayName}</p>
-          <p style={{ margin: '6px 0 0', color: '#94a3b8', fontSize: 10.5, letterSpacing: 2, textTransform: 'uppercase' }}>{settings.slogan || 'Sales & Service'}</p>
-          {settings.phone && <p style={{ margin: '10px 0 0', color: '#64748b', fontSize: 10 }}>{settings.phone}{settings.email ? '  ·  ' + settings.email : ''}</p>}
-          {settings.address && <p style={{ margin: '2px 0 0', color: '#475569', fontSize: 10 }}>{settings.address}</p>}
+      <div style={{ background: C_HDR, padding: '28px 32px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <p style={{ margin: 0, color: '#ffffff', fontSize: 22, fontWeight: 800, lineHeight: 1.1 }}>{displayName}</p>
+          <p style={{ margin: '5px 0 0', color: '#7ea898', fontSize: 10, letterSpacing: 0.4 }}>{settings.slogan || 'Sales & Service'}</p>
         </div>
-
-        {/* Right: Invoice badge */}
-        <div style={{ padding: '28px 36px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(255,255,255,0.03)' }}>
-          <div style={{ background: INV_ACCENT, borderRadius: 6, padding: '4px 14px', marginBottom: 10 }}>
-            <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', letterSpacing: 3, textTransform: 'uppercase' }}>Invoice</span>
-          </div>
-          <p style={{ margin: 0, color: '#fff', fontSize: 18, fontWeight: 700, fontFamily: 'monospace', letterSpacing: 1 }}>{sale.invoiceNumber}</p>
-          <p style={{ margin: '4px 0 0', color: '#94a3b8', fontSize: 10 }}>{dateStr}</p>
-          <p style={{ margin: '1px 0 0', color: '#64748b', fontSize: 9.5 }}>{timeStr}</p>
+        <div style={{ textAlign: 'right' }}>
+          <p style={{ margin: 0, color: C_TEAL, fontSize: 26, fontWeight: 900, letterSpacing: 1, lineHeight: 1 }}>INVOICE</p>
+          <p style={{ margin: '5px 0 0', color: '#7ea898', fontSize: 11, fontFamily: 'monospace' }}>{sale.invoiceNumber}</p>
         </div>
-
-        {/* Corner watermark */}
-        <div style={{ position: 'absolute', right: 0, bottom: 0, width: 120, height: 120, background: `radial-gradient(circle at bottom right, ${INV_ACCENT}18 0%, transparent 70%)`, pointerEvents: 'none' }} />
       </div>
 
-      {/* ═══ BILLING INFO STRIP ═══════════════════════════════════════════ */}
-      <div style={{ display: 'flex', background: INV_LIGHT, borderBottom: `2px solid ${INV_BORDER}` }}>
-
-        {/* Billed To */}
-        <div style={{ flex: 1, padding: '18px 24px', borderRight: `1px solid ${INV_BORDER}` }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-            <div style={{ width: 3, height: 14, background: INV_ACCENT, borderRadius: 2 }} />
-            <span style={{ fontSize: 9.5, fontWeight: 800, color: INV_ACCENT, textTransform: 'uppercase', letterSpacing: 1.2 }}>Billed To</span>
-          </div>
-          <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: INV_DARK }}>{sale.customerName || 'Walk-in Customer'}</p>
-          <InfoRow label="Phone"  value={sale.customerPhone} />
-          <InfoRow label="Date"   value={dateStr} />
+      {/* ═══ DATE / STATUS STRIP ══════════════════════════════════════════ */}
+      <div style={{ background: C_LIGHT, borderBottom: `1px solid ${C_BORDER}`, padding: '12px 32px', display: 'flex', gap: 32 }}>
+        <div>
+          <p style={{ margin: 0, fontSize: 9, fontWeight: 700, color: C_MUTED, textTransform: 'uppercase', letterSpacing: 1 }}>Issue Date</p>
+          <p style={{ margin: '3px 0 0', fontSize: 12, fontWeight: 600, color: C_DARK }}>{dateStr}</p>
         </div>
-
-        {/* Invoice Details */}
-        <div style={{ flex: 1, padding: '18px 24px', borderRight: `1px solid ${INV_BORDER}` }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-            <div style={{ width: 3, height: 14, background: INV_GOLD, borderRadius: 2 }} />
-            <span style={{ fontSize: 9.5, fontWeight: 800, color: INV_GOLD, textTransform: 'uppercase', letterSpacing: 1.2 }}>Invoice Details</span>
-          </div>
-          <InfoRow label="No."      value={sale.invoiceNumber} />
-          <InfoRow label="Date"     value={dateStr} />
-          <InfoRow label="Cashier"  value={sale.cashierName} />
-          <InfoRow label="Payment"  value={payMethod} />
-          <div style={{ marginTop: 8 }}>
-            <span style={{ display: 'inline-block', background: isPaid ? '#dcfce7' : '#fef9c3', color: isPaid ? '#15803d' : '#92400e', fontWeight: 700, fontSize: 10, padding: '2px 10px', borderRadius: 99, border: `1px solid ${isPaid ? '#86efac' : '#fcd34d'}` }}>
-              {isPaid ? '✓ PAID' : 'PARTIAL'}
+        <div>
+          <p style={{ margin: 0, fontSize: 9, fontWeight: 700, color: C_MUTED, textTransform: 'uppercase', letterSpacing: 1 }}>Cashier</p>
+          <p style={{ margin: '3px 0 0', fontSize: 12, fontWeight: 600, color: C_DARK }}>{sale.cashierName || '—'}</p>
+        </div>
+        <div>
+          <p style={{ margin: 0, fontSize: 9, fontWeight: 700, color: C_MUTED, textTransform: 'uppercase', letterSpacing: 1 }}>Status</p>
+          <div style={{ marginTop: 3, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: C_DARK }}>{isPaid ? 'Paid in full' : 'Partial payment'}</p>
+            <span style={{ background: isPaid ? C_TEAL : '#f59e0b', color: isPaid ? '#fff' : '#fff', fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 99, letterSpacing: 0.5 }}>
+              {isPaid ? 'PAID' : 'DUE'}
             </span>
           </div>
         </div>
+      </div>
 
-        {/* From */}
-        <div style={{ flex: 1, padding: '18px 24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-            <div style={{ width: 3, height: 14, background: '#10b981', borderRadius: 2 }} />
-            <span style={{ fontSize: 9.5, fontWeight: 800, color: '#10b981', textTransform: 'uppercase', letterSpacing: 1.2 }}>From</span>
-          </div>
-          <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 700, color: INV_DARK }}>{displayName}</p>
-          <InfoRow label="Phone"   value={settings.phone} />
-          <InfoRow label="Email"   value={settings.email} />
-          <InfoRow label="Website" value={settings.website} />
+      {/* ═══ BILL FROM / BILL TO ══════════════════════════════════════════ */}
+      <div style={{ display: 'flex', padding: '20px 32px', gap: 24, borderBottom: `1px solid ${C_BORDER}` }}>
+        <div style={{ flex: 1 }}>
+          <p style={{ margin: '0 0 8px', fontSize: 9, fontWeight: 700, color: C_MUTED, textTransform: 'uppercase', letterSpacing: 1 }}>Bill From</p>
+          <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 700, color: C_DARK }}>{displayName}</p>
+          {settings.address && <p style={{ margin: '1px 0', fontSize: 11, color: C_MUTED }}>{settings.address}</p>}
+          {settings.phone   && <p style={{ margin: '1px 0', fontSize: 11, color: C_MUTED }}>{settings.phone}</p>}
+          {settings.email   && <p style={{ margin: '1px 0', fontSize: 11, color: C_MUTED }}>{settings.email}</p>}
+        </div>
+        <div style={{ flex: 1 }}>
+          <p style={{ margin: '0 0 8px', fontSize: 9, fontWeight: 700, color: C_MUTED, textTransform: 'uppercase', letterSpacing: 1 }}>Bill To</p>
+          <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 700, color: C_DARK }}>{sale.customerName || 'Walk-in Customer'}</p>
+          {sale.customerPhone && <p style={{ margin: '1px 0', fontSize: 11, color: C_MUTED }}>{sale.customerPhone}</p>}
         </div>
       </div>
 
       {/* ═══ ITEMS TABLE ══════════════════════════════════════════════════ */}
-      <div style={{ padding: '24px 28px 0' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', borderRadius: 10, overflow: 'hidden' }}>
-          <thead>
-            <tr style={{ background: INV_DARK }}>
-              <th style={{ padding: '10px 14px', color: '#e2e8f0', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, textAlign: 'left', borderRadius: '8px 0 0 0' }}>#</th>
-              <th style={{ padding: '10px 14px', color: '#e2e8f0', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, textAlign: 'left' }}>Item Description</th>
-              <th style={{ padding: '10px 14px', color: '#e2e8f0', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, textAlign: 'right' }}>Unit Price</th>
-              <th style={{ padding: '10px 14px', color: '#e2e8f0', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, textAlign: 'center' }}>Qty</th>
-              <th style={{ padding: '10px 14px', color: '#fff', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, textAlign: 'right', background: INV_ACCENT, borderRadius: '0 8px 0 0' }}>Total</th>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr style={{ background: C_TABLE }}>
+            <th style={{ padding: '10px 32px 10px 32px', color: '#9db8ae', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, textAlign: 'left' }}>Description</th>
+            <th style={{ padding: '10px 12px', color: '#9db8ae', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, textAlign: 'right' }}>Rate</th>
+            <th style={{ padding: '10px 12px', color: '#9db8ae', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, textAlign: 'center' }}>Qty</th>
+            <th style={{ padding: '10px 32px 10px 12px', color: '#9db8ae', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, textAlign: 'right' }}>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sale.items?.map((item: any, idx: number) => (
+            <tr key={item.id ?? idx} style={{ background: idx % 2 === 0 ? '#ffffff' : C_LIGHT, borderBottom: `1px solid ${C_BORDER}` }}>
+              <td style={{ padding: '12px 32px 12px 32px' }}>
+                <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: C_DARK }}>{item.productName}</p>
+                {(item.sku || item.imei) && (
+                  <p style={{ margin: '2px 0 0', fontSize: 9, color: C_MUTED, fontFamily: 'monospace' }}>
+                    {item.sku && `SKU: ${item.sku}`}{item.imei ? '  ·  IMEI: ' + item.imei : ''}
+                  </p>
+                )}
+              </td>
+              <td style={{ padding: '12px', fontSize: 12, color: C_MUTED, textAlign: 'right', whiteSpace: 'nowrap' }}>{fc(item.unitPrice)}</td>
+              <td style={{ padding: '12px', textAlign: 'center' }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: C_DARK }}>{item.quantity}</span>
+              </td>
+              <td style={{ padding: '12px 32px 12px 12px', fontSize: 12, fontWeight: 700, color: C_DARK, textAlign: 'right', whiteSpace: 'nowrap' }}>{fc(item.total)}</td>
             </tr>
-          </thead>
-          <tbody>
-            {sale.items?.map((item: any, idx: number) => (
-              <tr key={item.id ?? idx} style={{ background: idx % 2 === 0 ? '#fff' : INV_LIGHT, borderBottom: `1px solid ${INV_BORDER}` }}>
-                <td style={{ padding: '11px 14px', fontSize: 11, color: INV_MUTED, fontWeight: 600 }}>{idx + 1}</td>
-                <td style={{ padding: '11px 14px' }}>
-                  <span style={{ fontSize: 12, color: INV_DARK, fontWeight: 600 }}>{item.productName}</span>
-                  {(item.sku || item.imei) && (
-                    <span style={{ display: 'block', marginTop: 2, fontSize: 9, color: '#94a3b8', fontFamily: 'monospace' }}>
-                      {item.sku && `SKU: ${item.sku}`}{item.imei ? `  ·  IMEI: ${item.imei}` : ''}
-                    </span>
-                  )}
-                </td>
-                <td style={{ padding: '11px 14px', fontSize: 12, color: INV_MUTED, textAlign: 'right' }}>{fc(item.unitPrice)}</td>
-                <td style={{ padding: '11px 14px', textAlign: 'center' }}>
-                  <span style={{ display: 'inline-block', background: `${INV_ACCENT}15`, color: INV_ACCENT, fontWeight: 700, fontSize: 11, padding: '1px 8px', borderRadius: 99 }}>{item.quantity}</span>
-                </td>
-                <td style={{ padding: '11px 14px', fontSize: 12, fontWeight: 700, color: INV_DARK, textAlign: 'right' }}>{fc(item.total)}</td>
-              </tr>
-            ))}
-            <tr>
-              <td colSpan={5} style={{ height: 6, background: INV_LIGHT }} />
-            </tr>
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </table>
 
-      {/* ═══ TOTALS + NOTES ═══════════════════════════════════════════════ */}
-      <div style={{ display: 'flex', padding: '16px 28px 20px', gap: 20, alignItems: 'flex-start' }}>
-
-        {/* Notes / thank you */}
-        <div style={{ flex: 1.6 }}>
-          <div style={{ background: `${INV_ACCENT}0d`, border: `1px solid ${INV_ACCENT}30`, borderRadius: 8, padding: '14px 16px' }}>
-            <p style={{ margin: '0 0 6px', fontSize: 10, fontWeight: 700, color: INV_ACCENT, textTransform: 'uppercase', letterSpacing: 1 }}>Note</p>
-            <p style={{ margin: 0, fontSize: 11.5, color: '#334155', fontStyle: 'italic', lineHeight: 1.6 }}>{settings.footerNote || 'Thank you for your purchase! We appreciate your business.'}</p>
+      {/* ═══ TOTALS ═══════════════════════════════════════════════════════ */}
+      <div style={{ padding: '16px 32px 20px', borderTop: `1px solid ${C_BORDER}` }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', width: 220, fontSize: 12, color: C_MUTED }}>
+            <span>Subtotal</span><span style={{ fontWeight: 600, color: C_DARK }}>{fc(sale.subtotal)}</span>
           </div>
-          {/* Payment method pills */}
-          <div style={{ marginTop: 12, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {sale.payments?.map((p: any, i: number) => (
-              <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: INV_DARK, color: '#e2e8f0', fontSize: 10, fontWeight: 600, padding: '4px 10px', borderRadius: 99 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: INV_GOLD, display: 'inline-block' }} />
-                {p.method}  {fc(p.amount)}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Totals card */}
-        <div style={{ flex: 1, background: INV_LIGHT, border: `1px solid ${INV_BORDER}`, borderRadius: 10, overflow: 'hidden' }}>
-          <div style={{ background: INV_DARK, padding: '8px 14px' }}>
-            <span style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1 }}>Summary</span>
-          </div>
-          <div style={{ padding: '10px 14px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: `1px solid ${INV_BORDER}`, fontSize: 12, color: INV_MUTED }}>
-              <span>Subtotal</span><span style={{ fontWeight: 600, color: INV_DARK }}>{fc(sale.subtotal)}</span>
+          {sale.discount > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', width: 220, fontSize: 12, color: '#e53935' }}>
+              <span>Discount</span><span style={{ fontWeight: 600 }}>− {fc(sale.discount)}</span>
             </div>
-            {sale.discount > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: `1px solid ${INV_BORDER}`, fontSize: 12, color: '#ef4444' }}>
-                <span>Discount</span><span style={{ fontWeight: 600 }}>− {fc(sale.discount)}</span>
-              </div>
-            )}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, background: INV_ACCENT, padding: '10px 14px', borderRadius: 6 }}>
-              <span style={{ fontSize: 13, fontWeight: 900, color: '#fff', letterSpacing: 0.5 }}>TOTAL</span>
-              <span style={{ fontSize: 15, fontWeight: 900, color: '#fff' }}>{fc(sale.total)}</span>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: 220, marginTop: 4, paddingTop: 8, borderTop: `1.5px solid ${C_BORDER}` }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: C_MUTED }}>Total due</span>
+            <span style={{ fontSize: 16, fontWeight: 900, color: C_TEAL }}>{fc(sale.total)}</span>
+          </div>
+          {sale.dueAmount > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', width: 220, fontSize: 11, color: '#f59e0b', fontWeight: 700 }}>
+              <span>Outstanding</span><span>{fc(sale.dueAmount)}</span>
             </div>
-            {sale.dueAmount > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, background: '#fef3c7', padding: '6px 10px', borderRadius: 6, fontSize: 11, color: '#92400e', fontWeight: 700 }}>
-                <span>Amount Due</span><span>{fc(sale.dueAmount)}</span>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
-      {/* ═══ FOOTER BAR ═══════════════════════════════════════════════════ */}
-      <div style={{ margin: '0 28px', borderTop: `1px solid ${INV_BORDER}`, padding: '14px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-        <div>
-          <p style={{ margin: 0, fontSize: 9.5, color: '#94a3b8' }}>Computer-generated invoice · No signature required</p>
-          <p style={{ margin: '2px 0 0', fontSize: 9, color: '#cbd5e1' }}>Powered by Hexalyte · {displayName}</p>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ borderTop: `1.5px solid ${INV_DARK}`, paddingTop: 5, width: 130 }}>
-            <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: INV_DARK }}>{sale.cashierName}</p>
-            <p style={{ margin: '1px 0 0', fontSize: 8.5, color: INV_MUTED, textTransform: 'uppercase', letterSpacing: 1 }}>Authorised Signature</p>
-          </div>
-        </div>
+      {/* ═══ PAYMENT DETAILS ══════════════════════════════════════════════ */}
+      <div style={{ margin: '0 32px 20px', padding: '12px 16px', border: `1px solid ${C_BORDER}`, borderRadius: 6, background: C_LIGHT }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: C_DARK }}>Payment details: </span>
+        {sale.payments?.map((p: any, i: number) => (
+          <span key={i} style={{ fontSize: 10, color: C_MUTED }}>
+            {p.method} — {fc(p.amount)}{i < sale.payments.length - 1 ? '  ·  ' : ''}
+          </span>
+        ))}
+        {settings.bankDetails && (
+          <p style={{ margin: '4px 0 0', fontSize: 10, color: C_MUTED }}>{settings.bankDetails}</p>
+        )}
       </div>
 
-      {/* Bottom gradient bar */}
-      <div style={{ height: 5, background: `linear-gradient(90deg, ${INV_ACCENT} 0%, ${INV_GOLD} 60%, ${INV_ACCENT} 100%)`, marginTop: 12 }} />
+      {/* ═══ FOOTER ═══════════════════════════════════════════════════════ */}
+      <div style={{ borderTop: `1px solid ${C_BORDER}`, padding: '12px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: C_LIGHT }}>
+        <p style={{ margin: 0, fontSize: 10, color: C_MUTED, fontStyle: 'italic' }}>{settings.footerNote || 'Thank you for your business.'}</p>
+        <div style={{ textAlign: 'right' }}>
+          {settings.website && <p style={{ margin: 0, fontSize: 9.5, color: C_MUTED }}>{settings.website}</p>}
+          {settings.phone   && <p style={{ margin: '1px 0 0', fontSize: 9.5, color: C_MUTED }}>{settings.phone}</p>}
+        </div>
+      </div>
     </div>
   )
 }
