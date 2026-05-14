@@ -43,6 +43,17 @@ function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
   const TEMPLATE = 'name,sku,brandName,categoryName,buyingPrice,sellingPrice,stock,minStock'
   const SAMPLE   = 'iPhone 15 Pro,IP15P-256,Apple,Smartphones,75000,89999,5,2'
 
+  const COL_ALIASES: Record<string, string> = {
+    'product name': 'name', 'product': 'name', 'item name': 'name', 'item': 'name',
+    'sku': 'sku', 'sku code': 'sku', 'product code': 'sku',
+    'category': 'categoryName', 'category name': 'categoryName',
+    'brand': 'brandName', 'brand name': 'brandName',
+    'cost price': 'buyingPrice', 'buying price': 'buyingPrice', 'cost': 'buyingPrice', 'purchase price': 'buyingPrice',
+    'selling price': 'sellingPrice', 'sale price': 'sellingPrice', 'price': 'sellingPrice', 'retail price': 'sellingPrice',
+    'stock qty': 'stock', 'stock quantity': 'stock', 'qty': 'stock', 'quantity': 'stock', 'stock': 'stock',
+    'min stock': 'minStock', 'minimum stock': 'minStock', 'min stock alert': 'minStock', 'min qty': 'minStock',
+  }
+
   const downloadTemplate = () => {
     const blob = new Blob([[TEMPLATE, SAMPLE].join('\n')], { type: 'text/csv' })
     const url  = URL.createObjectURL(blob)
@@ -55,10 +66,14 @@ function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
     reader.onload = (ev) => {
       const text   = ev.target?.result as string
       const lines  = text.trim().split('\n').filter(Boolean)
-      const header = lines[0].split(',')
+      const rawHeader = lines[0].split(',')
+      const header = rawHeader.map(h => {
+        const norm = h.trim().toLowerCase().replace(/^"|"$/g, '')
+        return COL_ALIASES[norm] ?? h.trim().replace(/^"|"$/g, '')
+      })
       const parsed = lines.slice(1).map(line => {
         const vals: Record<string, string> = {}
-        line.split(',').forEach((v, i) => { vals[header[i]?.trim()] = v.trim().replace(/^"|"$/g, '') })
+        line.split(',').forEach((v, i) => { vals[header[i]] = v.trim().replace(/^"|"$/g, '') })
         return vals
       })
       setRows(parsed)
