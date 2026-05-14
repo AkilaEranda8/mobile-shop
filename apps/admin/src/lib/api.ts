@@ -192,3 +192,28 @@ export interface ServerStats {
 export async function fetchServerStats(): Promise<ServerStats> {
   return req<ServerStats>(ADMIN_BASE, '/server-stats')
 }
+
+// ─── Activity Logs ────────────────────────────────────────────────────────────
+export interface ActivityLog {
+  id: string; timestamp: string; eventType: string; severity: string
+  actorType: string; actor: string; target: string; details: string; ip: string
+}
+export interface ActivityLogResponse {
+  data: ActivityLog[]; total: number; page: number; limit: number
+  summary: { INFO: number; WARN: number; ERROR: number; CRITICAL: number }
+}
+export interface ActivityLogParams {
+  search?: string; severity?: string; eventType?: string
+  actorType?: string; page?: number; limit?: number
+}
+export async function fetchActivityLogs(params?: ActivityLogParams): Promise<ActivityLogResponse> {
+  const p: Record<string, string> = {}
+  if (params?.search)    p.search    = params.search
+  if (params?.severity)  p.severity  = params.severity
+  if (params?.eventType) p.eventType = params.eventType
+  if (params?.actorType) p.actorType = params.actorType
+  if (params?.page)      p.page      = String(params.page)
+  if (params?.limit)     p.limit     = String(params.limit)
+  const qs = Object.keys(p).length ? '?' + new URLSearchParams(p) : ''
+  return req<ActivityLogResponse>(ADMIN_BASE, `/activity-logs${qs}`)
+}

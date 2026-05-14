@@ -303,6 +303,111 @@ router.post('/tenants/:id/revoke-sessions', async (req: Request, res: Response, 
   } catch (e) { next(e) }
 })
 
+// ── Activity Logs (synthesised from real DB records) ─────────────────────────
+router.get('/activity-logs', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { search = '', severity: sevFilter = 'ALL', eventType: evFilter = 'ALL',
+            actorType: actFilter = 'ALL', page = '1', limit = '50' } = req.query as Record<string, string>
+    const TAKE = 100
+
+    // ── pull raw records in parallel ──────────────────────────────
+    const [tenants, users, sales, repairs, repairHistory, warrantyClaims, purchaseOrders] =
+      await Promise.all([
+        prisma.tenant.findMany({ select: { id: true, name: true, plan: true, status: true, createdAt: true, ownerEmail: true }, orderBy: { createdAt: 'desc' }, take: TAKE }),
+        prisma.user.findMany({ select: { id: true, name: true, email: true, role: true, createdAt: true, tenant: { select: { name: true } } }, orderBy: { createdAt: 'desc' }, take: TAKE }),
+        prisma.sale.findMany({ select: { id: true, invoiceNumber: true, total: true, cashierName: true, createdAt: true, tenant: { select: { name: true } } }, orderBy: { createdAt: 'desc' }, take: TAKE }),
+        prisma.repairTicket.findMany({ select: { id: true, ticketNumber: true, deviceModel: true, createdAt: true, status: true, tenant: { select: { name: true } } }, orderBy: { createdAt: 'desc' }, take: TAKE }),
+        prisma.repairStatusHistory.findMany({ select: { id: true, status: true, changedBy: true, note: true, timestamp: true, repair: { select: { ticketNumber: true, tenant: { select: { name: true } } } } }, orderBy: { timestamp: 'desc' }, take: TAKE }),
+        prisma.warrantyClaim.findMany({ select: { id: true, issue: true, status: true, createdAt: true, warranty: { select: { productName: true, tenant: { select: { name: true } } } } }, orderBy: { createdAt: 'desc' }, take: TAKE }),
+        prisma.purchaseOrder.findMany({ select: { id: true, poNumber: true, total: true, supplierName: true, status: true, createdAt: true, tenant: { select: { name: true } } }, orderBy: { createdAt: 'desc' }, take: TAKE }),
+      ])
+
+    // ── normalize to common log shape ──────────────────────────────
+    type RawLog = { id: string; timestamp: string; eventType: string; severity: string; actorType: string; actor: string; target: string; details: string; ip: string }
+    const logs: RawLog[] = []
+
+    for (const t of tenants) {
+      const isSuspended = t.status === 'SUSPENDED'
+      logs.push({ id: `t-${t.id}`, timestamp: t.createdAt.toISOString(),
+        eventType: isSuspended ? 'TENANT_SUSPENDED' : 'NEW_TENANT',
+        severity:  isSuspended ? 'ERROR' : 'INFO',
+        actorType: 'SYSTEM', actor: 'platform', target: t.name,
+        details: `${isSuspended ? 'Tenant suspended' : 'New tenant registered'} · ${t.plan} plan · ${t.ownerEmail ?? ''}`,
+        ip: '—' })
+    }
+
+    for (const u of users) {
+      logs.push({ id: `u-${u.id}`, timestamp: u.createdAt.toISOString(),
+        eventType: 'USER_CREATED', severity: 'INFO',
+        actorType: 'TENANT', actor: u.tenant?.name ?? '—', target: u.name,
+        details: `New ${u.role} created · ${u.email}`, ip: '—' })
+    }
+
+    for (const s of sales) {
+      logs.push({ id: `s-${s.id}`, timestamp: s.createdAt.toISOString(),
+        eventType: 'SALE_CREATED', severity: 'INFO',
+        actorType: 'TENANT', actor: s.cashierName ?? s.tenant?.name ?? '—',
+        target: s.invoiceNumber ?? s.id,
+        details: `Sale Rs.${Number(s.total ?? 0).toLocaleString()} · ${s.tenant?.name}`, ip: '—' })
+    }
+
+    for (const r of repairs) {
+      logs.push({ id: `r-${r.id}`, timestamp: r.createdAt.toISOString(),
+        eventType: 'REPAIR_OPENED', severity: 'INFO',
+        actorType: 'TENANT', actor: r.tenant?.name ?? '—', target: r.ticketNumber,
+        details: `Repair opened · ${r.deviceModel ?? 'Unknown device'}`, ip: '—' })
+    }
+
+    for (const h of repairHistory) {
+      const isDanger = ['CANCELLED'].includes(h.status)
+      logs.push({ id: `rh-${h.id}`, timestamp: h.timestamp.toISOString(),
+        eventType: 'REPAIR_STATUS_CHANGED', severity: isDanger ? 'WARN' : 'INFO',
+        actorType: 'TENANT', actor: h.changedBy, target: h.repair?.ticketNumber ?? '—',
+        details: `Status → ${h.status}${h.note ? ' · ' + h.note : ''} · ${h.repair?.tenant?.name ?? ''}`, ip: '—' })
+    }
+
+    for (const w of warrantyClaims) {
+      logs.push({ id: `wc-${w.id}`, timestamp: w.createdAt.toISOString(),
+        eventType: 'WARRANTY_CLAIM', severity: 'WARN',
+        actorType: 'TENANT', actor: w.warranty?.tenant?.name ?? '—',
+        target: w.warranty?.productName ?? '—',
+        details: `Warranty claim · ${w.issue.slice(0, 60)} · ${w.status}`, ip: '—' })
+    }
+
+    for (const po of purchaseOrders) {
+      logs.push({ id: `po-${po.id}`, timestamp: po.createdAt.toISOString(),
+        eventType: 'PURCHASE_ORDER', severity: 'INFO',
+        actorType: 'TENANT', actor: po.tenant?.name ?? '—', target: po.poNumber ?? po.id,
+        details: `PO from ${po.supplierName ?? 'Unknown'} · Rs.${Number(po.total ?? 0).toLocaleString()} · ${po.status}`, ip: '—' })
+    }
+
+    // ── sort all by newest first ───────────────────────────────────
+    logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+
+    // ── filter ────────────────────────────────────────────────────
+    const q = search.toLowerCase()
+    let filtered = logs.filter(l => {
+      if (sevFilter !== 'ALL' && l.severity !== sevFilter) return false
+      if (evFilter  !== 'ALL' && l.eventType !== evFilter) return false
+      if (actFilter !== 'ALL' && l.actorType !== actFilter) return false
+      if (q && !(l.actor.toLowerCase().includes(q) || l.target.toLowerCase().includes(q) ||
+                 l.details.toLowerCase().includes(q) || l.eventType.toLowerCase().includes(q))) return false
+      return true
+    })
+
+    const total = filtered.length
+    const pageNum = Math.max(1, parseInt(page))
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit)))
+    const data = filtered.slice((pageNum - 1) * limitNum, pageNum * limitNum)
+
+    // severity summary
+    const summary = { INFO: 0, WARN: 0, ERROR: 0, CRITICAL: 0 }
+    for (const l of logs) summary[l.severity as keyof typeof summary] = (summary[l.severity as keyof typeof summary] ?? 0) + 1
+
+    sendSuccess(res, { data, total, page: pageNum, limit: limitNum, summary })
+  } catch (e) { next(e) }
+})
+
 // ── Server & DB Stats ────────────────────────────────────────────────────────
 router.get('/server-stats', async (_req: Request, res: Response, next: NextFunction) => {
   try {
