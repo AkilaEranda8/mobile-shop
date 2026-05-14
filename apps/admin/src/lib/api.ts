@@ -55,11 +55,16 @@ export interface PlatformStats {
   newTenantsThisMonth: number; mrrDelta: number; churnRate: number
 }
 
+export interface TenantUser {
+  id: string; name: string; email: string; role: string; isActive: boolean; createdAt: string
+}
 export interface TenantRow {
   id: string; name: string; ownerEmail: string; ownerName: string
   plan: string; status: string; mrr: number | null
   subscriptionEndsAt: string | null; trialEndsAt: string | null
-  createdAt: string; branches?: unknown[]; _count?: { users: number; sales: number; repairs: number }
+  createdAt: string; branches?: unknown[]
+  users?: TenantUser[]
+  _count?: { users: number; sales: number; repairs: number; customers?: number; products?: number }
 }
 
 export interface SubscriptionRow {
@@ -161,6 +166,14 @@ export interface UserRow {
 export async function fetchUsers(params?: Record<string, string>) {
   const qs = params ? '?' + new URLSearchParams(params) : ''
   return req<{ data: UserRow[]; total: number }>(ADMIN_BASE, `/users${qs}`)
+}
+
+export interface TenantSale {
+  id: string; invoiceNumber: string; total: number; paidAmount: number; dueAmount: number
+  status: string; cashierName: string; customerName: string | null; createdAt: string
+}
+export async function fetchTenantSales(id: string): Promise<TenantSale[]> {
+  return req<TenantSale[]>(ADMIN_BASE, `/tenants/${id}/sales`)
 }
 
 export async function revokeSessionsForTenant(id: string) {

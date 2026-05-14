@@ -1,9 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Search, Plus, Filter, MoreHorizontal, Eye, Edit, Ban, RefreshCw, Trash2, KeyRound, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import {
+  Search, Plus, MoreHorizontal, Eye, Edit2, Ban,
+  RefreshCw, Trash2, KeyRound, ChevronLeft, ChevronRight,
+  Building2, Users, TrendingUp, AlertCircle, CheckCircle,
+} from 'lucide-react'
 import Link from 'next/link'
-import { fetchTenants, updateTenantStatus, deleteTenant, createTenant, type TenantRow } from '@/lib/api'
+import {
+  fetchTenants, fetchStats, updateTenantStatus, deleteTenant, createTenant,
+  type TenantRow, type PlatformStats,
+} from '@/lib/api'
 
 const STATUS_BADGE: Record<string, string> = {
   ACTIVE:    'badge-green',
@@ -23,97 +30,129 @@ function fmtMRR(n: number) {
   return n === 0 ? '—' : `Rs.${n.toLocaleString()}`
 }
 
-type SortKey = 'name' | 'mrr' | 'createdAt'
+const PER_PAGE = 20
 
 export default function TenantsPage() {
-  const [allTenants, setAllTenants] = useState<TenantRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [search, setSearch] = useState('')
+  const [tenants, setTenants]   = useState<TenantRow[]>([])
+  const [total, setTotal]       = useState(0)
+  const [stats, setStats]       = useState<PlatformStats | null>(null)
+  const [loading, setLoading]   = useState(true)
+  const [search, setSearch]     = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
-  const [planFilter, setPlanFilter] = useState('ALL')
-  const [sortKey, setSortKey] = useState<SortKey>('createdAt')
-  const [sortAsc, setSortAsc] = useState(false)
-  const [page, setPage] = useState(1)
+  const [planFilter, setPlanFilter]     = useState('ALL')
+  const [page, setPage]         = useState(1)
   const [menuOpen, setMenuOpen] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<TenantRow | null>(null)
-  const [deleteInput, setDeleteInput] = useState('')
-  const [showOnboard, setShowOnboard] = useState(false)
-  const PER_PAGE = 8
+  const [deleteInput, setDeleteInput]     = useState('')
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [showOnboard, setShowOnboard]     = useState(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const load = useCallback((params: { search?: string; status?: string; plan?: string; page?: number } = {}) => {
+    setLoading(true)
+    const p: Record<string, string> = {
+      page: String(params.page ?? page),
+      limit: String(PER_PAGE),
+    }
+    if ((params.search ?? search))               p.search = params.search ?? search
+    if ((params.status ?? statusFilter) !== 'ALL') p.status = params.status ?? statusFilter
+    if ((params.plan   ?? planFilter)   !== 'ALL') p.plan   = params.plan   ?? planFilter
+    fetchTenants(p)
+      .then(d => { setTenants(d.data); setTotal(d.total) })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [search, statusFilter, planFilter, page])
 
   useEffect(() => {
-    setLoading(true)
-    fetchTenants({ limit: '100' })
-      .then(d => setAllTenants(d.data))
-      .catch(e => setError(e.message || 'Failed to load tenants'))
-      .finally(() => setLoading(false))
+    load()
+    fetchStats().then(setStats).catch(() => {})
   }, [])
 
-  const filtered = allTenants
-    .filter(t => {
-      const q = search.toLowerCase()
-      const matchQ = t.name.toLowerCase().includes(q) || t.ownerEmail.toLowerCase().includes(q)
-      const matchStatus = statusFilter === 'ALL' || t.status === statusFilter
-      const matchPlan = planFilter === 'ALL' || t.plan === planFilter
-      return matchQ && matchStatus && matchPlan
-    })
-    .sort((a, b) => {
-      const av = sortKey === 'mrr' ? (a.mrr ?? 0) : sortKey === 'createdAt' ? a.createdAt : a.name
-      const bv = sortKey === 'mrr' ? (b.mrr ?? 0) : sortKey === 'createdAt' ? b.createdAt : b.name
-      return sortAsc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1)
-    })
+  function handleSearch(v: string) {
+    setSearch(v); setPage(1)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => load({ search: v, page: 1 }), 350)
+  }
+  function handleStatus(v: string) { setStatusFilter(v); setPage(1); load({ status: v, page: 1 }) }
+  function handlePlan(v: string)   { setPlanFilter(v);   setPage(1); load({ plan: v,   page: 1 }) }
+  function handlePage(p: number)   { setPage(p); load({ page: p }) }
 
-  const totalPages = Math.ceil(filtered.length / PER_PAGE)
-  const paged = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
-
-  function toggleSort(k: SortKey) {
-    if (sortKey === k) setSortAsc(!sortAsc)
-    else { setSortKey(k); setSortAsc(true) }
+  async function handleStatusAction(t: TenantRow, newStatus: string) {
+    setActionLoading(t.id); setMenuOpen(null)
+    try {
+      await updateTenantStatus(t.id, newStatus)
+      load()
+    } catch {}
+    setActionLoading(null)
   }
 
-  function SortBtn({ k, label }: { k: SortKey; label: string }) {
-    return (
-      <button onClick={() => toggleSort(k)} className="flex items-center gap-1 hover:text-gray-700 transition-colors">
-        {label}
-        {sortKey === k && <span className="text-[10px]">{sortAsc ? '↑' : '↓'}</span>}
-      </button>
-    )
+  async function handleDelete() {
+    if (!confirmDelete || deleteInput !== confirmDelete.name) return
+    setActionLoading(confirmDelete.id)
+    try {
+      await deleteTenant(confirmDelete.id)
+      setConfirmDelete(null); setDeleteInput('')
+      load()
+    } catch {}
+    setActionLoading(null)
   }
+
+  const totalPages = Math.ceil(total / PER_PAGE)
 
   return (
-    <div className="space-y-5 max-w-7xl mx-auto">
+    <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-        <div className="flex-1">
+        <div>
           <h1 className="page-title">Tenants</h1>
-          <p className="text-sm text-gray-500">{filtered.length} tenants found</p>
+          <p className="text-sm text-gray-500">{loading ? 'Loading…' : `${total.toLocaleString()} tenants`}</p>
         </div>
-        <button onClick={() => setShowOnboard(true)} className="btn-primary">
-          <Plus size={15} />Onboard New Tenant
-        </button>
+        <div className="sm:ml-auto flex gap-2">
+          <button onClick={() => load()} disabled={loading} className="btn-secondary text-sm">
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
+          </button>
+          <button onClick={() => setShowOnboard(true)} className="btn-primary text-sm">
+            <Plus size={14} />Onboard Tenant
+          </button>
+        </div>
+      </div>
+
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {[
+          { label: 'Total',     value: stats?.totalTenants ?? '—',     icon: Building2,    color: 'text-gray-600',    bg: 'bg-gray-100',    border: 'border-gray-200'   },
+          { label: 'Active',    value: stats?.activeTenants ?? '—',    icon: CheckCircle,  color: 'text-emerald-600', bg: 'bg-emerald-50',  border: 'border-emerald-100'},
+          { label: 'Trial',     value: stats?.trialTenants ?? '—',     icon: Users,        color: 'text-blue-600',    bg: 'bg-blue-50',     border: 'border-blue-100'   },
+          { label: 'Suspended', value: stats?.suspendedTenants ?? '—', icon: AlertCircle,  color: 'text-amber-600',   bg: 'bg-amber-50',    border: 'border-amber-100'  },
+        ].map(k => (
+          <div key={k.label} className={`card p-4 flex items-center gap-3 border ${k.border}`}>
+            <div className={`w-9 h-9 rounded-xl ${k.bg} flex items-center justify-center flex-shrink-0`}>
+              <k.icon size={15} className={k.color} />
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wide">{k.label}</p>
+              <p className="text-xl font-bold text-gray-900 leading-none mt-0.5">{String(k.value)}</p>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 flex-1 min-w-[200px]">
           <Search size={14} className="text-gray-400" />
-          <input
-            className="bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none flex-1"
-            placeholder="Search shop, email, realm..."
-            value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1) }}
-          />
+          <input className="bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none flex-1"
+            placeholder="Search shop, owner, email…"
+            value={search} onChange={e => handleSearch(e.target.value)} />
         </div>
-        <select className="input w-auto pr-8 text-sm" value={statusFilter}
-          onChange={e => { setStatusFilter(e.target.value); setPage(1) }}>
+        <select className="input w-auto text-sm" value={statusFilter} onChange={e => handleStatus(e.target.value)}>
           <option value="ALL">All Status</option>
           <option value="ACTIVE">Active</option>
           <option value="TRIAL">Trial</option>
           <option value="SUSPENDED">Suspended</option>
           <option value="CANCELLED">Cancelled</option>
         </select>
-        <select className="input w-auto pr-8 text-sm" value={planFilter}
-          onChange={e => { setPlanFilter(e.target.value); setPage(1) }}>
+        <select className="input w-auto text-sm" value={planFilter} onChange={e => handlePlan(e.target.value)}>
           <option value="ALL">All Plans</option>
           <option value="STARTER">Starter</option>
           <option value="PRO">Pro</option>
@@ -127,66 +166,86 @@ export default function TenantsPage() {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="th"><SortBtn k="name" label="Shop" /></th>
+                <th className="th">Shop</th>
                 <th className="th">Owner</th>
                 <th className="th">Plan</th>
                 <th className="th">Status</th>
-                <th className="th"><SortBtn k="mrr" label="MRR" /></th>
-                <th className="th">Users</th>
-                <th className="th"><SortBtn k="createdAt" label="Joined" /></th>
+                <th className="th text-right">MRR</th>
+                <th className="th text-right">Sales</th>
+                <th className="th text-right">Users</th>
+                <th className="th whitespace-nowrap">Joined</th>
                 <th className="th text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {paged.map(t => (
-                <tr key={t.id} className="hover:bg-gray-50 transition-colors">
+              {loading && (
+                <tr><td colSpan={9} className="td py-12 text-center">
+                  <RefreshCw size={18} className="animate-spin mx-auto text-gray-400" />
+                </td></tr>
+              )}
+              {!loading && tenants.length === 0 && (
+                <tr><td colSpan={9} className="td py-10 text-center text-gray-400 text-sm">No tenants match your filters.</td></tr>
+              )}
+              {!loading && tenants.map(t => (
+                <tr key={t.id} className={`hover:bg-gray-50 transition-colors ${actionLoading === t.id ? 'opacity-50' : ''}`}>
                   <td className="td">
-                    <p className="font-medium text-gray-900 text-xs">{t.name}</p>
-                    <p className="text-[10px] text-gray-400">{t.ownerEmail}</p>
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-gray-900 text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0">
+                        {t.name.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900 text-xs">{t.name}</p>
+                        <p className="text-[10px] text-gray-400 font-mono">{t.id.slice(-8)}</p>
+                      </div>
+                    </div>
                   </td>
                   <td className="td">
-                    <p className="text-xs text-gray-700">{t.ownerName}</p>
+                    <p className="text-xs text-gray-700 font-medium">{t.ownerName}</p>
                     <p className="text-[10px] text-gray-400">{t.ownerEmail}</p>
                   </td>
-                  <td className="td"><span className={PLAN_BADGE[t.plan]}>{t.plan}</span></td>
-                  <td className="td"><span className={STATUS_BADGE[t.status]}>{t.status}</span></td>
-                  <td className="td font-semibold text-xs text-gray-800">{fmtMRR(t.mrr ?? 0)}</td>
-                  <td className="td text-xs text-gray-600">{t._count?.users ?? '—'}</td>
-                  <td className="td text-xs text-gray-500">{fmtDate(t.createdAt)}</td>
+                  <td className="td"><span className={PLAN_BADGE[t.plan] ?? 'badge-gray'}>{t.plan}</span></td>
+                  <td className="td"><span className={STATUS_BADGE[t.status] ?? 'badge-gray'}>{t.status}</span></td>
+                  <td className="td text-right font-semibold text-xs text-gray-800">{fmtMRR(t.mrr ?? 0)}</td>
+                  <td className="td text-right text-xs text-gray-600">{t._count?.sales?.toLocaleString() ?? '—'}</td>
+                  <td className="td text-right text-xs text-gray-600">{t._count?.users ?? '—'}</td>
+                  <td className="td text-xs text-gray-500 whitespace-nowrap">{fmtDate(t.createdAt)}</td>
                   <td className="td text-center">
                     <div className="relative flex items-center justify-center gap-1">
-                      <Link href={`/tenants/${t.id}`} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                      <Link href={`/tenants/${t.id}`}
+                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                         <Eye size={14} />
                       </Link>
-                      <button
-                        onClick={() => setMenuOpen(menuOpen === t.id ? null : t.id)}
-                        className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                      >
+                      <button onClick={() => setMenuOpen(menuOpen === t.id ? null : t.id)}
+                        className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
                         <MoreHorizontal size={14} />
                       </button>
                       {menuOpen === t.id && (
-                        <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-20">
-                          <Link href={`/tenants/${t.id}`} onClick={() => setMenuOpen(null)} className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
+                        <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-xl shadow-xl py-1 z-20">
+                          <Link href={`/tenants/${t.id}`} onClick={() => setMenuOpen(null)}
+                            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
                             <Eye size={13} />View Details
                           </Link>
-                          <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
-                            <Edit size={13} />Edit Plan
-                          </button>
-                          <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
-                            <KeyRound size={13} />Open Keycloak Realm
-                          </button>
-                          <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
-                            <RefreshCw size={13} />Force Backup
-                          </button>
-                          {t.status === 'ACTIVE' || t.status === 'TRIAL' ? (
-                            <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-amber-600 hover:bg-amber-50">
-                              <Ban size={13} />Suspend
-                            </button>
-                          ) : (
-                            <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-green-600 hover:bg-green-50">
-                              <RefreshCw size={13} />Reactivate
-                            </button>
-                          )}
+                          <Link href={`/tenants/${t.id}`} onClick={() => setMenuOpen(null)}
+                            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
+                            <Edit2 size={13} />Edit Plan / MRR
+                          </Link>
+                          <a href="https://auth.hexalyte.com/admin/console" target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
+                            <KeyRound size={13} />Keycloak Realm
+                          </a>
+                          <div className="border-t border-gray-100 mt-1 pt-1">
+                            {t.status === 'ACTIVE' || t.status === 'TRIAL' ? (
+                              <button onClick={() => handleStatusAction(t, 'SUSPENDED')}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-amber-600 hover:bg-amber-50">
+                                <Ban size={13} />Suspend
+                              </button>
+                            ) : (
+                              <button onClick={() => handleStatusAction(t, 'ACTIVE')}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-emerald-600 hover:bg-emerald-50">
+                                <CheckCircle size={13} />Reactivate
+                              </button>
+                            )}
+                          </div>
                           <div className="border-t border-gray-100 mt-1 pt-1">
                             <button onClick={() => { setConfirmDelete(t); setMenuOpen(null) }}
                               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
@@ -199,9 +258,6 @@ export default function TenantsPage() {
                   </td>
                 </tr>
               ))}
-              {paged.length === 0 && (
-                <tr><td colSpan={10} className="td text-center py-10 text-gray-400 text-sm">No tenants match your filters.</td></tr>
-              )}
             </tbody>
           </table>
         </div>
@@ -210,20 +266,23 @@ export default function TenantsPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100">
             <p className="text-xs text-gray-500">
-              Showing {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, filtered.length)} of {filtered.length}
+              Showing {((page - 1) * PER_PAGE + 1).toLocaleString()}–{Math.min(page * PER_PAGE, total).toLocaleString()} of {total.toLocaleString()}
             </p>
             <div className="flex items-center gap-1">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+              <button onClick={() => handlePage(Math.max(1, page - 1))} disabled={page === 1 || loading}
                 className="p-1.5 text-gray-400 hover:text-gray-700 disabled:opacity-30 rounded-lg hover:bg-gray-100">
                 <ChevronLeft size={16} />
               </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
-                <button key={n} onClick={() => setPage(n)}
-                  className={`w-7 h-7 text-xs rounded-lg ${n === page ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
-                  {n}
-                </button>
-              ))}
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+              {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                const n = totalPages <= 7 ? i + 1 : page <= 4 ? i + 1 : page >= totalPages - 3 ? totalPages - 6 + i : page - 3 + i
+                return (
+                  <button key={n} onClick={() => handlePage(n)}
+                    className={`w-7 h-7 text-xs rounded-lg ${n === page ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
+                    {n}
+                  </button>
+                )
+              })}
+              <button onClick={() => handlePage(Math.min(totalPages, page + 1))} disabled={page === totalPages || loading}
                 className="p-1.5 text-gray-400 hover:text-gray-700 disabled:opacity-30 rounded-lg hover:bg-gray-100">
                 <ChevronRight size={16} />
               </button>
@@ -232,7 +291,7 @@ export default function TenantsPage() {
         )}
       </div>
 
-      {/* Delete confirmation modal */}
+      {/* Delete modal */}
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
@@ -246,33 +305,27 @@ export default function TenantsPage() {
               </div>
             </div>
             <p className="text-sm text-gray-600 mb-4">
-              This will permanently delete <strong>{confirmDelete.name}</strong>, all their data, PostgreSQL schema, and Keycloak realm.
+              Permanently deletes <strong>{confirmDelete.name}</strong>, all data, and Keycloak realm.
             </p>
             <p className="text-sm text-gray-700 mb-2">
               Type <strong className="font-mono text-red-600">{confirmDelete.name}</strong> to confirm:
             </p>
-            <input
-              className="input mb-4"
-              placeholder={confirmDelete.name}
-              value={deleteInput}
-              onChange={e => setDeleteInput(e.target.value)}
-            />
+            <input className="input mb-4" placeholder={confirmDelete.name}
+              value={deleteInput} onChange={e => setDeleteInput(e.target.value)} />
             <div className="flex gap-2 justify-end">
               <button onClick={() => { setConfirmDelete(null); setDeleteInput('') }} className="btn-secondary">Cancel</button>
-              <button
-                disabled={deleteInput !== confirmDelete.name}
-                className="btn-danger disabled:opacity-40 disabled:cursor-not-allowed"
-                onClick={() => { setConfirmDelete(null); setDeleteInput('') }}
-              >
-                Delete Permanently
+              <button disabled={deleteInput !== confirmDelete.name || !!actionLoading}
+                className="btn-danger disabled:opacity-40" onClick={handleDelete}>
+                {actionLoading ? 'Deleting…' : 'Delete Permanently'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Onboard modal */}
-      {showOnboard && <OnboardModal onClose={() => setShowOnboard(false)} onCreated={() => fetchTenants({ limit: '100' }).then(d => setAllTenants(d.data)).catch(() => {})} />}
+      {showOnboard && (
+        <OnboardModal onClose={() => setShowOnboard(false)} onCreated={load} />
+      )}
     </div>
   )
 }

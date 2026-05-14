@@ -125,6 +125,22 @@ router.patch('/tenants/:id', async (req: Request, res: Response, next: NextFunct
   } catch (e) { next(e) }
 })
 
+// ── Tenant-specific sales ─────────────────────────────────────────────────────
+router.get('/tenants/:id/sales', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const sales = await prisma.sale.findMany({
+      where: { tenantId: req.params.id },
+      select: {
+        id: true, invoiceNumber: true, total: true, paidAmount: true, dueAmount: true,
+        status: true, cashierName: true, customerName: true, createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+    })
+    sendSuccess(res, sales)
+  } catch (e) { next(e) }
+})
+
 // ── Subscriptions ─────────────────────────────────────────────────────────────
 router.get('/subscriptions', async (req: Request, res: Response, next: NextFunction) => {
   try {
