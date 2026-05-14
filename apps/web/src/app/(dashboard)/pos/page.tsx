@@ -6,7 +6,7 @@ import {
   ScanLine, X, Loader2, UserPlus, Edit2, Check, Download, Tag,
 } from 'lucide-react'
 import { useProducts, useCustomers } from '@/lib/hooks'
-import { salesApi, customersApi } from '@/lib/api'
+import { salesApi, customersApi, productsApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -262,18 +262,30 @@ export default function POSPage() {
   const [editPriceId, setEditPriceId]           = useState<string | null>(null)
   const [editPriceVal, setEditPriceVal]         = useState('')
   const [downloading, setDownloading]           = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL')
+  const [categories, setCategories]             = useState<{ id: string; name: string }[]>([])
   const invoiceRef                              = useRef<HTMLDivElement>(null)
 
-  const { data: productsData } = useProducts({ limit: '100' })
+  const { data: productsData } = useProducts({ limit: '500' })
   const { data: customersData, refetch: refetchCustomers } = useCustomers({ limit: '200' })
 
   const products: any[]  = (productsData  as any)?.data ?? []
   const customers: any[] = (customersData as any)?.data ?? []
 
-  const filtered = products.filter((p: any) =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    (p.sku ?? '').toLowerCase().includes(search.toLowerCase())
-  )
+  // Fetch categories once
+  useEffect(() => {
+    productsApi.categories().then((res: any) => {
+      const cats = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []
+      setCategories(cats)
+    }).catch(() => {})
+  }, [])
+
+  const filtered = products.filter((p: any) => {
+    const matchCat = selectedCategory === 'ALL' || p.categoryId === selectedCategory || p.categoryName === selectedCategory
+    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
+      (p.sku ?? '').toLowerCase().includes(search.toLowerCase())
+    return matchCat && matchSearch
+  })
 
   const addToCart = (product: any) => {
     setCart(prev => {
@@ -301,6 +313,27 @@ export default function POSPage() {
   const shopName = authStorage.getUser()?.name?.split(' ')[0] + ' Shop' || 'Our Shop'
   const [invoiceSettings, setInvoiceSettings] = useState<InvoiceSettings>(() => getInvoiceSettings())
   useEffect(() => { setInvoiceSettings(getInvoiceSettings()) }, [completedSale])
+
+  // Auto-download invoice after sale completes
+  useEffect(() => {
+    if (!completedSale) return
+    const timer = setTimeout(() => { downloadInvoice() }, 400)
+    return () => clearTimeout(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [completedSale])
+
+  // Keyboard shortcut: F9 or Ctrl+Enter = checkout
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.key === 'F9') || (e.ctrlKey && e.key === 'Enter')) {
+        e.preventDefault()
+        if (cart.length > 0 && !checkoutLoading && !completedSale) handleCheckout()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart, checkoutLoading, completedSale])
 
   const handleCheckout = async () => {
     if (cart.length === 0) return
@@ -417,7 +450,35 @@ export default function POSPage() {
           </div>
         </div>
 
+        {/* ── Category Tabs ── */}
+        {categories.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {[{ id: 'ALL', name: 'All' }, ...categories].map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id)}
+                className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                  selectedCategory === cat.id
+                    ? 'bg-violet-500 border-violet-500 text-white shadow-lg shadow-violet-500/20'
+                    : 'border-white/10 text-slate-400 hover:border-violet-500/40 hover:text-white bg-white/3'
+                }`}>
+                {cat.name}
+                {cat.id !== 'ALL' && (
+                  <span className="ml-1.5 text-[10px] opacity-60">
+                    {products.filter(p => p.categoryId === cat.id || p.categoryName === cat.name).length}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto">
+          {filtered.length === 0 && products.length > 0 && (
+            <div className="flex flex-col items-center justify-center h-40 text-center opacity-40">
+              <p className="text-sm text-slate-500">No products in this category</p>
+            </div>
+          )}
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
             {filtered.map((product) => (
               <button key={product.id} onClick={() => addToCart(product)} disabled={product.stock === 0}
@@ -426,7 +487,7 @@ export default function POSPage() {
                   <Smartphone size={22} className="text-violet-400 opacity-60" />
                 </div>
                 <p className="text-xs font-semibold text-slate-200 truncate">{product.name}</p>
-                <p className="text-xs text-slate-500 truncate">{product.sku}</p>
+                <p className="text-[10px] text-slate-500 truncate">{product.categoryName ?? product.sku}</p>
                 <div className="flex items-center justify-between mt-2">
                   <span className="text-sm font-bold text-white">{formatCurrency(product.sellingPrice)}</span>
                   <span className={`text-[10px] px-1.5 py-0.5 rounded border ${product.stock < 5 ? 'text-red-400 border-red-500/20 bg-red-500/10' : 'text-green-400 border-green-500/20 bg-green-500/10'}`}>
@@ -658,7 +719,7 @@ export default function POSPage() {
                 <button onClick={handleCheckout} disabled={checkoutLoading}
                   className="btn-primary w-full flex items-center justify-center gap-2 text-sm disabled:opacity-60">
                   {checkoutLoading ? <Loader2 size={15} className="animate-spin" /> : <Receipt size={15} />}
-                  {checkoutLoading ? 'Processing…' : `Charge ${formatCurrency(total)}`}
+                  {checkoutLoading ? 'Processing…' : <>{`Charge ${formatCurrency(total)}`} &nbsp;<kbd className="text-[9px] opacity-50 font-mono">F9</kbd></>}
                 </button>
               </div>
             )}
