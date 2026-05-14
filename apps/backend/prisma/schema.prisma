@@ -141,6 +141,7 @@ model Tenant {
   whatsAppConfig  WhatsAppConfig?
   couriers        Courier[]
   deliveryOrders  DeliveryOrder[]
+  supportNotes    SupportNote[]
 }
 
 model Branch {
@@ -808,6 +809,20 @@ model DeliveryNotification {
 
   @@index([tenantId])
   @@index([deliveryOrderId])
+}
+
+// ─────────────── Support Notes ───────────────
+model SupportNote {
+  id        String   @id @default(cuid())
+  tenantId  String
+  note      String
+  adminName String   @default("Support Admin")
+  ticketRef String?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }
 
 // ─────────────── Platform Announcements ───────────────

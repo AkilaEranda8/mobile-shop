@@ -615,6 +615,92 @@ router.get('/mrr-chart', async (_req: Request, res: Response, next: NextFunction
   } catch (e) { next(e) }
 })
 
+// ── Support Tools ─────────────────────────────────────────────────────────────
+router.get('/support/notes', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { tenantId } = req.query as Record<string, string>
+    const notes = await prisma.supportNote.findMany({
+      where: tenantId ? { tenantId } : undefined,
+      include: { tenant: { select: { name: true } } },
+      orderBy: { createdAt: 'desc' },
+    })
+    sendSuccess(res, notes)
+  } catch (e) { next(e) }
+})
+
+router.post('/support/notes', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { tenantId, note, adminName = 'Support Admin', ticketRef } = req.body
+    if (!tenantId || !note) throw new AppError('tenantId and note are required', 400)
+    const created = await prisma.supportNote.create({
+      data: { tenantId, note, adminName, ticketRef: ticketRef || undefined },
+      include: { tenant: { select: { name: true } } },
+    })
+    sendSuccess(res, created, 'Note added', 201)
+  } catch (e) { next(e) }
+})
+
+router.delete('/support/notes/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await prisma.supportNote.delete({ where: { id: req.params.id } })
+    sendSuccess(res, null, 'Deleted')
+  } catch (e) { next(e) }
+})
+
+router.post('/support/impersonate/:tenantId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const owner = await prisma.user.findFirst({
+      where: { tenantId: req.params.tenantId, role: 'OWNER' },
+    })
+    if (!owner) throw new AppError('No OWNER user found for this tenant', 404)
+    const { signAccessToken } = await import('../../utils/jwt')
+    const token = signAccessToken({
+      userId: owner.id, tenantId: owner.tenantId,
+      role: owner.role, email: owner.email,
+    })
+    sendSuccess(res, { token, ownerEmail: owner.email, tenantId: owner.tenantId })
+  } catch (e) { next(e) }
+})
+
+router.get('/support/tenant-debug/:tenantId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { tenantId } = req.params
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } })
+    if (!tenant) throw new AppError('Tenant not found', 404)
+
+    const [products, customers, sales, repairs, users, warrantyClaimsArr, purchaseOrdersArr] =
+      await Promise.all([
+        prisma.product.count({ where: { tenantId, isActive: true } }),
+        prisma.customer.count({ where: { tenantId } }),
+        prisma.sale.count({ where: { tenantId } }),
+        prisma.repairTicket.count({ where: { tenantId } }),
+        prisma.user.count({ where: { tenantId } }),
+        prisma.warrantyClaim.findMany({
+          where: { warranty: { tenantId } },
+          select: { status: true, createdAt: true, issue: true },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        }),
+        prisma.purchaseOrder.findMany({
+          where: { tenantId },
+          select: { status: true, createdAt: true, poNumber: true, total: true },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        }),
+      ])
+
+    const lastSale = await prisma.sale.findFirst({ where: { tenantId }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } })
+
+    sendSuccess(res, {
+      tenant: { id: tenant.id, name: tenant.name, plan: tenant.plan, status: tenant.status, createdAt: tenant.createdAt },
+      counts: { products, customers, sales, repairs, users },
+      lastActivity: lastSale?.createdAt ?? null,
+      recentWarrantyClaims: warrantyClaimsArr,
+      recentPurchaseOrders: purchaseOrdersArr,
+    })
+  } catch (e) { next(e) }
+})
+
 // ── Announcements ─────────────────────────────────────────────────────────────
 router.get('/announcements', async (_req: Request, res: Response, next: NextFunction) => {
   try {

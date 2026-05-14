@@ -206,6 +206,36 @@ export async function fetchServerStats(): Promise<ServerStats> {
   return req<ServerStats>(ADMIN_BASE, '/server-stats')
 }
 
+// ─── Support Tools ────────────────────────────────────────────────────────────
+export interface SupportNote {
+  id: string; tenantId: string; note: string
+  adminName: string; ticketRef?: string; createdAt: string
+  tenant?: { name: string }
+}
+export async function fetchSupportNotes(tenantId?: string): Promise<SupportNote[]> {
+  const qs = tenantId ? `?tenantId=${tenantId}` : ''
+  return req<SupportNote[]>(ADMIN_BASE, `/support/notes${qs}`)
+}
+export async function createSupportNote(data: { tenantId: string; note: string; adminName?: string; ticketRef?: string }): Promise<SupportNote> {
+  return req<SupportNote>(ADMIN_BASE, '/support/notes', { method: 'POST', body: JSON.stringify(data) })
+}
+export async function deleteSupportNote(id: string): Promise<null> {
+  return req<null>(ADMIN_BASE, `/support/notes/${id}`, { method: 'DELETE' })
+}
+export async function impersonateTenant(tenantId: string): Promise<{ token: string; ownerEmail: string; tenantId: string }> {
+  return req<{ token: string; ownerEmail: string; tenantId: string }>(ADMIN_BASE, `/support/impersonate/${tenantId}`, { method: 'POST' })
+}
+export interface TenantDebug {
+  tenant: { id: string; name: string; plan: string; status: string; createdAt: string }
+  counts: { products: number; customers: number; sales: number; repairs: number; users: number }
+  lastActivity: string | null
+  recentWarrantyClaims: { status: string; createdAt: string; issue: string }[]
+  recentPurchaseOrders: { status: string; createdAt: string; poNumber: string; total: number }[]
+}
+export async function fetchTenantDebug(tenantId: string): Promise<TenantDebug> {
+  return req<TenantDebug>(ADMIN_BASE, `/support/tenant-debug/${tenantId}`)
+}
+
 // ─── Announcements ────────────────────────────────────────────────────────────
 export interface AnnouncementRow {
   id: string; title: string; body: string
