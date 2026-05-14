@@ -112,12 +112,8 @@ router.post('/:id/returns', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req
         }
       }
 
-      // Determine if fully returned
-      const totalSoldQty   = sale.items.reduce((s: number, i: any) => s + i.quantity, 0)
-      const totalReturnQty = items.reduce((s: number, i: any) => s + i.quantity, 0)
-      if (totalReturnQty >= totalSoldQty) {
-        await tx.sale.update({ where: { id: sale.id }, data: { status: 'RETURNED' } })
-      }
+      // Always mark sale as RETURNED once any return is processed
+      await tx.sale.update({ where: { id: sale.id }, data: { status: 'RETURNED' } })
 
       // Create Transaction for refund payout
       if (branchId) {
