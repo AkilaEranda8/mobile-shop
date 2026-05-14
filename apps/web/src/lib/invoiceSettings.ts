@@ -1,9 +1,10 @@
 export const INVOICE_SETTINGS_KEY = 'hx_invoice_settings'
 
 export interface InvoiceSettings {
-  shopName:   string
-  slogan:     string
-  phone:      string
+  shopName:    string
+  slogan:      string
+  phone:       string
+  bankDetails: string
   email:      string
   address:    string
   website:    string
@@ -11,9 +12,10 @@ export interface InvoiceSettings {
 }
 
 export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
-  shopName:   '',
-  slogan:     '',
-  phone:      '',
+  shopName:    '',
+  slogan:      '',
+  phone:       '',
+  bankDetails: '',
   email:      '',
   address:    '',
   website:    '',
