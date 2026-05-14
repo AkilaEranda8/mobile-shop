@@ -2,7 +2,7 @@ import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import type { ConnectInput, UpdateConfigInput, SendInvoiceInput } from './whatsapp.schema'
 
-const META_API = 'https://graph.facebook.com/v19.0'
+const META_API = 'https://graph.facebook.com/v25.0'
 
 // ── Meta Cloud API helpers ────────────────────────────────────────────────────
 
