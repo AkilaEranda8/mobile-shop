@@ -194,24 +194,29 @@ export const whatsappService = {
 
   async sendTestMessage(tenantId: string, phone: string) {
     const cfg = await prisma.whatsAppConfig.findUnique({ where: { tenantId } })
-    if (!cfg) throw new AppError('WhatsApp not configured', 400)
-    if (cfg.status !== 'connected') throw new AppError('WhatsApp is not connected', 400)
+    if (!cfg || !cfg.accessToken || !cfg.phoneNumberId)
+      throw new AppError('WhatsApp not configured. Please save your credentials first.', 400)
 
     const normalizedPhone = phone.startsWith('+') ? phone.slice(1) : phone
 
     let result: any
-    let status = 'sent'
+    let msgStatus = 'sent'
     let metaErr: string | undefined
     try {
       result = await metaPost(`/${cfg.phoneNumberId}/messages`, cfg.accessToken, {
         messaging_product: 'whatsapp',
         to:                normalizedPhone,
         type:              'text',
-        text:              { body: '✅ This is a test message from your Hexalyte dashboard. WhatsApp integration is working!' },
+        text:              { body: '\u2705 This is a test message from your Hexalyte dashboard. WhatsApp integration is working!' },
       })
+      // Update DB status to connected since send succeeded
+      await prisma.whatsAppConfig.update({
+        where: { tenantId },
+        data:  { status: 'connected', lastCheckedAt: new Date() },
+      }).catch(() => {})
     } catch (err: any) {
-      status  = 'failed'
-      metaErr = err?.message ?? 'Meta API error'
+      msgStatus = 'failed'
+      metaErr   = err?.message ?? 'Meta API error'
     }
 
     await prisma.whatsAppMessage.create({
@@ -222,7 +227,7 @@ export const whatsappService = {
         customerName:  'Test',
         type:          'test',
         preview:       'WhatsApp connection test message',
-        status,
+        status:        msgStatus,
         metaMessageId: result?.messages?.[0]?.id,
       },
     }).catch(() => {})
