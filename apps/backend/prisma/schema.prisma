@@ -809,3 +809,19 @@ model DeliveryNotification {
   @@index([tenantId])
   @@index([deliveryOrderId])
 }
+
+// ─────────────── Platform Announcements ───────────────
+model PlatformAnnouncement {
+  id          String    @id @default(cuid())
+  title       String
+  body        String
+  type        String    @default("INFO")
+  status      String    @default("DRAFT")
+  target      String    @default("ALL")
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  seenCount   Int       @default(0)
+  createdBy   String    @default("Admin")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}

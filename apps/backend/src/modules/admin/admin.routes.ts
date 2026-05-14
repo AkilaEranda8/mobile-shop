@@ -615,4 +615,57 @@ router.get('/mrr-chart', async (_req: Request, res: Response, next: NextFunction
   } catch (e) { next(e) }
 })
 
+// ── Announcements ─────────────────────────────────────────────────────────────
+router.get('/announcements', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const items = await prisma.platformAnnouncement.findMany({ orderBy: { createdAt: 'desc' } })
+    sendSuccess(res, items)
+  } catch (e) { next(e) }
+})
+
+router.post('/announcements', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { title, body, type = 'INFO', target = 'ALL', scheduledAt, sendNow = false } = req.body
+    if (!title || !body) throw new AppError('title and body are required', 400)
+    const status = sendNow ? 'SENT' : scheduledAt ? 'SCHEDULED' : 'DRAFT'
+    const item = await prisma.platformAnnouncement.create({
+      data: {
+        title, body, type, target, status,
+        scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
+        sentAt: sendNow ? new Date() : undefined,
+      },
+    })
+    sendSuccess(res, item, 'Announcement created', 201)
+  } catch (e) { next(e) }
+})
+
+router.patch('/announcements/:id/send', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const item = await prisma.platformAnnouncement.findUnique({ where: { id: req.params.id } })
+    if (!item) throw new AppError('Announcement not found', 404)
+    const updated = await prisma.platformAnnouncement.update({
+      where: { id: req.params.id },
+      data: { status: 'SENT', sentAt: new Date() },
+    })
+    sendSuccess(res, updated, 'Announcement sent')
+  } catch (e) { next(e) }
+})
+
+router.patch('/announcements/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const allowed = ['title', 'body', 'type', 'target', 'status', 'scheduledAt']
+    const data: Record<string, unknown> = {}
+    for (const k of allowed) if (k in req.body) data[k] = req.body[k]
+    const updated = await prisma.platformAnnouncement.update({ where: { id: req.params.id }, data })
+    sendSuccess(res, updated)
+  } catch (e) { next(e) }
+})
+
+router.delete('/announcements/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await prisma.platformAnnouncement.delete({ where: { id: req.params.id } })
+    sendSuccess(res, null, 'Deleted')
+  } catch (e) { next(e) }
+})
+
 export default router
