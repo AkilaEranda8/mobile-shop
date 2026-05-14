@@ -64,13 +64,23 @@ router.post('/purchase-orders', authorize('OWNER', 'MANAGER'), async (req: Reque
         notes:            notes || undefined,
         status:           status || 'DRAFT',
         items: {
-          create: (items ?? []).map((item: any) => ({
-            productId:        item.productId || undefined,
-            productName:      item.productName,
-            quantity:         Number(item.quantity)         || 1,
-            unitCost:         Number(item.unitCost)         || 0,
-            total:            Number(item.total)            || 0,
-            receivedQuantity: Number(item.receivedQuantity) || 0,
+          create: await Promise.all((items ?? []).map(async (item: any) => {
+            let productId = item.productId || undefined
+            // Fallback: resolve by name if productId not supplied
+            if (!productId && item.productName) {
+              const p = await prisma.product.findFirst({
+                where: { tenantId: req.tenantId!, name: { equals: item.productName, mode: 'insensitive' }, isActive: true },
+              })
+              if (p) productId = p.id
+            }
+            return {
+              productId,
+              productName:      item.productName,
+              quantity:         Number(item.quantity)         || 1,
+              unitCost:         Number(item.unitCost)         || 0,
+              total:            Number(item.total)            || 0,
+              receivedQuantity: Number(item.receivedQuantity) || 0,
+            }
           })),
         },
       },
@@ -98,28 +108,41 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
       : false
 
     if (newStatus === 'RECEIVED' && !alreadyRestocked) {
-      const itemsWithProduct = po.items.filter((i: any) => i.productId)
-
-      await Promise.all(
-        itemsWithProduct.map((item: any) =>
-          prisma.product.update({
-            where: { id: item.productId },
-            data: { stock: { increment: item.quantity } },
+      // Resolve productId for items where it wasn't linked at PO creation time
+      const resolvedItems = await Promise.all(
+        po.items.map(async (item: any) => {
+          if (item.productId) return item
+          // Fallback: look up by productName within the same tenant
+          const product = await prisma.product.findFirst({
+            where: { tenantId: req.tenantId!, name: { equals: item.productName, mode: 'insensitive' }, isActive: true },
           })
-        )
+          return product ? { ...item, productId: product.id, branchId: product.branchId } : null
+        })
       )
+      const itemsWithProduct = resolvedItems.filter(Boolean) as any[]
 
-      await prisma.stockMovement.createMany({
-        data: itemsWithProduct.map((item: any) => ({
-          productId:   item.productId,
-          branchId:    po.branchId,
-          type:        'PURCHASE' as const,
-          quantity:    item.quantity,
-          reference:   po.poNumber,
-          note:        `Received via PO ${po.poNumber}`,
-          performedBy: req.user?.userId ?? 'system',
-        })),
-      })
+      if (itemsWithProduct.length > 0) {
+        await Promise.all(
+          itemsWithProduct.map((item: any) =>
+            prisma.product.update({
+              where: { id: item.productId },
+              data: { stock: { increment: item.quantity } },
+            })
+          )
+        )
+
+        await prisma.stockMovement.createMany({
+          data: itemsWithProduct.map((item: any) => ({
+            productId:   item.productId,
+            branchId:    item.branchId ?? po.branchId,
+            type:        'PURCHASE' as const,
+            quantity:    item.quantity,
+            reference:   po.poNumber,
+            note:        `Received via PO ${po.poNumber}`,
+            performedBy: req.user?.userId ?? 'system',
+          })),
+        })
+      }
     }
 
     const updated = await prisma.purchaseOrder.update({
