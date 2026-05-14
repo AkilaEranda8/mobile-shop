@@ -461,7 +461,7 @@ export default function InventoryPage() {
   const [showImport, setShowImport] = useState(false)
   const [editProduct, setEditProduct] = useState<Product | null>(null)
   const [viewProduct, setViewProduct] = useState<Product | null>(null)
-  const { data: productsData, loading, refetch } = useProducts()
+  const { data: productsData, loading, refetch } = useProducts({ limit: '5000' })
   const products: Product[] = (productsData?.data ?? []) as Product[]
 
   const lowStockCount = products.filter(p => p.stock < p.minStock).length

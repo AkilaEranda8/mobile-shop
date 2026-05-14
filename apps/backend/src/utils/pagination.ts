@@ -11,7 +11,7 @@ export interface PaginationParams {
 
 export function getPagination(req: Request): PaginationParams {
   const page = Math.max(1, parseInt(req.query.page as string) || 1)
-  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20))
+  const limit = Math.min(5000, Math.max(1, parseInt(req.query.limit as string) || 20))
   const skip = (page - 1) * limit
   const search = req.query.search as string | undefined
   const sortBy = req.query.sortBy as string | undefined
