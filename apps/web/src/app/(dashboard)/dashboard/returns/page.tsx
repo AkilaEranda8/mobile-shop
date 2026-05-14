@@ -422,8 +422,8 @@ export default function ReturnsPage() {
           <p className="page-subtitle">Track all product returns and refunds</p>
         </div>
         <button onClick={() => setShowNewReturn(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-sm font-semibold transition-colors shadow-lg shadow-rose-500/20">
-          <RotateCcw size={14} />
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 !text-white text-sm font-semibold transition-colors shadow-lg shadow-rose-500/20">
+          <RotateCcw size={14} className="text-white" />
           New Return
         </button>
       </div>
