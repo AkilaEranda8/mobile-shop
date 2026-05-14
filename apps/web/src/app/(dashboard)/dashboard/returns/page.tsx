@@ -143,15 +143,15 @@ export default function ReturnsPage() {
     {
       accessorKey: 'createdAt',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
-      cell: ({ row }) => <span className="text-xs text-slate-300 whitespace-nowrap">{formatDate(row.original.createdAt)}</span>,
+      cell: ({ row }) => <span className="text-xs text-foreground/80 whitespace-nowrap">{formatDate(row.original.createdAt)}</span>,
     },
     {
       id: 'invoice',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Invoice" />,
       cell: ({ row }) => (
         <div>
-          <p className="text-xs font-mono text-violet-400">{row.original.sale?.invoiceNumber ?? '—'}</p>
-          <p className="text-[10px] text-slate-500">{row.original.sale?.customerName || 'Walk-in'}</p>
+          <p className="text-xs font-mono text-violet-500">{row.original.sale?.invoiceNumber ?? '—'}</p>
+          <p className="text-[10px] text-muted-foreground">{row.original.sale?.customerName || 'Walk-in'}</p>
         </div>
       ),
     },
@@ -159,7 +159,7 @@ export default function ReturnsPage() {
       accessorKey: 'reason',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Reason" />,
       cell: ({ row }) => (
-        <span className="text-xs px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-300 font-medium">
+        <span className="text-xs px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-300 font-medium">
           {row.original.reason}
         </span>
       ),
@@ -168,7 +168,7 @@ export default function ReturnsPage() {
       id: 'items',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Items" />,
       cell: ({ row }) => (
-        <span className="text-xs font-semibold text-slate-300">
+        <span className="text-xs font-semibold text-foreground/80">
           {row.original.items?.length ?? 0} item{row.original.items?.length !== 1 ? 's' : ''}
         </span>
       ),
@@ -177,7 +177,7 @@ export default function ReturnsPage() {
       accessorKey: 'refundMethod',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Method" />,
       cell: ({ row }) => (
-        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+        <div className="flex items-center gap-1.5 text-xs text-foreground/70">
           {methodIcon[row.original.refundMethod]}
           <span>{row.original.refundMethod?.replace('_', ' ')}</span>
         </div>
@@ -219,8 +219,8 @@ export default function ReturnsPage() {
               <Icon size={15} className={`text-${color}-400`} />
             </div>
             <div className="min-w-0">
-              <p className="text-lg font-bold text-white truncate">{value}</p>
-              <p className="text-[11px] text-slate-500">{label}</p>
+              <p className="text-lg font-bold text-foreground truncate">{value}</p>
+              <p className="text-[11px] text-muted-foreground">{label}</p>
             </div>
           </div>
         ))}
@@ -229,11 +229,11 @@ export default function ReturnsPage() {
       {/* Reason breakdown */}
       {reasonCounts.length > 0 && (
         <div className="card p-4">
-          <p className="text-xs text-slate-400 uppercase tracking-wide mb-3">Top Return Reasons</p>
+          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-3">Top Return Reasons</p>
           <div className="flex flex-wrap gap-2">
             {reasonCounts.map(([reason, count]) => (
               <div key={reason} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-500/8 border border-rose-500/15">
-                <span className="text-xs font-semibold text-rose-300">{reason}</span>
+                <span className="text-xs font-semibold text-rose-600 dark:text-rose-300">{reason}</span>
                 <span className="text-[10px] font-bold text-rose-500 bg-rose-500/15 px-1.5 py-0.5 rounded-full">{count}</span>
               </div>
             ))}
