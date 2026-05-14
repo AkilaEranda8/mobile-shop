@@ -36,59 +36,69 @@ export function useApi<T>(
 const wrapPaginated = <T>(apiFn: () => Promise<any>): Promise<{ data: { data: T[]; meta: any } }> =>
   apiFn().then((r: any) => ({ data: { data: r.data ?? [], meta: r.meta ?? {} } }))
 
+const ALL: Record<string, string> = { limit: '5000' }
+
 export function useProducts(params?: Record<string, string>) {
+  const p = { ...ALL, ...params }
   return useApi<{ data: unknown[]; meta: any }>(
-    () => wrapPaginated(productsApi.list.bind(null, params)),
-    [JSON.stringify(params)],
+    () => wrapPaginated(productsApi.list.bind(null, p)),
+    [JSON.stringify(p)],
   )
 }
 
 export function useCustomers(params?: Record<string, string>) {
+  const p = { ...ALL, ...params }
   return useApi<{ data: unknown[]; meta: any }>(
-    () => wrapPaginated(customersApi.list.bind(null, params)),
-    [JSON.stringify(params)],
+    () => wrapPaginated(customersApi.list.bind(null, p)),
+    [JSON.stringify(p)],
   )
 }
 
 export function useSales(params?: Record<string, string>) {
+  const p = { ...ALL, ...params }
   return useApi<{ data: unknown[]; meta: any }>(
-    () => wrapPaginated(salesApi.list.bind(null, params)),
-    [JSON.stringify(params)],
+    () => wrapPaginated(salesApi.list.bind(null, p)),
+    [JSON.stringify(p)],
   )
 }
 
 export function useRepairs(params?: Record<string, string>) {
+  const p = { ...ALL, ...params }
   return useApi<{ data: unknown[]; meta: any }>(
-    () => wrapPaginated(repairsApi.list.bind(null, params)),
-    [JSON.stringify(params)],
+    () => wrapPaginated(repairsApi.list.bind(null, p)),
+    [JSON.stringify(p)],
   )
 }
 
 export function useWarranties(params?: Record<string, string>) {
+  const p = { ...ALL, ...params }
   return useApi<{ data: unknown[]; meta: any }>(
-    () => wrapPaginated(warrantyApi.list.bind(null, params)),
-    [JSON.stringify(params)],
+    () => wrapPaginated(warrantyApi.list.bind(null, p)),
+    [JSON.stringify(p)],
   )
 }
 
 export function useSuppliers(params?: Record<string, string>) {
+  const p = { ...ALL, ...params }
   return useApi<{ data: unknown[]; meta: any }>(
-    () => wrapPaginated(suppliersApi.list.bind(null, params)),
-    [JSON.stringify(params)],
+    () => wrapPaginated(suppliersApi.list.bind(null, p)),
+    [JSON.stringify(p)],
   )
 }
 
 export function usePurchaseOrders(params?: Record<string, string>) {
+  const p = { ...ALL, ...params }
   return useApi<{ data: unknown[]; meta: any }>(
-    () => wrapPaginated(suppliersApi.purchaseOrders.bind(null, params)),
-    [JSON.stringify(params)],
+    () => wrapPaginated(suppliersApi.purchaseOrders.bind(null, p)),
+    [JSON.stringify(p)],
   )
 }
 
 export function useTransactions(params?: Record<string, string>) {
+  const p = { ...ALL, ...params }
   return useApi<{ data: unknown[]; meta: any }>(
-    () => wrapPaginated(financeApi.transactions.bind(null, params)),
-    [JSON.stringify(params)],
+    () => wrapPaginated(financeApi.transactions.bind(null, p)),
+    [JSON.stringify(p)],
   )
 }
 
