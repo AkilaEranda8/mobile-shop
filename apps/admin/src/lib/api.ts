@@ -140,6 +140,22 @@ export async function updateSubscription(id: string, data: { plan?: string; stat
   })
 }
 
+// ─── Users (cross-tenant) ────────────────────────────────────────────────────
+export interface UserRow {
+  id: string; name: string; email: string; role: string
+  isActive: boolean; createdAt: string
+  tenant: { id: string; name: string; plan: string }
+}
+
+export async function fetchUsers(params?: Record<string, string>) {
+  const qs = params ? '?' + new URLSearchParams(params) : ''
+  return req<{ data: UserRow[]; total: number }>(ADMIN_BASE, `/users${qs}`)
+}
+
+export async function revokeSessionsForTenant(id: string) {
+  return req<null>(ADMIN_BASE, `/tenants/${id}/revoke-sessions`, { method: 'POST' })
+}
+
 // ─── Analytics ────────────────────────────────────────────────────────────────
 export async function fetchAnalytics(): Promise<AnalyticsData> {
   return req<AnalyticsData>(ADMIN_BASE, '/analytics')

@@ -204,6 +204,45 @@ router.get('/tenants/:id/users', async (req: Request, res: Response, next: NextF
   } catch (e) { next(e) }
 })
 
+// ── All Users (cross-tenant) ──────────────────────────────────────────────────
+router.get('/users', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { search, tenantId, role, page = '1', limit = '50' } = req.query as Record<string, string>
+    const skip = (parseInt(page) - 1) * parseInt(limit)
+    const where: Record<string, unknown> = {}
+    if (tenantId) where.tenantId = tenantId
+    if (role && role !== 'ALL') where.role = role
+    if (search) {
+      where.OR = [
+        { name:  { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ]
+    }
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        select: {
+          id: true, name: true, email: true, role: true,
+          isActive: true, createdAt: true,
+          tenant: { select: { id: true, name: true, plan: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip, take: parseInt(limit),
+      }),
+      prisma.user.count({ where }),
+    ])
+    sendSuccess(res, { data: users, total, page: parseInt(page), limit: parseInt(limit) })
+  } catch (e) { next(e) }
+})
+
+// ── Revoke tenant sessions (mark users inactive) ──────────────────────────────
+router.post('/tenants/:id/revoke-sessions', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await prisma.user.updateMany({ where: { tenantId: req.params.id }, data: { lastLoginAt: null } })
+    sendSuccess(res, null, 'Sessions revoked')
+  } catch (e) { next(e) }
+})
+
 // ── MRR Chart (last 12 months) ────────────────────────────────────────────────
 router.get('/mrr-chart', async (_req: Request, res: Response, next: NextFunction) => {
   try {
