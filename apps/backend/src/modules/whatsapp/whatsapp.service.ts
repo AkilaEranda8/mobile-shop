@@ -207,8 +207,8 @@ export const whatsappService = {
       result = await metaPost(`/${cfg.phoneNumberId}/messages`, cfg.accessToken, {
         messaging_product: 'whatsapp',
         to:                normalizedPhone,
-        type:              'template',
-        template:          { name: 'hello_world', language: { code: 'en_US' } },
+        type:              'text',
+        text:              { body: '\u2705 This is a test message from your Hexalyte POS. WhatsApp integration is working!' },
       })
       // Update DB status to connected since send succeeded
       await prisma.whatsAppConfig.update({
@@ -233,7 +233,20 @@ export const whatsappService = {
       },
     }).catch(() => {})
 
-    if (metaErr) throw new AppError(metaErr, 400)
+    if (metaErr) {
+      // Map common Meta error codes to helpful messages
+      const friendly =
+        metaErr.includes('131047') || metaErr.includes('Re-engagement') ?
+          'Cannot send to this number: the customer must message your WhatsApp number first (within 24 h).' :
+        metaErr.includes('131026') || metaErr.includes('Undeliverable') ?
+          'Message undeliverable: the number may not have WhatsApp or is not in your contacts.' :
+        metaErr.includes('131030') ?
+          'Rate limit reached. Please wait a minute and try again.' :
+        metaErr.includes('131058') || metaErr.includes('Public Test') ?
+          'Your phone number is a production number. To test, first send a WhatsApp message TO your business number, then retry within 24 h.' :
+        metaErr
+      throw new AppError(friendly, 400)
+    }
     return { success: true, message: 'Test message sent successfully!' }
   },
 
