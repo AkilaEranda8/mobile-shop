@@ -159,6 +159,7 @@ export const suppliersApi = {
     api.get(`/suppliers/purchase-orders${params ? '?' + new URLSearchParams(params) : ''}`),
   createPO: (body: unknown) => api.post('/suppliers/purchase-orders', body),
   updatePO: (id: string, body: unknown) => api.put(`/suppliers/purchase-orders/${id}`, body),
+  recordPayment: (supplierId: string, body: unknown) => api.post(`/suppliers/${supplierId}/payments`, body),
 }
 
 export const financeApi = {

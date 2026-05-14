@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Truck, Phone, Mail, Package, Eye, Edit, Loader2, X, ChevronDown, Trash2, FileText, MapPin, Globe, Hash, ShoppingBag, TrendingUp, AlertCircle, Calendar, CheckCircle, Save, PackageCheck, ShieldAlert } from 'lucide-react'
+import { Plus, Truck, Phone, Mail, Package, Eye, Edit, Loader2, X, ChevronDown, Trash2, FileText, MapPin, Globe, Hash, ShoppingBag, TrendingUp, AlertCircle, Calendar, CheckCircle, Save, PackageCheck, ShieldAlert, CreditCard, Banknote, Receipt } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -12,6 +12,147 @@ import { useSuppliers, usePurchaseOrders, useProducts } from '@/lib/hooks'
 import { suppliersApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import type { Supplier, PurchaseOrder } from '@/types'
+
+/* ── Record Payment Modal ────────────────────────────────────────── */
+const PAYMENT_METHODS = ['CASH', 'BANK_TRANSFER', 'CHEQUE', 'UPI', 'CARD'] as const
+
+function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
+  supplier: Supplier
+  allPOs: PurchaseOrder[]
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const unpaidPOs = allPOs.filter(po => po.supplierId === supplier.id && po.dueAmount > 0)
+  const [selectedPOs, setSelectedPOs] = useState<Set<string>>(new Set(unpaidPOs.map(p => p.id)))
+  const [method,    setMethod]    = useState<string>('CASH')
+  const [reference, setReference] = useState('')
+  const [loading,   setLoading]   = useState(false)
+
+  const totalDue = unpaidPOs
+    .filter(p => selectedPOs.has(p.id))
+    .reduce((s, p) => s + p.dueAmount, 0)
+  const [amount, setAmount] = useState(String(totalDue.toFixed(2)))
+
+  const togglePO = (id: string) =>
+    setSelectedPOs(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!amount || Number(amount) <= 0) return
+    setLoading(true)
+    try {
+      await suppliersApi.recordPayment(supplier.id, {
+        amount:    Number(amount),
+        method,
+        reference: reference || undefined,
+        poIds:     [...selectedPOs],
+      })
+      toast.success('Payment recorded successfully')
+      onSaved(); onClose()
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to record payment')
+    } finally { setLoading(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+        <div className="h-1 w-full bg-gradient-to-r from-violet-500 to-emerald-500" />
+        <div className="flex items-center justify-between p-5 border-b border-white/5">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center">
+              <Banknote size={16} className="text-emerald-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Record Payment</h3>
+              <p className="text-xs text-slate-500">{supplier.name}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={15} /></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          {/* Outstanding POs */}
+          {unpaidPOs.length > 0 ? (
+            <div>
+              <label className="block text-xs text-slate-400 uppercase tracking-wide mb-2">Apply to Purchase Orders</label>
+              <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                {unpaidPOs.map(po => (
+                  <label key={po.id} className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                    selectedPOs.has(po.id)
+                      ? 'bg-violet-500/10 border-violet-500/30'
+                      : 'bg-white/3 border-white/5 hover:border-white/10'
+                  }`}>
+                    <div className="flex items-center gap-2.5">
+                      <input type="checkbox" checked={selectedPOs.has(po.id)} onChange={() => togglePO(po.id)}
+                        className="accent-violet-500" />
+                      <span className="text-xs font-mono text-violet-300">{po.poNumber}</span>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs font-bold text-red-400">{formatCurrency(po.dueAmount)} due</p>
+                      <p className="text-[10px] text-slate-600">{formatCurrency(po.total)} total</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+              <CheckCircle size={13} className="text-emerald-400" />
+              <p className="text-xs text-emerald-400">No outstanding POs — full payment will be recorded</p>
+            </div>
+          )}
+
+          {/* Amount */}
+          <div>
+            <label className="block text-xs text-slate-400 mb-1.5">
+              Payment Amount
+              {totalDue > 0 && (
+                <button type="button" onClick={() => setAmount(totalDue.toFixed(2))}
+                  className="ml-2 text-violet-400 hover:text-violet-300 text-[10px]">
+                  Fill {formatCurrency(totalDue)}
+                </button>
+              )}
+            </label>
+            <input required type="number" min="0.01" step="0.01"
+              className="input-field" value={amount} onChange={e => setAmount(e.target.value)} />
+          </div>
+
+          {/* Method */}
+          <div>
+            <label className="block text-xs text-slate-400 mb-1.5">Payment Method</label>
+            <div className="grid grid-cols-5 gap-1.5">
+              {PAYMENT_METHODS.map(m => (
+                <button key={m} type="button" onClick={() => setMethod(m)}
+                  className={`py-1.5 text-[10px] font-semibold rounded-lg border transition-colors ${
+                    method === m
+                      ? 'bg-violet-500/20 border-violet-500/40 text-violet-300'
+                      : 'border-white/10 text-slate-500 hover:border-white/20 hover:text-slate-300'
+                  }`}>
+                  {m.replace('_', ' ')}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Reference */}
+          <div>
+            <label className="block text-xs text-slate-400 mb-1.5">Reference / Note (optional)</label>
+            <input className="input-field" placeholder="Cheque no., bank ref…" value={reference} onChange={e => setReference(e.target.value)} />
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
+            <button type="submit" disabled={loading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+              {loading ? <Loader2 size={13} className="animate-spin" /> : <Receipt size={13} />}
+              {loading ? 'Recording…' : 'Record Payment'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
 
 /* ── Confirm Receive Modal ────────────────────────────────────────── */
 function ConfirmReceiveModal({ po, onConfirm, onCancel, loading }: {
@@ -533,6 +674,7 @@ export default function SuppliersPage() {
   const [editSupplier,   setEditSupplier]         = useState<Supplier | null>(null)
   const [markReceiving,  setMarkReceiving]        = useState<string | null>(null)
   const [confirmPO,       setConfirmPO]           = useState<PurchaseOrder | null>(null)
+  const [paySupplier,     setPaySupplier]         = useState<Supplier | null>(null)
   const { data: suppliersData, loading: suppliersLoading, refetch: refetchSuppliers } = useSuppliers()
   const { data: ordersData,    loading: ordersLoading,    refetch: refetchOrders    } = usePurchaseOrders()
   const suppliers:      Supplier[]      = (suppliersData?.data ?? []) as Supplier[]
@@ -603,14 +745,25 @@ export default function SuppliersPage() {
     },
     {
       id: 'actions',
-      cell: ({ row }) => (
-        <TableActionsRow
-          showAction={{ action: () => setDetailSupplier(row.original) }}
-          editAction={{ action: () => setEditSupplier(row.original) }}
-        />
-      ),
+      cell: ({ row }) => {
+        const s = row.original
+        return (
+          <div className="flex items-center gap-2">
+            {(s as any).outstandingDues > 0 && (
+              <button onClick={() => setPaySupplier(s)}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors">
+                <CreditCard size={10} />Pay
+              </button>
+            )}
+            <TableActionsRow
+              showAction={{ action: () => setDetailSupplier(s) }}
+              editAction={{ action: () => setEditSupplier(s) }}
+            />
+          </div>
+        )
+      },
     },
-  ], [setDetailSupplier, setEditSupplier])
+  ], [setDetailSupplier, setEditSupplier, setPaySupplier, purchaseOrders])
 
   const poColumns = useMemo<ColumnDef<PurchaseOrder>[]>(() => [
     {
@@ -687,6 +840,7 @@ export default function SuppliersPage() {
       {detailSupplier  && <SupplierDetailsModal supplier={detailSupplier} onClose={() => setDetailSupplier(null)} onEdit={() => { setEditSupplier(detailSupplier); setDetailSupplier(null) }} />}
       {editSupplier    && <EditSupplierModal supplier={editSupplier} onClose={() => setEditSupplier(null)} onSaved={() => { refetchSuppliers(); setEditSupplier(null) }} />}
       {confirmPO       && <ConfirmReceiveModal po={confirmPO} onConfirm={doReceive} onCancel={() => setConfirmPO(null)} loading={!!markReceiving} />}
+      {paySupplier     && <RecordPaymentModal supplier={paySupplier} allPOs={purchaseOrders} onClose={() => setPaySupplier(null)} onSaved={() => { refetchSuppliers(); refetchOrders() }} />}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>

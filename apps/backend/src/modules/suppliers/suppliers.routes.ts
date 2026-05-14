@@ -177,4 +177,73 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
   } catch (e) { next(e) }
 })
 
+router.post('/:id/payments', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const supplier = await prisma.supplier.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! } })
+    if (!supplier) throw new AppError('Supplier not found', 404)
+
+    const { amount, method, reference, notes, poIds } = req.body
+    const payAmount = Number(amount)
+    if (!payAmount || payAmount <= 0) throw new AppError('Invalid payment amount', 400)
+
+    const userBranch = await prisma.userBranch.findFirst({ where: { userId: req.user!.userId } })
+    const branchId = userBranch?.branchId
+    if (!branchId) throw new AppError('No branch assigned to this user', 400)
+
+    // Fetch target POs (specified or auto-select unpaid ones FIFO)
+    const poWhere: any = {
+      supplierId: req.params.id,
+      tenantId:   req.tenantId!,
+      dueAmount:  { gt: 0 },
+      ...(poIds?.length && { id: { in: poIds } }),
+    }
+    const unpaidPOs = await prisma.purchaseOrder.findMany({
+      where:   poWhere,
+      orderBy: { createdAt: 'asc' },
+    })
+
+    // Allocate payment across POs
+    let remaining = payAmount
+    const updates: { id: string; paidAmount: number; dueAmount: number; status: string }[] = []
+
+    for (const po of unpaidPOs) {
+      if (remaining <= 0) break
+      const allocate  = Math.min(remaining, po.dueAmount)
+      const newPaid   = po.paidAmount + allocate
+      const newDue    = Math.max(0, po.dueAmount - allocate)
+      const newStatus = newDue === 0 ? 'CLOSED' : 'PARTIAL'
+      updates.push({ id: po.id, paidAmount: newPaid, dueAmount: newDue, status: newStatus })
+      remaining -= allocate
+    }
+
+    // Apply PO updates
+    await Promise.all(
+      updates.map(u =>
+        prisma.purchaseOrder.update({
+          where: { id: u.id },
+          data:  { paidAmount: u.paidAmount, dueAmount: u.dueAmount, status: u.status as any },
+        })
+      )
+    )
+
+    // Create Transaction record
+    const txn = await prisma.transaction.create({
+      data: {
+        tenantId:      req.tenantId!,
+        branchId,
+        type:          'EXPENSE',
+        category:      'Supplier Payment',
+        amount:        payAmount,
+        description:   `Payment to ${supplier.name}${reference ? ' · Ref: ' + reference : ''}`,
+        paymentMethod: method || 'CASH',
+        reference:     reference || undefined,
+        performedBy:   req.user?.userId ?? 'system',
+      },
+    })
+
+    await recalcSupplierStats(req.params.id, req.tenantId!)
+    sendSuccess(res, { transaction: txn, updatedPOs: updates.length }, 'Payment recorded', 201)
+  } catch (e) { next(e) }
+})
+
 export default router
