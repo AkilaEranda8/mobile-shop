@@ -22,8 +22,10 @@ export const productsService = {
   },
 
   async create(tenantId: string, body: any) {
-    const existing = await prisma.product.findFirst({ where: { tenantId, sku: body.sku } })
-    if (existing) throw new AppError('SKU already in use', 409)
+    if (body.sku) {
+      const existing = await prisma.product.findFirst({ where: { tenantId, sku: body.sku, isActive: true } })
+      if (existing) throw new AppError('SKU already in use', 409)
+    }
 
     if (body.mrp === undefined || body.mrp === null) body.mrp = body.sellingPrice
 
