@@ -186,7 +186,7 @@ export default function ConnectionTab({ status, config, onStatusChange, onConfig
             <div className="flex items-center gap-2">
               <scfg.Icon size={14} className={scfg.color} />
               <span className={`text-sm font-semibold ${scfg.color}`}>{scfg.label}</span>
-              {status?.qualityRating && (
+              {status?.qualityRating && status.qualityRating !== 'UNKNOWN' && (
                 <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold border ${status.qualityRating === 'GREEN' ? 'bg-green-500/10 border-green-500/20 text-green-400' : status.qualityRating === 'YELLOW' ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
                   {status.qualityRating}
                 </span>

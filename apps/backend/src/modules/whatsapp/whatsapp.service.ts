@@ -84,7 +84,8 @@ export const whatsappService = {
       )
       phoneNumber   = data.display_phone_number
       displayName   = data.verified_name
-      qualityRating = data.quality_rating?.toUpperCase()
+      const qr      = data.quality_rating?.toUpperCase()
+      qualityRating = (qr && qr !== 'UNKNOWN') ? qr : undefined
       status        = 'connected'
     } catch (err: any) {
       const msg = String(err?.message ?? '')
