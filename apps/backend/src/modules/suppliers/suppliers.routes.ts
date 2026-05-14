@@ -89,10 +89,15 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
     if (!po) throw new AppError('Purchase order not found', 404)
 
     const newStatus = req.body.status as string | undefined
-    const wasAlreadyReceived = po.status === 'RECEIVED'
 
     // ── Restock inventory when marking as RECEIVED ─────────────────────────
-    if (newStatus === 'RECEIVED' && !wasAlreadyReceived) {
+    // Guard: check StockMovement (not PO status) so retroactive restock works
+    // for POs that were RECEIVED before this fix was deployed.
+    const alreadyRestocked = newStatus === 'RECEIVED'
+      ? !!(await prisma.stockMovement.findFirst({ where: { reference: po.poNumber, type: 'PURCHASE' } }))
+      : false
+
+    if (newStatus === 'RECEIVED' && !alreadyRestocked) {
       const itemsWithProduct = po.items.filter((i: any) => i.productId)
 
       await Promise.all(
@@ -120,7 +125,7 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
     const updated = await prisma.purchaseOrder.update({
       where: { id: req.params.id },
       data: {
-        status:     newStatus              ?? po.status,
+        status:     (newStatus ?? po.status) as any,
         paidAmount: req.body.paidAmount    ?? po.paidAmount,
         receivedAt: newStatus === 'RECEIVED' ? new Date() : (req.body.receivedAt ?? po.receivedAt),
       },

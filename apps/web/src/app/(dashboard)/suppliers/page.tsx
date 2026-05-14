@@ -460,7 +460,10 @@ export default function SuppliersPage() {
   const purchaseOrders: PurchaseOrder[] = (ordersData?.data    ?? []) as PurchaseOrder[]
 
   const handleMarkReceived = async (po: PurchaseOrder) => {
-    if (!confirm(`Mark "${po.poNumber}" as RECEIVED?\nThis will restock all items in your inventory.`)) return
+    const msg = po.status === 'RECEIVED'
+      ? `"${po.poNumber}" is already RECEIVED.\nApply stock restock now? (Only runs if not already applied)`
+      : `Mark "${po.poNumber}" as RECEIVED?\nThis will restock all items in your inventory.`
+    if (!confirm(msg)) return
     setMarkReceiving(po.id)
     try {
       await suppliersApi.updatePO(po.id, { status: 'RECEIVED' })
@@ -573,7 +576,7 @@ export default function SuppliersPage() {
       id: 'actions',
       cell: ({ row }) => {
         const po = row.original
-        const canReceive = !['RECEIVED', 'CLOSED'].includes(po.status)
+        const canReceive = po.status !== 'CLOSED'
         return (
           <div className="flex items-center gap-2">
             {canReceive && (
