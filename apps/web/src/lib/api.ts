@@ -123,6 +123,9 @@ export const salesApi = {
     api.get(`/sales${params ? '?' + new URLSearchParams(params) : ''}`),
   getById: (id: string) => api.get(`/sales/${id}`),
   create: (body: unknown) => api.post('/sales', body),
+  processReturn: (saleId: string, body: unknown) => api.post(`/sales/${saleId}/returns`, body),
+  listReturns: (params?: Record<string, string>) =>
+    api.get(`/sales/returns${params ? '?' + new URLSearchParams(params) : ''}`),
 }
 
 export const repairsApi = {

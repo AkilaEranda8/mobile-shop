@@ -5,6 +5,7 @@ import {
   Receipt, Eye, X, Calendar, User, Package,
   CreditCard, Loader2, Hash, ShoppingBag,
   Banknote, Smartphone, TrendingUp, Download, Truck,
+  RotateCcw, Minus, Plus, AlertTriangle,
 } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
@@ -21,6 +22,156 @@ const statusColors: Record<string, string> = {
   PARTIAL:        'bg-yellow-500/10 border-yellow-500/20 text-yellow-400',
   UNPAID:         'bg-red-500/10    border-red-500/20    text-red-400',
   REFUNDED:       'bg-slate-500/10  border-slate-500/20  text-slate-400',
+  RETURNED:       'bg-rose-500/10   border-rose-500/20   text-rose-400',
+  DUE:            'bg-orange-500/10 border-orange-500/20 text-orange-400',
+}
+
+const RETURN_REASONS = [
+  'Defective / Damaged',
+  'Wrong Item Delivered',
+  'Customer Changed Mind',
+  'Duplicate Order',
+  'Quality Not as Expected',
+  'Other',
+]
+
+/* ── Process Return Modal ────────────────────────────────────────────────── */
+function ProcessReturnModal({ sale, onClose, onDone }: { sale: any; onClose: () => void; onDone: () => void }) {
+  const [qtys, setQtys]           = useState<Record<string, number>>(
+    Object.fromEntries((sale.items ?? []).map((i: any) => [i.id, 0]))
+  )
+  const [reason,       setReason]       = useState(RETURN_REASONS[0])
+  const [refundMethod, setRefundMethod] = useState('CASH')
+  const [notes,        setNotes]        = useState('')
+  const [loading,      setLoading]      = useState(false)
+
+  const selectedItems = (sale.items ?? []).filter((i: any) => qtys[i.id] > 0)
+  const refundAmount  = selectedItems.reduce((s: number, i: any) => s + i.unitPrice * qtys[i.id], 0)
+
+  const adjust = (id: string, max: number, delta: number) =>
+    setQtys(p => ({ ...p, [id]: Math.max(0, Math.min(max, (p[id] ?? 0) + delta)) }))
+
+  const handleSubmit = async () => {
+    if (!selectedItems.length) return toast.error('Select at least one item to return')
+    setLoading(true)
+    try {
+      await salesApi.processReturn(sale.id, {
+        items: selectedItems.map((i: any) => ({
+          productId:   i.productId,
+          productName: i.productName,
+          quantity:    qtys[i.id],
+          unitPrice:   i.unitPrice,
+          total:       i.unitPrice * qtys[i.id],
+        })),
+        reason,
+        refundMethod,
+        notes: notes || undefined,
+      })
+      toast.success('Return processed — stock restored & refund recorded')
+      onDone(); onClose()
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to process return')
+    } finally { setLoading(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+        <div className="h-1 w-full bg-gradient-to-r from-rose-500 to-orange-500" />
+        <div className="flex items-center justify-between p-5 border-b border-white/5">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/20 flex items-center justify-center">
+              <RotateCcw size={15} className="text-rose-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Process Return</h3>
+              <p className="text-xs text-slate-500">{sale.invoiceNumber} · {sale.customerName || 'Walk-in'}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={15} /></button>
+        </div>
+
+        <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+          {/* Items */}
+          <div>
+            <p className="text-xs text-slate-400 uppercase tracking-wide mb-2">Select items to return</p>
+            <div className="space-y-2">
+              {(sale.items ?? []).map((item: any) => (
+                <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-white/3 border border-white/5">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-white truncate">{item.productName}</p>
+                    <p className="text-[10px] text-slate-500">Sold: {item.quantity} × {formatCurrency(item.unitPrice)}</p>
+                  </div>
+                  <div className="flex items-center gap-2 ml-3">
+                    <button onClick={() => adjust(item.id, item.quantity, -1)}
+                      className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400">
+                      <Minus size={10} />
+                    </button>
+                    <span className={`w-7 text-center text-sm font-bold ${qtys[item.id] > 0 ? 'text-rose-400' : 'text-slate-500'}`}>
+                      {qtys[item.id]}
+                    </span>
+                    <button onClick={() => adjust(item.id, item.quantity, +1)}
+                      className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400">
+                      <Plus size={10} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Reason */}
+          <div>
+            <label className="block text-xs text-slate-400 mb-1.5">Return Reason</label>
+            <select value={reason} onChange={e => setReason(e.target.value)} className="input-field">
+              {RETURN_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+
+          {/* Refund method */}
+          <div>
+            <label className="block text-xs text-slate-400 mb-1.5">Refund Method</label>
+            <div className="grid grid-cols-4 gap-1.5">
+              {['CASH','CARD','UPI','BANK_TRANSFER'].map(m => (
+                <button key={m} type="button" onClick={() => setRefundMethod(m)}
+                  className={`py-1.5 text-[10px] font-semibold rounded-lg border transition-colors ${
+                    refundMethod === m
+                      ? 'bg-rose-500/20 border-rose-500/40 text-rose-300'
+                      : 'border-white/10 text-slate-500 hover:border-white/20 hover:text-slate-300'
+                  }`}>{m.replace('_',' ')}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="block text-xs text-slate-400 mb-1.5">Notes (optional)</label>
+            <input className="input-field" placeholder="Additional details..." value={notes} onChange={e => setNotes(e.target.value)} />
+          </div>
+
+          {/* Summary */}
+          {refundAmount > 0 && (
+            <div className="flex items-center justify-between p-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={13} className="text-rose-400" />
+                <span className="text-xs text-rose-300">Refund amount</span>
+              </div>
+              <span className="text-sm font-bold text-rose-400">{formatCurrency(refundAmount)}</span>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-1">
+            <button onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
+            <button onClick={handleSubmit} disabled={loading || !selectedItems.length}
+              className="flex-1 text-sm flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-rose-500 hover:bg-rose-600 text-white font-semibold disabled:opacity-50 transition-colors">
+              {loading ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}
+              {loading ? 'Processing...' : 'Process Return'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 const methodIcon: Record<string, React.ReactNode> = {
@@ -349,7 +500,8 @@ export default function SalesPage() {
   const [sales, setSales]           = useState<any[]>([])
   const [meta, setMeta]             = useState<any>(null)
   const [loading, setLoading]       = useState(true)
-  const [detailSale, setDetailSale] = useState<any>(null)
+  const [detailSale,  setDetailSale]  = useState<any>(null)
+  const [returnSale,   setReturnSale]  = useState<any>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -419,13 +571,22 @@ export default function SalesPage() {
     },
     {
       id: 'actions',
-      cell: ({ row }) => (
-        <TableActionsRow
-          showAction={{ action: () => setDetailSale(row.original) }}
-        />
-      ),
+      cell: ({ row }) => {
+        const s = row.original
+        return (
+          <div className="flex items-center gap-2">
+            {s.status !== 'RETURNED' && (
+              <button onClick={() => setReturnSale(s)}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-colors">
+                <RotateCcw size={10} />Return
+              </button>
+            )}
+            <TableActionsRow showAction={{ action: () => setDetailSale(s) }} />
+          </div>
+        )
+      },
     },
-  ], [setDetailSale])
+  ], [setDetailSale, setReturnSale])
 
   return (
     <div className="space-y-5">
@@ -476,7 +637,8 @@ export default function SalesPage() {
         }]}
       />
 
-      {detailSale && <SaleDetailsModal sale={detailSale} onClose={() => setDetailSale(null)} />}
+      {detailSale  && <SaleDetailsModal sale={detailSale} onClose={() => setDetailSale(null)} />}
+      {returnSale  && <ProcessReturnModal sale={returnSale} onClose={() => setReturnSale(null)} onDone={load} />}
     </div>
   )
 }

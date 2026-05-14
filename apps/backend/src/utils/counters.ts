@@ -21,6 +21,13 @@ export async function generatePONumber(tenantId: string): Promise<string> {
   return `${prefix}-${String(count + 1).padStart(4, '0')}`
 }
 
+export async function generateReturnNumber(tenantId: string): Promise<string> {
+  const today = new Date()
+  const prefix = `RET-${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`
+  const count = await prisma.saleReturn.count({ where: { tenantId } })
+  return `${prefix}-${String(count + 1).padStart(4, '0')}`
+}
+
 export function generateWarrantyCode(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
   let code = 'WR-'
