@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Truck, Phone, Mail, Package, Eye, Edit, Loader2, X, ChevronDown, Trash2, FileText, MapPin, Globe, Hash, ShoppingBag, TrendingUp, AlertCircle, Calendar, CheckCircle, Save } from 'lucide-react'
+import { Plus, Truck, Phone, Mail, Package, Eye, Edit, Loader2, X, ChevronDown, Trash2, FileText, MapPin, Globe, Hash, ShoppingBag, TrendingUp, AlertCircle, Calendar, CheckCircle, Save, PackageCheck, ShieldAlert } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -12,6 +12,84 @@ import { useSuppliers, usePurchaseOrders, useProducts } from '@/lib/hooks'
 import { suppliersApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import type { Supplier, PurchaseOrder } from '@/types'
+
+/* ── Confirm Receive Modal ────────────────────────────────────────── */
+function ConfirmReceiveModal({ po, onConfirm, onCancel, loading }: {
+  po: PurchaseOrder
+  onConfirm: () => void
+  onCancel: () => void
+  loading: boolean
+}) {
+  const isRetroactive = po.status === 'RECEIVED'
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+        {/* Top accent bar */}
+        <div className={`h-1 w-full ${isRetroactive ? 'bg-amber-500' : 'bg-green-500'}`} />
+
+        <div className="p-6">
+          {/* Icon */}
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
+            isRetroactive ? 'bg-amber-500/15 border border-amber-500/20' : 'bg-green-500/15 border border-green-500/20'
+          }`}>
+            {isRetroactive
+              ? <ShieldAlert size={22} className="text-amber-400" />
+              : <PackageCheck size={22} className="text-green-400" />}
+          </div>
+
+          {/* Title */}
+          <h3 className="text-base font-bold text-white text-center mb-1">
+            {isRetroactive ? 'Apply Restock?' : 'Receive Purchase Order?'}
+          </h3>
+          <p className="text-xs text-slate-500 text-center mb-5">
+            {isRetroactive
+              ? 'This PO is already marked RECEIVED. Restock will only run if it was not applied before.'
+              : 'This will mark the order as received and add all items to your inventory stock.'}
+          </p>
+
+          {/* PO summary */}
+          <div className="bg-white/3 border border-white/5 rounded-xl p-3.5 mb-5 space-y-1.5">
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-500">PO Number</span>
+              <span className="font-mono text-violet-300 font-semibold">{po.poNumber}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-500">Supplier</span>
+              <span className="text-slate-200">{po.supplierName}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-500">Items</span>
+              <span className="text-slate-200">{po.items?.length ?? 0} item{(po.items?.length ?? 0) !== 1 ? 's' : ''}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-500">Total Value</span>
+              <span className="text-white font-bold">{formatCurrency(po.total)}</span>
+            </div>
+          </div>
+
+          {/* Buttons */}
+          <div className="flex gap-3">
+            <button onClick={onCancel} disabled={loading}
+              className="flex-1 py-2.5 text-sm font-semibold rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50">
+              Cancel
+            </button>
+            <button onClick={onConfirm} disabled={loading}
+              className={`flex-1 py-2.5 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-60 ${
+                isRetroactive
+                  ? 'bg-amber-500/20 border border-amber-500/30 text-amber-300 hover:bg-amber-500/30'
+                  : 'bg-green-500/20 border border-green-500/30 text-green-300 hover:bg-green-500/30'
+              }`}>
+              {loading
+                ? <Loader2 size={14} className="animate-spin" />
+                : <CheckCircle size={14} />}
+              {loading ? 'Processing…' : 'Yes, Receive'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const poStatusColors: Record<string, string> = {
   DRAFT:    'bg-slate-500/10 border-slate-500/20 text-slate-400',
@@ -454,25 +532,28 @@ export default function SuppliersPage() {
   const [detailSupplier, setDetailSupplier]       = useState<Supplier | null>(null)
   const [editSupplier,   setEditSupplier]         = useState<Supplier | null>(null)
   const [markReceiving,  setMarkReceiving]        = useState<string | null>(null)
+  const [confirmPO,       setConfirmPO]           = useState<PurchaseOrder | null>(null)
   const { data: suppliersData, loading: suppliersLoading, refetch: refetchSuppliers } = useSuppliers()
   const { data: ordersData,    loading: ordersLoading,    refetch: refetchOrders    } = usePurchaseOrders()
   const suppliers:      Supplier[]      = (suppliersData?.data ?? []) as Supplier[]
   const purchaseOrders: PurchaseOrder[] = (ordersData?.data    ?? []) as PurchaseOrder[]
 
   const handleMarkReceived = async (po: PurchaseOrder) => {
-    const msg = po.status === 'RECEIVED'
-      ? `"${po.poNumber}" is already RECEIVED.\nApply stock restock now? (Only runs if not already applied)`
-      : `Mark "${po.poNumber}" as RECEIVED?\nThis will restock all items in your inventory.`
-    if (!confirm(msg)) return
-    setMarkReceiving(po.id)
+    setConfirmPO(po)
+  }
+
+  const doReceive = async () => {
+    if (!confirmPO) return
+    setMarkReceiving(confirmPO.id)
     try {
-      await suppliersApi.updatePO(po.id, { status: 'RECEIVED' })
-      toast.success(`${po.poNumber} received — inventory updated`)
+      await suppliersApi.updatePO(confirmPO.id, { status: 'RECEIVED' })
+      toast.success(`${confirmPO.poNumber} received — inventory updated`)
       refetchOrders()
     } catch (err: any) {
       toast.error(err?.message ?? 'Failed to update PO')
     } finally {
       setMarkReceiving(null)
+      setConfirmPO(null)
     }
   }
 
@@ -605,6 +686,7 @@ export default function SuppliersPage() {
       {showNewPO       && <NewPOModal suppliers={suppliers} onClose={() => setShowNewPO(false)} onSaved={() => { refetchOrders(); refetchSuppliers() }} />}
       {detailSupplier  && <SupplierDetailsModal supplier={detailSupplier} onClose={() => setDetailSupplier(null)} onEdit={() => { setEditSupplier(detailSupplier); setDetailSupplier(null) }} />}
       {editSupplier    && <EditSupplierModal supplier={editSupplier} onClose={() => setEditSupplier(null)} onSaved={() => { refetchSuppliers(); setEditSupplier(null) }} />}
+      {confirmPO       && <ConfirmReceiveModal po={confirmPO} onConfirm={doReceive} onCancel={() => setConfirmPO(null)} loading={!!markReceiving} />}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
