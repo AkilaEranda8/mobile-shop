@@ -19,7 +19,7 @@ export interface WAStatusInfo {
   phoneNumber?: string
   displayName?: string
   lastChecked?: string
-  qualityRating?: 'GREEN' | 'YELLOW' | 'RED'
+  qualityRating?: 'GREEN' | 'YELLOW' | 'RED' | 'UNKNOWN'
 }
 
 export interface WAStats {
