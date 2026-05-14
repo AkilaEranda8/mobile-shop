@@ -6,13 +6,14 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
 import {
-  TrendingUp, Package, Wrench, Truck, Download,
+  TrendingUp, TrendingDown, Package, Wrench, Truck, Download,
   ShoppingCart, AlertTriangle, CheckCircle, Clock, XCircle,
-  DollarSign, BarChart2, Layers, ArrowUpRight,
+  DollarSign, BarChart3, ArrowUpRight, ArrowDownRight, Users, Wallet,
 } from 'lucide-react'
 import {
   useRevenue, useTopProducts, useRepairsByStatus,
   useInventorySummary, useDeliverySummary, useAnalyticsDashboard,
+  useFinanceSummary,
 } from '@/lib/hooks'
 import { formatCurrency } from '@/lib/utils'
 
@@ -33,10 +34,11 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 const PERIODS = [
-  { label: '7 Days',    days: '7'  },
-  { label: '30 Days',   days: '30' },
-  { label: '3 Months',  days: '90' },
-  { label: '1 Year',    days: '365'},
+  { label: 'Today', days: '1'   },
+  { label: '7D',    days: '7'   },
+  { label: '30D',   days: '30'  },
+  { label: '90D',   days: '90'  },
+  { label: '1Y',    days: '365' },
 ]
 
 /* ── small helpers ──────────────────────────────────────────────── */
@@ -44,12 +46,12 @@ function StatCard({ label, value, sub, icon: Icon, color }: { label: string; val
   return (
     <div className="card p-4 flex items-center gap-3">
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20 flex-shrink-0`}>
-        <Icon size={16} className={`text-${color}-400`} />
+        <Icon size={16} className={`text-${color}-600 dark:text-${color}-400`} />
       </div>
       <div className="min-w-0">
-        <p className="text-lg font-bold text-white truncate">{value}</p>
-        <p className="text-[11px] text-slate-500">{label}</p>
-        {sub && <p className="text-[10px] text-slate-600 mt-0.5">{sub}</p>}
+        <p className="text-lg font-bold truncate" style={{ color: 'var(--text-primary)' }}>{value}</p>
+        <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{label}</p>
+        {sub && <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
       </div>
     </div>
   )
@@ -60,8 +62,8 @@ function SectionTitle({ title, sub }: { title: string; sub?: string }) {
     <div className="flex items-center gap-2 mb-4">
       <div className="w-1 h-5 rounded-full bg-violet-500" />
       <div>
-        <h3 className="text-sm font-semibold text-white">{title}</h3>
-        {sub && <p className="text-[11px] text-slate-500">{sub}</p>}
+        <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</h3>
+        {sub && <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
       </div>
     </div>
   )
@@ -75,7 +77,7 @@ function ExportCSV({ filename, rows, headers }: { filename: string; rows: (strin
     a.href     = URL.createObjectURL(blob); a.download = filename; a.click()
   }
   return (
-    <button onClick={handle} className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-violet-400 border border-white/10 hover:border-violet-500/30 px-3 py-1.5 rounded-lg transition-colors">
+    <button onClick={handle} className="flex items-center gap-1.5 text-xs hover:text-violet-600 dark:hover:text-violet-400 border px-3 py-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}>
       <Download size={12} /> Export CSV
     </button>
   )
@@ -83,22 +85,24 @@ function ExportCSV({ filename, rows, headers }: { filename: string; rows: (strin
 
 /* ── tabs ───────────────────────────────────────────────────────── */
 const TABS = [
+  { id: 'overview',  label: 'Overview',  icon: BarChart3    },
   { id: 'sales',     label: 'Sales',     icon: ShoppingCart },
+  { id: 'finance',   label: 'Finance',   icon: DollarSign   },
   { id: 'inventory', label: 'Inventory', icon: Package      },
   { id: 'repairs',   label: 'Repairs',   icon: Wrench       },
   { id: 'delivery',  label: 'Delivery',  icon: Truck        },
 ]
 
 /* ── Sales Tab ─────────────────────────────────────────────────── */
-function SalesTab({ days }: { days: string }) {
-  const { data: rawRevenue }      = useRevenue({ days })
-  const { data: topProductsData } = useTopProducts({ limit: '10' })
+function SalesTab({ days, fromDate, toDate }: { days: string; fromDate: string; toDate: string }) {
+  const { data: rawRevenue }      = useRevenue({ from: fromDate, to: toDate })
+  const { data: topProductsData } = useTopProducts({ limit: '10', from: fromDate, to: toDate })
   const revenueArr: any[] = Array.isArray(rawRevenue) ? rawRevenue : []
   const topProducts: any[] = Array.isArray(topProductsData) ? topProductsData : []
 
   const totalRevenue  = revenueArr.reduce((s, d) => s + (d.totalRevenue ?? 0), 0)
   const totalProfit   = revenueArr.reduce((s, d) => s + (d.profit ?? 0), 0)
-  const totalExpenses = revenueArr.reduce((s, d) => s + (d.totalExpenses ?? 0), 0)
+  const totalCost     = revenueArr.reduce((s, d) => s + (d.totalExpenses ?? 0) + (d.cogs ?? 0), 0)
   const avgDaily      = revenueArr.length > 0 ? totalRevenue / revenueArr.length : 0
   const marginPct     = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : '0'
 
@@ -106,7 +110,7 @@ function SalesTab({ days }: { days: string }) {
     date:     new Date(d.date).toLocaleDateString('en-LK', { month: 'short', day: 'numeric' }),
     Revenue:  d.totalRevenue ?? 0,
     Profit:   d.profit ?? 0,
-    Expenses: d.totalExpenses ?? 0,
+    Expenses: (d.totalExpenses ?? 0) + (d.cogs ?? 0),
   })), [revenueArr])
 
   const exportRows = topProducts.map(p => [p.productName, p.quantitySold, p.revenue])
@@ -117,8 +121,8 @@ function SalesTab({ days }: { days: string }) {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard label="Total Revenue"   value={formatCurrency(totalRevenue)}  icon={DollarSign}   color="violet" />
         <StatCard label="Gross Profit"    value={formatCurrency(totalProfit)}   icon={TrendingUp}   color="green"  sub={`${marginPct}% margin`} />
-        <StatCard label="Total Expenses"  value={formatCurrency(totalExpenses)} icon={ArrowUpRight} color="red"    />
-        <StatCard label="Avg Daily Revenue" value={formatCurrency(avgDaily)}   icon={BarChart2}    color="blue"   />
+        <StatCard label="Total Cost"      value={formatCurrency(totalCost)}    icon={TrendingDown} color="red"    />
+        <StatCard label="Avg Daily Revenue" value={formatCurrency(avgDaily)}   icon={BarChart3}    color="blue"   />
       </div>
 
       {/* Revenue chart */}
@@ -166,16 +170,16 @@ function SalesTab({ days }: { days: string }) {
           </ResponsiveContainer>
           <div className="space-y-1 overflow-y-auto max-h-56">
             {topProducts.map((p: any, i: number) => (
-              <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/3 transition-colors">
-                <span className="text-[10px] font-mono text-slate-600 w-5">{i + 1}</span>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                <span className="text-[10px] font-mono w-5" style={{ color: 'var(--text-muted)' }}>{i + 1}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-200 truncate">{p.productName}</p>
-                  <p className="text-[10px] text-slate-500">{p.quantitySold} units sold</p>
+                  <p className="text-xs truncate" style={{ color: 'var(--text-primary)' }}>{p.productName}</p>
+                  <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{p.quantitySold} units sold</p>
                 </div>
-                <span className="text-xs font-semibold text-violet-400 flex-shrink-0">{formatCurrency(p.revenue)}</span>
+                <span className="text-xs font-semibold flex-shrink-0 text-violet-600 dark:text-violet-400">{formatCurrency(p.revenue)}</span>
               </div>
             ))}
-            {topProducts.length === 0 && <p className="text-xs text-slate-500 text-center py-8">No sales data</p>}
+            {topProducts.length === 0 && <p className="text-xs text-center py-8" style={{ color: 'var(--text-muted)' }}>No sales data for this period</p>}
           </div>
         </div>
       </div>
@@ -243,30 +247,30 @@ function InventoryTab() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/5">
+              <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                 {['Category','Products','Total Stock','Stock Value','Low Stock','Out of Stock'].map(h => (
-                  <th key={h} className="text-left text-[11px] text-slate-500 font-semibold uppercase tracking-wide px-3 py-2">{h}</th>
+                  <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wide px-3 py-2" style={{ color: 'var(--text-muted)' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {byCategory.map((c: any, i: number) => (
-                <tr key={i} className="border-b border-white/5 hover:bg-white/2 transition-colors">
+                <tr key={i} className="transition-colors" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
-                      <span className="text-slate-200 text-xs">{c.name}</span>
+                      <span className="text-xs" style={{ color: 'var(--text-primary)' }}>{c.name}</span>
                     </div>
                   </td>
-                  <td className="px-3 py-2.5 text-xs text-slate-400">{c.products}</td>
-                  <td className="px-3 py-2.5 text-xs text-slate-400">{c.totalStock}</td>
-                  <td className="px-3 py-2.5 text-xs font-semibold text-violet-400">{formatCurrency(c.stockValue)}</td>
+                  <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{c.products}</td>
+                  <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{c.totalStock}</td>
+                  <td className="px-3 py-2.5 text-xs font-semibold text-violet-600 dark:text-violet-400">{formatCurrency(c.stockValue)}</td>
                   <td className="px-3 py-2.5"><span className={`text-[11px] px-1.5 py-0.5 rounded ${c.lowStock > 0 ? 'text-yellow-400 bg-yellow-500/10' : 'text-slate-600'}`}>{c.lowStock}</span></td>
                   <td className="px-3 py-2.5"><span className={`text-[11px] px-1.5 py-0.5 rounded ${c.outOfStock > 0 ? 'text-red-400 bg-red-500/10' : 'text-slate-600'}`}>{c.outOfStock}</span></td>
                 </tr>
               ))}
               {byCategory.length === 0 && (
-                <tr><td colSpan={6} className="text-center py-8 text-xs text-slate-500">No inventory data</td></tr>
+                <tr><td colSpan={6} className="text-center py-8 text-xs" style={{ color: 'var(--text-muted)' }}>No inventory data</td></tr>
               )}
             </tbody>
           </table>
@@ -326,8 +330,8 @@ function RepairsTab() {
               return (
                 <div key={i}>
                   <div className="flex justify-between text-xs mb-1">
-                    <span className="text-slate-300">{STATUS_LABEL[r.status] ?? r.status}</span>
-                    <span className="text-slate-400">{r.count} <span className="text-slate-600">({pct}%)</span></span>
+                    <span style={{ color: 'var(--text-primary)' }}>{STATUS_LABEL[r.status] ?? r.status}</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>{r.count} <span style={{ color: 'var(--text-muted)' }}>({pct}%)</span></span>
                   </div>
                   <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
                     <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
@@ -335,7 +339,7 @@ function RepairsTab() {
                 </div>
               )
             })}
-            {statusArr.length === 0 && <p className="text-xs text-slate-500 text-center py-8">No repair data</p>}
+            {statusArr.length === 0 && <p className="text-xs text-center py-8" style={{ color: 'var(--text-muted)' }}>No repair data</p>}
           </div>
         </div>
       </div>
@@ -428,36 +432,266 @@ function DeliveryTab({ days }: { days: string }) {
             const pct = totalOrders > 0 ? Math.round((s.count / totalOrders) * 100) : 0
             return (
               <div key={i} className="flex items-center gap-3">
-                <div className="w-20 text-xs text-slate-400 flex-shrink-0">{STATUS_LABEL[s.status] ?? s.status}</div>
+                <div className="w-20 text-xs flex-shrink-0" style={{ color: 'var(--text-secondary)' }}>{STATUS_LABEL[s.status] ?? s.status}</div>
                 <div className="flex-1 h-2 rounded-full bg-white/5 overflow-hidden">
                   <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
                 </div>
-                <span className="text-xs text-slate-400 w-8 text-right flex-shrink-0">{s.count}</span>
-                <span className="text-xs font-medium text-violet-400 w-24 text-right flex-shrink-0">{formatCurrency(s.revenue)}</span>
+                <span className="text-xs w-8 text-right flex-shrink-0" style={{ color: 'var(--text-muted)' }}>{s.count}</span>
+                <span className="text-xs font-medium w-24 text-right flex-shrink-0 text-violet-600 dark:text-violet-400">{formatCurrency(s.revenue)}</span>
               </div>
             )
           })}
-          {byStatus.length === 0 && <p className="text-xs text-slate-500 text-center py-6">No delivery data for this period</p>}
+          {byStatus.length === 0 && <p className="text-xs text-center py-6" style={{ color: 'var(--text-muted)' }}>No delivery data for this period</p>}
         </div>
       </div>
     </div>
   )
 }
 
-/* ── Main Page ──────────────────────────────────────────────────── */
+/* ── Overview Tab ─────────────────────────────────────────────── */
+function OverviewTab({ days, fromDate, toDate }: { days: string; fromDate: string; toDate: string }) {
+  const { data: dashData }         = useAnalyticsDashboard()
+  const { data: rawRevenue }       = useRevenue({ from: fromDate, to: toDate })
+  const { data: repairStatusData } = useRepairsByStatus()
+  const { data: invData }          = useInventorySummary()
+
+  const dash = dashData as any
+  const revenue: any[]  = Array.isArray(rawRevenue) ? rawRevenue : []
+  const repairs: any[]  = Array.isArray(repairStatusData) ? repairStatusData : []
+  const inv = invData as any
+
+  const totalRevenue  = revenue.reduce((s, d) => s + (d.totalRevenue ?? 0), 0)
+  const totalProfit   = revenue.reduce((s, d) => s + (d.profit ?? 0), 0)
+  const totalCost     = revenue.reduce((s, d) => s + (d.totalExpenses ?? 0) + (d.cogs ?? 0), 0)
+  const margin        = totalRevenue > 0 ? Math.round((totalProfit / totalRevenue) * 100) : 0
+  const activeRepairs = repairs.filter(r => !['DELIVERED','CANCELLED'].includes(r.status)).reduce((s, r) => s + (r.count ?? 0), 0)
+
+  const chartData = useMemo(() => revenue.map((d: any) => ({
+    date:    new Date(d.date).toLocaleDateString('en-LK', { month: 'short', day: 'numeric' }),
+    Revenue: d.totalRevenue ?? 0,
+    Profit:  d.profit ?? 0,
+    Cost:    (d.totalExpenses ?? 0) + (d.cogs ?? 0),
+  })), [revenue])
+
+  const health = [
+    { label: `${days}d Revenue`,    value: formatCurrency(totalRevenue),           good: totalRevenue > 0         },
+    { label: 'Profit Margin',        value: `${margin}%`,                           good: margin >= 15             },
+    { label: 'Low Stock Items',      value: `${dash?.lowStockCount ?? 0} items`,    good: (dash?.lowStockCount ?? 0) === 0 },
+    { label: 'Active Repairs',       value: String(activeRepairs),                  good: activeRepairs < 10       },
+    { label: 'Expiring Warranties',  value: String(dash?.expiringWarranties ?? 0),  good: (dash?.expiringWarranties ?? 0) === 0 },
+  ]
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        <StatCard label={`${days}d Revenue`}    value={formatCurrency(totalRevenue)}             icon={DollarSign}    color="violet" />
+        <StatCard label={`${days}d Net Profit`} value={formatCurrency(totalProfit)}             icon={TrendingUp}    color="green"  sub={`${margin}% margin`} />
+        <StatCard label={`${days}d Total Cost`} value={formatCurrency(totalCost)}               icon={TrendingDown}  color="red"    />
+        <StatCard label="Today's Revenue"       value={formatCurrency(dash?.todayRevenue ?? 0)} icon={ShoppingCart}  color="blue"   sub={`${dash?.todaySalesCount ?? 0} sales`} />
+        <StatCard label="Total Customers"       value={(dash?.totalCustomers ?? 0).toLocaleString()} icon={Users}    color="orange" />
+        <StatCard label="Low Stock Items"       value={(dash?.lowStockCount ?? 0).toString()}   icon={AlertTriangle} color="yellow" sub="≤5 units remaining" />
+      </div>
+
+      <div className="card p-5">
+        <SectionTitle title={`Revenue, Profit & Cost — Last ${days} Days`} />
+        {chartData.length === 0 ? (
+          <div className="h-48 flex items-center justify-center text-sm" style={{ color: 'var(--text-muted)' }}>No data for this period</div>
+        ) : (
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="ovRev" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#7c3aed" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#7c3aed" stopOpacity={0}    />
+                </linearGradient>
+                <linearGradient id="ovPro" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#16a34a" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="#16a34a" stopOpacity={0}   />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} tickFormatter={v => formatCurrency(v)} width={72} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any) => formatCurrency(v)} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Area type="monotone" dataKey="Revenue" stroke="#7c3aed" fill="url(#ovRev)" strokeWidth={2} dot={false} />
+              <Area type="monotone" dataKey="Profit"  stroke="#16a34a" fill="url(#ovPro)" strokeWidth={2} dot={false} />
+              <Area type="monotone" dataKey="Cost"    stroke="#dc2626" fill="none"         strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-4">
+        <div className="card p-5">
+          <SectionTitle title="Business Health Check" />
+          <div className="space-y-3">
+            {health.map(({ label, value, good }) => (
+              <div key={label} className="flex justify-between items-center">
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{label}</span>
+                <span className={`text-xs font-semibold ${good ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="card p-5">
+          <SectionTitle title="Quick Stats" />
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: "Today's Sales",     value: (dash?.todaySalesCount ?? 0).toString(),         color: '#7c3aed' },
+              { label: 'All-time Revenue',   value: formatCurrency(dash?.totalRevenue ?? 0),         color: '#15803d' },
+              { label: 'Stock Value',        value: formatCurrency(inv?.totalStockValue ?? 0),        color: '#0e7490' },
+              { label: 'Ready Pickups',      value: (dash?.readyForPickup ?? 0).toString(),           color: '#b45309' },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="rounded-xl p-3 text-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+                <p className="text-lg font-bold" style={{ color }}>{value}</p>
+                <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Finance Tab ──────────────────────────────────────────────── */
+function FinanceTab({ fromDate, toDate }: { fromDate: string; toDate: string }) {
+  const { data: summaryData } = useFinanceSummary({ from: fromDate, to: toDate })
+  const s = summaryData as any
+
+  const salesRevenue = s?.salesRevenue ?? 0
+  const otherIncome  = s?.otherIncome  ?? 0
+  const totalIncome  = s?.totalIncome  ?? 0
+  const cogs         = s?.cogs         ?? 0
+  const grossProfit  = s?.grossProfit  ?? 0
+  const opExpenses   = s?.opExpenses   ?? 0
+  const netProfit    = s?.profit       ?? 0
+  const grossMargin  = salesRevenue > 0 ? Math.round((grossProfit  / salesRevenue) * 100) : 0
+  const netMargin    = totalIncome  > 0 ? Math.round((netProfit    / totalIncome)  * 100) : 0
+  const cogsRatio    = salesRevenue > 0 ? Math.round((cogs         / salesRevenue) * 100) : 0
+  const opexRatio    = totalIncome  > 0 ? Math.round((opExpenses   / totalIncome)  * 100) : 0
+
+  type PLRow = { label: string; value?: number; pct?: number; bold?: boolean; separator?: boolean; positive?: boolean; indent?: boolean }
+  const plRows: PLRow[] = [
+    { label: 'Sales Revenue',        value: salesRevenue, positive: true                                    },
+    { label: 'Other Income',         value: otherIncome,  positive: true,  indent: true                    },
+    { label: 'Total Income',         value: totalIncome,  positive: true,  bold: true, separator: true      },
+    { label: 'Cost of Goods (COGS)', value: cogs,         positive: false, indent: true                    },
+    { label: 'Gross Profit',         value: grossProfit,  positive: grossProfit >= 0, bold: true            },
+    { label: 'Gross Margin',         pct: grossMargin,    positive: grossMargin >= 0, indent: true          },
+    { label: 'Operating Expenses',   value: opExpenses,   positive: false, indent: true, separator: true   },
+    { label: 'Net Profit',           value: netProfit,    positive: netProfit >= 0,   bold: true            },
+    { label: 'Net Profit Margin',    pct: netMargin,      positive: netMargin >= 0,   indent: true          },
+  ]
+
+  const exportRows = plRows.filter(r => r.value !== undefined).map(r => [r.label, r.value!.toFixed(2)])
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard label="Sales Revenue"    value={formatCurrency(salesRevenue)} icon={ArrowUpRight}   color="green"  />
+        <StatCard label="Gross Profit"     value={formatCurrency(grossProfit)}  icon={TrendingUp}     color="cyan"   sub={`${grossMargin}% gross margin`} />
+        <StatCard label="Op. Expenses"     value={formatCurrency(opExpenses)}   icon={ArrowDownRight} color="red"    />
+        <StatCard label="Net Profit"       value={formatCurrency(netProfit)}    icon={Wallet}         color={netProfit >= 0 ? 'violet' : 'red'} sub={`${netMargin}% net margin`} />
+      </div>
+
+      <div className="card p-5">
+        <div className="flex items-center justify-between mb-4">
+          <SectionTitle title="Profit & Loss Statement" sub={`Period: ${fromDate} → ${toDate}`} />
+          <ExportCSV filename="pl-report.csv" headers={['Item','Amount (LKR)']} rows={exportRows} />
+        </div>
+        <div className="overflow-hidden rounded-xl" style={{ border: '1px solid var(--border-subtle)' }}>
+          {plRows.map((row, i) => (
+            <div key={i}
+              className={['flex justify-between items-center px-4 py-2.5', row.bold ? 'font-semibold' : ''].join(' ')}
+              style={{
+                borderTop: row.separator ? '2px solid var(--border-default)' : i > 0 ? '1px solid var(--border-subtle)' : 'none',
+                background: row.bold ? 'var(--bg-subtle)' : 'transparent',
+              }}>
+              <span className={`text-sm ${row.indent ? 'pl-5' : ''}`}
+                style={{ color: row.bold ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                {row.label}
+              </span>
+              {row.value !== undefined ? (
+                <span className={`text-sm font-semibold ${row.bold ? 'text-base' : ''} ${row.positive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                  {row.positive ? '+' : '−'}{formatCurrency(Math.abs(row.value))}
+                </span>
+              ) : (
+                <span className={`text-sm font-medium ${row.positive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                  {row.pct}%
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-4">
+        <div className="card p-4" style={{
+          borderColor: netProfit >= 0 ? 'rgba(21,128,61,0.3)' : 'rgba(185,28,28,0.3)',
+          background:  netProfit >= 0 ? 'rgba(21,128,61,0.05)' : 'rgba(185,28,28,0.05)',
+        }}>
+          <div className="flex items-center gap-2 mb-2">
+            {netProfit >= 0
+              ? <CheckCircle size={14} className="text-green-600 dark:text-green-400" />
+              : <AlertTriangle size={14} className="text-red-600 dark:text-red-400" />}
+            <span className={`text-xs font-semibold ${netProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+              {netProfit >= 0 ? 'Profitable Period' : 'Loss Period — Review Expenses'}
+            </span>
+          </div>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            {netProfit >= 0
+              ? `Net profit: ${formatCurrency(netProfit)} · ${netMargin}% margin.`
+              : `Net loss: ${formatCurrency(Math.abs(netProfit))}. Review operating expenses.`}
+          </p>
+        </div>
+        <div className="card p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>Efficiency Ratios</p>
+          <div className="space-y-2">
+            {[
+              { label: 'COGS % of Revenue',  value: cogsRatio,    good: cogsRatio < 70   },
+              { label: 'OpEx % of Revenue',  value: opexRatio,    good: opexRatio < 30   },
+              { label: 'Gross Margin',       value: grossMargin,  good: grossMargin > 20 },
+              { label: 'Net Margin',         value: netMargin,    good: netMargin > 10   },
+            ].map(({ label, value, good }) => (
+              <div key={label} className="flex justify-between items-center">
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{label}</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-20 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-subtle)' }}>
+                    <div className="h-full rounded-full" style={{ width: `${Math.min(Math.abs(value), 100)}%`, background: good ? '#15803d' : '#b91c1c' }} />
+                  </div>
+                  <span className={`text-xs font-semibold w-8 text-right ${good ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{value}%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Main Page ───────────────────────────────────────────────────── */
 export default function ReportsPage() {
-  const [activeTab, setActiveTab] = useState('sales')
+  const [activeTab, setActiveTab] = useState('overview')
   const [period, setPeriod]       = useState('30')
+
+  const toDate   = useMemo(() => new Date().toISOString().split('T')[0], [])
+  const fromDate = useMemo(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - parseInt(period) + 1)
+    return d.toISOString().split('T')[0]
+  }, [period])
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
-          <h1 className="page-title">Reports</h1>
-          <p className="page-subtitle">Business reports &amp; export · Live data</p>
+          <h1 className="page-title">Reports & Analytics</h1>
+          <p className="page-subtitle">Live business data · Period-based · CSV export</p>
         </div>
-        {/* Period selector */}
         <div className="flex gap-1 p-1 rounded-xl sm:ml-auto" style={{ background: 'var(--bg-subtle)' }}>
           {PERIODS.map(p => (
             <button key={p.days} onClick={() => setPeriod(p.days)}
@@ -470,12 +704,12 @@ export default function ReportsPage() {
       </div>
 
       {/* Tab navigation */}
-      <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'var(--bg-subtle)', width: 'fit-content' }}>
+      <div className="flex gap-1 p-1 rounded-xl overflow-x-auto" style={{ background: 'var(--bg-subtle)', width: 'fit-content', maxWidth: '100%' }}>
         {TABS.map(tab => {
           const Icon = tab.icon
           return (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className="flex items-center gap-1.5 px-4 py-2 text-xs rounded-lg font-medium transition-all"
+              className="flex items-center gap-1.5 px-4 py-2 text-xs rounded-lg font-medium transition-all whitespace-nowrap"
               style={activeTab === tab.id
                 ? { background: 'var(--bg-card)', color: 'var(--text-primary)', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }
                 : { color: 'var(--text-muted)' }}>
@@ -486,7 +720,9 @@ export default function ReportsPage() {
       </div>
 
       {/* Tab content */}
-      {activeTab === 'sales'     && <SalesTab days={period} />}
+      {activeTab === 'overview'  && <OverviewTab days={period} fromDate={fromDate} toDate={toDate} />}
+      {activeTab === 'sales'     && <SalesTab    days={period} fromDate={fromDate} toDate={toDate} />}
+      {activeTab === 'finance'   && <FinanceTab  fromDate={fromDate} toDate={toDate} />}
       {activeTab === 'inventory' && <InventoryTab />}
       {activeTab === 'repairs'   && <RepairsTab />}
       {activeTab === 'delivery'  && <DeliveryTab days={period} />}

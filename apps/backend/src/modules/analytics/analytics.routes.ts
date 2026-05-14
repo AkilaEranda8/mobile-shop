@@ -42,8 +42,15 @@ router.get('/dashboard', async (req: Request, res: Response, next: NextFunction)
 router.get('/revenue', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
-    const days = parseInt(req.query.days as string) || 30
-    const from = new Date(); from.setDate(from.getDate() - days); from.setHours(0, 0, 0, 0)
+    let from: Date
+    let to = new Date(); to.setHours(23, 59, 59, 999)
+    if (req.query.from) {
+      from = new Date(req.query.from as string); from.setHours(0, 0, 0, 0)
+      if (req.query.to) { to = new Date(req.query.to as string); to.setHours(23, 59, 59, 999) }
+    } else {
+      const days = parseInt(req.query.days as string) || 30
+      from = new Date(); from.setDate(from.getDate() - days); from.setHours(0, 0, 0, 0)
+    }
 
     // 1. POS sales revenue per day (exclude returned orders)
     const salesRaw: Array<{ date: Date; total: number }> = await prisma.$queryRaw`
@@ -52,6 +59,7 @@ router.get('/revenue', async (req: Request, res: Response, next: NextFunction) =
       FROM   "Sale"
       WHERE  "tenantId" = ${tenantId}
         AND  "createdAt" >= ${from}
+        AND  "createdAt" <= ${to}
         AND  status != 'RETURNED'
       GROUP  BY 1
       ORDER  BY 1 ASC
@@ -66,6 +74,7 @@ router.get('/revenue', async (req: Request, res: Response, next: NextFunction) =
       JOIN   "Product" p ON p.id = si."productId"
       WHERE  s."tenantId" = ${tenantId}
         AND  s."createdAt" >= ${from}
+        AND  s."createdAt" <= ${to}
         AND  s.status != 'RETURNED'
       GROUP  BY 1
       ORDER  BY 1 ASC
@@ -80,6 +89,7 @@ router.get('/revenue', async (req: Request, res: Response, next: NextFunction) =
         AND  type = 'EXPENSE'
         AND  category != 'Refund'
         AND  "createdAt" >= ${from}
+        AND  "createdAt" <= ${to}
       GROUP  BY 1
       ORDER  BY 1 ASC
     `
@@ -92,6 +102,7 @@ router.get('/revenue', async (req: Request, res: Response, next: NextFunction) =
       WHERE  "tenantId" = ${tenantId}
         AND  type = 'INCOME'
         AND  "createdAt" >= ${from}
+        AND  "createdAt" <= ${to}
       GROUP  BY 1
       ORDER  BY 1 ASC
     `
@@ -127,9 +138,12 @@ router.get('/top-products', async (req: Request, res: Response, next: NextFuncti
   try {
     const tenantId = req.tenantId!
     const limit = parseInt(req.query.limit as string) || 10
+    const fromDate = req.query.from ? new Date(req.query.from as string) : undefined
+    const toDate   = req.query.to   ? (() => { const d = new Date(req.query.to as string); d.setHours(23,59,59,999); return d })() : undefined
+    const dateFilter = fromDate ? { createdAt: { gte: fromDate, ...(toDate ? { lte: toDate } : {}) } } : {}
     const items = await prisma.saleItem.groupBy({
       by: ['productId', 'productName'],
-      where: { sale: { tenantId, status: { not: 'RETURNED' } } },
+      where: { sale: { tenantId, status: { not: 'RETURNED' }, ...dateFilter } },
       _sum: { quantity: true, total: true },
       orderBy: { _sum: { total: 'desc' } },
       take: limit,
