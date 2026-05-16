@@ -3,7 +3,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
 import {
   Search, Plus, Minus, CreditCard, Banknote, Smartphone, Receipt,
-  ScanLine, X, Loader2, UserPlus, Edit2, Check, Download, Tag,
+  ScanLine, X, Loader2, UserPlus, Edit2, Check, Download, Tag, Printer,
 } from 'lucide-react'
 import { useProducts, useCustomers } from '@/lib/hooks'
 import { salesApi, customersApi, productsApi } from '@/lib/api'
@@ -12,6 +12,7 @@ import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { getInvoiceSettings, fetchInvoiceSettings, type InvoiceSettings } from '@/lib/invoiceSettings'
 import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrint'
+import { printThermalReceipt } from '@/components/invoice/ThermalReceipt'
 
 interface CartItem {
   productId: string
@@ -638,10 +639,29 @@ export default function POSPage() {
             </div>
 
             <div className="p-4 border-t border-white/5 space-y-2">
-              <button onClick={() => setShowA4Invoice(true)}
-                className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-semibold rounded-xl bg-white/5 text-slate-200 hover:bg-white/10 border border-white/10 transition-colors">
-                <Receipt size={13} /> View A4 Invoice
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => setShowA4Invoice(true)}
+                  className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold rounded-xl bg-white/5 text-slate-200 hover:bg-white/10 border border-white/10 transition-colors">
+                  <Receipt size={12} /> A4 Invoice
+                </button>
+                <button
+                  onClick={() => printThermalReceipt({
+                    invoiceNumber:  completedSale.invoiceNumber,
+                    createdAt:      completedSale.createdAt,
+                    customerName:   completedSale.customerName,
+                    customerPhone:  completedSale.customerPhone,
+                    items:          completedSale.items ?? [],
+                    subtotal,
+                    discountAmount,
+                    total,
+                    paymentMethod:  completedSale.paymentMethod,
+                    cashReceived:   completedSale.cashReceived,
+                    changeAmount:   completedSale.changeAmount,
+                  }, invoiceSettings)}
+                  className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors">
+                  <Printer size={12} /> Thermal Print
+                </button>
+              </div>
               <button onClick={downloadInvoice} disabled={downloading}
                 className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-semibold rounded-xl bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 border border-violet-500/20 transition-colors disabled:opacity-50">
                 {downloading ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
