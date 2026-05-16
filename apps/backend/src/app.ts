@@ -57,7 +57,11 @@ app.use(express.urlencoded({ extended: true }))
 
 const uploadsDir = path.join(process.cwd(), 'uploads')
 fs.mkdirSync(uploadsDir, { recursive: true })
-app.use('/uploads', express.static(uploadsDir))
+app.use('/uploads', (_req, res, next) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin')
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  next()
+}, express.static(uploadsDir))
 
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 500, standardHeaders: true, legacyHeaders: false })
 app.use(limiter)
