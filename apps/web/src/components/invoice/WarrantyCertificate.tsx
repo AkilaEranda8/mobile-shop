@@ -196,18 +196,10 @@ export function printWarrantyCertificate(warranty: Warranty, settings: InvoiceSe
           <div class="period-label">End Date</div>
           <div class="period-value">${fmtDate(warranty.endDate)}</div>
         </div>
-        <div class="period-item">
+        <div class="period-item" style="border-right:none;">
           <div class="period-label">Duration</div>
           <div class="period-value">${warranty.monthsDuration} Month${warranty.monthsDuration > 1 ? 's' : ''}</div>
         </div>
-        <div class="period-item">
-          <div class="period-label">${left > 0 ? 'Days Remaining' : 'Expired'}</div>
-          <div class="period-value" style="color:${left > 30 ? '#14532d' : left > 0 ? '#92400e' : '#991b1b'}">${left > 0 ? left + ' days' : 'Expired'}</div>
-        </div>
-      </div>
-      <div class="progress-wrap">
-        <div class="progress-label"><span>Coverage Used</span><span>${progress}%</span></div>
-        <div class="progress-bar"><div class="progress-fill" style="width:${progress}%"></div></div>
       </div>
     </div>
 
@@ -405,22 +397,12 @@ const WarrantyCertificate = forwardRef<HTMLDivElement, WarrantyCertificateProps>
                   { label: 'Start Date', value: fmtDate(warranty.startDate) },
                   { label: 'End Date',   value: fmtDate(warranty.endDate) },
                   { label: 'Duration',   value: `${warranty.monthsDuration} Month${warranty.monthsDuration > 1 ? 's' : ''}` },
-                  { label: left > 0 ? 'Days Remaining' : 'Expired', value: left > 0 ? `${left} days` : 'Expired', color: left > 30 ? '#14532d' : left > 0 ? '#92400e' : '#991b1b' },
-                ].map(({ label, value, color }, i, arr) => (
+                ].map(({ label, value }, i, arr) => (
                   <div key={label} style={{ flex: 1, paddingLeft: i === 0 ? 0 : 16, paddingRight: 16, borderRight: i < arr.length - 1 ? '1px solid #bbf7d0' : 'none' }}>
                     <div style={{ fontSize: 9, color: '#16a34a', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: color ?? '#14532d' }}>{value}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#14532d' }}>{value}</div>
                   </div>
                 ))}
-              </div>
-              {/* Progress bar */}
-              <div style={{ marginTop: 14 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: '#16a34a', marginBottom: 4 }}>
-                  <span>Coverage Used</span><span>{progress}%</span>
-                </div>
-                <div style={{ height: 6, background: '#bbf7d0', borderRadius: 99, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${progress}%`, background: 'linear-gradient(90deg,#16a34a,#4ade80)', borderRadius: 99 }} />
-                </div>
               </div>
             </div>
 
