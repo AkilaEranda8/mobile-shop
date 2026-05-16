@@ -270,50 +270,55 @@ function InvoicePrint({ data = SAMPLE_INVOICE, hideControls = false }, outerRef)
         </table>
 
         {/* 6. Payment + Summary */}
-        <div className="flex justify-between mb-10 gap-8">
-          {/* Payment details */}
-          <div className="flex-1">
-            <p className="text-xs font-bold text-[#2E2E2E] mb-3 uppercase tracking-wider">Payment:</p>
-            <table className="text-xs text-gray-700">
-              <tbody>
-                {[
-                  ['Bank Name',   data.bankName],
-                  ['Acc Number',  data.accNumber],
-                  ['Acc Holder',  data.accHolder],
-                  ['Swift Code',  data.swiftCode],
-                ].map(([label, value]) => (
-                  <tr key={label}>
-                    <td className="font-bold pr-6 py-1 w-24">{label}</td>
-                    <td className="py-1 text-gray-600">{value}</td>
+        <div className="mb-4">
+          <div className="flex justify-between gap-8 mb-0">
+            {/* Payment details */}
+            <div className="flex-1">
+              <p className="text-xs font-bold text-[#2E2E2E] mb-3 uppercase tracking-wider">Payment:</p>
+              <table className="text-xs text-gray-700">
+                <tbody>
+                  {[
+                    ['Bank Name',   data.bankName],
+                    ['Acc Number',  data.accNumber],
+                    ['Acc Holder',  data.accHolder],
+                    ['Swift Code',  data.swiftCode],
+                  ].map(([label, value]) => (
+                    <tr key={label}>
+                      <td className="font-bold pr-6 py-1 w-24">{label}</td>
+                      <td className="py-1 text-gray-600">{value}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Sub-totals (no TOTAL row here) */}
+            <div className="w-56">
+              <table className="w-full text-xs" style={{ borderCollapse: 'collapse' }}>
+                <tbody>
+                  <tr className="border-b border-gray-200">
+                    <td className="py-2 pr-4 text-right text-gray-500 uppercase tracking-wider font-medium">Sub Total</td>
+                    <td className="py-2 text-right font-semibold text-gray-700 w-24">{fmt(subtotal)}</td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                  <tr className="border-b border-gray-200">
+                    <td className="py-2 pr-4 text-right text-gray-500 uppercase tracking-wider font-medium">Tax {data.taxRate}%</td>
+                    <td className="py-2 text-right font-semibold text-gray-700">{fmt(tax)}</td>
+                  </tr>
+                  <tr className="border-b border-gray-200">
+                    <td className="py-2 pr-4 text-right text-gray-500 uppercase tracking-wider font-medium">Disc. {data.discountRate}%</td>
+                    <td className="py-2 text-right font-semibold text-gray-700">{fmt(discount)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          {/* Summary card */}
-          <div className="w-56">
-            <table className="w-full text-xs" style={{ borderCollapse: 'collapse' }}>
-              <tbody>
-                <tr className="border-b border-gray-200">
-                  <td className="py-2 pr-4 text-right text-gray-500 uppercase tracking-wider font-medium">Sub Total</td>
-                  <td className="py-2 text-right font-semibold text-gray-700 w-20">{fmt(subtotal)}</td>
-                </tr>
-                <tr className="border-b border-gray-200">
-                  <td className="py-2 pr-4 text-right text-gray-500 uppercase tracking-wider font-medium">Tax {data.taxRate}%</td>
-                  <td className="py-2 text-right font-semibold text-gray-700">{fmt(tax)}</td>
-                </tr>
-                <tr className="border-b border-gray-200">
-                  <td className="py-2 pr-4 text-right text-gray-500 uppercase tracking-wider font-medium">Disc. {data.discountRate}%</td>
-                  <td className="py-2 text-right font-semibold text-gray-700">{fmt(discount)}</td>
-                </tr>
-                <tr style={{ backgroundColor: '#2E2E2E' }}>
-                  <td colSpan={2} className="py-2.5 text-center font-bold text-white uppercase tracking-wider">
-                    TOTAL &nbsp;&nbsp; {fmt(total)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          {/* Full-width TOTAL bar */}
+          <div style={{ backgroundColor: '#2E2E2E', marginTop: 12 }}
+            className="w-full flex items-center justify-center py-3 mb-8">
+            <span className="font-bold text-white uppercase tracking-widest text-sm">
+              TOTAL &nbsp;&nbsp;&nbsp; {fmt(total)}
+            </span>
           </div>
         </div>
 
