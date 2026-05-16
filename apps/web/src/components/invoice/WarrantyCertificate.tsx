@@ -130,8 +130,8 @@ export function printWarrantyCertificate(warranty: Warranty, settings: InvoiceSe
   </div>
 
   <!-- WARRANTY CODE BADGE -->
-  <div class="badge-row">
-    <div>
+  <div class="badge-row" style="justify-content:center;gap:60px;">
+    <div style="text-align:center;">
       <div class="wcode-label">Warranty Code</div>
       <div class="wcode">${warranty.warrantyCode}</div>
     </div>
@@ -139,7 +139,7 @@ export function printWarrantyCertificate(warranty: Warranty, settings: InvoiceSe
       <div class="wcode-label">Issued On</div>
       <div style="font-size:13px;font-weight:700;color:#c7d2fe;">${fmtDate(warranty.createdAt)}</div>
     </div>
-    <div style="text-align:right;">
+    <div style="text-align:center;">
       <div class="wcode-label">Status</div>
       <div class="status-badge" style="background:${statusColor};border-color:${statusColor};">
         ${warranty.status}
@@ -336,8 +336,8 @@ const WarrantyCertificate = forwardRef<HTMLDivElement, WarrantyCertificateProps>
           </div>
 
           {/* ── Code badge row ── */}
-          <div style={{ background: 'linear-gradient(135deg,#1e1b4b 0%,#312e81 50%,#1e1b4b 100%)', padding: '22px 50px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
+          <div style={{ background: 'linear-gradient(135deg,#1e1b4b 0%,#312e81 50%,#1e1b4b 100%)', padding: '22px 50px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 60 }}>
+            <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 9, color: '#6366f1', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>Warranty Code</div>
               <div style={{ fontFamily: 'monospace', fontSize: 24, fontWeight: 800, color: '#a5b4fc', letterSpacing: 4 }}>{warranty.warrantyCode}</div>
             </div>
@@ -345,7 +345,7 @@ const WarrantyCertificate = forwardRef<HTMLDivElement, WarrantyCertificateProps>
               <div style={{ fontSize: 9, color: '#6366f1', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>Issued On</div>
               <div style={{ fontSize: 13, fontWeight: 700, color: '#c7d2fe' }}>{fmtDate(warranty.createdAt)}</div>
             </div>
-            <div style={{ textAlign: 'right' }}>
+            <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 9, color: '#6366f1', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>Status</div>
               <div style={{ padding: '6px 20px', borderRadius: 99, fontSize: 11, fontWeight: 700, letterSpacing: 1, background: statusColor[warranty.status] ?? '#64748b', color: '#fff', display: 'inline-block' }}>
                 {warranty.status}
