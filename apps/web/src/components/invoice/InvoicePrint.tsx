@@ -314,9 +314,9 @@ function InvoicePrint({ data = SAMPLE_INVOICE, hideControls = false }, outerRef)
           </div>
 
           {/* Full-width TOTAL bar */}
-          <div style={{ backgroundColor: '#2E2E2E', marginTop: 12 }}
+          <div style={{ marginTop: 12, border: '2px solid #2E2E2E', borderRadius: 6 }}
             className="w-full flex items-center justify-center py-3 mb-8">
-            <span className="font-bold text-white uppercase tracking-widest text-sm">
+            <span className="font-bold text-[#2E2E2E] uppercase tracking-widest text-sm">
               TOTAL &nbsp;&nbsp;&nbsp; {fmt(total)}
             </span>
           </div>
