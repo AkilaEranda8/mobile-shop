@@ -162,9 +162,9 @@ function InvoicePrint({ data = SAMPLE_INVOICE, hideControls = false }, outerRef)
         style={{ fontFamily: "'Segoe UI', Arial, sans-serif", minHeight: '1123px', padding: '40px 50px' }}
       >
         {/* 1. Company header */}
-        <div className="flex justify-between items-start mb-8">
+        <div className="flex justify-between items-center mb-8">
           {/* Left: logo + name */}
-          <div className="flex items-start gap-3">
+          <div className="flex items-center gap-3">
             <div className="w-24 h-24 flex items-center justify-center">
               {data.companyLogo ? (
                 // eslint-disable-next-line @next/next/no-img-element
