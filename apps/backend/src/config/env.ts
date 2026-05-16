@@ -12,6 +12,7 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
   FRONTEND_URL: z.string().default('http://localhost:3000'),
+  BACKEND_URL:  z.string().default('http://localhost:3001'),
   API_PREFIX: z.string().default('api/v1'),
   AWS_REGION: z.string().optional(),
   AWS_ACCESS_KEY_ID: z.string().optional(),

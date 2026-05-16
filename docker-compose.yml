@@ -52,6 +52,7 @@ services:
       KEYCLOAK_AUTH_ENABLED: "false"
       AWS_REGION: ap-south-1
       AWS_S3_BUCKET: hexalyte-storage
+      BACKEND_URL: https://api.shop.hexalyte.com
     ports:
       - "127.0.0.1:3001:3001"
     depends_on:
@@ -63,6 +64,7 @@ services:
       - hexalyte-network
     volumes:
       - ./apps/backend/src:/app/src
+      - uploads_data:/app/uploads
 
   admin:
     build:
@@ -107,6 +109,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  uploads_data:
 
 networks:
   hexalyte-network:

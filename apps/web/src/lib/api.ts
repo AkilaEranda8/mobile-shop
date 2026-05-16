@@ -93,6 +93,22 @@ export const usersApi = {
   remove: (id: string) => api.delete(`/users/${id}`),
 }
 
+export const uploadApi = {
+  logo: async (file: File): Promise<{ url: string }> => {
+    const token = authStorage.getAccessToken()
+    const form = new FormData()
+    form.append('logo', file)
+    const res = await fetch(`${BASE_URL}/upload/logo`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    })
+    const json = await res.json()
+    if (!res.ok) throw new Error(json.message || 'Upload failed')
+    return json.data
+  },
+}
+
 export const tenantApi = {
   get: (id: string) => api.get(`/tenants/${id}`),
   update: (id: string, body: unknown) => api.put(`/tenants/${id}`, body),

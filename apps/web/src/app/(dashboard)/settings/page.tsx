@@ -5,7 +5,7 @@ import {
   Save, Building2, User, Bell, Shield, Palette, CreditCard, Users,
   Loader2, Eye, EyeOff, Trash2, Plus, X, CheckCircle, Check, FileText,
 } from 'lucide-react'
-import { authApi, usersApi, tenantApi } from '@/lib/api'
+import { authApi, usersApi, tenantApi, uploadApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { type InvoiceSettings, getInvoiceSettings, fetchInvoiceSettings, pushInvoiceSettings } from '@/lib/invoiceSettings'
 import { ImageIcon, Trash2 as TrashIcon } from 'lucide-react'
@@ -190,13 +190,21 @@ export default function SettingsPage() {
     finally { setInvoiceSaving(false) }
   }
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const [logoUploading, setLogoUploading] = useState(false)
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 500 * 1024) { toast.error('Logo must be under 500 KB'); return }
-    const reader = new FileReader()
-    reader.onload = ev => setInv({ logo: ev.target?.result as string })
-    reader.readAsDataURL(file)
+    if (file.size > 2 * 1024 * 1024) { toast.error('Logo must be under 2 MB'); return }
+    setLogoUploading(true)
+    try {
+      const { url } = await uploadApi.logo(file)
+      setInv({ logo: url })
+      toast.success('Logo uploaded')
+    } catch (err: any) {
+      toast.error(err.message || 'Upload failed')
+    } finally {
+      setLogoUploading(false)
+    }
   }
 
   const addTerm    = () => setInv({ terms: [...(invoiceForm.terms ?? []), ''] })
@@ -317,16 +325,17 @@ export default function SettingsPage() {
                         : <ImageIcon size={22} className="text-slate-600" />}
                     </div>
                     <div className="space-y-2">
-                      <label className="cursor-pointer flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg border border-white/10 text-slate-300 hover:bg-white/5 transition-colors">
-                        <Plus size={12} /> Upload Logo
-                        <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                      <label className={`cursor-pointer flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg border border-white/10 text-slate-300 hover:bg-white/5 transition-colors ${logoUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                        {logoUploading ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                        {logoUploading ? 'Uploading…' : 'Upload Logo'}
+                        <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={logoUploading} />
                       </label>
                       {invoiceForm.logo && (
                         <button onClick={() => setInv({ logo: '' })} className="flex items-center gap-2 px-3 py-2 text-xs rounded-lg border border-red-500/20 text-red-400 hover:bg-red-500/10 transition-colors">
                           <TrashIcon size={12} /> Remove
                         </button>
                       )}
-                      <p className="text-[10px] text-slate-600">Max 500 KB · PNG, JPG, SVG</p>
+                      <p className="text-[10px] text-slate-600">Max 2 MB · PNG, JPG, SVG, WebP</p>
                     </div>
                   </div>
                 </div>

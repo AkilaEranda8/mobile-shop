@@ -4,6 +4,8 @@ import helmet from 'helmet'
 import morgan from 'morgan'
 import compression from 'compression'
 import rateLimit from 'express-rate-limit'
+import path from 'path'
+import fs from 'fs'
 
 import { env } from './config/env'
 import { errorHandler, notFound } from './middleware/error.middleware'
@@ -24,6 +26,7 @@ import analyticsRoutes from './modules/analytics/analytics.routes'
 import adminRoutes from './modules/admin/admin.routes'
 import whatsappRoutes from './modules/whatsapp/whatsapp.routes'
 import deliveryRoutes from './modules/delivery/delivery.routes'
+import uploadRoutes from './modules/upload/upload.routes'
 
 const app = express()
 
@@ -52,6 +55,10 @@ app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'))
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true }))
 
+const uploadsDir = path.join(process.cwd(), 'uploads')
+fs.mkdirSync(uploadsDir, { recursive: true })
+app.use('/uploads', express.static(uploadsDir))
+
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 500, standardHeaders: true, legacyHeaders: false })
 app.use(limiter)
 
@@ -74,6 +81,7 @@ app.use(`${API}/finance`, financeRoutes)
 app.use(`${API}/analytics`, analyticsRoutes)
 app.use(`${API}/whatsapp`, whatsappRoutes)
 app.use(`${API}/delivery`, deliveryRoutes)
+app.use(`${API}/upload`, uploadRoutes)
 app.use('/admin/v1', adminRoutes)
 
 app.use(notFound)
