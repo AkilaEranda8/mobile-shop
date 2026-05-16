@@ -165,12 +165,12 @@ function InvoicePrint({ data = SAMPLE_INVOICE, hideControls = false }, outerRef)
         <div className="flex justify-between items-start mb-8">
           {/* Left: logo + name */}
           <div className="flex items-start gap-3">
-            <div className="w-12 h-12 flex items-center justify-center">
+            <div className="w-24 h-24 flex items-center justify-center">
               {data.companyLogo ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={data.companyLogo} alt="logo" className="w-12 h-12 object-contain" />
+                <img src={data.companyLogo} alt="logo" className="w-24 h-24 object-contain" />
               ) : (
-                <svg viewBox="0 0 48 48" className="w-12 h-12">
+                <svg viewBox="0 0 48 48" className="w-24 h-24">
                   <polygon points="24,4 44,40 4,40" fill="#CC2200" />
                   <polygon points="24,14 38,38 10,38" fill="#991100" opacity="0.5" />
                 </svg>
