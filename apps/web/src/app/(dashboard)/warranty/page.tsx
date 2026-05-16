@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import {
   Search, Shield, Plus, AlertTriangle, Eye, Loader2, X, Edit, Trash2,
   Phone, Calendar, Hash, CheckCircle, Clock, Package, User, Save,
@@ -15,6 +15,10 @@ import { useWarranties, useCustomers, useProducts } from '@/lib/hooks'
 import { warrantyApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import type { Warranty } from '@/types'
+import WarrantyCertificate, { printWarrantyCertificate } from '@/components/invoice/WarrantyCertificate'
+import { type InvoiceSettings, fetchInvoiceSettings, DEFAULT_INVOICE_SETTINGS } from '@/lib/invoiceSettings'
+import { authStorage } from '@/lib/auth'
+import { Printer } from 'lucide-react'
 
 const statusColors: Record<string, string> = {
   ACTIVE:  'bg-green-500/10  border-green-500/20  text-green-400',
@@ -228,6 +232,12 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete }: {
   const daysLeft = Math.ceil((new Date(warranty.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
   const expiring = daysLeft <= 30 && daysLeft > 0 && warranty.status === 'ACTIVE'
   const certRef  = useRef<HTMLDivElement>(null)
+  const [invSettings, setInvSettings] = useState<InvoiceSettings>(DEFAULT_INVOICE_SETTINGS)
+
+  useEffect(() => {
+    const user = authStorage.getUser()
+    if (user?.tenantId) fetchInvoiceSettings(user.tenantId).then(setInvSettings).catch(() => {})
+  }, [])
 
   const [downloading, setDownloading] = useState(false)
   const [emailLoading, setEmailLoading] = useState(false)
@@ -241,9 +251,13 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete }: {
       const html2canvas = (await import('html2canvas')).default
       const jsPDF = (await import('jspdf')).default
       const canvas = await html2canvas(certRef.current, { scale: 2, backgroundColor: '#ffffff', useCORS: true })
-      const imgData = canvas.toDataURL('image/png')
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: [canvas.width / 2, canvas.height / 2] })
-      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width / 2, canvas.height / 2)
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: 'a4' })
+      const pw = pdf.internal.pageSize.getWidth()
+      const ph = pdf.internal.pageSize.getHeight()
+      const iw = canvas.width / 2
+      const ih = canvas.height / 2
+      const scale = Math.min(pw / iw, ph / ih)
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, iw * scale, ih * scale)
       pdf.save(`Warranty_${warranty.warrantyCode}.pdf`)
       toast.success('PDF downloaded')
     } catch { toast.error('PDF generation failed') }
@@ -355,6 +369,10 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete }: {
           {/* ── Action buttons ── */}
           <div className="pt-1 border-t border-white/5 space-y-2">
             <div className="flex gap-2">
+              <button onClick={() => printWarrantyCertificate(warranty, invSettings)}
+                className="flex-1 flex items-center justify-center gap-2 py-2 text-xs rounded-xl bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 transition-colors font-semibold">
+                <Printer size={12} />Print
+              </button>
               <button onClick={downloadPdf} disabled={downloading}
                 className="flex-1 flex items-center justify-center gap-2 py-2 text-xs rounded-xl bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 border border-violet-500/20 transition-colors disabled:opacity-50 font-semibold">
                 {downloading ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}Download PDF
@@ -378,66 +396,9 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete }: {
             )}
           </div>
 
-          {/* ── Hidden Certificate for PDF ── */}
-          <div className="overflow-hidden h-0">
-            <div ref={certRef} style={{ width: 600, background: '#fff', fontFamily: 'Arial, sans-serif', borderRadius: 16, overflow: 'hidden' }}>
-              {/* Header */}
-              <div style={{ background: 'linear-gradient(135deg,#6d28d9,#7c3aed)', padding: '32px 36px 24px', textAlign: 'center' }}>
-                <div style={{ fontSize: 28, marginBottom: 4 }}>🛡️</div>
-                <p style={{ margin: 0, color: '#fff', fontSize: 20, fontWeight: 700, letterSpacing: .5 }}>WARRANTY CERTIFICATE</p>
-                <p style={{ margin: '4px 0 0', color: '#c4b5fd', fontSize: 12 }}>Official Warranty Document</p>
-                <div style={{ display: 'inline-block', margin: '14px auto 0', background: 'rgba(255,255,255,.15)', border: '1px solid rgba(255,255,255,.3)', borderRadius: 8, padding: '8px 24px', color: '#fff', fontFamily: 'monospace', fontSize: 18, letterSpacing: 2 }}>
-                  {warranty.warrantyCode}
-                </div>
-                <p style={{ margin: '10px 0 0', color: '#c4b5fd', fontSize: 11 }}>Issued: {formatDate(warranty.createdAt)}</p>
-              </div>
-              {/* Body */}
-              <div style={{ padding: '24px 36px' }}>
-                {/* Customer */}
-                <p style={{ margin: '0 0 8px', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, color: '#7c3aed', fontWeight: 700 }}>Customer Details</p>
-                <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
-                  {[{ label: 'Name', value: warranty.customerName }, { label: 'Phone', value: warranty.customerPhone }].map(({ label, value }) => (
-                    <div key={label} style={{ flex: 1, background: '#f8f5ff', border: '1px solid #ede9fe', borderRadius: 8, padding: '10px 12px' }}>
-                      <p style={{ margin: '0 0 3px', fontSize: 9, color: '#8b5cf6' }}>{label}</p>
-                      <p style={{ margin: 0, fontSize: 13, color: '#1e1b4b', fontWeight: 600 }}>{value}</p>
-                    </div>
-                  ))}
-                </div>
-                {/* Product */}
-                <p style={{ margin: '0 0 8px', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, color: '#7c3aed', fontWeight: 700 }}>Product Details</p>
-                <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
-                  {[{ label: 'Product', value: warranty.productName }, { label: 'Brand', value: warranty.brandName || '—' }].map(({ label, value }) => (
-                    <div key={label} style={{ flex: 1, background: '#f8f5ff', border: '1px solid #ede9fe', borderRadius: 8, padding: '10px 12px' }}>
-                      <p style={{ margin: '0 0 3px', fontSize: 9, color: '#8b5cf6' }}>{label}</p>
-                      <p style={{ margin: 0, fontSize: 13, color: '#1e1b4b', fontWeight: 600 }}>{value}</p>
-                    </div>
-                  ))}
-                </div>
-                {warranty.imei && (
-                  <div style={{ background: '#f8f5ff', border: '1px solid #ede9fe', borderRadius: 8, padding: '10px 12px', marginBottom: 20 }}>
-                    <p style={{ margin: '0 0 3px', fontSize: 9, color: '#8b5cf6' }}>IMEI / Serial</p>
-                    <p style={{ margin: 0, fontSize: 13, color: '#1e1b4b', fontWeight: 600, fontFamily: 'monospace' }}>{warranty.imei}</p>
-                  </div>
-                )}
-                {/* Dates */}
-                <p style={{ margin: '0 0 8px', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, color: '#16a34a', fontWeight: 700 }}>Warranty Period</p>
-                <div style={{ display: 'flex', gap: 12, marginBottom: 16, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '14px 18px' }}>
-                  {[{ label: 'Start Date', value: formatDate(warranty.startDate) }, { label: 'End Date', value: formatDate(warranty.endDate) }, { label: 'Duration', value: `${warranty.monthsDuration} months` }].map(({ label, value }) => (
-                    <div key={label} style={{ flex: 1 }}>
-                      <p style={{ margin: '0 0 2px', fontSize: 9, color: '#16a34a' }}>{label}</p>
-                      <p style={{ margin: 0, fontSize: 12, color: '#14532d', fontWeight: 700 }}>{value}</p>
-                    </div>
-                  ))}
-                </div>
-                {warranty.invoiceNumber && (
-                  <p style={{ fontSize: 11, color: '#64748b', margin: '0 0 4px' }}>Invoice: <strong>{warranty.invoiceNumber}</strong></p>
-                )}
-              </div>
-              {/* Footer */}
-              <div style={{ background: '#f8fafc', borderTop: '1px solid #e2e8f0', padding: '16px 36px', textAlign: 'center' }}>
-                <p style={{ margin: 0, fontSize: 10, color: '#94a3b8' }}>This is an official warranty certificate. Keep this document safe and present it when making a warranty claim.</p>
-              </div>
-            </div>
+          {/* ── Hidden Certificate for PDF capture ── */}
+          <div className="overflow-hidden" style={{ height: 0, position: 'absolute', left: -9999, top: 0, width: 794 }}>
+            <WarrantyCertificate ref={certRef} warranty={warranty} settings={invSettings} hideControls />
           </div>
         </div>
       </div>
