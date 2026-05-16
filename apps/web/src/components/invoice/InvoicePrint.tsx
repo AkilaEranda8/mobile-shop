@@ -308,8 +308,9 @@ function InvoicePrint({ data = SAMPLE_INVOICE, hideControls = false }, outerRef)
                   <td className="py-2 text-right font-semibold text-gray-700">{fmt(discount)}</td>
                 </tr>
                 <tr style={{ backgroundColor: '#2E2E2E' }}>
-                  <td className="py-2.5 pr-4 text-right font-bold text-white uppercase tracking-wider">Total</td>
-                  <td className="py-2.5 text-right font-bold text-white">{fmt(total)}</td>
+                  <td colSpan={2} className="py-2.5 text-center font-bold text-white uppercase tracking-wider">
+                    TOTAL &nbsp;&nbsp; {fmt(total)}
+                  </td>
                 </tr>
               </tbody>
             </table>
