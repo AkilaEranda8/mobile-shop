@@ -379,6 +379,25 @@ html:not(.dark) [class*="#1e1b4b"] { background-color: rgba(124,58,237,0.08) !im
 /* Sticky headers inside modals */
 html:not(.dark) [class*="#0f1623"][class*="sticky"] { background-color: var(--bg-card) !important; }
 
+/* ── Dark hero sections (data-scheme="dark") – preserve colors in light mode ── */
+html:not(.dark) [data-scheme="dark"]                          { background: linear-gradient(135deg,#1e1b4b 0%,#312e81 50%,#1e1b4b 100%) !important; }
+html:not(.dark) [data-scheme="dark"] .text-white              { color: #ffffff !important; }
+html:not(.dark) [data-scheme="dark"] .text-white\/60          { color: rgba(255,255,255,0.60) !important; }
+html:not(.dark) [data-scheme="dark"] .text-white\/80          { color: rgba(255,255,255,0.80) !important; }
+html:not(.dark) [data-scheme="dark"] .text-violet-200         { color: #ddd6fe !important; }
+html:not(.dark) [data-scheme="dark"] .text-violet-300         { color: #c4b5fd !important; }
+html:not(.dark) [data-scheme="dark"] .text-violet-400         { color: #a78bfa !important; }
+html:not(.dark) [data-scheme="dark"] .text-red-300            { color: #fca5a5 !important; }
+html:not(.dark) [data-scheme="dark"] .text-red-400            { color: #f87171 !important; }
+html:not(.dark) [data-scheme="dark"] .border-white\/20        { border-color: rgba(255,255,255,0.20) !important; }
+html:not(.dark) [data-scheme="dark"] .border-white\/25        { border-color: rgba(255,255,255,0.25) !important; }
+html:not(.dark) [data-scheme="dark"] .bg-white\/10            { background-color: rgba(255,255,255,0.10) !important; }
+html:not(.dark) [data-scheme="dark"] .bg-white\/15            { background-color: rgba(255,255,255,0.15) !important; }
+html:not(.dark) [data-scheme="dark"] .hover\:bg-white\/10:hover { background-color: rgba(255,255,255,0.10) !important; }
+html:not(.dark) [data-scheme="dark"] .bg-violet-500           { background-color: #8b5cf6 !important; }
+html:not(.dark) [data-scheme="dark"] .bg-violet-400           { background-color: #a78bfa !important; }
+html:not(.dark) [data-scheme="dark"] .shadow-violet-500\/40   { box-shadow: 0 0 0 0 transparent !important; }
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;

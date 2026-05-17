@@ -199,7 +199,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
         style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
 
         {/* ── Hero Header ── */}
-        <div className="relative overflow-hidden rounded-t-2xl"
+        <div className="relative overflow-hidden rounded-t-2xl" data-scheme="dark"
           style={{ background: 'linear-gradient(135deg,#1e1b4b 0%,#312e81 50%,#1e1b4b 100%)' }}>
           {/* decorative circles */}
           <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-violet-500/10 pointer-events-none" />
