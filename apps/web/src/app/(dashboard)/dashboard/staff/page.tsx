@@ -10,8 +10,7 @@ const roleConfig: Record<string, { label: string; color: string; bg: string; bor
   OWNER: { label: 'Owner', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
   MANAGER: { label: 'Manager', color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20' },
   TECHNICIAN: { label: 'Technician', color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20' },
-  SALES_STAFF: { label: 'Sales Staff', color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20' },
-  ACCOUNTANT: { label: 'Accountant', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
+  CASHIER: { label: 'Cashier', color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20' },
 }
 
 const avatarColors = ['from-violet-600/40 to-violet-800/40', 'from-cyan-600/40 to-cyan-800/40', 'from-green-600/40 to-green-800/40', 'from-amber-600/40 to-amber-800/40', 'from-blue-600/40 to-blue-800/40']
@@ -30,9 +29,8 @@ const permissionMatrix = [
 
 const ROLE_OPTIONS = [
   { value: 'MANAGER',    label: 'Manager'    },
+  { value: 'CASHIER',    label: 'Cashier'    },
   { value: 'TECHNICIAN', label: 'Technician' },
-  { value: 'SALES_STAFF',label: 'Sales Staff'},
-  { value: 'ACCOUNTANT', label: 'Accountant' },
 ]
 
 function StaffFormModal({
@@ -43,7 +41,7 @@ function StaffFormModal({
     name:     staff?.name     ?? '',
     email:    staff?.email    ?? '',
     phone:    staff?.phone    ?? '',
-    role:     staff?.role     ?? 'SALES_STAFF',
+    role:     staff?.role     ?? 'CASHIER',
     password: '',
     isActive: staff?.isActive ?? true,
   })
