@@ -188,7 +188,6 @@ function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
 
 /* ── Add Category Modal ─────────────────────────────────────────────── */
 function AddCategoryModal({ onClose, onSaved }: { onClose: () => void; onSaved: (cat: Category) => void }) {
-  const ICONS = ['📱','💻','🖥️','🎧','🔋','🔌','🖨️','📷','⌚','🎮','🛠️','📦','💡','🔧','📺','🎵']
   const [name, setName] = useState('')
   const [icon, setIcon] = useState('')
   const [loading, setLoading] = useState(false)
@@ -223,16 +222,8 @@ function AddCategoryModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
             <input autoFocus required className="input-field" placeholder="e.g. Smartphones" value={name} onChange={e => setName(e.target.value)} />
           </div>
           <div>
-            <label className="block text-xs text-slate-400 mb-2">Icon (optional)</label>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {ICONS.map(ic => (
-                <button type="button" key={ic} onClick={() => setIcon(ic === icon ? '' : ic)}
-                  className={`w-9 h-9 rounded-lg text-lg flex items-center justify-center border transition-all ${
-                    icon === ic ? 'border-violet-500 bg-violet-500/20' : 'border-white/10 hover:border-white/30'
-                  }`}>{ic}</button>
-              ))}
-            </div>
-            <input className="input-field text-sm" placeholder="Or type/paste an emoji…" value={icon} onChange={e => setIcon(e.target.value)} maxLength={4} />
+            <label className="block text-xs text-slate-400 mb-1.5">Icon (optional)</label>
+            <input className="input-field text-sm" placeholder="Paste an emoji e.g. 📱" value={icon} onChange={e => setIcon(e.target.value)} maxLength={4} />
           </div>
           {icon && (
             <div className="flex items-center gap-3 p-3 bg-white/3 rounded-xl border border-white/5">
