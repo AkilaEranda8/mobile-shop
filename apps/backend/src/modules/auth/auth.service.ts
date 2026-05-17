@@ -119,7 +119,7 @@ export const authService = {
   async refresh(refreshTokenStr: string) {
     const stored = await prisma.refreshToken.findUnique({ where: { token: refreshTokenStr }, include: { user: true } })
     if (!stored || stored.expiresAt < new Date()) throw new AppError('Invalid refresh token', 401)
-    const payload = verifyToken(refreshTokenStr)
+    const { iat: _iat, exp: _exp, ...payload } = verifyToken(refreshTokenStr) as any
     const accessToken = signAccessToken(payload)
     return { accessToken }
   },
@@ -208,7 +208,11 @@ body{margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Arial,sans-ser
 </body>
 </html>`
 
-    await sendMail(email, 'Reset your password', html)
+    try {
+      await sendMail(email, 'Reset your password', html)
+    } catch (e) {
+      console.warn('[Auth] SMTP not configured – reset link for', email, ':', resetUrl)
+    }
   },
 
   async resetPassword(token: string, newPassword: string) {
