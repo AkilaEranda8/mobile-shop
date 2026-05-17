@@ -1,10 +1,12 @@
 import bcrypt from 'bcryptjs'
+import crypto from 'crypto'
 import { prisma } from '../../config/database'
 import { redis } from '../../config/redis'
 import { signAccessToken, signRefreshToken, verifyToken } from '../../utils/jwt'
 import { AppError } from '../../middleware/error.middleware'
 import { env } from '../../config/env'
 import { createOrGetGroup, createKcUser } from '../../utils/keycloakAdmin'
+import { sendMail } from '../../utils/mailer'
 
 export const authService = {
   async login(email: string, password: string) {
@@ -143,6 +145,82 @@ export const authService = {
     if (!(await bcrypt.compare(currentPassword, user.password))) throw new AppError('Current password incorrect', 400)
     const hashed = await bcrypt.hash(newPassword, 12)
     await prisma.user.update({ where: { id: userId }, data: { password: hashed } })
+  },
+
+  // ── Forgot / Reset Password ─────────────────────────────────────────────────
+  async forgotPassword(email: string) {
+    const user = await prisma.user.findFirst({ where: { email, isActive: true } })
+    // Always respond OK to prevent email enumeration
+    if (!user) return
+
+    const token = crypto.randomBytes(32).toString('hex')
+    await redis.set(`pwd:reset:${token}`, user.id, 'EX', 900) // 15 min TTL
+
+    const tenant = await prisma.tenant.findUnique({ where: { id: user.tenantId } })
+    const appBase = tenant?.slug
+      ? `https://${tenant.slug}.app.hexalyte.com`
+      : env.FRONTEND_URL
+
+    const resetUrl = `${appBase}/reset-password?token=${token}`
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Reset your password</title>
+<style>
+body{margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif;}
+.wrap{max-width:580px;margin:30px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.10);}
+.top{height:6px;background:linear-gradient(90deg,#6d28d9,#7c3aed,#0e7490);}
+.header{background:linear-gradient(135deg,#1e1b4b,#312e81);padding:32px 36px 24px;text-align:center;}
+.header h1{margin:0;color:#fff;font-size:20px;font-weight:700;}
+.header p{margin:6px 0 0;color:#c4b5fd;font-size:13px;}
+.body{padding:32px 36px;}
+.body p{margin:0 0 16px;font-size:14px;color:#334155;line-height:1.6;}
+.btn{display:inline-block;background:linear-gradient(135deg,#7c3aed,#0e7490);color:#fff;text-decoration:none;padding:14px 32px;border-radius:12px;font-size:14px;font-weight:600;letter-spacing:.3px;}
+.note{background:#f8f5ff;border:1px solid #ede9fe;border-radius:10px;padding:14px 18px;margin:20px 0 0;}
+.note p{margin:0;font-size:12px;color:#7c3aed;}
+.footer{background:#f8fafc;border-top:1px solid #e2e8f0;padding:18px 36px;text-align:center;}
+.footer p{margin:0;font-size:11px;color:#94a3b8;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"></div>
+  <div class="header">
+    <h1>Password Reset Request</h1>
+    <p>${tenant?.name ?? 'Hexalyte'} · Account Security</p>
+  </div>
+  <div class="body">
+    <p>Hi <strong>${user.name}</strong>,</p>
+    <p>We received a request to reset the password for your account (<strong>${email}</strong>). Click the button below to set a new password. This link will expire in <strong>15 minutes</strong>.</p>
+    <div style="text-align:center;margin:28px 0;">
+      <a href="${resetUrl}" class="btn">Reset Password</a>
+    </div>
+    <div class="note">
+      <p>⚠️ If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.</p>
+    </div>
+    <p style="margin-top:20px;font-size:12px;color:#94a3b8;">Or copy this link into your browser:<br/><span style="color:#7c3aed;word-break:break-all;">${resetUrl}</span></p>
+  </div>
+  <div class="footer">
+    <p>© ${new Date().getFullYear()} ${tenant?.name ?? 'Hexalyte'} · Powered by Hexalyte Innovation</p>
+  </div>
+</div>
+</body>
+</html>`
+
+    await sendMail(email, 'Reset your password', html)
+  },
+
+  async resetPassword(token: string, newPassword: string) {
+    const userId = await redis.get(`pwd:reset:${token}`)
+    if (!userId) throw new AppError('Invalid or expired reset link. Please request a new one.', 400)
+
+    const hashed = await bcrypt.hash(newPassword, 12)
+    await prisma.user.update({ where: { id: userId }, data: { password: hashed } })
+    await redis.del(`pwd:reset:${token}`)
+
+    // Also delete all existing refresh tokens so old sessions are invalidated
+    await prisma.refreshToken.deleteMany({ where: { userId } })
   },
 
   // ── Keycloak proxy ──────────────────────────────────────────────────────────

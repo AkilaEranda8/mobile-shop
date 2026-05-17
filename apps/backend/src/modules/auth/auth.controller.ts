@@ -46,6 +46,20 @@ export const authController = {
     } catch (e) { next(e) }
   },
 
+  async forgotPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      await authService.forgotPassword(req.body.email)
+      sendSuccess(res, null, 'If that email exists, a reset link has been sent')
+    } catch (e) { next(e) }
+  },
+
+  async resetPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      await authService.resetPassword(req.body.token, req.body.newPassword)
+      sendSuccess(res, null, 'Password has been reset. You can now log in.')
+    } catch (e) { next(e) }
+  },
+
   // ── Keycloak proxy ──────────────────────────────────────────────────────────
   async kcLogin(req: Request, res: Response, next: NextFunction) {
     try {

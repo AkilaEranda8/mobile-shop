@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import {
   Eye, EyeOff, ArrowRight, AlertCircle, ShoppingCart,
   Wrench, BarChart3, Shield, Users, Package,
@@ -129,7 +130,15 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium mb-2" style={{ color: '#94a3b8' }}>Password</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-medium" style={{ color: '#94a3b8' }}>Password</label>
+                <Link href="/forgot-password" className="text-xs transition-colors"
+                  style={{ color: '#7c6aee' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = '#a78bfa')}
+                  onMouseLeave={e => (e.currentTarget.style.color = '#7c6aee')}>
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
