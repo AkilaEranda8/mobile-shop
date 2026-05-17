@@ -164,3 +164,10 @@ export function useUsers(params?: Record<string, string>) {
     [JSON.stringify(params)],
   )
 }
+
+export function useCategories() {
+  return useApi<unknown[]>(
+    () => productsApi.categories() as Promise<{ data: unknown[] }>,
+    [],
+  )
+}

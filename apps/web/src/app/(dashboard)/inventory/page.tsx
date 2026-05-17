@@ -1,17 +1,16 @@
 'use client'
 
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { Plus, Package, AlertTriangle, Download, Upload, QrCode, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency } from '@/lib/utils'
-import { useProducts } from '@/lib/hooks'
+import { useProducts, useCategories } from '@/lib/hooks'
 import { productsApi } from '@/lib/api'
-import type { Product } from '@/types'
-
-const categories = ['All', 'Smartphones', 'Accessories', 'Tablets', 'Batteries', 'Screens', 'Chargers']
+import type { Product, Category } from '@/types'
+import toast from 'react-hot-toast'
 
 /* ── CSV Export ─────────────────────────────────────────────────────── */
 function exportProductsCSV(products: Product[]) {
@@ -187,11 +186,91 @@ function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
   )
 }
 
+/* ── Add Category Modal ─────────────────────────────────────────────── */
+function AddCategoryModal({ onClose, onSaved }: { onClose: () => void; onSaved: (cat: Category) => void }) {
+  const ICONS = ['📱','💻','🖥️','🎧','🔋','🔌','🖨️','📷','⌚','🎮','🛠️','📦','💡','🔧','📺','🎵']
+  const [name, setName] = useState('')
+  const [icon, setIcon] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError]   = useState('')
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!name.trim()) { setError('Name is required'); return }
+    setLoading(true); setError('')
+    try {
+      const res: any = await productsApi.createCategory({ name: name.trim(), icon: icon || undefined })
+      toast.success(`Category "${name}" created`)
+      onSaved(res.data ?? res)
+      onClose()
+    } catch (err: any) { setError(err.message || 'Failed to create category') }
+    finally { setLoading(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl">
+        <div className="flex items-center justify-between p-5 border-b border-white/5">
+          <div className="flex items-center gap-2">
+            <Tag size={15} className="text-violet-400" />
+            <h3 className="text-sm font-semibold text-white">Add Category</h3>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={15} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div>
+            <label className="block text-xs text-slate-400 mb-1.5">Category Name *</label>
+            <input autoFocus required className="input-field" placeholder="e.g. Smartphones" value={name} onChange={e => setName(e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-xs text-slate-400 mb-2">Icon (optional)</label>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {ICONS.map(ic => (
+                <button type="button" key={ic} onClick={() => setIcon(ic === icon ? '' : ic)}
+                  className={`w-9 h-9 rounded-lg text-lg flex items-center justify-center border transition-all ${
+                    icon === ic ? 'border-violet-500 bg-violet-500/20' : 'border-white/10 hover:border-white/30'
+                  }`}>{ic}</button>
+              ))}
+            </div>
+            <input className="input-field text-sm" placeholder="Or type/paste an emoji…" value={icon} onChange={e => setIcon(e.target.value)} maxLength={4} />
+          </div>
+          {icon && (
+            <div className="flex items-center gap-3 p-3 bg-white/3 rounded-xl border border-white/5">
+              <span className="text-2xl">{icon}</span>
+              <div>
+                <p className="text-xs font-semibold text-white">{name || 'Category name'}</p>
+                <p className="text-[10px] text-slate-500">Preview</p>
+              </div>
+            </div>
+          )}
+          {error && <p className="text-xs text-red-400">{error}</p>}
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
+            <button type="submit" disabled={loading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}Add Category
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({ name: '', sku: '', categoryName: 'Smartphones', brandName: '', buyingPrice: '', sellingPrice: '', stock: '', minStock: '5', description: '' })
+  const { data: cats, refetch: refetchCats } = useCategories()
+  const categories: Category[] = (cats ?? []) as Category[]
+  const [showAddCat, setShowAddCat] = useState(false)
+  const [form, setForm] = useState({ name: '', sku: '', categoryName: '', brandName: '', buyingPrice: '', sellingPrice: '', stock: '', minStock: '5', description: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(p => ({ ...p, [k]: e.target.value }))
+
+  useEffect(() => {
+    if (categories.length > 0 && !form.categoryName) {
+      setForm(p => ({ ...p, categoryName: categories[0].name }))
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categories.length])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -232,9 +311,15 @@ function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
             </div>
             <div className="col-span-2">
               <label className="block text-xs text-slate-400 mb-1.5">Category</label>
-              <select className="input-field" value={form.categoryName} onChange={f('categoryName')}>
-                {['Smartphones','Accessories','Tablets','Batteries','Screens','Chargers','Other'].map(c => <option key={c}>{c}</option>)}
-              </select>
+              <div className="flex gap-2">
+                <select className="input-field flex-1" value={form.categoryName} onChange={f('categoryName')}>
+                  {categories.map(c => <option key={c.id} value={c.name}>{c.icon ? `${c.icon} ` : ''}{c.name}</option>)}
+                </select>
+                <button type="button" onClick={() => setShowAddCat(true)}
+                  className="flex-shrink-0 w-9 h-9 rounded-lg border border-white/10 text-slate-400 hover:text-white hover:border-violet-500/50 hover:bg-violet-500/10 flex items-center justify-center transition-colors" title="New category">
+                  <Plus size={14} />
+                </button>
+              </div>
             </div>
             <div>
               <label className="block text-xs text-slate-400 mb-1.5">Buying Price (₹) *</label>
@@ -262,6 +347,7 @@ function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
           </div>
         </form>
       </div>
+      {showAddCat && <AddCategoryModal onClose={() => setShowAddCat(false)} onSaved={cat => { refetchCats(); setForm(p => ({ ...p, categoryName: cat.name })) }} />}
     </div>
   )
 }
@@ -458,10 +544,13 @@ function ProductDetailModal({ product, onClose, onEdit }: { product: Product; on
 
 export default function InventoryPage() {
   const [showAddModal, setShowAddModal] = useState(false)
-  const [showImport, setShowImport] = useState(false)
+  const [showImport, setShowImport]   = useState(false)
+  const [showAddCat, setShowAddCat]   = useState(false)
   const [editProduct, setEditProduct] = useState<Product | null>(null)
   const [viewProduct, setViewProduct] = useState<Product | null>(null)
   const { data: productsData, loading, refetch } = useProducts()
+  const { data: catsData, refetch: refetchCats } = useCategories()
+  const allCategories: Category[] = (catsData ?? []) as Category[]
   const products: Product[] = (productsData?.data ?? []) as Product[]
 
   const lowStockCount = products.filter(p => p.stock < p.minStock).length
@@ -548,6 +637,7 @@ export default function InventoryPage() {
     <div className="space-y-6">
       {showAddModal && <AddProductModal onClose={() => setShowAddModal(false)} onSaved={refetch} />}
       {showImport  && <ImportModal onClose={() => setShowImport(false)} onSaved={refetch} />}
+      {showAddCat  && <AddCategoryModal onClose={() => setShowAddCat(false)} onSaved={() => refetchCats()} />}
       {editProduct && <EditProductModal product={editProduct} onClose={() => setEditProduct(null)} onSaved={refetch} />}
       {viewProduct && <ProductDetailModal product={viewProduct} onClose={() => setViewProduct(null)} onEdit={() => { setEditProduct(viewProduct); setViewProduct(null) }} />}
       {/* Header */}
@@ -565,6 +655,9 @@ export default function InventoryPage() {
           </button>
           <button onClick={() => setShowAddModal(true)} className="btn-primary text-sm flex items-center gap-2">
             <Plus size={14} />Add Product
+          </button>
+          <button onClick={() => setShowAddCat(true)} className="btn-secondary text-sm flex items-center gap-2">
+            <Tag size={14} />Add Category
           </button>
         </div>
       </div>
@@ -603,14 +696,7 @@ export default function InventoryPage() {
           {
             id: 'categoryName',
             title: 'Category',
-            options: [
-              { label: 'Smartphones', value: 'Smartphones' },
-              { label: 'Accessories', value: 'Accessories' },
-              { label: 'Tablets',     value: 'Tablets'     },
-              { label: 'Batteries',   value: 'Batteries'   },
-              { label: 'Screens',     value: 'Screens'     },
-              { label: 'Chargers',    value: 'Chargers'    },
-            ],
+            options: allCategories.map(c => ({ label: `${c.icon ? c.icon + ' ' : ''}${c.name}`, value: c.name })),
           },
           {
             id: 'stockStatus' as any,

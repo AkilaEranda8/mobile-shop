@@ -124,6 +124,7 @@ export const productsApi = {
   update: (id: string, body: unknown) => api.put(`/products/${id}`, body),
   delete: (id: string) => api.delete(`/products/${id}`),
   categories: () => api.get('/products/categories'),
+  createCategory: (body: { name: string; icon?: string }) => api.post('/products/categories', body),
   brands: () => api.get('/products/brands'),
 }
 
