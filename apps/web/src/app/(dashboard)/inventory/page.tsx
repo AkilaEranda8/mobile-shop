@@ -307,8 +307,10 @@ function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
                   {categories.map(c => <option key={c.id} value={c.name}>{c.icon ? `${c.icon} ` : ''}{c.name}</option>)}
                 </select>
                 <button type="button" onClick={() => setShowAddCat(true)}
-                  className="flex-shrink-0 w-9 h-9 rounded-lg border border-white/10 text-slate-400 hover:text-white hover:border-violet-500/50 hover:bg-violet-500/10 flex items-center justify-center transition-colors" title="New category">
-                  <Plus size={14} />
+                  className="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors hover:bg-violet-500/10 hover:text-violet-500"
+                  style={{ border: '1px solid var(--border-default)', color: 'var(--text-muted)' }}
+                  title="Add new category">
+                  <Plus size={15} />
                 </button>
               </div>
             </div>
