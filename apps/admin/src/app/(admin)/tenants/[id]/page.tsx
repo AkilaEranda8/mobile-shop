@@ -99,7 +99,13 @@ export default function TenantDetailPage() {
     if (!tenant || !editPlan) return
     setActionLoading(true)
     try {
-      await updateTenant(tenant.id, { plan: editPlan.plan, mrr: Number(editPlan.mrr) || undefined })
+      const subEnd = new Date(); subEnd.setMonth(subEnd.getMonth() + 12)
+      await updateTenant(tenant.id, {
+        plan: editPlan.plan,
+        mrr: Number(editPlan.mrr) || undefined,
+        status: 'ACTIVE',
+        subscriptionEndsAt: subEnd.toISOString(),
+      })
       setEditPlan(null); loadTenant()
     } catch {}
     setActionLoading(false)

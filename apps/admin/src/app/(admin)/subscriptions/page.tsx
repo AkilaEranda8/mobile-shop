@@ -39,15 +39,28 @@ function daysOverdue(dateStr: string) {
 }
 
 /* ── Change Plan Modal ───────────────────────────────────────── */
+function defaultSubEnd(months = 12) {
+  const d = new Date()
+  d.setMonth(d.getMonth() + months)
+  return d.toISOString().slice(0, 10)
+}
+
 function ChangePlanModal({ sub, onClose, onSaved }: { sub: SubscriptionRow; onClose: () => void; onSaved: () => void }) {
-  const [plan, setPlan]   = useState(sub.plan)
-  const [saving, setSave] = useState(false)
-  const [err, setErr]     = useState('')
+  const [plan, setPlan]     = useState(sub.plan === 'TRIAL' ? 'PRO' : sub.plan)
+  const [months, setMonths] = useState('12')
+  const [subEnd, setSubEnd] = useState(defaultSubEnd(12))
+  const [saving, setSave]   = useState(false)
+  const [err, setErr]       = useState('')
 
   const handleSave = async () => {
     setSave(true); setErr('')
     try {
-      await updateSubscription(sub.id, { plan, mrr: PLAN_MRR[plan] ?? sub.mrr ?? 0 })
+      await updateSubscription(sub.id, {
+        plan,
+        mrr: PLAN_MRR[plan] ?? sub.mrr ?? 0,
+        status: 'ACTIVE',
+        subscriptionEndsAt: new Date(subEnd).toISOString(),
+      })
       onSaved(); onClose()
     } catch (e: any) { setErr(e.message ?? 'Failed') }
     finally { setSave(false) }
@@ -76,11 +89,36 @@ function ChangePlanModal({ sub, onClose, onSaved }: { sub: SubscriptionRow; onCl
             </button>
           ))}
         </div>
+        {/* Duration */}
+        <div className="mb-4">
+          <label className="block text-xs font-semibold text-gray-600 mb-2">Subscription Duration</label>
+          <div className="flex gap-2">
+            {[1, 3, 6, 12].map(m => (
+              <button key={m} onClick={() => { setMonths(String(m)); setSubEnd(defaultSubEnd(m)) }}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-all ${months === String(m) ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-200 text-gray-600 hover:border-gray-400'}`}>
+                {m}mo
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="mb-5">
+          <label className="block text-xs font-semibold text-gray-600 mb-1.5">Subscription Ends</label>
+          <input type="date" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-gray-400"
+            value={subEnd} onChange={e => { setSubEnd(e.target.value); setMonths('') }} />
+        </div>
+        {/* Summary */}
+        <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 mb-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-blue-600 font-semibold">{plan} Plan · ACTIVE</p>
+            <p className="text-[11px] text-blue-400">Ends {new Date(subEnd).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+          </div>
+          <p className="text-sm font-bold text-blue-700">Rs.{(PLAN_MRR[plan] ?? 0).toLocaleString()}/mo</p>
+        </div>
         {err && <p className="text-xs text-red-500 mb-3">{err}</p>}
         <div className="flex gap-2">
           <button onClick={onClose} className="btn-secondary flex-1 justify-center">Cancel</button>
-          <button onClick={handleSave} disabled={saving || plan === sub.plan} className="btn-primary flex-1 justify-center disabled:opacity-50">
-            {saving ? <Loader2 size={13} className="animate-spin" /> : null} Save Changes
+          <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 justify-center disabled:opacity-50">
+            {saving ? <Loader2 size={13} className="animate-spin" /> : null} Activate Plan
           </button>
         </div>
       </div>
