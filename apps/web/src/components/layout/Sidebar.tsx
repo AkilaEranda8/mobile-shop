@@ -8,10 +8,11 @@ import {
   CreditCard, Smartphone, FileText,
   UserCheck, ChevronLeft, ChevronRight, Receipt, MessageSquare, PackageCheck, RotateCcw
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { authStorage } from '@/lib/auth'
-import { authApi } from '@/lib/api'
+import { authApi, tenantApi } from '@/lib/api'
+import { getInvoiceSettings } from '@/lib/invoiceSettings'
 
 const navItems = [
   {
@@ -90,10 +91,32 @@ interface SidebarProps {
   onToggle?: () => void
 }
 
+const PLAN_COLOR: Record<string, string> = {
+  TRIAL:      'text-amber-400',
+  STARTER:    'text-slate-400',
+  PRO:        'text-blue-400',
+  ENTERPRISE: 'text-violet-400',
+}
+
 export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const user = authStorage.getUser()
+  const [shopName, setShopName] = useState('')
+  const [plan, setPlan]         = useState('')
+
+  useEffect(() => {
+    const inv = getInvoiceSettings()
+    if (inv.shopName) setShopName(inv.shopName)
+    if (user?.tenantId) {
+      tenantApi.get(user.tenantId).then((res: any) => {
+        const t = res.data ?? res
+        if (t.plan) setPlan(t.plan)
+        if (!inv.shopName && t.name) setShopName(t.name)
+      }).catch(() => {})
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleLogout = async () => {
     try { await authApi.logout() } catch { /* ignore */ }
@@ -125,12 +148,12 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
         <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg shadow-violet-500/20">
-          <span className="text-white font-black text-sm">H</span>
+          <span className="text-white font-black text-sm">{(shopName || 'H').charAt(0).toUpperCase()}</span>
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
-            <span className="text-white font-bold text-base">Hexalyte</span>
-            <span className="block text-xs text-violet-400 -mt-0.5">Enterprise</span>
+            <span className="text-white font-bold text-base truncate block">{shopName || 'My Shop'}</span>
+            {plan && <span className={`block text-xs -mt-0.5 font-medium capitalize ${PLAN_COLOR[plan] ?? 'text-slate-400'}`}>{plan.charAt(0) + plan.slice(1).toLowerCase()}</span>}
           </div>
         )}
       </div>
