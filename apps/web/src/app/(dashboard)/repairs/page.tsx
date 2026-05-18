@@ -500,8 +500,9 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
       const imgData = canvas.toDataURL('image/jpeg', 0.95)
       const imgH_MM = (canvas.height / canvas.width) * A4_W_MM
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-      if (imgH_MM <= A4_H_MM) {
-        pdf.addImage(imgData, 'JPEG', 0, 0, A4_W_MM, imgH_MM)
+      if (imgH_MM <= A4_H_MM * 1.15) {
+        /* content is ≤ 1 page (or only slightly over) — scale to fill exactly one A4 page */
+        pdf.addImage(imgData, 'JPEG', 0, 0, A4_W_MM, Math.min(imgH_MM, A4_H_MM))
       } else {
         const scale = canvas.width / A4_W_MM
         let yMM = 0
