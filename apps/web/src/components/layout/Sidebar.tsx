@@ -81,7 +81,7 @@ const navItems = [
   {
     label: 'System',
     items: [
-      { href: '/dashboard/branches', icon: Building2, label: 'Branches' },
+      { href: '/dashboard/branches', icon: Building2, label: 'Branches', badge: 'NEW' },
       { href: '/dashboard/settings', icon: Settings, label: 'Settings' },
     ],
   },
