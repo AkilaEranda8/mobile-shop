@@ -342,7 +342,7 @@ model Sale {
   id              String     @id @default(cuid())
   tenantId        String
   branchId        String?
-  invoiceNumber   String     @unique
+  invoiceNumber   String
   customerId      String?
   customerName    String?
   customerPhone   String?
@@ -369,6 +369,8 @@ model Sale {
   items         SaleItem[]
   payments      SalePayment[]
   returns       SaleReturn[]
+
+  @@unique([tenantId, invoiceNumber])
 }
 
 model SaleItem {
@@ -403,7 +405,7 @@ model SaleReturn {
   tenantId     String
   branchId     String?
   saleId       String
-  returnNumber String           @unique
+  returnNumber String
   reason       String
   refundAmount Float
   refundMethod PaymentMethod
@@ -414,6 +416,8 @@ model SaleReturn {
   tenant Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sale   Sale             @relation(fields: [saleId], references: [id])
   items  SaleReturnItem[]
+
+  @@unique([tenantId, returnNumber])
 }
 
 model SaleReturnItem {
@@ -435,7 +439,7 @@ model RepairTicket {
   id                  String         @id @default(cuid())
   tenantId            String
   branchId            String
-  ticketNumber        String         @unique
+  ticketNumber        String
   customerId          String
   customerName        String
   customerPhone       String
@@ -462,6 +466,8 @@ model RepairTicket {
   notes      RepairNote[]
   spareParts RepairSparePart[]
   history    RepairStatusHistory[]
+
+  @@unique([tenantId, ticketNumber])
 }
 
 model RepairNote {
@@ -569,7 +575,7 @@ model PurchaseOrder {
   id               String              @id @default(cuid())
   tenantId         String
   branchId         String
-  poNumber         String              @unique
+  poNumber         String
   supplierId       String
   supplierName     String
   status           PurchaseOrderStatus @default(DRAFT)
@@ -588,6 +594,8 @@ model PurchaseOrder {
   branch   Branch   @relation(fields: [branchId], references: [id])
   supplier Supplier @relation(fields: [supplierId], references: [id])
   items    POItem[]
+
+  @@unique([tenantId, poNumber])
 }
 
 model POItem {
