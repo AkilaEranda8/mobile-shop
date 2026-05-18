@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import {
   Plus, Clock, CheckCircle, PhoneCall, Loader2, X,
   Eye, Edit, ChevronRight, Smartphone, User, Wrench, DollarSign, AlertTriangle,
-  Calendar, Hash, Save, ArrowRight, MessageSquare, Package,
+  Calendar, Hash, Save, ArrowRight, MessageSquare, Package, Search, UserPlus, CheckCircle2,
 } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
@@ -12,39 +12,103 @@ import { DataTableColumnHeader } from '@/components/table/data-table-column-head
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency, formatDate, getRepairStatusColor } from '@/lib/utils'
 import { useRepairs, useProducts } from '@/lib/hooks'
-import { repairsApi } from '@/lib/api'
+import { repairsApi, customersApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
+import type { Customer } from '@/types'
 import toast from 'react-hot-toast'
 import type { RepairTicket } from '@/types'
 
+const SOURCE_OPTIONS = [
+  { value: 'WALK_IN',    label: 'Walk-in',    color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/25' },
+  { value: 'WHATSAPP',   label: 'WhatsApp',   color: 'text-green-400',   bg: 'bg-green-500/10',   border: 'border-green-500/25'   },
+  { value: 'FACEBOOK',   label: 'Facebook',   color: 'text-blue-400',    bg: 'bg-blue-500/10',    border: 'border-blue-500/25'    },
+  { value: 'INSTAGRAM',  label: 'Instagram',  color: 'text-pink-400',    bg: 'bg-pink-500/10',    border: 'border-pink-500/25'    },
+  { value: 'PHONE_CALL', label: 'Phone Call', color: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/25'   },
+  { value: 'REFERRAL',   label: 'Referral',   color: 'text-violet-400',  bg: 'bg-violet-500/10',  border: 'border-violet-500/25'  },
+  { value: 'ONLINE',     label: 'Online',     color: 'text-cyan-400',    bg: 'bg-cyan-500/10',    border: 'border-cyan-500/25'    },
+]
+
 function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  // ── customer search state ──
+  const [customerMode, setCustomerMode] = useState<'search' | 'new'>('search')
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
+  const [searchQuery, setSearchQuery]   = useState('')
+  const [searchResults, setSearchResults] = useState<Customer[]>([])
+  const [searching, setSearching]       = useState(false)
+  const [showDrop, setShowDrop]         = useState(false)
+  const [newCust, setNewCust]           = useState({ name: '', phone: '', email: '' })
+  const [registeringCust, setRegisteringCust] = useState(false)
+  const dropRef = useRef<HTMLDivElement>(null)
+
+  // ── ticket form state ──
   const [form, setForm] = useState({
-    customerName: '', customerPhone: '', deviceBrand: '', deviceModel: '',
-    deviceColor: '', imei: '', reportedIssue: '', priority: 'NORMAL', estimatedCost: '', technicianName: '',
+    deviceBrand: '', deviceModel: '', deviceColor: '', imei: '',
+    reportedIssue: '', priority: 'NORMAL', estimatedCost: '', technicianName: '',
     source: 'WALK_IN',
   })
-
-  const SOURCE_OPTIONS = [
-    { value: 'WALK_IN',    label: 'Walk-in',    color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/25' },
-    { value: 'WHATSAPP',   label: 'WhatsApp',   color: 'text-green-400',   bg: 'bg-green-500/10',   border: 'border-green-500/25'   },
-    { value: 'FACEBOOK',   label: 'Facebook',   color: 'text-blue-400',    bg: 'bg-blue-500/10',    border: 'border-blue-500/25'    },
-    { value: 'INSTAGRAM',  label: 'Instagram',  color: 'text-pink-400',    bg: 'bg-pink-500/10',    border: 'border-pink-500/25'    },
-    { value: 'PHONE_CALL', label: 'Phone Call', color: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/25'   },
-    { value: 'REFERRAL',   label: 'Referral',   color: 'text-violet-400',  bg: 'bg-violet-500/10',  border: 'border-violet-500/25'  },
-    { value: 'ONLINE',     label: 'Online',     color: 'text-cyan-400',    bg: 'bg-cyan-500/10',    border: 'border-cyan-500/25'    },
-  ]
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError]     = useState('')
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(p => ({ ...p, [k]: e.target.value }))
 
+  // debounced customer search
+  const doSearch = useCallback(async (q: string) => {
+    if (q.trim().length < 2) { setSearchResults([]); setShowDrop(false); return }
+    setSearching(true)
+    try {
+      const res: any = await customersApi.search(q)
+      setSearchResults(res.data ?? res ?? [])
+      setShowDrop(true)
+    } catch { setSearchResults([]) }
+    finally { setSearching(false) }
+  }, [])
+
+  useEffect(() => {
+    const t = setTimeout(() => doSearch(searchQuery), 300)
+    return () => clearTimeout(t)
+  }, [searchQuery, doSearch])
+
+  // close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropRef.current && !dropRef.current.contains(e.target as Node)) setShowDrop(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const selectCustomer = (c: Customer) => {
+    setSelectedCustomer(c); setShowDrop(false); setSearchQuery(c.name)
+  }
+
+  const clearCustomer = () => {
+    setSelectedCustomer(null); setSearchQuery(''); setSearchResults([])
+  }
+
+  const registerNewCustomer = async () => {
+    if (!newCust.name.trim() || !newCust.phone.trim()) return
+    setRegisteringCust(true)
+    try {
+      const res: any = await customersApi.create({ name: newCust.name.trim(), phone: newCust.phone.trim(), email: newCust.email.trim() || undefined })
+      const created: Customer = res.data ?? res
+      setSelectedCustomer(created)
+      setCustomerMode('search')
+      setSearchQuery(created.name)
+    } catch (err: any) { setError(err.message || 'Failed to register customer') }
+    finally { setRegisteringCust(false) }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!selectedCustomer && customerMode === 'search') { setError('Please select or register a customer'); return }
     setLoading(true); setError('')
     try {
       const user = authStorage.getUser()
       await repairsApi.create({
         ...form,
+        customerId:    selectedCustomer?.id,
+        customerName:  selectedCustomer?.name  ?? newCust.name,
+        customerPhone: selectedCustomer?.phone ?? newCust.phone,
         estimatedCost: form.estimatedCost ? Number(form.estimatedCost) : undefined,
         branchId: user?.branchIds?.[0],
         createdBy: user?.name || 'Staff',
@@ -57,20 +121,127 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
+        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623] z-10">
           <h3 className="text-base font-semibold text-white">New Repair Ticket</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors"><X size={16} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
+
+          {/* ── Customer section ── */}
+          <div className="rounded-xl border border-white/8 overflow-visible" style={{ background: 'rgba(255,255,255,0.02)' }}>
+            <div className="flex items-center justify-between px-4 pt-3 pb-2">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Customer</span>
+              <div className="flex gap-1">
+                <button type="button" onClick={() => { setCustomerMode('search'); setNewCust({ name: '', phone: '', email: '' }) }}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                    customerMode === 'search' ? 'bg-violet-500/20 text-violet-300' : 'text-slate-500 hover:text-slate-300'
+                  }`}>
+                  <Search size={10} className="inline mr-1" />Search
+                </button>
+                <button type="button" onClick={() => { setCustomerMode('new'); clearCustomer() }}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                    customerMode === 'new' ? 'bg-emerald-500/20 text-emerald-300' : 'text-slate-500 hover:text-slate-300'
+                  }`}>
+                  <UserPlus size={10} className="inline mr-1" />New
+                </button>
+              </div>
+            </div>
+
+            <div className="px-4 pb-4">
+              {customerMode === 'search' ? (
+                selectedCustomer ? (
+                  /* selected customer card */
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
+                    <div className="w-9 h-9 rounded-full bg-violet-500/30 flex items-center justify-center text-sm font-bold text-violet-300 shrink-0">
+                      {selectedCustomer.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-white truncate">{selectedCustomer.name}</p>
+                      <p className="text-xs text-slate-400">{selectedCustomer.phone}</p>
+                      <p className="text-[10px] text-violet-400 mt-0.5">{selectedCustomer.totalRepairs ?? 0} previous repairs</p>
+                    </div>
+                    <button type="button" onClick={clearCustomer} className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                      <X size={13} />
+                    </button>
+                  </div>
+                ) : (
+                  /* search input + dropdown */
+                  <div className="relative" ref={dropRef}>
+                    <div className="relative">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                      {searching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 animate-spin" />}
+                      <input
+                        className="input-field pl-9"
+                        placeholder="Search by name or phone..."
+                        value={searchQuery}
+                        onChange={e => { setSearchQuery(e.target.value); setSelectedCustomer(null) }}
+                        onFocus={() => searchResults.length > 0 && setShowDrop(true)}
+                        autoComplete="off"
+                      />
+                    </div>
+                    {showDrop && (
+                      <div className="absolute top-full left-0 right-0 mt-1 rounded-xl border border-white/10 bg-[#0f1623] shadow-2xl z-50 overflow-hidden">
+                        {searchResults.length > 0 ? (
+                          <>
+                            {searchResults.map(c => (
+                              <button key={c.id} type="button" onClick={() => selectCustomer(c)}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 transition-colors text-left">
+                                <div className="w-8 h-8 rounded-full bg-violet-500/20 flex items-center justify-center text-xs font-bold text-violet-300 shrink-0">
+                                  {c.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm text-white truncate">{c.name}</p>
+                                  <p className="text-xs text-slate-500">{c.phone}{c.email ? ` · ${c.email}` : ''}</p>
+                                </div>
+                                <span className="text-[10px] text-slate-600 shrink-0">{c.totalRepairs ?? 0} repairs</span>
+                              </button>
+                            ))}
+                            <div className="border-t border-white/5" />
+                          </>
+                        ) : (
+                          <p className="px-4 py-3 text-xs text-slate-500">No customers found</p>
+                        )}
+                        <button type="button" onClick={() => { setCustomerMode('new'); setShowDrop(false); setNewCust(p => ({ ...p, name: searchQuery })) }}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-emerald-500/10 transition-colors text-left">
+                          <UserPlus size={13} className="text-emerald-400" />
+                          <span className="text-xs text-emerald-400">Register as new customer</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
+              ) : (
+                /* new customer registration form */
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">Name *</label>
+                      <input required className="input-field" placeholder="Kavitha M" value={newCust.name}
+                        onChange={e => setNewCust(p => ({ ...p, name: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">Phone *</label>
+                      <input required className="input-field" placeholder="0771234567" value={newCust.phone}
+                        onChange={e => setNewCust(p => ({ ...p, phone: e.target.value }))} />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-xs text-slate-400 mb-1">Email <span className="text-slate-600">(optional)</span></label>
+                      <input className="input-field" placeholder="kavitha@example.com" value={newCust.email}
+                        onChange={e => setNewCust(p => ({ ...p, email: e.target.value }))} />
+                    </div>
+                  </div>
+                  <button type="button" onClick={registerNewCustomer} disabled={registeringCust || !newCust.name || !newCust.phone}
+                    className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-xs font-medium hover:bg-emerald-500/25 transition-all disabled:opacity-50">
+                    {registeringCust ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                    Register & Select Customer
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Device details ── */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Customer Name *</label>
-              <input required className="input-field" placeholder="Kavitha M" value={form.customerName} onChange={f('customerName')} />
-            </div>
-            <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Phone *</label>
-              <input required className="input-field" placeholder="9876543210" value={form.customerPhone} onChange={f('customerPhone')} />
-            </div>
             <div>
               <label className="block text-xs text-slate-400 mb-1.5">Device Brand *</label>
               <input required className="input-field" placeholder="Apple" value={form.deviceBrand} onChange={f('deviceBrand')} />
@@ -83,13 +254,13 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
               <label className="block text-xs text-slate-400 mb-1.5">Color</label>
               <input className="input-field" placeholder="Space Black" value={form.deviceColor} onChange={f('deviceColor')} />
             </div>
-            <div className="col-span-2">
-              <label className="block text-xs text-slate-400 mb-1.5">IMEI</label>
-              <input className="input-field font-mono" placeholder="Enter 15-digit IMEI (optional)" maxLength={17} value={form.imei} onChange={f('imei')} />
-            </div>
             <div>
               <label className="block text-xs text-slate-400 mb-1.5">Technician</label>
               <input className="input-field" placeholder="Assign technician" value={form.technicianName} onChange={f('technicianName')} />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs text-slate-400 mb-1.5">IMEI</label>
+              <input className="input-field font-mono" placeholder="Enter 15-digit IMEI (optional)" maxLength={17} value={form.imei} onChange={f('imei')} />
             </div>
             <div className="col-span-2">
               <label className="block text-xs text-slate-400 mb-1.5">Reported Issue *</label>
@@ -99,16 +270,13 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
               <label className="block text-xs text-slate-400 mb-2">Customer Source</label>
               <div className="flex flex-wrap gap-2">
                 {SOURCE_OPTIONS.map(opt => (
-                  <button
-                    key={opt.value}
-                    type="button"
+                  <button key={opt.value} type="button"
                     onClick={() => setForm(p => ({ ...p, source: opt.value }))}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                       form.source === opt.value
                         ? `${opt.color} ${opt.bg} ${opt.border}`
                         : 'text-slate-500 bg-white/3 border-white/8 hover:border-white/20'
-                    }`}
-                  >
+                    }`}>
                     {opt.label}
                   </button>
                 ))}
