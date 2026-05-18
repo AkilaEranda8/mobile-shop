@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Search, Truck, Phone, Mail, Package, Eye, Edit, Loader2, X, ChevronDown, Trash2, FileText, MapPin, Globe, Hash, ShoppingBag, TrendingUp, AlertCircle, Calendar, CheckCircle, Save, PackageCheck, ShieldAlert, CreditCard, Banknote, Receipt } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
@@ -9,7 +9,7 @@ import { DataTableColumnHeader } from '@/components/table/data-table-column-head
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useSuppliers, usePurchaseOrders, useProducts } from '@/lib/hooks'
-import { suppliersApi } from '@/lib/api'
+import { suppliersApi, branchesApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import type { Supplier, PurchaseOrder } from '@/types'
 
@@ -458,6 +458,17 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
   const [openIdx, setOpenIdx]         = useState<number | null>(null)
   const [quickSearch, setQuickSearch] = useState('')
   const [quickOpen, setQuickOpen]     = useState(false)
+  const [branches, setBranches]       = useState<{id:string;name:string}[]>([])
+  const [branchId, setBranchId]       = useState('')
+
+  useEffect(() => {
+    branchesApi.list().then((res: any) => {
+      const list = (res.data ?? res) as {id:string;name:string;isActive:boolean}[]
+      const active = list.filter(b => b.isActive)
+      setBranches(active)
+      if (active.length > 0) setBranchId(active[0].id)
+    }).catch(() => {})
+  }, [])
 
   const { data: productsData } = useProducts({ limit: '200' })
   const allProducts: any[] = (productsData?.data ?? []) as any[]
@@ -535,6 +546,7 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
           total:            Number(r.quantity) * Number(r.unitCost),
           receivedQuantity: 0,
         })),
+        branchId: branchId || undefined,
         subtotal,
         tax: 0,
         total: subtotal,
@@ -560,6 +572,14 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
         <form onSubmit={handleSubmit} className="p-5 space-y-5">
           {/* Supplier + delivery */}
           <div className="grid grid-cols-2 gap-4">
+            {branches.length > 1 && (
+              <div className="col-span-2">
+                <label className="block text-xs text-slate-400 mb-1.5">Branch *</label>
+                <select className="input-field" value={branchId} onChange={e => setBranchId(e.target.value)}>
+                  {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </div>
+            )}
             <div className="col-span-2">
               <label className="block text-xs text-slate-400 mb-1.5">Supplier *</label>
               {suppliers.length === 0
