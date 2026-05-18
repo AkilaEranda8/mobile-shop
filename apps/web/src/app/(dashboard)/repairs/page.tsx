@@ -551,261 +551,196 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
   const STEP_ICONS = [Smartphone, Wrench, CheckCircle2]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="w-full max-w-3xl max-h-[94vh] overflow-y-auto rounded-3xl shadow-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="w-full max-w-3xl max-h-[94vh] overflow-y-auto rounded-2xl shadow-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
 
         {/* ══ HEADER ══ */}
-        <div className="relative overflow-hidden rounded-t-3xl" data-scheme="dark"
-          style={{ background: 'linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%)' }}>
-          <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, #7c3aed 0%, transparent 50%), radial-gradient(circle at 10% 80%, #0ea5e9 0%, transparent 45%)' }} />
-
-          <div className="relative px-6 pt-6 pb-5">
-            {/* top row */}
-            <div className="flex items-start justify-between mb-5">
-              <div className="flex items-center gap-3.5">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shrink-0"
-                  style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)' }}>
-                  <Smartphone size={22} className="text-white" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-mono font-bold tracking-[0.18em] text-violet-300 leading-none mb-1">{repair.ticketNumber}</p>
-                  <h3 className="text-lg font-bold text-white leading-tight">{repair.deviceBrand} {repair.deviceModel}</h3>
-                  <div className="flex items-center gap-2 mt-1.5">
-                    <span className={`text-[10px] px-2.5 py-0.5 rounded-full border font-bold ${getRepairStatusColor(repair.status)}`}>{statusLabels[repair.status]}</span>
-                    {repair.priority && repair.priority !== 'NORMAL' && (
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${priorityBadge(repair.priority)}`}>{repair.priority}</span>
-                    )}
-                    {(repair as any).source && (repair as any).source !== 'WALK_IN' && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold text-cyan-300 bg-cyan-500/15 border border-cyan-500/20">{(repair as any).source.replace('_',' ')}</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <button onClick={onEdit} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold text-white/80 hover:text-white transition-all"
-                  style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.18)' }}>
-                  <Edit size={11} />Edit
-                </button>
-                <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-all">
-                  <X size={15} />
-                </button>
-              </div>
+        <div className="flex items-start justify-between px-6 pt-5 pb-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+              <Smartphone size={17} className="text-violet-500" />
             </div>
+            <div>
+              <p className="text-[11px] font-bold text-violet-600 tracking-wider font-mono">{repair.ticketNumber}</p>
+              <h3 className="text-base font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>{repair.deviceBrand} {repair.deviceModel}</h3>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`text-[11px] px-2.5 py-1 rounded-lg border font-bold ${getRepairStatusColor(repair.status)}`}>{statusLabels[repair.status]}</span>
+            {repair.priority && repair.priority !== 'NORMAL' && (
+              <span className={`text-[11px] px-2.5 py-1 rounded-lg border font-bold ${priorityBadge(repair.priority)}`}>{repair.priority}</span>
+            )}
+            <button onClick={onEdit}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-colors"
+              style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>
+              <Edit size={12} />Edit
+            </button>
+            <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-red-500/10"
+              style={{ color: 'var(--text-muted)' }}><X size={16} /></button>
+          </div>
+        </div>
 
-            {/* ── Progress stepper ── */}
-            <div className="relative flex items-center px-2">
-              <div className="absolute left-8 right-8 top-5 h-[2px] rounded-full bg-white/10" />
-              <div className="absolute left-8 top-5 h-[2px] rounded-full bg-gradient-to-r from-violet-400 to-violet-300 transition-all duration-500"
+        <div className="px-6 py-5 space-y-5">
+
+          {/* ── Info grid (invoice-style) ── */}
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: 'DATE',       value: formatDate(repair.createdAt) },
+              { label: 'TECHNICIAN', value: repair.technicianName || '—' },
+              { label: 'TICKET #',   value: repair.ticketNumber },
+              { label: 'CUSTOMER',   value: repair.customerName },
+            ].map(({ label, value }) => (
+              <div key={label} className="rounded-xl p-3.5 space-y-1" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+                <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{label}</p>
+                <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* ── Progress stepper ── */}
+          <div className="rounded-xl p-4" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+            <div className="relative flex items-center">
+              <div className="absolute left-5 right-5 top-5 h-[2px] rounded-full" style={{ background: 'var(--border-default)' }} />
+              <div className="absolute left-5 top-5 h-[2px] rounded-full bg-violet-500 transition-all duration-500"
                 style={{ width: currentIdx <= 0 ? '0%' : currentIdx === 1 ? '50%' : '100%' }} />
               {STATUS_FLOW.map((s, i) => {
                 const StepIcon = STEP_ICONS[i]
                 const done   = i < currentIdx
                 const active = i === currentIdx
                 return (
-                  <div key={s} className="flex-1 flex flex-col items-center gap-2 relative z-10">
-                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-lg
-                      ${active  ? 'bg-gradient-to-br from-violet-500 to-violet-600 border-2 border-violet-300/60 scale-110 shadow-violet-500/40'
-                      : done   ? 'bg-violet-500/70 border border-violet-400/50'
-                      : 'border-2 border-white/15'}`}
-                      style={active ? {} : done ? {} : { background: 'rgba(255,255,255,0.07)' }}>
-                      {done ? <CheckCircle size={16} className="text-white" />
-                        : <StepIcon size={15} className={active ? 'text-white' : 'text-white/30'} />}
+                  <div key={s} className="flex-1 flex flex-col items-center gap-1.5 relative z-10">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border-2 ${
+                      active ? 'bg-violet-600 border-violet-600 shadow-lg shadow-violet-500/30'
+                      : done  ? 'bg-violet-500 border-violet-500'
+                      : 'border-gray-300'}`}
+                      style={!active && !done ? { background: 'var(--bg-card)' } : {}}>
+                      {done   ? <CheckCircle size={16} className="text-white" />
+                               : <StepIcon size={15} className={active ? 'text-white' : 'text-gray-400'} />}
                     </div>
-                    <span className={`text-[10px] font-bold tracking-wide ${active ? 'text-white' : done ? 'text-violet-300/80' : 'text-white/30'}`}>
-                      {statusLabels[s].split(' ')[0]}
+                    <span className={`text-[10px] font-bold ${active ? 'text-violet-600' : done ? 'text-violet-400' : ''}`}
+                      style={!active && !done ? { color: 'var(--text-muted)' } : {}}>
+                      {statusLabels[s]}
                     </span>
                   </div>
                 )
               })}
             </div>
+          </div>
 
-            {/* ── Action buttons ── */}
-            {repair.status !== 'DELIVERED' && repair.status !== 'CANCELLED' && (
-              <div className="mt-5 space-y-3">
-                <div className="flex gap-2.5">
-                  {repair.status === 'READY' ? (
-                    <button onClick={() => setShowPayment(v => !v)} disabled={collecting}
-                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-white transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg"
-                      style={{ background: showPayment ? 'rgba(255,255,255,0.12)' : 'linear-gradient(135deg,#16a34a,#15803d)', boxShadow: showPayment ? 'none' : '0 4px 20px rgba(22,163,74,0.45)', border: showPayment ? '1px solid rgba(255,255,255,0.22)' : '1px solid rgba(134,239,172,0.25)' }}>
-                      <DollarSign size={15} />
-                      {showPayment ? 'Hide Payment' : 'Collect Payment'}
-                    </button>
-                  ) : nextStatus ? (
-                    <button onClick={handleNext} disabled={changingStatus}
-                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-white transition-all active:scale-[0.98] disabled:opacity-50"
-                      style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.22)', backdropFilter: 'blur(8px)' }}>
-                      {changingStatus ? <Loader2 size={15} className="animate-spin" /> : <ArrowRight size={15} />}
-                      Move to {statusLabels[nextStatus]}
-                    </button>
-                  ) : null}
-                  <button onClick={handleCancel} disabled={changingStatus}
-                    className="px-5 py-3 rounded-2xl text-sm font-bold text-red-300 hover:text-red-200 transition-all disabled:opacity-50"
-                    style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)' }}>
-                    Cancel
+          {/* ── Action buttons ── */}
+          {repair.status !== 'DELIVERED' && repair.status !== 'CANCELLED' && (
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                {repair.status === 'READY' ? (
+                  <button onClick={() => setShowPayment(v => !v)} disabled={collecting}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50"
+                    style={{ background: showPayment ? 'var(--bg-subtle)' : 'linear-gradient(135deg,#16a34a,#15803d)', border: showPayment ? '1px solid var(--border-default)' : 'none', color: showPayment ? 'var(--text-secondary)' : 'white' }}>
+                    <DollarSign size={14} />
+                    {showPayment ? 'Hide Payment' : 'Collect Payment'}
                   </button>
-                </div>
+                ) : nextStatus ? (
+                  <button onClick={handleNext} disabled={changingStatus}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
+                    style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}>
+                    {changingStatus ? <Loader2 size={14} className="animate-spin" /> : <ArrowRight size={14} />}
+                    Move to {statusLabels[nextStatus]}
+                  </button>
+                ) : null}
+                <button onClick={handleCancel} disabled={changingStatus}
+                  className="px-4 py-2.5 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-500/10 transition-all disabled:opacity-50"
+                  style={{ border: '1px solid rgba(239,68,68,0.25)' }}>
+                  Cancel
+                </button>
+              </div>
 
-                {/* ── Payment panel ── */}
-                {showPayment && repair.status === 'READY' && (
-                  <div className="rounded-2xl p-4 space-y-3" style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(134,239,172,0.2)' }}>
+              {/* Payment panel */}
+              {showPayment && repair.status === 'READY' && (
+                <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-default)' }}>
+                  <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                    <p className="text-xs font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Collect Payment</p>
+                  </div>
+                  <div className="p-4 space-y-4">
                     {/* Breakdown */}
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-white/60">Service Fee</span>
-                        <span className="font-semibold text-white">{formatCurrency(repair.estimatedCost ?? 0)}</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span style={{ color: 'var(--text-secondary)' }}>Service Fee</span>
+                        <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(repair.estimatedCost ?? 0)}</span>
                       </div>
                       {partsTotal > 0 && (
-                        <div className="flex justify-between text-xs">
-                          <span className="text-white/60">Spare Parts ({repair.spareParts?.length})</span>
-                          <span className="font-semibold text-white">{formatCurrency(partsTotal)}</span>
+                        <div className="flex justify-between text-sm">
+                          <span style={{ color: 'var(--text-secondary)' }}>Spare Parts ({repair.spareParts?.length})</span>
+                          <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(partsTotal)}</span>
                         </div>
                       )}
-                      <div className="h-px my-1" style={{ background: 'rgba(255,255,255,0.1)' }} />
-                      <div className="flex justify-between text-sm">
-                        <span className="font-bold text-white">Subtotal</span>
-                        <span className="font-black text-white">{formatCurrency(subtotal)}</span>
+                      <div className="flex justify-between text-sm pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                        <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Subtotal</span>
+                        <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(subtotal)}</span>
                       </div>
                     </div>
                     {/* Discount */}
                     <div>
-                      <label className="block text-[11px] font-bold text-white/50 mb-1.5">Discount Amount</label>
+                      <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--text-muted)' }}>Discount Amount</label>
                       <input type="number" min={0} max={subtotal} value={discount} onChange={e => setDiscount(e.target.value)}
-                        placeholder="0" className="w-full px-3 py-2 rounded-xl text-sm text-white font-semibold outline-none"
-                        style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }} />
+                        placeholder="0" className="input-field" />
                     </div>
-                    {/* Final amount */}
                     {discountAmt > 0 && (
-                      <div className="flex justify-between items-center px-3 py-2.5 rounded-xl" style={{ background: 'rgba(22,163,74,0.15)', border: '1px solid rgba(134,239,172,0.25)' }}>
-                        <span className="text-xs font-bold text-green-300">Final Amount</span>
-                        <span className="text-lg font-black text-green-300">{formatCurrency(finalAmount)}</span>
+                      <div className="flex justify-between items-center px-3 py-2.5 rounded-xl bg-green-500/8 border border-green-500/20">
+                        <span className="text-sm font-bold text-green-600">Final Amount</span>
+                        <span className="text-lg font-black text-green-600">{formatCurrency(finalAmount)}</span>
                       </div>
                     )}
                     {/* Payment method */}
                     <div>
-                      <p className="text-[11px] font-bold text-white/50 mb-1.5">Payment Method</p>
-                      <div className="grid grid-cols-4 gap-1.5">
+                      <p className="text-xs font-bold mb-2" style={{ color: 'var(--text-muted)' }}>Payment Method</p>
+                      <div className="grid grid-cols-4 gap-2">
                         {(['CASH','CARD','UPI','BANK_TRANSFER'] as const).map(m => (
                           <button key={m} type="button" onClick={() => setPayMethod(m)}
-                            className={`py-2 rounded-xl text-[11px] font-bold transition-all border ${
+                            className={`py-2 rounded-lg text-[11px] font-bold transition-all border ${
                               payMethod === m
-                                ? 'bg-green-500/20 border-green-400/40 text-green-300'
-                                : 'bg-white/5 border-white/10 text-white/40 hover:text-white'
-                            }`}>
+                                ? 'bg-violet-600 border-violet-600 text-white'
+                                : 'text-sm font-medium'
+                            }`}
+                            style={payMethod !== m ? { background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' } : {}}>
                             {m === 'BANK_TRANSFER' ? 'Bank' : m === 'UPI' ? 'UPI' : m.charAt(0)+m.slice(1).toLowerCase()}
                           </button>
                         ))}
                       </div>
                     </div>
-                    {/* Confirm button */}
                     <button onClick={handleCollectPayment} disabled={collecting}
-                      className="w-full py-3 rounded-2xl text-sm font-black text-white flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-60"
-                      style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)', boxShadow: '0 4px 16px rgba(22,163,74,0.4)' }}>
-                      {collecting ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle size={15} />}
+                      className="w-full py-3 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-60"
+                      style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)' }}>
+                      {collecting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
                       {collecting ? 'Processing…' : `Confirm & Collect ${formatCurrency(finalAmount)}`}
                     </button>
                   </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ══ BODY ══ */}
-        <div className="p-5 space-y-3">
-
-          {/* Device + Customer */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl p-4 space-y-2.5" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-xl flex items-center justify-center bg-violet-500/15"><Smartphone size={13} className="text-violet-500" /></div>
-                <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Device</span>
-              </div>
-              <div>
-                <p className="text-sm font-bold leading-snug" style={{ color: 'var(--text-primary)' }}>{repair.deviceBrand} {repair.deviceModel}</p>
-                {(repair as any).deviceColor && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{(repair as any).deviceColor}</p>}
-                {repair.imei && (
-                  <p className="text-[10px] font-mono mt-2 px-2.5 py-1 rounded-lg inline-block" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>
-                    {repair.imei}
-                  </p>
-                )}
-              </div>
+                </div>
+              )}
             </div>
-            <div className="rounded-2xl p-4 space-y-2.5" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-xl flex items-center justify-center bg-cyan-500/15"><User size={13} className="text-cyan-500" /></div>
-                <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Customer</span>
-              </div>
-              <div>
-                <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{repair.customerName}</p>
-                <a href={`tel:${repair.customerPhone}`} className="flex items-center gap-1.5 mt-1 text-xs font-semibold text-cyan-500 hover:text-cyan-400 transition-colors">
-                  <PhoneCall size={11} />{repair.customerPhone}
-                </a>
-              </div>
-            </div>
+          )}
+
+          {/* ── Reported Issue ── */}
+          <div className="rounded-xl p-4 space-y-1.5" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+            <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Reported Issue</p>
+            <p className="text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>{repair.reportedIssue}</p>
           </div>
 
-          {/* Reported Issue */}
-          <div className="rounded-2xl p-4" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-            <div className="flex items-center gap-2 mb-2.5">
-              <div className="w-7 h-7 rounded-xl flex items-center justify-center bg-amber-500/15"><AlertTriangle size={13} className="text-amber-500" /></div>
-              <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Reported Issue</span>
-            </div>
-            <p className="text-sm leading-relaxed font-medium" style={{ color: 'var(--text-secondary)' }}>{repair.reportedIssue}</p>
-          </div>
-
-          {/* Financials */}
-          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
-            <div className="grid grid-cols-3 divide-x" style={{ borderColor: 'var(--border-subtle)' }}>
-              <div className="p-4 text-center space-y-1">
-                <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Service Fee</p>
-                <p className="text-base font-black text-emerald-600">{repair.estimatedCost ? formatCurrency(repair.estimatedCost) : '—'}</p>
-              </div>
-              <div className="p-4 text-center space-y-1">
-                <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Parts Cost</p>
-                <p className="text-base font-black text-orange-500">{partsTotal > 0 ? formatCurrency(partsTotal) : '—'}</p>
-              </div>
-              <div className="p-4 text-center space-y-1">
-                <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Technician</p>
-                <p className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{repair.technicianName || '—'}</p>
-              </div>
-            </div>
-            {/* Grand total row */}
-            <div className="flex items-center justify-between px-5 py-3" style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-black uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Total Amount</span>
-                {repair.actualCost != null && repair.actualCost !== subtotal && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-violet-500/10 text-violet-600 border border-violet-500/20">Paid: {formatCurrency(repair.actualCost)}</span>
-                )}
-              </div>
-              <p className="text-xl font-black" style={{ color: 'var(--text-primary)' }}>{formatCurrency(subtotal)}</p>
-            </div>
-          </div>
-
-          {/* Spare Parts */}
-          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
+          {/* ── Items ── */}
+          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3.5" style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.2)' }}>
-                  <Package size={14} className="text-orange-500" />
-                </div>
-                <div>
-                  <p className="text-xs font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Spare Parts</p>
-                  {repair.spareParts?.length > 0 && (
-                    <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{repair.spareParts.length} item{repair.spareParts.length > 1 ? 's' : ''}</p>
-                  )}
-                </div>
-              </div>
+            <div className="flex items-center justify-between px-4 py-3" style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
+              <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+                Items ({(repair.spareParts?.length ?? 0) + (repair.estimatedCost ? 1 : 0)})
+              </p>
               <button onClick={() => setShowAddPart(v => !v)}
-                className="flex items-center gap-1.5 px-3.5 py-2 text-xs rounded-xl font-bold transition-all"
-                style={{ background: showAddPart ? 'rgba(239,68,68,0.08)' : 'linear-gradient(135deg,rgba(249,115,22,0.15),rgba(234,88,12,0.10))', color: showAddPart ? '#ef4444' : '#ea580c', border: `1px solid ${showAddPart ? 'rgba(239,68,68,0.25)' : 'rgba(249,115,22,0.30)'}` }}>
-                {showAddPart ? <><X size={11} />Cancel</> : <><Plus size={11} />Add Part</>}
+                className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-bold rounded-lg transition-colors"
+                style={{ background: showAddPart ? 'rgba(239,68,68,0.08)' : 'var(--bg-card)', border: '1px solid var(--border-default)', color: showAddPart ? '#ef4444' : 'var(--text-secondary)' }}>
+                {showAddPart ? <><X size={10} />Cancel</> : <><Plus size={10} />Add Part</>}
               </button>
             </div>
 
             {/* Add Part form */}
             {showAddPart && (
-              <div className="px-5 py-4 space-y-3" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+              <div className="px-4 py-3 space-y-3" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                 <div className="relative">
                   <input className="input-field text-sm" placeholder="Search inventory by name or SKU…"
                     value={selProduct ? selProduct.name : partSearch}
@@ -828,100 +763,105 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                   )}
                 </div>
                 {selProduct && (
-                  <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl" style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)' }}>
-                    <div className="w-6 h-6 rounded-lg bg-orange-500/15 flex items-center justify-center shrink-0"><Package size={11} className="text-orange-500" /></div>
-                    <span className="text-xs flex-1 truncate font-semibold text-orange-600">{selProduct.name}</span>
-                    <button onClick={() => setSelProduct(null)} className="text-orange-400 hover:text-orange-600"><X size={11} /></button>
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                    <Package size={11} className="text-violet-500 shrink-0" />
+                    <span className="text-xs flex-1 truncate font-semibold" style={{ color: 'var(--text-primary)' }}>{selProduct.name}</span>
+                    <button onClick={() => setSelProduct(null)} style={{ color: 'var(--text-muted)' }}><X size={11} /></button>
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-bold mb-1.5" style={{ color: 'var(--text-muted)' }}>Quantity</label>
+                    <label className="block text-[11px] font-bold mb-1" style={{ color: 'var(--text-muted)' }}>Quantity</label>
                     <input type="number" min={1} className="input-field" value={partQty} onChange={e => setPartQty(Number(e.target.value))} />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold mb-1.5" style={{ color: 'var(--text-muted)' }}>Unit Cost <span className="font-normal opacity-60">(optional)</span></label>
+                    <label className="block text-[11px] font-bold mb-1" style={{ color: 'var(--text-muted)' }}>Unit Cost <span className="font-normal opacity-60">(optional)</span></label>
                     <input type="number" min={0} className="input-field"
                       placeholder={selProduct ? String(selProduct.buyingPrice ?? '') : '0'} value={partCost} onChange={e => setPartCost(e.target.value)} />
                   </div>
                 </div>
                 <button onClick={handleAddPart} disabled={!selProduct || addingPart}
-                  className="w-full py-2.5 text-sm rounded-xl text-white font-bold flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98]"
-                  style={{ background: 'linear-gradient(135deg,#f97316,#ea580c)', boxShadow: '0 2px 12px rgba(234,88,12,0.3)' }}>
-                  {addingPart ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}Add to Repair
+                  className="w-full py-2 text-sm rounded-lg text-white font-bold flex items-center justify-center gap-2 disabled:opacity-50 transition-all"
+                  style={{ background: '#7c3aed' }}>
+                  {addingPart ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}Add to Repair
                 </button>
               </div>
             )}
 
-            {/* Parts table */}
-            {repair.spareParts?.length > 0 ? (
-              <div style={{ background: 'var(--bg-card)' }}>
-                {/* Table header */}
-                <div className="grid px-5 py-2" style={{ gridTemplateColumns: '1fr 60px 110px 36px', borderBottom: '1px solid var(--border-subtle)' }}>
-                  <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Part Name</span>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-center" style={{ color: 'var(--text-muted)' }}>Qty</span>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-right" style={{ color: 'var(--text-muted)' }}>Amount</span>
-                  <span />
+            {/* Service fee line item */}
+            {repair.estimatedCost != null && repair.estimatedCost > 0 && (
+              <div className="flex items-center px-4 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    Repair Service – {repair.deviceBrand} {repair.deviceModel}
+                  </p>
+                  <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{repair.ticketNumber}</p>
                 </div>
-                {/* Rows */}
-                {repair.spareParts.map((part: any, idx: number) => (
-                  <div key={part.id} className="grid items-center px-5 py-3"
-                    style={{ gridTemplateColumns: '1fr 60px 110px 36px', borderBottom: '1px solid var(--border-subtle)', background: idx % 2 === 0 ? 'transparent' : 'var(--bg-subtle)' }}>
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-7 h-7 rounded-lg shrink-0 flex items-center justify-center" style={{ background: 'rgba(249,115,22,0.10)', border: '1px solid rgba(249,115,22,0.18)' }}>
-                        <Package size={12} className="text-orange-500" />
-                      </div>
-                      <span className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{part.productName}</span>
-                    </div>
-                    <div className="text-center">
-                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-xs font-bold" style={{ background: 'var(--bg-subtle)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>
-                        {part.quantity}
-                      </span>
-                    </div>
-                    <p className="text-sm font-bold text-right" style={{ color: 'var(--text-primary)' }}>{formatCurrency(part.total)}</p>
-                    <div className="flex justify-end">
-                      <button onClick={() => handleRemovePart(part.id)} disabled={removingId === part.id}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors disabled:opacity-40"
-                        style={{ color: 'var(--text-muted)' }}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.10)'; e.currentTarget.style.color = '#ef4444' }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}>
-                        {removingId === part.id ? <Loader2 size={11} className="animate-spin" /> : <X size={11} />}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                {/* Total row */}
-                <div className="grid items-center px-5 py-3.5" style={{ gridTemplateColumns: '1fr 60px 110px 36px', background: 'linear-gradient(135deg,rgba(249,115,22,0.06),rgba(234,88,12,0.03))', borderTop: '2px solid rgba(249,115,22,0.2)' }}>
-                  <span className="text-xs font-black uppercase tracking-wide text-orange-600 col-span-2">Total Parts Cost</span>
-                  <p className="text-base font-black text-right text-orange-600">{formatCurrency(partsTotal)}</p>
-                  <span />
+                <div className="text-right shrink-0 ml-4">
+                  <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(repair.estimatedCost)}</p>
+                  <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>1 × {formatCurrency(repair.estimatedCost)}</p>
                 </div>
-              </div>
-            ) : !showAddPart && (
-              <div className="flex flex-col items-center justify-center py-10 gap-2" style={{ background: 'var(--bg-card)' }}>
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-                  <Package size={20} className="opacity-30" style={{ color: 'var(--text-muted)' }} />
-                </div>
-                <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>No spare parts added yet</p>
-                <button onClick={() => setShowAddPart(true)} className="text-xs font-bold text-orange-500 hover:text-orange-400 transition-colors mt-0.5">+ Add first part</button>
               </div>
             )}
+
+            {/* Spare part rows */}
+            {repair.spareParts?.length > 0 ? (
+              repair.spareParts.map((part: any) => (
+                <div key={part.id} className="flex items-center px-4 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{part.productName}</p>
+                    <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                      {part.quantity} × {formatCurrency(part.unitCost ?? part.total / part.quantity)}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0 ml-4 flex items-center gap-3">
+                    <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(part.total)}</p>
+                    <button onClick={() => handleRemovePart(part.id)} disabled={removingId === part.id}
+                      className="w-6 h-6 rounded-md flex items-center justify-center transition-colors disabled:opacity-40 hover:bg-red-500/10 hover:text-red-500"
+                      style={{ color: 'var(--text-muted)' }}>
+                      {removingId === part.id ? <Loader2 size={11} className="animate-spin" /> : <X size={11} />}
+                    </button>
+                  </div>
+                </div>
+              ))
+            ) : !showAddPart && repair.estimatedCost == null && (
+              <div className="py-8 text-center">
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>No items yet</p>
+                <button onClick={() => setShowAddPart(true)} className="text-xs font-bold text-violet-500 hover:text-violet-400 mt-1">+ Add spare part</button>
+              </div>
+            )}
+
+            {/* Totals */}
+            <div className="px-4 py-3 space-y-1.5" style={{ background: 'var(--bg-subtle)' }}>
+              <div className="flex justify-between text-sm">
+                <span style={{ color: 'var(--text-secondary)' }}>Subtotal</span>
+                <span style={{ color: 'var(--text-primary)' }}>{formatCurrency(subtotal)}</span>
+              </div>
+              {repair.actualCost != null && repair.actualCost !== subtotal && (
+                <div className="flex justify-between text-sm">
+                  <span style={{ color: 'var(--text-secondary)' }}>Discount</span>
+                  <span className="text-red-500">– {formatCurrency(subtotal - repair.actualCost)}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-bold text-base pt-1.5" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                <span style={{ color: 'var(--text-primary)' }}>Total</span>
+                <span style={{ color: 'var(--text-primary)' }}>{formatCurrency(repair.actualCost ?? subtotal)}</span>
+              </div>
+            </div>
           </div>
 
-          {/* Status History */}
+          {/* ── Status History ── */}
           {repair.statusHistory?.length > 0 && (
-            <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
-              <div className="px-4 py-3 flex items-center gap-2" style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
-                <Clock size={12} className="text-blue-500" />
-                <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Timeline</span>
+            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
+              <div className="px-4 py-3" style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
+                <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Timeline</p>
               </div>
-              <div className="p-4 space-y-2" style={{ background: 'var(--bg-card)' }}>
+              <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
                 {repair.statusHistory.map((h: any, i: number) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-violet-500 shrink-0" />
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${getRepairStatusColor(h.status)}`}>{statusLabels[h.status] ?? h.status}</span>
+                  <div key={i} className="flex items-center gap-3 px-4 py-2.5">
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold shrink-0 ${getRepairStatusColor(h.status)}`}>{statusLabels[h.status] ?? h.status}</span>
                     <span className="text-xs flex-1" style={{ color: 'var(--text-secondary)' }}>{h.changedBy}</span>
-                    <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{formatDate(h.changedAt)}</span>
+                    <span className="text-[10px] shrink-0" style={{ color: 'var(--text-muted)' }}>{formatDate(h.changedAt)}</span>
                   </div>
                 ))}
               </div>
@@ -929,7 +869,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
           )}
 
           {/* Footer */}
-          <div className="flex items-center justify-between text-[11px] pt-1" style={{ color: 'var(--text-muted)' }}>
+          <div className="flex items-center justify-between text-[11px]" style={{ color: 'var(--text-muted)' }}>
             <span className="flex items-center gap-1.5"><Calendar size={11} />Created {formatDate(repair.createdAt)}</span>
             {repair.estimatedCompletion && <span className="flex items-center gap-1.5"><Calendar size={11} />Due {formatDate(repair.estimatedCompletion)}</span>}
           </div>
