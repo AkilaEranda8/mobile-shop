@@ -568,95 +568,129 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
 
           {/* Spare Parts */}
           <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
-            <div className="flex items-center justify-between px-4 py-3" style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-xl flex items-center justify-center bg-orange-500/15"><Package size={13} className="text-orange-500" /></div>
-                <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Spare Parts</span>
-                {repair.spareParts?.length > 0 && (
-                  <span className="min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold flex items-center justify-center bg-orange-500/15 text-orange-500 border border-orange-500/20">{repair.spareParts.length}</span>
-                )}
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3.5" style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.2)' }}>
+                  <Package size={14} className="text-orange-500" />
+                </div>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Spare Parts</p>
+                  {repair.spareParts?.length > 0 && (
+                    <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{repair.spareParts.length} item{repair.spareParts.length > 1 ? 's' : ''}</p>
+                  )}
+                </div>
               </div>
               <button onClick={() => setShowAddPart(v => !v)}
-                className="flex items-center gap-1 px-3 py-1.5 text-[11px] rounded-xl font-bold transition-colors"
-                style={{ background: showAddPart ? 'rgba(239,68,68,0.08)' : 'rgba(249,115,22,0.10)', color: showAddPart ? '#ef4444' : '#ea580c', border: `1px solid ${showAddPart ? 'rgba(239,68,68,0.2)' : 'rgba(249,115,22,0.25)'}` }}>
-                {showAddPart ? <><X size={10} />Cancel</> : <><Plus size={10} />Add Part</>}
+                className="flex items-center gap-1.5 px-3.5 py-2 text-xs rounded-xl font-bold transition-all"
+                style={{ background: showAddPart ? 'rgba(239,68,68,0.08)' : 'linear-gradient(135deg,rgba(249,115,22,0.15),rgba(234,88,12,0.10))', color: showAddPart ? '#ef4444' : '#ea580c', border: `1px solid ${showAddPart ? 'rgba(239,68,68,0.25)' : 'rgba(249,115,22,0.30)'}` }}>
+                {showAddPart ? <><X size={11} />Cancel</> : <><Plus size={11} />Add Part</>}
               </button>
             </div>
-            <div className="p-4 space-y-2.5" style={{ background: 'var(--bg-card)' }}>
-              {showAddPart && (
-                <div className="p-3 rounded-xl space-y-2" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
-                  <div className="relative">
-                    <input className="input-field text-xs py-2" placeholder="Search inventory…"
-                      value={selProduct ? selProduct.name : partSearch}
-                      onChange={e => { setPartSearch(e.target.value); setSelProduct(null) }} />
-                    {filteredProducts.length > 0 && !selProduct && (
-                      <div className="absolute z-10 top-full mt-1 w-full rounded-xl shadow-xl overflow-hidden"
-                        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                        {filteredProducts.map((p: any) => (
-                          <button key={p.id} type="button"
-                            onClick={() => { setSelProduct(p); setPartSearch(''); setPartCost(String(p.buyingPrice ?? '')) }}
-                            className="w-full text-left px-3 py-2 transition-colors hover:bg-white/5"
-                            style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                            <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{p.name}</p>
-                            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{p.sku ?? ''} · Stock: {p.stock} · {formatCurrency(p.buyingPrice)}</p>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  {selProduct && (
-                    <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg" style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)' }}>
-                      <Package size={10} className="text-orange-500 shrink-0" />
-                      <span className="text-xs flex-1 truncate font-medium text-orange-600">{selProduct.name}</span>
-                      <button onClick={() => setSelProduct(null)} style={{ color: 'var(--text-muted)' }}><X size={10} /></button>
+
+            {/* Add Part form */}
+            {showAddPart && (
+              <div className="px-5 py-4 space-y-3" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                <div className="relative">
+                  <input className="input-field text-sm" placeholder="Search inventory by name or SKU…"
+                    value={selProduct ? selProduct.name : partSearch}
+                    onChange={e => { setPartSearch(e.target.value); setSelProduct(null) }} />
+                  {filteredProducts.length > 0 && !selProduct && (
+                    <div className="absolute z-10 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden"
+                      style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                      {filteredProducts.map((p: any) => (
+                        <button key={p.id} type="button"
+                          onClick={() => { setSelProduct(p); setPartSearch(''); setPartCost(String(p.buyingPrice ?? '')) }}
+                          className="w-full text-left px-4 py-2.5 transition-colors"
+                          style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-subtle)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                          <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{p.name}</p>
+                          <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{p.sku ? `${p.sku} · ` : ''}Stock: {p.stock} · {formatCurrency(p.buyingPrice)}</p>
+                        </button>
+                      ))}
                     </div>
                   )}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[10px] mb-1 font-semibold" style={{ color: 'var(--text-muted)' }}>Quantity</label>
-                      <input type="number" min={1} className="input-field text-xs py-1.5" value={partQty} onChange={e => setPartQty(Number(e.target.value))} />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] mb-1 font-semibold" style={{ color: 'var(--text-muted)' }}>Unit Cost</label>
-                      <input type="number" min={0} className="input-field text-xs py-1.5"
-                        placeholder={selProduct ? String(selProduct.buyingPrice ?? '') : ''} value={partCost} onChange={e => setPartCost(e.target.value)} />
-                    </div>
-                  </div>
-                  <button onClick={handleAddPart} disabled={!selProduct || addingPart}
-                    className="w-full py-2 text-xs rounded-xl text-white font-bold flex items-center justify-center gap-1.5 disabled:opacity-50"
-                    style={{ background: 'linear-gradient(135deg,#ea580c,#c2410c)' }}>
-                    {addingPart ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}Add to Repair
-                  </button>
                 </div>
-              )}
-              {repair.spareParts?.length > 0 ? (
-                <div className="space-y-1.5">
-                  {repair.spareParts.map((part: any) => (
-                    <div key={part.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
-                      style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-                      <Package size={12} className="text-orange-400 shrink-0" />
-                      <span className="text-xs font-semibold flex-1 truncate" style={{ color: 'var(--text-primary)' }}>{part.productName}</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-md font-bold" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>×{part.quantity}</span>
-                      <span className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(part.total)}</span>
+                {selProduct && (
+                  <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl" style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)' }}>
+                    <div className="w-6 h-6 rounded-lg bg-orange-500/15 flex items-center justify-center shrink-0"><Package size={11} className="text-orange-500" /></div>
+                    <span className="text-xs flex-1 truncate font-semibold text-orange-600">{selProduct.name}</span>
+                    <button onClick={() => setSelProduct(null)} className="text-orange-400 hover:text-orange-600"><X size={11} /></button>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold mb-1.5" style={{ color: 'var(--text-muted)' }}>Quantity</label>
+                    <input type="number" min={1} className="input-field" value={partQty} onChange={e => setPartQty(Number(e.target.value))} />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold mb-1.5" style={{ color: 'var(--text-muted)' }}>Unit Cost <span className="font-normal opacity-60">(optional)</span></label>
+                    <input type="number" min={0} className="input-field"
+                      placeholder={selProduct ? String(selProduct.buyingPrice ?? '') : '0'} value={partCost} onChange={e => setPartCost(e.target.value)} />
+                  </div>
+                </div>
+                <button onClick={handleAddPart} disabled={!selProduct || addingPart}
+                  className="w-full py-2.5 text-sm rounded-xl text-white font-bold flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98]"
+                  style={{ background: 'linear-gradient(135deg,#f97316,#ea580c)', boxShadow: '0 2px 12px rgba(234,88,12,0.3)' }}>
+                  {addingPart ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}Add to Repair
+                </button>
+              </div>
+            )}
+
+            {/* Parts table */}
+            {repair.spareParts?.length > 0 ? (
+              <div style={{ background: 'var(--bg-card)' }}>
+                {/* Table header */}
+                <div className="grid px-5 py-2" style={{ gridTemplateColumns: '1fr 60px 110px 36px', borderBottom: '1px solid var(--border-subtle)' }}>
+                  <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Part Name</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-center" style={{ color: 'var(--text-muted)' }}>Qty</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-right" style={{ color: 'var(--text-muted)' }}>Amount</span>
+                  <span />
+                </div>
+                {/* Rows */}
+                {repair.spareParts.map((part: any, idx: number) => (
+                  <div key={part.id} className="grid items-center px-5 py-3"
+                    style={{ gridTemplateColumns: '1fr 60px 110px 36px', borderBottom: '1px solid var(--border-subtle)', background: idx % 2 === 0 ? 'transparent' : 'var(--bg-subtle)' }}>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-7 h-7 rounded-lg shrink-0 flex items-center justify-center" style={{ background: 'rgba(249,115,22,0.10)', border: '1px solid rgba(249,115,22,0.18)' }}>
+                        <Package size={12} className="text-orange-500" />
+                      </div>
+                      <span className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{part.productName}</span>
+                    </div>
+                    <div className="text-center">
+                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-xs font-bold" style={{ background: 'var(--bg-subtle)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>
+                        {part.quantity}
+                      </span>
+                    </div>
+                    <p className="text-sm font-bold text-right" style={{ color: 'var(--text-primary)' }}>{formatCurrency(part.total)}</p>
+                    <div className="flex justify-end">
                       <button onClick={() => handleRemovePart(part.id)} disabled={removingId === part.id}
-                        className="p-1 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-500/10 transition-colors disabled:opacity-40">
-                        {removingId === part.id ? <Loader2 size={10} className="animate-spin" /> : <X size={10} />}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors disabled:opacity-40"
+                        style={{ color: 'var(--text-muted)' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.10)'; e.currentTarget.style.color = '#ef4444' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}>
+                        {removingId === part.id ? <Loader2 size={11} className="animate-spin" /> : <X size={11} />}
                       </button>
                     </div>
-                  ))}
-                  <div className="flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold"
-                    style={{ background: 'rgba(249,115,22,0.07)', border: '1px solid rgba(249,115,22,0.18)' }}>
-                    <span className="text-orange-600">Total Parts</span>
-                    <span className="text-orange-600">{formatCurrency(partsTotal)}</span>
                   </div>
+                ))}
+                {/* Total row */}
+                <div className="grid items-center px-5 py-3.5" style={{ gridTemplateColumns: '1fr 60px 110px 36px', background: 'linear-gradient(135deg,rgba(249,115,22,0.06),rgba(234,88,12,0.03))', borderTop: '2px solid rgba(249,115,22,0.2)' }}>
+                  <span className="text-xs font-black uppercase tracking-wide text-orange-600 col-span-2">Total Parts Cost</span>
+                  <p className="text-base font-black text-right text-orange-600">{formatCurrency(partsTotal)}</p>
+                  <span />
                 </div>
-              ) : !showAddPart && (
-                <div className="text-center py-8">
-                  <Package size={26} className="mx-auto mb-2 opacity-15" style={{ color: 'var(--text-muted)' }} />
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>No spare parts added yet</p>
+              </div>
+            ) : !showAddPart && (
+              <div className="flex flex-col items-center justify-center py-10 gap-2" style={{ background: 'var(--bg-card)' }}>
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+                  <Package size={20} className="opacity-30" style={{ color: 'var(--text-muted)' }} />
                 </div>
-              )}
-            </div>
+                <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>No spare parts added yet</p>
+                <button onClick={() => setShowAddPart(true)} className="text-xs font-bold text-orange-500 hover:text-orange-400 transition-colors mt-0.5">+ Add first part</button>
+              </div>
+            )}
           </div>
 
           {/* Status History */}
