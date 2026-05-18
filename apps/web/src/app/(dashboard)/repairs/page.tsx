@@ -50,6 +50,7 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
     source: 'WALK_IN',
   })
   const [accessories, setAccessories] = useState<string[]>([])
+  const [accOpen, setAccOpen] = useState(false)
   const ACCESSORY_OPTIONS = ['Phone Only','Charger','Box','SIM','Memory Card','Back Cover','Battery','Stylus','Earphones'] as const
   const toggleAccessory = (a: string) => setAccessories(prev =>
     prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]
@@ -356,20 +357,43 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
                 </div>
               )}
             </div>
-            <div className="col-span-2">
-              <label className="block text-xs text-slate-400 mb-2">Accessories Received</label>
-              <div className="flex flex-wrap gap-2">
-                {ACCESSORY_OPTIONS.map(a => (
-                  <button key={a} type="button" onClick={() => toggleAccessory(a)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                      accessories.includes(a)
-                        ? 'bg-violet-500/20 border-violet-500/40 text-violet-300'
-                        : 'bg-white/3 border-white/8 text-slate-400 hover:border-white/20'
-                    }`}>
-                    {a}
-                  </button>
-                ))}
-              </div>
+            <div className="col-span-2 relative">
+              <label className="block text-xs text-slate-400 mb-1.5">Accessories Received</label>
+              <button type="button" onClick={() => setAccOpen(o => !o)}
+                className="input-field w-full flex items-center justify-between text-left"
+                style={{ minHeight: 38 }}>
+                <span className={accessories.length === 0 ? 'text-slate-500 text-sm' : 'text-sm'}
+                  style={{ color: accessories.length === 0 ? undefined : 'var(--text-primary)' }}>
+                  {accessories.length === 0 ? 'Select accessories…' : accessories.join(', ')}
+                </span>
+                <ChevronDown size={14} className={`text-slate-400 shrink-0 transition-transform ${accOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {accOpen && (
+                <div className="absolute z-30 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden"
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                  {ACCESSORY_OPTIONS.map(a => (
+                    <button key={a} type="button"
+                      onMouseDown={e => { e.preventDefault(); toggleAccessory(a) }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-violet-500/10 transition-colors text-left"
+                      style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                      <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${
+                        accessories.includes(a)
+                          ? 'bg-violet-500 border-violet-500'
+                          : 'border-slate-600'
+                      }`}>
+                        {accessories.includes(a) && <Check size={10} className="text-white" />}
+                      </div>
+                      <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{a}</span>
+                    </button>
+                  ))}
+                  {accessories.length > 0 && (
+                    <button type="button" onMouseDown={e => { e.preventDefault(); setAccessories([]) }}
+                      className="w-full px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-colors text-left">
+                      Clear all
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
             {/* Technician dropdown */}
             <div className="relative">
