@@ -419,7 +419,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="w-full max-w-2xl max-h-[94vh] overflow-y-auto rounded-3xl shadow-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+      <div className="w-full max-w-3xl max-h-[94vh] overflow-y-auto rounded-3xl shadow-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
 
         {/* ══ HEADER ══ */}
         <div className="relative overflow-hidden rounded-t-3xl" data-scheme="dark"
