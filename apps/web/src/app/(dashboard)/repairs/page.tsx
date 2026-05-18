@@ -20,7 +20,7 @@ import type { RepairTicket } from '@/types'
 function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState({
     customerName: '', customerPhone: '', deviceBrand: '', deviceModel: '',
-    deviceColor: '', reportedIssue: '', priority: 'NORMAL', estimatedCost: '', technicianName: '',
+    deviceColor: '', imei: '', reportedIssue: '', priority: 'NORMAL', estimatedCost: '', technicianName: '',
     source: 'WALK_IN',
   })
 
@@ -82,6 +82,10 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
             <div>
               <label className="block text-xs text-slate-400 mb-1.5">Color</label>
               <input className="input-field" placeholder="Space Black" value={form.deviceColor} onChange={f('deviceColor')} />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs text-slate-400 mb-1.5">IMEI</label>
+              <input className="input-field font-mono" placeholder="Enter 15-digit IMEI (optional)" maxLength={17} value={form.imei} onChange={f('imei')} />
             </div>
             <div>
               <label className="block text-xs text-slate-400 mb-1.5">Technician</label>
