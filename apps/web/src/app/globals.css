@@ -379,6 +379,47 @@ html:not(.dark) [class*="#1e1b4b"] { background-color: rgba(124,58,237,0.08) !im
 /* Sticky headers inside modals */
 html:not(.dark) [class*="#0f1623"][class*="sticky"] { background-color: var(--bg-card) !important; }
 
+/* ── Dark modals (data-modal="dark") – always dark regardless of theme ── */
+html:not(.dark) [data-modal="dark"]                                         { background-color: #0f1623 !important; }
+html:not(.dark) [data-modal="dark"] [class*="#0f1623"]                      { background-color: #0f1623 !important; }
+html:not(.dark) [data-modal="dark"] .text-white                             { color: #e2e8f0 !important; }
+html:not(.dark) [data-modal="dark"] .text-slate-400                        { color: #94a3b8 !important; }
+html:not(.dark) [data-modal="dark"] .text-slate-500                        { color: #64748b !important; }
+html:not(.dark) [data-modal="dark"] .text-slate-600                        { color: #64748b !important; }
+html:not(.dark) [data-modal="dark"] .text-violet-300                       { color: #c4b5fd !important; }
+html:not(.dark) [data-modal="dark"] .text-violet-400                       { color: #a78bfa !important; }
+html:not(.dark) [data-modal="dark"] .text-emerald-400                      { color: #34d399 !important; }
+html:not(.dark) [data-modal="dark"] .text-green-400                        { color: #4ade80 !important; }
+html:not(.dark) [data-modal="dark"] .text-blue-400                         { color: #60a5fa !important; }
+html:not(.dark) [data-modal="dark"] .text-pink-400                         { color: #f472b6 !important; }
+html:not(.dark) [data-modal="dark"] .text-amber-400                        { color: #fbbf24 !important; }
+html:not(.dark) [data-modal="dark"] .text-cyan-400                         { color: #22d3ee !important; }
+html:not(.dark) [data-modal="dark"] .text-red-400                          { color: #f87171 !important; }
+html:not(.dark) [data-modal="dark"] .text-orange-600                       { color: #ea580c !important; }
+html:not(.dark) [data-modal="dark"] .input-field                           { background: rgba(255,255,255,0.05) !important; border-color: rgba(255,255,255,0.08) !important; color: #e2e8f0 !important; }
+html:not(.dark) [data-modal="dark"] .input-field::placeholder              { color: #475569 !important; }
+html:not(.dark) [data-modal="dark"] .btn-secondary                         { background: rgba(255,255,255,0.05) !important; border-color: rgba(255,255,255,0.10) !important; color: #94a3b8 !important; }
+html:not(.dark) [data-modal="dark"] .btn-secondary:hover                   { background: rgba(255,255,255,0.08) !important; }
+html:not(.dark) [data-modal="dark"] .border-white\/5                       { border-color: rgba(255,255,255,0.05) !important; }
+html:not(.dark) [data-modal="dark"] .border-white\/8                       { border-color: rgba(255,255,255,0.08) !important; }
+html:not(.dark) [data-modal="dark"] .border-white\/10                      { border-color: rgba(255,255,255,0.10) !important; }
+html:not(.dark) [data-modal="dark"] .border-white\/20                      { border-color: rgba(255,255,255,0.20) !important; }
+html:not(.dark) [data-modal="dark"] .border-violet-500\/20                 { border-color: rgba(139,92,246,0.20) !important; }
+html:not(.dark) [data-modal="dark"] .border-violet-500\/25                 { border-color: rgba(139,92,246,0.25) !important; }
+html:not(.dark) [data-modal="dark"] .border-emerald-500\/25                { border-color: rgba(16,185,129,0.25) !important; }
+html:not(.dark) [data-modal="dark"] .border-green-500\/25                  { border-color: rgba(34,197,94,0.25) !important; }
+html:not(.dark) [data-modal="dark"] .bg-violet-500\/10                     { background-color: rgba(139,92,246,0.10) !important; }
+html:not(.dark) [data-modal="dark"] .bg-violet-500\/20                     { background-color: rgba(139,92,246,0.20) !important; }
+html:not(.dark) [data-modal="dark"] .bg-violet-500\/30                     { background-color: rgba(139,92,246,0.30) !important; }
+html:not(.dark) [data-modal="dark"] .bg-emerald-500\/10                    { background-color: rgba(16,185,129,0.10) !important; }
+html:not(.dark) [data-modal="dark"] .bg-emerald-500\/15                    { background-color: rgba(16,185,129,0.15) !important; }
+html:not(.dark) [data-modal="dark"] .bg-white\/3                           { background-color: rgba(255,255,255,0.03) !important; }
+html:not(.dark) [data-modal="dark"] .bg-white\/5                           { background-color: rgba(255,255,255,0.05) !important; }
+html:not(.dark) [data-modal="dark"] .hover\:bg-white\/5:hover              { background-color: rgba(255,255,255,0.05) !important; }
+html:not(.dark) [data-modal="dark"] .hover\:bg-emerald-500\/10:hover       { background-color: rgba(16,185,129,0.10) !important; }
+html:not(.dark) [data-modal="dark"] .hover\:bg-red-500\/10:hover           { background-color: rgba(239,68,68,0.10) !important; }
+html:not(.dark) [data-modal="dark"] select option                          { background: #0f1623; color: #e2e8f0; }
+
 /* ── Dark hero sections (data-scheme="dark") – preserve colors in light mode ── */
 html:not(.dark) [data-scheme="dark"]                          { background: linear-gradient(135deg,#1e1b4b 0%,#312e81 50%,#1e1b4b 100%) !important; }
 html:not(.dark) [data-scheme="dark"] .text-white              { color: #ffffff !important; }
