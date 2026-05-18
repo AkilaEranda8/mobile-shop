@@ -44,11 +44,16 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
 
   // ── ticket form state ──
   const [form, setForm] = useState({
-    deviceBrand: '', deviceModel: '', deviceColor: '', imei: '',
+    deviceBrand: '', deviceModel: '', imei: '',
     reportedIssue: '', priority: 'NORMAL', estimatedCost: '',
     technicianId: '', technicianName: '',
     source: 'WALK_IN',
   })
+  const [accessories, setAccessories] = useState<string[]>([])
+  const ACCESSORY_OPTIONS = ['Phone Only','Charger','Box','SIM','Memory Card','Back Cover','Battery','Stylus','Earphones'] as const
+  const toggleAccessory = (a: string) => setAccessories(prev =>
+    prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]
+  )
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -163,6 +168,7 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
         customerName:  selectedCustomer?.name  ?? newCust.name,
         customerPhone: selectedCustomer?.phone ?? newCust.phone,
         estimatedCost: form.estimatedCost ? Number(form.estimatedCost) : undefined,
+        accessories:   accessories.length > 0 ? accessories.join(', ') : undefined,
         branchId: user?.branchIds?.[0],
         createdBy: user?.name || 'Staff',
       })
@@ -350,9 +356,20 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
                 </div>
               )}
             </div>
-            <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Color</label>
-              <input className="input-field" placeholder="Space Black" value={form.deviceColor} onChange={f('deviceColor')} />
+            <div className="col-span-2">
+              <label className="block text-xs text-slate-400 mb-2">Accessories Received</label>
+              <div className="flex flex-wrap gap-2">
+                {ACCESSORY_OPTIONS.map(a => (
+                  <button key={a} type="button" onClick={() => toggleAccessory(a)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                      accessories.includes(a)
+                        ? 'bg-violet-500/20 border-violet-500/40 text-violet-300'
+                        : 'bg-white/3 border-white/8 text-slate-400 hover:border-white/20'
+                    }`}>
+                    {a}
+                  </button>
+                ))}
+              </div>
             </div>
             {/* Technician dropdown */}
             <div className="relative">

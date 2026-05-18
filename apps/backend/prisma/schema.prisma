@@ -476,6 +476,7 @@ model RepairTicket {
   deviceBrand         String
   deviceModel         String
   imei                String?
+  accessories         String?
   reportedIssue       String
   estimatedCost       Float
   actualCost          Float?
