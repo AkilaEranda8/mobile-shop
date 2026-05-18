@@ -874,7 +874,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
             <div className="relative flex items-center">
               <div className="absolute left-5 right-5 top-5 h-[2px] rounded-full" style={{ background: 'var(--border-default)' }} />
               <div className="absolute left-5 top-5 h-[2px] rounded-full bg-violet-500 transition-all duration-500"
-                style={{ width: currentIdx <= 0 ? '0%' : currentIdx === 1 ? '50%' : '100%' }} />
+                style={{ width: currentIdx <= 0 ? '0%' : `${(currentIdx / (STATUS_FLOW.length - 1)) * 100}%` }} />
               {STATUS_FLOW.map((s, i) => {
                 const StepIcon = STEP_ICONS[i]
                 const done   = i < currentIdx
@@ -1027,7 +1027,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                       style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
                       {filteredProducts.map((p: any) => (
                         <button key={p.id} type="button"
-                          onClick={() => { setSelProduct(p); setPartSearch(''); setPartCost(String(p.buyingPrice ?? '')) }}
+                          onClick={() => { setSelProduct(p); setPartSearch(''); setPartCost(String(p.sellingPrice ?? p.buyingPrice ?? '')) }}
                           className="w-full text-left px-4 py-2.5 transition-colors"
                           style={{ borderBottom: '1px solid var(--border-subtle)' }}
                           onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-subtle)')}
@@ -1310,7 +1310,10 @@ export default function RepairsPage() {
       await repairsApi.updateStatus(id, status)
       toast.success(`Status → ${statusLabels[status]}`)
       refetch()
-      if (detailRepair?.id === id) setDetailRepair(null)
+      if (detailRepair?.id === id) {
+        const res: any = await repairsApi.getById(id)
+        setDetailRepair(res?.data ?? detailRepair)
+      }
     } catch { toast.error('Status update failed') }
   }
 
