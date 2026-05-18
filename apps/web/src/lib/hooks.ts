@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   productsApi, customersApi, salesApi, repairsApi,
   warrantyApi, suppliersApi, financeApi, analyticsApi,
-  imeiApi, usersApi,
+  imeiApi, usersApi, branchesApi,
 } from './api'
 
 export function useApi<T>(
@@ -168,6 +168,13 @@ export function useUsers(params?: Record<string, string>) {
 export function useCategories() {
   return useApi<unknown[]>(
     () => productsApi.categories() as Promise<{ data: unknown[] }>,
+    [],
+  )
+}
+
+export function useBranches() {
+  return useApi<unknown[]>(
+    () => branchesApi.list() as Promise<{ data: unknown[] }>,
     [],
   )
 }

@@ -3,17 +3,19 @@
 import { useState, useMemo } from 'react'
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+  ComposedChart, Line, ReferenceLine,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
 import {
   TrendingUp, TrendingDown, Package, Wrench, Truck, Download,
   ShoppingCart, AlertTriangle, CheckCircle, Clock, XCircle,
   DollarSign, BarChart3, ArrowUpRight, ArrowDownRight, Users, Wallet,
+  Calendar, Building2, Activity,
 } from 'lucide-react'
 import {
   useRevenue, useTopProducts, useRepairsByStatus,
   useInventorySummary, useDeliverySummary, useAnalyticsDashboard,
-  useFinanceSummary,
+  useFinanceSummary, useBranches,
 } from '@/lib/hooks'
 import { formatCurrency } from '@/lib/utils'
 
@@ -85,18 +87,22 @@ function ExportCSV({ filename, rows, headers }: { filename: string; rows: (strin
 
 /* ── tabs ───────────────────────────────────────────────────────── */
 const TABS = [
-  { id: 'overview',  label: 'Overview',  icon: BarChart3    },
-  { id: 'sales',     label: 'Sales',     icon: ShoppingCart },
-  { id: 'finance',   label: 'Finance',   icon: DollarSign   },
-  { id: 'inventory', label: 'Inventory', icon: Package      },
-  { id: 'repairs',   label: 'Repairs',   icon: Wrench       },
-  { id: 'delivery',  label: 'Delivery',  icon: Truck        },
+  { id: 'overview',  label: 'Overview',   icon: BarChart3    },
+  { id: 'sales',     label: 'Sales',      icon: ShoppingCart },
+  { id: 'pl',        label: 'P&L Report', icon: DollarSign   },
+  { id: 'cashflow',  label: 'Cash Flow',  icon: Activity     },
+  { id: 'inventory', label: 'Inventory',  icon: Package      },
+  { id: 'repairs',   label: 'Repairs',    icon: Wrench       },
+  { id: 'delivery',  label: 'Delivery',   icon: Truck        },
 ]
 
 /* ── Sales Tab ─────────────────────────────────────────────────── */
-function SalesTab({ days, fromDate, toDate }: { days: string; fromDate: string; toDate: string }) {
-  const { data: rawRevenue }      = useRevenue({ from: fromDate, to: toDate })
-  const { data: topProductsData } = useTopProducts({ limit: '10', from: fromDate, to: toDate })
+function SalesTab({ days, fromDate, toDate, branchId }: { days: string; fromDate: string; toDate: string; branchId?: string }) {
+  const revParams: Record<string, string> = { from: fromDate, to: toDate }
+  const topParams: Record<string, string> = { limit: '10', from: fromDate, to: toDate }
+  if (branchId) { revParams.branchId = branchId; topParams.branchId = branchId }
+  const { data: rawRevenue }      = useRevenue(revParams)
+  const { data: topProductsData } = useTopProducts(topParams)
   const revenueArr: any[] = Array.isArray(rawRevenue) ? rawRevenue : []
   const topProducts: any[] = Array.isArray(topProductsData) ? topProductsData : []
 
@@ -449,9 +455,11 @@ function DeliveryTab({ days }: { days: string }) {
 }
 
 /* ── Overview Tab ─────────────────────────────────────────────── */
-function OverviewTab({ days, fromDate, toDate }: { days: string; fromDate: string; toDate: string }) {
+function OverviewTab({ days, fromDate, toDate, branchId }: { days: string; fromDate: string; toDate: string; branchId?: string }) {
+  const revParams: Record<string, string> = { from: fromDate, to: toDate }
+  if (branchId) revParams.branchId = branchId
   const { data: dashData }         = useAnalyticsDashboard()
-  const { data: rawRevenue }       = useRevenue({ from: fromDate, to: toDate })
+  const { data: rawRevenue }       = useRevenue(revParams)
   const { data: repairStatusData } = useRepairsByStatus()
   const { data: invData }          = useInventorySummary()
 
@@ -555,10 +563,27 @@ function OverviewTab({ days, fromDate, toDate }: { days: string; fromDate: strin
   )
 }
 
-/* ── Finance Tab ──────────────────────────────────────────────── */
-function FinanceTab({ fromDate, toDate }: { fromDate: string; toDate: string }) {
-  const { data: summaryData } = useFinanceSummary({ from: fromDate, to: toDate })
-  const s = summaryData as any
+/* ── P&L Tab ──────────────────────────────────────────────────── */
+function PLTab({ fromDate, toDate, branchId }: { fromDate: string; toDate: string; branchId?: string }) {
+  const mkParams = (extra: Record<string, string> = {}): Record<string, string> => {
+    const p: Record<string, string> = { from: fromDate, to: toDate, ...extra }
+    if (branchId) p.branchId = branchId
+    return p
+  }
+  const { data: summaryData } = useFinanceSummary(mkParams())
+
+  const periodDays = useMemo(() => {
+    const ms = new Date(toDate).getTime() - new Date(fromDate).getTime()
+    return Math.max(1, Math.round(ms / 86400000) + 1)
+  }, [fromDate, toDate])
+  const prevToDate   = useMemo(() => { const d = new Date(fromDate); d.setDate(d.getDate() - 1); return d.toISOString().split('T')[0] }, [fromDate])
+  const prevFromDate = useMemo(() => { const d = new Date(fromDate); d.setDate(d.getDate() - periodDays); return d.toISOString().split('T')[0] }, [fromDate, periodDays])
+  const prevParams: Record<string, string> = { from: prevFromDate, to: prevToDate }
+  if (branchId) prevParams.branchId = branchId
+  const { data: prevData } = useFinanceSummary(prevParams)
+
+  const s    = summaryData as any
+  const prev = prevData    as any
 
   const salesRevenue = s?.salesRevenue ?? 0
   const otherIncome  = s?.otherIncome  ?? 0
@@ -567,38 +592,86 @@ function FinanceTab({ fromDate, toDate }: { fromDate: string; toDate: string }) 
   const grossProfit  = s?.grossProfit  ?? 0
   const opExpenses   = s?.opExpenses   ?? 0
   const netProfit    = s?.profit       ?? 0
-  const grossMargin  = salesRevenue > 0 ? Math.round((grossProfit  / salesRevenue) * 100) : 0
-  const netMargin    = totalIncome  > 0 ? Math.round((netProfit    / totalIncome)  * 100) : 0
-  const cogsRatio    = salesRevenue > 0 ? Math.round((cogs         / salesRevenue) * 100) : 0
-  const opexRatio    = totalIncome  > 0 ? Math.round((opExpenses   / totalIncome)  * 100) : 0
+  const grossMargin  = salesRevenue > 0 ? Math.round((grossProfit / salesRevenue) * 100) : 0
+  const netMargin    = totalIncome  > 0 ? Math.round((netProfit   / totalIncome)  * 100) : 0
+  const cogsRatio    = salesRevenue > 0 ? Math.round((cogs        / salesRevenue) * 100) : 0
+  const opexRatio    = totalIncome  > 0 ? Math.round((opExpenses  / totalIncome)  * 100) : 0
+
+  const delta = (curr: number, p: number) => {
+    if (!p) return null
+    const pct = Math.round(((curr - p) / Math.abs(p)) * 100)
+    return { pct, up: curr >= p }
+  }
+  const DeltaBadge = ({ d }: { d: { pct: number; up: boolean } | null }) => {
+    if (!d) return null
+    return <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded ${d.up ? 'bg-green-500/15 text-green-400' : 'bg-red-500/15 text-red-400'}`}>{d.up ? '▲' : '▼'} {Math.abs(d.pct)}%</span>
+  }
+
+  const waterfallData = [
+    { name: 'Revenue',    value: salesRevenue,                              fill: '#16a34a' },
+    { name: 'Oth.Income', value: otherIncome,                               fill: '#0e7490' },
+    { name: 'COGS',       value: -cogs,                                     fill: '#dc2626' },
+    { name: 'Gross P.',   value: grossProfit,                               fill: grossProfit >= 0 ? '#0891b2' : '#dc2626' },
+    { name: 'OpEx',       value: -opExpenses,                               fill: '#f97316' },
+    { name: 'Net Profit', value: netProfit,                                 fill: netProfit  >= 0 ? '#7c3aed' : '#dc2626' },
+  ]
 
   type PLRow = { label: string; value?: number; pct?: number; bold?: boolean; separator?: boolean; positive?: boolean; indent?: boolean }
   const plRows: PLRow[] = [
-    { label: 'Sales Revenue',        value: salesRevenue, positive: true                                    },
-    { label: 'Other Income',         value: otherIncome,  positive: true,  indent: true                    },
-    { label: 'Total Income',         value: totalIncome,  positive: true,  bold: true, separator: true      },
-    { label: 'Cost of Goods (COGS)', value: cogs,         positive: false, indent: true                    },
-    { label: 'Gross Profit',         value: grossProfit,  positive: grossProfit >= 0, bold: true            },
-    { label: 'Gross Margin',         pct: grossMargin,    positive: grossMargin >= 0, indent: true          },
-    { label: 'Operating Expenses',   value: opExpenses,   positive: false, indent: true, separator: true   },
-    { label: 'Net Profit',           value: netProfit,    positive: netProfit >= 0,   bold: true            },
-    { label: 'Net Profit Margin',    pct: netMargin,      positive: netMargin >= 0,   indent: true          },
+    { label: 'Sales Revenue',        value: salesRevenue, positive: true                                  },
+    { label: 'Other Income',         value: otherIncome,  positive: true,  indent: true                  },
+    { label: 'Total Income',         value: totalIncome,  positive: true,  bold: true, separator: true    },
+    { label: 'Cost of Goods (COGS)', value: cogs,         positive: false, indent: true                  },
+    { label: 'Gross Profit',         value: grossProfit,  positive: grossProfit >= 0, bold: true          },
+    { label: 'Gross Margin',         pct: grossMargin,    positive: grossMargin >= 0, indent: true        },
+    { label: 'Operating Expenses',   value: opExpenses,   positive: false, indent: true, separator: true },
+    { label: 'Net Profit',           value: netProfit,    positive: netProfit >= 0,   bold: true          },
+    { label: 'Net Profit Margin',    pct: netMargin,      positive: netMargin >= 0,   indent: true        },
   ]
-
   const exportRows = plRows.filter(r => r.value !== undefined).map(r => [r.label, r.value!.toFixed(2)])
 
   return (
     <div className="space-y-5">
+      {/* KPI cards with prev period delta */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard label="Sales Revenue"    value={formatCurrency(salesRevenue)} icon={ArrowUpRight}   color="green"  />
-        <StatCard label="Gross Profit"     value={formatCurrency(grossProfit)}  icon={TrendingUp}     color="cyan"   sub={`${grossMargin}% gross margin`} />
-        <StatCard label="Op. Expenses"     value={formatCurrency(opExpenses)}   icon={ArrowDownRight} color="red"    />
-        <StatCard label="Net Profit"       value={formatCurrency(netProfit)}    icon={Wallet}         color={netProfit >= 0 ? 'violet' : 'red'} sub={`${netMargin}% net margin`} />
+        {[
+          { label: 'Sales Revenue', val: salesRevenue, d: delta(salesRevenue, prev?.salesRevenue ?? 0), color: 'text-green-600 dark:text-green-400'  },
+          { label: 'Gross Profit',  val: grossProfit,  d: delta(grossProfit,  prev?.grossProfit  ?? 0), color: 'text-cyan-600 dark:text-cyan-400', sub: `${grossMargin}% margin` },
+          { label: 'Op. Expenses',  val: opExpenses,   d: delta(opExpenses,   prev?.opExpenses   ?? 0), color: 'text-orange-500 dark:text-orange-400' },
+          { label: 'Net Profit',    val: netProfit,    d: delta(netProfit,    prev?.profit       ?? 0), color: netProfit >= 0 ? 'text-violet-600 dark:text-violet-400' : 'text-red-500', sub: `${netMargin}% net margin` },
+        ].map(({ label, val, d, color, sub }) => (
+          <div key={label} className="card p-4">
+            <p className="text-[11px] mb-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
+            <div className="flex items-baseline gap-1 flex-wrap">
+              <p className={`text-lg font-bold ${color}`}>{formatCurrency(val)}</p>
+              <DeltaBadge d={d} />
+            </div>
+            {sub && <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
+          </div>
+        ))}
       </div>
 
+      {/* Waterfall chart */}
+      <div className="card p-5">
+        <SectionTitle title="P&L Waterfall" sub="Revenue flow → costs → profit" />
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={waterfallData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
+            <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} tickFormatter={v => formatCurrency(v)} width={72} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any) => formatCurrency(Math.abs(v))} />
+            <ReferenceLine y={0} stroke="var(--border-default)" strokeWidth={1.5} />
+            <Bar dataKey="value" radius={[4, 4, 4, 4]}>
+              {waterfallData.map((entry, i) => <Cell key={i} fill={entry.fill} opacity={0.85} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* P&L Statement */}
       <div className="card p-5">
         <div className="flex items-center justify-between mb-4">
-          <SectionTitle title="Profit & Loss Statement" sub={`Period: ${fromDate} → ${toDate}`} />
+          <SectionTitle title="Profit & Loss Statement" sub={`${fromDate} → ${toDate}  ·  vs prev ${periodDays}d`} />
           <ExportCSV filename="pl-report.csv" headers={['Item','Amount (LKR)']} rows={exportRows} />
         </div>
         <div className="overflow-hidden rounded-xl" style={{ border: '1px solid var(--border-subtle)' }}>
@@ -609,8 +682,7 @@ function FinanceTab({ fromDate, toDate }: { fromDate: string; toDate: string }) 
                 borderTop: row.separator ? '2px solid var(--border-default)' : i > 0 ? '1px solid var(--border-subtle)' : 'none',
                 background: row.bold ? 'var(--bg-subtle)' : 'transparent',
               }}>
-              <span className={`text-sm ${row.indent ? 'pl-5' : ''}`}
-                style={{ color: row.bold ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+              <span className={`text-sm ${row.indent ? 'pl-5' : ''}`} style={{ color: row.bold ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
                 {row.label}
               </span>
               {row.value !== undefined ? (
@@ -618,42 +690,38 @@ function FinanceTab({ fromDate, toDate }: { fromDate: string; toDate: string }) 
                   {row.positive ? '+' : '−'}{formatCurrency(Math.abs(row.value))}
                 </span>
               ) : (
-                <span className={`text-sm font-medium ${row.positive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {row.pct}%
-                </span>
+                <span className={`text-sm font-medium ${row.positive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{row.pct}%</span>
               )}
             </div>
           ))}
         </div>
+        {prev && (
+          <p className="text-[11px] mt-3 pt-3" style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)' }}>
+            Previous period ({prevFromDate} → {prevToDate}): Revenue {formatCurrency(prev.salesRevenue ?? 0)} · Net {formatCurrency(prev.profit ?? 0)}
+          </p>
+        )}
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">
-        <div className="card p-4" style={{
-          borderColor: netProfit >= 0 ? 'rgba(21,128,61,0.3)' : 'rgba(185,28,28,0.3)',
-          background:  netProfit >= 0 ? 'rgba(21,128,61,0.05)' : 'rgba(185,28,28,0.05)',
-        }}>
+        <div className="card p-4" style={{ borderColor: netProfit >= 0 ? 'rgba(21,128,61,0.3)' : 'rgba(185,28,28,0.3)', background: netProfit >= 0 ? 'rgba(21,128,61,0.05)' : 'rgba(185,28,28,0.05)' }}>
           <div className="flex items-center gap-2 mb-2">
-            {netProfit >= 0
-              ? <CheckCircle size={14} className="text-green-600 dark:text-green-400" />
-              : <AlertTriangle size={14} className="text-red-600 dark:text-red-400" />}
+            {netProfit >= 0 ? <CheckCircle size={14} className="text-green-600 dark:text-green-400" /> : <AlertTriangle size={14} className="text-red-600 dark:text-red-400" />}
             <span className={`text-xs font-semibold ${netProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
               {netProfit >= 0 ? 'Profitable Period' : 'Loss Period — Review Expenses'}
             </span>
           </div>
           <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            {netProfit >= 0
-              ? `Net profit: ${formatCurrency(netProfit)} · ${netMargin}% margin.`
-              : `Net loss: ${formatCurrency(Math.abs(netProfit))}. Review operating expenses.`}
+            {netProfit >= 0 ? `Net profit: ${formatCurrency(netProfit)} · ${netMargin}% margin` : `Net loss: ${formatCurrency(Math.abs(netProfit))}. Review operating expenses.`}
           </p>
         </div>
         <div className="card p-4">
           <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>Efficiency Ratios</p>
           <div className="space-y-2">
             {[
-              { label: 'COGS % of Revenue',  value: cogsRatio,    good: cogsRatio < 70   },
-              { label: 'OpEx % of Revenue',  value: opexRatio,    good: opexRatio < 30   },
-              { label: 'Gross Margin',       value: grossMargin,  good: grossMargin > 20 },
-              { label: 'Net Margin',         value: netMargin,    good: netMargin > 10   },
+              { label: 'COGS % of Revenue', value: cogsRatio,   good: cogsRatio < 70   },
+              { label: 'OpEx % of Revenue', value: opexRatio,   good: opexRatio < 30   },
+              { label: 'Gross Margin',      value: grossMargin, good: grossMargin > 20 },
+              { label: 'Net Margin',        value: netMargin,   good: netMargin > 10   },
             ].map(({ label, value, good }) => (
               <div key={label} className="flex justify-between items-center">
                 <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{label}</span>
@@ -672,34 +740,182 @@ function FinanceTab({ fromDate, toDate }: { fromDate: string; toDate: string }) 
   )
 }
 
-/* ── Main Page ───────────────────────────────────────────────────── */
-export default function ReportsPage() {
-  const [activeTab, setActiveTab] = useState('overview')
-  const [period, setPeriod]       = useState('30')
+/* ── Cash Flow Tab ────────────────────────────────────────────── */
+function CashFlowTab({ fromDate, toDate, branchId }: { fromDate: string; toDate: string; branchId?: string }) {
+  const cfParams: Record<string, string> = { from: fromDate, to: toDate }
+  if (branchId) cfParams.branchId = branchId
+  const { data: rawRevenue } = useRevenue(cfParams)
+  const revenueArr: any[] = Array.isArray(rawRevenue) ? rawRevenue : []
 
-  const toDate   = useMemo(() => new Date().toISOString().split('T')[0], [])
-  const fromDate = useMemo(() => {
-    const d = new Date()
-    d.setDate(d.getDate() - parseInt(period) + 1)
-    return d.toISOString().split('T')[0]
-  }, [period])
+  const cashFlowData = useMemo(() => {
+    let cumulative = 0
+    return revenueArr.map(d => {
+      const cashIn  = (d.salesRevenue ?? 0) + (d.otherIncome   ?? 0)
+      const cashOut = (d.cogs         ?? 0) + (d.totalExpenses ?? 0)
+      const net     = cashIn - cashOut
+      cumulative   += net
+      return { date: new Date(d.date).toLocaleDateString('en-LK', { month: 'short', day: 'numeric' }), rawDate: d.date, cashIn, cashOut, net, cumulative }
+    })
+  }, [revenueArr])
+
+  const totalIn  = cashFlowData.reduce((s, d) => s + d.cashIn,  0)
+  const totalOut = cashFlowData.reduce((s, d) => s + d.cashOut, 0)
+  const netPos   = totalIn - totalOut
+  const bestDay  = cashFlowData.length > 0 ? cashFlowData.reduce((b, d) => d.net > b.net ? d : b, cashFlowData[0]) : null
+
+  const exportRows = cashFlowData.map(d => [d.rawDate, d.cashIn.toFixed(2), d.cashOut.toFixed(2), d.net.toFixed(2), d.cumulative.toFixed(2)])
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatCard label="Total Cash In"  value={formatCurrency(totalIn)}  icon={ArrowUpRight}   color="green"  />
+        <StatCard label="Total Cash Out" value={formatCurrency(totalOut)} icon={ArrowDownRight} color="red"    />
+        <StatCard label="Net Cash Flow"  value={formatCurrency(netPos)}   icon={Activity}       color={netPos >= 0 ? 'violet' : 'red'} sub={netPos >= 0 ? 'Positive' : 'Negative'} />
+        <StatCard label="Best Day"       value={bestDay ? formatCurrency(bestDay.net) : '—'} icon={TrendingUp} color="blue" sub={bestDay?.date ?? ''} />
+      </div>
+
+      <div className="card p-5">
+        <SectionTitle title="Daily Cash Flow" sub="Cash In vs Cash Out · Cumulative net (right axis)" />
+        {cashFlowData.length === 0 ? (
+          <div className="h-48 flex items-center justify-center text-sm" style={{ color: 'var(--text-muted)' }}>No data for this period</div>
+        ) : (
+          <ResponsiveContainer width="100%" height={280}>
+            <ComposedChart data={cashFlowData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} />
+              <YAxis yAxisId="left"  tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} tickFormatter={v => formatCurrency(v)} width={72} />
+              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} tickFormatter={v => formatCurrency(v)} width={72} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any) => formatCurrency(v)} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <ReferenceLine yAxisId="left" y={0} stroke="var(--border-default)" strokeWidth={1} />
+              <Bar yAxisId="left" dataKey="cashIn"  name="Cash In"    fill="#16a34a" opacity={0.75} radius={[3,3,0,0]} />
+              <Bar yAxisId="left" dataKey="cashOut" name="Cash Out"   fill="#dc2626" opacity={0.75} radius={[3,3,0,0]} />
+              <Line yAxisId="right" type="monotone" dataKey="cumulative" name="Cumulative Net" stroke="#7c3aed" strokeWidth={2} dot={false} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      <div className="card p-5">
+        <div className="flex items-center justify-between mb-4">
+          <SectionTitle title="Daily Detail" />
+          <ExportCSV filename="cashflow.csv" headers={['Date','Cash In','Cash Out','Net','Cumulative']} rows={exportRows} />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                {['Date','Cash In','Cash Out','Net Cash','Cumulative'].map((h, i) => (
+                  <th key={h} className={`text-[11px] font-semibold uppercase tracking-wide px-3 py-2 ${i === 0 ? 'text-left' : 'text-right'}`} style={{ color: 'var(--text-muted)' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {cashFlowData.map((d, i) => (
+                <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  <td className="px-3 py-2 text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{d.date}</td>
+                  <td className="px-3 py-2 text-xs text-right text-green-600 dark:text-green-400 font-medium">{formatCurrency(d.cashIn)}</td>
+                  <td className="px-3 py-2 text-xs text-right text-red-600 dark:text-red-400">{formatCurrency(d.cashOut)}</td>
+                  <td className={`px-3 py-2 text-xs text-right font-semibold ${d.net >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {d.net >= 0 ? '+' : '−'}{formatCurrency(Math.abs(d.net))}
+                  </td>
+                  <td className={`px-3 py-2 text-xs text-right font-bold ${d.cumulative >= 0 ? 'text-violet-600 dark:text-violet-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {formatCurrency(d.cumulative)}
+                  </td>
+                </tr>
+              ))}
+              {cashFlowData.length === 0 && (
+                <tr><td colSpan={5} className="text-center py-8 text-xs" style={{ color: 'var(--text-muted)' }}>No cash flow data for this period</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Main Page ───────────────────────────────────────────────────── */
+export default function ReportsPage() {
+  const [activeTab, setActiveTab]   = useState('overview')
+  const [period, setPeriod]         = useState('30')
+  const [branchId, setBranchId]     = useState('')
+  const [isCustom, setIsCustom]     = useState(false)
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo]     = useState('')
+
+  const { data: branchesData } = useBranches()
+  const branches: any[] = Array.isArray(branchesData) ? branchesData : []
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], [])
+
+  const toDate = useMemo(() => {
+    if (isCustom && customTo) return customTo
+    return todayStr
+  }, [isCustom, customTo, todayStr])
+
+  const fromDate = useMemo(() => {
+    if (isCustom && customFrom) return customFrom
+    const d = new Date()
+    d.setDate(d.getDate() - parseInt(period) + 1)
+    return d.toISOString().split('T')[0]
+  }, [isCustom, customFrom, period])
+
+  const handlePeriod = (days: string) => { setPeriod(days); setIsCustom(false) }
+  const activeBranch = branchId || undefined
+
+  return (
+    <div className="space-y-5">
+      {/* Header + filter bar */}
+      <div className="flex flex-col gap-3">
         <div>
           <h1 className="page-title">Reports & Analytics</h1>
-          <p className="page-subtitle">Live business data · Period-based · CSV export</p>
+          <p className="page-subtitle">Advanced filters · P&amp;L · Cash Flow · CSV export</p>
         </div>
-        <div className="flex gap-1 p-1 rounded-xl sm:ml-auto" style={{ background: 'var(--bg-subtle)' }}>
-          {PERIODS.map(p => (
-            <button key={p.days} onClick={() => setPeriod(p.days)}
-              className="px-3 py-1.5 text-xs rounded-lg font-medium transition-colors"
-              style={period === p.days ? { background: '#6d28d9', color: '#fff' } : { color: 'var(--text-muted)' }}>
-              {p.label}
+
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* Period presets */}
+          <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
+            {PERIODS.map(p => (
+              <button key={p.days} onClick={() => handlePeriod(p.days)}
+                className="px-3 py-1.5 text-xs rounded-lg font-medium transition-colors"
+                style={!isCustom && period === p.days ? { background: '#6d28d9', color: '#fff' } : { color: 'var(--text-muted)' }}>
+                {p.label}
+              </button>
+            ))}
+            <button onClick={() => setIsCustom(true)}
+              className="px-3 py-1.5 text-xs rounded-lg font-medium transition-colors flex items-center gap-1"
+              style={isCustom ? { background: '#6d28d9', color: '#fff' } : { color: 'var(--text-muted)' }}>
+              <Calendar size={11} /> Custom
             </button>
-          ))}
+          </div>
+
+          {/* Custom date inputs */}
+          {isCustom && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
+              <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} max={customTo || todayStr}
+                className="text-xs bg-transparent outline-none cursor-pointer" style={{ color: 'var(--text-primary)' }} />
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>→</span>
+              <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} min={customFrom} max={todayStr}
+                className="text-xs bg-transparent outline-none cursor-pointer" style={{ color: 'var(--text-primary)' }} />
+            </div>
+          )}
+
+          {/* Branch filter — only show when multiple branches exist */}
+          {branches.length > 1 && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
+              <Building2 size={13} style={{ color: 'var(--text-muted)' }} />
+              <select value={branchId} onChange={e => setBranchId(e.target.value)}
+                className="bg-transparent text-xs outline-none cursor-pointer" style={{ color: 'var(--text-primary)' }}>
+                <option value="">All Branches</option>
+                {branches.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            </div>
+          )}
+
+          {/* Active range label */}
+          <span className="text-[11px] px-2 py-1 rounded-lg" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>
+            {fromDate} → {toDate}
+          </span>
         </div>
       </div>
 
@@ -720,9 +936,10 @@ export default function ReportsPage() {
       </div>
 
       {/* Tab content */}
-      {activeTab === 'overview'  && <OverviewTab days={period} fromDate={fromDate} toDate={toDate} />}
-      {activeTab === 'sales'     && <SalesTab    days={period} fromDate={fromDate} toDate={toDate} />}
-      {activeTab === 'finance'   && <FinanceTab  fromDate={fromDate} toDate={toDate} />}
+      {activeTab === 'overview'  && <OverviewTab  days={period} fromDate={fromDate} toDate={toDate} branchId={activeBranch} />}
+      {activeTab === 'sales'     && <SalesTab     days={period} fromDate={fromDate} toDate={toDate} branchId={activeBranch} />}
+      {activeTab === 'pl'        && <PLTab        fromDate={fromDate} toDate={toDate} branchId={activeBranch} />}
+      {activeTab === 'cashflow'  && <CashFlowTab  fromDate={fromDate} toDate={toDate} branchId={activeBranch} />}
       {activeTab === 'inventory' && <InventoryTab />}
       {activeTab === 'repairs'   && <RepairsTab />}
       {activeTab === 'delivery'  && <DeliveryTab days={period} />}

@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { prisma } from '../../config/database'
+import { Prisma } from '@prisma/client'
 import { sendSuccess } from '../../utils/response'
 import { authenticate } from '../../middleware/auth.middleware'
 
@@ -42,6 +43,7 @@ router.get('/dashboard', async (req: Request, res: Response, next: NextFunction)
 router.get('/revenue', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
+    const branchId = req.query.branchId as string | undefined
     let from: Date
     let to = new Date(); to.setHours(23, 59, 59, 999)
     if (req.query.from) {
@@ -51,6 +53,9 @@ router.get('/revenue', async (req: Request, res: Response, next: NextFunction) =
       const days = parseInt(req.query.days as string) || 30
       from = new Date(); from.setDate(from.getDate() - days); from.setHours(0, 0, 0, 0)
     }
+    const saleBranch = branchId ? Prisma.sql`AND "branchId" = ${branchId}` : Prisma.empty
+    const sBranch    = branchId ? Prisma.sql`AND s."branchId" = ${branchId}` : Prisma.empty
+    const txBranch   = branchId ? Prisma.sql`AND "branchId" = ${branchId}` : Prisma.empty
 
     // 1. POS sales revenue per day (exclude returned orders)
     const salesRaw: Array<{ date: Date; total: number }> = await prisma.$queryRaw`
@@ -58,6 +63,7 @@ router.get('/revenue', async (req: Request, res: Response, next: NextFunction) =
              COALESCE(SUM(total), 0)::float                    AS total
       FROM   "Sale"
       WHERE  "tenantId" = ${tenantId}
+        ${saleBranch}
         AND  "createdAt" >= ${from}
         AND  "createdAt" <= ${to}
         AND  status != 'RETURNED'
@@ -73,6 +79,7 @@ router.get('/revenue', async (req: Request, res: Response, next: NextFunction) =
       JOIN   "Sale"    s ON s.id = si."saleId"
       JOIN   "Product" p ON p.id = si."productId"
       WHERE  s."tenantId" = ${tenantId}
+        ${sBranch}
         AND  s."createdAt" >= ${from}
         AND  s."createdAt" <= ${to}
         AND  s.status != 'RETURNED'
@@ -80,12 +87,13 @@ router.get('/revenue', async (req: Request, res: Response, next: NextFunction) =
       ORDER  BY 1 ASC
     `
 
-    // 3. Operating expenses per day (exclude Refund category — already handled by excluding returned sales)
+    // 3. Operating expenses per day (exclude Refund category)
     const expensesRaw: Array<{ date: Date; total: number }> = await prisma.$queryRaw`
       SELECT DATE_TRUNC('day', "createdAt" AT TIME ZONE 'UTC') AS date,
              COALESCE(SUM(amount), 0)::float                   AS total
       FROM   "Transaction"
       WHERE  "tenantId" = ${tenantId}
+        ${txBranch}
         AND  type = 'EXPENSE'
         AND  category != 'Refund'
         AND  "createdAt" >= ${from}
@@ -94,12 +102,13 @@ router.get('/revenue', async (req: Request, res: Response, next: NextFunction) =
       ORDER  BY 1 ASC
     `
 
-    // 4. Other income per day (Transaction.INCOME — repair fees, service charges, etc.)
+    // 4. Other income per day (Transaction.INCOME)
     const incomeRaw: Array<{ date: Date; total: number }> = await prisma.$queryRaw`
       SELECT DATE_TRUNC('day', "createdAt" AT TIME ZONE 'UTC') AS date,
              COALESCE(SUM(amount), 0)::float                   AS total
       FROM   "Transaction"
       WHERE  "tenantId" = ${tenantId}
+        ${txBranch}
         AND  type = 'INCOME'
         AND  "createdAt" >= ${from}
         AND  "createdAt" <= ${to}
@@ -141,9 +150,10 @@ router.get('/top-products', async (req: Request, res: Response, next: NextFuncti
     const fromDate = req.query.from ? new Date(req.query.from as string) : undefined
     const toDate   = req.query.to   ? (() => { const d = new Date(req.query.to as string); d.setHours(23,59,59,999); return d })() : undefined
     const dateFilter = fromDate ? { createdAt: { gte: fromDate, ...(toDate ? { lte: toDate } : {}) } } : {}
+    const branchId = req.query.branchId as string | undefined
     const items = await prisma.saleItem.groupBy({
       by: ['productId', 'productName'],
-      where: { sale: { tenantId, status: { not: 'RETURNED' }, ...dateFilter } },
+      where: { sale: { tenantId, status: { not: 'RETURNED' }, ...(branchId && { branchId }), ...dateFilter } },
       _sum: { quantity: true, total: true },
       orderBy: { _sum: { total: 'desc' } },
       take: limit,
