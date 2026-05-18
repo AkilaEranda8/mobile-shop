@@ -692,16 +692,21 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                     {/* Payment method */}
                     <div>
                       <p className="text-xs font-bold mb-2" style={{ color: 'var(--text-muted)' }}>Payment Method</p>
-                      <div className="grid grid-cols-4 gap-2">
-                        {(['CASH','CARD','UPI','BANK_TRANSFER'] as const).map(m => (
+                      <div className="grid grid-cols-2 gap-2">
+                        {([
+                          { key: 'CASH',          label: 'Cash',      emoji: '💵' },
+                          { key: 'CARD',          label: 'Card',      emoji: '💳' },
+                          { key: 'UPI',           label: 'UPI',       emoji: '📲' },
+                          { key: 'BANK_TRANSFER', label: 'Bank Transfer', emoji: '🏦' },
+                        ] as const).map(({ key: m, label, emoji }) => (
                           <button key={m} type="button" onClick={() => setPayMethod(m)}
-                            className={`py-2 rounded-lg text-[11px] font-bold transition-all border ${
-                              payMethod === m
-                                ? 'bg-violet-600 border-violet-600 text-white'
-                                : 'text-sm font-medium'
-                            }`}
-                            style={payMethod !== m ? { background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' } : {}}>
-                            {m === 'BANK_TRANSFER' ? 'Bank' : m === 'UPI' ? 'UPI' : m.charAt(0)+m.slice(1).toLowerCase()}
+                            className="py-2.5 px-3 rounded-xl text-sm font-semibold transition-all flex items-center gap-2.5"
+                            style={payMethod === m
+                              ? { background: '#7c3aed', border: '2px solid #7c3aed', color: '#fff' }
+                              : { background: 'var(--bg-subtle)', border: '2px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                            <span className="text-base leading-none">{emoji}</span>
+                            <span>{label}</span>
+                            {payMethod === m && <CheckCircle size={13} className="ml-auto opacity-90" />}
                           </button>
                         ))}
                       </div>
