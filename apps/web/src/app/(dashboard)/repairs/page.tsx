@@ -156,7 +156,7 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
                       {selectedCustomer.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-white truncate">{selectedCustomer.name}</p>
+                      <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{selectedCustomer.name}</p>
                       <p className="text-xs text-slate-400">{selectedCustomer.phone}</p>
                       <p className="text-[10px] text-violet-400 mt-0.5">{selectedCustomer.totalRepairs ?? 0} previous repairs</p>
                     </div>
@@ -190,7 +190,7 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
                                   {c.name.charAt(0).toUpperCase()}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-sm text-white truncate">{c.name}</p>
+                                  <p className="text-sm truncate" style={{ color: 'var(--text-primary)' }}>{c.name}</p>
                                   <p className="text-xs text-slate-500">{c.phone}{c.email ? ` · ${c.email}` : ''}</p>
                                 </div>
                                 <span className="text-[10px] text-slate-600 shrink-0">{c.totalRepairs ?? 0} repairs</span>
