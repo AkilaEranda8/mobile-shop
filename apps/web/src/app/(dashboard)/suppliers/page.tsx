@@ -552,8 +552,8 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-xl shadow-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
+      <div className="rounded-2xl w-full max-w-xl shadow-2xl max-h-[90vh] overflow-y-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+        <div className="flex items-center justify-between p-5 border-b sticky top-0" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
           <h3 className="text-base font-semibold text-white">New Purchase Order</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
         </div>
@@ -597,7 +597,7 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
                 onBlur={() => setTimeout(() => setQuickOpen(false), 150)}
               />
               {quickOpen && quickFiltered.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-[#0d1220] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden max-h-52 overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-1 rounded-xl shadow-2xl z-50 overflow-hidden max-h-52 overflow-y-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
                   {quickFiltered.map((p: any) => (
                     <button key={p.id} type="button"
                       onMouseDown={() => quickAddProduct(p)}
@@ -650,7 +650,7 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
                       onBlur={() => setTimeout(() => setOpenIdx(null), 150)}
                     />
                     {openIdx === i && getFiltered(i).length > 0 && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-[#0d1220] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden max-h-48 overflow-y-auto">
+                      <div className="absolute top-full left-0 right-0 mt-1 rounded-xl shadow-2xl z-50 overflow-hidden max-h-48 overflow-y-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
                         {getFiltered(i).map((p: any) => (
                           <button
                             key={p.id}
