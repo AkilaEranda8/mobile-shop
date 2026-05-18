@@ -190,6 +190,12 @@ export const warrantyApi = {
   sendEmail: (id: string, email?: string) => api.post(`/warranties/${id}/email`, { email }),
 }
 
+export const branchesApi = {
+  list: () => api.get('/branches'),
+  create: (body: unknown) => api.post('/branches', body),
+  update: (id: string, body: unknown) => api.put(`/branches/${id}`, body),
+}
+
 export const suppliersApi = {
   list: (params?: Record<string, string>) =>
     api.get(`/suppliers${params ? '?' + new URLSearchParams(params) : ''}`),

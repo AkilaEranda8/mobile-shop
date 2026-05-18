@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, ShoppingCart, Package, Users, Wrench,
   Shield, Truck, BarChart3, Settings, LogOut,
-  CreditCard, Smartphone, FileText,
+  CreditCard, Smartphone, FileText, Building2,
   UserCheck, ChevronLeft, ChevronRight, Receipt, MessageSquare, PackageCheck, RotateCcw
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
@@ -81,6 +81,7 @@ const navItems = [
   {
     label: 'System',
     items: [
+      { href: '/dashboard/branches', icon: Building2, label: 'Branches' },
       { href: '/dashboard/settings', icon: Settings, label: 'Settings' },
     ],
   },
