@@ -74,6 +74,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
 export function authorize(...roles: string[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) { sendError(res, 'Unauthorized', 401); return }
+    if (req.user.role === 'PLATFORM_ADMIN') { next(); return }
     if (roles.length && !roles.includes(req.user.role)) {
       sendError(res, 'Forbidden: insufficient permissions', 403)
       return
