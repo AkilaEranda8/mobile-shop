@@ -21,7 +21,18 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
   const [form, setForm] = useState({
     customerName: '', customerPhone: '', deviceBrand: '', deviceModel: '',
     deviceColor: '', reportedIssue: '', priority: 'NORMAL', estimatedCost: '', technicianName: '',
+    source: 'WALK_IN',
   })
+
+  const SOURCE_OPTIONS = [
+    { value: 'WALK_IN',    label: 'Walk-in',    color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/25' },
+    { value: 'WHATSAPP',   label: 'WhatsApp',   color: 'text-green-400',   bg: 'bg-green-500/10',   border: 'border-green-500/25'   },
+    { value: 'FACEBOOK',   label: 'Facebook',   color: 'text-blue-400',    bg: 'bg-blue-500/10',    border: 'border-blue-500/25'    },
+    { value: 'INSTAGRAM',  label: 'Instagram',  color: 'text-pink-400',    bg: 'bg-pink-500/10',    border: 'border-pink-500/25'    },
+    { value: 'PHONE_CALL', label: 'Phone Call', color: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/25'   },
+    { value: 'REFERRAL',   label: 'Referral',   color: 'text-violet-400',  bg: 'bg-violet-500/10',  border: 'border-violet-500/25'  },
+    { value: 'ONLINE',     label: 'Online',     color: 'text-cyan-400',    bg: 'bg-cyan-500/10',    border: 'border-cyan-500/25'    },
+  ]
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -79,6 +90,25 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
             <div className="col-span-2">
               <label className="block text-xs text-slate-400 mb-1.5">Reported Issue *</label>
               <textarea required className="input-field min-h-[72px] resize-none" placeholder="Screen cracked, touch not working..." value={form.reportedIssue} onChange={f('reportedIssue')} />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs text-slate-400 mb-2">Customer Source</label>
+              <div className="flex flex-wrap gap-2">
+                {SOURCE_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setForm(p => ({ ...p, source: opt.value }))}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                      form.source === opt.value
+                        ? `${opt.color} ${opt.bg} ${opt.border}`
+                        : 'text-slate-500 bg-white/3 border-white/8 hover:border-white/20'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
             <div>
               <label className="block text-xs text-slate-400 mb-1.5">Priority</label>

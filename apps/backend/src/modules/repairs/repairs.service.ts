@@ -40,6 +40,7 @@ export const repairsService = {
     if (body.estimatedCost === undefined || body.estimatedCost === null || body.estimatedCost === '') body.estimatedCost = 0
 
     const { createdBy, deviceColor, ...repairData } = body
+    if (!repairData.source) repairData.source = 'WALK_IN'
     const ticketNumber = await generateTicketNumber(tenantId)
     const repair = await prisma.repairTicket.create({
       data: { ...repairData, tenantId, ticketNumber, history: { create: [{ status: 'RECEIVED', changedBy: createdBy ?? 'system', note: 'Ticket created' }] } },
@@ -54,7 +55,7 @@ export const repairsService = {
     if (!r) throw new AppError('Repair ticket not found', 404)
     const { customerName, customerPhone, deviceBrand, deviceModel, deviceColor,
             imei, reportedIssue, technicianId, technicianName, priority,
-            estimatedCost, actualCost, estimatedCompletion } = body
+            estimatedCost, actualCost, estimatedCompletion, source } = body
     const data: any = {}
     if (customerName        !== undefined) data.customerName        = customerName
     if (customerPhone       !== undefined) data.customerPhone       = customerPhone
@@ -69,6 +70,7 @@ export const repairsService = {
     if (estimatedCost       !== undefined) data.estimatedCost       = Number(estimatedCost)
     if (actualCost          !== undefined) data.actualCost          = Number(actualCost)
     if (estimatedCompletion !== undefined) data.estimatedCompletion = estimatedCompletion ? new Date(estimatedCompletion) : null
+    if (source              !== undefined) data.source              = source
     return prisma.repairTicket.update({ where: { id }, data, include: { notes: true, spareParts: true, history: true } })
   },
 

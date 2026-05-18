@@ -453,6 +453,7 @@ model RepairTicket {
   priority            RepairPriority @default(NORMAL)
   technicianId        String?
   technicianName      String?
+  source              String         @default("WALK_IN")
   photos              String[]
   estimatedCompletion DateTime?
   completedAt         DateTime?

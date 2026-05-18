@@ -217,6 +217,7 @@ export interface RepairTicket {
   notes: RepairNote[]
   spareParts: RepairSparePart[]
   statusHistory: RepairStatusHistory[]
+  source?: string
   estimatedCompletion?: string
   completedAt?: string
   createdAt: string
