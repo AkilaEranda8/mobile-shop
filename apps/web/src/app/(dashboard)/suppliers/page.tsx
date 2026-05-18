@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Truck, Phone, Mail, Package, Eye, Edit, Loader2, X, ChevronDown, Trash2, FileText, MapPin, Globe, Hash, ShoppingBag, TrendingUp, AlertCircle, Calendar, CheckCircle, Save, PackageCheck, ShieldAlert, CreditCard, Banknote, Receipt } from 'lucide-react'
+import { Plus, Search, Truck, Phone, Mail, Package, Eye, Edit, Loader2, X, ChevronDown, Trash2, FileText, MapPin, Globe, Hash, ShoppingBag, TrendingUp, AlertCircle, Calendar, CheckCircle, Save, PackageCheck, ShieldAlert, CreditCard, Banknote, Receipt } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -452,10 +452,12 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
   const [supplierId, setSupplierId]   = useState(suppliers[0]?.id ?? '')
   const [expectedDelivery, setExpDel] = useState('')
   const [notes, setNotes]             = useState('')
-  const [items, setItems]             = useState([{ productId: '', productName: '', quantity: 1, unitCost: 0 }])
+  const [items, setItems]             = useState<{productId:string;productName:string;quantity:number;unitCost:number}[]>([])
   const [loading, setLoading]         = useState(false)
-  const [searches, setSearches]       = useState<string[]>([''])
+  const [searches, setSearches]       = useState<string[]>([])
   const [openIdx, setOpenIdx]         = useState<number | null>(null)
+  const [quickSearch, setQuickSearch] = useState('')
+  const [quickOpen, setQuickOpen]     = useState(false)
 
   const { data: productsData } = useProducts({ limit: '200' })
   const allProducts: any[] = (productsData?.data ?? []) as any[]
@@ -490,6 +492,26 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
     setItems(p => [...p, { productId: '', productName: '', quantity: 1, unitCost: 0 }])
     setSearches(p => [...p, ''])
   }
+
+  const quickAddProduct = (product: any) => {
+    const existing = items.findIndex(r => r.productId === product.id)
+    if (existing >= 0) {
+      setItems(prev => prev.map((r, i) => i === existing ? { ...r, quantity: r.quantity + 1 } : r))
+    } else {
+      setItems(p => [...p, { productId: product.id, productName: product.name, quantity: 1, unitCost: product.buyingPrice ?? 0 }])
+      setSearches(p => [...p, product.name])
+    }
+    setQuickSearch('')
+    setQuickOpen(false)
+  }
+
+  const quickFiltered = quickSearch.trim()
+    ? allProducts.filter(p =>
+        p.name?.toLowerCase().includes(quickSearch.toLowerCase()) ||
+        p.sku?.toLowerCase().includes(quickSearch.toLowerCase()) ||
+        p.brandName?.toLowerCase().includes(quickSearch.toLowerCase())
+      ).slice(0, 8)
+    : allProducts.slice(0, 8)
 
   const removeItem = (i: number) => {
     setItems(p => p.filter((_, idx) => idx !== i))
@@ -561,9 +583,43 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
           <div>
             <div className="flex items-center justify-between mb-3">
               <label className="text-xs text-slate-400 uppercase tracking-wide">Items *</label>
-              <button type="button" onClick={addItem} className="text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1">
-                <Plus size={11} />Add Row
-              </button>
+            </div>
+
+            {/* Quick product search */}
+            <div className="relative mb-3">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+              <input
+                className="input-field pl-8 text-sm w-full"
+                placeholder="Search & add product…"
+                value={quickSearch}
+                onChange={e => { setQuickSearch(e.target.value); setQuickOpen(true) }}
+                onFocus={() => setQuickOpen(true)}
+                onBlur={() => setTimeout(() => setQuickOpen(false), 150)}
+              />
+              {quickOpen && quickFiltered.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-[#0d1220] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden max-h-52 overflow-y-auto">
+                  {quickFiltered.map((p: any) => (
+                    <button key={p.id} type="button"
+                      onMouseDown={() => quickAddProduct(p)}
+                      className="w-full px-3 py-2.5 text-left hover:bg-violet-500/15 transition-colors flex items-center justify-between gap-2"
+                      style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div className="min-w-0">
+                        <p className="text-sm text-slate-200 truncate font-medium">{p.name}</p>
+                        <p className="text-[10px] text-slate-500">{p.sku} · {p.brandName}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0 flex items-center gap-2">
+                        <div>
+                          <p className="text-xs text-violet-400 font-semibold">{formatCurrency(p.buyingPrice)}</p>
+                          <p className="text-[10px] text-slate-600">stock: {p.stock}</p>
+                        </div>
+                        <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center shrink-0">
+                          <Plus size={12} className="text-violet-400" />
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Column headers */}
