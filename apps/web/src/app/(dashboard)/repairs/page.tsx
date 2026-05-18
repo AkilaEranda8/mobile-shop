@@ -781,12 +781,24 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
               { label: 'TECHNICIAN', value: repair.technicianName || '—' },
               { label: 'TICKET #',   value: repair.ticketNumber },
               { label: 'CUSTOMER',   value: repair.customerName },
+              ...(repair.imei ? [{ label: 'IMEI', value: repair.imei }] : []),
+              { label: 'SOURCE',     value: SOURCE_OPTIONS.find(o => o.value === repair.source)?.label ?? repair.source ?? 'Walk-in' },
             ].map(({ label, value }) => (
               <div key={label} className="rounded-xl p-3.5 space-y-1" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
                 <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{label}</p>
                 <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{value}</p>
               </div>
             ))}
+            {repair.accessories && (
+              <div className="col-span-2 rounded-xl p-3.5 space-y-1" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+                <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>ACCESSORIES RECEIVED</p>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {repair.accessories.split(', ').map((a: string) => (
+                    <span key={a} className="px-2 py-0.5 rounded-md text-xs font-medium bg-violet-500/10 text-violet-300 border border-violet-500/20">{a}</span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── Progress stepper ── */}

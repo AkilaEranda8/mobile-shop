@@ -205,6 +205,7 @@ export interface RepairTicket {
   deviceBrand: string
   deviceModel: string
   imei?: string
+  accessories?: string
   reportedIssue: string
   estimatedCost: number
   actualCost?: number
