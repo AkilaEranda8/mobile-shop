@@ -339,8 +339,6 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
 }) {
   const [changingStatus, setChangingStatus] = useState(false)
   /* ── collect payment state ── */
-  const [showPayment, setShowPayment] = useState(false)
-  const [payMethod,   setPayMethod]   = useState('CASH')
   const [collecting,  setCollecting]  = useState(false)
   /* ── spare parts state ── */
   const [showAddPart, setShowAddPart]       = useState(false)
@@ -402,13 +400,9 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
     try {
       await repairsApi.update(repair.id, { actualCost: repair.actualCost ?? repair.estimatedCost })
       await onStatusChange(repair.id, 'DELIVERED')
-      setShowPayment(false)
     } catch { toast.error('Failed to collect payment') }
     finally { setCollecting(false) }
   }
-
-  const repairAmount = repair.actualCost ?? repair.estimatedCost ?? 0
-  const PAY_METHODS = ['CASH', 'CARD', 'ONLINE', 'TRANSFER']
 
   const partsTotal = repair.spareParts?.reduce((s: number, p: any) => s + p.total, 0) ?? 0
 
@@ -488,10 +482,10 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
             <div className="px-6 pb-4 space-y-2">
               <div className="flex gap-2">
                 {repair.status === 'READY' ? (
-                  <button onClick={() => setShowPayment(true)} disabled={changingStatus}
+                  <button onClick={handleCollectPayment} disabled={collecting || changingStatus}
                     className="flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-bold rounded-xl text-white transition-all disabled:opacity-50"
                     style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)', border: '1px solid rgba(134,239,172,0.3)', boxShadow: '0 2px 12px rgba(22,163,74,0.35)' }}>
-                    <DollarSign size={13} />Collect Payment
+                    {collecting ? <Loader2 size={13} className="animate-spin" /> : <DollarSign size={13} />}Collect Payment
                   </button>
                 ) : nextStatus ? (
                   <button onClick={handleNext} disabled={changingStatus}
@@ -508,38 +502,6 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                 </button>
               </div>
 
-              {/* Collect Payment panel */}
-              {showPayment && (
-                <div className="rounded-xl p-4 space-y-3" style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(134,239,172,0.2)' }}>
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold text-white">Collect Payment</p>
-                    <button type="button" onClick={() => setShowPayment(false)} className="text-white/40 hover:text-white"><X size={13} /></button>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-white/60">Repair Amount</span>
-                    <span className="text-base font-bold text-green-300">Rs. {repairAmount.toLocaleString()}</span>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-white/50 mb-1.5">Payment Method</p>
-                    <div className="flex gap-2">
-                      {PAY_METHODS.map(m => (
-                        <button key={m} type="button" onClick={() => setPayMethod(m)}
-                          className={`flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all border ${
-                            payMethod === m ? 'bg-green-500/20 border-green-500/40 text-green-300' : 'bg-white/5 border-white/10 text-white/50 hover:text-white'
-                          }`}>
-                          {m === 'TRANSFER' ? 'Bank' : m.charAt(0) + m.slice(1).toLowerCase()}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <button onClick={handleCollectPayment} disabled={collecting}
-                    className="w-full py-2.5 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60 transition-all"
-                    style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)' }}>
-                    {collecting ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
-                    Confirm & Mark Delivered
-                  </button>
-                </div>
-              )}
             </div>
           )}
         </div>
