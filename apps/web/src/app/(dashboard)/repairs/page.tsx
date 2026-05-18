@@ -15,6 +15,7 @@ import { useRepairs, useProducts } from '@/lib/hooks'
 import { repairsApi, customersApi, deviceCatalogApi, usersApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { getInvoiceSettings, type InvoiceSettings } from '@/lib/invoiceSettings'
+import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrint'
 import type { Customer } from '@/types'
 import toast from 'react-hot-toast'
 import type { RepairTicket } from '@/types'
@@ -930,10 +931,49 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
           </div>
 
           {/* Hidden PDF template */}
-          <div style={{ position: 'fixed', left: '-9999px', top: 0, pointerEvents: 'none', zIndex: -1 }}>
-            <div ref={quoteRef}>
-              <RepairQuoteTemplate repair={repair} settings={invSettings} />
-            </div>
+          <div style={{ position: 'fixed', left: '-9999px', top: 0, pointerEvents: 'none', zIndex: -1, width: 794 }}>
+            <InvoicePrint ref={quoteRef} hideControls data={{
+              companyName:    invSettings.shopName || 'Our Shop',
+              companySlogan:  invSettings.slogan   || 'Repair Services',
+              companyLogo:    invSettings.logo,
+              companyAddress: invSettings.address  || '',
+              companyPhone:   invSettings.phone    || '',
+              companyEmail:   invSettings.email    || '',
+              companyWebsite: invSettings.website  || '',
+              invoiceNumber:  repair.ticketNumber,
+              dueDate: repair.estimatedCompletion
+                ? new Date(repair.estimatedCompletion).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+                : new Date(repair.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+              customerName:    repair.customerName,
+              customerEmail:   '',
+              customerAddress: repair.customerPhone || '',
+              items: [
+                ...(repair.estimatedCost ? [{
+                  description: `Repair Service – ${repair.deviceBrand} ${repair.deviceModel}`,
+                  details: repair.reportedIssue || undefined,
+                  price: repair.estimatedCost,
+                  qty: 1,
+                }] : []),
+                ...(repair.spareParts?.map((p: any) => ({
+                  description: p.productName,
+                  details: 'Spare Part',
+                  price: p.unitCost ?? (p.total / p.quantity),
+                  qty: p.quantity,
+                })) ?? []),
+              ],
+              bankName:  invSettings.bankName  || '',
+              accNumber: invSettings.accNumber || '',
+              accHolder: invSettings.accHolder || '',
+              swiftCode: invSettings.swiftCode || '',
+              taxRate:      0,
+              discountRate: repair.actualCost != null && repair.actualCost < ((repair.estimatedCost ?? 0) + (repair.spareParts?.reduce((s: number, p: any) => s + p.total, 0) ?? 0))
+                ? (( (repair.estimatedCost ?? 0) + (repair.spareParts?.reduce((s: number, p: any) => s + p.total, 0) ?? 0) - repair.actualCost) / ((repair.estimatedCost ?? 0) + (repair.spareParts?.reduce((s: number, p: any) => s + p.total, 0) ?? 0))) * 100
+                : 0,
+              terms:          invSettings.terms.length ? invSettings.terms : ['Thank you for choosing our repair services!'],
+              signatoryName:  repair.technicianName || invSettings.signatoryName || '',
+              signatoryTitle: invSettings.signatoryTitle || 'Authorised Signature',
+              currency:       invSettings.currency || 'LKR',
+            } satisfies InvoiceData} />
           </div>
         </div>
       </div>
@@ -1182,168 +1222,3 @@ export default function RepairsPage() {
   )
 }
 
-/* ── Repair Quote / Invoice PDF Template ─────────────────────────────── */
-const INV_NAVY   = '#0d1b2e'
-const INV_ORANGE = '#f59e0b'
-const INV_DARK2  = '#162436'
-
-function RepairQuoteTemplate({ repair, settings }: { repair: RepairTicket; settings: InvoiceSettings }) {
-  const fc     = (n: number) => formatCurrency(n)
-  const dateStr = repair.createdAt ? new Date(repair.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : ''
-  const partsTotal = repair.spareParts?.reduce((s: number, p: any) => s + p.total, 0) ?? 0
-  const subtotal   = (repair.estimatedCost ?? 0) + partsTotal
-  const finalTotal = repair.actualCost ?? subtotal
-  const displayName = settings.shopName || 'Our Shop'
-  const isPaid = repair.status === 'DELIVERED'
-
-  return (
-    <div style={{ width: 794, background: '#fff', fontFamily: "'Segoe UI',Arial,sans-serif", color: '#1e293b' }}>
-
-      {/* HEADER */}
-      <div style={{ background: INV_NAVY, position: 'relative', overflow: 'hidden', padding: '30px 36px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 110 }}>
-        <div style={{ position: 'absolute', left: -18, top: 0, width: 90, height: '130%', background: INV_ORANGE, transform: 'skewX(-12deg)', opacity: 0.85 }} />
-        <div style={{ position: 'absolute', left: 58, top: 0, width: 30, height: '130%', background: '#c97d06', transform: 'skewX(-12deg)', opacity: 0.7 }} />
-        <div style={{ position: 'relative', zIndex: 2, paddingLeft: 60 }}>
-          <p style={{ margin: 0, color: '#fff', fontSize: 24, fontWeight: 900, letterSpacing: 1 }}>{displayName.toUpperCase()}</p>
-          <p style={{ margin: '2px 0 0', color: '#94a3b8', fontSize: 11, letterSpacing: 2 }}>{settings.slogan || 'REPAIR SERVICES'}</p>
-        </div>
-        <div style={{ textAlign: 'right', zIndex: 2 }}>
-          <p style={{ margin: 0, color: INV_ORANGE, fontSize: 28, fontWeight: 900, letterSpacing: 2 }}>{isPaid ? 'INVOICE' : 'QUOTATION'}</p>
-          <p style={{ margin: '4px 0 0', color: '#94a3b8', fontSize: 11 }}>Ticket : {repair.ticketNumber}</p>
-          <p style={{ margin: '2px 0 0', color: '#94a3b8', fontSize: 10 }}>{dateStr}</p>
-        </div>
-      </div>
-
-      {/* BILL TO / FROM */}
-      <div style={{ display: 'flex', background: '#f8fafc', borderBottom: '3px solid #e2e8f0', padding: '18px 36px', gap: 24 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', background: INV_ORANGE, padding: '4px 12px 4px 10px', marginBottom: 10, clipPath: 'polygon(0 0,100% 0,calc(100% - 8px) 100%,0 100%)' }}>
-            <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', textTransform: 'uppercase', letterSpacing: 0.5 }}>Bill To :</span>
-          </div>
-          <p style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 700, color: INV_NAVY }}>{repair.customerName}</p>
-          {repair.customerPhone && <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>Phone : {repair.customerPhone}</p>}
-          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>Date : {dateStr}</p>
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', background: INV_ORANGE, padding: '4px 12px 4px 10px', marginBottom: 10, clipPath: 'polygon(0 0,100% 0,calc(100% - 8px) 100%,0 100%)' }}>
-            <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', textTransform: 'uppercase', letterSpacing: 0.5 }}>From :</span>
-          </div>
-          <p style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 700, color: INV_NAVY }}>{displayName}</p>
-          {repair.technicianName && <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>Technician : {repair.technicianName}</p>}
-          {settings.phone   && <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>Phone : {settings.phone}</p>}
-          {settings.email   && <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>Email : {settings.email}</p>}
-          {settings.address && <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>{settings.address}</p>}
-        </div>
-      </div>
-
-      {/* DEVICE INFO */}
-      <div style={{ padding: '14px 36px 0', background: '#fff' }}>
-        <div style={{ background: '#f1f5f9', borderRadius: 6, padding: '10px 14px', display: 'flex', gap: 32, marginBottom: 8 }}>
-          <div><span style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 }}>Device</span><br /><span style={{ fontSize: 13, fontWeight: 700, color: INV_NAVY }}>{repair.deviceBrand} {repair.deviceModel}</span>{(repair as any).deviceColor ? <span style={{ fontSize: 11, color: '#64748b' }}> · {(repair as any).deviceColor}</span> : null}</div>
-          {repair.imei && <div><span style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 }}>IMEI</span><br /><span style={{ fontSize: 12, fontFamily: 'monospace', color: '#334155' }}>{repair.imei}</span></div>}
-          <div><span style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 }}>Status</span><br /><span style={{ fontSize: 12, fontWeight: 700, color: isPaid ? '#16a34a' : INV_ORANGE }}>{statusLabels[repair.status] ?? repair.status}</span></div>
-        </div>
-        {repair.reportedIssue && (
-          <div style={{ background: '#fefce8', border: '1px solid #fde68a', borderRadius: 6, padding: '8px 14px', marginBottom: 8 }}>
-            <span style={{ fontSize: 10, color: '#92400e', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700 }}>Reported Issue : </span>
-            <span style={{ fontSize: 11, color: '#78350f' }}>{repair.reportedIssue}</span>
-          </div>
-        )}
-      </div>
-
-      {/* ITEMS TABLE */}
-      <div style={{ padding: '8px 36px 0' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={{ background: INV_ORANGE, padding: '9px 12px', color: '#fff', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left', clipPath: 'polygon(0 0,100% 0,calc(100% - 6px) 100%,0 100%)' }}>Description</th>
-              <th style={{ background: INV_DARK2, padding: '9px 12px', color: '#fff', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}>Unit Price</th>
-              <th style={{ background: INV_DARK2, padding: '9px 12px', color: '#fff', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}>Qty</th>
-              <th style={{ background: INV_ORANGE, padding: '9px 12px', color: '#fff', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right', clipPath: 'polygon(6px 0,100% 0,100% 100%,0 100%)' }}>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(repair.estimatedCost ?? 0) > 0 && (
-              <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                <td style={{ padding: '10px 12px', fontSize: 12, color: '#1e293b', fontWeight: 500 }}>
-                  Repair Service – {repair.deviceBrand} {repair.deviceModel}
-                  <span style={{ display: 'block', fontSize: 9, color: '#94a3b8', fontFamily: 'monospace', marginTop: 1 }}>{repair.ticketNumber}</span>
-                </td>
-                <td style={{ padding: '10px 12px', fontSize: 12, color: '#475569', textAlign: 'right' }}>{fc(repair.estimatedCost ?? 0)}</td>
-                <td style={{ padding: '10px 12px', fontSize: 12, color: '#475569', textAlign: 'right' }}>1</td>
-                <td style={{ padding: '10px 12px', fontSize: 12, fontWeight: 700, color: INV_NAVY, textAlign: 'right' }}>{fc(repair.estimatedCost ?? 0)}</td>
-              </tr>
-            )}
-            {repair.spareParts?.map((part: any, idx: number) => (
-              <tr key={part.id ?? idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                <td style={{ padding: '10px 12px', fontSize: 12, color: '#1e293b', fontWeight: 500 }}>
-                  {part.productName}
-                  <span style={{ display: 'block', fontSize: 9, color: '#94a3b8', marginTop: 1 }}>Spare Part</span>
-                </td>
-                <td style={{ padding: '10px 12px', fontSize: 12, color: '#475569', textAlign: 'right' }}>{fc(part.unitCost ?? (part.total / part.quantity))}</td>
-                <td style={{ padding: '10px 12px', fontSize: 12, color: '#475569', textAlign: 'right' }}>{part.quantity}</td>
-                <td style={{ padding: '10px 12px', fontSize: 12, fontWeight: 700, color: INV_NAVY, textAlign: 'right' }}>{fc(part.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* FOOTER: payment | contact | totals */}
-      <div style={{ display: 'flex', gap: 16, padding: '20px 36px', alignItems: 'flex-start' }}>
-        <div style={{ flex: 1, background: INV_NAVY, borderRadius: 6, overflow: 'hidden' }}>
-          <div style={{ background: INV_ORANGE, padding: '5px 12px', clipPath: 'polygon(0 0,100% 0,calc(100% - 8px) 100%,0 100%)' }}>
-            <span style={{ fontSize: 10, fontWeight: 800, color: '#fff', textTransform: 'uppercase', letterSpacing: 0.5 }}>Payment Status :</span>
-          </div>
-          <div style={{ padding: '10px 12px' }}>
-            <p style={{ margin: '0 0 4px', fontSize: 11, color: '#94a3b8' }}>Status : <span style={{ color: isPaid ? '#4ade80' : INV_ORANGE, fontWeight: 700 }}>{statusLabels[repair.status] ?? repair.status}</span></p>
-            {repair.actualCost != null && <p style={{ margin: '0 0 4px', fontSize: 11, color: '#94a3b8' }}>Paid : <span style={{ color: '#cbd5e1', fontWeight: 600 }}>{fc(repair.actualCost)}</span></p>}
-            {repair.technicianName && <p style={{ margin: '4px 0 0', fontSize: 10, color: '#64748b' }}>Technician : <span style={{ color: '#94a3b8' }}>{repair.technicianName}</span></p>}
-          </div>
-        </div>
-        <div style={{ flex: 1, background: INV_NAVY, borderRadius: 6, overflow: 'hidden' }}>
-          <div style={{ background: INV_ORANGE, padding: '5px 12px', clipPath: 'polygon(0 0,100% 0,calc(100% - 8px) 100%,0 100%)' }}>
-            <span style={{ fontSize: 10, fontWeight: 800, color: '#fff', textTransform: 'uppercase', letterSpacing: 0.5 }}>Contact Info :</span>
-          </div>
-          <div style={{ padding: '10px 12px' }}>
-            {settings.phone   && <p style={{ margin: '0 0 3px', fontSize: 11, color: '#94a3b8' }}>Phone : <span style={{ color: '#cbd5e1' }}>{settings.phone}</span></p>}
-            {settings.email   && <p style={{ margin: '0 0 3px', fontSize: 11, color: '#94a3b8' }}>Email : <span style={{ color: '#cbd5e1' }}>{settings.email}</span></p>}
-            {settings.website && <p style={{ margin: '0 0 3px', fontSize: 11, color: '#94a3b8' }}>Web : <span style={{ color: '#cbd5e1' }}>{settings.website}</span></p>}
-            {repair.customerPhone && <p style={{ margin: '0', fontSize: 11, color: '#94a3b8' }}>Customer : <span style={{ color: '#cbd5e1' }}>{repair.customerPhone}</span></p>}
-          </div>
-        </div>
-        <div style={{ flex: 1 }}>
-          {[
-            { label: 'Service Fee :', value: fc(repair.estimatedCost ?? 0), hide: !repair.estimatedCost },
-            { label: 'Parts Cost :', value: fc(partsTotal), hide: partsTotal === 0 },
-            { label: 'Subtotal :', value: fc(subtotal) },
-            { label: 'Discount :', value: '– ' + fc(subtotal - finalTotal), hide: finalTotal >= subtotal },
-          ].filter(r => !r.hide).map(({ label, value }) => (
-            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12, color: '#64748b', borderBottom: '1px solid #e2e8f0' }}>
-              <span style={{ fontWeight: 600 }}>{label}</span><span>{value}</span>
-            </div>
-          ))}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, background: INV_ORANGE, padding: '8px 12px', borderRadius: 4 }}>
-            <span style={{ fontSize: 14, fontWeight: 900, color: '#fff', letterSpacing: 1 }}>TOTAL</span>
-            <span style={{ fontSize: 14, fontWeight: 900, color: '#fff' }}>{fc(finalTotal)}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* BOTTOM */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', padding: '0 36px 20px' }}>
-        <div>
-          <p style={{ margin: '0 0 3px', fontSize: 12, color: '#475569', fontStyle: 'italic' }}>{settings.footerNote || 'Thank you for choosing our repair services!'}</p>
-          <p style={{ margin: 0, fontSize: 10, color: '#94a3b8' }}>Computer-generated document · {displayName} · {repair.ticketNumber}</p>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ borderTop: '2px solid ' + INV_NAVY, paddingTop: 4, width: 140 }}>
-            <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: INV_NAVY }}>{repair.technicianName || displayName}</p>
-            <p style={{ margin: 0, fontSize: 9, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1 }}>Authorised Signature</p>
-          </div>
-        </div>
-      </div>
-      <div style={{ height: 8, background: `linear-gradient(90deg, ${INV_NAVY} 60%, ${INV_ORANGE} 100%)` }} />
-    </div>
-  )
-}
