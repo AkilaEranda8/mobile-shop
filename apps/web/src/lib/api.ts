@@ -169,6 +169,16 @@ export const repairsApi = {
     api.post(`/repairs/${id}/collect-payment`, body),
 }
 
+export const deviceCatalogApi = {
+  listBrands: () => api.get('/device-catalog/brands'),
+  createBrand: (name: string) => api.post('/device-catalog/brands', { name }),
+  deleteBrand: (id: string) => api.delete(`/device-catalog/brands/${id}`),
+  listModels: (brandId?: string) =>
+    api.get(`/device-catalog/models${brandId ? `?brandId=${brandId}` : ''}`),
+  createModel: (brandId: string, name: string) => api.post('/device-catalog/models', { brandId, name }),
+  deleteModel: (id: string) => api.delete(`/device-catalog/models/${id}`),
+}
+
 export const warrantyApi = {
   list: (params?: Record<string, string>) =>
     api.get(`/warranties${params ? '?' + new URLSearchParams(params) : ''}`),

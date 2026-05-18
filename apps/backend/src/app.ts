@@ -26,6 +26,7 @@ import analyticsRoutes from './modules/analytics/analytics.routes'
 import adminRoutes from './modules/admin/admin.routes'
 import whatsappRoutes from './modules/whatsapp/whatsapp.routes'
 import deliveryRoutes from './modules/delivery/delivery.routes'
+import deviceCatalogRoutes from './modules/device-catalog/device-catalog.routes'
 import uploadRoutes from './modules/upload/upload.routes'
 
 const app = express()
@@ -85,6 +86,7 @@ app.use(`${API}/finance`, financeRoutes)
 app.use(`${API}/analytics`, analyticsRoutes)
 app.use(`${API}/whatsapp`, whatsappRoutes)
 app.use(`${API}/delivery`, deliveryRoutes)
+app.use(`${API}/device-catalog`, deviceCatalogRoutes)
 app.use(`${API}/upload`, uploadRoutes)
 app.use('/admin/v1', adminRoutes)
 

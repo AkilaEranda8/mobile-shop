@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react'
 import {
   Save, Building2, User, Bell, Shield, Palette, CreditCard, Users,
-  Loader2, Eye, EyeOff, Trash2, Plus, X, CheckCircle, Check, FileText,
+  Loader2, Eye, EyeOff, Trash2, Plus, X, CheckCircle, Check, FileText, Smartphone, ChevronRight,
 } from 'lucide-react'
-import { authApi, usersApi, tenantApi, uploadApi } from '@/lib/api'
+import { authApi, usersApi, tenantApi, uploadApi, deviceCatalogApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { type InvoiceSettings, getInvoiceSettings, fetchInvoiceSettings, pushInvoiceSettings } from '@/lib/invoiceSettings'
 import { ImageIcon, Trash2 as TrashIcon } from 'lucide-react'
@@ -14,6 +14,7 @@ import toast from 'react-hot-toast'
 const tabs = [
   { key: 'shop',          label: 'Shop Info',       icon: Building2  },
   { key: 'invoice',       label: 'Invoice',         icon: FileText   },
+  { key: 'devices',       label: 'Devices',         icon: Smartphone },
   { key: 'profile',       label: 'Profile',         icon: User       },
   { key: 'notifications', label: 'Notifications',   icon: Bell       },
   { key: 'security',      label: 'Security',        icon: Shield     },
@@ -658,6 +659,9 @@ export default function SettingsPage() {
             </div>
           )}
 
+          {/* ── DEVICES ── */}
+          {activeTab === 'devices' && <DevicesTab />}
+
           {/* ── TEAM ── */}
           {activeTab === 'team' && (
             <div className="card p-6 space-y-5">
@@ -739,6 +743,178 @@ export default function SettingsPage() {
           )}
 
         </div>
+      </div>
+    </div>
+  )
+}
+
+/* ─────────────── Devices Tab ─────────────── */
+function DevicesTab() {
+  const [brands, setBrands]           = useState<any[]>([])
+  const [loading, setLoading]         = useState(true)
+  const [selectedBrand, setSelected]  = useState<any>(null)
+  const [newBrand, setNewBrand]       = useState('')
+  const [newModel, setNewModel]       = useState('')
+  const [addingBrand, setAddingBrand] = useState(false)
+  const [addingModel, setAddingModel] = useState(false)
+  const [deletingId, setDeletingId]   = useState<string | null>(null)
+
+  const load = async () => {
+    try {
+      const res = await deviceCatalogApi.listBrands()
+      setBrands((res as any).data ?? res)
+      if (selectedBrand) {
+        const updated = ((res as any).data ?? res).find((b: any) => b.id === selectedBrand.id)
+        if (updated) setSelected(updated)
+      }
+    } catch { toast.error('Failed to load devices') }
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => { load() }, [])
+
+  const handleAddBrand = async () => {
+    if (!newBrand.trim()) return
+    setAddingBrand(true)
+    try {
+      await deviceCatalogApi.createBrand(newBrand.trim())
+      setNewBrand('')
+      toast.success('Brand added')
+      load()
+    } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Failed to add brand') }
+    finally { setAddingBrand(false) }
+  }
+
+  const handleDeleteBrand = async (id: string) => {
+    setDeletingId(id)
+    try {
+      await deviceCatalogApi.deleteBrand(id)
+      if (selectedBrand?.id === id) setSelected(null)
+      toast.success('Brand deleted')
+      load()
+    } catch { toast.error('Failed to delete brand') }
+    finally { setDeletingId(null) }
+  }
+
+  const handleAddModel = async () => {
+    if (!selectedBrand || !newModel.trim()) return
+    setAddingModel(true)
+    try {
+      await deviceCatalogApi.createModel(selectedBrand.id, newModel.trim())
+      setNewModel('')
+      toast.success('Model added')
+      load()
+    } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Failed to add model') }
+    finally { setAddingModel(false) }
+  }
+
+  const handleDeleteModel = async (id: string) => {
+    setDeletingId(id)
+    try {
+      await deviceCatalogApi.deleteModel(id)
+      toast.success('Model deleted')
+      load()
+    } catch { toast.error('Failed to delete model') }
+    finally { setDeletingId(null) }
+  }
+
+  if (loading) return <div className="flex justify-center py-12"><Loader2 size={22} className="animate-spin text-violet-400" /></div>
+
+  return (
+    <div className="grid sm:grid-cols-2 gap-4">
+      {/* Left — Brands */}
+      <div className="card p-5 space-y-4">
+        <div className="flex items-center gap-2 border-b border-white/5 pb-3">
+          <Smartphone size={15} className="text-violet-400" />
+          <h3 className="text-sm font-bold text-white">Device Brands</h3>
+          <span className="ml-auto text-[11px] bg-white/5 text-slate-400 px-2 py-0.5 rounded-full">{brands.length}</span>
+        </div>
+        {/* Add brand */}
+        <div className="flex gap-2">
+          <input
+            className="input-field text-xs flex-1"
+            placeholder="e.g. Samsung"
+            value={newBrand}
+            onChange={e => setNewBrand(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleAddBrand()}
+          />
+          <button onClick={handleAddBrand} disabled={!newBrand.trim() || addingBrand}
+            className="btn-primary text-xs px-3 flex items-center gap-1 disabled:opacity-50">
+            {addingBrand ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}Add
+          </button>
+        </div>
+        {/* Brand list */}
+        <div className="space-y-1 max-h-72 overflow-y-auto pr-1">
+          {brands.length === 0 && <p className="text-xs text-slate-500 text-center py-6">No brands yet</p>}
+          {brands.map(b => (
+            <button key={b.id} onClick={() => setSelected(b)}
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all group ${
+                selectedBrand?.id === b.id
+                  ? 'bg-violet-500/15 border border-violet-500/30'
+                  : 'hover:bg-white/5 border border-transparent'
+              }`}>
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${selectedBrand?.id === b.id ? 'bg-violet-500/20' : 'bg-white/5'}`}>
+                <Smartphone size={12} className={selectedBrand?.id === b.id ? 'text-violet-400' : 'text-slate-400'} />
+              </div>
+              <span className="text-sm font-semibold text-white flex-1 truncate">{b.name}</span>
+              <span className="text-[10px] text-slate-500 shrink-0">{b.models?.length ?? 0} models</span>
+              <ChevronRight size={12} className={`shrink-0 transition-opacity ${selectedBrand?.id === b.id ? 'text-violet-400 opacity-100' : 'opacity-0 group-hover:opacity-50'}`} />
+              <button onClick={e => { e.stopPropagation(); handleDeleteBrand(b.id) }} disabled={deletingId === b.id}
+                className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-40"
+                title="Delete brand">
+                {deletingId === b.id ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
+              </button>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Right — Models */}
+      <div className="card p-5 space-y-4">
+        <div className="flex items-center gap-2 border-b border-white/5 pb-3">
+          <div className="w-5 h-5 rounded-md bg-violet-500/20 flex items-center justify-center"><Smartphone size={11} className="text-violet-400" /></div>
+          <h3 className="text-sm font-bold text-white truncate">
+            {selectedBrand ? `${selectedBrand.name} — Models` : 'Select a brand'}
+          </h3>
+          {selectedBrand && <span className="ml-auto text-[11px] bg-white/5 text-slate-400 px-2 py-0.5 rounded-full">{selectedBrand.models?.length ?? 0}</span>}
+        </div>
+        {!selectedBrand ? (
+          <div className="flex flex-col items-center justify-center py-10 gap-2">
+            <Smartphone size={32} className="text-slate-700" />
+            <p className="text-xs text-slate-500">Select a brand to manage its models</p>
+          </div>
+        ) : (
+          <>
+            {/* Add model */}
+            <div className="flex gap-2">
+              <input
+                className="input-field text-xs flex-1"
+                placeholder={`e.g. ${selectedBrand.name} S24`}
+                value={newModel}
+                onChange={e => setNewModel(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAddModel()}
+              />
+              <button onClick={handleAddModel} disabled={!newModel.trim() || addingModel}
+                className="btn-primary text-xs px-3 flex items-center gap-1 disabled:opacity-50">
+                {addingModel ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}Add
+              </button>
+            </div>
+            {/* Model list */}
+            <div className="space-y-1 max-h-72 overflow-y-auto pr-1">
+              {selectedBrand.models?.length === 0 && <p className="text-xs text-slate-500 text-center py-6">No models yet</p>}
+              {selectedBrand.models?.map((m: any) => (
+                <div key={m.id} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-white/5 hover:bg-white/3 transition-colors">
+                  <div className="w-2 h-2 rounded-full bg-violet-500/60 shrink-0" />
+                  <span className="text-sm text-white flex-1 truncate">{m.name}</span>
+                  <button onClick={() => handleDeleteModel(m.id)} disabled={deletingId === m.id}
+                    className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-40">
+                    {deletingId === m.id ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

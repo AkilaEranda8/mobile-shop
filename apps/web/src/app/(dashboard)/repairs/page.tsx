@@ -12,7 +12,7 @@ import { DataTableColumnHeader } from '@/components/table/data-table-column-head
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency, formatDate, getRepairStatusColor } from '@/lib/utils'
 import { useRepairs, useProducts } from '@/lib/hooks'
-import { repairsApi, customersApi } from '@/lib/api'
+import { repairsApi, customersApi, deviceCatalogApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import type { Customer } from '@/types'
 import toast from 'react-hot-toast'
@@ -50,6 +50,35 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
   const [error, setError]     = useState('')
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(p => ({ ...p, [k]: e.target.value }))
+
+  // ── device catalog state ──
+  const [brands, setBrands]       = useState<any[]>([])
+  const [models, setModels]       = useState<any[]>([])
+  const [brandOpen, setBrandOpen] = useState(false)
+  const [modelOpen, setModelOpen] = useState(false)
+  const [brandQuery, setBrandQuery] = useState('')
+  const [modelQuery, setModelQuery] = useState('')
+
+  useEffect(() => {
+    deviceCatalogApi.listBrands().then((res: any) => setBrands(res.data ?? res)).catch(() => {})
+  }, [])
+
+  const selectBrand = (b: any) => {
+    setForm(p => ({ ...p, deviceBrand: b.name, deviceModel: '' }))
+    setBrandQuery(b.name); setBrandOpen(false); setModelQuery('')
+    setModels(b.models ?? [])
+  }
+  const selectModel = (m: any) => {
+    setForm(p => ({ ...p, deviceModel: m.name }))
+    setModelQuery(m.name); setModelOpen(false)
+  }
+
+  const filteredBrands = brandQuery.length > 0
+    ? brands.filter(b => b.name.toLowerCase().includes(brandQuery.toLowerCase()))
+    : brands
+  const filteredModels = modelQuery.length > 0
+    ? models.filter(m => m.name.toLowerCase().includes(modelQuery.toLowerCase()))
+    : models
 
   // debounced customer search
   const doSearch = useCallback(async (q: string) => {
@@ -242,13 +271,60 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
 
           {/* ── Device details ── */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            {/* Brand dropdown */}
+            <div className="relative">
               <label className="block text-xs text-slate-400 mb-1.5">Device Brand *</label>
-              <input required className="input-field" placeholder="Apple" value={form.deviceBrand} onChange={f('deviceBrand')} />
+              <div className="relative">
+                <Smartphone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                <input required className="input-field pl-8" placeholder="Select or type brand"
+                  value={brandQuery}
+                  onChange={e => { setBrandQuery(e.target.value); setForm(p => ({ ...p, deviceBrand: e.target.value, deviceModel: '' })); setModelQuery(''); setModels([]); setBrandOpen(true) }}
+                  onFocus={() => setBrandOpen(true)}
+                  onBlur={() => setTimeout(() => setBrandOpen(false), 150)}
+                />
+              </div>
+              {brandOpen && filteredBrands.length > 0 && (
+                <div className="absolute z-30 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden"
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                  {filteredBrands.map(b => (
+                    <button key={b.id} type="button" onMouseDown={() => selectBrand(b)}
+                      className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 hover:bg-violet-500/10 transition-colors"
+                      style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                      <Smartphone size={11} className="text-violet-400 shrink-0" />
+                      <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{b.name}</span>
+                      <span className="ml-auto text-[10px]" style={{ color: 'var(--text-muted)' }}>{b.models?.length ?? 0} models</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            <div>
+            {/* Model dropdown */}
+            <div className="relative">
               <label className="block text-xs text-slate-400 mb-1.5">Device Model *</label>
-              <input required className="input-field" placeholder="iPhone 14 Pro" value={form.deviceModel} onChange={f('deviceModel')} />
+              <div className="relative">
+                <Hash size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                <input required className="input-field pl-8"
+                  placeholder={models.length > 0 ? `Select ${form.deviceBrand} model` : 'Select brand first'}
+                  value={modelQuery}
+                  onChange={e => { setModelQuery(e.target.value); setForm(p => ({ ...p, deviceModel: e.target.value })); setModelOpen(true) }}
+                  onFocus={() => models.length > 0 && setModelOpen(true)}
+                  onBlur={() => setTimeout(() => setModelOpen(false), 150)}
+                  disabled={models.length === 0 && !form.deviceBrand}
+                />
+              </div>
+              {modelOpen && filteredModels.length > 0 && (
+                <div className="absolute z-30 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden"
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                  {filteredModels.map(m => (
+                    <button key={m.id} type="button" onMouseDown={() => selectModel(m)}
+                      className="w-full text-left px-3 py-2.5 flex items-center gap-2 hover:bg-violet-500/10 transition-colors"
+                      style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                      <div className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />
+                      <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{m.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-xs text-slate-400 mb-1.5">Color</label>

@@ -136,6 +136,8 @@ model Tenant {
   sales       Sale[]
   repairs     RepairTicket[]
   warranties  Warranty[]
+  deviceBrands DeviceBrand[]
+  deviceModels DeviceModel[]
   suppliers   Supplier[]
   purchaseOrders PurchaseOrder[]
   transactions   Transaction[]
@@ -431,6 +433,34 @@ model SaleReturnItem {
 
   return  SaleReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
   product Product?   @relation(fields: [productId], references: [id])
+}
+
+// ─────────────── Device Catalog ───────────────
+
+model DeviceBrand {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  createdAt DateTime @default(now())
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  models DeviceModel[]
+
+  @@unique([tenantId, name])
+}
+
+model DeviceModel {
+  id        String   @id @default(cuid())
+  tenantId  String
+  brandId   String
+  brandName String
+  name      String
+  createdAt DateTime @default(now())
+
+  tenant Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  brand  DeviceBrand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, brandId, name])
 }
 
 // ─────────────── Repair ───────────────
