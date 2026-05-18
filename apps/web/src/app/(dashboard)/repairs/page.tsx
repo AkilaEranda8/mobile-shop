@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import {
   Plus, Clock, CheckCircle, PhoneCall, Loader2, X, Check, ChevronDown,
   Eye, Edit, ChevronRight, Smartphone, User, Wrench, DollarSign, AlertTriangle,
-  Calendar, Hash, Save, ArrowRight, MessageSquare, Package, Search, UserPlus, CheckCircle2, Download,
+  Calendar, Hash, Save, ArrowRight, MessageSquare, Package, Search, UserPlus, CheckCircle2, Download, Printer,
 } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
@@ -19,6 +19,72 @@ import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrin
 import type { Customer } from '@/types'
 import toast from 'react-hot-toast'
 import type { RepairTicket } from '@/types'
+
+/* ── Thermal Receipt Printer ─────────────────────────────────────── */
+function printRepairReceipt(repair: RepairTicket, settings: InvoiceSettings) {
+  const fmt = (n: number) => `LKR ${n.toLocaleString('en-LK', { minimumFractionDigits: 2 })}`
+  const partsTotal = repair.spareParts?.reduce((s: any, p: any) => s + p.total, 0) ?? 0
+  const subtotal = (repair.estimatedCost ?? 0) + partsTotal
+  const partsRows = (repair.spareParts ?? []).map((p: any) => `
+    <tr><td>${p.productName}</td><td style="text-align:right">${p.quantity}x</td><td style="text-align:right">${fmt(p.total)}</td></tr>`).join('')
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/>
+<title>Repair Receipt</title>
+<style>
+  @page { size: 80mm auto; margin: 4mm 3mm; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'Courier New', monospace; font-size: 11px; color:#000; width:74mm; }
+  .center { text-align:center; }
+  .bold { font-weight:bold; }
+  .big { font-size:14px; font-weight:bold; }
+  .med { font-size:12px; font-weight:bold; }
+  .line { border-top:1px dashed #000; margin:4px 0; }
+  .row { display:flex; justify-content:space-between; margin:1px 0; }
+  table { width:100%; border-collapse:collapse; margin:3px 0; }
+  td { padding:1px 2px; vertical-align:top; font-size:10px; }
+  td:last-child { text-align:right; white-space:nowrap; }
+  .total-row td { font-weight:bold; font-size:12px; border-top:1px solid #000; padding-top:3px; }
+  .status { display:inline-block; border:1px solid #000; padding:1px 6px; font-size:10px; }
+</style></head><body>
+<div class="center"><div class="big">${settings.shopName || 'Service Center'}</div>
+${settings.phone ? `<div>${settings.phone}</div>` : ''}
+${settings.address ? `<div>${settings.address}</div>` : ''}</div>
+<div class="line"></div>
+<div class="center bold" style="font-size:13px;">REPAIR JOB RECEIPT</div>
+<div class="line"></div>
+<div class="row"><span class="bold">Ticket#:</span><span class="bold" style="font-size:12px;">${repair.ticketNumber}</span></div>
+<div class="row"><span>Date:</span><span>${new Date(repair.createdAt).toLocaleDateString('en-LK')}</span></div>
+<div class="row"><span>Status:</span><span class="status">${repair.status}</span></div>
+<div class="line"></div>
+<div class="bold med">CUSTOMER</div>
+<div class="row"><span>Name:</span><span>${repair.customerName}</span></div>
+<div class="row"><span>Phone:</span><span>${repair.customerPhone}</span></div>
+<div class="line"></div>
+<div class="bold med">DEVICE</div>
+<div class="row"><span>Brand/Model:</span><span>${repair.deviceBrand} ${repair.deviceModel}</span></div>
+${repair.imei ? `<div class="row"><span>IMEI:</span><span>${repair.imei}</span></div>` : ''}
+${repair.accessories ? `<div class="row"><span>Accessories:</span><span>${repair.accessories}</span></div>` : ''}
+<div class="line"></div>
+<div class="bold med">FAULT</div>
+<div style="word-break:break-word;margin:2px 0;">${repair.reportedIssue}</div>
+<div class="line"></div>
+<div class="bold med">CHARGES</div>
+<table><tbody>
+  <tr><td>Service Charge</td><td></td><td>${fmt(repair.estimatedCost ?? 0)}</td></tr>
+  ${partsRows}
+  <tr class="total-row"><td colspan="2">TOTAL</td><td>${fmt(subtotal)}</td></tr>
+</tbody></table>
+${repair.technicianName ? `<div class="line"></div><div class="row"><span>Technician:</span><span>${repair.technicianName}</span></div>` : ''}
+<div class="line"></div>
+<div class="center" style="font-size:10px;margin-top:4px;">Thank you for choosing us!</div>
+<div class="center" style="font-size:9px;margin-top:2px;">${settings.website || ''}</div>
+</body></html>`
+  const w = window.open('', '_blank', 'width=350,height=600')
+  if (!w) return
+  w.document.write(html)
+  w.document.close()
+  w.focus()
+  setTimeout(() => { w.print(); w.close() }, 400)
+}
 
 const SOURCE_OPTIONS = [
   { value: 'WALK_IN',    label: 'Walk-in',    color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/25' },
@@ -1308,10 +1374,19 @@ export default function RepairsPage() {
     {
       id: 'actions',
       cell: ({ row }) => (
-        <TableActionsRow
-          showAction={{ action: () => setDetailRepair(row.original) }}
-          editAction={{ action: () => setEditRepair(row.original) }}
-        />
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => printRepairReceipt(row.original, getInvoiceSettings())}
+            title="Thermal Print"
+            className="p-1.5 rounded-lg transition-colors text-slate-500 hover:text-cyan-400 hover:bg-cyan-500/10"
+          >
+            <Printer size={13} />
+          </button>
+          <TableActionsRow
+            showAction={{ action: () => setDetailRepair(row.original) }}
+            editAction={{ action: () => setEditRepair(row.original) }}
+          />
+        </div>
       ),
     },
   ], [setDetailRepair, setEditRepair])
