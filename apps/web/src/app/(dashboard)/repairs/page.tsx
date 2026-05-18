@@ -51,6 +51,7 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
   })
   const [accessories, setAccessories] = useState<string[]>([])
   const [accOpen, setAccOpen] = useState(false)
+  const [sourceOpen, setSourceOpen] = useState(false)
   const ACCESSORY_OPTIONS = ['Phone Only','Charger','Box','SIM','Memory Card','Back Cover','Battery','Stylus','Earphones'] as const
   const toggleAccessory = (a: string) => setAccessories(prev =>
     prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]
@@ -442,21 +443,35 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
               <label className="block text-xs text-slate-400 mb-1.5">Reported Issue *</label>
               <textarea required className="input-field min-h-[72px] resize-none" placeholder="Screen cracked, touch not working..." value={form.reportedIssue} onChange={f('reportedIssue')} />
             </div>
-            <div className="col-span-2">
-              <label className="block text-xs text-slate-400 mb-2">Customer Source</label>
-              <div className="flex flex-wrap gap-2">
-                {SOURCE_OPTIONS.map(opt => (
-                  <button key={opt.value} type="button"
-                    onClick={() => setForm(p => ({ ...p, source: opt.value }))}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                      form.source === opt.value
-                        ? `${opt.color} ${opt.bg} ${opt.border}`
-                        : 'text-slate-500 bg-white/3 border-white/8 hover:border-white/20'
-                    }`}>
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
+            <div className="col-span-2 relative">
+              <label className="block text-xs text-slate-400 mb-1.5">Customer Source</label>
+              <button type="button" onClick={() => setSourceOpen(o => !o)}
+                className="input-field w-full flex items-center justify-between text-left"
+                style={{ minHeight: 38 }}>
+                <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                  {SOURCE_OPTIONS.find(o => o.value === form.source)?.label ?? 'Select source'}
+                </span>
+                <ChevronDown size={14} className={`text-slate-400 shrink-0 transition-transform ${sourceOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {sourceOpen && (
+                <div className="absolute z-30 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden"
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                  {SOURCE_OPTIONS.map(opt => (
+                    <button key={opt.value} type="button"
+                      onMouseDown={e => { e.preventDefault(); setForm(p => ({ ...p, source: opt.value })); setSourceOpen(false) }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-violet-500/10 transition-colors text-left"
+                      style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                      <div className={`w-3.5 h-3.5 rounded-full shrink-0 border-2 ${
+                        form.source === opt.value ? 'border-violet-500 bg-violet-500' : 'border-slate-600'
+                      }`} />
+                      <span className={`text-sm ${form.source === opt.value ? opt.color : ''}`}
+                        style={{ color: form.source === opt.value ? undefined : 'var(--text-primary)' }}>
+                        {opt.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-xs text-slate-400 mb-1.5">Priority</label>
