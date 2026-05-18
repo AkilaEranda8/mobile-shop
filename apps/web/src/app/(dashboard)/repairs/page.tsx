@@ -458,8 +458,19 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
               <label className="block text-xs text-slate-400 mb-1.5">IMEI</label>
               <input className="input-field font-mono" placeholder="Enter 15-digit IMEI (optional)" maxLength={17} value={form.imei} onChange={f('imei')} />
             </div>
-            <div className="col-span-2 relative">
-              <label className="block text-xs text-slate-400 mb-1.5">Fault / Issue *</label>
+            <div className="col-span-2" /></div>
+
+          {/* ── Fault / Issue section ── */}
+          <div className="rounded-xl overflow-visible" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+            <div className="flex items-center justify-between px-4 pt-3 pb-2">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Fault / Issue</span>
+              {selectedIssues.length > 0 && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/25 font-medium">
+                  {selectedIssues.length} selected
+                </span>
+              )}
+            </div>
+            <div className="px-4 pb-4 relative">
               <button type="button" onClick={() => setIssueOpen(o => !o)}
                 className="input-field w-full flex items-center justify-between text-left"
                 style={{ minHeight: 38 }}>
@@ -470,7 +481,7 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
                 <ChevronDown size={14} className={`text-slate-400 shrink-0 transition-transform ${issueOpen ? 'rotate-180' : ''}`} />
               </button>
               {issueOpen && (
-                <div className="absolute z-30 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden"
+                <div className="absolute z-30 top-full mt-1 left-4 right-4 rounded-xl shadow-2xl overflow-hidden"
                   style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
                   <div className="p-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
                     <input autoFocus className="input-field text-sm py-1.5" placeholder="Search faults…"
@@ -506,6 +517,10 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
                 </div>
               )}
             </div>
+          </div>
+
+          {/* ── Other details grid ── */}
+          <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2 relative">
               <label className="block text-xs text-slate-400 mb-1.5">Customer Source</label>
               <button type="button" onClick={() => setSourceOpen(o => !o)}
