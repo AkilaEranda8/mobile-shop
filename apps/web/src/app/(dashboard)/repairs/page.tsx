@@ -406,183 +406,187 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
 
   const partsTotal = repair.spareParts?.reduce((s: number, p: any) => s + p.total, 0) ?? 0
 
+  const STEP_ICONS = [Smartphone, Wrench, CheckCircle2]
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl shadow-2xl"
-        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="w-full max-w-xl max-h-[94vh] overflow-y-auto rounded-3xl shadow-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
 
-        {/* ── Hero Header ── */}
-        <div className="relative overflow-hidden rounded-t-2xl" data-scheme="dark"
-          style={{ background: 'linear-gradient(135deg,#1e1b4b 0%,#312e81 50%,#1e1b4b 100%)' }}>
-          {/* decorative circles */}
-          <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-violet-500/10 pointer-events-none" />
-          <div className="absolute -bottom-6 -left-6 w-28 h-28 rounded-full bg-cyan-500/10 pointer-events-none" />
+        {/* ══ HEADER ══ */}
+        <div className="relative overflow-hidden rounded-t-3xl" data-scheme="dark"
+          style={{ background: 'linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%)' }}>
+          <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, #7c3aed 0%, transparent 50%), radial-gradient(circle at 10% 80%, #0ea5e9 0%, transparent 45%)' }} />
 
-          <div className="relative px-6 pt-5 pb-4">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur flex items-center justify-center border border-white/20 shadow-lg">
-                  <Smartphone size={20} className="text-white" />
+          <div className="relative px-6 pt-6 pb-5">
+            {/* top row */}
+            <div className="flex items-start justify-between mb-5">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shrink-0"
+                  style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)' }}>
+                  <Smartphone size={22} className="text-white" />
                 </div>
                 <div>
-                  <p className="text-[11px] font-mono font-bold text-violet-300 tracking-widest leading-none">{repair.ticketNumber}</p>
-                  <h3 className="text-base font-bold text-white mt-0.5">{repair.deviceBrand} {repair.deviceModel}</h3>
-                  {(repair as any).deviceColor && <p className="text-[11px] text-violet-300/70 mt-0.5">{(repair as any).deviceColor}</p>}
+                  <p className="text-[10px] font-mono font-bold tracking-[0.18em] text-violet-300 leading-none mb-1">{repair.ticketNumber}</p>
+                  <h3 className="text-lg font-bold text-white leading-tight">{repair.deviceBrand} {repair.deviceModel}</h3>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className={`text-[10px] px-2.5 py-0.5 rounded-full border font-bold ${getRepairStatusColor(repair.status)}`}>{statusLabels[repair.status]}</span>
+                    {repair.priority && repair.priority !== 'NORMAL' && (
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${priorityBadge(repair.priority)}`}>{repair.priority}</span>
+                    )}
+                    {(repair as any).source && (repair as any).source !== 'WALK_IN' && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold text-cyan-300 bg-cyan-500/15 border border-cyan-500/20">{(repair as any).source.replace('_',' ')}</span>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className={`text-[11px] px-3 py-1 rounded-full border font-semibold ${getRepairStatusColor(repair.status)}`}>
-                  {statusLabels[repair.status]}
-                </span>
-                {repair.priority && repair.priority !== 'NORMAL' && (
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${priorityBadge(repair.priority)}`}>
-                    {repair.priority}
-                  </span>
-                )}
-                <button onClick={onEdit}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] rounded-lg font-semibold text-white/80 hover:text-white transition-colors"
-                  style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)' }}>
+              <div className="flex items-center gap-1.5">
+                <button onClick={onEdit} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold text-white/80 hover:text-white transition-all"
+                  style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.18)' }}>
                   <Edit size={11} />Edit
                 </button>
-                <button onClick={onClose} className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors">
-                  <X size={16} />
+                <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-all">
+                  <X size={15} />
                 </button>
               </div>
             </div>
 
-            {/* Status stepper */}
-            <div className="mt-5 mb-1">
-              <div className="relative flex items-center">
-                <div className="absolute left-3 right-3 top-3.5 h-0.5 bg-white/10" />
-                <div className="absolute left-3 top-3.5 h-0.5 bg-violet-400/60 transition-all"
-                  style={{ width: currentIdx < 0 ? '0%' : `${(currentIdx / (STATUS_FLOW.length - 1)) * (100 - (6 / STATUS_FLOW.length))}%` }} />
-                {STATUS_FLOW.map((s, i) => {
-                  const done   = i < currentIdx
-                  const active = i === currentIdx
-                  return (
-                    <div key={s} className="flex-1 flex flex-col items-center gap-1.5 relative z-10">
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-all shadow-sm
-                        ${active  ? 'bg-violet-500 border-violet-300 text-white shadow-violet-500/40'
-                        : done   ? 'bg-violet-400 border-violet-300/60 text-white'
-                        : 'bg-white/10 border-white/20 text-white/40'}`}>
-                        {done ? <CheckCircle size={13} /> : active ? <span className="w-2 h-2 rounded-full bg-white inline-block" /> : i + 1}
-                      </div>
-                      <span className={`text-[9px] font-semibold tracking-wide ${active ? 'text-violet-200' : done ? 'text-white/60' : 'text-white/30'}`}>
-                        {statusLabels[s].split(' ')[0]}
-                      </span>
+            {/* ── Progress stepper ── */}
+            <div className="relative flex items-center px-2">
+              <div className="absolute left-8 right-8 top-5 h-[2px] rounded-full bg-white/10" />
+              <div className="absolute left-8 top-5 h-[2px] rounded-full bg-gradient-to-r from-violet-400 to-violet-300 transition-all duration-500"
+                style={{ width: currentIdx <= 0 ? '0%' : currentIdx === 1 ? '50%' : '100%' }} />
+              {STATUS_FLOW.map((s, i) => {
+                const StepIcon = STEP_ICONS[i]
+                const done   = i < currentIdx
+                const active = i === currentIdx
+                return (
+                  <div key={s} className="flex-1 flex flex-col items-center gap-2 relative z-10">
+                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-lg
+                      ${active  ? 'bg-gradient-to-br from-violet-500 to-violet-600 border-2 border-violet-300/60 scale-110 shadow-violet-500/40'
+                      : done   ? 'bg-violet-500/70 border border-violet-400/50'
+                      : 'border-2 border-white/15'}`}
+                      style={active ? {} : done ? {} : { background: 'rgba(255,255,255,0.07)' }}>
+                      {done ? <CheckCircle size={16} className="text-white" />
+                        : <StepIcon size={15} className={active ? 'text-white' : 'text-white/30'} />}
                     </div>
-                  )
-                })}
-              </div>
+                    <span className={`text-[10px] font-bold tracking-wide ${active ? 'text-white' : done ? 'text-violet-300/80' : 'text-white/30'}`}>
+                      {statusLabels[s].split(' ')[0]}
+                    </span>
+                  </div>
+                )
+              })}
             </div>
-          </div>
 
-          {/* Action bar */}
-          {repair.status !== 'DELIVERED' && repair.status !== 'CANCELLED' && (
-            <div className="px-6 pb-4 space-y-2">
-              <div className="flex gap-2">
+            {/* ── Action buttons ── */}
+            {repair.status !== 'DELIVERED' && repair.status !== 'CANCELLED' && (
+              <div className="flex gap-2.5 mt-5">
                 {repair.status === 'READY' ? (
                   <button onClick={handleCollectPayment} disabled={collecting || changingStatus}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-bold rounded-xl text-white transition-all disabled:opacity-50"
-                    style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)', border: '1px solid rgba(134,239,172,0.3)', boxShadow: '0 2px 12px rgba(22,163,74,0.35)' }}>
-                    {collecting ? <Loader2 size={13} className="animate-spin" /> : <DollarSign size={13} />}Collect Payment
+                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-white transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg"
+                    style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)', boxShadow: '0 4px 20px rgba(22,163,74,0.45)', border: '1px solid rgba(134,239,172,0.25)' }}>
+                    {collecting ? <Loader2 size={15} className="animate-spin" /> : <DollarSign size={15} />}
+                    Collect Payment
                   </button>
                 ) : nextStatus ? (
                   <button onClick={handleNext} disabled={changingStatus}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-bold rounded-xl text-white transition-all disabled:opacity-50"
-                    style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', backdropFilter: 'blur(4px)' }}>
-                    {changingStatus ? <Loader2 size={13} className="animate-spin" /> : <ArrowRight size={13} />}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-white transition-all active:scale-[0.98] disabled:opacity-50"
+                    style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.22)', backdropFilter: 'blur(8px)' }}>
+                    {changingStatus ? <Loader2 size={15} className="animate-spin" /> : <ArrowRight size={15} />}
                     Move to {statusLabels[nextStatus]}
                   </button>
                 ) : null}
                 <button onClick={handleCancel} disabled={changingStatus}
-                  className="px-5 py-2.5 text-xs rounded-xl font-bold transition-colors disabled:opacity-50 text-red-300"
-                  style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)' }}>
+                  className="px-5 py-3 rounded-2xl text-sm font-bold text-red-300 hover:text-red-200 transition-all disabled:opacity-50"
+                  style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)' }}>
                   Cancel
                 </button>
               </div>
-
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
+        {/* ══ BODY ══ */}
         <div className="p-5 space-y-3">
 
-          {/* ── Device & Customer ── */}
+          {/* Device + Customer */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl p-4" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-6 h-6 rounded-lg bg-violet-500/15 flex items-center justify-center"><Smartphone size={12} className="text-violet-500" /></div>
-                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Device</span>
+            <div className="rounded-2xl p-4 space-y-2.5" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl flex items-center justify-center bg-violet-500/15"><Smartphone size={13} className="text-violet-500" /></div>
+                <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Device</span>
               </div>
-              <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{repair.deviceBrand} {repair.deviceModel}</p>
-              {(repair as any).deviceColor && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{(repair as any).deviceColor}</p>}
-              {repair.imei && <p className="text-[10px] font-mono mt-1 px-2 py-0.5 rounded" style={{ color: 'var(--text-muted)', background: 'var(--bg-card)' }}>IMEI: {repair.imei}</p>}
-            </div>
-            <div className="rounded-xl p-4" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-6 h-6 rounded-lg bg-cyan-500/15 flex items-center justify-center"><User size={12} className="text-cyan-500" /></div>
-                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Customer</span>
+              <div>
+                <p className="text-sm font-bold leading-snug" style={{ color: 'var(--text-primary)' }}>{repair.deviceBrand} {repair.deviceModel}</p>
+                {(repair as any).deviceColor && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{(repair as any).deviceColor}</p>}
+                {repair.imei && (
+                  <p className="text-[10px] font-mono mt-2 px-2.5 py-1 rounded-lg inline-block" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>
+                    {repair.imei}
+                  </p>
+                )}
               </div>
-              <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{repair.customerName}</p>
-              <a href={`tel:${repair.customerPhone}`} className="text-xs flex items-center gap-1 mt-1 text-cyan-500 hover:underline font-medium">
-                <PhoneCall size={10} />{repair.customerPhone}
-              </a>
+            </div>
+            <div className="rounded-2xl p-4 space-y-2.5" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl flex items-center justify-center bg-cyan-500/15"><User size={13} className="text-cyan-500" /></div>
+                <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Customer</span>
+              </div>
+              <div>
+                <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{repair.customerName}</p>
+                <a href={`tel:${repair.customerPhone}`} className="flex items-center gap-1.5 mt-1 text-xs font-semibold text-cyan-500 hover:text-cyan-400 transition-colors">
+                  <PhoneCall size={11} />{repair.customerPhone}
+                </a>
+              </div>
             </div>
           </div>
 
-          {/* ── Reported Issue ── */}
-          <div className="rounded-xl p-4" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-6 h-6 rounded-lg bg-amber-500/15 flex items-center justify-center"><Wrench size={12} className="text-amber-500" /></div>
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Reported Issue</span>
+          {/* Reported Issue */}
+          <div className="rounded-2xl p-4" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+            <div className="flex items-center gap-2 mb-2.5">
+              <div className="w-7 h-7 rounded-xl flex items-center justify-center bg-amber-500/15"><AlertTriangle size={13} className="text-amber-500" /></div>
+              <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Reported Issue</span>
             </div>
-            <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{repair.reportedIssue}</p>
+            <p className="text-sm leading-relaxed font-medium" style={{ color: 'var(--text-secondary)' }}>{repair.reportedIssue}</p>
           </div>
 
-          {/* ── Financials + Technician ── */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-xl p-3.5 text-center" style={{ background: 'linear-gradient(135deg,rgba(16,185,129,0.08),rgba(16,185,129,0.04))', border: '1px solid rgba(16,185,129,0.2)' }}>
-              <DollarSign size={15} className="text-emerald-500 mx-auto mb-1.5" />
-              <p className="text-sm font-bold text-emerald-600">{repair.estimatedCost ? formatCurrency(repair.estimatedCost) : '—'}</p>
-              <p className="text-[10px] mt-0.5 font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Estimated</p>
-            </div>
-            <div className="rounded-xl p-3.5 text-center" style={{ background: 'linear-gradient(135deg,rgba(124,58,237,0.08),rgba(124,58,237,0.04))', border: '1px solid rgba(124,58,237,0.2)' }}>
-              <DollarSign size={15} className="text-violet-500 mx-auto mb-1.5" />
-              <p className="text-sm font-bold text-violet-600">{repair.actualCost ? formatCurrency(repair.actualCost) : '—'}</p>
-              <p className="text-[10px] mt-0.5 font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Actual</p>
-            </div>
-            <div className="rounded-xl p-3.5 text-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-              <Wrench size={15} className="mx-auto mb-1.5" style={{ color: 'var(--text-muted)' }} />
-              <p className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{repair.technicianName || '—'}</p>
-              <p className="text-[10px] mt-0.5 font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Technician</p>
+          {/* Financials */}
+          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
+            <div className="grid grid-cols-3 divide-x" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="p-4 text-center space-y-1">
+                <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Estimated</p>
+                <p className="text-base font-black text-emerald-600">{repair.estimatedCost ? formatCurrency(repair.estimatedCost) : '—'}</p>
+              </div>
+              <div className="p-4 text-center space-y-1">
+                <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Actual</p>
+                <p className="text-base font-black text-violet-600">{repair.actualCost ? formatCurrency(repair.actualCost) : '—'}</p>
+              </div>
+              <div className="p-4 text-center space-y-1">
+                <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Technician</p>
+                <p className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{repair.technicianName || '—'}</p>
+              </div>
             </div>
           </div>
 
-          {/* ── Spare Parts ── */}
-          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
+          {/* Spare Parts */}
+          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
             <div className="flex items-center justify-between px-4 py-3" style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
               <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-lg bg-orange-500/15 flex items-center justify-center"><Package size={12} className="text-orange-500" /></div>
-                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Spare Parts</span>
+                <div className="w-7 h-7 rounded-xl flex items-center justify-center bg-orange-500/15"><Package size={13} className="text-orange-500" /></div>
+                <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Spare Parts</span>
                 {repair.spareParts?.length > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-orange-500/10 text-orange-500 border border-orange-500/20">
-                    {repair.spareParts.length}
-                  </span>
+                  <span className="min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold flex items-center justify-center bg-orange-500/15 text-orange-500 border border-orange-500/20">{repair.spareParts.length}</span>
                 )}
               </div>
               <button onClick={() => setShowAddPart(v => !v)}
-                className="flex items-center gap-1 px-2.5 py-1 text-[11px] rounded-lg font-semibold transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 text-[11px] rounded-xl font-bold transition-colors"
                 style={{ background: showAddPart ? 'rgba(239,68,68,0.08)' : 'rgba(249,115,22,0.10)', color: showAddPart ? '#ef4444' : '#ea580c', border: `1px solid ${showAddPart ? 'rgba(239,68,68,0.2)' : 'rgba(249,115,22,0.25)'}` }}>
                 {showAddPart ? <><X size={10} />Cancel</> : <><Plus size={10} />Add Part</>}
               </button>
             </div>
-
-            <div className="p-4 space-y-3" style={{ background: 'var(--bg-card)' }}>
+            <div className="p-4 space-y-2.5" style={{ background: 'var(--bg-card)' }}>
               {showAddPart && (
                 <div className="p-3 rounded-xl space-y-2" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
                   <div className="relative">
-                    <input className="input-field text-xs py-1.5" placeholder="Search inventory by name or SKU…"
+                    <input className="input-field text-xs py-2" placeholder="Search inventory…"
                       value={selProduct ? selProduct.name : partSearch}
                       onChange={e => { setPartSearch(e.target.value); setSelProduct(null) }} />
                     {filteredProducts.length > 0 && !selProduct && (
@@ -602,7 +606,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                   </div>
                   {selProduct && (
                     <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg" style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)' }}>
-                      <Package size={10} className="text-orange-500 flex-shrink-0" />
+                      <Package size={10} className="text-orange-500 shrink-0" />
                       <span className="text-xs flex-1 truncate font-medium text-orange-600">{selProduct.name}</span>
                       <button onClick={() => setSelProduct(null)} style={{ color: 'var(--text-muted)' }}><X size={10} /></button>
                     </div>
@@ -613,67 +617,60 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                       <input type="number" min={1} className="input-field text-xs py-1.5" value={partQty} onChange={e => setPartQty(Number(e.target.value))} />
                     </div>
                     <div>
-                      <label className="block text-[10px] mb-1 font-semibold" style={{ color: 'var(--text-muted)' }}>Unit Cost (optional)</label>
+                      <label className="block text-[10px] mb-1 font-semibold" style={{ color: 'var(--text-muted)' }}>Unit Cost</label>
                       <input type="number" min={0} className="input-field text-xs py-1.5"
                         placeholder={selProduct ? String(selProduct.buyingPrice ?? '') : ''} value={partCost} onChange={e => setPartCost(e.target.value)} />
                     </div>
                   </div>
                   <button onClick={handleAddPart} disabled={!selProduct || addingPart}
-                    className="w-full py-2 text-xs rounded-xl text-white font-bold flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all"
+                    className="w-full py-2 text-xs rounded-xl text-white font-bold flex items-center justify-center gap-1.5 disabled:opacity-50"
                     style={{ background: 'linear-gradient(135deg,#ea580c,#c2410c)' }}>
                     {addingPart ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}Add to Repair
                   </button>
                 </div>
               )}
-
               {repair.spareParts?.length > 0 ? (
-                <>
-                  <div className="space-y-1">
-                    {repair.spareParts.map((part: any) => (
-                      <div key={part.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors"
-                        style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-                        <div className="w-6 h-6 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0">
-                          <Package size={11} className="text-orange-500" />
-                        </div>
-                        <span className="text-xs font-semibold flex-1 truncate" style={{ color: 'var(--text-primary)' }}>{part.productName}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>×{part.quantity}</span>
-                        <span className="text-xs font-bold w-20 text-right" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(part.total)}</span>
-                        <button onClick={() => handleRemovePart(part.id)} disabled={removingId === part.id}
-                          className="p-1 rounded-lg transition-colors disabled:opacity-40 text-red-400 hover:text-red-600 hover:bg-red-500/10">
-                          {removingId === part.id ? <Loader2 size={10} className="animate-spin" /> : <X size={10} />}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex items-center justify-between px-3 py-2.5 rounded-xl font-bold text-xs"
-                    style={{ background: 'linear-gradient(135deg,rgba(249,115,22,0.08),rgba(249,115,22,0.04))', border: '1px solid rgba(249,115,22,0.2)' }}>
-                    <span className="text-orange-600">Total Parts Cost</span>
+                <div className="space-y-1.5">
+                  {repair.spareParts.map((part: any) => (
+                    <div key={part.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                      style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+                      <Package size={12} className="text-orange-400 shrink-0" />
+                      <span className="text-xs font-semibold flex-1 truncate" style={{ color: 'var(--text-primary)' }}>{part.productName}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-md font-bold" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>×{part.quantity}</span>
+                      <span className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(part.total)}</span>
+                      <button onClick={() => handleRemovePart(part.id)} disabled={removingId === part.id}
+                        className="p-1 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-500/10 transition-colors disabled:opacity-40">
+                        {removingId === part.id ? <Loader2 size={10} className="animate-spin" /> : <X size={10} />}
+                      </button>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold"
+                    style={{ background: 'rgba(249,115,22,0.07)', border: '1px solid rgba(249,115,22,0.18)' }}>
+                    <span className="text-orange-600">Total Parts</span>
                     <span className="text-orange-600">{formatCurrency(partsTotal)}</span>
                   </div>
-                </>
-              ) : (
-                !showAddPart && (
-                  <div className="text-center py-6">
-                    <Package size={24} className="mx-auto mb-2 opacity-20" style={{ color: 'var(--text-muted)' }} />
-                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>No spare parts added yet</p>
-                  </div>
-                )
+                </div>
+              ) : !showAddPart && (
+                <div className="text-center py-8">
+                  <Package size={26} className="mx-auto mb-2 opacity-15" style={{ color: 'var(--text-muted)' }} />
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>No spare parts added yet</p>
+                </div>
               )}
             </div>
           </div>
 
-          {/* ── Status History ── */}
+          {/* Status History */}
           {repair.statusHistory?.length > 0 && (
-            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
+            <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
               <div className="px-4 py-3 flex items-center gap-2" style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
                 <Clock size={12} className="text-blue-500" />
-                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Status History</span>
+                <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Timeline</span>
               </div>
               <div className="p-4 space-y-2" style={{ background: 'var(--bg-card)' }}>
                 {repair.statusHistory.map((h: any, i: number) => (
                   <div key={i} className="flex items-center gap-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-violet-500 flex-shrink-0" />
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${getRepairStatusColor(h.status)}`}>{statusLabels[h.status]}</span>
+                    <div className="w-1.5 h-1.5 rounded-full bg-violet-500 shrink-0" />
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${getRepairStatusColor(h.status)}`}>{statusLabels[h.status] ?? h.status}</span>
                     <span className="text-xs flex-1" style={{ color: 'var(--text-secondary)' }}>{h.changedBy}</span>
                     <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{formatDate(h.changedAt)}</span>
                   </div>
@@ -682,30 +679,11 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
             </div>
           )}
 
-          {/* ── Notes ── */}
-          {repair.notes?.length > 0 && (
-            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
-              <div className="px-4 py-3 flex items-center gap-2" style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
-                <MessageSquare size={12} className="text-blue-500" />
-                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Notes</span>
-              </div>
-              <div className="p-4 space-y-2" style={{ background: 'var(--bg-card)' }}>
-                {repair.notes.map((n: any) => (
-                  <div key={n.id} className="pb-2 last:pb-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                    <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{n.text}</p>
-                    <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>{n.authorName} · {formatDate(n.createdAt)}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ── Footer ── */}
-          <div className="flex items-center justify-between text-[11px] pt-1 pb-1" style={{ color: 'var(--text-muted)' }}>
+          {/* Footer */}
+          <div className="flex items-center justify-between text-[11px] pt-1" style={{ color: 'var(--text-muted)' }}>
             <span className="flex items-center gap-1.5"><Calendar size={11} />Created {formatDate(repair.createdAt)}</span>
             {repair.estimatedCompletion && <span className="flex items-center gap-1.5"><Calendar size={11} />Due {formatDate(repair.estimatedCompletion)}</span>}
           </div>
-
         </div>
       </div>
     </div>
