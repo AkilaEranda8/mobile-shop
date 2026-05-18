@@ -486,9 +486,15 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
       const wrapper = document.createElement('div')
       wrapper.style.cssText = `position:fixed;top:-9999px;left:-9999px;width:${A4_W_PX}px;overflow:visible;`
       const clone = quoteRef.current!.cloneNode(true) as HTMLElement
-      clone.style.cssText = `width:${A4_W_PX}px;max-width:${A4_W_PX}px;border-radius:0;`
+      clone.style.width        = `${A4_W_PX}px`
+      clone.style.maxWidth     = `${A4_W_PX}px`
+      clone.style.minWidth     = `${A4_W_PX}px`
+      clone.style.borderRadius = '0'
+      clone.style.boxShadow    = 'none'
+      clone.style.margin       = '0'
       wrapper.appendChild(clone)
       document.body.appendChild(wrapper)
+      await new Promise(r => setTimeout(r, 100))
       const canvas = await html2canvas(clone, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false, width: A4_W_PX, windowWidth: A4_W_PX })
       document.body.removeChild(wrapper)
       const imgData = canvas.toDataURL('image/jpeg', 0.95)
