@@ -33,5 +33,8 @@ router.post('/:id/parts', async (req: Request, res: Response, next: NextFunction
 router.delete('/:id/parts/:partId', async (req: Request, res: Response, next: NextFunction) => {
   try { sendSuccess(res, await repairsService.removeSparePart(req.tenantId!, req.params.id, req.params.partId), 'Part removed') } catch (e) { next(e) }
 })
+router.post('/:id/collect-payment', async (req: Request, res: Response, next: NextFunction) => {
+  try { sendSuccess(res, await repairsService.collectPayment(req.tenantId!, req.params.id, { ...req.body, cashierName: req.user?.email ?? 'System' }), 'Payment collected') } catch (e) { next(e) }
+})
 
 export default router

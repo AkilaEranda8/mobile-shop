@@ -339,6 +339,9 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
 }) {
   const [changingStatus, setChangingStatus] = useState(false)
   /* ── collect payment state ── */
+  const [showPayment, setShowPayment] = useState(false)
+  const [discount,    setDiscount]    = useState('')
+  const [payMethod,   setPayMethod]   = useState<'CASH'|'CARD'|'UPI'|'BANK_TRANSFER'>('CASH')
   const [collecting,  setCollecting]  = useState(false)
   /* ── spare parts state ── */
   const [showAddPart, setShowAddPart]       = useState(false)
@@ -395,16 +398,22 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
     setChangingStatus(false)
   }
 
+  const partsTotal   = repair.spareParts?.reduce((s: number, p: any) => s + p.total, 0) ?? 0
+  const subtotal     = (repair.estimatedCost ?? 0) + partsTotal
+  const discountAmt  = Number(discount) || 0
+  const finalAmount  = Math.max(0, subtotal - discountAmt)
+
   const handleCollectPayment = async () => {
     setCollecting(true)
     try {
-      await repairsApi.update(repair.id, { actualCost: repair.actualCost ?? repair.estimatedCost })
-      await onStatusChange(repair.id, 'DELIVERED')
+      await repairsApi.collectPayment(repair.id, { discount: discountAmt, paymentMethod: payMethod })
+      toast.success('Payment collected — sale recorded!')
+      setShowPayment(false)
+      onRefresh()
+      onClose()
     } catch { toast.error('Failed to collect payment') }
     finally { setCollecting(false) }
   }
-
-  const partsTotal = repair.spareParts?.reduce((s: number, p: any) => s + p.total, 0) ?? 0
 
   const STEP_ICONS = [Smartphone, Wrench, CheckCircle2]
 
@@ -479,27 +488,90 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
 
             {/* ── Action buttons ── */}
             {repair.status !== 'DELIVERED' && repair.status !== 'CANCELLED' && (
-              <div className="flex gap-2.5 mt-5">
-                {repair.status === 'READY' ? (
-                  <button onClick={handleCollectPayment} disabled={collecting || changingStatus}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-white transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg"
-                    style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)', boxShadow: '0 4px 20px rgba(22,163,74,0.45)', border: '1px solid rgba(134,239,172,0.25)' }}>
-                    {collecting ? <Loader2 size={15} className="animate-spin" /> : <DollarSign size={15} />}
-                    Collect Payment
+              <div className="mt-5 space-y-3">
+                <div className="flex gap-2.5">
+                  {repair.status === 'READY' ? (
+                    <button onClick={() => setShowPayment(v => !v)} disabled={collecting}
+                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-white transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg"
+                      style={{ background: showPayment ? 'rgba(255,255,255,0.12)' : 'linear-gradient(135deg,#16a34a,#15803d)', boxShadow: showPayment ? 'none' : '0 4px 20px rgba(22,163,74,0.45)', border: showPayment ? '1px solid rgba(255,255,255,0.22)' : '1px solid rgba(134,239,172,0.25)' }}>
+                      <DollarSign size={15} />
+                      {showPayment ? 'Hide Payment' : 'Collect Payment'}
+                    </button>
+                  ) : nextStatus ? (
+                    <button onClick={handleNext} disabled={changingStatus}
+                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-white transition-all active:scale-[0.98] disabled:opacity-50"
+                      style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.22)', backdropFilter: 'blur(8px)' }}>
+                      {changingStatus ? <Loader2 size={15} className="animate-spin" /> : <ArrowRight size={15} />}
+                      Move to {statusLabels[nextStatus]}
+                    </button>
+                  ) : null}
+                  <button onClick={handleCancel} disabled={changingStatus}
+                    className="px-5 py-3 rounded-2xl text-sm font-bold text-red-300 hover:text-red-200 transition-all disabled:opacity-50"
+                    style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)' }}>
+                    Cancel
                   </button>
-                ) : nextStatus ? (
-                  <button onClick={handleNext} disabled={changingStatus}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-white transition-all active:scale-[0.98] disabled:opacity-50"
-                    style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.22)', backdropFilter: 'blur(8px)' }}>
-                    {changingStatus ? <Loader2 size={15} className="animate-spin" /> : <ArrowRight size={15} />}
-                    Move to {statusLabels[nextStatus]}
-                  </button>
-                ) : null}
-                <button onClick={handleCancel} disabled={changingStatus}
-                  className="px-5 py-3 rounded-2xl text-sm font-bold text-red-300 hover:text-red-200 transition-all disabled:opacity-50"
-                  style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)' }}>
-                  Cancel
-                </button>
+                </div>
+
+                {/* ── Payment panel ── */}
+                {showPayment && repair.status === 'READY' && (
+                  <div className="rounded-2xl p-4 space-y-3" style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(134,239,172,0.2)' }}>
+                    {/* Breakdown */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-white/60">Service Fee</span>
+                        <span className="font-semibold text-white">{formatCurrency(repair.estimatedCost ?? 0)}</span>
+                      </div>
+                      {partsTotal > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-white/60">Spare Parts ({repair.spareParts?.length})</span>
+                          <span className="font-semibold text-white">{formatCurrency(partsTotal)}</span>
+                        </div>
+                      )}
+                      <div className="h-px my-1" style={{ background: 'rgba(255,255,255,0.1)' }} />
+                      <div className="flex justify-between text-sm">
+                        <span className="font-bold text-white">Subtotal</span>
+                        <span className="font-black text-white">{formatCurrency(subtotal)}</span>
+                      </div>
+                    </div>
+                    {/* Discount */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-white/50 mb-1.5">Discount Amount</label>
+                      <input type="number" min={0} max={subtotal} value={discount} onChange={e => setDiscount(e.target.value)}
+                        placeholder="0" className="w-full px-3 py-2 rounded-xl text-sm text-white font-semibold outline-none"
+                        style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }} />
+                    </div>
+                    {/* Final amount */}
+                    {discountAmt > 0 && (
+                      <div className="flex justify-between items-center px-3 py-2.5 rounded-xl" style={{ background: 'rgba(22,163,74,0.15)', border: '1px solid rgba(134,239,172,0.25)' }}>
+                        <span className="text-xs font-bold text-green-300">Final Amount</span>
+                        <span className="text-lg font-black text-green-300">{formatCurrency(finalAmount)}</span>
+                      </div>
+                    )}
+                    {/* Payment method */}
+                    <div>
+                      <p className="text-[11px] font-bold text-white/50 mb-1.5">Payment Method</p>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {(['CASH','CARD','UPI','BANK_TRANSFER'] as const).map(m => (
+                          <button key={m} type="button" onClick={() => setPayMethod(m)}
+                            className={`py-2 rounded-xl text-[11px] font-bold transition-all border ${
+                              payMethod === m
+                                ? 'bg-green-500/20 border-green-400/40 text-green-300'
+                                : 'bg-white/5 border-white/10 text-white/40 hover:text-white'
+                            }`}>
+                            {m === 'BANK_TRANSFER' ? 'Bank' : m === 'UPI' ? 'UPI' : m.charAt(0)+m.slice(1).toLowerCase()}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Confirm button */}
+                    <button onClick={handleCollectPayment} disabled={collecting}
+                      className="w-full py-3 rounded-2xl text-sm font-black text-white flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-60"
+                      style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)', boxShadow: '0 4px 16px rgba(22,163,74,0.4)' }}>
+                      {collecting ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle size={15} />}
+                      {collecting ? 'Processing…' : `Confirm & Collect ${formatCurrency(finalAmount)}`}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -552,17 +624,27 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
           <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
             <div className="grid grid-cols-3 divide-x" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="p-4 text-center space-y-1">
-                <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Estimated</p>
+                <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Service Fee</p>
                 <p className="text-base font-black text-emerald-600">{repair.estimatedCost ? formatCurrency(repair.estimatedCost) : '—'}</p>
               </div>
               <div className="p-4 text-center space-y-1">
-                <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Actual</p>
-                <p className="text-base font-black text-violet-600">{repair.actualCost ? formatCurrency(repair.actualCost) : '—'}</p>
+                <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Parts Cost</p>
+                <p className="text-base font-black text-orange-500">{partsTotal > 0 ? formatCurrency(partsTotal) : '—'}</p>
               </div>
               <div className="p-4 text-center space-y-1">
                 <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Technician</p>
                 <p className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{repair.technicianName || '—'}</p>
               </div>
+            </div>
+            {/* Grand total row */}
+            <div className="flex items-center justify-between px-5 py-3" style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Total Amount</span>
+                {repair.actualCost != null && repair.actualCost !== subtotal && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-violet-500/10 text-violet-600 border border-violet-500/20">Paid: {formatCurrency(repair.actualCost)}</span>
+                )}
+              </div>
+              <p className="text-xl font-black" style={{ color: 'var(--text-primary)' }}>{formatCurrency(subtotal)}</p>
             </div>
           </div>
 

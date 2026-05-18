@@ -165,6 +165,8 @@ export const repairsApi = {
     api.post(`/repairs/${id}/parts`, body),
   removePart: (id: string, partId: string) =>
     api.delete(`/repairs/${id}/parts/${partId}`),
+  collectPayment: (id: string, body: { discount?: number; paymentMethod: string }) =>
+    api.post(`/repairs/${id}/collect-payment`, body),
 }
 
 export const warrantyApi = {

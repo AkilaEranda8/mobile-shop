@@ -1,7 +1,7 @@
 import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import { getPagination } from '../../utils/pagination'
-import { generateTicketNumber } from '../../utils/counters'
+import { generateTicketNumber, generateInvoiceNumber } from '../../utils/counters'
 import { Request } from 'express'
 
 export const repairsService = {
@@ -109,5 +109,47 @@ export const repairsService = {
     if (!r) throw new AppError('Repair ticket not found', 404)
     await prisma.repairSparePart.deleteMany({ where: { id: partId, repairId } })
     return prisma.repairTicket.findUnique({ where: { id: repairId }, include: { notes: true, spareParts: true, history: true } })
+  },
+
+  async collectPayment(tenantId: string, id: string, body: { discount?: number; paymentMethod: string; cashierName?: string }) {
+    const r = await prisma.repairTicket.findFirst({ where: { id, tenantId }, include: { spareParts: true } })
+    if (!r) throw new AppError('Repair ticket not found', 404)
+
+    const partsTotal  = r.spareParts.reduce((s: number, p: any) => s + p.total, 0)
+    const subtotal    = (r.estimatedCost || 0) + partsTotal
+    const discount    = Number(body.discount)    || 0
+    const finalAmount = Math.max(0, subtotal - discount)
+    const cashierName = body.cashierName || 'System'
+    const invoiceNumber = await generateInvoiceNumber(tenantId)
+
+    await prisma.$transaction(async (tx: any) => {
+      await tx.repairTicket.update({
+        where: { id },
+        data: { actualCost: finalAmount, status: 'DELIVERED', completedAt: new Date() },
+      })
+      await tx.repairStatusHistory.create({
+        data: { repairId: id, status: 'DELIVERED', changedBy: cashierName, note: 'Payment collected' },
+      })
+      const saleItems: any[] = []
+      if (r.estimatedCost > 0) {
+        saleItems.push({ productName: `Repair Service – ${r.deviceBrand} ${r.deviceModel}`, sku: r.ticketNumber, quantity: 1, unitPrice: r.estimatedCost, discount: 0, total: r.estimatedCost })
+      }
+      for (const p of r.spareParts) {
+        saleItems.push({ productId: p.productId, productName: p.productName, sku: '', quantity: p.quantity, unitPrice: p.unitCost, discount: 0, total: p.total })
+      }
+      await tx.sale.create({
+        data: {
+          tenantId, branchId: r.branchId, invoiceNumber,
+          customerId: r.customerId, customerName: r.customerName, customerPhone: r.customerPhone,
+          subtotal, discount, tax: 0, total: finalAmount,
+          paidAmount: finalAmount, dueAmount: 0,
+          status: 'PAID', cashierName, source: 'REPAIR',
+          notes: `Repair ticket: ${r.ticketNumber}`,
+          items:    { create: saleItems },
+          payments: { create: [{ method: body.paymentMethod as any, amount: finalAmount }] },
+        },
+      })
+    })
+    return prisma.repairTicket.findUnique({ where: { id }, include: { notes: true, spareParts: true, history: true } })
   },
 }
