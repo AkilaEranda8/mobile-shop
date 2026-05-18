@@ -62,8 +62,12 @@ router.post('/purchase-orders', authorize('OWNER', 'MANAGER'), async (req: Reque
     const { supplierId, supplierName, subtotal, tax, total, paidAmount, dueAmount, expectedDelivery, notes, status, items } = req.body
     const poNumber = await generatePONumber(req.tenantId!)
     const userBranch = await prisma.userBranch.findFirst({ where: { userId: req.user!.userId } })
-    const branchId = userBranch?.branchId
-    if (!branchId) throw new Error('No branch assigned to this user — contact admin')
+    let branchId = userBranch?.branchId
+    if (!branchId) {
+      const firstBranch = await prisma.branch.findFirst({ where: { tenantId: req.tenantId! } })
+      branchId = firstBranch?.id
+    }
+    if (!branchId) throw new Error('No branch found for this tenant — contact admin')
     const po = await prisma.purchaseOrder.create({
       data: {
         tenantId: req.tenantId!,
@@ -125,40 +129,53 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
       : false
 
     if (newStatus === 'RECEIVED' && !alreadyRestocked) {
-      // Resolve productId for items where it wasn't linked at PO creation time
-      const resolvedItems = await Promise.all(
-        po.items.map(async (item: any) => {
-          if (item.productId) return item
-          // Fallback: look up by productName within the same tenant
-          const product = await prisma.product.findFirst({
-            where: { tenantId: req.tenantId!, name: { equals: item.productName, mode: 'insensitive' }, isActive: true },
+      try {
+        // Resolve productId for items where it wasn't linked at PO creation time
+        const resolvedItems = await Promise.all(
+          po.items.map(async (item: any) => {
+            let productId = item.productId
+            let branchId  = (item as any).branchId ?? po.branchId
+            if (!productId && item.productName) {
+              const p = await prisma.product.findFirst({
+                where: { tenantId: req.tenantId!, name: { equals: item.productName, mode: 'insensitive' }, isActive: true },
+              })
+              if (p) { productId = p.id; branchId = p.branchId ?? po.branchId }
+            }
+            if (!productId) return null
+            // Ensure branchId is resolved — fall back to first branch of tenant
+            if (!branchId) {
+              const branch = await prisma.branch.findFirst({ where: { tenantId: req.tenantId! } })
+              branchId = branch?.id
+            }
+            return branchId ? { ...item, productId, branchId } : null
           })
-          return product ? { ...item, productId: product.id, branchId: product.branchId } : null
-        })
-      )
-      const itemsWithProduct = resolvedItems.filter(Boolean) as any[]
-
-      if (itemsWithProduct.length > 0) {
-        await Promise.all(
-          itemsWithProduct.map((item: any) =>
-            prisma.product.update({
-              where: { id: item.productId },
-              data: { stock: { increment: item.quantity } },
-            })
-          )
         )
+        const itemsWithProduct = resolvedItems.filter(Boolean) as any[]
 
-        await prisma.stockMovement.createMany({
-          data: itemsWithProduct.map((item: any) => ({
-            productId:   item.productId,
-            branchId:    item.branchId ?? po.branchId,
-            type:        'PURCHASE' as const,
-            quantity:    item.quantity,
-            reference:   po.poNumber,
-            note:        `Received via PO ${po.poNumber}`,
-            performedBy: req.user?.userId ?? 'system',
-          })),
-        })
+        if (itemsWithProduct.length > 0) {
+          await Promise.all(
+            itemsWithProduct.map((item: any) =>
+              prisma.product.update({
+                where: { id: item.productId },
+                data: { stock: { increment: item.quantity } },
+              })
+            )
+          )
+          await prisma.stockMovement.createMany({
+            data: itemsWithProduct.map((item: any) => ({
+              productId:   item.productId,
+              branchId:    item.branchId,
+              type:        'PURCHASE' as const,
+              quantity:    item.quantity,
+              reference:   po.poNumber,
+              note:        `Received via PO ${po.poNumber}`,
+              performedBy: req.user?.userId ?? 'system',
+            })),
+          })
+        }
+      } catch (stockErr) {
+        // Stock update failed — log but don't block the PO status update
+        console.error('[PO receive] stock update failed:', stockErr)
       }
     }
 
