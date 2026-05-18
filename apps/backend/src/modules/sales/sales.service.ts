@@ -12,7 +12,7 @@ export const salesService = {
     const status = req.query.status as string | undefined
     const where: any = { tenantId, ...(branchId && { branchId }), ...(status && { status }), ...(search && { OR: [{ invoiceNumber: { contains: search, mode: 'insensitive' } }, { customerName: { contains: search, mode: 'insensitive' } }, { customerPhone: { contains: search } }] }) }
     const [data, total] = await Promise.all([
-      prisma.sale.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { items: true, payments: true, _count: { select: { returns: true } } } }),
+      prisma.sale.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { items: true, payments: true } }),
       prisma.sale.count({ where }),
     ])
     return { data, total, page, limit }
@@ -51,6 +51,10 @@ export const salesService = {
         include: { items: true, payments: true },
       })
       for (const item of body.items) {
+        const product = await tx.product.findUnique({ where: { id: item.productId }, select: { stock: true, name: true } })
+        if (product && product.stock < item.quantity) {
+          throw new AppError(`Insufficient stock for "${product.name}". Available: ${product.stock}, Requested: ${item.quantity}`, 400)
+        }
         await tx.product.update({ where: { id: item.productId }, data: { stock: { decrement: item.quantity } } })
         await tx.stockMovement.create({ data: { productId: item.productId, branchId: body.branchId, type: 'SALE', quantity: -item.quantity, reference: invoiceNumber, performedBy: cashierName } })
         if (item.imei) await tx.imeiRecord.updateMany({ where: { imei: item.imei }, data: { status: 'SOLD', customerId: body.customerId, saleId: s.id } })

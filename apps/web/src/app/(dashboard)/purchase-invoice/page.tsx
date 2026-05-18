@@ -9,16 +9,18 @@ import {
 } from 'lucide-react'
 import { suppliersApi } from '@/lib/api'
 import { formatDate } from '@/lib/utils'
+import { getInvoiceSettings } from '@/lib/invoiceSettings'
+import { authStorage } from '@/lib/auth'
 
-/* ─── Static company info ───────────────────────────────────────────── */
-const COMPANY = {
-  name:    'HEXALYTE MOBILE',
-  tagline: 'Premium Mobile Solutions',
-  address: '42/B, Galle Road, Colombo 03, Sri Lanka',
-  phone:   '+94 77 123 4567',
-  email:   'info@hexalyte.com',
-  website: 'www.hexalyte.com',
-  vat:     'VAT-LK-20240312',
+/* ─── Static fallback company info ─────────────────────────────────── */
+const COMPANY_DEFAULTS = {
+  name:    'Our Shop',
+  tagline: '',
+  address: '',
+  phone:   '',
+  email:   '',
+  website: '',
+  vat:     '',
 }
 
 /* ─── Helpers ───────────────────────────────────────────────────────── */
@@ -91,7 +93,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 /* ─── Action buttons ────────────────────────────────────────────────── */
-function ActionBar({ onDownload, onPrint, downloading }: { onDownload: () => void; onPrint: () => void; downloading: boolean }) {
+function ActionBar({ onDownload, onPrint, onWhatsApp, onEmail, downloading }: { onDownload: () => void; onPrint: () => void; onWhatsApp: () => void; onEmail: () => void; downloading: boolean }) {
   return (
     <div className="flex flex-wrap gap-3 justify-end mb-6 print:hidden">
       <button
@@ -105,10 +107,10 @@ function ActionBar({ onDownload, onPrint, downloading }: { onDownload: () => voi
       <button onClick={onPrint} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#1a2540] hover:bg-[#1f2d4f] text-slate-200 border border-white/10 transition-all">
         <Printer size={15} />Print
       </button>
-      <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-all">
+      <button onClick={onWhatsApp} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-all">
         <Share2 size={15} />WhatsApp
       </button>
-      <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#1a2540] hover:bg-[#1f2d4f] text-slate-200 border border-white/10 transition-all">
+      <button onClick={onEmail} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#1a2540] hover:bg-[#1f2d4f] text-slate-200 border border-white/10 transition-all">
         <Mail size={15} />Send Email
       </button>
     </div>
@@ -120,6 +122,18 @@ function InvoiceContent() {
   const router       = useRouter()
   const searchParams = useSearchParams()
   const poId         = searchParams.get('id')
+
+  const invSettings = getInvoiceSettings()
+  const currentUser = authStorage.getUser()
+  const COMPANY = {
+    name:    invSettings.shopName    || COMPANY_DEFAULTS.name,
+    tagline: invSettings.slogan      || COMPANY_DEFAULTS.tagline,
+    address: invSettings.address     || COMPANY_DEFAULTS.address,
+    phone:   invSettings.phone       || COMPANY_DEFAULTS.phone,
+    email:   invSettings.email       || COMPANY_DEFAULTS.email,
+    website: invSettings.website     || COMPANY_DEFAULTS.website,
+    vat:     '',
+  }
 
   const [po, setPo]           = useState<any>(null)
   const [loading, setLoading] = useState(!!poId)
@@ -206,6 +220,17 @@ function InvoiceContent() {
     }
   }
 
+  const handleWhatsApp = () => {
+    const msg = encodeURIComponent(`Purchase Invoice ${po?.poNumber ?? ''} — Total: LKR ${grandTotal.toLocaleString()}\nSupplier: ${po?.supplierName ?? ''}\nDate: ${INVOICE.date}`)
+    window.open(`https://wa.me/?text=${msg}`, '_blank')
+  }
+
+  const handleEmail = () => {
+    const subject = encodeURIComponent(`Purchase Invoice ${po?.poNumber ?? ''}`)
+    const body    = encodeURIComponent(`Dear ${po?.supplierName ?? 'Supplier'},\n\nPlease find the purchase invoice details below.\n\nPO Number: ${po?.poNumber ?? ''}\nTotal: LKR ${grandTotal.toLocaleString()}\nDate: ${INVOICE.date}\n\nRegards,\n${COMPANY.name}`)
+    window.open(`mailto:?subject=${subject}&body=${body}`, '_blank')
+  }
+
   const handlePrint = () => window.print()
 
   if (loading) return (
@@ -231,7 +256,7 @@ function InvoiceContent() {
     poNumber:      po.poNumber,
     warehouse:     'Main Warehouse',
     paymentMethod: 'Bank Transfer',
-    createdBy:     'Akila Eranda',
+    createdBy:     currentUser?.name || 'Staff',
   } : {
     number: 'PI-DEMO-001', date: '11 May 2026', dueDate: '25 May 2026',
     status: 'DRAFT' as const, poNumber: 'PO-DEMO-001',
@@ -257,7 +282,7 @@ function InvoiceContent() {
     <div className="min-h-screen bg-[#060d1a] py-8 px-4 sm:px-8 print:bg-white print:p-0">
 
       {/* Action bar */}
-      <ActionBar onDownload={handleDownload} onPrint={handlePrint} downloading={downloading} />
+      <ActionBar onDownload={handleDownload} onPrint={handlePrint} onWhatsApp={handleWhatsApp} onEmail={handleEmail} downloading={downloading} />
 
       {/* Invoice Card */}
       <div
@@ -287,7 +312,7 @@ function InvoiceContent() {
               <div>
                 <h1 className="text-xl font-black text-white tracking-wide">{COMPANY.name}</h1>
                 <p className="text-xs text-orange-400 font-medium mt-0.5">{COMPANY.tagline}</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">VAT: {COMPANY.vat}</p>
+                {COMPANY.vat && <p className="text-[11px] text-slate-500 mt-0.5">VAT: {COMPANY.vat}</p>}
               </div>
             </div>
 
@@ -561,9 +586,9 @@ function InvoiceContent() {
             <div className="bg-[#0d1a2d]/60 rounded-2xl p-5 border border-white/5">
               <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-6">Authorized Signature</p>
               <div className="border-b border-dashed border-white/10 pb-2 mb-2 w-48">
-                <p className="text-base font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-300 font-serif italic">Akila Eranda</p>
+                <p className="text-base font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-300 font-serif italic">{invSettings.signatoryName || currentUser?.name || 'Authorized'}</p>
               </div>
-              <p className="text-xs text-slate-500">Owner, Hexalyte Mobile</p>
+              <p className="text-xs text-slate-500">{invSettings.signatoryTitle || 'Authorized Signatory'}, {COMPANY.name}</p>
               <p className="text-[10px] text-slate-600 mt-1">{INVOICE.date}</p>
             </div>
 

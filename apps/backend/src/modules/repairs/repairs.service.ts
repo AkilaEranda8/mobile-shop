@@ -149,6 +149,22 @@ export const repairsService = {
           payments: { create: [{ method: body.paymentMethod as any, amount: finalAmount }] },
         },
       })
+      for (const p of r.spareParts) {
+        if (p.productId) {
+          await tx.product.update({ where: { id: p.productId }, data: { stock: { decrement: p.quantity } } })
+          await tx.stockMovement.create({
+            data: {
+              productId:   p.productId,
+              branchId:    r.branchId,
+              type:        'SALE',
+              quantity:    -p.quantity,
+              reference:   r.ticketNumber,
+              note:        `Spare part used in repair ${r.ticketNumber}`,
+              performedBy: cashierName,
+            },
+          })
+        }
+      }
     })
     return prisma.repairTicket.findUnique({ where: { id }, include: { notes: true, spareParts: true, history: true } })
   },
