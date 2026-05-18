@@ -45,13 +45,31 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
   // ── ticket form state ──
   const [form, setForm] = useState({
     deviceBrand: '', deviceModel: '', imei: '',
-    reportedIssue: '', priority: 'NORMAL', estimatedCost: '',
+    priority: 'NORMAL', estimatedCost: '',
     technicianId: '', technicianName: '',
     source: 'WALK_IN',
   })
   const [accessories, setAccessories] = useState<string[]>([])
   const [accOpen, setAccOpen] = useState(false)
   const [sourceOpen, setSourceOpen] = useState(false)
+  const [issueOpen, setIssueOpen] = useState(false)
+  const [issueQuery, setIssueQuery] = useState('')
+  const [selectedIssues, setSelectedIssues] = useState<string[]>([])
+  const FAULT_OPTIONS = [
+    'DISPLAY CHANGE','DISPLAY FIXING ONLY','PIN REPLACEMENT','BATTERY SHORT FIX',
+    'KEYBOARD ISSUE','TOUCH CHANGE','REPAIR SERVICE','CAMERA GLASS CHANGE',
+    'TEMPERED GLASS','GREEN SCREEN','HOUSING REPLACEMENT','ON OFF FLEX',
+    'NO SERVICE','PHONE FIXING','FRP','BACK GLASS','UNLOCKING','MAIN FLEX',
+    'AUDIO IC','GLUE FIX','SOFTWARE','WATER DAMAGE','BOARD REPAIR','BATTERY CHANGE',
+    'FLEX BONDING','MIC REPLACEMENT','MICRO CHARGING PIN REPLACEMENT','FINGER',
+    'RINGER','ANTENNA CABLE','WHITE SCREEN',
+  ]
+  const filteredFaults = issueQuery.trim()
+    ? FAULT_OPTIONS.filter(o => o.toLowerCase().includes(issueQuery.toLowerCase()))
+    : FAULT_OPTIONS
+  const toggleIssue = (v: string) => setSelectedIssues(p =>
+    p.includes(v) ? p.filter(x => x !== v) : [...p, v]
+  )
   const ACCESSORY_OPTIONS = ['Phone Only','Charger','Box','SIM','Memory Card','Back Cover','Battery','Stylus','Earphones'] as const
   const toggleAccessory = (a: string) => setAccessories(prev =>
     prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]
@@ -170,6 +188,7 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
         customerName:  selectedCustomer?.name  ?? newCust.name,
         customerPhone: selectedCustomer?.phone ?? newCust.phone,
         estimatedCost: form.estimatedCost ? Number(form.estimatedCost) : undefined,
+        reportedIssue: selectedIssues.join(', '),
         accessories:   accessories.length > 0 ? accessories.join(', ') : undefined,
         branchId: user?.branchIds?.[0],
         createdBy: user?.name || 'Staff',
@@ -439,9 +458,53 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
               <label className="block text-xs text-slate-400 mb-1.5">IMEI</label>
               <input className="input-field font-mono" placeholder="Enter 15-digit IMEI (optional)" maxLength={17} value={form.imei} onChange={f('imei')} />
             </div>
-            <div className="col-span-2">
-              <label className="block text-xs text-slate-400 mb-1.5">Reported Issue *</label>
-              <textarea required className="input-field min-h-[72px] resize-none" placeholder="Screen cracked, touch not working..." value={form.reportedIssue} onChange={f('reportedIssue')} />
+            <div className="col-span-2 relative">
+              <label className="block text-xs text-slate-400 mb-1.5">Fault / Issue *</label>
+              <button type="button" onClick={() => setIssueOpen(o => !o)}
+                className="input-field w-full flex items-center justify-between text-left"
+                style={{ minHeight: 38 }}>
+                <span className={selectedIssues.length === 0 ? 'text-slate-500 text-sm truncate pr-2' : 'text-sm truncate pr-2'}
+                  style={{ color: selectedIssues.length === 0 ? undefined : 'var(--text-primary)' }}>
+                  {selectedIssues.length === 0 ? 'Select fault / issue…' : selectedIssues.join(', ')}
+                </span>
+                <ChevronDown size={14} className={`text-slate-400 shrink-0 transition-transform ${issueOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {issueOpen && (
+                <div className="absolute z-30 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden"
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                  <div className="p-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <input autoFocus className="input-field text-sm py-1.5" placeholder="Search faults…"
+                      value={issueQuery}
+                      onChange={e => setIssueQuery(e.target.value)}
+                      onMouseDown={e => e.stopPropagation()} />
+                  </div>
+                  <div className="overflow-y-auto" style={{ maxHeight: 220 }}>
+                    {filteredFaults.map(fault => (
+                      <button key={fault} type="button"
+                        onMouseDown={e => { e.preventDefault(); toggleIssue(fault) }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-violet-500/10 transition-colors text-left"
+                        style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                        <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${
+                          selectedIssues.includes(fault) ? 'bg-violet-500 border-violet-500' : 'border-slate-600'
+                        }`}>
+                          {selectedIssues.includes(fault) && <Check size={10} className="text-white" />}
+                        </div>
+                        <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{fault}</span>
+                      </button>
+                    ))}
+                    {filteredFaults.length === 0 && (
+                      <p className="px-4 py-3 text-xs text-slate-500">No faults found</p>
+                    )}
+                  </div>
+                  {selectedIssues.length > 0 && (
+                    <button type="button" onMouseDown={e => { e.preventDefault(); setSelectedIssues([]) }}
+                      className="w-full px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-colors text-left border-t"
+                      style={{ borderColor: 'var(--border-subtle)' }}>
+                      Clear all
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
             <div className="col-span-2 relative">
               <label className="block text-xs text-slate-400 mb-1.5">Customer Source</label>
