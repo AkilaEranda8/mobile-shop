@@ -12,7 +12,7 @@ import { DataTableColumnHeader } from '@/components/table/data-table-column-head
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency, formatDate, getRepairStatusColor } from '@/lib/utils'
 import { useRepairs, useProducts } from '@/lib/hooks'
-import { repairsApi, customersApi, deviceCatalogApi } from '@/lib/api'
+import { repairsApi, customersApi, deviceCatalogApi, usersApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import type { Customer } from '@/types'
 import toast from 'react-hot-toast'
@@ -43,13 +43,35 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
   // ── ticket form state ──
   const [form, setForm] = useState({
     deviceBrand: '', deviceModel: '', deviceColor: '', imei: '',
-    reportedIssue: '', priority: 'NORMAL', estimatedCost: '', technicianName: '',
+    reportedIssue: '', priority: 'NORMAL', estimatedCost: '',
+    technicianId: '', technicianName: '',
     source: 'WALK_IN',
   })
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(p => ({ ...p, [k]: e.target.value }))
+
+  // ── technician staff state ──
+  const [technicians, setTechnicians] = useState<any[]>([])
+  const [techOpen, setTechOpen]       = useState(false)
+  const [techQuery, setTechQuery]     = useState('')
+
+  useEffect(() => {
+    usersApi.list({ role: 'TECHNICIAN', limit: '100' }).then((res: any) => {
+      const list = res.data?.data ?? res.data ?? res ?? []
+      setTechnicians(list)
+    }).catch(() => {})
+  }, [])
+
+  const filteredTechs = techQuery.trim().length > 0
+    ? technicians.filter(t => t.name.toLowerCase().includes(techQuery.toLowerCase()))
+    : technicians
+
+  const selectTech = (t: any) => {
+    setForm(p => ({ ...p, technicianId: t.id, technicianName: t.name }))
+    setTechQuery(t.name); setTechOpen(false)
+  }
 
   // ── device catalog state ──
   const [brands, setBrands]       = useState<any[]>([])
@@ -330,9 +352,44 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
               <label className="block text-xs text-slate-400 mb-1.5">Color</label>
               <input className="input-field" placeholder="Space Black" value={form.deviceColor} onChange={f('deviceColor')} />
             </div>
-            <div>
+            {/* Technician dropdown */}
+            <div className="relative">
               <label className="block text-xs text-slate-400 mb-1.5">Technician</label>
-              <input className="input-field" placeholder="Assign technician" value={form.technicianName} onChange={f('technicianName')} />
+              <div className="relative">
+                <Wrench size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                <input className="input-field pl-8"
+                  placeholder={technicians.length === 0 ? 'No technicians found' : 'Select technician…'}
+                  value={techQuery}
+                  onChange={e => { setTechQuery(e.target.value); setForm(p => ({ ...p, technicianId: '', technicianName: e.target.value })); setTechOpen(true) }}
+                  onFocus={() => setTechOpen(true)}
+                  onBlur={() => setTimeout(() => setTechOpen(false), 150)}
+                />
+                {techQuery && (
+                  <button type="button" onClick={() => { setTechQuery(''); setForm(p => ({ ...p, technicianId: '', technicianName: '' })) }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
+                    <X size={11} />
+                  </button>
+                )}
+              </div>
+              {techOpen && filteredTechs.length > 0 && (
+                <div className="absolute z-30 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden"
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                  {filteredTechs.map((t: any) => (
+                    <button key={t.id} type="button" onMouseDown={() => selectTech(t)}
+                      className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 hover:bg-violet-500/10 transition-colors"
+                      style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                      <div className="w-7 h-7 rounded-full bg-violet-500/20 flex items-center justify-center text-[11px] font-bold text-violet-300 shrink-0">
+                        {t.name?.charAt(0)?.toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{t.name}</p>
+                        <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{t.email}</p>
+                      </div>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-md font-bold bg-violet-500/10 text-violet-400 border border-violet-500/20">TECH</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="col-span-2">
               <label className="block text-xs text-slate-400 mb-1.5">IMEI</label>

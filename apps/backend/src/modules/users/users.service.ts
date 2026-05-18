@@ -8,9 +8,14 @@ import { createOrGetGroup, createKcUser, updateKcUser, deleteKcUser } from '../.
 export const usersService = {
   async list(tenantId: string, req: Request) {
     const { skip, limit, page, search } = getPagination(req)
-    const where = { tenantId, ...(search ? { OR: [{ name: { contains: search, mode: 'insensitive' as const } }, { email: { contains: search, mode: 'insensitive' as const } }] } : {}) }
+    const role = req.query.role as string | undefined
+    const where: any = {
+      tenantId,
+      ...(role ? { role: role as any } : {}),
+      ...(search ? { OR: [{ name: { contains: search, mode: 'insensitive' as const } }, { email: { contains: search, mode: 'insensitive' as const } }] } : {}),
+    }
     const [data, total] = await Promise.all([
-      prisma.user.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { branches: { select: { branchId: true } } } }),
+      prisma.user.findMany({ where, skip, take: limit, orderBy: { name: 'asc' }, include: { branches: { select: { branchId: true } } } }),
       prisma.user.count({ where }),
     ])
     return { data, total, page, limit }
