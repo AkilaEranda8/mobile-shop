@@ -59,7 +59,7 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
           fontFamily: "'Courier New', Courier, monospace",
           fontSize: '12px',
           lineHeight: '1.5',
-          width: '302px',
+          width: settings.thermalWidthPOS === '58mm' ? '216px' : '302px',
           padding: '8px 4px',
           background: '#fff',
           color: '#000',
@@ -199,6 +199,9 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
     </tr>
   `).join('')
 
+  const paperWidth = settings.thermalWidthPOS || '58mm'
+  const bodyWidth   = paperWidth === '58mm' ? '216px' : '302px'
+
   const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -209,7 +212,7 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
     body {
       font-family: 'Courier New', Courier, monospace;
       font-size: 12px;
-      width: 302px;
+      width: ${bodyWidth};
       margin: 0 auto;
       padding: 8px 4px;
       background: #fff;
@@ -225,7 +228,7 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
     td      { font-size: 11px; vertical-align: top; }
     .row    { display: flex; justify-content: space-between; }
     @media print {
-      @page { margin: 0; size: 80mm auto; }
+      @page { margin: 0; size: ${settings.thermalWidthPOS || '58mm'} auto; }
       body  { width: 100%; }
     }
   </style>

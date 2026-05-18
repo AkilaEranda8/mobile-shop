@@ -16,10 +16,12 @@ export interface InvoiceSettings {
   taxRate:        number
   discountRate:   number
   terms:          string[]
-  signatoryName:  string
-  signatoryTitle: string
-  footerNote:     string
-  bankDetails:    string
+  signatoryName:    string
+  signatoryTitle:   string
+  footerNote:       string
+  bankDetails:      string
+  thermalWidthPOS:    '58mm' | '80mm'
+  thermalWidthRepair: '58mm' | '80mm'
 }
 
 export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
@@ -42,10 +44,12 @@ export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
     'All sales are final unless otherwise agreed.',
     'Thank you for your business!',
   ],
-  signatoryName:  '',
-  signatoryTitle: 'Authorized Signatory',
-  footerNote:     'Thank you for your business!',
-  bankDetails:    '',
+  signatoryName:     '',
+  signatoryTitle:    'Authorized Signatory',
+  footerNote:        'Thank you for your business!',
+  bankDetails:       '',
+  thermalWidthPOS:    '58mm',
+  thermalWidthRepair: '80mm',
 }
 
 export function getInvoiceSettings(): InvoiceSettings {

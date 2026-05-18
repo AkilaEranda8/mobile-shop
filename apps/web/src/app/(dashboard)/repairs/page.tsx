@@ -22,6 +22,8 @@ import type { RepairTicket } from '@/types'
 
 /* ── Thermal Receipt Printer ─────────────────────────────────────── */
 function printRepairReceipt(repair: RepairTicket, settings: InvoiceSettings) {
+  const paperWidth = settings.thermalWidthRepair || '80mm'
+  const bodyWidth  = paperWidth === '58mm' ? '216px' : '302px'
   const fmt = (n: number) => `LKR ${n.toLocaleString('en-LK', { minimumFractionDigits: 2 })}`
   const partsTotal = repair.spareParts?.reduce((s: any, p: any) => s + p.total, 0) ?? 0
   const subtotal = (repair.estimatedCost ?? 0) + partsTotal
@@ -30,9 +32,9 @@ function printRepairReceipt(repair: RepairTicket, settings: InvoiceSettings) {
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/>
 <title>Repair Receipt</title>
 <style>
-  @page { size: 80mm auto; margin: 4mm 3mm; }
+  @page { size: ${paperWidth} auto; margin: 4mm 3mm; }
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: 'Courier New', monospace; font-size: 11px; color:#000; width:74mm; }
+  body { font-family: 'Courier New', monospace; font-size: 11px; color:#000; width:${bodyWidth}; }
   .center { text-align:center; }
   .bold { font-weight:bold; }
   .big { font-size:14px; font-weight:bold; }

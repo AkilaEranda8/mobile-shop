@@ -460,6 +460,40 @@ export default function SettingsPage() {
                 </div>
               </div>
 
+              {/* ── Thermal Print Settings ── */}
+              <div className="rounded-xl p-4 space-y-4" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+                <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Thermal Printer Paper Size</h3>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {/* POS */}
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-2">POS Sales Receipt</label>
+                    <div className="flex gap-2">
+                      {(['58mm', '80mm'] as const).map(w => (
+                        <button key={w} onClick={() => setInv({ thermalWidthPOS: w })}
+                          className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${invoiceForm.thermalWidthPOS === w ? 'bg-violet-600 border-violet-500 text-white' : 'bg-white/5 border-white/10 text-slate-400 hover:border-violet-500/40'}`}>
+                          {w}
+                          <span className="block text-[10px] font-normal opacity-70">{w === '58mm' ? '~32 chars/line' : '~48 chars/line'}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Repair */}
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-2">Repair Job Receipt</label>
+                    <div className="flex gap-2">
+                      {(['58mm', '80mm'] as const).map(w => (
+                        <button key={w} onClick={() => setInv({ thermalWidthRepair: w })}
+                          className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${invoiceForm.thermalWidthRepair === w ? 'bg-violet-600 border-violet-500 text-white' : 'bg-white/5 border-white/10 text-slate-400 hover:border-violet-500/40'}`}>
+                          {w}
+                          <span className="block text-[10px] font-normal opacity-70">{w === '58mm' ? '~32 chars/line' : '~48 chars/line'}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-500">Full Invoice &amp; Reports always use <strong className="text-slate-400">A4 PDF</strong></p>
+              </div>
+
               {/* Save button bottom */}
               <div className="flex justify-end">
                 <button onClick={saveInvoice} disabled={invoiceSaving || invoiceLoading} className="btn-primary flex items-center gap-2 disabled:opacity-60">
