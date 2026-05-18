@@ -6,6 +6,16 @@ const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts')
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
+  async headers() {
+    return [
+      {
+        source: '/((?!_next/static|_next/image|favicon.ico).*)',
+        headers: [
+          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+        ],
+      },
+    ]
+  },
   serverExternalPackages: ['puppeteer'],
   images: {
     remotePatterns: [
