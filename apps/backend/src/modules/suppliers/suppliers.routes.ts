@@ -124,8 +124,17 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
     // ── Restock inventory when marking as RECEIVED ─────────────────────────
     // Guard: check StockMovement (not PO status) so retroactive restock works
     // for POs that were RECEIVED before this fix was deployed.
-    const alreadyRestocked = newStatus === 'RECEIVED'
-      ? !!(await prisma.stockMovement.findFirst({ where: { reference: po.poNumber, type: 'PURCHASE' } }))
+    // Use po.id as reference (unique). Also filter by productId so a SM belonging to a
+    // different PO that happens to share the same poNumber doesn't block this restock.
+    const poProductIds = po.items.map((i: any) => i.productId).filter(Boolean)
+    const alreadyRestocked = newStatus === 'RECEIVED' && poProductIds.length > 0
+      ? !!(await prisma.stockMovement.findFirst({
+          where: {
+            type: 'PURCHASE',
+            productId: { in: poProductIds },
+            OR: [{ reference: po.id }, { reference: po.poNumber }],
+          },
+        }))
       : false
 
     if (newStatus === 'RECEIVED' && !alreadyRestocked) {
@@ -167,7 +176,7 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
               branchId:    item.branchId,
               type:        'PURCHASE' as const,
               quantity:    item.quantity,
-              reference:   po.poNumber,
+              reference:   po.id,
               note:        `Received via PO ${po.poNumber}`,
               performedBy: req.user?.userId ?? 'system',
             })),
