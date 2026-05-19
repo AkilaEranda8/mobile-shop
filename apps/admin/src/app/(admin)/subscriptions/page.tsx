@@ -257,6 +257,25 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
               </div>
             </div>
 
+            {/* Bank Details */}
+            <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10, padding: '16px 20px', marginBottom: 28 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Bank Transfer Details</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 20px' }}>
+                {[
+                  ['Bank',           'Commercial Bank of Ceylon'],
+                  ['Branch',         'Nawalapitiya'],
+                  ['Account Name',   'Akila Eranda Gankewela'],
+                  ['Account Number', '2000124779'],
+                  ['SWIFT Code',     'CCEYLKLX'],
+                ].map(([label, value]) => (
+                  <div key={label} style={{ display: 'flex', gap: 6 }}>
+                    <span style={{ fontSize: 10, color: '#9ca3af', minWidth: 110 }}>{label}:</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#111' }}>{value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* Footer */}
             <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 20, fontSize: 11, color: '#9ca3af', textAlign: 'center' }}>
               Thank you for choosing Hexalyte Innovation (Pvt) Ltd · info@hexalyte.com · +94 70 3130100 · www.hexalyte.com
