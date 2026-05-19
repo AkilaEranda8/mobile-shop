@@ -1536,6 +1536,14 @@ export default function RepairsPage() {
         columns={columns}
         isLoading={loading}
         pageCount={Math.ceil((repairs.length || 1) / 20)}
+        searchableColumns={[
+          { id: 'ticketNumber',  title: 'Ticket #'  },
+          { id: 'customerName',  title: 'Customer'  },
+          { id: 'customerPhone', title: 'Phone'     },
+          { id: 'deviceBrand',   title: 'Brand'     },
+          { id: 'deviceModel',   title: 'Model'     },
+          { id: 'reportedIssue', title: 'Issue'     },
+        ]}
         filterableColumns={[
           {
             id: 'status',
