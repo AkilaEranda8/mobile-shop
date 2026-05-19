@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import {
   DollarSign, TrendingUp, Users, AlertTriangle, CreditCard,
   Send, ArrowUpDown, XCircle, CheckCircle, Clock, Search,
-  RefreshCw, ChevronRight, X, Loader2,
+  RefreshCw, ChevronRight, X, Loader2, FileText, Printer,
 } from 'lucide-react'
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis,
@@ -126,6 +126,134 @@ function ChangePlanModal({ sub, onClose, onSaved }: { sub: SubscriptionRow; onCl
   )
 }
 
+/* ── Invoice Modal ───────────────────────────────────────────── */
+function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => void }) {
+  const invoiceNo = `HX-${new Date().getFullYear()}-${String(sub.id).slice(-5).toUpperCase()}`
+  const issueDate = new Date().toLocaleDateString('en-LK', { day: 'numeric', month: 'long', year: 'numeric' })
+  const dueDate   = sub.subscriptionEndsAt
+    ? new Date(sub.subscriptionEndsAt).toLocaleDateString('en-LK', { day: 'numeric', month: 'long', year: 'numeric' })
+    : '—'
+  const amount    = sub.mrr ?? 0
+  const planLabel = sub.plan.charAt(0) + sub.plan.slice(1).toLowerCase()
+
+  const handlePrint = () => {
+    const el = document.getElementById('hx-invoice-print')
+    if (!el) return
+    const w = window.open('', '_blank', 'width=800,height=900')
+    if (!w) return
+    w.document.write(`<html><head><title>Invoice ${invoiceNo}</title>
+      <style>
+        body{font-family:system-ui,sans-serif;margin:0;padding:0;background:#fff;color:#111}
+        *{box-sizing:border-box}
+      </style>
+    </head><body>${el.innerHTML}</body></html>`)
+    w.document.close()
+    w.focus()
+    setTimeout(() => { w.print(); w.close() }, 400)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+        {/* Modal header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50">
+          <div className="flex items-center gap-2">
+            <FileText size={16} className="text-gray-600" />
+            <span className="text-sm font-bold text-gray-800">Subscription Invoice — {invoiceNo}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={handlePrint} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-gray-900 text-white hover:bg-gray-700 transition-colors font-medium">
+              <Printer size={12} /> Print / Save PDF
+            </button>
+            <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100"><X size={14} /></button>
+          </div>
+        </div>
+
+        {/* Printable invoice body */}
+        <div id="hx-invoice-print" className="p-8">
+          <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 680, margin: '0 auto', padding: 40, background: '#fff', color: '#111' }}>
+            {/* Top: company + invoice label */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 36 }}>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: -1, color: '#111' }}>Hexalyte</div>
+                <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>Cloud POS & Repair Management</div>
+                <div style={{ fontSize: 11, color: '#6b7280' }}>support@hexalyte.com</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 28, fontWeight: 900, color: '#111', letterSpacing: -1 }}>INVOICE</div>
+                <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>#{invoiceNo}</div>
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div style={{ height: 2, background: '#f3f4f6', marginBottom: 28 }} />
+
+            {/* Bill to + dates */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 32 }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Bill To</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{sub.name}</div>
+                <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{sub.ownerEmail}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ marginBottom: 6 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1 }}>Issue Date</div>
+                  <div style={{ fontSize: 12, color: '#374151', fontWeight: 600 }}>{issueDate}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1 }}>Valid Until</div>
+                  <div style={{ fontSize: 12, color: '#374151', fontWeight: 600 }}>{dueDate}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Line items table */}
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
+              <thead>
+                <tr style={{ background: '#f9fafb' }}>
+                  <th style={{ textAlign: 'left', padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, borderBottom: '2px solid #e5e7eb' }}>Description</th>
+                  <th style={{ textAlign: 'center', padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, borderBottom: '2px solid #e5e7eb' }}>Qty</th>
+                  <th style={{ textAlign: 'right', padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, borderBottom: '2px solid #e5e7eb' }}>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={{ padding: '14px', borderBottom: '1px solid #f3f4f6' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>Hexalyte {planLabel} Plan</div>
+                    <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>Monthly subscription · {sub.status}</div>
+                  </td>
+                  <td style={{ textAlign: 'center', padding: '14px', fontSize: 13, color: '#374151', borderBottom: '1px solid #f3f4f6' }}>1</td>
+                  <td style={{ textAlign: 'right', padding: '14px', fontSize: 13, fontWeight: 700, color: '#111', borderBottom: '1px solid #f3f4f6' }}>Rs. {amount.toLocaleString()}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* Totals */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 32 }}>
+              <div style={{ width: 220 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 12, color: '#6b7280' }}>
+                  <span>Subtotal</span><span>Rs. {amount.toLocaleString()}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 12, color: '#6b7280' }}>
+                  <span>Tax (0%)</span><span>Rs. 0</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', marginTop: 4, background: '#111', borderRadius: 8, fontSize: 14, fontWeight: 800, color: '#fff' }}>
+                  <span>Total</span><span>Rs. {amount.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 20, fontSize: 11, color: '#9ca3af', textAlign: 'center' }}>
+              Thank you for choosing Hexalyte · support@hexalyte.com · hexalyte.com
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ── Extend Modal ────────────────────────────────────────────── */
 function ExtendModal({ sub, onClose, onSaved }: { sub: SubscriptionRow; onClose: () => void; onSaved: () => void }) {
   const [date, setDate]   = useState(sub.subscriptionEndsAt ? sub.subscriptionEndsAt.split('T')[0] : '')
@@ -174,6 +302,7 @@ export default function SubscriptionsPage() {
   const [loading, setLoading]   = useState(true)
   const [changePlan, setChangePlan] = useState<SubscriptionRow | null>(null)
   const [extendSub, setExtendSub]   = useState<SubscriptionRow | null>(null)
+  const [invoiceSub, setInvoiceSub] = useState<SubscriptionRow | null>(null)
 
   const load = () => {
     setLoading(true)
@@ -218,6 +347,7 @@ export default function SubscriptionsPage() {
       {/* Modals */}
       {changePlan && <ChangePlanModal sub={changePlan} onClose={() => setChangePlan(null)} onSaved={load} />}
       {extendSub  && <ExtendModal    sub={extendSub}  onClose={() => setExtendSub(null)}  onSaved={load} />}
+      {invoiceSub && <InvoiceModal   sub={invoiceSub} onClose={() => setInvoiceSub(null)} />}
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -435,9 +565,9 @@ export default function SubscriptionsPage() {
                             className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg text-blue-600 hover:bg-blue-50 border border-transparent hover:border-blue-200 transition-colors font-medium">
                             <Clock size={11} /> Extend
                           </button>
-                          <button title="Send reminder"
-                            className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
-                            <Send size={12} />
+                          <button onClick={() => setInvoiceSub(s)} title="Generate Invoice"
+                            className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg text-emerald-600 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-colors font-medium">
+                            <FileText size={11} /> Invoice
                           </button>
                         </div>
                       </td>
