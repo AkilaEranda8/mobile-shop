@@ -662,8 +662,8 @@ export default function SettingsPage() {
                       <div className="flex items-center justify-between flex-wrap gap-3">
                         <div>
                           <p className="text-[10px] text-violet-400 font-semibold uppercase tracking-wider">Current Plan</p>
-                          <p className="text-2xl font-bold text-white mt-1">{tenant.plan}</p>
-                          <p className="text-sm text-slate-400 mt-0.5">{tenant.name}</p>
+                          <p className="text-2xl font-bold mt-1" style={{ color: 'var(--text-primary)' }}>{tenant.plan}</p>
+                          <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>{tenant.name}</p>
                         </div>
                         <div className="text-right space-y-1.5">
                           <span className={`text-xs px-2 py-1 rounded-full border ${planColors[tenant.plan] ?? 'bg-slate-500/10 border-slate-500/20 text-slate-400'}`}>
