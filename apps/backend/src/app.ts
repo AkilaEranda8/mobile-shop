@@ -71,6 +71,30 @@ const API = `/${env.API_PREFIX}`
 
 app.get('/health', (_req, res) => res.json({ status: 'ok', version: '1.0.0', timestamp: new Date() }))
 
+const PLANS = [
+  {
+    key: 'TRIAL', label: 'Trial', price: 'Free', period: '14 days',
+    color: '#eab308', bg: 'rgba(234,179,8,0.08)', border: 'rgba(234,179,8,0.25)',
+    features: ['1 Branch', '2 Users', 'POS & Sales', 'Basic Reports', 'Repairs'],
+  },
+  {
+    key: 'STARTER', label: 'Starter', price: '$19', period: '/month',
+    color: '#3b82f6', bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.25)',
+    features: ['1 Branch', '5 Users', 'POS & Sales', 'Full Reports', 'Repairs', 'Warranty'],
+  },
+  {
+    key: 'PRO', label: 'Pro', price: '$49', period: '/month', popular: true,
+    color: '#8b5cf6', bg: 'rgba(139,92,246,0.08)', border: 'rgba(139,92,246,0.30)',
+    features: ['3 Branches', '15 Users', 'Everything in Starter', 'P&L Reports', 'Cash Flow', 'Branch Filtering', 'CSV Exports'],
+  },
+  {
+    key: 'ENTERPRISE', label: 'Enterprise', price: 'Custom', period: 'contact us',
+    color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.25)',
+    features: ['Unlimited Branches', 'Unlimited Users', 'Everything in Pro', 'Priority Support', 'Custom Integrations', 'SLA Guarantee'],
+  },
+]
+app.get(`${API}/plans`, (_req, res) => res.json({ success: true, data: PLANS }))
+
 app.use(`${API}/auth`, authRoutes)
 app.use(`${API}/users`, usersRoutes)
 app.use(`${API}/tenants`, tenantsRoutes)

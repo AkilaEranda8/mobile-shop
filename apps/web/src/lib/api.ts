@@ -226,6 +226,10 @@ export const imeiApi = {
   updateStatus: (id: string, status: string) => api.patch(`/imei/${id}/status`, { status }),
 }
 
+export const plansApi = {
+  list: () => api.get('/plans'),
+}
+
 export const analyticsApi = {
   dashboard: () => api.get('/analytics/dashboard'),
   revenue: (params?: Record<string, string>) =>

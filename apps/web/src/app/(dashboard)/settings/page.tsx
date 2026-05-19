@@ -5,7 +5,7 @@ import {
   Save, Building2, User, Bell, Shield, Palette, CreditCard, Users,
   Loader2, Eye, EyeOff, Trash2, Plus, X, CheckCircle, Check, FileText, Smartphone, ChevronRight,
 } from 'lucide-react'
-import { authApi, usersApi, tenantApi, uploadApi, deviceCatalogApi } from '@/lib/api'
+import { authApi, usersApi, tenantApi, uploadApi, deviceCatalogApi, plansApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { type InvoiceSettings, getInvoiceSettings, fetchInvoiceSettings, pushInvoiceSettings } from '@/lib/invoiceSettings'
 import { ImageIcon, Trash2 as TrashIcon } from 'lucide-react'
@@ -44,6 +44,12 @@ const planColors: Record<string, string> = {
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('shop')
   const currentUser = authStorage.getUser()
+
+  /* ── Plans ── */
+  const [plans, setPlans] = useState<any[]>([])
+  useEffect(() => {
+    plansApi.list().then((r: any) => setPlans(r?.data ?? [])).catch(() => {})
+  }, [])
 
   /* ── Shop Info ── */
   const [tenant, setTenant]       = useState<any>(null)
@@ -701,7 +707,7 @@ export default function SettingsPage() {
               <div className="card p-5">
                 <p className="text-xs font-bold text-violet-400 uppercase tracking-widest mb-4">Available Plans</p>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {([
+                  {(plans.length ? plans : ([
                     {
                       key: 'TRIAL',
                       label: 'Trial',
@@ -743,7 +749,7 @@ export default function SettingsPage() {
                       border: 'rgba(16,185,129,0.25)',
                       features: ['Unlimited Branches', 'Unlimited Users', 'Everything in Pro', 'Priority Support', 'Custom Integrations', 'SLA Guarantee'],
                     },
-                  ] as const).map(plan => {
+                  ] as const) as any[]).map((plan: any) => {
                     const isCurrent = tenant?.plan === plan.key
                     return (
                       <div key={plan.key} className="relative rounded-xl p-4 flex flex-col gap-3 transition-all"
