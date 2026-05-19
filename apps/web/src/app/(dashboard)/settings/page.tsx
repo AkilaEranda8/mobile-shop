@@ -959,7 +959,7 @@ function DevicesTab() {
       <div className="card p-5 space-y-4">
         <div className="flex items-center gap-2 border-b border-white/5 pb-3">
           <Smartphone size={15} className="text-violet-400" />
-          <h3 className="text-sm font-bold text-white">Device Brands</h3>
+          <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Device Brands</h3>
           <span className="ml-auto text-[11px] bg-white/5 text-slate-400 px-2 py-0.5 rounded-full">{brands.length}</span>
         </div>
         {/* Add brand */}
@@ -989,7 +989,7 @@ function DevicesTab() {
               <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${selectedBrand?.id === b.id ? 'bg-violet-500/20' : 'bg-white/5'}`}>
                 <Smartphone size={12} className={selectedBrand?.id === b.id ? 'text-violet-400' : 'text-slate-400'} />
               </div>
-              <span className="text-sm font-semibold text-white flex-1 truncate">{b.name}</span>
+              <span className="text-sm font-semibold flex-1 truncate" style={{ color: 'var(--text-primary)' }}>{b.name}</span>
               <span className="text-[10px] text-slate-500 shrink-0">{b.models?.length ?? 0} models</span>
               <ChevronRight size={12} className={`shrink-0 transition-opacity ${selectedBrand?.id === b.id ? 'text-violet-400 opacity-100' : 'opacity-0 group-hover:opacity-50'}`} />
               <button onClick={e => { e.stopPropagation(); handleDeleteBrand(b.id) }} disabled={deletingId === b.id}
@@ -1006,7 +1006,7 @@ function DevicesTab() {
       <div className="card p-5 space-y-4">
         <div className="flex items-center gap-2 border-b border-white/5 pb-3">
           <div className="w-5 h-5 rounded-md bg-violet-500/20 flex items-center justify-center"><Smartphone size={11} className="text-violet-400" /></div>
-          <h3 className="text-sm font-bold text-white truncate">
+          <h3 className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>
             {selectedBrand ? `${selectedBrand.name} — Models` : 'Select a brand'}
           </h3>
           {selectedBrand && <span className="ml-auto text-[11px] bg-white/5 text-slate-400 px-2 py-0.5 rounded-full">{selectedBrand.models?.length ?? 0}</span>}
@@ -1038,7 +1038,7 @@ function DevicesTab() {
               {selectedBrand.models?.map((m: any) => (
                 <div key={m.id} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-white/5 hover:bg-white/3 transition-colors">
                   <div className="w-2 h-2 rounded-full bg-violet-500/60 shrink-0" />
-                  <span className="text-sm text-white flex-1 truncate">{m.name}</span>
+                  <span className="text-sm flex-1 truncate" style={{ color: 'var(--text-primary)' }}>{m.name}</span>
                   <button onClick={() => handleDeleteModel(m.id)} disabled={deletingId === m.id}
                     className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-40">
                     {deletingId === m.id ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
