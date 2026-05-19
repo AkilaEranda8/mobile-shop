@@ -263,7 +263,6 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 20px' }}>
                 {[
                   ['Bank',           'Commercial Bank of Ceylon'],
-                  ['Branch',         'Nawalapitiya'],
                   ['Account Name',   'Akila Eranda Gankewela'],
                   ['Account Number', '2000124779'],
                   ['SWIFT Code',     'CCEYLKLX'],
