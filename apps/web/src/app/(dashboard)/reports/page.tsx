@@ -869,7 +869,7 @@ export default function ReportsPage() {
       <div className="flex flex-col gap-3">
         <div>
           <h1 className="page-title">Reports & Analytics</h1>
-          <p className="page-subtitle">Advanced filters · P&amp;L · Cash Flow · CSV export</p>
+          <p className="page-subtitle">Advanced filters · P&amp;L · Cash Flow · Export CSV</p>
         </div>
 
         <div className="flex flex-wrap gap-2 items-center">
