@@ -154,8 +154,10 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
     if (!w) return
     w.document.write(`<html><head><title>Invoice ${invoiceNo}</title>
       <style>
-        body{font-family:system-ui,sans-serif;margin:0;padding:0;background:#fff;color:#111}
-        *{box-sizing:border-box}
+        @page { size: A4; margin: 18mm 16mm; }
+        body { font-family: system-ui, sans-serif; margin: 0; padding: 0; background: #fff; color: #111; }
+        * { box-sizing: border-box; }
+        @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
       </style>
     </head><body>${el.innerHTML}</body></html>`)
     w.document.close()
@@ -165,7 +167,7 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
         {/* Modal header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50">
           <div className="flex items-center gap-2">
@@ -181,8 +183,9 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
         </div>
 
         {/* Printable invoice body */}
-        <div id="hx-invoice-print" className="p-8">
-          <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 680, margin: '0 auto', padding: 40, background: '#fff', color: '#111' }}>
+        <div className="overflow-y-auto flex-1 bg-gray-100 p-6">
+        <div id="hx-invoice-print" style={{ width: 595, margin: '0 auto', background: '#fff', boxShadow: '0 2px 16px rgba(0,0,0,0.10)' }}>
+          <div style={{ fontFamily: 'system-ui, sans-serif', width: '100%', padding: '40px 48px', background: '#fff', color: '#111' }}>
             {/* Top: logo + invoice label */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 36 }}>
               <div>
@@ -280,6 +283,7 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
               Thank you for choosing Hexalyte Innovation (Pvt) Ltd · info@hexalyte.com · +94 70 3130100 · www.hexalyte.com
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>
