@@ -752,7 +752,7 @@ export default function SettingsPage() {
                           border: `1px solid ${isCurrent ? plan.border : 'var(--border-subtle)'}`,
                           boxShadow: isCurrent ? `0 0 0 2px ${plan.border}` : undefined,
                         }}>
-                        {plan.popular && !isCurrent && (
+                        {'popular' in plan && plan.popular && !isCurrent && (
                           <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] font-bold px-2 py-0.5 rounded-full bg-violet-600 text-white tracking-wide">POPULAR</span>
                         )}
                         {isCurrent && (
