@@ -157,10 +157,13 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
     if (!w) return
     w.document.write(`<html><head><title>Invoice ${invoiceNo}</title>
       <style>
-        @page { size: A4; margin: 18mm 16mm; }
-        body { font-family: system-ui, sans-serif; margin: 0; padding: 0; background: #fff; color: #111; }
+        @page { size: A4 portrait; margin: 14mm 16mm; }
         * { box-sizing: border-box; }
-        @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+        body { font-family: system-ui, sans-serif; margin: 0; padding: 0; background: #fff; color: #111;
+               -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        #hx-invoice-print { width: 100% !important; max-width: 100% !important;
+                             box-shadow: none !important; margin: 0 !important; }
+        #hx-invoice-print > div { width: 100% !important; padding: 0 !important; }
       </style>
     </head><body>${el.innerHTML}</body></html>`)
     w.document.close()
