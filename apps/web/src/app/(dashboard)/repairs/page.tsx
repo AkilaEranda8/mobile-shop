@@ -1414,6 +1414,7 @@ export default function RepairsPage() {
   const [detailRepair, setDetailRepair]     = useState<RepairTicket | null>(null)
   const [editRepair,   setEditRepair]       = useState<RepairTicket | null>(null)
   const [search, setSearch]         = useState('')
+  const [showAnalytics, setShowAnalytics] = useState(false)
 
   const allRepairs: RepairTicket[] = (repairsData?.data ?? []) as RepairTicket[]
 
@@ -1558,7 +1559,13 @@ export default function RepairsPage() {
       </div>
 
       {/* Analytics */}
-      <div className="space-y-3">
+      <div>
+        <button onClick={() => setShowAnalytics(v => !v)}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+          style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>
+          {showAnalytics ? '▲ Hide Analytics' : '▼ Show Analytics'}
+        </button>
+      {showAnalytics && <div className="mt-3 space-y-3">
             {/* KPI cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
@@ -1617,6 +1624,7 @@ export default function RepairsPage() {
                 </div>
               </div>
             </div>
+      </div>}
       </div>
 
       {/* Search bar */}
