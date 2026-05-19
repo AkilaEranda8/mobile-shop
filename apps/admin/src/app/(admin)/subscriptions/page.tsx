@@ -193,7 +193,7 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 36 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={LOGO_BASE64} alt="Hexalyte Innovation" style={{ height: 72, objectFit: 'contain', flexShrink: 0 }} />
+                <img src={LOGO_BASE64} alt="Hexalyte Innovation" style={{ height: 100, objectFit: 'contain', flexShrink: 0 }} />
                 <div style={{ borderLeft: '1px solid #e5e7eb', paddingLeft: 16 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#111' }}>Hexalyte Innovation (Pvt) Ltd</div>
                   <div style={{ fontSize: 10, color: '#6b7280', marginTop: 3 }}>www.hexalyte.com</div>
