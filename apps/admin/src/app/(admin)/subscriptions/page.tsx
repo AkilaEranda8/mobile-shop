@@ -47,7 +47,10 @@ function defaultSubEnd(months = 12) {
   return d.toISOString().slice(0, 10)
 }
 
-function ChangePlanModal({ sub, onClose, onSaved }: { sub: SubscriptionRow; onClose: () => void; onSaved: () => void }) {
+function ChangePlanModal({ sub, onClose, onSaved, planMrr, planFeatures }: {
+  sub: SubscriptionRow; onClose: () => void; onSaved: () => void
+  planMrr: Record<string, number>; planFeatures: Record<string, string[]>
+}) {
   const [plan, setPlan]     = useState(sub.plan === 'TRIAL' ? 'PRO' : sub.plan)
   const [months, setMonths] = useState('12')
   const [subEnd, setSubEnd] = useState(defaultSubEnd(12))
@@ -59,7 +62,7 @@ function ChangePlanModal({ sub, onClose, onSaved }: { sub: SubscriptionRow; onCl
     try {
       await updateSubscription(sub.id, {
         plan,
-        mrr: DEFAULT_MRR[plan] ?? sub.mrr ?? 0,
+        mrr: planMrr[plan] ?? DEFAULT_MRR[plan] ?? sub.mrr ?? 0,
         status: 'ACTIVE',
         subscriptionEndsAt: new Date(subEnd).toISOString(),
       })
@@ -81,10 +84,10 @@ function ChangePlanModal({ sub, onClose, onSaved }: { sub: SubscriptionRow; onCl
               className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left ${plan === p ? 'border-gray-900 bg-gray-50' : 'border-gray-200 hover:border-gray-300'}`}>
               <div>
                 <p className="text-sm font-semibold text-gray-900">{p.charAt(0) + p.slice(1).toLowerCase()}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{DEFAULT_FEATURES[p].slice(0, 2).join(' · ')}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{(planFeatures[p] ?? DEFAULT_FEATURES[p]).slice(0, 2).join(' · ')}</p>
               </div>
               <div className="text-right flex-shrink-0">
-                <p className="text-sm font-bold text-gray-900">Rs.{DEFAULT_MRR[p].toLocaleString()}</p>
+                <p className="text-sm font-bold text-gray-900">Rs.{(planMrr[p] ?? DEFAULT_MRR[p]).toLocaleString()}</p>
                 <p className="text-[10px] text-gray-400">/mo</p>
               </div>
               {plan === p && <CheckCircle size={14} className="text-gray-900 ml-2 flex-shrink-0" />}
@@ -114,7 +117,7 @@ function ChangePlanModal({ sub, onClose, onSaved }: { sub: SubscriptionRow; onCl
             <p className="text-xs text-blue-600 font-semibold">{plan} Plan · ACTIVE</p>
             <p className="text-[11px] text-blue-400">Ends {new Date(subEnd).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
           </div>
-          <p className="text-sm font-bold text-blue-700">Rs.{(DEFAULT_MRR[plan] ?? 0).toLocaleString()}/mo</p>
+          <p className="text-sm font-bold text-blue-700">Rs.{(planMrr[plan] ?? DEFAULT_MRR[plan] ?? 0).toLocaleString()}/mo</p>
         </div>
         {err && <p className="text-xs text-red-500 mb-3">{err}</p>}
         <div className="flex gap-2">
@@ -468,7 +471,7 @@ export default function SubscriptionsPage() {
     <div className="space-y-5">
 
       {/* Modals */}
-      {changePlan && <ChangePlanModal sub={changePlan} onClose={() => setChangePlan(null)} onSaved={load} />}
+      {changePlan && <ChangePlanModal sub={changePlan} onClose={() => setChangePlan(null)} onSaved={load} planMrr={planMrr} planFeatures={planFeatures} />}
       {extendSub  && <ExtendModal    sub={extendSub}  onClose={() => setExtendSub(null)}  onSaved={load} />}
       {invoiceSub && <InvoiceModal   sub={invoiceSub} onClose={() => setInvoiceSub(null)} />}
       {editingPlan && (
