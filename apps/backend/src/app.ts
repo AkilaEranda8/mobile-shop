@@ -8,6 +8,7 @@ import path from 'path'
 import fs from 'fs'
 
 import { env } from './config/env'
+import { prisma } from './config/database'
 import { errorHandler, notFound } from './middleware/error.middleware'
 
 import authRoutes from './modules/auth/auth.routes'
@@ -93,7 +94,25 @@ const PLANS = [
     features: ['Unlimited Branches', 'Unlimited Users', 'Everything in Pro', 'Priority Support', 'Custom Integrations', 'SLA Guarantee'],
   },
 ]
-app.get(`${API}/plans`, (_req, res) => res.json({ success: true, data: PLANS }))
+app.get(`${API}/plans`, async (_req, res) => {
+  try {
+    const configs = await prisma.platformConfig.findMany({
+      where: { key: { startsWith: 'plan_' } },
+    })
+    const cfgMap: Record<string, string> = {}
+    for (const c of configs) cfgMap[c.key] = c.value
+
+    const data = PLANS.map(p => {
+      const mrrKey  = `plan_mrr_${p.key}`
+      const featKey = `plan_features_${p.key}`
+      const mrr     = cfgMap[mrrKey] ? parseInt(cfgMap[mrrKey]) : null
+      const feats   = cfgMap[featKey] ? JSON.parse(cfgMap[featKey]) : p.features
+      const price   = mrr != null ? `Rs.${mrr.toLocaleString()}` : p.price
+      return { ...p, price, features: feats, mrr }
+    })
+    res.json({ success: true, data })
+  } catch { res.json({ success: true, data: PLANS }) }
+})
 
 app.use(`${API}/auth`, authRoutes)
 app.use(`${API}/users`, usersRoutes)
