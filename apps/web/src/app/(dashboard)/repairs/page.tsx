@@ -1051,19 +1051,18 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                       <p className="text-xs font-bold mb-2" style={{ color: 'var(--text-muted)' }}>Payment Method</p>
                       <div className="grid grid-cols-2 gap-2">
                         {([
-                          { key: 'CASH',          label: 'Cash',      emoji: '💵' },
-                          { key: 'CARD',          label: 'Card',      emoji: '💳' },
-                          { key: 'UPI',           label: 'UPI',       emoji: '📲' },
-                          { key: 'BANK_TRANSFER', label: 'Bank Transfer', emoji: '🏦' },
-                        ] as const).map(({ key: m, label, emoji }) => (
+                          { key: 'CASH',          label: 'Cash'          },
+                          { key: 'CARD',          label: 'Card'          },
+                          { key: 'UPI',           label: 'UPI'           },
+                          { key: 'BANK_TRANSFER', label: 'Bank Transfer' },
+                        ] as const).map(({ key: m, label }) => (
                           <button key={m} type="button" onClick={() => setPayMethod(m)}
-                            className="py-2.5 px-3 rounded-xl text-sm font-semibold transition-all flex items-center gap-2.5"
+                            className="py-1.5 px-2.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5"
                             style={payMethod === m
                               ? { background: '#7c3aed', border: '2px solid #7c3aed', color: '#fff' }
                               : { background: 'var(--bg-subtle)', border: '2px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
-                            <span className="text-base leading-none">{emoji}</span>
                             <span>{label}</span>
-                            {payMethod === m && <CheckCircle size={13} className="ml-auto opacity-90" />}
+                            {payMethod === m && <CheckCircle size={11} className="ml-auto opacity-90" />}
                           </button>
                         ))}
                       </div>
