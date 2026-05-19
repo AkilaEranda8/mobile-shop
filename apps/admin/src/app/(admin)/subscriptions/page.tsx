@@ -187,7 +187,7 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 36 }}>
               <div>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={LOGO_BASE64} alt="Hexalyte Innovation" style={{ height: 52, objectFit: 'contain', display: 'block', marginBottom: 8 }} />
+                <img src={LOGO_BASE64} alt="Hexalyte Innovation" style={{ height: 80, objectFit: 'contain', display: 'block', marginBottom: 8 }} />
                 <div style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>Hexalyte Innovation (Pvt) Ltd</div>
                 <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>www.hexalyte.com</div>
                 <div style={{ fontSize: 10, color: '#6b7280' }}>info@hexalyte.com</div>
