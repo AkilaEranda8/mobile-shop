@@ -5,6 +5,7 @@ import {
   Plus, Clock, CheckCircle, PhoneCall, Loader2, X, Check, ChevronDown,
   Eye, Edit, ChevronRight, Smartphone, User, Wrench, DollarSign, AlertTriangle,
   Calendar, Hash, Save, ArrowRight, MessageSquare, Package, Search, UserPlus, CheckCircle2, Download, Printer,
+  BarChart2, TrendingUp, ChevronUp, History,
 } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
@@ -667,12 +668,13 @@ const priorityBadge = (p: string) => {
 }
 
 /* ── Repair Details Modal ─────────────────────────────────────────────── */
-function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh }: {
+function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh, allRepairs }: {
   repair: RepairTicket
   onClose: () => void
   onEdit: () => void
   onStatusChange: (id: string, status: string) => Promise<void>
   onRefresh: () => void
+  allRepairs?: RepairTicket[]
 }) {
   const quoteRef = useRef<HTMLDivElement>(null)
   const [downloading, setDownloading] = useState(false)
@@ -1235,6 +1237,30 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
             {repair.estimatedCompletion && <span className="flex items-center gap-1.5"><Calendar size={11} />Due {formatDate(repair.estimatedCompletion)}</span>}
           </div>
 
+          {/* IMEI Device History */}
+          {repair.imei && (() => {
+            const history = (allRepairs ?? []).filter(r => r.imei === repair.imei && r.id !== repair.id)
+            if (history.length === 0) return null
+            return (
+              <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <History size={13} className="text-violet-400" />
+                  <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Device History — IMEI {repair.imei}</p>
+                  <span className="ml-auto text-[10px] font-bold text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded">{history.length} past repair{history.length > 1 ? 's' : ''}</span>
+                </div>
+                <div className="space-y-2">
+                  {history.slice(0,5).map(h => (
+                    <div key={h.id} className="flex items-center gap-3 text-xs">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded border shrink-0 ${getRepairStatusColor(h.status)}`}>{statusLabels[h.status] ?? h.status}</span>
+                      <span className="truncate flex-1" style={{ color: 'var(--text-secondary)' }}>{h.reportedIssue}</span>
+                      <span className="shrink-0 text-slate-500">{formatDate(h.createdAt)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
+
           {/* Hidden PDF template */}
           <div style={{ position: 'fixed', left: '-9999px', top: 0, pointerEvents: 'none', zIndex: -1, width: 794 }}>
             <InvoicePrint ref={quoteRef} hideControls data={{
@@ -1387,8 +1413,29 @@ export default function RepairsPage() {
   const [showAddModal, setShowAddModal]     = useState(false)
   const [detailRepair, setDetailRepair]     = useState<RepairTicket | null>(null)
   const [editRepair,   setEditRepair]       = useState<RepairTicket | null>(null)
-  const [search, setSearch] = useState('')
+  const [search, setSearch]         = useState('')
+  const [showAnalytics, setShowAnalytics] = useState(false)
   const allRepairs: RepairTicket[] = (repairsData?.data ?? []) as RepairTicket[]
+
+  const analytics = useMemo(() => {
+    const now   = new Date()
+    const month = now.getMonth()
+    const year  = now.getFullYear()
+    const active    = allRepairs.filter(r => !['DELIVERED','CANCELLED'].includes(r.status))
+    const delivered = allRepairs.filter(r => r.status === 'DELIVERED')
+    const thisMonth = delivered.filter(r => { const d = new Date(r.createdAt); return d.getMonth() === month && d.getFullYear() === year })
+    const revenue   = delivered.reduce((s, r) => s + (r.actualCost ?? r.estimatedCost ?? 0), 0)
+    const statusCounts: Record<string, number> = {}
+    allRepairs.forEach(r => { statusCounts[r.status] = (statusCounts[r.status] || 0) + 1 })
+    const faultCounts: Record<string, number> = {}
+    allRepairs.forEach(r => { if (r.reportedIssue) faultCounts[r.reportedIssue] = (faultCounts[r.reportedIssue] || 0) + 1 })
+    const topFaults = Object.entries(faultCounts).sort((a,b) => b[1]-a[1]).slice(0,5)
+    const techCounts: Record<string, number> = {}
+    delivered.forEach(r => { if (r.technicianName) techCounts[r.technicianName] = (techCounts[r.technicianName] || 0) + 1 })
+    const topTechs = Object.entries(techCounts).sort((a,b) => b[1]-a[1]).slice(0,4)
+    return { total: allRepairs.length, active: active.length, thisMonth: thisMonth.length, revenue, statusCounts, topFaults, topTechs }
+  }, [allRepairs])
+
   const repairs = useMemo(() => {
     const q = search.toLowerCase().trim()
     if (!q) return allRepairs
@@ -1495,7 +1542,7 @@ export default function RepairsPage() {
   return (
     <div className="space-y-6">
       {showAddModal  && <NewTicketModal onClose={() => setShowAddModal(false)} onSaved={refetch} />}
-      {detailRepair  && <RepairDetailsModal repair={detailRepair} onClose={() => setDetailRepair(null)} onEdit={() => { setEditRepair(detailRepair); setDetailRepair(null) }} onStatusChange={handleStatusUpdate} onRefresh={async () => { refetch(); const res: any = await repairsApi.getById(detailRepair.id); setDetailRepair(res?.data ?? detailRepair) }} />}
+      {detailRepair  && <RepairDetailsModal repair={detailRepair} allRepairs={allRepairs} onClose={() => setDetailRepair(null)} onEdit={() => { setEditRepair(detailRepair); setDetailRepair(null) }} onStatusChange={handleStatusUpdate} onRefresh={async () => { refetch(); const res: any = await repairsApi.getById(detailRepair.id); setDetailRepair(res?.data ?? detailRepair) }} />}
       {editRepair    && <EditRepairModal   repair={editRepair}   onClose={() => setEditRepair(null)}   onSaved={() => { refetch(); setEditRepair(null) }} />}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -1508,6 +1555,78 @@ export default function RepairsPage() {
             <Plus size={14} />New Ticket
           </button>
         </div>
+      </div>
+
+      {/* Analytics toggle */}
+      <div>
+        <button onClick={() => setShowAnalytics(v => !v)}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+          style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>
+          <BarChart2 size={13} />{showAnalytics ? 'Hide Analytics' : 'Show Analytics'}
+          {showAnalytics ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+        </button>
+        {showAnalytics && (
+          <div className="mt-3 space-y-3">
+            {/* KPI cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: 'Total Tickets',   value: analytics.total,                  color: 'violet' },
+                { label: 'Active',          value: analytics.active,                 color: 'amber'  },
+                { label: 'Completed (Mo.)', value: analytics.thisMonth,              color: 'emerald'},
+                { label: 'Revenue (Total)', value: formatCurrency(analytics.revenue),color: 'blue'   },
+              ].map(({ label, value, color }) => (
+                <div key={label} className="card p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
+                  <p className={`text-xl font-black text-${color}-500`}>{value}</p>
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Status breakdown */}
+              <div className="card p-4">
+                <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>Status Breakdown</p>
+                <div className="space-y-1.5">
+                  {Object.entries(analytics.statusCounts).map(([s, cnt]) => (
+                    <div key={s} className="flex items-center justify-between text-xs">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getRepairStatusColor(s)}`}>{statusLabels[s] ?? s}</span>
+                      <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{cnt}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Top faults */}
+              <div className="card p-4">
+                <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>Top Fault Types</p>
+                <div className="space-y-2">
+                  {analytics.topFaults.length === 0 && <p className="text-xs text-slate-500">No data yet</p>}
+                  {analytics.topFaults.map(([fault, cnt], i) => (
+                    <div key={fault} className="flex items-center gap-2 text-xs">
+                      <span className="w-4 text-[10px] font-bold text-slate-500">#{i+1}</span>
+                      <span className="flex-1 truncate" style={{ color: 'var(--text-secondary)' }}>{fault}</span>
+                      <span className="font-bold text-violet-400">{cnt}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Top technicians */}
+              <div className="card p-4">
+                <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>Top Technicians</p>
+                <div className="space-y-2">
+                  {analytics.topTechs.length === 0 && <p className="text-xs text-slate-500">No data yet</p>}
+                  {analytics.topTechs.map(([tech, cnt]) => (
+                    <div key={tech} className="flex items-center gap-2 text-xs">
+                      <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center text-[10px] font-bold text-violet-300 shrink-0">
+                        {tech.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="flex-1 truncate" style={{ color: 'var(--text-secondary)' }}>{tech}</span>
+                      <span className="font-bold text-emerald-400">{cnt} done</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Search bar */}
