@@ -710,6 +710,51 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
     window.open(url, '_blank')
   }
 
+  const sendInvoiceWhatsApp = () => {
+    const fmt = (n: number) => `LKR ${n.toLocaleString('en-LK')}`
+    const partsTotal = repair.spareParts?.reduce((s: any, p: any) => s + p.total, 0) ?? 0
+    const subtotal   = (repair.estimatedCost ?? 0) + partsTotal
+    const discount   = repair.actualCost != null && repair.actualCost < subtotal ? subtotal - repair.actualCost : 0
+    const grandTotal = discount > 0 ? repair.actualCost! : subtotal
+
+    const itemLines = [
+      repair.estimatedCost
+        ? `  - Repair Service (${repair.deviceBrand} ${repair.deviceModel}): ${fmt(repair.estimatedCost)}`
+        : null,
+      ...(repair.spareParts ?? []).map((p: any) =>
+        `  - ${p.productName} x${p.quantity}: ${fmt(p.total)}`),
+    ].filter(Boolean).join('\n')
+
+    const bankSection = invSettings.bankName
+      ? `\n\n*Payment Details:*\n  Bank: ${invSettings.bankName}\n  Acc: ${invSettings.accNumber || '—'}\n  Name: ${invSettings.accHolder || '—'}`
+      : ''
+
+    const msg = [
+      `*INVOICE — ${invSettings.shopName || 'Service Center'}*`,
+      invSettings.phone ? `Tel: ${invSettings.phone}` : null,
+      ``,
+      `*Invoice No:* ${repair.ticketNumber}`,
+      `*Customer:* ${repair.customerName}`,
+      repair.customerPhone ? `*Phone:* ${repair.customerPhone}` : null,
+      ``,
+      `*Items:*`,
+      itemLines,
+      ``,
+      discount > 0 ? `*Subtotal:* ${fmt(subtotal)}` : null,
+      discount > 0 ? `*Discount:* -${fmt(discount)}` : null,
+      `*Total: ${fmt(grandTotal)}*`,
+      bankSection,
+      ``,
+      ...(invSettings.terms?.length ? invSettings.terms.map((t: string) => `_${t}_`) : [`_Thank you for choosing our repair services!_`]),
+    ].filter(v => v !== null && v !== undefined).join('\n')
+
+    const phone = repair.customerPhone?.replace(/\D/g, '')
+    const url = phone
+      ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/?text=${encodeURIComponent(msg)}`
+    window.open(url, '_blank')
+  }
+
   const downloadQuote = async () => {
     if (!quoteRef.current) return
     setDownloading(true)
@@ -865,6 +910,10 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
             <button onClick={sendQuoteWhatsApp}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors">
               <MessageSquare size={12} /> Send Quote
+            </button>
+            <button onClick={sendInvoiceWhatsApp}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold bg-green-700 hover:bg-green-600 text-white transition-colors">
+              <MessageSquare size={12} /> Send Invoice
             </button>
             <button onClick={onEdit}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-colors"
