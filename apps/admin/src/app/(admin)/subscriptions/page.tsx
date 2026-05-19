@@ -153,27 +153,27 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
   const handlePrint = () => {
     const el = document.getElementById('hx-invoice-print')
     if (!el) return
-    const w = window.open('', '_blank', 'width=800,height=900')
+    const w = window.open('', '_blank', 'width=900,height=1100')
     if (!w) return
-    // Strip fixed-width / box-shadow inline styles so content fills full A4
-    const printHtml = el.outerHTML
-      .replace(/width\s*:\s*595px\s*;?/gi, 'width:100%;')
-      .replace(/max-width\s*:[^;"]*;?/gi, '')
-      .replace(/box-shadow\s*:[^;"]*;?/gi, '')
-      .replace(/margin\s*:\s*0\s*auto\s*;?/gi, 'margin:0;')
+    // Use innerHTML so we bypass the fixed-595px wrapper
     w.document.write(`<html><head><title>Invoice ${invoiceNo}</title>
       <style>
-        @page { size: 210mm 297mm; margin: 12mm 15mm; }
+        @page { size: A4 portrait; margin: 0; }
         *, *::before, *::after { box-sizing: border-box; }
         html, body {
-          width: 100%; margin: 0; padding: 0;
+          width: 210mm;
+          margin: 0; padding: 0;
           background: #fff; color: #111;
           font-family: system-ui, -apple-system, sans-serif;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
+        .hx-print-wrap {
+          width: 100%;
+          padding: 14mm 16mm;
+        }
       </style>
-    </head><body>${printHtml}</body></html>`)
+    </head><body><div class="hx-print-wrap">${el.innerHTML}</div></body></html>`)
     w.document.close()
     w.focus()
     setTimeout(() => { w.print(); w.close() }, 400)
@@ -198,8 +198,8 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
 
         {/* Printable invoice body */}
         <div className="overflow-y-auto flex-1 bg-gray-100 p-6">
-        <div id="hx-invoice-print" style={{ width: 595, margin: '0 auto', background: '#fff', boxShadow: '0 2px 16px rgba(0,0,0,0.10)' }}>
-          <div style={{ fontFamily: 'system-ui, sans-serif', width: '100%', padding: '40px 48px', background: '#fff', color: '#111' }}>
+        <div id="hx-invoice-print" style={{ width: 595, margin: '0 auto', background: '#fff', boxShadow: '0 2px 16px rgba(0,0,0,0.10)', padding: '40px 48px' }}>
+          <div style={{ fontFamily: 'system-ui, sans-serif', width: '100%', background: '#fff', color: '#111' }}>
             {/* Top: logo + invoice label */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 36 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
