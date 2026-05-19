@@ -79,9 +79,9 @@ function BarcodeSVG({ value }: { value?: string }) {
 /* ─── Status badge ──────────────────────────────────────────────────── */
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { cls: string; dot: string; label: string }> = {
-    PAID:    { cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30', dot: 'bg-emerald-400', label: 'Paid' },
-    PENDING: { cls: 'bg-amber-500/15 text-amber-300 border-amber-500/30',      dot: 'bg-amber-400',   label: 'Pending' },
-    DRAFT:   { cls: 'bg-slate-500/15 text-slate-400 border-slate-500/30',      dot: 'bg-slate-400',   label: 'Draft' },
+    PAID:    { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500', label: 'Paid' },
+    PENDING: { cls: 'bg-amber-50 text-amber-700 border-amber-200',         dot: 'bg-amber-500',   label: 'Pending' },
+    DRAFT:   { cls: 'bg-gray-100 text-gray-500 border-gray-200',            dot: 'bg-gray-400',    label: 'Draft' },
   }
   const s = map[status] ?? map.DRAFT
   return (
@@ -104,13 +104,13 @@ function ActionBar({ onDownload, onPrint, onWhatsApp, onEmail, downloading }: { 
         {downloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
         {downloading ? 'Generating…' : 'Download PDF'}
       </button>
-      <button onClick={onPrint} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#1a2540] hover:bg-[#1f2d4f] text-slate-200 border border-white/10 transition-all">
+      <button onClick={onPrint} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 transition-all">
         <Printer size={15} />Print
       </button>
       <button onClick={onWhatsApp} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-all">
         <Share2 size={15} />WhatsApp
       </button>
-      <button onClick={onEmail} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#1a2540] hover:bg-[#1f2d4f] text-slate-200 border border-white/10 transition-all">
+      <button onClick={onEmail} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 transition-all">
         <Mail size={15} />Send Email
       </button>
     </div>
@@ -234,12 +234,12 @@ function InvoiceContent() {
   const handlePrint = () => window.print()
 
   if (loading) return (
-    <div className="min-h-screen bg-[#060d1a] flex items-center justify-center">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
       <Loader2 size={28} className="animate-spin text-orange-400" />
     </div>
   )
   if (error) return (
-    <div className="min-h-screen bg-[#060d1a] flex flex-col items-center justify-center gap-4">
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-4">
       <p className="text-red-400">{error}</p>
       <button onClick={() => router.back()} className="btn-secondary text-sm flex items-center gap-2"><ArrowLeft size={14} />Go Back</button>
     </div>
@@ -279,7 +279,7 @@ function InvoiceContent() {
   const watermark  = INVOICE.status === 'PAID'
 
   return (
-    <div className="min-h-screen bg-[#060d1a] py-8 px-4 sm:px-8 print:bg-white print:p-0">
+    <div className="min-h-screen bg-slate-50 py-8 px-4 sm:px-8 print:bg-white print:p-0">
 
       {/* Action bar */}
       <ActionBar onDownload={handleDownload} onPrint={handlePrint} onWhatsApp={handleWhatsApp} onEmail={handleEmail} downloading={downloading} />
@@ -288,7 +288,7 @@ function InvoiceContent() {
       <div
         ref={invoiceRef}
         id="invoice"
-        className="relative max-w-5xl mx-auto bg-[#0b1425] rounded-3xl overflow-hidden shadow-2xl shadow-black/60 border border-white/5 print:shadow-none print:border-0 print:rounded-none print:bg-white"
+        className="relative max-w-5xl mx-auto bg-white rounded-3xl overflow-hidden shadow-lg shadow-black/10 border border-gray-100 print:shadow-none print:border-0 print:rounded-none print:bg-white"
       >
         {/* Orange top bar */}
         <div className="h-1.5 w-full bg-gradient-to-r from-orange-600 via-orange-400 to-amber-400" />
@@ -310,7 +310,7 @@ function InvoiceContent() {
                 <span className="text-2xl font-black text-white tracking-tight">HX</span>
               </div>
               <div>
-                <h1 className="text-xl font-black text-white tracking-wide">{COMPANY.name}</h1>
+                <h1 className="text-xl font-black text-gray-900 tracking-wide">{COMPANY.name}</h1>
                 <p className="text-xs text-orange-400 font-medium mt-0.5">{COMPANY.tagline}</p>
                 {COMPANY.vat && <p className="text-[11px] text-slate-500 mt-0.5">VAT: {COMPANY.vat}</p>}
               </div>
@@ -319,12 +319,12 @@ function InvoiceContent() {
             {/* Invoice meta */}
             <div className="text-right space-y-1.5 sm:mx-auto">
               <div className="flex items-center gap-3 justify-end">
-                <h2 className="text-2xl font-black text-white uppercase tracking-widest">Purchase Invoice</h2>
+                <h2 className="text-2xl font-black text-gray-900 uppercase tracking-widest">Purchase Invoice</h2>
               </div>
               <p className="text-sm text-orange-400 font-mono font-semibold">{INVOICE.number}</p>
               <div className="flex items-center gap-4 justify-end text-xs text-slate-400 mt-2">
-                <span>Issued: <span className="text-slate-200">{INVOICE.date}</span></span>
-                <span>Due: <span className="text-slate-200">{INVOICE.dueDate}</span></span>
+                <span>Issued: <span className="text-gray-700">{INVOICE.date}</span></span>
+                <span>Due: <span className="text-gray-700">{INVOICE.dueDate}</span></span>
               </div>
               <div className="flex justify-end mt-2">
                 <StatusBadge status={INVOICE.status} />
@@ -333,7 +333,7 @@ function InvoiceContent() {
 
             {/* QR code */}
             <div className="flex flex-col items-center gap-2 flex-shrink-0">
-              <div className="p-2.5 bg-[#0d1a2d] rounded-xl border border-orange-500/20 shadow-lg">
+              <div className="p-2.5 bg-gray-50 rounded-xl border border-orange-200 shadow-sm">
                 <QRCodeSVG />
               </div>
               <span className="text-[9px] text-slate-600 font-mono">Scan to verify</span>
@@ -343,13 +343,13 @@ function InvoiceContent() {
           {/* ── COMPANY + SUPPLIER CARDS ────────────────────────── */}
           <div className="grid sm:grid-cols-2 gap-4">
             {/* Company */}
-            <div className="bg-[#0d1a2d] rounded-2xl p-5 border border-white/5 relative overflow-hidden">
+            <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100 relative overflow-hidden">
               <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-orange-500 to-amber-400 rounded-l-2xl" />
               <div className="flex items-center gap-2 mb-3">
-                <Building2 size={14} className="text-orange-400" />
-                <span className="text-[10px] uppercase tracking-widest text-orange-400 font-semibold">From</span>
+                <Building2 size={14} className="text-orange-500" />
+                <span className="text-[10px] uppercase tracking-widest text-orange-500 font-semibold">From</span>
               </div>
-              <p className="text-base font-bold text-white mb-3">{COMPANY.name}</p>
+              <p className="text-base font-bold text-gray-900 mb-3">{COMPANY.name}</p>
               <div className="space-y-1.5">
                 {[
                   { icon: MapPin, text: COMPANY.address },
@@ -357,8 +357,8 @@ function InvoiceContent() {
                   { icon: Mail,   text: COMPANY.email   },
                   { icon: Globe,  text: COMPANY.website },
                 ].map(({ icon: Icon, text }) => (
-                  <div key={text} className="flex items-start gap-2 text-xs text-slate-400">
-                    <Icon size={11} className="text-slate-600 mt-0.5 flex-shrink-0" />
+                  <div key={text} className="flex items-start gap-2 text-xs text-gray-500">
+                    <Icon size={11} className="text-gray-400 mt-0.5 flex-shrink-0" />
                     <span>{text}</span>
                   </div>
                 ))}
@@ -366,13 +366,13 @@ function InvoiceContent() {
             </div>
 
             {/* Supplier */}
-            <div className="bg-[#0d1a2d] rounded-2xl p-5 border border-white/5 relative overflow-hidden">
+            <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100 relative overflow-hidden">
               <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-cyan-500 to-blue-500 rounded-l-2xl" />
               <div className="flex items-center gap-2 mb-3">
-                <Truck size={14} className="text-cyan-400" />
-                <span className="text-[10px] uppercase tracking-widest text-cyan-400 font-semibold">Supplier</span>
+                <Truck size={14} className="text-cyan-600" />
+                <span className="text-[10px] uppercase tracking-widest text-cyan-600 font-semibold">Supplier</span>
               </div>
-              <p className="text-base font-bold text-white mb-3">{SUPPLIER.name}</p>
+              <p className="text-base font-bold text-gray-900 mb-3">{SUPPLIER.name}</p>
               <div className="space-y-1.5">
                 {[
                   { icon: Phone,   text: SUPPLIER.contact },
@@ -380,8 +380,8 @@ function InvoiceContent() {
                   { icon: Mail,    text: SUPPLIER.email    },
                   { icon: User,    text: `ID: ${SUPPLIER.id}` },
                 ].map(({ icon: Icon, text }) => (
-                  <div key={text} className="flex items-start gap-2 text-xs text-slate-400">
-                    <Icon size={11} className="text-slate-600 mt-0.5 flex-shrink-0" />
+                  <div key={text} className="flex items-start gap-2 text-xs text-gray-500">
+                    <Icon size={11} className="text-gray-400 mt-0.5 flex-shrink-0" />
                     <span>{text}</span>
                   </div>
                 ))}
@@ -397,32 +397,32 @@ function InvoiceContent() {
               { icon: CreditCard, label: 'Payment Method', value: INVOICE.paymentMethod },
               { icon: User,       label: 'Created By',     value: INVOICE.createdBy    },
             ].map(({ icon: Icon, label, value }) => (
-              <div key={label} className="bg-[#0d1a2d]/70 rounded-xl px-4 py-3 border border-white/5">
+              <div key={label} className="bg-gray-100 rounded-xl px-4 py-3 border border-gray-100">
                 <div className="flex items-center gap-1.5 mb-1">
                   <Icon size={11} className="text-orange-400" />
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wide">{label}</span>
+                  <span className="text-[10px] text-gray-500 uppercase tracking-wide">{label}</span>
                 </div>
-                <p className="text-xs font-semibold text-slate-200 truncate">{value}</p>
+                <p className="text-xs font-semibold text-gray-800 truncate">{value}</p>
               </div>
             ))}
           </div>
 
           {/* ── PRODUCTS TABLE ──────────────────────────────────── */}
           <div>
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
               <span className="w-6 h-0.5 bg-orange-500 inline-block rounded" />
               Order Items
             </h3>
-            <div className="rounded-2xl overflow-hidden border border-white/5">
+            <div className="rounded-2xl overflow-hidden border border-gray-100">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-[#0d1a2d] border-b border-white/5">
+                  <tr className="bg-gray-50 border-b border-gray-100">
                     {['Product','IMEI','Specs','Qty','Unit Price','Disc.','Tax','Total'].map((h, i) => (
                       <th key={h} className={`px-4 py-3.5 text-[10px] uppercase tracking-widest font-bold text-slate-500 ${i >= 3 ? 'text-right' : 'text-left'}`}>{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/3">
+                <tbody className="divide-y divide-gray-100">
                   {ITEMS.map((item: any, idx: number) => {
                     const name      = item.productName ?? item.name ?? '—'
                     const brand     = item.brand ?? item.brandName ?? null
@@ -435,7 +435,7 @@ function InvoiceContent() {
                     const tax       = item.tax        ?? null
                     const lineTotal = item.total      ?? (qty * unitPrice - discount)
                     return (
-                      <tr key={item.id ?? idx} className="hover:bg-orange-500/3 transition-colors group">
+                      <tr key={item.id ?? idx} className="hover:bg-orange-50 transition-colors group">
                         {/* Product */}
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
@@ -443,7 +443,7 @@ function InvoiceContent() {
                               📦
                             </div>
                             <div>
-                              <p className="font-semibold text-slate-100 text-sm leading-tight">{name}</p>
+                              <p className="font-semibold text-gray-900 text-sm leading-tight">{name}</p>
                               {brand && <span className="text-[10px] text-orange-400 font-medium bg-orange-500/10 px-1.5 py-0.5 rounded mt-0.5 inline-block">{brand}</span>}
                             </div>
                           </div>
@@ -452,26 +452,26 @@ function InvoiceContent() {
                         <td className="px-4 py-4">
                           {imei ? (
                             <div>
-                              <p className="text-[11px] font-mono text-slate-300">{imei}</p>
+                              <p className="text-[11px] font-mono text-gray-600">{imei}</p>
                               <div className="mt-1"><BarcodeSVG value={imei} /></div>
                             </div>
-                          ) : <span className="text-xs text-slate-600">—</span>}
+                          ) : <span className="text-xs text-gray-400">—</span>}
                         </td>
                         {/* Specs */}
                         <td className="px-4 py-4">
                           <div className="flex flex-col gap-1">
-                            {storage && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20 w-fit">{storage}</span>}
-                            {color   && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-400 border border-slate-500/20 w-fit">{color}</span>}
-                            {!storage && !color && <span className="text-xs text-slate-600">—</span>}
+                            {storage && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200 w-fit">{storage}</span>}
+                            {color   && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200 w-fit">{color}</span>}
+                            {!storage && !color && <span className="text-xs text-gray-400">—</span>}
                           </div>
                         </td>
                         {/* Qty */}
                         <td className="px-4 py-4 text-right">
-                          <span className="text-sm font-bold text-white bg-white/5 px-2.5 py-1 rounded-lg">{qty}</span>
+                          <span className="text-sm font-bold text-gray-900 bg-gray-100 px-2.5 py-1 rounded-lg">{qty}</span>
                         </td>
                         {/* Unit price */}
                         <td className="px-4 py-4 text-right">
-                          <span className="text-sm font-semibold text-slate-200">{fmt(unitPrice)}</span>
+                          <span className="text-sm font-semibold text-gray-700">{fmt(unitPrice)}</span>
                         </td>
                         {/* Discount */}
                         <td className="px-4 py-4 text-right">
@@ -483,7 +483,7 @@ function InvoiceContent() {
                         </td>
                         {/* Total */}
                         <td className="px-4 py-4 text-right">
-                          <span className="text-sm font-bold text-white">{fmt(lineTotal)}</span>
+                          <span className="text-sm font-bold text-gray-900">{fmt(lineTotal)}</span>
                         </td>
                       </tr>
                     )
@@ -498,15 +498,15 @@ function InvoiceContent() {
 
             {/* Notes + Terms */}
             <div className="space-y-4">
-              <div className="bg-[#0d1a2d]/60 rounded-2xl p-5 border border-white/5">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Notes</h4>
-                <p className="text-xs text-slate-400 leading-relaxed">
+              <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100">
+                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Notes</h4>
+                <p className="text-xs text-gray-500 leading-relaxed">
                   All products are brand new, sealed with manufacturer warranty. IMEI numbers verified at point of entry.
                   Delivery expected within 3–5 business days. Handle with care during transport.
                 </p>
               </div>
-              <div className="bg-[#0d1a2d]/60 rounded-2xl p-5 border border-white/5">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Terms & Conditions</h4>
+              <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100">
+                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Terms & Conditions</h4>
                 <ul className="space-y-1.5">
                   {[
                     'Payment is due within 14 days of invoice date.',
@@ -514,7 +514,7 @@ function InvoiceContent() {
                     'Disputes must be raised within 48 hours of receipt.',
                     'This invoice is system-generated and digitally valid.',
                   ].map((t, i) => (
-                    <li key={i} className="flex items-start gap-2 text-[11px] text-slate-500">
+                    <li key={i} className="flex items-start gap-2 text-[11px] text-gray-500">
                       <ChevronRight size={10} className="text-orange-500 mt-0.5 flex-shrink-0" />
                       {t}
                     </li>
@@ -526,20 +526,20 @@ function InvoiceContent() {
             {/* Totals Card */}
             <div className="relative rounded-2xl overflow-hidden">
               {/* Gradient background */}
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-600/20 via-amber-500/10 to-[#0d1a2d]" />
-              <div className="absolute inset-0 border border-orange-500/20 rounded-2xl" />
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-50 via-amber-50 to-gray-50" />
+              <div className="absolute inset-0 border border-orange-100 rounded-2xl" />
 
               <div className="relative p-6 space-y-3">
                 <h4 className="text-xs font-bold text-orange-400 uppercase tracking-widest mb-4">Summary</h4>
 
                 {[
-                  { label: 'Subtotal',        value: fmt(subtotal),  cls: 'text-slate-300' },
-                  { label: 'Total Discount',  value: `-${fmt(totalDisc)}`, cls: 'text-red-400' },
-                  { label: 'VAT (8%)',         value: fmt(totalTax),  cls: 'text-amber-400' },
-                  { label: 'Shipping',         value: fmt(shipping),  cls: 'text-slate-300' },
+                  { label: 'Subtotal',        value: fmt(subtotal),  cls: 'text-gray-700' },
+                  { label: 'Total Discount',  value: `-${fmt(totalDisc)}`, cls: 'text-red-500' },
+                  { label: 'VAT (8%)',         value: fmt(totalTax),  cls: 'text-amber-600' },
+                  { label: 'Shipping',         value: fmt(shipping),  cls: 'text-gray-700' },
                 ].map(({ label, value, cls }) => (
                   <div key={label} className="flex items-center justify-between">
-                    <span className="text-xs text-slate-500">{label}</span>
+                    <span className="text-xs text-gray-500">{label}</span>
                     <span className={`text-sm font-semibold ${cls}`}>{value}</span>
                   </div>
                 ))}
@@ -548,31 +548,31 @@ function InvoiceContent() {
 
                 {/* Grand Total */}
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-white">Grand Total</span>
+                  <span className="text-sm font-bold text-gray-900">Grand Total</span>
                   <div className="text-right">
                     <p className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-300">
                       {fmt(grandTotal)}
                     </p>
-                    <p className="text-[10px] text-slate-500">Sri Lankan Rupees</p>
+                    <p className="text-[10px] text-gray-400">Sri Lankan Rupees</p>
                   </div>
                 </div>
 
                 {/* Payment status */}
                 {INVOICE.status === 'PAID' && (
-                  <div className="mt-3 flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2.5">
-                    <CheckCircle2 size={14} className="text-emerald-400 flex-shrink-0" />
+                  <div className="mt-3 flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5">
+                    <CheckCircle2 size={14} className="text-emerald-600 flex-shrink-0" />
                     <div>
-                      <p className="text-xs font-semibold text-emerald-300">Payment Received</p>
-                      <p className="text-[10px] text-slate-500">Bank Transfer · {INVOICE.date}</p>
+                      <p className="text-xs font-semibold text-emerald-700">Payment Received</p>
+                      <p className="text-[10px] text-gray-400">Bank Transfer · {INVOICE.date}</p>
                     </div>
                   </div>
                 )}
                 {INVOICE.status === 'PENDING' && (
-                  <div className="mt-3 flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2.5">
-                    <Clock size={14} className="text-amber-400 flex-shrink-0" />
+                  <div className="mt-3 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+                    <Clock size={14} className="text-amber-600 flex-shrink-0" />
                     <div>
-                      <p className="text-xs font-semibold text-amber-300">Payment Pending</p>
-                      <p className="text-[10px] text-slate-500">Due by {INVOICE.dueDate}</p>
+                      <p className="text-xs font-semibold text-amber-700">Payment Pending</p>
+                      <p className="text-[10px] text-gray-400">Due by {INVOICE.dueDate}</p>
                     </div>
                   </div>
                 )}
@@ -583,28 +583,28 @@ function InvoiceContent() {
           {/* ── SIGNATURE + FOOTER ─────────────────────────────── */}
           <div className="grid sm:grid-cols-2 gap-6">
             {/* Authorized signature */}
-            <div className="bg-[#0d1a2d]/60 rounded-2xl p-5 border border-white/5">
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-6">Authorized Signature</p>
-              <div className="border-b border-dashed border-white/10 pb-2 mb-2 w-48">
+            <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100">
+              <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-6">Authorized Signature</p>
+              <div className="border-b border-dashed border-gray-300 pb-2 mb-2 w-48">
                 <p className="text-base font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-300 font-serif italic">{invSettings.signatoryName || currentUser?.name || 'Authorized'}</p>
               </div>
-              <p className="text-xs text-slate-500">{invSettings.signatoryTitle || 'Authorized Signatory'}, {COMPANY.name}</p>
-              <p className="text-[10px] text-slate-600 mt-1">{INVOICE.date}</p>
+              <p className="text-xs text-gray-500">{invSettings.signatoryTitle || 'Authorized Signatory'}, {COMPANY.name}</p>
+              <p className="text-[10px] text-gray-400 mt-1">{INVOICE.date}</p>
             </div>
 
             {/* Thank you + social */}
-            <div className="bg-gradient-to-br from-orange-500/10 to-transparent rounded-2xl p-5 border border-orange-500/10 flex flex-col justify-between">
+            <div className="bg-orange-50 rounded-2xl p-5 border border-orange-100 flex flex-col justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <Zap size={14} className="text-orange-400" />
-                  <p className="text-sm font-bold text-white">Thank you for your business!</p>
+                  <p className="text-sm font-bold text-gray-900">Thank you for your business!</p>
                 </div>
-                <p className="text-xs text-slate-400 leading-relaxed mt-1">
+                <p className="text-xs text-gray-500 leading-relaxed mt-1">
                   We appreciate your trust in Hexalyte Mobile. For queries contact us at {COMPANY.email}
                 </p>
               </div>
-              <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
-                <p className="text-[10px] text-slate-600 font-mono">{COMPANY.website}</p>
+              <div className="mt-4 pt-4 border-t border-orange-100 flex items-center justify-between">
+                <p className="text-[10px] text-gray-400 font-mono">{COMPANY.website}</p>
                 <div className="flex gap-3">
                   {['FB','IG','WA'].map(s => (
                     <span key={s} className="text-[10px] text-orange-400 font-bold bg-orange-500/10 border border-orange-500/20 w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:bg-orange-500/20 transition-colors">
@@ -618,10 +618,10 @@ function InvoiceContent() {
 
           {/* Bottom bar */}
           <div className="flex items-center justify-between pt-2">
-            <p className="text-[10px] text-slate-600 font-mono">Generated by Hexalyte ERP · {INVOICE.number}</p>
+            <p className="text-[10px] text-gray-400 font-mono">Generated by Hexalyte ERP · {INVOICE.number}</p>
             <div className="flex items-center gap-1.5">
               <BarChart2 size={10} className="text-orange-500" />
-              <p className="text-[10px] text-slate-600">Powered by Hexalyte SaaS Platform</p>
+              <p className="text-[10px] text-gray-400">Powered by Hexalyte SaaS Platform</p>
             </div>
           </div>
 
@@ -632,7 +632,7 @@ function InvoiceContent() {
       <style>{`
         @media print {
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          body, html { background: #0b1425 !important; margin: 0 !important; padding: 0 !important; }
+          body, html { background: #ffffff !important; margin: 0 !important; padding: 0 !important; }
           .print\\:hidden { display: none !important; }
           #invoice { box-shadow: none !important; border-radius: 0 !important; border: none !important; max-width: 100% !important; margin: 0 !important; }
           @page { margin: 0; size: A4; }
@@ -646,8 +646,8 @@ function InvoiceContent() {
 export default function PurchaseInvoicePage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#060d1a] flex items-center justify-center">
-        <Loader2 size={28} className="animate-spin text-orange-400" />
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Loader2 size={28} className="animate-spin text-orange-500" />
       </div>
     }>
       <InvoiceContent />
