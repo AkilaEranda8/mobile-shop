@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import {
   DollarSign, TrendingUp, Users, AlertTriangle, CreditCard,
   Send, ArrowUpDown, XCircle, CheckCircle, Clock, Search,
-  RefreshCw, ChevronRight, X, Loader2, FileText, Printer,
+  RefreshCw, ChevronRight, X, Loader2, FileText, Printer, Pencil, Plus, Trash2,
 } from 'lucide-react'
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis,
@@ -12,6 +12,7 @@ import {
 } from 'recharts'
 import {
   fetchSubscriptions, fetchStats, fetchMrrChart, updateSubscription,
+  fetchPlatformConfig, savePlatformConfig,
   type SubscriptionRow, type PlatformStats, type MrrPoint,
 } from '@/lib/api'
 
@@ -19,8 +20,8 @@ import {
 const PLAN_BADGE: Record<string, string> = {
   STARTER: 'badge-gray', PRO: 'badge-blue', ENTERPRISE: 'badge-purple', TRIAL: 'badge-yellow',
 }
-const PLAN_MRR: Record<string, number> = { STARTER: 1199, PRO: 4799, ENTERPRISE: 14399 }
-const PLAN_FEATURES: Record<string, string[]> = {
+const DEFAULT_MRR: Record<string, number> = { STARTER: 1199, PRO: 4799, ENTERPRISE: 14399 }
+const DEFAULT_FEATURES: Record<string, string[]> = {
   STARTER:    ['3 users', '1 branch', 'POS & Repairs', 'Basic reports'],
   PRO:        ['10 users', '3 branches', 'Analytics', 'Warranty', 'Delivery'],
   ENTERPRISE: ['Unlimited users', 'Unlimited branches', 'API access', 'White-label', 'Priority support'],
@@ -263,6 +264,77 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
   )
 }
 
+/* ── Edit Plan Modal ────────────────────────────────────────── */
+function EditPlanModal({
+  plan, mrr, features, onClose, onSaved,
+}: { plan: string; mrr: number; features: string[]; onClose: () => void; onSaved: (mrr: number, features: string[]) => void }) {
+  const [price, setPrice]   = useState(String(mrr))
+  const [feats, setFeats]   = useState<string[]>([...features])
+  const [saving, setSaving] = useState(false)
+  const [err, setErr]       = useState('')
+
+  const updateFeat = (i: number, val: string) =>
+    setFeats(f => f.map((x, j) => j === i ? val : x))
+  const removeFeat = (i: number) =>
+    setFeats(f => f.filter((_, j) => j !== i))
+  const addFeat = () => setFeats(f => [...f, ''])
+
+  const handleSave = async () => {
+    const numPrice = parseInt(price)
+    if (isNaN(numPrice) || numPrice < 0) { setErr('Enter a valid price'); return }
+    setSaving(true); setErr('')
+    try {
+      const cfg = await fetchPlatformConfig().catch(() => ({} as Record<string, string>))
+      cfg[`plan_mrr_${plan}`]      = String(numPrice)
+      cfg[`plan_features_${plan}`] = JSON.stringify(feats.filter(Boolean))
+      await savePlatformConfig(cfg)
+      onSaved(numPrice, feats.filter(Boolean))
+      onClose()
+    } catch (e: any) { setErr(e.message ?? 'Save failed') }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl border border-gray-100">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-bold text-gray-900">Edit {plan} Plan</h3>
+          <button onClick={onClose} className="p-1 rounded-lg text-gray-400 hover:bg-gray-100"><X size={15} /></button>
+        </div>
+        {/* Price */}
+        <div className="mb-4">
+          <label className="block text-xs font-semibold text-gray-600 mb-1.5">Monthly Price (Rs.)</label>
+          <input type="number" min="0" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-gray-400"
+            value={price} onChange={e => setPrice(e.target.value)} />
+        </div>
+        {/* Features */}
+        <div className="mb-4">
+          <label className="block text-xs font-semibold text-gray-600 mb-1.5">Features</label>
+          <div className="space-y-1.5">
+            {feats.map((f, i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                <input className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-800 focus:outline-none focus:border-gray-400"
+                  value={f} onChange={e => updateFeat(i, e.target.value)} />
+                <button onClick={() => removeFeat(i)} className="p-1 text-red-400 hover:bg-red-50 rounded-lg"><Trash2 size={12} /></button>
+              </div>
+            ))}
+            <button onClick={addFeat} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 mt-1">
+              <Plus size={12} /> Add feature
+            </button>
+          </div>
+        </div>
+        {err && <p className="text-xs text-red-500 mb-3">{err}</p>}
+        <div className="flex gap-2">
+          <button onClick={onClose} className="btn-secondary flex-1 justify-center">Cancel</button>
+          <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 justify-center disabled:opacity-50">
+            {saving ? <Loader2 size={13} className="animate-spin" /> : null} Save
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ── Extend Modal ────────────────────────────────────────────── */
 function ExtendModal({ sub, onClose, onSaved }: { sub: SubscriptionRow; onClose: () => void; onSaved: () => void }) {
   const [date, setDate]   = useState(sub.subscriptionEndsAt ? sub.subscriptionEndsAt.split('T')[0] : '')
@@ -312,6 +384,22 @@ export default function SubscriptionsPage() {
   const [changePlan, setChangePlan] = useState<SubscriptionRow | null>(null)
   const [extendSub, setExtendSub]   = useState<SubscriptionRow | null>(null)
   const [invoiceSub, setInvoiceSub] = useState<SubscriptionRow | null>(null)
+  const [editingPlan, setEditingPlan] = useState<string | null>(null)
+  const [planMrr, setPlanMrr]         = useState<Record<string, number>>({ ...DEFAULT_MRR })
+  const [planFeatures, setPlanFeatures] = useState<Record<string, string[]>>({ ...DEFAULT_FEATURES })
+
+  // Load saved plan config from platform config
+  useEffect(() => {
+    fetchPlatformConfig().then(cfg => {
+      const mrr  = { ...DEFAULT_MRR }
+      const feat = { ...DEFAULT_FEATURES }
+      for (const p of ['STARTER', 'PRO', 'ENTERPRISE']) {
+        if (cfg[`plan_mrr_${p}`])      mrr[p]  = parseInt(cfg[`plan_mrr_${p}`])
+        if (cfg[`plan_features_${p}`]) feat[p] = JSON.parse(cfg[`plan_features_${p}`])
+      }
+      setPlanMrr(mrr); setPlanFeatures(feat)
+    }).catch(() => {})
+  }, [])
 
   const load = () => {
     setLoading(true)
@@ -357,6 +445,18 @@ export default function SubscriptionsPage() {
       {changePlan && <ChangePlanModal sub={changePlan} onClose={() => setChangePlan(null)} onSaved={load} />}
       {extendSub  && <ExtendModal    sub={extendSub}  onClose={() => setExtendSub(null)}  onSaved={load} />}
       {invoiceSub && <InvoiceModal   sub={invoiceSub} onClose={() => setInvoiceSub(null)} />}
+      {editingPlan && (
+        <EditPlanModal
+          plan={editingPlan}
+          mrr={planMrr[editingPlan] ?? 0}
+          features={planFeatures[editingPlan] ?? []}
+          onClose={() => setEditingPlan(null)}
+          onSaved={(mrr, feats) => {
+            setPlanMrr(m => ({ ...m, [editingPlan]: mrr }))
+            setPlanFeatures(f => ({ ...f, [editingPlan]: feats }))
+          }}
+        />
+      )}
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -610,14 +710,20 @@ export default function SubscriptionsPage() {
               <div key={p} className={`card border-2 ${cfg.color} p-6 flex flex-col gap-4`}>
                 <div className="flex items-center justify-between">
                   <span className={`text-xs font-bold uppercase tracking-widest ${cfg.label}`}>{p}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${cfg.accent}`}>{count} tenants</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${cfg.accent}`}>{count} tenants</span>
+                    <button onClick={() => setEditingPlan(p)}
+                      className="p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-colors" title="Edit Plan">
+                      <Pencil size={12} />
+                    </button>
+                  </div>
                 </div>
                 <div>
-                  <p className="text-4xl font-black text-gray-900">Rs.{PLAN_MRR[p].toLocaleString()}</p>
+                  <p className="text-4xl font-black text-gray-900">Rs.{(planMrr[p] ?? 0).toLocaleString()}</p>
                   <p className="text-xs text-gray-400 mt-0.5">per month</p>
                 </div>
                 <div className="flex-1 space-y-1.5">
-                  {PLAN_FEATURES[p].map(f => (
+                  {(planFeatures[p] ?? []).map(f => (
                     <div key={f} className="flex items-center gap-2 text-sm text-gray-600">
                       <CheckCircle size={13} className={cfg.label} /> {f}
                     </div>
@@ -626,11 +732,11 @@ export default function SubscriptionsPage() {
                 <div className="pt-4 border-t border-gray-100 space-y-2">
                   <div className="flex justify-between text-xs text-gray-500">
                     <span>Monthly Revenue</span>
-                    <span className="font-bold text-gray-900">{fmt((PLAN_MRR[p] ?? 0) * count)}</span>
+                    <span className="font-bold text-gray-900">{fmt((planMrr[p] ?? 0) * count)}</span>
                   </div>
                   <div className="flex justify-between text-xs text-gray-500">
                     <span>ARR Contribution</span>
-                    <span className="font-bold text-gray-900">{fmt((PLAN_MRR[p] ?? 0) * count * 12)}</span>
+                    <span className="font-bold text-gray-900">{fmt((planMrr[p] ?? 0) * count * 12)}</span>
                   </div>
                 </div>
               </div>
