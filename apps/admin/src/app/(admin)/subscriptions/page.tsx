@@ -58,7 +58,7 @@ function ChangePlanModal({ sub, onClose, onSaved }: { sub: SubscriptionRow; onCl
     try {
       await updateSubscription(sub.id, {
         plan,
-        mrr: PLAN_MRR[plan] ?? sub.mrr ?? 0,
+        mrr: DEFAULT_MRR[plan] ?? sub.mrr ?? 0,
         status: 'ACTIVE',
         subscriptionEndsAt: new Date(subEnd).toISOString(),
       })
@@ -80,10 +80,10 @@ function ChangePlanModal({ sub, onClose, onSaved }: { sub: SubscriptionRow; onCl
               className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left ${plan === p ? 'border-gray-900 bg-gray-50' : 'border-gray-200 hover:border-gray-300'}`}>
               <div>
                 <p className="text-sm font-semibold text-gray-900">{p.charAt(0) + p.slice(1).toLowerCase()}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{PLAN_FEATURES[p].slice(0, 2).join(' · ')}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{DEFAULT_FEATURES[p].slice(0, 2).join(' · ')}</p>
               </div>
               <div className="text-right flex-shrink-0">
-                <p className="text-sm font-bold text-gray-900">Rs.{PLAN_MRR[p].toLocaleString()}</p>
+                <p className="text-sm font-bold text-gray-900">Rs.{DEFAULT_MRR[p].toLocaleString()}</p>
                 <p className="text-[10px] text-gray-400">/mo</p>
               </div>
               {plan === p && <CheckCircle size={14} className="text-gray-900 ml-2 flex-shrink-0" />}
@@ -113,7 +113,7 @@ function ChangePlanModal({ sub, onClose, onSaved }: { sub: SubscriptionRow; onCl
             <p className="text-xs text-blue-600 font-semibold">{plan} Plan · ACTIVE</p>
             <p className="text-[11px] text-blue-400">Ends {new Date(subEnd).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
           </div>
-          <p className="text-sm font-bold text-blue-700">Rs.{(PLAN_MRR[plan] ?? 0).toLocaleString()}/mo</p>
+          <p className="text-sm font-bold text-blue-700">Rs.{(DEFAULT_MRR[plan] ?? 0).toLocaleString()}/mo</p>
         </div>
         {err && <p className="text-xs text-red-500 mb-3">{err}</p>}
         <div className="flex gap-2">
@@ -151,12 +151,14 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
     if (!el) return
     const w = window.open('', '_blank', 'width=800,height=900')
     if (!w) return
+    const origin = window.location.origin
+    const html = el.innerHTML.replace(/src="\/logo\.png"/g, `src="${origin}/logo.png"`)
     w.document.write(`<html><head><title>Invoice ${invoiceNo}</title>
       <style>
         body{font-family:system-ui,sans-serif;margin:0;padding:0;background:#fff;color:#111}
         *{box-sizing:border-box}
       </style>
-    </head><body>${el.innerHTML}</body></html>`)
+    </head><body>${html}</body></html>`)
     w.document.close()
     w.focus()
     setTimeout(() => { w.print(); w.close() }, 400)
@@ -182,12 +184,12 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
         {/* Printable invoice body */}
         <div id="hx-invoice-print" className="p-8">
           <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 680, margin: '0 auto', padding: 40, background: '#fff', color: '#111' }}>
-            {/* Top: company + invoice label */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 36 }}>
+            {/* Top: logo + invoice label */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 36 }}>
               <div>
-                <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: -1, color: '#111' }}>Hexalyte</div>
-                <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>Cloud POS & Repair Management</div>
-                <div style={{ fontSize: 11, color: '#6b7280' }}>support@hexalyte.com</div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/logo.png" alt="Hexalyte Innovation" style={{ height: 56, objectFit: 'contain', display: 'block' }} />
+                <div style={{ fontSize: 11, color: '#6b7280', marginTop: 6 }}>support@hexalyte.com · hexalyte.com</div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 28, fontWeight: 900, color: '#111', letterSpacing: -1 }}>INVOICE</div>
@@ -573,7 +575,7 @@ export default function SubscriptionsPage() {
             <div className="grid sm:grid-cols-3 gap-4">
               {(['STARTER','PRO','ENTERPRISE'] as const).map((p, i) => {
                 const count = planCounts[p] ?? 0
-                const rev   = (PLAN_MRR[p] ?? 0) * count
+                const rev   = (DEFAULT_MRR[p] ?? 0) * count
                 const colors = [
                   { bg: 'bg-gray-50', border: 'border-gray-200', accent: 'bg-gray-900', text: 'text-gray-900' },
                   { bg: 'bg-blue-50', border: 'border-blue-200', accent: 'bg-blue-600', text: 'text-blue-700' },
@@ -589,7 +591,7 @@ export default function SubscriptionsPage() {
                     <p className="text-2xl font-bold text-gray-900">{fmt(rev)}</p>
                     <p className="text-xs text-gray-500 mt-0.5">/month</p>
                     <div className="mt-3 text-[10px] text-gray-500 space-y-0.5">
-                      {PLAN_FEATURES[p].map(f => (
+                      {(DEFAULT_FEATURES[p] as string[]).map(f => (
                         <div key={f} className="flex items-center gap-1">
                           <CheckCircle size={9} className={c.text} /> {f}
                         </div>
