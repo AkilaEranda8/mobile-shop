@@ -15,6 +15,7 @@ import {
   fetchPlatformConfig, savePlatformConfig,
   type SubscriptionRow, type PlatformStats, type MrrPoint,
 } from '@/lib/api'
+import { LOGO_BASE64 } from '@/lib/logo-base64'
 
 /* ── helpers ─────────────────────────────────────────────────── */
 const PLAN_BADGE: Record<string, string> = {
@@ -151,14 +152,12 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
     if (!el) return
     const w = window.open('', '_blank', 'width=800,height=900')
     if (!w) return
-    const origin = window.location.origin
-    const html = el.innerHTML.replace(/src="\/logo\.png"/g, `src="${origin}/logo.png"`)
     w.document.write(`<html><head><title>Invoice ${invoiceNo}</title>
       <style>
         body{font-family:system-ui,sans-serif;margin:0;padding:0;background:#fff;color:#111}
         *{box-sizing:border-box}
       </style>
-    </head><body>${html}</body></html>`)
+    </head><body>${el.innerHTML}</body></html>`)
     w.document.close()
     w.focus()
     setTimeout(() => { w.print(); w.close() }, 400)
@@ -188,7 +187,7 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 36 }}>
               <div>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/logo.png" alt="Hexalyte Innovation" style={{ height: 56, objectFit: 'contain', display: 'block' }} />
+                <img src={LOGO_BASE64} alt="Hexalyte Innovation" style={{ height: 56, objectFit: 'contain', display: 'block' }} />
                 <div style={{ fontSize: 11, color: '#6b7280', marginTop: 6 }}>support@hexalyte.com · hexalyte.com</div>
               </div>
               <div style={{ textAlign: 'right' }}>
