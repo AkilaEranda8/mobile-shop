@@ -1414,28 +1414,8 @@ export default function RepairsPage() {
   const [detailRepair, setDetailRepair]     = useState<RepairTicket | null>(null)
   const [editRepair,   setEditRepair]       = useState<RepairTicket | null>(null)
   const [search, setSearch]         = useState('')
-  const [showAnalytics, setShowAnalytics] = useState(false)
 
   const allRepairs: RepairTicket[] = (repairsData?.data ?? []) as RepairTicket[]
-
-  const analytics = useMemo(() => {
-    const now   = new Date()
-    const month = now.getMonth()
-    const year  = now.getFullYear()
-    const active    = allRepairs.filter(r => !['DELIVERED','CANCELLED'].includes(r.status))
-    const delivered = allRepairs.filter(r => r.status === 'DELIVERED')
-    const thisMonth = delivered.filter(r => { const d = new Date(r.createdAt); return d.getMonth() === month && d.getFullYear() === year })
-    const revenue   = delivered.reduce((s, r) => s + (r.actualCost ?? r.estimatedCost ?? 0), 0)
-    const statusCounts: Record<string, number> = {}
-    allRepairs.forEach(r => { statusCounts[r.status] = (statusCounts[r.status] || 0) + 1 })
-    const faultCounts: Record<string, number> = {}
-    allRepairs.forEach(r => { if (r.reportedIssue) faultCounts[r.reportedIssue] = (faultCounts[r.reportedIssue] || 0) + 1 })
-    const topFaults = Object.entries(faultCounts).sort((a,b) => b[1]-a[1]).slice(0,5)
-    const techCounts: Record<string, number> = {}
-    delivered.forEach(r => { if (r.technicianName) techCounts[r.technicianName] = (techCounts[r.technicianName] || 0) + 1 })
-    const topTechs = Object.entries(techCounts).sort((a,b) => b[1]-a[1]).slice(0,4)
-    return { total: allRepairs.length, active: active.length, thisMonth: thisMonth.length, revenue, statusCounts, topFaults, topTechs }
-  }, [allRepairs])
 
   const repairs = useMemo(() => {
     const q = search.toLowerCase().trim()
@@ -1558,74 +1538,6 @@ export default function RepairsPage() {
         </div>
       </div>
 
-      {/* Analytics */}
-      <div>
-        <button onClick={() => setShowAnalytics(v => !v)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
-          style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>
-          {showAnalytics ? '▲ Hide Analytics' : '▼ Show Analytics'}
-        </button>
-      {showAnalytics && <div className="mt-3 space-y-3">
-            {/* KPI cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {[
-                { label: 'Total Tickets',   value: analytics.total,                  color: 'violet' },
-                { label: 'Active',          value: analytics.active,                 color: 'amber'  },
-                { label: 'Completed (Mo.)', value: analytics.thisMonth,              color: 'emerald'},
-                { label: 'Revenue (Total)', value: formatCurrency(analytics.revenue),color: 'blue'   },
-              ].map(({ label, value, color }) => (
-                <div key={label} className="card p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
-                  <p className={`text-xl font-black text-${color}-500`}>{value}</p>
-                </div>
-              ))}
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {/* Status breakdown */}
-              <div className="card p-4">
-                <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>Status Breakdown</p>
-                <div className="space-y-1.5">
-                  {Object.entries(analytics.statusCounts).map(([s, cnt]) => (
-                    <div key={s} className="flex items-center justify-between text-xs">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getRepairStatusColor(s)}`}>{statusLabels[s] ?? s}</span>
-                      <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{cnt}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {/* Top faults */}
-              <div className="card p-4">
-                <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>Top Fault Types</p>
-                <div className="space-y-2">
-                  {analytics.topFaults.length === 0 && <p className="text-xs text-slate-500">No data yet</p>}
-                  {analytics.topFaults.map(([fault, cnt], i) => (
-                    <div key={fault} className="flex items-center gap-2 text-xs">
-                      <span className="w-4 text-[10px] font-bold text-slate-500">#{i+1}</span>
-                      <span className="flex-1 truncate" style={{ color: 'var(--text-secondary)' }}>{fault}</span>
-                      <span className="font-bold text-violet-400">{cnt}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {/* Top technicians */}
-              <div className="card p-4">
-                <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>Top Technicians</p>
-                <div className="space-y-2">
-                  {analytics.topTechs.length === 0 && <p className="text-xs text-slate-500">No data yet</p>}
-                  {analytics.topTechs.map(([tech, cnt]) => (
-                    <div key={tech} className="flex items-center gap-2 text-xs">
-                      <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center text-[10px] font-bold text-violet-300 shrink-0">
-                        {tech.charAt(0).toUpperCase()}
-                      </div>
-                      <span className="flex-1 truncate" style={{ color: 'var(--text-secondary)' }}>{tech}</span>
-                      <span className="font-bold text-emerald-400">{cnt} done</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-      </div>}
-      </div>
 
       {/* Search bar */}
       <div className="relative max-w-sm">
