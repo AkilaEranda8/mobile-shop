@@ -191,13 +191,15 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
           <div style={{ fontFamily: 'system-ui, sans-serif', width: '100%', padding: '40px 48px', background: '#fff', color: '#111' }}>
             {/* Top: logo + invoice label */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 36 }}>
-              <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={LOGO_BASE64} alt="Hexalyte Innovation" style={{ height: 80, objectFit: 'contain', display: 'block', marginBottom: 8 }} />
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>Hexalyte Innovation (Pvt) Ltd</div>
-                <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>www.hexalyte.com</div>
-                <div style={{ fontSize: 10, color: '#6b7280' }}>info@hexalyte.com</div>
-                <div style={{ fontSize: 10, color: '#6b7280' }}>+94 70 3130100</div>
+                <img src={LOGO_BASE64} alt="Hexalyte Innovation" style={{ height: 72, objectFit: 'contain', flexShrink: 0 }} />
+                <div style={{ borderLeft: '1px solid #e5e7eb', paddingLeft: 16 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#111' }}>Hexalyte Innovation (Pvt) Ltd</div>
+                  <div style={{ fontSize: 10, color: '#6b7280', marginTop: 3 }}>www.hexalyte.com</div>
+                  <div style={{ fontSize: 10, color: '#6b7280', marginTop: 1 }}>info@hexalyte.com</div>
+                  <div style={{ fontSize: 10, color: '#6b7280', marginTop: 1 }}>+94 70 3130100</div>
+                </div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 28, fontWeight: 900, color: '#111', letterSpacing: -1 }}>INVOICE</div>
