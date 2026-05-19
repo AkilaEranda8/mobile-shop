@@ -270,7 +270,7 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
               <div style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Bank Transfer Details</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 20px' }}>
                 {[
-                  ['Bank',           'Commercial Bank of Ceylon'],
+                  ['Bank',           'Commercial Bank'],
                   ['Account Name',   'Akila Eranda Gankewela'],
                   ['Account Number', '2000124779'],
                   ['SWIFT Code',     'CCEYLKLX'],
