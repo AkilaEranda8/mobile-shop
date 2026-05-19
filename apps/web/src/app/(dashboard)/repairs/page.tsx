@@ -683,25 +683,25 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
     const grandTotal = (repair.estimatedCost ?? 0) + partsTotal
     const fmt = (n: number) => `LKR ${n.toLocaleString('en-LK')}`
     const partsLines = (repair.spareParts ?? []).length > 0
-      ? `\n\n🔩 *Parts:*\n` + repair.spareParts!.map((p: any) => `  • ${p.productName} x${p.quantity} — ${fmt(p.total)}`).join('\n')
+      ? `\n\n*Parts:*\n` + repair.spareParts!.map((p: any) => `  - ${p.productName} x${p.quantity} - ${fmt(p.total)}`).join('\n')
       : ''
     const msg = [
-      `🔧 *Repair Quote — ${invSettings.shopName || 'Service Center'}*`,
+      `*Repair Quote — ${invSettings.shopName || 'Service Center'}*`,
       ``,
-      `📋 *Ticket:* ${repair.ticketNumber}`,
-      `👤 *Customer:* ${repair.customerName}`,
-      `📱 *Device:* ${repair.deviceBrand} ${repair.deviceModel}`,
-      repair.imei ? `🔖 *IMEI:* ${repair.imei}` : null,
+      `*Ticket:* ${repair.ticketNumber}`,
+      `*Customer:* ${repair.customerName}`,
+      `*Device:* ${repair.deviceBrand} ${repair.deviceModel}`,
+      repair.imei ? `*IMEI:* ${repair.imei}` : null,
       ``,
-      `⚠️ *Issue:* ${repair.reportedIssue}`,
+      `*Issue:* ${repair.reportedIssue}`,
       ``,
-      `💰 *Service Charge:* ${fmt(repair.estimatedCost ?? 0)}` + partsLines,
+      `*Service Charge:* ${fmt(repair.estimatedCost ?? 0)}` + partsLines,
       ``,
-      `✅ *Total Estimate:* *${fmt(grandTotal)}*`,
-      repair.technicianName ? `👨‍🔧 *Technician:* ${repair.technicianName}` : null,
+      `*Total Estimate:* *${fmt(grandTotal)}*`,
+      repair.technicianName ? `*Technician:* ${repair.technicianName}` : null,
       ``,
       `_For any queries, please contact us._`,
-      invSettings.phone ? `📞 ${invSettings.phone}` : null,
+      invSettings.phone ? `Tel: ${invSettings.phone}` : null,
     ].filter(Boolean).join('\n')
     const phone = repair.customerPhone?.replace(/\D/g, '')
     const url = phone
