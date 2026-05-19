@@ -1387,20 +1387,19 @@ export default function RepairsPage() {
   const [showAddModal, setShowAddModal]     = useState(false)
   const [detailRepair, setDetailRepair]     = useState<RepairTicket | null>(null)
   const [editRepair,   setEditRepair]       = useState<RepairTicket | null>(null)
-  const [fTicket,   setFTicket]   = useState('')
-  const [fCustomer, setFCustomer] = useState('')
-  const [fDevice,   setFDevice]   = useState('')
+  const [search, setSearch] = useState('')
   const allRepairs: RepairTicket[] = (repairsData?.data ?? []) as RepairTicket[]
-  const repairs = allRepairs.filter(r => {
-    const t = fTicket.toLowerCase()
-    const c = fCustomer.toLowerCase()
-    const d = fDevice.toLowerCase()
-    return (
-      (!t || r.ticketNumber?.toLowerCase().includes(t)) &&
-      (!c || r.customerName?.toLowerCase().includes(c)) &&
-      (!d || `${r.deviceBrand} ${r.deviceModel}`.toLowerCase().includes(d))
+  const repairs = useMemo(() => {
+    const q = search.toLowerCase().trim()
+    if (!q) return allRepairs
+    return allRepairs.filter(r =>
+      r.ticketNumber?.toLowerCase().includes(q) ||
+      r.customerName?.toLowerCase().includes(q) ||
+      r.customerPhone?.toLowerCase().includes(q) ||
+      `${r.deviceBrand} ${r.deviceModel}`.toLowerCase().includes(q) ||
+      r.reportedIssue?.toLowerCase().includes(q)
     )
-  })
+  }, [allRepairs, search])
 
   const handleStatusUpdate = async (id: string, status: string) => {
     try {
@@ -1511,23 +1510,15 @@ export default function RepairsPage() {
         </div>
       </div>
 
-      {/* Filter bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        {([
-          { placeholder: 'Filter Ticket #…',  value: fTicket,   set: setFTicket   },
-          { placeholder: 'Filter Customer…',  value: fCustomer, set: setFCustomer },
-          { placeholder: 'Filter Device…',    value: fDevice,   set: setFDevice   },
-        ] as const).map(({ placeholder, value, set }) => (
-          <div key={placeholder} className="relative">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            <input
-              className="input-field pl-8 text-sm h-9"
-              placeholder={placeholder}
-              value={value}
-              onChange={e => set(e.target.value)}
-            />
-          </div>
-        ))}
+      {/* Search bar */}
+      <div className="relative max-w-sm">
+        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        <input
+          className="input-field pl-8 text-sm h-9"
+          placeholder="Search ticket, customer, phone, device…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
       </div>
 
       {/* Table */}
@@ -1536,14 +1527,6 @@ export default function RepairsPage() {
         columns={columns}
         isLoading={loading}
         pageCount={Math.ceil((repairs.length || 1) / 20)}
-        searchableColumns={[
-          { id: 'ticketNumber',  title: 'Ticket #'  },
-          { id: 'customerName',  title: 'Customer'  },
-          { id: 'customerPhone', title: 'Phone'     },
-          { id: 'deviceBrand',   title: 'Brand'     },
-          { id: 'deviceModel',   title: 'Model'     },
-          { id: 'reportedIssue', title: 'Issue'     },
-        ]}
         filterableColumns={[
           {
             id: 'status',
