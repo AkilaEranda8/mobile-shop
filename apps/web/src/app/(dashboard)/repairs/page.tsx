@@ -678,6 +678,38 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
   const [downloading, setDownloading] = useState(false)
   const [invSettings] = useState<InvoiceSettings>(() => getInvoiceSettings())
 
+  const sendQuoteWhatsApp = () => {
+    const partsTotal = repair.spareParts?.reduce((s: any, p: any) => s + p.total, 0) ?? 0
+    const grandTotal = (repair.estimatedCost ?? 0) + partsTotal
+    const fmt = (n: number) => `LKR ${n.toLocaleString('en-LK')}`
+    const partsLines = (repair.spareParts ?? []).length > 0
+      ? `\n\n🔩 *Parts:*\n` + repair.spareParts!.map((p: any) => `  • ${p.productName} x${p.quantity} — ${fmt(p.total)}`).join('\n')
+      : ''
+    const msg = [
+      `🔧 *Repair Quote — ${invSettings.shopName || 'Service Center'}*`,
+      ``,
+      `📋 *Ticket:* ${repair.ticketNumber}`,
+      `👤 *Customer:* ${repair.customerName}`,
+      `📱 *Device:* ${repair.deviceBrand} ${repair.deviceModel}`,
+      repair.imei ? `🔖 *IMEI:* ${repair.imei}` : null,
+      ``,
+      `⚠️ *Issue:* ${repair.reportedIssue}`,
+      ``,
+      `💰 *Service Charge:* ${fmt(repair.estimatedCost ?? 0)}` + partsLines,
+      ``,
+      `✅ *Total Estimate:* *${fmt(grandTotal)}*`,
+      repair.technicianName ? `👨‍🔧 *Technician:* ${repair.technicianName}` : null,
+      ``,
+      `_For any queries, please contact us._`,
+      invSettings.phone ? `📞 ${invSettings.phone}` : null,
+    ].filter(Boolean).join('\n')
+    const phone = repair.customerPhone?.replace(/\D/g, '')
+    const url = phone
+      ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/?text=${encodeURIComponent(msg)}`
+    window.open(url, '_blank')
+  }
+
   const downloadQuote = async () => {
     if (!quoteRef.current) return
     setDownloading(true)
@@ -829,6 +861,10 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
               style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>
               {downloading ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
               {downloading ? 'Generating…' : 'Download PDF'}
+            </button>
+            <button onClick={sendQuoteWhatsApp}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors">
+              <MessageSquare size={12} /> Send Quote
             </button>
             <button onClick={onEdit}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-colors"
