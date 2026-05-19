@@ -129,12 +129,21 @@ function ChangePlanModal({ sub, onClose, onSaved }: { sub: SubscriptionRow; onCl
 /* ── Invoice Modal ───────────────────────────────────────────── */
 function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => void }) {
   const invoiceNo = `HX-${new Date().getFullYear()}-${String(sub.id).slice(-5).toUpperCase()}`
-  const issueDate = new Date().toLocaleDateString('en-LK', { day: 'numeric', month: 'long', year: 'numeric' })
-  const dueDate   = sub.subscriptionEndsAt
-    ? new Date(sub.subscriptionEndsAt).toLocaleDateString('en-LK', { day: 'numeric', month: 'long', year: 'numeric' })
+  const now       = new Date()
+  const issueDate = now.toLocaleDateString('en-LK', { day: 'numeric', month: 'long', year: 'numeric' })
+  const endDate   = sub.subscriptionEndsAt ? new Date(sub.subscriptionEndsAt) : null
+  const dueDate   = endDate
+    ? endDate.toLocaleDateString('en-LK', { day: 'numeric', month: 'long', year: 'numeric' })
     : '—'
-  const amount    = sub.mrr ?? 0
+
+  // Calculate months covered by this subscription period
+  const months = endDate
+    ? Math.max(1, Math.round((endDate.getTime() - now.getTime()) / (30.44 * 24 * 60 * 60 * 1000)))
+    : 1
+  const mrr       = sub.mrr ?? 0
+  const total     = mrr * months
   const planLabel = sub.plan.charAt(0) + sub.plan.slice(1).toLowerCase()
+  const periodLabel = months === 12 ? '1 Year' : months === 1 ? '1 Month' : `${months} Months`
 
   const handlePrint = () => {
     const el = document.getElementById('hx-invoice-print')
@@ -220,10 +229,10 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
                 <tr>
                   <td style={{ padding: '14px', borderBottom: '1px solid #f3f4f6' }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>Hexalyte {planLabel} Plan</div>
-                    <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>Monthly subscription · {sub.status}</div>
+                    <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>{periodLabel} subscription · Rs. {mrr.toLocaleString()} / month</div>
                   </td>
-                  <td style={{ textAlign: 'center', padding: '14px', fontSize: 13, color: '#374151', borderBottom: '1px solid #f3f4f6' }}>1</td>
-                  <td style={{ textAlign: 'right', padding: '14px', fontSize: 13, fontWeight: 700, color: '#111', borderBottom: '1px solid #f3f4f6' }}>Rs. {amount.toLocaleString()}</td>
+                  <td style={{ textAlign: 'center', padding: '14px', fontSize: 13, color: '#374151', borderBottom: '1px solid #f3f4f6' }}>{months}</td>
+                  <td style={{ textAlign: 'right', padding: '14px', fontSize: 13, fontWeight: 700, color: '#111', borderBottom: '1px solid #f3f4f6' }}>Rs. {total.toLocaleString()}</td>
                 </tr>
               </tbody>
             </table>
@@ -232,13 +241,13 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 32 }}>
               <div style={{ width: 220 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 12, color: '#6b7280' }}>
-                  <span>Subtotal</span><span>Rs. {amount.toLocaleString()}</span>
+                  <span>Subtotal ({months} × Rs. {mrr.toLocaleString()})</span><span>Rs. {total.toLocaleString()}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 12, color: '#6b7280' }}>
                   <span>Tax (0%)</span><span>Rs. 0</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', marginTop: 4, background: '#111', borderRadius: 8, fontSize: 14, fontWeight: 800, color: '#fff' }}>
-                  <span>Total</span><span>Rs. {amount.toLocaleString()}</span>
+                  <span>Total ({periodLabel})</span><span>Rs. {total.toLocaleString()}</span>
                 </div>
               </div>
             </div>
