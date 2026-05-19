@@ -155,28 +155,25 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
     if (!el) return
     const w = window.open('', '_blank', 'width=800,height=900')
     if (!w) return
+    // Strip fixed-width / box-shadow inline styles so content fills full A4
+    const printHtml = el.outerHTML
+      .replace(/width\s*:\s*595px\s*;?/gi, 'width:100%;')
+      .replace(/max-width\s*:[^;"]*;?/gi, '')
+      .replace(/box-shadow\s*:[^;"]*;?/gi, '')
+      .replace(/margin\s*:\s*0\s*auto\s*;?/gi, 'margin:0;')
     w.document.write(`<html><head><title>Invoice ${invoiceNo}</title>
       <style>
         @page { size: 210mm 297mm; margin: 12mm 15mm; }
         *, *::before, *::after { box-sizing: border-box; }
         html, body {
-          width: 210mm; height: 297mm;
-          margin: 0; padding: 0;
+          width: 100%; margin: 0; padding: 0;
           background: #fff; color: #111;
           font-family: system-ui, -apple-system, sans-serif;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
-        #hx-invoice-print {
-          width: 100% !important; max-width: 100% !important;
-          box-shadow: none !important; margin: 0 !important;
-          background: #fff !important;
-        }
-        #hx-invoice-print > div {
-          width: 100% !important; padding: 0 !important;
-        }
       </style>
-    </head><body>${el.innerHTML}</body></html>`)
+    </head><body>${printHtml}</body></html>`)
     w.document.close()
     w.focus()
     setTimeout(() => { w.print(); w.close() }, 400)
