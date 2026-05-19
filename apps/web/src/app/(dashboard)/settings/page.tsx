@@ -649,47 +649,146 @@ export default function SettingsPage() {
 
           {/* ── BILLING ── */}
           {activeTab === 'billing' && (
-            <div className="card p-6 space-y-6">
-              <h2 className="text-base font-semibold text-white border-b border-white/5 pb-3">Billing & Subscription</h2>
-              {tenant ? (
-                <>
-                  <div className="p-4 rounded-xl bg-violet-500/10 border border-violet-500/20">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-[10px] text-violet-400 font-semibold uppercase tracking-wider">Current Plan</p>
-                        <p className="text-2xl font-bold text-white mt-1">{tenant.plan}</p>
-                        <p className="text-sm text-slate-400 mt-0.5">{tenant.name}</p>
-                      </div>
-                      <div className="text-right space-y-1.5">
-                        <span className={`text-xs px-2 py-1 rounded-full border ${planColors[tenant.status] ?? 'bg-slate-500/10 border-slate-500/20 text-slate-400'}`}>
-                          {tenant.status}
-                        </span>
-                        {tenant.trialEndsAt && (
-                          <p className="text-xs text-slate-500">Trial ends {new Date(tenant.trialEndsAt).toLocaleDateString()}</p>
-                        )}
-                        {tenant.subscriptionEndsAt && (
-                          <p className="text-xs text-slate-500">Renews {new Date(tenant.subscriptionEndsAt).toLocaleDateString()}</p>
-                        )}
+            <div className="space-y-5">
+              <div className="card p-5">
+                <h2 className="text-base font-semibold text-white border-b border-white/5 pb-3 mb-4">Billing &amp; Subscription</h2>
+
+                {!tenant ? (
+                  <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-violet-400" /></div>
+                ) : (
+                  <>
+                    {/* Current plan banner */}
+                    <div className="p-4 rounded-xl bg-violet-500/10 border border-violet-500/20 mb-4">
+                      <div className="flex items-center justify-between flex-wrap gap-3">
+                        <div>
+                          <p className="text-[10px] text-violet-400 font-semibold uppercase tracking-wider">Current Plan</p>
+                          <p className="text-2xl font-bold text-white mt-1">{tenant.plan}</p>
+                          <p className="text-sm text-slate-400 mt-0.5">{tenant.name}</p>
+                        </div>
+                        <div className="text-right space-y-1.5">
+                          <span className={`text-xs px-2 py-1 rounded-full border ${planColors[tenant.plan] ?? 'bg-slate-500/10 border-slate-500/20 text-slate-400'}`}>
+                            {tenant.status}
+                          </span>
+                          {tenant.trialEndsAt && (
+                            <p className="text-xs text-slate-500">Trial ends {new Date(tenant.trialEndsAt).toLocaleDateString()}</p>
+                          )}
+                          {tenant.subscriptionEndsAt && (
+                            <p className="text-xs text-slate-500">Renews {new Date(tenant.subscriptionEndsAt).toLocaleDateString()}</p>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="grid sm:grid-cols-2 gap-3">
-                    {[
-                      { label: 'Branches',  value: tenant.branches?.length ?? 0 },
-                      { label: 'Users',     value: teamUsers.length || '—'      },
-                      { label: 'MRR',       value: tenant.mrr ? `$${tenant.mrr}` : '—' },
-                      { label: 'Member Since', value: new Date(tenant.createdAt).toLocaleDateString() },
-                    ].map(({ label, value }) => (
-                      <div key={label} className="bg-white/3 rounded-xl p-3 border border-white/5">
-                        <p className="text-[10px] text-slate-600 uppercase tracking-wide">{label}</p>
-                        <p className="text-sm font-semibold text-white mt-0.5">{String(value)}</p>
+
+                    {/* Usage stats */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {[
+                        { label: 'Branches',     value: tenant.branches?.length ?? 0 },
+                        { label: 'Team Members', value: teamUsers.length || '—'      },
+                        { label: 'MRR',          value: tenant.mrr ? `$${tenant.mrr}` : '—' },
+                        { label: 'Member Since', value: new Date(tenant.createdAt).toLocaleDateString() },
+                      ].map(({ label, value }) => (
+                        <div key={label} className="bg-white/3 rounded-xl p-3 border border-white/5">
+                          <p className="text-[10px] text-slate-600 uppercase tracking-wide">{label}</p>
+                          <p className="text-sm font-semibold text-white mt-0.5">{String(value)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Plan comparison */}
+              <div className="card p-5">
+                <p className="text-xs font-bold text-violet-400 uppercase tracking-widest mb-4">Available Plans</p>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {([
+                    {
+                      key: 'TRIAL',
+                      label: 'Trial',
+                      price: 'Free',
+                      period: '14 days',
+                      color: '#eab308',
+                      bg: 'rgba(234,179,8,0.08)',
+                      border: 'rgba(234,179,8,0.25)',
+                      features: ['1 Branch', '2 Users', 'POS & Sales', 'Basic Reports', 'Repairs'],
+                    },
+                    {
+                      key: 'STARTER',
+                      label: 'Starter',
+                      price: '$19',
+                      period: '/month',
+                      color: '#3b82f6',
+                      bg: 'rgba(59,130,246,0.08)',
+                      border: 'rgba(59,130,246,0.25)',
+                      features: ['1 Branch', '5 Users', 'POS & Sales', 'Full Reports', 'Repairs', 'Warranty'],
+                    },
+                    {
+                      key: 'PRO',
+                      label: 'Pro',
+                      price: '$49',
+                      period: '/month',
+                      color: '#8b5cf6',
+                      bg: 'rgba(139,92,246,0.08)',
+                      border: 'rgba(139,92,246,0.30)',
+                      features: ['3 Branches', '15 Users', 'Everything in Starter', 'P&L Reports', 'Cash Flow', 'Branch Filtering', 'CSV Exports'],
+                      popular: true,
+                    },
+                    {
+                      key: 'ENTERPRISE',
+                      label: 'Enterprise',
+                      price: 'Custom',
+                      period: 'contact us',
+                      color: '#10b981',
+                      bg: 'rgba(16,185,129,0.08)',
+                      border: 'rgba(16,185,129,0.25)',
+                      features: ['Unlimited Branches', 'Unlimited Users', 'Everything in Pro', 'Priority Support', 'Custom Integrations', 'SLA Guarantee'],
+                    },
+                  ] as const).map(plan => {
+                    const isCurrent = tenant?.plan === plan.key
+                    return (
+                      <div key={plan.key} className="relative rounded-xl p-4 flex flex-col gap-3 transition-all"
+                        style={{
+                          background: isCurrent ? plan.bg : 'var(--bg-subtle)',
+                          border: `1px solid ${isCurrent ? plan.border : 'var(--border-subtle)'}`,
+                          boxShadow: isCurrent ? `0 0 0 2px ${plan.border}` : undefined,
+                        }}>
+                        {plan.popular && !isCurrent && (
+                          <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] font-bold px-2 py-0.5 rounded-full bg-violet-600 text-white tracking-wide">POPULAR</span>
+                        )}
+                        {isCurrent && (
+                          <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] font-bold px-2 py-0.5 rounded-full text-white tracking-wide flex items-center gap-1"
+                            style={{ background: plan.color }}>
+                            <CheckCircle size={8} /> CURRENT
+                          </span>
+                        )}
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-widest" style={{ color: plan.color }}>{plan.label}</p>
+                          <p className="text-2xl font-black text-white mt-1">{plan.price}</p>
+                          <p className="text-[11px] text-slate-500">{plan.period}</p>
+                        </div>
+                        <ul className="space-y-1.5 flex-1">
+                          {plan.features.map(f => (
+                            <li key={f} className="flex items-start gap-1.5 text-xs" style={{ color: isCurrent ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                              <Check size={11} className="mt-0.5 flex-shrink-0" style={{ color: plan.color }} />
+                              {f}
+                            </li>
+                          ))}
+                        </ul>
+                        {isCurrent ? (
+                          <div className="text-center text-xs font-semibold py-1.5 rounded-lg border"
+                            style={{ color: plan.color, borderColor: plan.border, background: plan.bg }}>
+                            Active Plan
+                          </div>
+                        ) : (
+                          <button className="text-center text-xs font-semibold py-1.5 rounded-lg border border-white/10 text-slate-400 hover:border-white/20 hover:text-white transition-colors">
+                            {plan.key === 'ENTERPRISE' ? 'Contact Us' : 'Upgrade'}
+                          </button>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-violet-400" /></div>
-              )}
+                    )
+                  })}
+                </div>
+              </div>
             </div>
           )}
 
