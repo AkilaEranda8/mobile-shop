@@ -187,8 +187,11 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 36 }}>
               <div>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={LOGO_BASE64} alt="Hexalyte Innovation" style={{ height: 56, objectFit: 'contain', display: 'block' }} />
-                <div style={{ fontSize: 11, color: '#6b7280', marginTop: 6 }}>support@hexalyte.com · hexalyte.com</div>
+                <img src={LOGO_BASE64} alt="Hexalyte Innovation" style={{ height: 52, objectFit: 'contain', display: 'block', marginBottom: 8 }} />
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>Hexalyte Innovation (Pvt) Ltd</div>
+                <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>www.hexalyte.com</div>
+                <div style={{ fontSize: 10, color: '#6b7280' }}>info@hexalyte.com</div>
+                <div style={{ fontSize: 10, color: '#6b7280' }}>+94 70 3130100</div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 28, fontWeight: 900, color: '#111', letterSpacing: -1 }}>INVOICE</div>
@@ -256,7 +259,7 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
 
             {/* Footer */}
             <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 20, fontSize: 11, color: '#9ca3af', textAlign: 'center' }}>
-              Thank you for choosing Hexalyte · support@hexalyte.com · hexalyte.com
+              Thank you for choosing Hexalyte Innovation (Pvt) Ltd · info@hexalyte.com · +94 70 3130100 · www.hexalyte.com
             </div>
           </div>
         </div>
