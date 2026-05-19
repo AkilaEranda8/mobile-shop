@@ -5,7 +5,7 @@ import {
   Plus, Clock, CheckCircle, PhoneCall, Loader2, X, Check, ChevronDown,
   Eye, Edit, ChevronRight, Smartphone, User, Wrench, DollarSign, AlertTriangle,
   Calendar, Hash, Save, ArrowRight, MessageSquare, Package, Search, UserPlus, CheckCircle2, Download, Printer,
-  BarChart2, TrendingUp, ChevronUp, History,
+  History,
 } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
@@ -1414,7 +1414,7 @@ export default function RepairsPage() {
   const [detailRepair, setDetailRepair]     = useState<RepairTicket | null>(null)
   const [editRepair,   setEditRepair]       = useState<RepairTicket | null>(null)
   const [search, setSearch]         = useState('')
-  const [showAnalytics, setShowAnalytics] = useState(false)
+
   const allRepairs: RepairTicket[] = (repairsData?.data ?? []) as RepairTicket[]
 
   const analytics = useMemo(() => {
@@ -1557,16 +1557,8 @@ export default function RepairsPage() {
         </div>
       </div>
 
-      {/* Analytics toggle */}
-      <div>
-        <button onClick={() => setShowAnalytics(v => !v)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
-          style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>
-          <BarChart2 size={13} />{showAnalytics ? 'Hide Analytics' : 'Show Analytics'}
-          {showAnalytics ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-        </button>
-        {showAnalytics && (
-          <div className="mt-3 space-y-3">
+      {/* Analytics */}
+      <div className="space-y-3">
             {/* KPI cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
@@ -1625,8 +1617,6 @@ export default function RepairsPage() {
                 </div>
               </div>
             </div>
-          </div>
-        )}
       </div>
 
       {/* Search bar */}
