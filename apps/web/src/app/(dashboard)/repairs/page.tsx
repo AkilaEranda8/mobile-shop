@@ -902,18 +902,18 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
               <span className={`text-[11px] px-2.5 py-1 rounded-lg border font-bold ${priorityBadge(repair.priority)}`}>{repair.priority}</span>
             )}
             <button onClick={downloadQuote} disabled={downloading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-colors disabled:opacity-50"
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold transition-colors disabled:opacity-50"
               style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>
-              {downloading ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
-              {downloading ? 'Generating…' : 'Download PDF'}
+              {downloading ? <Loader2 size={10} className="animate-spin" /> : <Download size={10} />}
+              {downloading ? 'Generating…' : 'PDF'}
             </button>
             <button onClick={sendQuoteWhatsApp}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors">
-              <MessageSquare size={12} /> Send Quote
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors">
+              <MessageSquare size={10} /> Quote
             </button>
             <button onClick={sendInvoiceWhatsApp}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold bg-green-700 hover:bg-green-600 text-white transition-colors">
-              <MessageSquare size={12} /> Send Invoice
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold bg-green-700 hover:bg-green-600 text-white transition-colors">
+              <MessageSquare size={10} /> Invoice
             </button>
             <button onClick={onEdit}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-colors"
