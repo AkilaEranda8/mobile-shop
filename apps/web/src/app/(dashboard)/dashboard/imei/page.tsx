@@ -14,11 +14,12 @@ import { imeiApi, productsApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  IN_STOCK:             { label: 'In Stock',    color: 'text-green-400',  bg: 'bg-green-500/10',  border: 'border-green-500/20'  },
-  SOLD:                 { label: 'Sold',         color: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/20'   },
-  IN_REPAIR:            { label: 'In Repair',    color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20' },
-  UNDER_WARRANTY_CLAIM: { label: 'Warranty',     color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20' },
-  SCRAPPED:             { label: 'Scrapped',     color: 'text-red-400',    bg: 'bg-red-500/10',    border: 'border-red-500/20'    },
+  IN_STOCK:             { label: 'In Stock',     color: 'text-green-400',  bg: 'bg-green-500/10',  border: 'border-green-500/20'  },
+  SOLD:                 { label: 'Sold',          color: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/20'   },
+  IN_REPAIR:            { label: 'In Repair',     color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20' },
+  UNDER_WARRANTY_CLAIM: { label: 'Warranty',      color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20' },
+  SCRAPPED:             { label: 'Scrapped',      color: 'text-red-400',    bg: 'bg-red-500/10',    border: 'border-red-500/20'    },
+  REPAIR_ONLY:          { label: 'Repair Record', color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20' },
 }
 
 const repairStatusColors: Record<string, string> = {
@@ -65,6 +66,7 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
   const repairs: any[]  = data?.repairs ?? []
   const sale     = data?.saleDetails
   const customer = data?.customerDetails
+  const firstRepair = repairs[0]
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -90,34 +92,43 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
 
             {/* Device Info */}
             <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
-              <p className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
-                <Package size={11} />Device Info
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                  <Package size={11} />Device Info
+                </p>
+                {!record && <span className="text-[10px] px-2 py-0.5 rounded border font-medium text-amber-400 bg-amber-500/10 border-amber-500/20">From Repair Records Only</span>}
+              </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Product</p>
-                  <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{record?.product?.name ?? '—'}</p>
+                  <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Device</p>
+                  <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                    {record?.product?.name ?? (firstRepair ? `${firstRepair.deviceBrand ?? ''} ${firstRepair.deviceModel ?? ''}`.trim() : '—')}
+                  </p>
                 </div>
                 <div>
                   <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Brand</p>
-                  <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{record?.product?.brand?.name ?? '—'}</p>
+                  <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                    {record?.product?.brand?.name ?? firstRepair?.deviceBrand ?? '—'}
+                  </p>
                 </div>
-                <div>
-                  <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>SKU</p>
-                  <p className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{record?.product?.sku ?? '—'}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Category</p>
-                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{record?.product?.category?.name ?? '—'}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Selling Price</p>
-                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{record?.product?.sellingPrice ? formatCurrency(record.product.sellingPrice) : '—'}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Warranty</p>
-                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{record?.product?.warrantyMonths ? `${record.product.warrantyMonths} months` : '—'}</p>
-                </div>
+                {record && <>
+                  <div>
+                    <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>SKU</p>
+                    <p className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{record.product?.sku ?? '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Category</p>
+                    <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{record.product?.category?.name ?? '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Selling Price</p>
+                    <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{record.product?.sellingPrice ? formatCurrency(record.product.sellingPrice) : '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Warranty</p>
+                    <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{record.product?.warrantyMonths ? `${record.product.warrantyMonths} months` : '—'}</p>
+                  </div>
+                </>}
               </div>
               {/* Status + Change */}
               {record && (
@@ -339,9 +350,10 @@ export default function IMEIPage() {
 
   const counts = {
     total,
-    inStock:  records.filter((d: any) => d.status === 'IN_STOCK').length,
-    sold:     records.filter((d: any) => d.status === 'SOLD').length,
-    inRepair: records.filter((d: any) => d.status === 'IN_REPAIR').length,
+    inStock:    records.filter((d: any) => d.status === 'IN_STOCK').length,
+    sold:       records.filter((d: any) => d.status === 'SOLD').length,
+    inRepair:   records.filter((d: any) => d.status === 'IN_REPAIR').length,
+    repairOnly: records.filter((d: any) => d.status === 'REPAIR_ONLY').length,
   }
 
   const handleQuickLookup = async () => {
@@ -408,10 +420,10 @@ export default function IMEIPage() {
   ], [setSelectedImei])
 
   const stats = [
-    { label: 'Total Devices', value: total,          icon: Smartphone,   color: 'violet' },
-    { label: 'In Stock',      value: counts.inStock,  icon: CheckCircle,  color: 'green'  },
-    { label: 'Sold',          value: counts.sold,     icon: ShoppingBag,  color: 'blue'   },
-    { label: 'In Repair',     value: counts.inRepair, icon: Wrench,       color: 'yellow' },
+    { label: 'Total Tracked',  value: total,               icon: Smartphone,  color: 'violet' },
+    { label: 'In Stock',       value: counts.inStock,       icon: CheckCircle, color: 'green'  },
+    { label: 'Sold',           value: counts.sold,          icon: ShoppingBag, color: 'blue'   },
+    { label: 'Repair Records', value: counts.repairOnly,    icon: History,     color: 'purple' },
   ]
 
   return (
@@ -515,11 +527,12 @@ export default function IMEIPage() {
           id: 'status',
           title: 'Status',
           options: [
-            { label: 'In Stock',  value: 'IN_STOCK'             },
-            { label: 'Sold',      value: 'SOLD'                 },
-            { label: 'In Repair', value: 'IN_REPAIR'            },
-            { label: 'Warranty',  value: 'UNDER_WARRANTY_CLAIM' },
-            { label: 'Scrapped',  value: 'SCRAPPED'             },
+            { label: 'In Stock',      value: 'IN_STOCK'             },
+            { label: 'Sold',          value: 'SOLD'                 },
+            { label: 'In Repair',     value: 'IN_REPAIR'            },
+            { label: 'Warranty',      value: 'UNDER_WARRANTY_CLAIM' },
+            { label: 'Scrapped',      value: 'SCRAPPED'             },
+            { label: 'Repair Record', value: 'REPAIR_ONLY'          },
           ],
         }]}
       />

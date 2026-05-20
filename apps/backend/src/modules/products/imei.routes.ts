@@ -11,30 +11,62 @@ router.use(authenticate)
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { skip, limit, page } = getPagination(req)
-    const status = req.query.status as string | undefined
-    const search = req.query.search as string | undefined
-    const where: any = {
-      product: { tenantId: req.tenantId! },
+    const tenantId = req.tenantId!
+    const status   = req.query.status as string | undefined
+    const search   = req.query.search as string | undefined
+
+    // ── 1. Registered ImeiRecords ──────────────────────────────────────────
+    const imeiWhere: any = {
+      product: { tenantId },
       ...(status && { status }),
-      ...(search && {
-        OR: [
-          { imei: { contains: search, mode: 'insensitive' } },
-        ],
-      }),
+      ...(search && { OR: [{ imei: { contains: search, mode: 'insensitive' } }] }),
     }
-    const [data, total] = await Promise.all([
+    const [registered, registeredTotal] = await Promise.all([
       prisma.imeiRecord.findMany({
-        where,
-        skip,
-        take: limit,
+        where: imeiWhere,
         orderBy: { createdAt: 'desc' },
         include: {
           product: { select: { name: true, brand: { select: { name: true } }, category: { select: { name: true } } } },
         },
       }),
-      prisma.imeiRecord.count({ where }),
+      prisma.imeiRecord.count({ where: imeiWhere }),
     ])
-    sendPaginated(res, data, total, page, limit)
+
+    // ── 2. IMEIs from Repair Tickets not yet in ImeiRecord (unregistered) ──
+    // Only show unregistered if no status filter (they have no status in ImeiRecord)
+    let unregistered: any[] = []
+    if (!status) {
+      const registeredImeis = new Set(registered.map((r: any) => r.imei))
+      const repairImeis = await prisma.repairTicket.findMany({
+        where: {
+          tenantId,
+          imei: { not: null, ...(search ? { contains: search, mode: 'insensitive' } : {}) },
+        },
+        select: { imei: true, deviceBrand: true, deviceModel: true, createdAt: true, status: true },
+        orderBy: { createdAt: 'desc' },
+      })
+      // Deduplicate — keep only first occurrence of each IMEI not in registered
+      const seen = new Set<string>()
+      for (const r of repairImeis) {
+        if (r.imei && !registeredImeis.has(r.imei) && !seen.has(r.imei)) {
+          seen.add(r.imei)
+          unregistered.push({
+            id:        `repair-${r.imei}`,
+            imei:      r.imei,
+            status:    'REPAIR_ONLY',
+            createdAt: r.createdAt,
+            product:   { name: `${r.deviceBrand ?? ''} ${r.deviceModel ?? ''}`.trim() || 'Unknown Device', brand: { name: r.deviceBrand ?? '—' }, category: { name: '—' } },
+            _source:   'repair',
+          })
+        }
+      }
+    }
+
+    // ── 3. Merge, paginate, respond ────────────────────────────────────────
+    const all   = [...registered, ...unregistered]
+    const total = registeredTotal + unregistered.length
+    const paged = all.slice(skip, skip + limit)
+    sendPaginated(res, paged, total, page, limit)
   } catch (e) { next(e) }
 })
 
