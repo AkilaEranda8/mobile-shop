@@ -246,6 +246,7 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRep
   const [emailTo, setEmailTo]             = useState('')
   const [showClaimForm, setShowClaimForm] = useState(false)
   const [claimIssue, setClaimIssue]       = useState('')
+  const [claimType, setClaimType]         = useState<'HARDWARE' | 'SOFTWARE'>('HARDWARE')
   const [claimLoading, setClaimLoading]   = useState(false)
   const [claimUpdating, setClaimUpdating] = useState<string | null>(null)
   const [localClaims, setLocalClaims]     = useState<any[]>(warranty.claims ?? [])
@@ -267,9 +268,9 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRep
     if (!claimIssue.trim()) return
     setClaimLoading(true)
     try {
-      const res: any = await warrantyApi.addClaim(warranty.id, { issue: claimIssue })
+      const res: any = await warrantyApi.addClaim(warranty.id, { issue: claimIssue, claimType })
       setLocalClaims(prev => [...prev, res.data ?? res])
-      setClaimIssue(''); setShowClaimForm(false)
+      setClaimIssue(''); setShowClaimForm(false); setClaimType('HARDWARE')
       toast.success('Claim submitted')
     } catch (err: any) { toast.error(err?.message ?? 'Failed to submit claim') }
     finally { setClaimLoading(false) }
@@ -421,13 +422,32 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRep
 
             {/* File Claim Form */}
             {showClaimForm && (
-              <div className="p-3 border-b border-amber-500/20 bg-amber-500/5">
-                <p className="text-[10px] text-amber-400 font-semibold mb-2 uppercase tracking-wide">Describe the Issue</p>
-                <textarea rows={3} className="input-field w-full text-xs resize-none mb-2"
+              <div className="p-3 border-b border-amber-500/20 bg-amber-500/5 space-y-2">
+                <p className="text-[10px] text-amber-400 font-semibold uppercase tracking-wide">Claim Type</p>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setClaimType('HARDWARE')}
+                    className={`flex-1 py-1.5 text-xs rounded-lg border font-semibold flex items-center justify-center gap-1.5 transition-colors ${
+                      claimType === 'HARDWARE'
+                        ? 'bg-blue-500/20 border-blue-500/40 text-blue-300'
+                        : 'border-white/10 text-slate-400 hover:bg-white/5'
+                    }`}>
+                    <Wrench size={11} />Hardware
+                  </button>
+                  <button type="button" onClick={() => setClaimType('SOFTWARE')}
+                    className={`flex-1 py-1.5 text-xs rounded-lg border font-semibold flex items-center justify-center gap-1.5 transition-colors ${
+                      claimType === 'SOFTWARE'
+                        ? 'bg-violet-500/20 border-violet-500/40 text-violet-300'
+                        : 'border-white/10 text-slate-400 hover:bg-white/5'
+                    }`}>
+                    <Package size={11} />Software
+                  </button>
+                </div>
+                <p className="text-[10px] text-amber-400 font-semibold uppercase tracking-wide">Describe the Issue</p>
+                <textarea rows={3} className="input-field w-full text-xs resize-none"
                   placeholder="Describe the warranty claim issue…"
                   value={claimIssue} onChange={e => setClaimIssue(e.target.value)} autoFocus />
                 <div className="flex gap-2">
-                  <button onClick={() => { setShowClaimForm(false); setClaimIssue('') }}
+                  <button onClick={() => { setShowClaimForm(false); setClaimIssue(''); setClaimType('HARDWARE') }}
                     className="flex-1 py-1.5 text-xs rounded-lg border transition-colors" style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)', borderColor: 'var(--border-default)' }}>Cancel</button>
                   <button onClick={submitClaim} disabled={claimLoading || !claimIssue.trim()}
                     className="flex-1 py-1.5 text-xs rounded-lg bg-amber-500 text-white hover:bg-amber-400 disabled:opacity-50 font-semibold flex items-center justify-center gap-1.5 transition-colors">
@@ -452,6 +472,15 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRep
                         <span className={`text-[10px] px-2 py-0.5 rounded-full border flex-shrink-0 font-semibold ${CLAIM_STATUS_COLOR[c.status] ?? ''}`}>
                           {c.status.replace('_', ' ')}
                         </span>
+                        {c.claimType && (
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full border flex-shrink-0 font-semibold ${
+                            c.claimType === 'SOFTWARE'
+                              ? 'bg-violet-500/10 border-violet-500/20 text-violet-400'
+                              : 'bg-blue-500/10 border-blue-500/20 text-blue-400'
+                          }`}>
+                            {c.claimType === 'SOFTWARE' ? '💻 Software' : '🔧 Hardware'}
+                          </span>
+                        )}
                         <p className="text-xs flex-1 leading-relaxed" style={{ color: 'var(--text-primary)' }}>{c.issue}</p>
                       </div>
                       {c.resolution && (

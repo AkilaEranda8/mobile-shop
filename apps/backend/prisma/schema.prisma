@@ -55,6 +55,11 @@ enum WarrantyStatus {
   VOID
 }
 
+enum WarrantyClaimType {
+  SOFTWARE
+  HARDWARE
+}
+
 enum WarrantyClaimStatus {
   OPEN
   ASSESSED
@@ -612,6 +617,7 @@ model WarrantyClaim {
   id              String              @id @default(cuid())
   warrantyId      String
   issue           String
+  claimType       WarrantyClaimType   @default(HARDWARE)
   status          WarrantyClaimStatus @default(OPEN)
   repairTicketId  String?
   assessedBy      String?
