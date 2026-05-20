@@ -12,7 +12,13 @@ export const customersService = {
   },
 
   async getById(tenantId: string, id: string) {
-    const c = await prisma.customer.findFirst({ where: { id, tenantId }, include: { sales: { take: 5, orderBy: { createdAt: 'desc' } }, repairs: { take: 5, orderBy: { createdAt: 'desc' } } } })
+    const c = await prisma.customer.findFirst({
+      where: { id, tenantId },
+      include: {
+        sales:   { orderBy: { createdAt: 'desc' }, include: { items: true } },
+        repairs: { orderBy: { createdAt: 'desc' } },
+      },
+    })
     if (!c) throw new AppError('Customer not found', 404)
     return c
   },

@@ -8,7 +8,7 @@ import { DataTableColumnHeader } from '@/components/table/data-table-column-head
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useCustomers } from '@/lib/hooks'
-import { customersApi, salesApi, repairsApi } from '@/lib/api'
+import { customersApi } from '@/lib/api'
 import type { Customer } from '@/types'
 
 const repairStatusColors: Record<string, string> = {
@@ -24,26 +24,19 @@ const repairStatusColors: Record<string, string> = {
 /* ── Customer Detail Modal ───────────────────────────────────────────── */
 function CustomerDetailModal({ customerId, onClose }: { customerId: string; onClose: () => void }) {
   const [customer,  setCustomer]  = useState<any>(null)
-  const [sales,     setSales]     = useState<any[]>([])
-  const [repairs,   setRepairs]   = useState<any[]>([])
   const [loading,   setLoading]   = useState(true)
   const [tab,       setTab]       = useState<'info' | 'history'>('info')
 
   useEffect(() => {
     setLoading(true)
-    Promise.all([
-      customersApi.getById(customerId),
-      salesApi.list({ customerId, limit: '100' }),
-      repairsApi.list({ customerId, limit: '100' }),
-    ])
-      .then(([c, s, r]: any[]) => {
-        setCustomer(c.data ?? c)
-        setSales(s.data ?? [])
-        setRepairs(r.data ?? [])
-      })
+    customersApi.getById(customerId)
+      .then((r: any) => setCustomer(r.data ?? r))
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [customerId])
+
+  const sales   = customer?.sales   ?? []
+  const repairs = customer?.repairs ?? []
 
   const history = [
     ...sales.map((s: any)  => ({ ...s, _type: 'sale'   as const, _date: s.createdAt })),
