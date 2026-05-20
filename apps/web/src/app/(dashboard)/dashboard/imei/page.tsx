@@ -132,15 +132,18 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
               </div>
               {/* Status + Change */}
               {record && (
-                <div className="flex items-center gap-3 pt-1 border-t border-[var(--border-subtle)]">
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Status:</p>
-                  {(() => { const st = statusConfig[record.status] ?? statusConfig['IN_STOCK']; return (
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${st.color} ${st.bg} ${st.border}`}>{st.label}</span>
-                  )})()}
-                  <div className="ml-auto flex gap-1.5">
+                <div className="pt-2 border-t border-[var(--border-subtle)] space-y-2">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Current Status:</p>
+                    {(() => { const st = statusConfig[record.status] ?? statusConfig['IN_STOCK']; return (
+                      <span className={`text-[10px] px-2.5 py-0.5 rounded-full border font-semibold ${st.color} ${st.bg} ${st.border}`}>{st.label}</span>
+                    )})()}
+                    {updating && <Loader2 size={12} className="animate-spin text-violet-400 ml-auto" />}
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
                     {Object.entries(statusConfig).filter(([k]) => k !== record.status).map(([k, v]) => (
                       <button key={k} disabled={updating} onClick={() => handleStatusChange(k)}
-                        className={`text-[10px] px-2 py-0.5 rounded border font-medium transition-opacity disabled:opacity-50 ${v.color} ${v.bg} ${v.border} hover:opacity-80`}>
+                        className={`text-[10px] px-2 py-1.5 rounded-lg border font-semibold transition-all disabled:opacity-40 hover:opacity-90 ${v.color} ${v.bg} ${v.border}`}>
                         {v.label}
                       </button>
                     ))}
@@ -370,35 +373,22 @@ function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   )
 }
 
-const STATUS_FILTERS = [
-  { key: 'ALL',                 label: 'All',          color: 'text-slate-300',  bg: 'bg-white/5',          border: 'border-white/10'          },
-  { key: 'IN_STOCK',           label: 'In Stock',     color: 'text-green-400',  bg: 'bg-green-500/10',     border: 'border-green-500/20'     },
-  { key: 'SOLD',               label: 'Sold',         color: 'text-blue-400',   bg: 'bg-blue-500/10',      border: 'border-blue-500/20'      },
-  { key: 'IN_REPAIR',          label: 'In Repair',    color: 'text-yellow-400', bg: 'bg-yellow-500/10',    border: 'border-yellow-500/20'    },
-  { key: 'UNDER_WARRANTY_CLAIM', label: 'Warranty',   color: 'text-orange-400', bg: 'bg-orange-500/10',    border: 'border-orange-500/20'    },
-  { key: 'SCRAPPED',           label: 'Scrapped',     color: 'text-red-400',    bg: 'bg-red-500/10',       border: 'border-red-500/20'       },
-  { key: 'REPAIR_ONLY',        label: 'Repair Record',color: 'text-violet-400', bg: 'bg-violet-500/10',    border: 'border-violet-500/20'    },
-]
-
 export default function IMEIPage() {
   const [showAdd,      setShowAdd]      = useState(false)
   const [scanMode,     setScanMode]     = useState(false)
   const [selectedImei, setSelectedImei] = useState<string | null>(null)
   const [quickSearch,  setQuickSearch]  = useState('')
   const [quickResult,  setQuickResult]  = useState<null | 'loading' | 'found' | 'notfound'>(null)
-  const [statusFilter, setStatusFilter] = useState('ALL')
-
   const { data, loading, refetch } = useImeiRecords({ limit: '500' })
-  const allRecords: any[] = (data?.data ?? []) as any[]
-  const records: any[] = statusFilter === 'ALL' ? allRecords : allRecords.filter((r: any) => r.status === statusFilter)
+  const records: any[] = (data?.data ?? []) as any[]
   const total = (data as any)?.meta?.total ?? records.length
 
   const counts = {
     total,
-    inStock:    allRecords.filter((d: any) => d.status === 'IN_STOCK').length,
-    sold:       allRecords.filter((d: any) => d.status === 'SOLD').length,
-    inRepair:   allRecords.filter((d: any) => d.status === 'IN_REPAIR').length,
-    repairOnly: allRecords.filter((d: any) => d.status === 'REPAIR_ONLY').length,
+    inStock:    records.filter((d: any) => d.status === 'IN_STOCK').length,
+    sold:       records.filter((d: any) => d.status === 'SOLD').length,
+    inRepair:   records.filter((d: any) => d.status === 'IN_REPAIR').length,
+    repairOnly: records.filter((d: any) => d.status === 'REPAIR_ONLY').length,
   }
 
   const handleQuickLookup = async () => {
@@ -559,28 +549,6 @@ export default function IMEIPage() {
             </div>
           </div>
         ))}
-      </div>
-
-      {/* Status Filter Pills */}
-      <div className="flex flex-wrap gap-2">
-        {STATUS_FILTERS.map(f => {
-          const count = f.key === 'ALL' ? allRecords.length : allRecords.filter((r: any) => r.status === f.key).length
-          const active = statusFilter === f.key
-          return (
-            <button
-              key={f.key}
-              onClick={() => setStatusFilter(f.key)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-                active
-                  ? `${f.color} ${f.bg} ${f.border} shadow-sm`
-                  : 'text-slate-500 bg-transparent border-white/10 hover:border-white/20 hover:text-slate-300'
-              }`}
-            >
-              {f.label}
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${ active ? `${f.bg} ${f.border}` : 'bg-white/5'}`}>{count}</span>
-            </button>
-          )
-        })}
       </div>
 
       {/* Table — click row to open detail */}
