@@ -49,36 +49,64 @@ function ProcessReturnModal({ onClose, onDone }: { onClose: () => void; onDone: 
     setSearching(true)
     try {
       const res: any = await salesApi.list({ search: query, limit: '10' })
-      const data = (res?.data ?? []).filter((s: any) => s.status !== 'RETURNED' && (s._count?.returns ?? 0) === 0)
+      const data = (res?.data ?? []).filter((s: any) => s.status !== 'RETURNED')
       setResults(data)
     } catch { /* silent */ }
     finally { setSearching(false) }
   }
 
-  const selectSale = (s: any) => {
-    setSale(s)
-    setQtys(Object.fromEntries((s.items ?? []).map((i: any) => [i.id, 0])))
-    setStep('items')
+  const selectSale = async (s: any) => {
+    setSearching(true)
+    try {
+      const full: any = await salesApi.getById(s.id)
+      const fullSale = full?.data ?? full
+      setSale(fullSale)
+      setQtys(Object.fromEntries((fullSale.items ?? []).map((i: any) => [i.id, 0])))
+      setStep('items')
+    } catch {
+      setSale(s)
+      setQtys(Object.fromEntries((s.items ?? []).map((i: any) => [i.id, 0])))
+      setStep('items')
+    } finally { setSearching(false) }
   }
 
   const adjust = (id: string, max: number, delta: number) =>
     setQtys(p => ({ ...p, [id]: Math.max(0, Math.min(max, (p[id] ?? 0) + delta)) }))
 
+  // Compute already-returned qty per productId from prior returns
+  const alreadyReturnedQty = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const ret of (sale?.returns ?? [])) {
+      for (const ri of (ret.items ?? [])) {
+        if (ri.productId) map[ri.productId] = (map[ri.productId] ?? 0) + ri.quantity
+      }
+    }
+    return map
+  }, [sale])
+
   const selectedItems = (sale?.items ?? []).filter((i: any) => qtys[i.id] > 0)
-  const refundAmount  = selectedItems.reduce((s: number, i: any) => s + i.unitPrice * qtys[i.id], 0)
+  // Prorated refund: use (item.total / item.quantity) to account for per-item discounts
+  const refundAmount  = selectedItems.reduce((s: number, i: any) => {
+    const unitNet = i.quantity > 0 ? i.total / i.quantity : i.unitPrice
+    return s + unitNet * qtys[i.id]
+  }, 0)
 
   const handleSubmit = async () => {
     if (!selectedItems.length) return toast.error('Select at least one item to return')
     setLoading(true)
     try {
       await salesApi.processReturn(sale.id, {
-        items: selectedItems.map((i: any) => ({
-          productId:   i.productId,
-          productName: i.productName,
-          quantity:    qtys[i.id],
-          unitPrice:   i.unitPrice,
-          total:       i.unitPrice * qtys[i.id],
-        })),
+        items: selectedItems.map((i: any) => {
+          const unitNet = i.quantity > 0 ? i.total / i.quantity : i.unitPrice
+          return {
+            productId:   i.productId,
+            productName: i.productName,
+            quantity:    qtys[i.id],
+            unitPrice:   i.unitPrice,
+            imei:        i.imei,
+            total:       unitNet * qtys[i.id],
+          }
+        }),
         reason,
         refundMethod,
         notes: notes || undefined,
@@ -163,17 +191,20 @@ function ProcessReturnModal({ onClose, onDone }: { onClose: () => void; onDone: 
                     <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-white/3 border border-white/5">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-white truncate">{item.productName}</p>
-                        <p className="text-[10px] text-slate-500">Sold: {item.quantity} × {formatCurrency(item.unitPrice)}</p>
+                        <p className="text-[10px] text-slate-500">
+                          Sold: {item.quantity}{(alreadyReturnedQty[item.productId] ?? 0) > 0 ? ` · Already returned: ${alreadyReturnedQty[item.productId]}` : ''} · {formatCurrency(item.quantity > 0 ? item.total / item.quantity : item.unitPrice)} each
+                        </p>
+                        {item.imei && <p className="text-[9px] font-mono text-violet-400">IMEI: {item.imei}</p>}
                       </div>
                       <div className="flex items-center gap-2 ml-3">
-                        <button onClick={() => adjust(item.id, item.quantity, -1)}
+                        <button onClick={() => adjust(item.id, item.quantity - (alreadyReturnedQty[item.productId] ?? 0), -1)}
                           className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400">
                           <Minus size={10} />
                         </button>
                         <span className={`w-7 text-center text-sm font-bold ${qtys[item.id] > 0 ? 'text-rose-400' : 'text-slate-500'}`}>
                           {qtys[item.id]}
                         </span>
-                        <button onClick={() => adjust(item.id, item.quantity, +1)}
+                        <button onClick={() => adjust(item.id, item.quantity - (alreadyReturnedQty[item.productId] ?? 0), +1)}
                           className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400">
                           <Plus size={10} />
                         </button>
@@ -339,7 +370,7 @@ export default function ReturnsPage() {
   useEffect(() => { load() }, [load])
 
   const totalRefunded  = returns.reduce((s, r) => s + (r.refundAmount ?? 0), 0)
-  const totalItems     = returns.reduce((s, r) => s + (r.items?.length ?? 0), 0)
+  const totalItems     = returns.reduce((s, r) => s + (r.items ?? []).reduce((a: number, i: any) => a + (i.quantity ?? 1), 0), 0)
 
   const reasonCounts = useMemo(() => {
     const m: Record<string, number> = {}

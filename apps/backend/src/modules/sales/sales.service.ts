@@ -12,14 +12,14 @@ export const salesService = {
     const status = req.query.status as string | undefined
     const where: any = { tenantId, ...(branchId && { branchId }), ...(status && { status }), ...(search && { OR: [{ invoiceNumber: { contains: search, mode: 'insensitive' } }, { customerName: { contains: search, mode: 'insensitive' } }, { customerPhone: { contains: search } }] }) }
     const [data, total] = await Promise.all([
-      prisma.sale.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { items: true, payments: true } }),
+      prisma.sale.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { items: true, payments: true, _count: { select: { returns: true } } } }),
       prisma.sale.count({ where }),
     ])
     return { data, total, page, limit }
   },
 
   async getById(tenantId: string, id: string) {
-    const s = await prisma.sale.findFirst({ where: { id, tenantId }, include: { items: true, payments: true } })
+    const s = await prisma.sale.findFirst({ where: { id, tenantId }, include: { items: true, payments: true, returns: { include: { items: true } } } })
     if (!s) throw new AppError('Sale not found', 404)
     return s
   },
