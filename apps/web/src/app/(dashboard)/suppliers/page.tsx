@@ -14,7 +14,7 @@ import toast from 'react-hot-toast'
 import type { Supplier, PurchaseOrder } from '@/types'
 
 /* ── IMEI Register Modal ─────────────────────────────────────────── */
-function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClose: () => void; onSaved: () => void }) {
+function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClose: () => void; onSaved: (poId: string) => void }) {
   const [branches, setBranches] = useState<any[]>([])
   const [defaultBranch, setDefaultBranch] = useState('')
   // imeis[productId] = string[] (one per unit)
@@ -26,6 +26,7 @@ function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClos
     return init
   })
   const [loading, setLoading] = useState(false)
+  const [scanValue, setScanValue] = useState('')
 
   useEffect(() => {
     branchesApi.list().then((r: any) => {
@@ -37,6 +38,25 @@ function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClos
 
   const setImei = (productId: string, idx: number, val: string) =>
     setImeis(prev => ({ ...prev, [productId]: prev[productId].map((v, i) => i === idx ? val : v) }))
+
+  // Fill next empty IMEI slot from scanner
+  const handleScan = (scanned: string) => {
+    const trimmed = scanned.trim()
+    if (!trimmed) return
+    let filled = false
+    setImeis(prev => {
+      const next = { ...prev }
+      outer: for (const productId of Object.keys(next)) {
+        const arr = [...next[productId]]
+        for (let i = 0; i < arr.length; i++) {
+          if (!arr[i]) { arr[i] = trimmed; next[productId] = arr; filled = true; break outer }
+        }
+      }
+      return next
+    })
+    setScanValue('')
+    if (!filled) toast('All slots filled — scroll down to check')
+  }
 
   const handlePaste = (productId: string, idx: number, text: string) => {
     const lines = text.split(/[\n,;\s]+/).map(s => s.trim()).filter(Boolean)
@@ -63,7 +83,7 @@ function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClos
       const r: any = await suppliersApi.registerPoImei(po.id, items)
       toast.success(r.message ?? `${r.data?.created ?? 0} IMEI(s) registered`)
       if ((r.data?.errors?.length ?? 0) > 0) toast.error(`Errors: ${r.data.errors.join(', ')}`)
-      onSaved()
+      onSaved(po.id)
       onClose()
     } catch (err: any) {
       toast.error(err?.message ?? 'Failed to register IMEIs')
@@ -90,6 +110,21 @@ function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClos
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/5 text-slate-500 hover:text-white"><X size={16} /></button>
         </div>
         <form onSubmit={handleSubmit} className="overflow-y-auto p-5 space-y-5 flex-1">
+          {/* Scan bar */}
+          <div className="flex gap-2 items-center p-3 rounded-xl border border-violet-500/20 bg-violet-500/5">
+            <Hash size={13} className="text-violet-400 flex-shrink-0" />
+            <input
+              autoFocus
+              className="flex-1 bg-transparent outline-none text-sm font-mono tracking-widest placeholder-slate-600"
+              style={{ color: 'var(--text-primary)' }}
+              placeholder="Scan or type IMEI then press Enter..."
+              value={scanValue}
+              onChange={e => setScanValue(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleScan(scanValue) } }}
+              maxLength={15}
+            />
+            {scanValue.length === 15 && <span className="text-[10px] text-green-400">✓</span>}
+          </div>
           {branches.length > 1 && (
             <div>
               <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Branch</label>
@@ -884,6 +919,7 @@ export default function SuppliersPage() {
   const [markReceiving,  setMarkReceiving]        = useState<string | null>(null)
   const [confirmPO,       setConfirmPO]           = useState<PurchaseOrder | null>(null)
   const [registerImeiPO,  setRegisterImeiPO]      = useState<PurchaseOrder | null>(null)
+  const [registeredImeiPOs, setRegisteredImeiPOs] = useState<Set<string>>(new Set())
   const [paySupplier,     setPaySupplier]         = useState<Supplier | null>(null)
   const { data: suppliersData, loading: suppliersLoading, refetch: refetchSuppliers } = useSuppliers()
   const { data: ordersData,    loading: ordersLoading,    refetch: refetchOrders    } = usePurchaseOrders()
@@ -1021,7 +1057,7 @@ export default function SuppliersPage() {
       cell: ({ row }) => {
         const po = row.original
         const canReceive = po.status !== 'CLOSED'
-        const canRegisterImei = (po.status === 'RECEIVED' || po.status === 'CLOSED') && po.items.some(i => i.productId)
+        const canRegisterImei = (po.status === 'RECEIVED' || po.status === 'CLOSED') && po.items.some(i => i.productId) && !registeredImeiPOs.has(po.id)
         return (
           <div className="flex items-center gap-2">
             {canReceive && (
@@ -1049,7 +1085,7 @@ export default function SuppliersPage() {
         )
       },
     },
-  ], [router, markReceiving, handleMarkReceived, setRegisterImeiPO])
+  ], [router, markReceiving, handleMarkReceived, setRegisterImeiPO, registeredImeiPOs])
 
   return (
     <div className="space-y-6">
@@ -1058,7 +1094,7 @@ export default function SuppliersPage() {
       {detailSupplier  && <SupplierDetailsModal supplier={detailSupplier} onClose={() => setDetailSupplier(null)} onEdit={() => { setEditSupplier(detailSupplier); setDetailSupplier(null) }} />}
       {editSupplier    && <EditSupplierModal supplier={editSupplier} onClose={() => setEditSupplier(null)} onSaved={() => { refetchSuppliers(); setEditSupplier(null) }} />}
       {confirmPO       && <ConfirmReceiveModal po={confirmPO} onConfirm={doReceive} onCancel={() => setConfirmPO(null)} loading={!!markReceiving} />}
-      {registerImeiPO  && <IMEIRegisterModal po={registerImeiPO} onClose={() => setRegisterImeiPO(null)} onSaved={refetchOrders} />}
+      {registerImeiPO  && <IMEIRegisterModal po={registerImeiPO} onClose={() => setRegisterImeiPO(null)} onSaved={(poId) => { setRegisteredImeiPOs(prev => new Set([...prev, poId])); refetchOrders() }} />}
       {paySupplier     && <RecordPaymentModal supplier={paySupplier} allPOs={purchaseOrders} onClose={() => setPaySupplier(null)} onSaved={() => { refetchSuppliers(); refetchOrders() }} />}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
