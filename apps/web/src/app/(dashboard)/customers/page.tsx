@@ -27,7 +27,7 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
   const [sales,     setSales]     = useState<any[]>([])
   const [repairs,   setRepairs]   = useState<any[]>([])
   const [loading,   setLoading]   = useState(true)
-  const [tab,       setTab]       = useState<'info' | 'purchases' | 'repairs'>('info')
+  const [tab,       setTab]       = useState<'info' | 'history'>('info')
 
   useEffect(() => {
     setLoading(true)
@@ -45,10 +45,14 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
       .finally(() => setLoading(false))
   }, [customerId])
 
+  const history = [
+    ...sales.map((s: any)  => ({ ...s, _type: 'sale'   as const, _date: s.createdAt })),
+    ...repairs.map((r: any) => ({ ...r, _type: 'repair' as const, _date: r.createdAt })),
+  ].sort((a, b) => new Date(b._date).getTime() - new Date(a._date).getTime())
+
   const TABS = [
-    { key: 'info',      label: 'Profile',    icon: Users,       count: null },
-    { key: 'purchases', label: 'Purchases',  icon: ShoppingBag, count: sales.length },
-    { key: 'repairs',   label: 'Repairs',    icon: Wrench,      count: repairs.length },
+    { key: 'info',    label: 'Profile', icon: Users,    count: null },
+    { key: 'history', label: 'History', icon: Calendar, count: history.length },
   ]
 
   return (
@@ -145,64 +149,67 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                 </>
               )}
 
-              {/* ── Purchases Tab ── */}
-              {tab === 'purchases' && (
+              {/* ── History Tab (Sales + Repairs combined) ── */}
+              {tab === 'history' && (
                 <div className="space-y-2">
-                  {sales.length === 0 ? (
-                    <div className="py-12 text-center text-slate-500 text-sm">No purchases found</div>
-                  ) : sales.map((s: any) => (
-                    <div key={s.id} className="bg-white/3 rounded-xl p-3 border border-white/5">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs font-mono text-violet-400">{s.invoiceNumber}</span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${
-                          s.status === 'PAID' ? 'text-green-400 bg-green-500/10 border-green-500/20' :
-                          s.status === 'RETURNED' ? 'text-rose-400 bg-rose-500/10 border-rose-500/20' :
-                          'text-yellow-400 bg-yellow-500/10 border-yellow-500/20'
-                        }`}>{s.status}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-xs text-slate-400">{s.items?.length ?? 0} item{(s.items?.length ?? 0) !== 1 ? 's' : ''}</p>
-                          <p className="text-[10px] text-slate-600 flex items-center gap-1"><Calendar size={9} />{formatDate(s.createdAt)}</p>
+                  {history.length === 0 ? (
+                    <div className="py-12 text-center text-slate-500 text-sm">No history found</div>
+                  ) : history.map((entry: any) => (
+                    entry._type === 'sale' ? (
+                      <div key={`s-${entry.id}`} className="bg-white/3 rounded-xl p-3 border border-white/5">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-5 h-5 rounded-md bg-violet-500/20 border border-violet-500/30 flex items-center justify-center flex-shrink-0">
+                              <ShoppingBag size={10} className="text-violet-400" />
+                            </div>
+                            <span className="text-xs font-mono text-violet-400">{entry.invoiceNumber}</span>
+                          </div>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${
+                            entry.status === 'PAID'     ? 'text-green-400 bg-green-500/10 border-green-500/20' :
+                            entry.status === 'RETURNED' ? 'text-rose-400 bg-rose-500/10 border-rose-500/20'   :
+                            'text-yellow-400 bg-yellow-500/10 border-yellow-500/20'
+                          }`}>{entry.status}</span>
                         </div>
-                        <p className="text-sm font-bold text-white">{formatCurrency(s.total)}</p>
-                      </div>
-                      {s.items?.length > 0 && (
-                        <div className="mt-2 pt-2 border-t border-white/5 space-y-0.5">
-                          {s.items.map((item: any) => (
-                            <p key={item.id} className="text-[10px] text-slate-500 flex justify-between">
-                              <span>{item.productName} × {item.quantity}</span>
-                              <span>{formatCurrency(item.total)}</span>
-                            </p>
-                          ))}
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs text-slate-400">{entry.items?.length ?? 0} item{(entry.items?.length ?? 0) !== 1 ? 's' : ''}</p>
+                            <p className="text-[10px] text-slate-600 flex items-center gap-1 mt-0.5"><Calendar size={9} />{formatDate(entry.createdAt)}</p>
+                          </div>
+                          <p className="text-sm font-bold text-white">{formatCurrency(entry.total)}</p>
                         </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* ── Repairs Tab ── */}
-              {tab === 'repairs' && (
-                <div className="space-y-2">
-                  {repairs.length === 0 ? (
-                    <div className="py-12 text-center text-slate-500 text-sm">No repair records found</div>
-                  ) : repairs.map((r: any) => (
-                    <div key={r.id} className="bg-white/3 rounded-xl p-3 border border-white/5">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs font-mono text-cyan-400">{r.ticketNumber}</span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${repairStatusColors[r.status] ?? ''}`}>
-                          {r.status?.replace('_', ' ')}
-                        </span>
+                        {entry.items?.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-white/5 space-y-0.5">
+                            {entry.items.map((item: any) => (
+                              <p key={item.id} className="text-[10px] text-slate-500 flex justify-between">
+                                <span>{item.productName} × {item.quantity}</span>
+                                <span>{formatCurrency(item.total)}</span>
+                              </p>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <p className="text-sm font-semibold text-slate-200">{r.deviceBrand} {r.deviceModel}</p>
-                      {r.imei && <p className="text-[10px] font-mono text-slate-500">IMEI: {r.imei}</p>}
-                      <div className="flex items-center justify-between mt-1.5">
-                        <p className="text-[10px] text-slate-500 flex items-center gap-1"><Calendar size={9} />{formatDate(r.createdAt)}</p>
-                        {r.totalCost > 0 && <p className="text-xs font-bold text-white">{formatCurrency(r.totalCost)}</p>}
+                    ) : (
+                      <div key={`r-${entry.id}`} className="bg-white/3 rounded-xl p-3 border border-white/5">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-5 h-5 rounded-md bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center flex-shrink-0">
+                              <Wrench size={10} className="text-cyan-400" />
+                            </div>
+                            <span className="text-xs font-mono text-cyan-400">{entry.ticketNumber}</span>
+                          </div>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${repairStatusColors[entry.status] ?? ''}`}>
+                            {entry.status?.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+                        <p className="text-sm font-semibold text-slate-200">{entry.deviceBrand} {entry.deviceModel}</p>
+                        {entry.imei && <p className="text-[10px] font-mono text-slate-500">IMEI: {entry.imei}</p>}
+                        {entry.issue && <p className="text-[10px] text-slate-500 mt-0.5 truncate">Issue: {entry.issue}</p>}
+                        <div className="flex items-center justify-between mt-1.5">
+                          <p className="text-[10px] text-slate-600 flex items-center gap-1"><Calendar size={9} />{formatDate(entry.createdAt)}</p>
+                          {entry.totalCost > 0 && <p className="text-xs font-bold text-white">{formatCurrency(entry.totalCost)}</p>}
+                        </div>
                       </div>
-                      {r.issue && <p className="text-[10px] text-slate-500 mt-1 truncate">Issue: {r.issue}</p>}
-                    </div>
+                    )
                   ))}
                 </div>
               )}
