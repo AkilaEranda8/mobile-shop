@@ -9,7 +9,7 @@ import {
   Headphones, Wrench, PackageSearch,
 } from 'lucide-react'
 import { useProducts } from '@/lib/hooks'
-import { salesApi, customersApi, productsApi, imeiApi } from '@/lib/api'
+import { salesApi, customersApi, productsApi, imeiApi, warrantyApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -623,6 +623,38 @@ export default function POSPage() {
         customerPhone: selectedCustomer?.phone || '',
         cashierName:   user?.name || 'Staff',
       })
+      // ── Auto-create warranties for products with warrantyMonths > 0 ──
+      const warrantyItems = cart.filter(i => {
+        const p = products.find((x: any) => x.id === i.productId)
+        return p?.warrantyMonths && p.warrantyMonths > 0
+      })
+      if (warrantyItems.length > 0) {
+        let created = 0
+        for (const item of warrantyItems) {
+          const p = products.find((x: any) => x.id === item.productId) as any
+          if (!p) continue
+          const start = new Date()
+          const end   = new Date(start)
+          end.setMonth(end.getMonth() + p.warrantyMonths)
+          try {
+            await warrantyApi.create({
+              customerId:     selectedCustomer?.id,
+              customerName:   selectedCustomer?.name  || 'Walk-in Customer',
+              customerPhone:  selectedCustomer?.phone || '',
+              productId:      item.productId,
+              productName:    item.name,
+              brandName:      p.brandName || '',
+              imei:           item.imei   || '',
+              invoiceNumber:  res.data?.invoiceNumber || '',
+              startDate:      start.toISOString(),
+              endDate:        end.toISOString(),
+              monthsDuration: p.warrantyMonths,
+            })
+            created++
+          } catch (e) { console.error('Auto warranty failed:', e) }
+        }
+        if (created > 0) toast.success(`${created} warranty${created > 1 ? 'ies' : ''} auto-created`)
+      }
     } catch (e: any) {
       setCheckoutError(e.message || 'Checkout failed')
     } finally {

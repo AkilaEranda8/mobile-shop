@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useRef, useMemo, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Search, Shield, Plus, AlertTriangle, Eye, Loader2, X, Edit, Trash2,
   Phone, Calendar, Hash, CheckCircle, Clock, Package, User, Save,
-  Download, Mail, Send,
+  Download, Mail, Send, Wrench,
 } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
@@ -225,8 +226,8 @@ function AddWarrantyModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
 }
 
 /* ── View Details Modal ───────────────────────────────────────────────── */
-function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete }: {
-  warranty: Warranty; onClose: () => void; onEdit: () => void; onDelete: () => void
+function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRepair }: {
+  warranty: Warranty; onClose: () => void; onEdit: () => void; onDelete: () => void; onCreateRepair?: (claim: any) => void
 }) {
   const now      = new Date()
   const daysLeft = Math.ceil((new Date(warranty.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
@@ -467,6 +468,10 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete }: {
                               {claimUpdating === c.id ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle size={10} />}
                               {flow.label}
                             </button>
+                            <button onClick={() => onCreateRepair?.(c)} disabled={!!claimUpdating}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 border border-orange-500/20 transition-colors disabled:opacity-50">
+                              <Wrench size={10} />Repair Job
+                            </button>
                             <button onClick={() => rejectClaim(c)} disabled={!!claimUpdating}
                               className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors disabled:opacity-50">
                               <X size={10} />Reject
@@ -610,6 +615,7 @@ function EditWarrantyModal({ warranty, onClose, onSaved }: {
 
 /* ── Main Page ────────────────────────────────────────────────────────── */
 export default function WarrantyPage() {
+  const router = useRouter()
   const { data: warrantyData, loading, refetch } = useWarranties()
   const [tab, setTab]                     = useState<'all' | 'expiring' | 'claimed'>('all')
   const [showAdd,   setShowAdd]           = useState(false)
@@ -710,7 +716,22 @@ export default function WarrantyPage() {
   return (
     <div className="space-y-6">
       {showAdd  && <AddWarrantyModal onClose={() => setShowAdd(false)} onSaved={() => { refetch(); setShowAdd(false) }} />}
-      {viewW    && <WarrantyDetailsModal warranty={viewW} onClose={() => setViewW(null)} onEdit={() => { setEditW(viewW); setViewW(null) }} onDelete={() => handleDelete(viewW)} />}
+      {viewW    && <WarrantyDetailsModal warranty={viewW} onClose={() => setViewW(null)} onEdit={() => { setEditW(viewW); setViewW(null) }} onDelete={() => handleDelete(viewW)}
+        onCreateRepair={(claim) => {
+          const w = viewW
+          const params = new URLSearchParams({
+            fromWarranty: '1',
+            warrantyClaimId: claim.id,
+            customerName:  w?.customerName  || '',
+            customerPhone: w?.customerPhone || '',
+            deviceBrand:   (w as any)?.brandName || '',
+            deviceModel:   w?.productName   || '',
+            imei:          (w as any)?.imei || '',
+          })
+          setViewW(null)
+          router.push(`/dashboard/repairs?${params.toString()}`)
+        }}
+      />}
       {editW    && <EditWarrantyModal   warranty={editW} onClose={() => setEditW(null)}  onSaved={() => { refetch(); setEditW(null) }} />}
 
       {/* Header */}

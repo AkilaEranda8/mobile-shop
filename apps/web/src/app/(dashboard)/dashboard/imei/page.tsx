@@ -4,13 +4,13 @@ import { useState, useEffect, useMemo } from 'react'
 import {
   Smartphone, Plus, CheckCircle, X, Loader2, Hash, ShoppingBag, Wrench,
   Search, History, User, Tag, Calendar, ChevronRight, RefreshCw, AlertTriangle,
-  Package, Receipt, Phone,
+  Package, Receipt, Phone, Shield, ExternalLink,
 } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { useImeiRecords } from '@/lib/hooks'
-import { imeiApi, productsApi } from '@/lib/api'
+import { imeiApi, productsApi, warrantyApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; border: string }> = {
@@ -40,6 +40,7 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
   const [data, setData]       = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
+  const [warranty, setWarranty] = useState<any>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -47,6 +48,16 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
       .then((r: any) => setData(r.data))
       .catch(() => toast.error('Failed to load IMEI details'))
       .finally(() => setLoading(false))
+  }, [imei])
+
+  useEffect(() => {
+    if (!imei) return
+    warrantyApi.list({ search: imei, limit: '5' })
+      .then((r: any) => {
+        const list: any[] = r.data?.data ?? r.data ?? []
+        setWarranty(list.find((w: any) => w.imei === imei) ?? list[0] ?? null)
+      })
+      .catch(() => {})
   }, [imei])
 
   const handleStatusChange = async (status: string) => {
@@ -244,6 +255,37 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
                 </div>
               )
             })()}
+
+            {/* Warranty */}
+            <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
+              <p className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                <Shield size={11} />Warranty
+              </p>
+              {!warranty ? (
+                <p className="text-xs py-1" style={{ color: 'var(--text-muted)' }}>No warranty linked to this IMEI</p>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-mono font-semibold text-violet-400">{warranty.warrantyCode}</p>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${
+                      warranty.status === 'ACTIVE'  ? 'text-green-400 bg-green-500/10 border-green-500/20' :
+                      warranty.status === 'CLAIMED' ? 'text-orange-400 bg-orange-500/10 border-orange-500/20' :
+                      warranty.status === 'EXPIRED' ? 'text-slate-400 bg-slate-500/10 border-slate-500/20' :
+                      'text-red-400 bg-red-500/10 border-red-500/20'
+                    }`}>{warranty.status}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div><p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Product</p><p style={{ color: 'var(--text-primary)' }}>{warranty.productName}</p></div>
+                    <div><p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Customer</p><p style={{ color: 'var(--text-primary)' }}>{warranty.customerName}</p></div>
+                    <div><p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Start</p><p style={{ color: 'var(--text-secondary)' }}>{formatDate(warranty.startDate)}</p></div>
+                    <div><p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Expires</p><p style={{ color: 'var(--text-secondary)' }}>{formatDate(warranty.endDate)}</p></div>
+                  </div>
+                  {(warranty.claims?.length ?? 0) > 0 && (
+                    <p className="text-[10px] text-orange-400">{warranty.claims.length} claim{warranty.claims.length !== 1 ? 's' : ''} filed</p>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Repair History */}
             <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>

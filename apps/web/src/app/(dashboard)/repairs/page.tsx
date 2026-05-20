@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   Plus, Clock, CheckCircle, PhoneCall, Loader2, X, Check, ChevronDown,
   Eye, Edit, ChevronRight, Smartphone, User, Wrench, DollarSign, AlertTriangle,
@@ -90,16 +91,17 @@ ${repair.technicianName ? `<div class="line"></div><div class="row"><span>Techni
 }
 
 const SOURCE_OPTIONS = [
-  { value: 'WALK_IN',    label: 'Walk-in',    color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/25' },
-  { value: 'WHATSAPP',   label: 'WhatsApp',   color: 'text-green-400',   bg: 'bg-green-500/10',   border: 'border-green-500/25'   },
-  { value: 'FACEBOOK',   label: 'Facebook',   color: 'text-blue-400',    bg: 'bg-blue-500/10',    border: 'border-blue-500/25'    },
-  { value: 'INSTAGRAM',  label: 'Instagram',  color: 'text-pink-400',    bg: 'bg-pink-500/10',    border: 'border-pink-500/25'    },
-  { value: 'PHONE_CALL', label: 'Phone Call', color: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/25'   },
-  { value: 'REFERRAL',   label: 'Referral',   color: 'text-violet-400',  bg: 'bg-violet-500/10',  border: 'border-violet-500/25'  },
-  { value: 'ONLINE',     label: 'Online',     color: 'text-cyan-400',    bg: 'bg-cyan-500/10',    border: 'border-cyan-500/25'    },
+  { value: 'WALK_IN',        label: 'Walk-in',        color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/25' },
+  { value: 'WARRANTY_CLAIM', label: 'Warranty Claim', color: 'text-orange-400',  bg: 'bg-orange-500/10',  border: 'border-orange-500/25'  },
+  { value: 'WHATSAPP',       label: 'WhatsApp',       color: 'text-green-400',   bg: 'bg-green-500/10',   border: 'border-green-500/25'   },
+  { value: 'FACEBOOK',       label: 'Facebook',       color: 'text-blue-400',    bg: 'bg-blue-500/10',    border: 'border-blue-500/25'    },
+  { value: 'INSTAGRAM',      label: 'Instagram',      color: 'text-pink-400',    bg: 'bg-pink-500/10',    border: 'border-pink-500/25'    },
+  { value: 'PHONE_CALL',     label: 'Phone Call',     color: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/25'   },
+  { value: 'REFERRAL',       label: 'Referral',       color: 'text-violet-400',  bg: 'bg-violet-500/10',  border: 'border-violet-500/25'  },
+  { value: 'ONLINE',         label: 'Online',         color: 'text-cyan-400',    bg: 'bg-cyan-500/10',    border: 'border-cyan-500/25'    },
 ]
 
-function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; onSaved: () => void; prefill?: { customerName?: string; customerPhone?: string; deviceBrand?: string; deviceModel?: string; imei?: string; warrantyClaimId?: string } }) {
   // ── customer search state ──
   const [customerMode, setCustomerMode] = useState<'search' | 'new'>('search')
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
@@ -113,10 +115,10 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
 
   // ── ticket form state ──
   const [form, setForm] = useState({
-    deviceBrand: '', deviceModel: '', imei: '',
+    deviceBrand: prefill?.deviceBrand || '', deviceModel: prefill?.deviceModel || '', imei: prefill?.imei || '',
     priority: 'NORMAL', estimatedCost: '',
     technicianId: '', technicianName: '',
-    source: 'WALK_IN',
+    source: prefill?.warrantyClaimId ? 'WARRANTY_CLAIM' : 'WALK_IN',
   })
   const [accessories, setAccessories] = useState<string[]>([])
   const [accOpen, setAccOpen] = useState(false)
@@ -198,6 +200,13 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
     ? models.filter(m => m.name.toLowerCase().includes(modelQuery.toLowerCase()))
     : models
 
+  // ── pre-fill from props ──
+  useEffect(() => {
+    if (prefill?.deviceBrand) setBrandQuery(prefill.deviceBrand)
+    if (prefill?.deviceModel) setModelQuery(prefill.deviceModel)
+    if (prefill?.customerName) setSearchQuery(prefill.customerName)
+  }, [])
+
   // debounced customer search
   const doSearch = useCallback(async (q: string) => {
     if (q.trim().length < 2) { setSearchResults([]); setShowDrop(false); return }
@@ -261,6 +270,7 @@ function NewTicketModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
         accessories:   accessories.length > 0 ? accessories.join(', ') : undefined,
         branchId: user?.branchIds?.[0],
         createdBy: user?.name || 'Staff',
+        warrantyClaimId: prefill?.warrantyClaimId,
       })
       onSaved(); onClose()
     } catch (err: any) { setError(err.message || 'Failed to create ticket') }
@@ -1409,11 +1419,28 @@ function EditRepairModal({ repair, onClose, onSaved }: {
 }
 
 export default function RepairsPage() {
+  const searchParams = useSearchParams()
   const { data: repairsData, loading, refetch } = useRepairs()
   const [showAddModal, setShowAddModal]     = useState(false)
+  const [prefillData, setPrefillData]       = useState<any>(null)
   const [detailRepair, setDetailRepair]     = useState<RepairTicket | null>(null)
   const [editRepair,   setEditRepair]       = useState<RepairTicket | null>(null)
   const [search, setSearch]         = useState('')
+
+  useEffect(() => {
+    if (searchParams.get('fromWarranty') === '1') {
+      setPrefillData({
+        customerName:    searchParams.get('customerName')    || undefined,
+        customerPhone:   searchParams.get('customerPhone')   || undefined,
+        deviceBrand:     searchParams.get('deviceBrand')     || undefined,
+        deviceModel:     searchParams.get('deviceModel')     || undefined,
+        imei:            searchParams.get('imei')            || undefined,
+        warrantyClaimId: searchParams.get('warrantyClaimId') || undefined,
+      })
+      setShowAddModal(true)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const allRepairs: RepairTicket[] = (repairsData?.data ?? []) as RepairTicket[]
 
@@ -1531,7 +1558,7 @@ export default function RepairsPage() {
 
   return (
     <div className="space-y-6">
-      {showAddModal  && <NewTicketModal onClose={() => setShowAddModal(false)} onSaved={refetch} />}
+      {showAddModal  && <NewTicketModal onClose={() => { setShowAddModal(false); setPrefillData(null) }} onSaved={refetch} prefill={prefillData ?? undefined} />}
       {detailRepair  && <RepairDetailsModal repair={detailRepair} allRepairs={allRepairs} onClose={() => setDetailRepair(null)} onEdit={() => { setEditRepair(detailRepair); setDetailRepair(null) }} onStatusChange={handleStatusUpdate} onRefresh={async () => { refetch(); const res: any = await repairsApi.getById(detailRepair.id); setDetailRepair(res?.data ?? detailRepair) }} />}
       {editRepair    && <EditRepairModal   repair={editRepair}   onClose={() => setEditRepair(null)}   onSaved={() => { refetch(); setEditRepair(null) }} />}
       {/* Header */}
