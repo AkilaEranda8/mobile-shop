@@ -96,7 +96,7 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
                 <p className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
                   <Package size={11} />Device Info
                 </p>
-                {!record && <span className="text-[10px] px-2 py-0.5 rounded border font-medium text-amber-400 bg-amber-500/10 border-amber-500/20">From Repair Records Only</span>}
+                {!record && <span className="text-[10px] px-2 py-0.5 rounded border font-medium text-violet-400 bg-violet-500/10 border-violet-500/20">From Repair Records Only</span>}
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
