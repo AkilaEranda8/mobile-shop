@@ -239,10 +239,62 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete }: {
     if (user?.tenantId) fetchInvoiceSettings(user.tenantId).then(setInvSettings).catch(() => {})
   }, [])
 
-  const [downloading, setDownloading] = useState(false)
-  const [emailLoading, setEmailLoading] = useState(false)
+  const [downloading, setDownloading]     = useState(false)
+  const [emailLoading, setEmailLoading]   = useState(false)
   const [showEmailInput, setShowEmailInput] = useState(false)
-  const [emailTo, setEmailTo] = useState('')
+  const [emailTo, setEmailTo]             = useState('')
+  const [showClaimForm, setShowClaimForm] = useState(false)
+  const [claimIssue, setClaimIssue]       = useState('')
+  const [claimLoading, setClaimLoading]   = useState(false)
+  const [claimUpdating, setClaimUpdating] = useState<string | null>(null)
+  const [localClaims, setLocalClaims]     = useState<any[]>(warranty.claims ?? [])
+
+  const CLAIM_FLOW: Record<string, { next: string; label: string; color: string }> = {
+    OPEN:      { next: 'ASSESSED',  label: 'Mark Assessed',  color: 'bg-blue-500/15 text-blue-400 hover:bg-blue-500/25 border-blue-500/20' },
+    ASSESSED:  { next: 'IN_REPAIR', label: 'Send to Repair', color: 'bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 border-amber-500/20' },
+    IN_REPAIR: { next: 'RESOLVED',  label: 'Mark Resolved',  color: 'bg-green-500/15 text-green-400 hover:bg-green-500/25 border-green-500/20' },
+  }
+  const CLAIM_STATUS_COLOR: Record<string, string> = {
+    OPEN:      'bg-yellow-500/10 border-yellow-500/20 text-yellow-400',
+    ASSESSED:  'bg-blue-500/10   border-blue-500/20   text-blue-400',
+    IN_REPAIR: 'bg-amber-500/10  border-amber-500/20  text-amber-400',
+    RESOLVED:  'bg-green-500/10  border-green-500/20  text-green-400',
+    REJECTED:  'bg-red-500/10    border-red-500/20    text-red-400',
+  }
+
+  const submitClaim = async () => {
+    if (!claimIssue.trim()) return
+    setClaimLoading(true)
+    try {
+      const res: any = await warrantyApi.addClaim(warranty.id, { issue: claimIssue })
+      setLocalClaims(prev => [...prev, res.data ?? res])
+      setClaimIssue(''); setShowClaimForm(false)
+      toast.success('Claim submitted')
+    } catch (err: any) { toast.error(err?.message ?? 'Failed to submit claim') }
+    finally { setClaimLoading(false) }
+  }
+
+  const advanceClaim = async (claim: any, newStatus: string) => {
+    setClaimUpdating(claim.id)
+    try {
+      const res: any = await warrantyApi.updateClaim(warranty.id, claim.id, { status: newStatus })
+      const updated = res.data ?? res
+      setLocalClaims(prev => prev.map(c => c.id === claim.id ? { ...c, ...updated } : c))
+      toast.success(`Claim ${newStatus.toLowerCase().replace('_', ' ')}`)
+    } catch (err: any) { toast.error(err?.message ?? 'Update failed') }
+    finally { setClaimUpdating(null) }
+  }
+
+  const rejectClaim = async (claim: any) => {
+    setClaimUpdating(claim.id)
+    try {
+      const res: any = await warrantyApi.updateClaim(warranty.id, claim.id, { status: 'REJECTED' })
+      const updated = res.data ?? res
+      setLocalClaims(prev => prev.map(c => c.id === claim.id ? { ...c, ...updated } : c))
+      toast.success('Claim rejected')
+    } catch (err: any) { toast.error(err?.message ?? 'Update failed') }
+    finally { setClaimUpdating(null) }
+  }
 
   const downloadPdf = async () => {
     if (!certRef.current) return
@@ -351,18 +403,83 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete }: {
             </div>
           )}
 
-          {/* Claims */}
-          {warranty.claims?.length > 0 && (
-            <div className="bg-white/3 rounded-xl p-3 border border-white/5">
-              <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-2">Claims ({warranty.claims.length})</p>
-              {warranty.claims.map((c: any) => (
-                <div key={c.id} className="flex items-start gap-2 py-2 border-b border-white/5 last:border-0">
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded border flex-shrink-0 ${c.status === 'RESOLVED' ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'}`}>{c.status}</span>
-                  <p className="text-xs text-slate-300 flex-1">{c.issue}</p>
-                </div>
-              ))}
+          {/* ── Claims Management ── */}
+          <div className="bg-white/3 rounded-xl border border-white/5 overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-2.5 border-b border-white/5">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={12} className="text-amber-400" />
+                <p className="text-xs font-semibold text-white">Claims ({localClaims.length})</p>
+              </div>
+              {warranty.status !== 'VOID' && warranty.status !== 'EXPIRED' && (
+                <button onClick={() => setShowClaimForm(v => !v)}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 transition-colors">
+                  <Plus size={10} />File Claim
+                </button>
+              )}
             </div>
-          )}
+
+            {/* File Claim Form */}
+            {showClaimForm && (
+              <div className="p-3 border-b border-white/5 bg-amber-500/5">
+                <p className="text-[10px] text-amber-400 font-semibold mb-2 uppercase tracking-wide">Describe the Issue</p>
+                <textarea rows={3} className="input-field w-full text-xs resize-none mb-2"
+                  placeholder="Describe the warranty claim issue…"
+                  value={claimIssue} onChange={e => setClaimIssue(e.target.value)} autoFocus />
+                <div className="flex gap-2">
+                  <button onClick={() => { setShowClaimForm(false); setClaimIssue('') }}
+                    className="flex-1 py-1.5 text-xs rounded-lg bg-white/5 text-slate-400 hover:bg-white/10 transition-colors">Cancel</button>
+                  <button onClick={submitClaim} disabled={claimLoading || !claimIssue.trim()}
+                    className="flex-1 py-1.5 text-xs rounded-lg bg-amber-500 text-white hover:bg-amber-400 disabled:opacity-50 font-semibold flex items-center justify-center gap-1.5 transition-colors">
+                    {claimLoading ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}Submit Claim
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Claims List */}
+            {localClaims.length === 0 ? (
+              <div className="flex items-center justify-center py-6">
+                <p className="text-xs text-slate-600">No claims filed yet</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-white/5">
+                {localClaims.map((c: any) => {
+                  const flow = CLAIM_FLOW[c.status]
+                  return (
+                    <div key={c.id} className="p-3 space-y-2">
+                      <div className="flex items-start gap-2">
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full border flex-shrink-0 font-semibold ${CLAIM_STATUS_COLOR[c.status] ?? ''}`}>
+                          {c.status.replace('_', ' ')}
+                        </span>
+                        <p className="text-xs text-slate-300 flex-1 leading-relaxed">{c.issue}</p>
+                      </div>
+                      {c.resolution && (
+                        <p className="text-[11px] text-green-400 bg-green-500/10 rounded-lg px-2.5 py-1.5 border border-green-500/15">
+                          ✓ {c.resolution}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-[10px] text-slate-600 flex-1">{new Date(c.createdAt).toLocaleDateString('en-GB')}</p>
+                        {flow && c.status !== 'RESOLVED' && c.status !== 'REJECTED' && (
+                          <>
+                            <button onClick={() => advanceClaim(c, flow.next)} disabled={!!claimUpdating}
+                              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors disabled:opacity-50 ${flow.color}`}>
+                              {claimUpdating === c.id ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle size={10} />}
+                              {flow.label}
+                            </button>
+                            <button onClick={() => rejectClaim(c)} disabled={!!claimUpdating}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors disabled:opacity-50">
+                              <X size={10} />Reject
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
 
           <p className="text-[10px] text-slate-600 flex items-center gap-1"><Calendar size={10} />Issued {formatDate(warranty.createdAt)}</p>
 

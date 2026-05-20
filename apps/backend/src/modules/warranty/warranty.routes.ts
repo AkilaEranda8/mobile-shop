@@ -78,7 +78,24 @@ router.post('/:id/claims', async (req: Request, res: Response, next: NextFunctio
     const w = await prisma.warranty.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! } })
     if (!w) throw new AppError('Warranty not found', 404)
     const claim = await prisma.warrantyClaim.create({ data: { warrantyId: w.id, issue: req.body.issue } })
+    // Mark warranty as CLAIMED if it was ACTIVE
+    if (w.status === 'ACTIVE') await prisma.warranty.update({ where: { id: w.id }, data: { status: 'CLAIMED' } })
     sendSuccess(res, claim, 'Claim submitted', 201)
+  } catch (e) { next(e) }
+})
+
+router.put('/:id/claims/:claimId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const w = await prisma.warranty.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! } })
+    if (!w) throw new AppError('Warranty not found', 404)
+    const { status, resolution, assessedBy, repairTicketId } = req.body
+    const data: any = {}
+    if (status         !== undefined) data.status         = status
+    if (resolution     !== undefined) data.resolution     = resolution
+    if (assessedBy     !== undefined) data.assessedBy     = assessedBy
+    if (repairTicketId !== undefined) data.repairTicketId = repairTicketId
+    const updated = await prisma.warrantyClaim.update({ where: { id: req.params.claimId }, data })
+    sendSuccess(res, updated, 'Claim updated')
   } catch (e) { next(e) }
 })
 
