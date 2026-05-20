@@ -804,10 +804,6 @@ export default function POSPage() {
                           <Heart size={12} fill={isFav ? 'currentColor' : 'none'} />
                         </button>
 
-                        {/* Price chip at bottom-right of image */}
-                        <div className="absolute bottom-2 right-2 px-2.5 py-1 rounded-xl text-xs font-bold text-white" style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}>
-                          {formatCurrency(product.sellingPrice)}
-                        </div>
                       </div>
 
                       {/* ── INFO ZONE ── */}
