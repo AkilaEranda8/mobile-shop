@@ -368,6 +368,19 @@ export default function POSPage() {
     return cat.includes('mobile') || cat.includes('phone') || cat.includes('smartphone') || cat.includes('tablet')
   }
 
+  const getProductCardStyle = (product: any) => {
+    const cat = (product.categoryName ?? '').toLowerCase()
+    if (cat.includes('mobile') || cat.includes('phone') || cat.includes('smartphone'))
+      return { gradient: 'linear-gradient(135deg, #3b1fa5 0%, #1d2fb5 100%)', iconColor: '#818cf8', Icon: Smartphone }
+    if (cat.includes('tablet') || cat.includes('ipad'))
+      return { gradient: 'linear-gradient(135deg, #0e4f6e 0%, #0e6e5a 100%)', iconColor: '#34d399', Icon: Tablet }
+    if (cat.includes('accessor') || cat.includes('earphone') || cat.includes('headphone') || cat.includes('audio'))
+      return { gradient: 'linear-gradient(135deg, #5b1fa5 0%, #8b1fa5 100%)', iconColor: '#c084fc', Icon: Headphones }
+    if (cat.includes('part') || cat.includes('battery') || cat.includes('screen') || cat.includes('display'))
+      return { gradient: 'linear-gradient(135deg, #7c2d12 0%, #a16207 100%)', iconColor: '#fb923c', Icon: Wrench }
+    return { gradient: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', iconColor: '#64748b', Icon: Package }
+  }
+
   const addToCart = (product: any, imei?: string) => {
     setCart(prev => {
       if (!imei) {
@@ -719,12 +732,20 @@ export default function POSPage() {
                       {isHot && <div className="absolute top-2 left-2 z-10 px-1.5 py-0.5 rounded text-[9px] font-bold bg-gradient-to-r from-orange-500 to-red-500 text-white leading-none">HOT</div>}
                       {isLow && <div className="absolute top-2 left-2 z-10 px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-500/20 border border-red-500/30 text-red-400 leading-none">LOW STOCK</div>}
                       <button type="button" onClick={e => { e.stopPropagation(); setFavorites(prev => { const n = new Set(prev); n.has(product.id) ? n.delete(product.id) : n.add(product.id); return n }) }}
-                        className={`absolute top-2 right-2 z-10 w-6 h-6 rounded-full flex items-center justify-center transition-all ${favorites.has(product.id) ? 'bg-red-500/20 text-red-400' : 'opacity-0 group-hover:opacity-100 bg-black/20 text-slate-400'}`}>
+                        className={`absolute top-2 right-2 z-10 w-6 h-6 rounded-full flex items-center justify-center transition-all ${favorites.has(product.id) ? 'bg-red-500/20 text-red-400' : 'opacity-0 group-hover:opacity-100 bg-black/30 text-slate-300'}`}>
                         <Heart size={10} fill={favorites.has(product.id) ? 'currentColor' : 'none'} />
                       </button>
-                      <div className="w-full aspect-square flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.04)' }}>
-                        <Smartphone size={28} className="text-slate-600" />
-                      </div>
+                      {(() => {
+                        const { gradient, iconColor, Icon: CardIcon } = getProductCardStyle(product)
+                        const initials = (product.name as string).split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()
+                        return (
+                          <div className="w-full aspect-square flex flex-col items-center justify-center gap-1.5 relative overflow-hidden" style={{ background: gradient }}>
+                            <div className="absolute inset-0 opacity-10" style={{ background: 'radial-gradient(circle at 70% 30%, rgba(255,255,255,0.4) 0%, transparent 60%)' }} />
+                            <CardIcon size={26} style={{ color: iconColor }} />
+                            <span className="text-[10px] font-bold tracking-wider opacity-60" style={{ color: iconColor }}>{initials}</span>
+                          </div>
+                        )
+                      })()}
                       <div className="p-2.5">
                         <p className="text-xs font-semibold leading-snug mb-0.5 line-clamp-2" style={{ color: 'var(--text-primary)' }}>{product.name}</p>
                         <p className="text-[10px] mb-1" style={{ color: 'var(--text-muted)' }}>SKU: {product.sku}</p>
@@ -850,9 +871,16 @@ export default function POSPage() {
                   </div>
                 ) : cart.map((item) => (
                   <div key={item.cartId} className="flex items-center gap-2 p-2.5 rounded-xl border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--bg-subtle)' }}>
-                      <Smartphone size={17} className="text-slate-500" />
-                    </div>
+                    {(() => {
+                      const cartProduct = products.find((p: any) => p.id === item.productId)
+                      const { gradient, iconColor, Icon: TIcon } = getProductCardStyle(cartProduct ?? {})
+                      return (
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden relative" style={{ background: gradient }}>
+                          <div className="absolute inset-0 opacity-10" style={{ background: 'radial-gradient(circle at 70% 30%, rgba(255,255,255,0.4) 0%, transparent 60%)' }} />
+                          <TIcon size={16} style={{ color: iconColor }} />
+                        </div>
+                      )
+                    })()}
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{item.name}</p>
                       {item.imei && <p className="text-[10px] font-mono text-violet-400">IMEI: {item.imei}</p>}
