@@ -83,7 +83,7 @@ export default function DashboardPage() {
   /* ── Recent activity feed: merge repairs + transactions ── */
   const activityFeed = useMemo(() => {
     const items: any[] = []
-    repairs.slice(0, 3).forEach(r => items.push({ type: 'repair', id: r.id, icon: Wrench, color: 'text-blue-400 bg-blue-500/10 border-blue-500/20', label: `${r.deviceBrand} ${r.deviceModel}`, sub: r.ticketNumber, badge: r.status.replace('_', ' '), badgeColor: getRepairStatusColor(r.status), time: r.updatedAt ?? r.createdAt }))
+    repairs.slice(0, 3).forEach(r => items.push({ type: 'repair', id: r.id, icon: Wrench, color: 'text-blue-400 bg-blue-500/10 border-blue-500/20', label: `${r.deviceBrand} ${r.deviceModel}`, sub: r.ticketNumber, badge: r.status.replace('_', ' '), badgeColor: getRepairStatusColor(r.status), time: r.createdAt }))
     transactions.slice(0, 4).forEach(t => items.push({ type: 'tx', id: t.id, icon: t.type === 'INCOME' ? TrendingUp : TrendingDown, color: t.type === 'INCOME' ? 'text-green-400 bg-green-500/10 border-green-500/20' : 'text-red-400 bg-red-500/10 border-red-500/20', label: t.description, sub: t.category, amount: t.amount, txType: t.type, time: t.createdAt }))
     return items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 8)
   }, [repairs, transactions])
