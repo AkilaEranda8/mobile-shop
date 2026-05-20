@@ -10,7 +10,8 @@ export const salesService = {
     const { skip, limit, page, search } = getPagination(req)
     const branchId = req.query.branchId as string | undefined
     const status = req.query.status as string | undefined
-    const where: any = { tenantId, ...(branchId && { branchId }), ...(status && { status }), ...(search && { OR: [{ invoiceNumber: { contains: search, mode: 'insensitive' } }, { customerName: { contains: search, mode: 'insensitive' } }, { customerPhone: { contains: search } }] }) }
+    const customerId = req.query.customerId as string | undefined
+    const where: any = { tenantId, ...(branchId && { branchId }), ...(status && { status }), ...(customerId && { customerId }), ...(search && { OR: [{ invoiceNumber: { contains: search, mode: 'insensitive' } }, { customerName: { contains: search, mode: 'insensitive' } }, { customerPhone: { contains: search } }] }) }
     const [data, total] = await Promise.all([
       prisma.sale.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { items: true, payments: true, _count: { select: { returns: true } }, returns: { select: { refundAmount: true } } } }),
       prisma.sale.count({ where }),

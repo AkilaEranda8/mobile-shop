@@ -8,25 +8,53 @@ import { DataTableColumnHeader } from '@/components/table/data-table-column-head
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useCustomers } from '@/lib/hooks'
-import { customersApi } from '@/lib/api'
+import { customersApi, salesApi, repairsApi } from '@/lib/api'
 import type { Customer } from '@/types'
+
+const repairStatusColors: Record<string, string> = {
+  RECEIVED:      'text-blue-400   bg-blue-500/10   border-blue-500/20',
+  DIAGNOSING:    'text-purple-400 bg-purple-500/10 border-purple-500/20',
+  IN_PROGRESS:   'text-yellow-400 bg-yellow-500/10 border-yellow-500/20',
+  WAITING_PARTS: 'text-orange-400 bg-orange-500/10 border-orange-500/20',
+  READY:         'text-teal-400   bg-teal-500/10   border-teal-500/20',
+  DELIVERED:     'text-green-400  bg-green-500/10  border-green-500/20',
+  CANCELLED:     'text-red-400    bg-red-500/10    border-red-500/20',
+}
 
 /* ── Customer Detail Modal ───────────────────────────────────────────── */
 function CustomerDetailModal({ customerId, onClose }: { customerId: string; onClose: () => void }) {
-  const [customer, setCustomer] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const [customer,  setCustomer]  = useState<any>(null)
+  const [sales,     setSales]     = useState<any[]>([])
+  const [repairs,   setRepairs]   = useState<any[]>([])
+  const [loading,   setLoading]   = useState(true)
+  const [tab,       setTab]       = useState<'info' | 'purchases' | 'repairs'>('info')
 
   useEffect(() => {
-    customersApi.getById(customerId)
-      .then((r: any) => setCustomer(r.data ?? r))
+    setLoading(true)
+    Promise.all([
+      customersApi.getById(customerId),
+      salesApi.list({ customerId, limit: '100' }),
+      repairsApi.list({ customerId, limit: '100' }),
+    ])
+      .then(([c, s, r]: any[]) => {
+        setCustomer(c.data ?? c)
+        setSales(s.data ?? [])
+        setRepairs(r.data ?? [])
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [customerId])
 
+  const TABS = [
+    { key: 'info',      label: 'Profile',    icon: Users,       count: null },
+    { key: 'purchases', label: 'Purchases',  icon: ShoppingBag, count: sales.length },
+    { key: 'repairs',   label: 'Repairs',    icon: Wrench,      count: repairs.length },
+  ]
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between p-5 border-b border-white/5 flex-shrink-0">
           <h3 className="text-base font-semibold text-white">Customer Profile</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
         </div>
@@ -38,74 +66,149 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
         )}
 
         {!loading && customer && (
-          <div className="p-5 space-y-5">
-            {/* Avatar + Name */}
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500/30 to-cyan-500/30 border border-violet-500/20 flex items-center justify-center text-2xl font-bold text-violet-300 flex-shrink-0">
-                {customer.name?.charAt(0)}
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-base font-bold text-white">{customer.name}</p>
-                  {customer.loyaltyPoints > 500 && (
-                    <span className="flex items-center gap-1 text-[10px] text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 px-1.5 py-0.5 rounded-full">
-                      <Star size={8} className="fill-yellow-400" />VIP
+          <>
+            {/* Tab Bar */}
+            <div className="flex gap-1 px-5 pt-4 flex-shrink-0">
+              {TABS.map(t => (
+                <button key={t.key} onClick={() => setTab(t.key as any)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    tab === t.key
+                      ? 'bg-violet-500/20 border border-violet-500/30 text-violet-300'
+                      : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                  }`}>
+                  <t.icon size={11} />
+                  {t.label}
+                  {t.count !== null && (
+                    <span className={`text-[10px] px-1.5 rounded-full ${tab === t.key ? 'bg-violet-500/20 text-violet-400' : 'bg-white/5 text-slate-600'}`}>
+                      {t.count}
                     </span>
                   )}
-                </div>
-                <p className="text-xs text-slate-500 mt-0.5">Customer since {formatDate(customer.createdAt)}</p>
-              </div>
-            </div>
-
-            {/* Contact Info */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-white/3 rounded-xl p-3 border border-white/5">
-                <div className="flex items-center gap-2 mb-1">
-                  <Phone size={12} className="text-slate-500" />
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wide">Phone</span>
-                </div>
-                <p className="text-sm text-slate-200">{customer.phone}</p>
-              </div>
-              <div className="bg-white/3 rounded-xl p-3 border border-white/5">
-                <div className="flex items-center gap-2 mb-1">
-                  <Mail size={12} className="text-slate-500" />
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wide">Email</span>
-                </div>
-                <p className="text-sm text-slate-200 truncate">{customer.email || '—'}</p>
-              </div>
-              <div className="bg-white/3 rounded-xl p-3 border border-white/5 col-span-2">
-                <div className="flex items-center gap-2 mb-1">
-                  <MapPin size={12} className="text-slate-500" />
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wide">Location</span>
-                </div>
-                <p className="text-sm text-slate-200">{[customer.address, customer.city].filter(Boolean).join(', ') || '—'}</p>
-              </div>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-4 gap-2">
-              {[
-                { icon: ShoppingBag,  label: 'Purchases',  value: customer.totalPurchases,               color: 'text-green-400'  },
-                { icon: Wrench,       label: 'Repairs',    value: customer.totalRepairs,                  color: 'text-cyan-400'   },
-                { icon: Star,         label: 'Points',     value: `${customer.loyaltyPoints} pts`,        color: 'text-yellow-400' },
-                { icon: CreditCard,   label: 'Outstanding', value: formatCurrency(customer.totalDue),    color: 'text-red-400'    },
-              ].map(s => (
-                <div key={s.label} className="bg-white/3 rounded-xl p-3 border border-white/5 text-center">
-                  <s.icon size={14} className={`${s.color} mx-auto mb-1`} />
-                  <p className={`text-sm font-bold ${s.color}`}>{s.value}</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">{s.label}</p>
-                </div>
+                </button>
               ))}
             </div>
 
-            {/* Notes */}
-            {customer.notes && (
-              <div className="bg-white/3 rounded-xl p-3 border border-white/5">
-                <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">Notes</p>
-                <p className="text-xs text-slate-300">{customer.notes}</p>
-              </div>
-            )}
-          </div>
+            <div className="overflow-y-auto p-5 space-y-4 flex-1">
+
+              {/* ── Profile Tab ── */}
+              {tab === 'info' && (
+                <>
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500/30 to-cyan-500/30 border border-violet-500/20 flex items-center justify-center text-2xl font-bold text-violet-300 flex-shrink-0">
+                      {customer.name?.charAt(0)}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-base font-bold text-white">{customer.name}</p>
+                        {customer.loyaltyPoints > 500 && (
+                          <span className="flex items-center gap-1 text-[10px] text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 px-1.5 py-0.5 rounded-full">
+                            <Star size={8} className="fill-yellow-400" />VIP
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">Customer since {formatDate(customer.createdAt)}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-white/3 rounded-xl p-3 border border-white/5">
+                      <div className="flex items-center gap-2 mb-1"><Phone size={12} className="text-slate-500" /><span className="text-[10px] text-slate-500 uppercase tracking-wide">Phone</span></div>
+                      <p className="text-sm text-slate-200">{customer.phone}</p>
+                    </div>
+                    <div className="bg-white/3 rounded-xl p-3 border border-white/5">
+                      <div className="flex items-center gap-2 mb-1"><Mail size={12} className="text-slate-500" /><span className="text-[10px] text-slate-500 uppercase tracking-wide">Email</span></div>
+                      <p className="text-sm text-slate-200 truncate">{customer.email || '—'}</p>
+                    </div>
+                    <div className="bg-white/3 rounded-xl p-3 border border-white/5 col-span-2">
+                      <div className="flex items-center gap-2 mb-1"><MapPin size={12} className="text-slate-500" /><span className="text-[10px] text-slate-500 uppercase tracking-wide">Location</span></div>
+                      <p className="text-sm text-slate-200">{[customer.address, customer.city].filter(Boolean).join(', ') || '—'}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { icon: ShoppingBag, label: 'Purchases',   value: customer.totalPurchases,            color: 'text-green-400'  },
+                      { icon: Wrench,      label: 'Repairs',     value: customer.totalRepairs,               color: 'text-cyan-400'   },
+                      { icon: Star,        label: 'Points',      value: `${customer.loyaltyPoints} pts`,     color: 'text-yellow-400' },
+                      { icon: CreditCard,  label: 'Outstanding', value: formatCurrency(customer.totalDue),   color: 'text-red-400'    },
+                    ].map(s => (
+                      <div key={s.label} className="bg-white/3 rounded-xl p-3 border border-white/5 text-center">
+                        <s.icon size={14} className={`${s.color} mx-auto mb-1`} />
+                        <p className={`text-sm font-bold ${s.color}`}>{s.value}</p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">{s.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {customer.notes && (
+                    <div className="bg-white/3 rounded-xl p-3 border border-white/5">
+                      <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">Notes</p>
+                      <p className="text-xs text-slate-300">{customer.notes}</p>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* ── Purchases Tab ── */}
+              {tab === 'purchases' && (
+                <div className="space-y-2">
+                  {sales.length === 0 ? (
+                    <div className="py-12 text-center text-slate-500 text-sm">No purchases found</div>
+                  ) : sales.map((s: any) => (
+                    <div key={s.id} className="bg-white/3 rounded-xl p-3 border border-white/5">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-mono text-violet-400">{s.invoiceNumber}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${
+                          s.status === 'PAID' ? 'text-green-400 bg-green-500/10 border-green-500/20' :
+                          s.status === 'RETURNED' ? 'text-rose-400 bg-rose-500/10 border-rose-500/20' :
+                          'text-yellow-400 bg-yellow-500/10 border-yellow-500/20'
+                        }`}>{s.status}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-slate-400">{s.items?.length ?? 0} item{(s.items?.length ?? 0) !== 1 ? 's' : ''}</p>
+                          <p className="text-[10px] text-slate-600 flex items-center gap-1"><Calendar size={9} />{formatDate(s.createdAt)}</p>
+                        </div>
+                        <p className="text-sm font-bold text-white">{formatCurrency(s.total)}</p>
+                      </div>
+                      {s.items?.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-white/5 space-y-0.5">
+                          {s.items.map((item: any) => (
+                            <p key={item.id} className="text-[10px] text-slate-500 flex justify-between">
+                              <span>{item.productName} × {item.quantity}</span>
+                              <span>{formatCurrency(item.total)}</span>
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* ── Repairs Tab ── */}
+              {tab === 'repairs' && (
+                <div className="space-y-2">
+                  {repairs.length === 0 ? (
+                    <div className="py-12 text-center text-slate-500 text-sm">No repair records found</div>
+                  ) : repairs.map((r: any) => (
+                    <div key={r.id} className="bg-white/3 rounded-xl p-3 border border-white/5">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-mono text-cyan-400">{r.ticketNumber}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${repairStatusColors[r.status] ?? ''}`}>
+                          {r.status?.replace('_', ' ')}
+                        </span>
+                      </div>
+                      <p className="text-sm font-semibold text-slate-200">{r.deviceBrand} {r.deviceModel}</p>
+                      {r.imei && <p className="text-[10px] font-mono text-slate-500">IMEI: {r.imei}</p>}
+                      <div className="flex items-center justify-between mt-1.5">
+                        <p className="text-[10px] text-slate-500 flex items-center gap-1"><Calendar size={9} />{formatDate(r.createdAt)}</p>
+                        {r.totalCost > 0 && <p className="text-xs font-bold text-white">{formatCurrency(r.totalCost)}</p>}
+                      </div>
+                      {r.issue && <p className="text-[10px] text-slate-500 mt-1 truncate">Issue: {r.issue}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+            </div>
+          </>
         )}
 
         {!loading && !customer && (

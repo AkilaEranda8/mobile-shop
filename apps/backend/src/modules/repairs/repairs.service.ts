@@ -9,7 +9,8 @@ export const repairsService = {
     const { skip, limit, page, search } = getPagination(req)
     const status = req.query.status as string | undefined
     const branchId = req.query.branchId as string | undefined
-    const where: any = { tenantId, ...(status && { status }), ...(branchId && { branchId }), ...(search && { OR: [{ ticketNumber: { contains: search, mode: 'insensitive' } }, { customerName: { contains: search, mode: 'insensitive' } }, { deviceBrand: { contains: search, mode: 'insensitive' } }, { deviceModel: { contains: search, mode: 'insensitive' } }] }) }
+    const customerId = req.query.customerId as string | undefined
+    const where: any = { tenantId, ...(status && { status }), ...(branchId && { branchId }), ...(customerId && { customerId }), ...(search && { OR: [{ ticketNumber: { contains: search, mode: 'insensitive' } }, { customerName: { contains: search, mode: 'insensitive' } }, { deviceBrand: { contains: search, mode: 'insensitive' } }, { deviceModel: { contains: search, mode: 'insensitive' } }] }) }
     const [data, total] = await Promise.all([
       prisma.repairTicket.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { notes: true, spareParts: true, history: true } }),
       prisma.repairTicket.count({ where }),
