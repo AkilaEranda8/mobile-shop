@@ -625,12 +625,14 @@ export default function POSPage() {
         end.setMonth(end.getMonth() + warrantyMonths)
         for (const item of cart) {
           try {
+            const prod = products.find((p: any) => p.id === item.productId)
             const w: any = await warrantyApi.create({
               customerId:     selectedCustomer?.id,
               customerName:   selectedCustomer?.name  || 'Walk-in Customer',
               customerPhone:  selectedCustomer?.phone || '',
               productId:      item.productId,
               productName:    item.name,
+              brandName:      prod?.brandName || prod?.brand || '',
               imei:           item.imei   || '',
               saleId:         res.data?.id || '',
               invoiceNumber:  res.data?.invoiceNumber || '',
