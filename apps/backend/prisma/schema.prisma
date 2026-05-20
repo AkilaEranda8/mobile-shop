@@ -590,12 +590,12 @@ model Warranty {
   id             String         @id @default(cuid())
   tenantId       String
   warrantyCode   String         @unique
-  saleId         String
-  invoiceNumber  String
-  customerId     String
+  saleId         String?
+  invoiceNumber  String?
+  customerId     String?
   customerName   String
   customerPhone  String
-  productId      String
+  productId      String?
   productName    String
   brandName      String
   imei           String?
@@ -608,8 +608,8 @@ model Warranty {
   updatedAt      DateTime       @updatedAt
 
   tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  customer Customer        @relation(fields: [customerId], references: [id])
-  product  Product         @relation(fields: [productId], references: [id])
+  customer Customer?       @relation(fields: [customerId], references: [id])
+  product  Product?        @relation(fields: [productId], references: [id])
   claims   WarrantyClaim[]
 }
 
