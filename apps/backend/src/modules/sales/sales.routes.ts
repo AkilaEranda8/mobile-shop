@@ -139,8 +139,15 @@ router.post('/:id/returns', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req
         }
       }
 
-      // Update sale status (RETURNED only on full return, else keep existing)
-      await tx.sale.update({ where: { id: sale.id }, data: { status: newSaleStatus } })
+      // Update sale status + deduct returned amount from total
+      await tx.sale.update({
+        where: { id: sale.id },
+        data: {
+          status:     newSaleStatus,
+          total:      { decrement: refundAmount },
+          paidAmount: { decrement: refundAmount },
+        },
+      })
 
       // Create Transaction for refund payout
       if (branchId) {
