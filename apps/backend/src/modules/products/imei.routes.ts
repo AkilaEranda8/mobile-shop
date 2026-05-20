@@ -40,12 +40,61 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 
 router.get('/lookup/:imei', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const record = await prisma.imeiRecord.findUnique({
-      where: { imei: req.params.imei },
-      include: { product: { select: { name: true, brand: { select: { name: true } }, warrantyMonths: true } } },
-    })
-    if (!record) throw new AppError('IMEI not found', 404)
-    sendSuccess(res, record)
+    const imei = req.params.imei
+    const tenantId = req.tenantId!
+
+    const [record, repairs] = await Promise.all([
+      prisma.imeiRecord.findFirst({
+        where: { imei, product: { tenantId } },
+        include: {
+          product: {
+            select: {
+              name: true,
+              sku: true,
+              brand: { select: { name: true } },
+              category: { select: { name: true } },
+              warrantyMonths: true,
+              sellingPrice: true,
+            },
+          },
+        },
+      }),
+      prisma.repairTicket.findMany({
+        where: { imei, tenantId },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true, ticketNumber: true, status: true,
+          reportedIssue: true, technicianName: true,
+          estimatedCost: true, actualCost: true,
+          createdAt: true, updatedAt: true,
+          customerName: true, customerPhone: true,
+          deviceBrand: true, deviceModel: true,
+        },
+      }),
+    ])
+
+    if (!record && repairs.length === 0) throw new AppError('IMEI not found', 404)
+
+    let saleDetails: any = null
+    let customerDetails: any = null
+    if (record?.saleId) {
+      saleDetails = await prisma.sale.findUnique({
+        where: { id: record.saleId },
+        select: {
+          id: true, invoiceNumber: true, total: true, paidAmount: true,
+          status: true, cashierName: true, createdAt: true,
+          customerName: true, customerPhone: true,
+        },
+      }).catch(() => null)
+    }
+    if (record?.customerId) {
+      customerDetails = await prisma.customer.findUnique({
+        where: { id: record.customerId },
+        select: { id: true, name: true, phone: true, email: true },
+      }).catch(() => null)
+    }
+
+    sendSuccess(res, { record, repairs, saleDetails, customerDetails })
   } catch (e) { next(e) }
 })
 
