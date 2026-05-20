@@ -8,7 +8,7 @@ import {
   FileText, FilePlus2, Calculator, SlidersHorizontal, Package, Tablet,
   Headphones, Wrench, PackageSearch,
 } from 'lucide-react'
-import { useProducts, useCustomers } from '@/lib/hooks'
+import { useProducts } from '@/lib/hooks'
 import { salesApi, customersApi, productsApi, imeiApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
@@ -410,10 +410,21 @@ export default function POSPage() {
   }
 
   const { data: productsData } = useProducts({ limit: '500' })
-  const { data: customersData, refetch: refetchCustomers } = useCustomers({ limit: '200' })
+  const [customers, setCustomers]     = useState<any[]>([])
+  const [custLoading, setCustLoading] = useState(false)
 
-  const products: any[]  = (productsData  as any)?.data ?? []
-  const customers: any[] = (customersData as any)?.data ?? []
+  const products: any[] = (productsData as any)?.data ?? []
+
+  const refetchCustomers = useCallback(async () => {
+    setCustLoading(true)
+    try {
+      const res: any = await customersApi.list({ limit: '5000' })
+      setCustomers(res?.data ?? [])
+    } catch { setCustomers([]) }
+    finally { setCustLoading(false) }
+  }, [])
+
+  useEffect(() => { refetchCustomers() }, [refetchCustomers])
 
   useEffect(() => {
     productsApi.categories().then((res: any) => {
@@ -776,7 +787,16 @@ export default function POSPage() {
                         className="w-full px-3 py-2.5 text-xs text-left hover:bg-violet-500/10 border-b transition-colors" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}>
                         Walk-in Customer
                       </button>
-                      {filteredCustomers.slice(0, 50).map((c: any) => (
+                      {custLoading ? (
+                        <div className="flex items-center justify-center py-6 gap-2" style={{ color: 'var(--text-muted)' }}>
+                          <Loader2 size={14} className="animate-spin text-violet-400" />
+                          <span className="text-xs">Loading customers…</span>
+                        </div>
+                      ) : filteredCustomers.length === 0 ? (
+                        <div className="flex items-center justify-center py-6">
+                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{custSearch ? 'No results' : 'No customers found'}</p>
+                        </div>
+                      ) : filteredCustomers.slice(0, 100).map((c: any) => (
                         <button key={c.id} onClick={() => { setSelectedCustomer(c); setShowCustDrop(false) }}
                           className="w-full px-3 py-2 text-xs text-left hover:bg-violet-500/10 border-b transition-colors" style={{ borderColor: 'var(--border-subtle)' }}>
                           <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{c.name}</p>
