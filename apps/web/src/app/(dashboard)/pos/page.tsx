@@ -326,7 +326,39 @@ export default function POSPage() {
   const [showRecentInvoices, setShowRecentInvoices] = useState(false)
   const [recentSales, setRecentSales]             = useState<any[]>([])
   const [recentLoading, setRecentLoading]         = useState(false)
+  const [showHeldCarts, setShowHeldCarts]         = useState(false)
+  const [heldCarts, setHeldCarts]                 = useState<{ id: string; label: string; time: string; items: CartItem[]; customer: any; discountPct: number; discountFlat: number; discountMode: '%'|'flat' }[]>(() => {
+    try { return JSON.parse(localStorage.getItem('pos_held_carts') ?? '[]') } catch { return [] }
+  })
+  const [showDocPreview, setShowDocPreview]       = useState<'QUOTE'|'DRAFT'|null>(null)
   const searchRef                                 = useRef<HTMLInputElement>(null)
+
+  const saveHeldCarts = (list: typeof heldCarts) => {
+    setHeldCarts(list)
+    localStorage.setItem('pos_held_carts', JSON.stringify(list))
+  }
+
+  const holdCart = () => {
+    if (cart.length === 0) return
+    const id = `HC-${Date.now()}`
+    const entry = { id, label: `Cart #${heldCarts.length + 1}`, time: new Date().toISOString(), items: cart, customer: selectedCustomer, discountPct, discountFlat, discountMode }
+    saveHeldCarts([entry, ...heldCarts])
+    setCart([]); setSelectedCustomer(null); setDiscountPct(0); setDiscountFlat(0)
+    toast.success(`Cart held — ${entry.label}`, { icon: '📦' })
+  }
+
+  const restoreHeldCart = (entry: typeof heldCarts[0]) => {
+    setCart(entry.items)
+    setSelectedCustomer(entry.customer)
+    setDiscountPct(entry.discountPct)
+    setDiscountFlat(entry.discountFlat)
+    setDiscountMode(entry.discountMode)
+    saveHeldCarts(heldCarts.filter(h => h.id !== entry.id))
+    setShowHeldCarts(false)
+    toast.success(`${entry.label} restored`)
+  }
+
+  const genDocNumber = (prefix: string) => `${prefix}-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(Math.random()*9000+1000)}`
 
   const fetchRecentSales = async () => {
     setRecentLoading(true)
@@ -485,9 +517,9 @@ export default function POSPage() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'F1') { e.preventDefault(); searchRef.current?.focus(); searchRef.current?.select() }
-      if (e.key === 'F6') { e.preventDefault(); if (cart.length > 0) { toast.success('Cart held'); setCart([]) } }
-      if (e.key === 'F7') { e.preventDefault(); toast('Save Quote — coming soon', { icon: '📋' }) }
-      if (e.key === 'F8') { e.preventDefault(); toast('Draft Invoice — coming soon', { icon: '📄' }) }
+      if (e.key === 'F6') { e.preventDefault(); if (cart.length > 0) holdCart(); else setShowHeldCarts(true) }
+      if (e.key === 'F7') { e.preventDefault(); if (cart.length > 0) setShowDocPreview('QUOTE') }
+      if (e.key === 'F8') { e.preventDefault(); if (cart.length > 0) setShowDocPreview('DRAFT') }
       if (e.key === 'F9' || (e.ctrlKey && e.key === 'Enter')) {
         e.preventDefault()
         if (cart.length > 0 && !checkoutLoading && !completedSale) handleCheckout()
@@ -1023,19 +1055,28 @@ export default function POSPage() {
                     {checkoutLoading ? <Loader2 size={14} className="animate-spin" /> : <span className="flex items-center gap-1.5 text-violet-200 text-xs">F9 <ChevronRight size={13} /></span>}
                   </button>
                   <div className="grid grid-cols-3 gap-1.5">
-                    {[
-                      { label: 'Hold Cart', key: 'F6', Icon: Archive,    fn: () => { if (cart.length > 0) { toast.success('Cart held'); setCart([]) } } },
-                      { label: 'Save Quote', key: 'F7', Icon: FileText,   fn: () => toast('Save Quote — coming soon', { icon: '📋' }) },
-                      { label: 'Draft Invoice', key: 'F8', Icon: FilePlus2, fn: () => toast('Draft Invoice — coming soon', { icon: '📄' }) },
-                    ].map(({ label, key, Icon, fn }) => (
-                      <button key={key} onClick={fn}
-                        className="flex flex-col items-center gap-0.5 py-2 rounded-xl border text-center transition-colors hover:border-violet-500/30 hover:text-violet-400 hover:bg-violet-500/5"
-                        style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
-                        <Icon size={12} />
-                        <span className="text-[9px] leading-tight">{label}</span>
-                        <kbd className="text-[9px] opacity-50">{key}</kbd>
-                      </button>
-                    ))}
+                    <button onClick={() => { if (cart.length > 0) holdCart(); else setShowHeldCarts(true) }}
+                      className="relative flex flex-col items-center gap-0.5 py-2 rounded-xl border text-center transition-colors hover:border-amber-500/30 hover:text-amber-400 hover:bg-amber-500/5"
+                      style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
+                      {heldCarts.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">{heldCarts.length}</span>}
+                      <Archive size={12} />
+                      <span className="text-[9px] leading-tight">Hold Cart</span>
+                      <kbd className="text-[9px] opacity-50">F6</kbd>
+                    </button>
+                    <button onClick={() => cart.length > 0 && setShowDocPreview('QUOTE')}
+                      className="flex flex-col items-center gap-0.5 py-2 rounded-xl border text-center transition-colors hover:border-blue-500/30 hover:text-blue-400 hover:bg-blue-500/5"
+                      style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
+                      <FileText size={12} />
+                      <span className="text-[9px] leading-tight">Save Quote</span>
+                      <kbd className="text-[9px] opacity-50">F7</kbd>
+                    </button>
+                    <button onClick={() => cart.length > 0 && setShowDocPreview('DRAFT')}
+                      className="flex flex-col items-center gap-0.5 py-2 rounded-xl border text-center transition-colors hover:border-violet-500/30 hover:text-violet-400 hover:bg-violet-500/5"
+                      style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
+                      <FilePlus2 size={12} />
+                      <span className="text-[9px] leading-tight">Draft Invoice</span>
+                      <kbd className="text-[9px] opacity-50">F8</kbd>
+                    </button>
                   </div>
                   {selectedCustomer && (
                     <div className="flex items-center justify-between p-3 rounded-xl border transition-colors" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
@@ -1057,6 +1098,123 @@ export default function POSPage() {
           )}
         </div>
       </div>
+
+      {/* ── Held Carts Modal ── */}
+      {showHeldCarts && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl shadow-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="flex items-center gap-2">
+                <Archive size={15} className="text-amber-400" />
+                <h3 className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Held Carts ({heldCarts.length})</h3>
+              </div>
+              <button onClick={() => setShowHeldCarts(false)} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'var(--text-muted)' }}><X size={14} /></button>
+            </div>
+            <div className="overflow-y-auto" style={{ maxHeight: 360 }}>
+              {heldCarts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-24 opacity-30">
+                  <p className="text-sm text-slate-500">No held carts</p>
+                </div>
+              ) : heldCarts.map(h => (
+                <div key={h.id} className="flex items-center gap-3 px-5 py-3.5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/15 flex items-center justify-center flex-shrink-0">
+                    <Archive size={14} className="text-amber-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{h.label}</p>
+                    <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{h.customer?.name ?? 'Walk-in'} · {h.items.length} item(s) · {new Date(h.time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</p>
+                    <p className="text-[10px] font-bold text-violet-400">{formatCurrency(h.items.reduce((s, i) => s + i.price * i.quantity, 0))}</p>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <button onClick={() => restoreHeldCart(h)} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-violet-500/15 text-violet-400 hover:bg-violet-500/25 transition-colors">Restore</button>
+                    <button onClick={() => saveHeldCarts(heldCarts.filter(x => x.id !== h.id))} className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"><X size={12} /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Quote / Draft Invoice Preview ── */}
+      {showDocPreview && (() => {
+        const docNum = genDocNumber(showDocPreview === 'QUOTE' ? 'QT' : 'DFT')
+        const label  = showDocPreview === 'QUOTE' ? 'QUOTE' : 'DRAFT INVOICE'
+        const color  = showDocPreview === 'QUOTE' ? '#2563eb' : '#7c3aed'
+        return (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm overflow-y-auto">
+            <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 bg-black/80 border-b border-white/10 backdrop-blur">
+              <div className="flex items-center gap-2">
+                {showDocPreview === 'QUOTE' ? <FileText size={15} className="text-blue-400" /> : <FilePlus2 size={15} className="text-violet-400" />}
+                <span className="text-sm font-bold text-white">{label}</span>
+                <span className="text-xs text-slate-500 font-mono">{docNum}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => window.print()} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors" style={{ background: color, color: '#fff' }}>
+                  <Printer size={12} /> Print
+                </button>
+                <button onClick={() => setShowDocPreview(null)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-400 hover:text-white hover:bg-white/10 rounded-lg border border-white/10 transition-colors">
+                  <X size={13} /> Close
+                </button>
+              </div>
+            </div>
+            <div className="flex justify-center py-6 px-4">
+              <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden print:shadow-none">
+                {/* Doc header */}
+                <div className="px-10 py-8 flex items-start justify-between" style={{ background: color }}>
+                  <div>
+                    <p className="text-white/70 text-xs font-semibold tracking-widest uppercase">{label}</p>
+                    <p className="text-white text-2xl font-extrabold mt-1">{docNum}</p>
+                    <p className="text-white/60 text-xs mt-1">{new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-white font-bold text-sm">{invoiceSettings.shopName || 'Our Shop'}</p>
+                    {invoiceSettings.phone && <p className="text-white/70 text-xs">{invoiceSettings.phone}</p>}
+                    {invoiceSettings.address && <p className="text-white/70 text-xs">{invoiceSettings.address}</p>}
+                  </div>
+                </div>
+                {/* Customer */}
+                <div className="px-10 py-5 border-b border-gray-100">
+                  <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold mb-1">Customer</p>
+                  <p className="font-bold text-gray-800">{selectedCustomer?.name ?? 'Walk-in Customer'}</p>
+                  {selectedCustomer?.phone && <p className="text-sm text-gray-500">{selectedCustomer.phone}</p>}
+                </div>
+                {/* Items */}
+                <div className="px-10 py-4">
+                  <table className="w-full text-sm">
+                    <thead><tr className="border-b border-gray-200">
+                      <th className="text-left py-2 text-xs text-gray-400 uppercase font-semibold">Item</th>
+                      <th className="text-center py-2 text-xs text-gray-400 uppercase font-semibold">Qty</th>
+                      <th className="text-right py-2 text-xs text-gray-400 uppercase font-semibold">Price</th>
+                      <th className="text-right py-2 text-xs text-gray-400 uppercase font-semibold">Total</th>
+                    </tr></thead>
+                    <tbody>{cart.map(item => (
+                      <tr key={item.cartId} className="border-b border-gray-50">
+                        <td className="py-2.5">
+                          <p className="font-semibold text-gray-800">{item.name}</p>
+                          <p className="text-xs text-gray-400">{item.sku}{item.imei ? ` · IMEI: ${item.imei}` : ''}</p>
+                        </td>
+                        <td className="py-2.5 text-center text-gray-600">{item.quantity}</td>
+                        <td className="py-2.5 text-right text-gray-600">{formatCurrency(item.price)}</td>
+                        <td className="py-2.5 text-right font-semibold text-gray-800">{formatCurrency(item.price * item.quantity)}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+                {/* Totals */}
+                <div className="px-10 py-5 bg-gray-50 border-t border-gray-100">
+                  <div className="flex justify-between text-sm text-gray-500 mb-1"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
+                  {discountAmount > 0 && <div className="flex justify-between text-sm text-green-600 mb-1"><span>Discount</span><span>-{formatCurrency(discountAmount)}</span></div>}
+                  <div className="flex justify-between text-base font-extrabold mt-2 pt-2 border-t border-gray-200" style={{ color }}><span>Total</span><span>{formatCurrency(total)}</span></div>
+                </div>
+                <div className="px-10 py-4 text-center">
+                  <p className="text-xs text-gray-400 italic">{invoiceSettings.footerNote || 'Thank you for your business!'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* ── Recent Invoices Slide-over ── */}
       {showRecentInvoices && (
