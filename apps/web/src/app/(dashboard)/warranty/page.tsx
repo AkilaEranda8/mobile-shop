@@ -89,27 +89,27 @@ function AddWarrantyModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
-          <h3 className="text-sm font-bold text-white">Issue New Warranty</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
+      <div className="rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
+        <div className="flex items-center justify-between p-5 border-b sticky top-0" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
+          <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Issue New Warranty</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><X size={16} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
 
           {/* ── Customer Selector ── */}
           <div>
-            <label className="block text-xs text-slate-400 mb-1.5">Customer *</label>
+            <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Customer *</label>
             {selCustomer ? (
               <div className="flex items-center gap-2 px-3 py-2 bg-violet-500/10 border border-violet-500/20 rounded-xl">
                 <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center text-[10px] font-bold text-violet-300 flex-shrink-0">
                   {selCustomer.name?.charAt(0)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-violet-200 truncate">{selCustomer.name}</p>
+                  <p className="text-xs font-semibold text-violet-500 truncate">{selCustomer.name}</p>
                   <p className="text-[10px] text-violet-400">{selCustomer.phone}</p>
                 </div>
                 <button type="button" onClick={() => { setSelCustomer(null); setForm(p => ({ ...p, customerName: '', customerPhone: '', customerId: '' })) }}
-                  className="text-slate-500 hover:text-white flex-shrink-0"><X size={12} /></button>
+                  className="transition-colors flex-shrink-0" style={{ color: 'var(--text-muted)' }}><X size={12} /></button>
               </div>
             ) : (
               <div className="relative">
@@ -121,24 +121,24 @@ function AddWarrantyModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
                   onChange={e => setCustSearch(e.target.value)}
                 />
                 {filteredCustomers.length > 0 && (
-                  <div className="absolute z-20 top-full mt-1 w-full bg-[#0f1623] border border-white/10 rounded-xl shadow-2xl overflow-hidden">
+                  <div className="absolute z-20 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
                     {filteredCustomers.map((c: any) => (
                       <button key={c.id} type="button" onClick={() => selectCustomer(c)}
-                        className="w-full text-left px-3 py-2.5 hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-violet-500/20 flex items-center justify-center text-[10px] font-bold text-violet-300 flex-shrink-0">
+                        className="w-full text-left px-3 py-2.5 hover:bg-violet-500/10 transition-colors border-b last:border-0 flex items-center gap-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                        <div className="w-7 h-7 rounded-full bg-violet-500/20 flex items-center justify-center text-[10px] font-bold text-violet-500 flex-shrink-0">
                           {c.name?.charAt(0)}
                         </div>
                         <div>
-                          <p className="text-xs font-medium text-slate-200">{c.name}</p>
-                          <p className="text-[10px] text-slate-500">{c.phone}</p>
+                          <p className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{c.name}</p>
+                          <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{c.phone}</p>
                         </div>
                       </button>
                     ))}
                   </div>
                 )}
                 {custSearch.length > 0 && filteredCustomers.length === 0 && (
-                  <div className="absolute z-20 top-full mt-1 w-full bg-[#0f1623] border border-white/10 rounded-xl shadow-xl p-3">
-                    <p className="text-xs text-slate-500 text-center">No customers found</p>
+                  <div className="absolute z-20 top-full mt-1 w-full rounded-xl shadow-xl p-3 border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
+                    <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>No customers found</p>
                   </div>
                 )}
               </div>
@@ -147,16 +147,16 @@ function AddWarrantyModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
 
           {/* ── Product Selector ── */}
           <div>
-            <label className="block text-xs text-slate-400 mb-1.5">Product *</label>
+            <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Product *</label>
             {selProduct ? (
               <div className="flex items-center gap-2 px-3 py-2 bg-orange-500/10 border border-orange-500/20 rounded-xl">
                 <Package size={13} className="text-orange-400 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-orange-200 truncate">{selProduct.name}</p>
+                  <p className="text-xs font-semibold text-orange-500 truncate">{selProduct.name}</p>
                   <p className="text-[10px] text-orange-400">{selProduct.brandName ?? selProduct.brand ?? ''}{selProduct.sku ? ` · ${selProduct.sku}` : ''}</p>
                 </div>
                 <button type="button" onClick={() => { setSelProduct(null); setForm(p => ({ ...p, productName: '', brandName: '', productId: '' })) }}
-                  className="text-slate-500 hover:text-white flex-shrink-0"><X size={12} /></button>
+                  className="transition-colors flex-shrink-0" style={{ color: 'var(--text-muted)' }}><X size={12} /></button>
               </div>
             ) : (
               <div className="relative">
@@ -168,22 +168,22 @@ function AddWarrantyModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
                   onChange={e => setProdSearch(e.target.value)}
                 />
                 {filteredProducts.length > 0 && (
-                  <div className="absolute z-20 top-full mt-1 w-full bg-[#0f1623] border border-white/10 rounded-xl shadow-2xl overflow-hidden">
+                  <div className="absolute z-20 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
                     {filteredProducts.map((p: any) => (
                       <button key={p.id} type="button" onClick={() => selectProduct(p)}
-                        className="w-full text-left px-3 py-2.5 hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 flex items-center gap-2">
+                        className="w-full text-left px-3 py-2.5 hover:bg-orange-500/10 transition-colors border-b last:border-0 flex items-center gap-2" style={{ borderColor: 'var(--border-subtle)' }}>
                         <Package size={13} className="text-orange-400 flex-shrink-0" />
                         <div>
-                          <p className="text-xs font-medium text-slate-200">{p.name}</p>
-                          <p className="text-[10px] text-slate-500">{p.brandName ?? p.brand ?? ''}{p.sku ? ` · ${p.sku}` : ''} · Stock: {p.stock ?? 0}</p>
+                          <p className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{p.name}</p>
+                          <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{p.brandName ?? p.brand ?? ''}{p.sku ? ` · ${p.sku}` : ''} · Stock: {p.stock ?? 0}</p>
                         </div>
                       </button>
                     ))}
                   </div>
                 )}
                 {prodSearch.length > 1 && filteredProducts.length === 0 && (
-                  <div className="absolute z-20 top-full mt-1 w-full bg-[#0f1623] border border-white/10 rounded-xl shadow-xl p-3">
-                    <p className="text-xs text-slate-500 text-center">No products found</p>
+                  <div className="absolute z-20 top-full mt-1 w-full rounded-xl shadow-xl p-3 border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
+                    <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>No products found</p>
                   </div>
                 )}
               </div>
@@ -196,16 +196,16 @@ function AddWarrantyModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
               { k: 'invoiceNumber', label: 'Invoice No.',      req: false },
             ].map(({ k, label, req }) => (
               <div key={k}>
-                <label className="block text-xs text-slate-400 mb-1.5">{label}</label>
+                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>{label}</label>
                 <input required={req} className="input-field" value={(form as any)[k]} onChange={f(k)} />
               </div>
             ))}
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Start Date *</label>
+              <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Start Date *</label>
               <input type="date" required className="input-field" value={form.startDate} onChange={f('startDate')} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Duration (Months) *</label>
+              <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Duration (Months) *</label>
               <select required className="input-field" value={form.monthsDuration} onChange={f('monthsDuration')}>
                 {[1,3,6,12,18,24,36].map(m => <option key={m} value={m}>{m} month{m > 1 ? 's' : ''}</option>)}
               </select>
@@ -331,13 +331,13 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623] z-10">
+      <div className="rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
+        <div className="flex items-center justify-between p-5 border-b sticky top-0 z-10" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center gap-2">
             <Shield size={16} className="text-violet-400" />
             <div>
               <p className="text-xs font-mono text-violet-400">{warranty.warrantyCode}</p>
-              <h3 className="text-sm font-bold text-white">{warranty.productName}</h3>
+              <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{warranty.productName}</h3>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
@@ -347,13 +347,13 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete }: {
             <button onClick={onDelete} className="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">
               <Trash2 size={11} />Delete
             </button>
-            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
+            <button onClick={onClose} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><X size={16} /></button>
           </div>
         </div>
 
         <div className="p-5 space-y-4">
           {/* Status + days left */}
-          <div className="flex items-center justify-between p-3 bg-white/3 rounded-xl border border-white/5">
+          <div className="flex items-center justify-between p-3 rounded-xl border" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
             <span className={`text-xs px-3 py-1 rounded-full border font-semibold ${statusColors[warranty.status]}`}>
               {warranty.status}
             </span>
@@ -366,16 +366,16 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete }: {
 
           {/* Customer + Product */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-white/3 rounded-xl p-3 border border-white/5">
-              <div className="flex items-center gap-1.5 mb-2"><User size={11} className="text-cyan-400" /><span className="text-[10px] text-slate-500 uppercase tracking-wide">Customer</span></div>
-              <p className="text-xs font-semibold text-slate-200">{warranty.customerName}</p>
+            <div className="rounded-xl p-3 border" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+              <div className="flex items-center gap-1.5 mb-2"><User size={11} className="text-cyan-400" /><span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Customer</span></div>
+              <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{warranty.customerName}</p>
               <a href={`tel:${warranty.customerPhone}`} className="text-[11px] text-cyan-400 flex items-center gap-1 mt-0.5"><Phone size={9} />{warranty.customerPhone}</a>
             </div>
-            <div className="bg-white/3 rounded-xl p-3 border border-white/5">
-              <div className="flex items-center gap-1.5 mb-2"><Package size={11} className="text-violet-400" /><span className="text-[10px] text-slate-500 uppercase tracking-wide">Product</span></div>
-              <p className="text-xs font-semibold text-slate-200">{warranty.productName}</p>
-              <p className="text-[11px] text-slate-500">{warranty.brandName}</p>
-              {warranty.imei && <p className="text-[10px] font-mono text-slate-600 mt-0.5">{warranty.imei}</p>}
+            <div className="rounded-xl p-3 border" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+              <div className="flex items-center gap-1.5 mb-2"><Package size={11} className="text-violet-400" /><span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Product</span></div>
+              <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{warranty.productName}</p>
+              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{warranty.brandName}</p>
+              {warranty.imei && <p className="text-[10px] font-mono mt-0.5" style={{ color: 'var(--text-muted)' }}>{warranty.imei}</p>}
             </div>
           </div>
 
@@ -386,29 +386,29 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete }: {
               { label: 'End Date',   value: formatDate(warranty.endDate),   icon: Calendar },
               { label: 'Duration',   value: `${warranty.monthsDuration} mo`, icon: Clock   },
             ].map(({ label, value, icon: Icon }) => (
-              <div key={label} className="bg-white/3 rounded-xl p-3 border border-white/5 text-center">
-                <Icon size={12} className="mx-auto mb-1 text-slate-500" />
-                <p className="text-xs font-semibold text-white">{value}</p>
-                <p className="text-[10px] text-slate-600">{label}</p>
+              <div key={label} className="rounded-xl p-3 border text-center" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                <Icon size={12} className="mx-auto mb-1" style={{ color: 'var(--text-muted)' }} />
+                <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{value}</p>
+                <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{label}</p>
               </div>
             ))}
           </div>
 
           {/* Invoice */}
           {warranty.invoiceNumber && (
-            <div className="flex items-center gap-2 p-3 bg-white/3 rounded-xl border border-white/5">
-              <Hash size={11} className="text-slate-500" />
-              <span className="text-xs text-slate-400">Invoice:</span>
-              <span className="text-xs text-slate-200 font-mono">{warranty.invoiceNumber}</span>
+            <div className="flex items-center gap-2 p-3 rounded-xl border" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+              <Hash size={11} style={{ color: 'var(--text-muted)' }} />
+              <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Invoice:</span>
+              <span className="text-xs font-mono" style={{ color: 'var(--text-primary)' }}>{warranty.invoiceNumber}</span>
             </div>
           )}
 
           {/* ── Claims Management ── */}
-          <div className="bg-white/3 rounded-xl border border-white/5 overflow-hidden">
-            <div className="flex items-center justify-between px-3 py-2.5 border-b border-white/5">
+          <div className="rounded-xl border overflow-hidden" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+            <div className="flex items-center justify-between px-3 py-2.5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="flex items-center gap-2">
                 <AlertTriangle size={12} className="text-amber-400" />
-                <p className="text-xs font-semibold text-white">Claims ({localClaims.length})</p>
+                <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Claims ({localClaims.length})</p>
               </div>
               {warranty.status !== 'VOID' && warranty.status !== 'EXPIRED' && (
                 <button onClick={() => setShowClaimForm(v => !v)}
@@ -420,14 +420,14 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete }: {
 
             {/* File Claim Form */}
             {showClaimForm && (
-              <div className="p-3 border-b border-white/5 bg-amber-500/5">
+              <div className="p-3 border-b border-amber-500/20 bg-amber-500/5">
                 <p className="text-[10px] text-amber-400 font-semibold mb-2 uppercase tracking-wide">Describe the Issue</p>
                 <textarea rows={3} className="input-field w-full text-xs resize-none mb-2"
                   placeholder="Describe the warranty claim issue…"
                   value={claimIssue} onChange={e => setClaimIssue(e.target.value)} autoFocus />
                 <div className="flex gap-2">
                   <button onClick={() => { setShowClaimForm(false); setClaimIssue('') }}
-                    className="flex-1 py-1.5 text-xs rounded-lg bg-white/5 text-slate-400 hover:bg-white/10 transition-colors">Cancel</button>
+                    className="flex-1 py-1.5 text-xs rounded-lg border transition-colors" style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)', borderColor: 'var(--border-default)' }}>Cancel</button>
                   <button onClick={submitClaim} disabled={claimLoading || !claimIssue.trim()}
                     className="flex-1 py-1.5 text-xs rounded-lg bg-amber-500 text-white hover:bg-amber-400 disabled:opacity-50 font-semibold flex items-center justify-center gap-1.5 transition-colors">
                     {claimLoading ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}Submit Claim
@@ -439,10 +439,10 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete }: {
             {/* Claims List */}
             {localClaims.length === 0 ? (
               <div className="flex items-center justify-center py-6">
-                <p className="text-xs text-slate-600">No claims filed yet</p>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>No claims filed yet</p>
               </div>
             ) : (
-              <div className="divide-y divide-white/5">
+              <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
                 {localClaims.map((c: any) => {
                   const flow = CLAIM_FLOW[c.status]
                   return (
@@ -451,7 +451,7 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete }: {
                         <span className={`text-[10px] px-2 py-0.5 rounded-full border flex-shrink-0 font-semibold ${CLAIM_STATUS_COLOR[c.status] ?? ''}`}>
                           {c.status.replace('_', ' ')}
                         </span>
-                        <p className="text-xs text-slate-300 flex-1 leading-relaxed">{c.issue}</p>
+                        <p className="text-xs flex-1 leading-relaxed" style={{ color: 'var(--text-primary)' }}>{c.issue}</p>
                       </div>
                       {c.resolution && (
                         <p className="text-[11px] text-green-400 bg-green-500/10 rounded-lg px-2.5 py-1.5 border border-green-500/15">
@@ -459,7 +459,7 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete }: {
                         </p>
                       )}
                       <div className="flex items-center gap-1.5">
-                        <p className="text-[10px] text-slate-600 flex-1">{new Date(c.createdAt).toLocaleDateString('en-GB')}</p>
+                        <p className="text-[10px] flex-1" style={{ color: 'var(--text-muted)' }}>{new Date(c.createdAt).toLocaleDateString('en-GB')}</p>
                         {flow && c.status !== 'RESOLVED' && c.status !== 'REJECTED' && (
                           <>
                             <button onClick={() => advanceClaim(c, flow.next)} disabled={!!claimUpdating}
@@ -481,10 +481,10 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete }: {
             )}
           </div>
 
-          <p className="text-[10px] text-slate-600 flex items-center gap-1"><Calendar size={10} />Issued {formatDate(warranty.createdAt)}</p>
+          <p className="text-[10px] flex items-center gap-1" style={{ color: 'var(--text-muted)' }}><Calendar size={10} />Issued {formatDate(warranty.createdAt)}</p>
 
           {/* ── Action buttons ── */}
-          <div className="pt-1 border-t border-white/5 space-y-2">
+          <div className="pt-1 border-t space-y-2" style={{ borderColor: 'var(--border-subtle)' }}>
             <div className="flex gap-2">
               <button onClick={() => printWarrantyCertificate(warranty, invSettings)}
                 className="flex-1 flex items-center justify-center gap-2 py-2 text-xs rounded-xl bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 transition-colors font-semibold">
@@ -553,13 +553,13 @@ function EditWarrantyModal({ warranty, onClose, onSaved }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
+      <div className="rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
+        <div className="flex items-center justify-between p-5 border-b sticky top-0" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
           <div>
             <p className="text-[10px] font-mono text-violet-400">{warranty.warrantyCode}</p>
-            <h3 className="text-sm font-bold text-white">Edit Warranty</h3>
+            <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Edit Warranty</h3>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><X size={16} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-3">
@@ -571,26 +571,26 @@ function EditWarrantyModal({ warranty, onClose, onSaved }: {
               { k: 'imei',          label: 'IMEI / Serial',   req: false },
             ].map(({ k, label, req }) => (
               <div key={k}>
-                <label className="block text-xs text-slate-400 mb-1.5">{label}</label>
+                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>{label}</label>
                 <input required={req} className="input-field" value={(form as any)[k]} onChange={f(k)} />
               </div>
             ))}
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Start Date</label>
+              <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Start Date</label>
               <input type="date" className="input-field" value={form.startDate} onChange={f('startDate')} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">End Date</label>
+              <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>End Date</label>
               <input type="date" className="input-field" value={form.endDate} onChange={f('endDate')} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Duration (Months)</label>
+              <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Duration (Months)</label>
               <select className="input-field" value={form.monthsDuration} onChange={f('monthsDuration')}>
                 {[1,3,6,12,18,24,36].map(m => <option key={m} value={m}>{m} month{m > 1 ? 's' : ''}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Status</label>
+              <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Status</label>
               <select className="input-field" value={form.status} onChange={f('status')}>
                 {['ACTIVE','EXPIRED','CLAIMED','VOID'].map(s => <option key={s} value={s}>{s}</option>)}
               </select>
@@ -647,7 +647,7 @@ export default function WarrantyPage() {
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Shield size={13} className="text-violet-400 flex-shrink-0" />
-          <span className="text-xs font-mono text-violet-300">{row.original.warrantyCode}</span>
+          <span className="text-xs font-mono text-violet-500">{row.original.warrantyCode}</span>
         </div>
       ),
     },
@@ -656,8 +656,8 @@ export default function WarrantyPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Product" />,
       cell: ({ row }) => (
         <div>
-          <p className="text-sm text-slate-200 truncate max-w-[180px]">{row.original.productName}</p>
-          {(row.original as any).imei && <p className="text-xs text-slate-600 font-mono">{(row.original as any).imei}</p>}
+          <p className="text-sm truncate max-w-[180px]" style={{ color: 'var(--text-primary)' }}>{row.original.productName}</p>
+          {(row.original as any).imei && <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{(row.original as any).imei}</p>}
         </div>
       ),
     },
@@ -666,8 +666,8 @@ export default function WarrantyPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Customer" />,
       cell: ({ row }) => (
         <div>
-          <p className="text-sm text-slate-300">{row.original.customerName}</p>
-          <p className="text-xs text-slate-500">{(row.original as any).customerPhone}</p>
+          <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{row.original.customerName}</p>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{(row.original as any).customerPhone}</p>
         </div>
       ),
     },
@@ -680,7 +680,7 @@ export default function WarrantyPage() {
         const isExpiring = daysLeft <= 30 && daysLeft > 0 && row.original.status === 'ACTIVE'
         return (
           <div>
-            <span className={`text-xs ${isExpiring ? 'text-yellow-400 font-semibold' : 'text-slate-400'}`}>{formatDate(row.original.endDate)}</span>
+            <span className={`text-xs ${isExpiring ? 'text-yellow-400 font-semibold' : ''}`} style={!isExpiring ? { color: 'var(--text-secondary)' } : undefined}>{formatDate(row.original.endDate)}</span>
             {isExpiring && <p className="text-[10px] text-yellow-500 flex items-center gap-0.5 mt-0.5"><AlertTriangle size={9} />{daysLeft}d left</p>}
           </div>
         )
@@ -737,18 +737,19 @@ export default function WarrantyPage() {
               <Icon size={15} className={`text-${color}-400`} />
             </div>
             <div>
-              <p className="text-lg font-bold text-white">{value}</p>
-              <p className="text-[11px] text-slate-500">{label}</p>
+              <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
+              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{label}</p>
             </div>
           </div>
         ))}
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-white/3 p-1 rounded-xl w-fit">
+      <div className="flex gap-1 p-1 rounded-xl w-fit border" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
         {[['all', 'All'], ['expiring', `Expiring (${expiringCount})`], ['claimed', 'Claims']].map(([key, label]) => (
           <button key={key} onClick={() => setTab(key as any)}
-            className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${tab === key ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white'}`}>
+            className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${tab === key ? 'bg-violet-600 text-white' : 'hover:text-violet-500'}`}
+            style={tab !== key ? { color: 'var(--text-muted)' } : undefined}>
             {label}
           </button>
         ))}
