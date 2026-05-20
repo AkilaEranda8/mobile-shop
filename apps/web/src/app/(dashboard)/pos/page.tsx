@@ -320,10 +320,35 @@ export default function POSPage() {
   const [page, setPage]               = useState(1)
   const [perPage, setPerPage]         = useState(15)
   const [favorites, setFavorites]     = useState<Set<string>>(new Set())
-  const [showScanInput, setShowScanInput] = useState(false)
-  const [showCustDrop, setShowCustDrop]   = useState(false)
-  const [custSearch, setCustSearch]       = useState('')
-  const searchRef                         = useRef<HTMLInputElement>(null)
+  const [showScanInput, setShowScanInput]         = useState(false)
+  const [showCustDrop, setShowCustDrop]           = useState(false)
+  const [custSearch, setCustSearch]               = useState('')
+  const [showRecentInvoices, setShowRecentInvoices] = useState(false)
+  const [recentSales, setRecentSales]             = useState<any[]>([])
+  const [recentLoading, setRecentLoading]         = useState(false)
+  const searchRef                                 = useRef<HTMLInputElement>(null)
+
+  const fetchRecentSales = async () => {
+    setRecentLoading(true)
+    try {
+      const res: any = await salesApi.list({ limit: '30', sort: 'createdAt', order: 'desc' })
+      setRecentSales((res?.data ?? res) as any[])
+    } catch { setRecentSales([]) }
+    finally { setRecentLoading(false) }
+  }
+
+  const openDrawer = () => {
+    try {
+      const ESC = '\x1B'
+      const drawerKick = ESC + 'p' + '\x00' + '\x19' + '\x19'
+      const win = window.open('', '_blank', 'width=1,height=1')
+      if (win) {
+        win.document.write(`<html><body><script>window.onload=function(){window.print();window.close()}<\/script><pre style="font-family:monospace">${drawerKick}</pre></body></html>`)
+        win.document.close()
+      }
+    } catch {}
+    toast.success('Cash drawer signal sent', { icon: '🗄️', duration: 2000 })
+  }
 
   const { data: productsData } = useProducts({ limit: '500' })
   const { data: customersData, refetch: refetchCustomers } = useCustomers({ limit: '200' })
@@ -981,6 +1006,55 @@ export default function POSPage() {
         </div>
       </div>
 
+      {/* ── Recent Invoices Slide-over ── */}
+      {showRecentInvoices && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="flex-1 bg-black/50 backdrop-blur-sm" onClick={() => setShowRecentInvoices(false)} />
+          <div className="w-[480px] flex flex-col shadow-2xl" style={{ background: 'var(--bg-card)', borderLeft: '1px solid var(--border-default)' }}>
+            <div className="flex items-center justify-between px-5 py-4 border-b flex-shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="flex items-center gap-2">
+                <Receipt size={15} className="text-violet-400" />
+                <h3 className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Recent Invoices</h3>
+              </div>
+              <button onClick={() => setShowRecentInvoices(false)} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'var(--text-muted)' }}><X size={14} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {recentLoading ? (
+                <div className="flex items-center justify-center h-32"><Loader2 size={20} className="animate-spin text-violet-400" /></div>
+              ) : recentSales.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-32 opacity-30">
+                  <Receipt size={28} className="text-slate-600 mb-2" />
+                  <p className="text-sm text-slate-500">No invoices found</p>
+                </div>
+              ) : recentSales.map((sale: any) => (
+                <div key={sale.id} className="flex items-center gap-3 px-5 py-3.5 border-b hover:bg-white/3 transition-colors" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/15 flex items-center justify-center flex-shrink-0">
+                    <Receipt size={14} className="text-violet-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-bold font-mono" style={{ color: 'var(--text-primary)' }}>{sale.invoiceNumber}</p>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold ${sale.status === 'PAID' ? 'bg-green-500/15 text-green-400' : 'bg-amber-500/15 text-amber-400'}`}>{sale.status}</span>
+                    </div>
+                    <p className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>{sale.customerName ?? 'Walk-in Customer'} · {new Date(sale.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-bold text-violet-400">{formatCurrency(sale.total)}</p>
+                    <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{(sale.items?.length ?? sale.itemCount ?? 0)} item(s)</p>
+                  </div>
+                  <button onClick={() => {
+                    if (!sale.items) return
+                    printThermalReceipt({ invoiceNumber: sale.invoiceNumber, createdAt: sale.createdAt, customerName: sale.customerName ?? 'Walk-in Customer', customerPhone: sale.customerPhone ?? '', items: sale.items ?? [], subtotal: sale.subtotal ?? sale.total, discountAmount: sale.discount ?? 0, total: sale.total, paymentMethod: sale.payments?.[0]?.method, cashReceived: undefined, changeAmount: undefined }, invoiceSettings)
+                  }} title="Reprint" className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-violet-500/15 hover:text-violet-400 flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
+                    <Printer size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Bottom Action Bar ── */}
       <div className="flex items-center gap-0.5 px-3 py-1.5 border-t flex-shrink-0" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
         {[
@@ -989,8 +1063,8 @@ export default function POSPage() {
           { Icon: UserPlus, label: 'Walk-in Customer',  fn: () => setSelectedCustomer(null) },
           { Icon: Plus,     label: 'New Customer',      fn: () => setShowRegister(true) },
           { Icon: SlidersHorizontal, label: 'Filters',  fn: () => {} },
-          { Icon: Receipt,  label: 'Recent Invoices',   fn: () => {} },
-          { Icon: Archive,  label: 'Open Drawer',       fn: () => toast('Cash drawer open', { icon: '🗄️' }) },
+          { Icon: Receipt,  label: 'Recent Invoices',   fn: () => { setShowRecentInvoices(true); fetchRecentSales() } },
+          { Icon: Archive,  label: 'Open Drawer',       fn: openDrawer },
         ].map(({ Icon, label, fn }) => (
           <button key={label} onClick={fn}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors hover:bg-white/5"
