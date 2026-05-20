@@ -747,39 +747,95 @@ export default function POSPage() {
             ) : (
               <div className="grid grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
                 {pagedProducts.map((product: any) => {
-                  const isLow = product.stock > 0 && product.stock <= 4
-                  const isHot = product.stock >= 25
-                  const isOut = product.stock === 0
+                  const isLow  = product.stock > 0 && product.stock <= 4
+                  const isHot  = product.stock >= 25
+                  const isOut  = product.stock === 0
+                  const { gradient, iconColor, Icon: CardIcon } = getProductCardStyle(product)
+                  const initials = (product.name as string).split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()
+                  const isFav  = favorites.has(product.id)
                   return (
-                    <button key={product.id} onClick={() => !isOut && addToCart(product)} disabled={isOut}
-                      className={`relative text-left rounded-xl overflow-hidden border transition-all group ${isOut ? 'opacity-40 cursor-not-allowed' : 'hover:border-violet-500/40 hover:shadow-lg hover:shadow-violet-500/8 active:scale-95'}`}
-                      style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
-                      {isHot && <div className="absolute top-2 left-2 z-10 px-1.5 py-0.5 rounded text-[9px] font-bold bg-gradient-to-r from-orange-500 to-red-500 text-white leading-none">HOT</div>}
-                      {isLow && <div className="absolute top-2 left-2 z-10 px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-500/20 border border-red-500/30 text-red-400 leading-none">LOW STOCK</div>}
-                      <button type="button" onClick={e => { e.stopPropagation(); setFavorites(prev => { const n = new Set(prev); n.has(product.id) ? n.delete(product.id) : n.add(product.id); return n }) }}
-                        className={`absolute top-2 right-2 z-10 w-6 h-6 rounded-full flex items-center justify-center transition-all ${favorites.has(product.id) ? 'bg-red-500/20 text-red-400' : 'opacity-0 group-hover:opacity-100 bg-black/30 text-slate-300'}`}>
-                        <Heart size={10} fill={favorites.has(product.id) ? 'currentColor' : 'none'} />
-                      </button>
-                      {(() => {
-                        const { gradient, iconColor, Icon: CardIcon } = getProductCardStyle(product)
-                        const initials = (product.name as string).split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()
-                        return (
-                          <div className="w-full aspect-square flex flex-col items-center justify-center gap-1.5 relative overflow-hidden" style={{ background: gradient }}>
-                            <div className="absolute inset-0 opacity-10" style={{ background: 'radial-gradient(circle at 70% 30%, rgba(255,255,255,0.4) 0%, transparent 60%)' }} />
-                            <CardIcon size={26} style={{ color: iconColor }} />
-                            <span className="text-[10px] font-bold tracking-wider opacity-60" style={{ color: iconColor }}>{initials}</span>
+                    <div key={product.id}
+                      className={`relative flex flex-col rounded-2xl overflow-hidden border transition-all group cursor-pointer select-none ${isOut ? 'opacity-40 cursor-not-allowed' : 'hover:shadow-xl hover:shadow-black/30 hover:-translate-y-0.5'}`}
+                      style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
+                      onClick={() => !isOut && addToCart(product)}>
+
+                      {/* ── IMAGE ZONE ── */}
+                      <div className="relative overflow-hidden" style={{ paddingBottom: '72%' }}>
+                        {/* Gradient bg */}
+                        <div className="absolute inset-0" style={{ background: gradient }}>
+                          {/* Shine */}
+                          <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 65% 20%, rgba(255,255,255,0.18) 0%, transparent 55%)' }} />
+                          {/* Grid pattern overlay */}
+                          <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.3) 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+                        </div>
+
+                        {/* Icon + initials centred */}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 pointer-events-none">
+                          <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.18)', backdropFilter: 'blur(4px)' }}>
+                            <CardIcon size={22} style={{ color: iconColor }} />
                           </div>
-                        )
-                      })()}
-                      <div className="p-2.5">
-                        <p className="text-xs font-semibold leading-snug mb-0.5 line-clamp-2" style={{ color: 'var(--text-primary)' }}>{product.name}</p>
-                        <p className="text-[10px] mb-1" style={{ color: 'var(--text-muted)' }}>SKU: {product.sku}</p>
-                        <p className="text-[10px] text-green-400 mb-1">
-                          {isImeiProduct(product) ? 'IMEI' : 'Serial'} Stock: {product.stock}
-                        </p>
-                        <p className="text-sm font-bold text-violet-400">{formatCurrency(product.sellingPrice)}</p>
+                          <span className="text-[11px] font-extrabold tracking-widest" style={{ color: iconColor, opacity: 0.55 }}>{initials}</span>
+                        </div>
+
+                        {/* Hover "add" overlay */}
+                        {!isOut && (
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: 'rgba(0,0,0,0.32)' }}>
+                            <div className="w-11 h-11 rounded-full flex items-center justify-center border-2 border-white/60" style={{ background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(6px)' }}>
+                              <Plus size={20} className="text-white" />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* HOT / LOW STOCK badge */}
+                        {isHot && !isLow && (
+                          <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold tracking-wide" style={{ background: 'linear-gradient(90deg,#f97316,#ef4444)', color: '#fff', boxShadow: '0 2px 8px rgba(239,68,68,.5)' }}>
+                            🔥 HOT
+                          </div>
+                        )}
+                        {isLow && (
+                          <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold tracking-wide border border-red-400/40" style={{ background: 'rgba(239,68,68,0.2)', color: '#f87171' }}>
+                            ⚠ LOW STOCK
+                          </div>
+                        )}
+
+                        {/* Favourite button */}
+                        <button type="button" onClick={e => { e.stopPropagation(); setFavorites(prev => { const n = new Set(prev); n.has(product.id) ? n.delete(product.id) : n.add(product.id); return n }) }}
+                          className={`absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-all ${isFav ? 'opacity-100 bg-red-500/30 text-red-400' : 'opacity-0 group-hover:opacity-100 bg-black/30 text-white/70 hover:text-red-400'}`}>
+                          <Heart size={12} fill={isFav ? 'currentColor' : 'none'} />
+                        </button>
+
+                        {/* Price chip at bottom-right of image */}
+                        <div className="absolute bottom-2 right-2 px-2.5 py-1 rounded-xl text-xs font-bold text-white" style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}>
+                          {formatCurrency(product.sellingPrice)}
+                        </div>
                       </div>
-                    </button>
+
+                      {/* ── INFO ZONE ── */}
+                      <div className="flex flex-col gap-1.5 p-3 flex-1">
+                        <p className="text-xs font-bold leading-snug line-clamp-2" style={{ color: 'var(--text-primary)' }}>{product.name}</p>
+                        <p className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>{product.sku}</p>
+
+                        {/* Stock badge */}
+                        <div className={`self-start flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                          isOut ? 'bg-slate-500/15 text-slate-400' :
+                          isLow ? 'bg-red-500/15 text-red-400' :
+                          'bg-emerald-500/15 text-emerald-400'}`}>
+                          <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isOut ? 'bg-slate-400' : isLow ? 'bg-red-400' : 'bg-emerald-400'}`} />
+                          {isOut ? 'Out of Stock' : `${isImeiProduct(product) ? 'IMEI' : 'Serial'}: ${product.stock}`}
+                        </div>
+
+                        {/* Price + add row */}
+                        <div className="flex items-center justify-between mt-auto pt-1">
+                          <span className="text-sm font-extrabold text-violet-400">{formatCurrency(product.sellingPrice)}</span>
+                          <button type="button" disabled={isOut}
+                            onClick={e => { e.stopPropagation(); if (!isOut) addToCart(product) }}
+                            className="w-7 h-7 rounded-xl flex items-center justify-center text-white transition-all disabled:opacity-30 hover:scale-110 active:scale-95"
+                            style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)', boxShadow: '0 2px 8px rgba(124,58,237,.4)' }}>
+                            <Plus size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   )
                 })}
               </div>
