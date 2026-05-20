@@ -808,8 +808,8 @@ export default function POSPage() {
 
                       {/* ── INFO ZONE ── */}
                       <div className="flex flex-col gap-1.5 p-3 flex-1">
-                        <p className="text-xs font-bold leading-snug line-clamp-2" style={{ color: 'var(--text-primary)' }}>{product.name}</p>
-                        <p className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>{product.sku}</p>
+                        <p className="text-xs font-bold leading-snug line-clamp-2 text-gray-900 dark:text-white">{product.name}</p>
+                        <p className="text-[10px] font-mono text-gray-500 dark:text-slate-400">{product.sku}</p>
 
                         {/* Stock badge */}
                         <div className={`self-start flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
@@ -822,12 +822,12 @@ export default function POSPage() {
 
                         {/* Price + add row */}
                         <div className="flex items-center justify-between mt-auto pt-1">
-                          <span className="text-sm font-extrabold text-violet-400">{formatCurrency(product.sellingPrice)}</span>
+                          <span className="text-sm font-extrabold text-violet-600 dark:text-violet-400">{formatCurrency(product.sellingPrice)}</span>
                           <button type="button" disabled={isOut}
                             onClick={e => { e.stopPropagation(); if (!isOut) addToCart(product) }}
                             className="w-7 h-7 rounded-xl flex items-center justify-center text-white transition-all disabled:opacity-30 hover:scale-110 active:scale-95"
                             style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)', boxShadow: '0 2px 8px rgba(124,58,237,.4)' }}>
-                            <Plus size={14} />
+                            <Plus size={14} className="text-white" />
                           </button>
                         </div>
                       </div>
