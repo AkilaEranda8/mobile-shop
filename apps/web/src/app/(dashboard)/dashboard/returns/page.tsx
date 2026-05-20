@@ -119,23 +119,23 @@ function ProcessReturnModal({ onClose, onDone }: { onClose: () => void; onDone: 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-white dark:bg-[#0f1623] border border-gray-200 dark:border-white/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
         <div className="h-1 w-full bg-gradient-to-r from-rose-500 to-orange-500" />
 
-        <div className="flex items-center justify-between p-5 border-b border-white/5">
+        <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-white/5">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/20 flex items-center justify-center">
-              <RotateCcw size={15} className="text-rose-400" />
+            <div className="w-9 h-9 rounded-xl bg-rose-100 dark:bg-rose-500/15 border border-rose-200 dark:border-rose-500/20 flex items-center justify-center">
+              <RotateCcw size={15} className="text-rose-500 dark:text-rose-400" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white">New Return</h3>
-              <p className="text-xs text-slate-500">
-                {step === 'search' ? 'Search invoice to process return' : `${sale?.invoiceNumber} · ${sale?.customerName || 'Walk-in'}`}
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white">New Return</h3>
+              <p className="text-xs text-gray-500 dark:text-slate-500">
+                {step === 'search' ? 'Search invoice to process return' : `${sale?.invoiceNumber} · ${sale?.customerName || 'Walk-in Customer'}`}
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={15} /></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:text-slate-500 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5"><X size={15} /></button>
         </div>
 
         <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
@@ -160,52 +160,52 @@ function ProcessReturnModal({ onClose, onDone }: { onClose: () => void; onDone: 
                 <div className="space-y-2">
                   {results.map((s: any) => (
                     <button key={s.id} onClick={() => selectSale(s)}
-                      className="w-full flex items-center justify-between p-3 rounded-lg bg-white/3 border border-white/5 hover:border-rose-500/30 hover:bg-rose-500/5 transition-all text-left">
+                      className="w-full flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-white/3 border border-gray-200 dark:border-white/5 hover:border-rose-400 hover:bg-rose-50 dark:hover:border-rose-500/30 dark:hover:bg-rose-500/5 transition-all text-left">
                       <div>
-                        <p className="text-xs font-mono font-bold text-violet-400">{s.invoiceNumber}</p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">{s.customerName || 'Walk-in'} · {s.items?.length ?? 0} items</p>
+                        <p className="text-xs font-mono font-bold text-violet-600 dark:text-violet-400">{s.invoiceNumber}</p>
+                        <p className="text-[11px] text-gray-500 dark:text-slate-400 mt-0.5">{s.customerName || 'Walk-in'} · {s.items?.length ?? 0} items</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-xs font-bold text-white">{formatCurrency(s.total)}</p>
-                        <p className="text-[10px] text-slate-500">{new Date(s.createdAt).toLocaleDateString()}</p>
+                        <p className="text-xs font-bold text-gray-900 dark:text-white">{formatCurrency(s.total)}</p>
+                        <p className="text-[10px] text-gray-400 dark:text-slate-500">{new Date(s.createdAt).toLocaleDateString()}</p>
                       </div>
                     </button>
                   ))}
                 </div>
               )}
               {results.length === 0 && query && !searching && (
-                <p className="text-center text-xs text-slate-500 py-4">No returnable orders found</p>
+                <p className="text-center text-xs text-gray-400 dark:text-slate-500 py-4">No returnable orders found</p>
               )}
             </>
           ) : (
             <>
               <button onClick={() => { setStep('search'); setResults([]); }}
-                className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors">
+                className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white transition-colors">
                 ← Back to search
               </button>
 
               <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wide mb-2">Select items to return</p>
+                <p className="text-xs text-gray-400 dark:text-slate-400 uppercase tracking-wide mb-2 font-semibold">Select items to return</p>
                 <div className="space-y-2">
                   {(sale?.items ?? []).map((item: any) => (
-                    <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-white/3 border border-white/5">
+                    <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-white/3 border border-gray-200 dark:border-white/5">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-white truncate">{item.productName}</p>
-                        <p className="text-[10px] text-slate-500">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{item.productName}</p>
+                        <p className="text-[10px] text-gray-500 dark:text-slate-500">
                           Sold: {item.quantity}{(alreadyReturnedQty[item.productId] ?? 0) > 0 ? ` · Already returned: ${alreadyReturnedQty[item.productId]}` : ''} · {formatCurrency(item.quantity > 0 ? item.total / item.quantity : item.unitPrice)} each
                         </p>
                         {item.imei && <p className="text-[9px] font-mono text-violet-400">IMEI: {item.imei}</p>}
                       </div>
                       <div className="flex items-center gap-2 ml-3">
                         <button onClick={() => adjust(item.id, item.quantity - (alreadyReturnedQty[item.productId] ?? 0), -1)}
-                          className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400">
+                          className="w-6 h-6 rounded-md bg-gray-100 dark:bg-white/5 hover:bg-rose-100 dark:hover:bg-white/10 border border-gray-200 dark:border-transparent flex items-center justify-center text-gray-500 dark:text-slate-400 hover:text-rose-500">
                           <Minus size={10} />
                         </button>
-                        <span className={`w-7 text-center text-sm font-bold ${qtys[item.id] > 0 ? 'text-rose-400' : 'text-slate-500'}`}>
+                        <span className={`w-7 text-center text-sm font-bold ${qtys[item.id] > 0 ? 'text-rose-500 dark:text-rose-400' : 'text-gray-400 dark:text-slate-500'}`}>
                           {qtys[item.id]}
                         </span>
                         <button onClick={() => adjust(item.id, item.quantity - (alreadyReturnedQty[item.productId] ?? 0), +1)}
-                          className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400">
+                          className="w-6 h-6 rounded-md bg-gray-100 dark:bg-white/5 hover:bg-rose-100 dark:hover:bg-white/10 border border-gray-200 dark:border-transparent flex items-center justify-center text-gray-500 dark:text-slate-400 hover:text-rose-500">
                           <Plus size={10} />
                         </button>
                       </div>
@@ -215,45 +215,45 @@ function ProcessReturnModal({ onClose, onDone }: { onClose: () => void; onDone: 
               </div>
 
               <div>
-                <label className="block text-xs text-slate-400 mb-1.5">Return Reason</label>
+                <label className="block text-xs font-medium text-gray-600 dark:text-slate-400 mb-1.5">Return Reason</label>
                 <select value={reason} onChange={e => setReason(e.target.value)} className="input-field">
                   {RETURN_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs text-slate-400 mb-1.5">Refund Method</label>
+                <label className="block text-xs font-medium text-gray-600 dark:text-slate-400 mb-1.5">Refund Method</label>
                 <div className="grid grid-cols-4 gap-1.5">
                   {['CASH','CARD','UPI','BANK_TRANSFER'].map(m => (
                     <button key={m} type="button" onClick={() => setRefundMethod(m)}
                       className={`py-1.5 text-[10px] font-semibold rounded-lg border transition-colors ${
                         refundMethod === m
-                          ? 'bg-rose-500/20 border-rose-500/40 text-rose-300'
-                          : 'border-white/10 text-slate-500 hover:border-white/20 hover:text-slate-300'
+                          ? 'bg-rose-50 dark:bg-rose-500/20 border-rose-300 dark:border-rose-500/40 text-rose-600 dark:text-rose-300'
+                          : 'border-gray-200 dark:border-white/10 text-gray-500 dark:text-slate-500 hover:border-rose-300 hover:text-rose-500 dark:hover:border-white/20 dark:hover:text-slate-300'
                       }`}>{m.replace('_',' ')}</button>
                   ))}
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs text-slate-400 mb-1.5">Notes (optional)</label>
+                <label className="block text-xs font-medium text-gray-600 dark:text-slate-400 mb-1.5">Notes (optional)</label>
                 <input className="input-field" placeholder="Additional details..." value={notes} onChange={e => setNotes(e.target.value)} />
               </div>
 
               {refundAmount > 0 && (
-                <div className="flex items-center justify-between p-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20">
                   <div className="flex items-center gap-2">
-                    <AlertTriangle size={13} className="text-rose-400" />
-                    <span className="text-xs text-rose-300">Refund amount</span>
+                    <AlertTriangle size={13} className="text-rose-500 dark:text-rose-400" />
+                    <span className="text-xs text-rose-600 dark:text-rose-300 font-medium">Refund amount</span>
                   </div>
-                  <span className="text-sm font-bold text-rose-400">{formatCurrency(refundAmount)}</span>
+                  <span className="text-sm font-bold text-rose-600 dark:text-rose-400">{formatCurrency(refundAmount)}</span>
                 </div>
               )}
 
               <div className="flex gap-3 pt-1">
-                <button onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
+                <button onClick={onClose} className="flex-1 text-sm py-2 px-4 rounded-lg border border-gray-200 dark:border-white/10 text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-white/5 font-medium transition-colors">Cancel</button>
                 <button onClick={handleSubmit} disabled={loading || !selectedItems.length}
-                  className="flex-1 text-sm flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-rose-500 hover:bg-rose-600 text-white font-semibold disabled:opacity-50 transition-colors">
+                  className="flex-1 text-sm flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-rose-500 hover:bg-rose-600 text-white font-semibold disabled:opacity-50 transition-colors shadow-sm shadow-rose-200">
                   {loading ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}
                   {loading ? 'Processing...' : 'Process Return'}
                 </button>
