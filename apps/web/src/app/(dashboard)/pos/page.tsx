@@ -770,7 +770,7 @@ export default function POSPage() {
                   <Receipt size={30} className="text-slate-600 mb-2" />
                   <p className="text-sm text-slate-500">Add items to cart</p>
                 </div>
-              } : cart.map((item) => (
+              ) : cart.map((item) => (
                 <div key={item.cartId} className="p-2.5 rounded-xl bg-white/3 border border-white/5">
                   <div className="flex items-start gap-2">
                     <div className="flex-1 min-w-0">
