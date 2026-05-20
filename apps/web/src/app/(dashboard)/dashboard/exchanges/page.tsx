@@ -5,6 +5,7 @@ import {
   Plus, X, Loader2, ArrowLeftRight, Search, Calendar, User,
   Smartphone, Hash, ChevronDown, Check, Trash2, Eye,
 } from 'lucide-react'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -477,17 +478,34 @@ export default function ExchangesPage() {
         ))}
       </div>
 
-      {/* Table */}
-      <ClientSideTable
-        data={records}
-        columns={columns}
-        isLoading={loading}
-        pageCount={Math.ceil((records.length || 1) / 20)}
-        searchableColumns={[
-          { id: 'customerName',   title: 'Customer'   },
-          { id: 'exchangeNumber', title: 'Exchange #'  },
-        ]}
-      />
+      {/* Table or Empty State */}
+      {!loading && records.length === 0 ? (
+        <EmptyState
+          icon={ArrowLeftRight}
+          title="No exchange records yet"
+          description="Device exchanges let you accept trade-ins and issue upgraded devices. Start by logging your first exchange transaction."
+          accentColor="amber"
+          actions={[
+            { label: 'Record First Exchange', onClick: () => setShowNew(true), primary: true },
+          ]}
+          hints={[
+            'An exchange records the old device received and its condition.',
+            'Optionally assign a new device given to the customer.',
+            'Exchange value is used for pricing differences.',
+          ]}
+        />
+      ) : (
+        <ClientSideTable
+          data={records}
+          columns={columns}
+          isLoading={loading}
+          pageCount={Math.ceil((records.length || 1) / 20)}
+          searchableColumns={[
+            { id: 'customerName',   title: 'Customer'   },
+            { id: 'exchangeNumber', title: 'Exchange #'  },
+          ]}
+        />
+      )}
     </div>
   )
 }

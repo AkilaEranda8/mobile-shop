@@ -6,6 +6,7 @@ import {
   CreditCard, Loader2, Hash, ShoppingBag,
   Banknote, Smartphone, TrendingUp, Download, Truck, RotateCcw,
 } from 'lucide-react'
+import { TableDensityToggle, type TableDensity } from '@/components/ui/TableDensityToggle'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -353,6 +354,7 @@ export default function SalesPage() {
   const [meta, setMeta]             = useState<any>(null)
   const [loading, setLoading]       = useState(true)
   const [detailSale,  setDetailSale]  = useState<any>(null)
+  const [density, setDensity]       = useState<TableDensity>('comfortable')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -451,9 +453,12 @@ export default function SalesPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="page-title">Sales</h1>
-        <p className="page-subtitle">View and manage all sales transactions</p>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div>
+          <h1 className="page-title">Sales</h1>
+          <p className="page-subtitle">View and manage all sales transactions</p>
+        </div>
+        <div className="sm:ml-auto"><TableDensityToggle value={density} onChange={setDensity} /></div>
       </div>
 
       {/* Stats */}
@@ -477,29 +482,31 @@ export default function SalesPage() {
       </div>
 
       {/* Table */}
-      <ClientSideTable
-        data={sales}
-        columns={columns}
-        isLoading={loading}
-        pageCount={Math.ceil((sales.length || 1) / 20)}
-        searchableColumns={[
-          { id: 'invoiceNumber', title: 'Invoice' },
-          { id: 'customerName',  title: 'Customer' },
-        ]}
-        filterableColumns={[{
-          id: 'status',
-          title: 'Status',
-          options: [
-            { label: 'Paid',     value: 'PAID'     },
-            { label: 'Partial',  value: 'PARTIAL'  },
-            { label: 'Unpaid',   value: 'UNPAID'   },
-            { label: 'Returned', value: 'RETURNED' },
-            { label: 'Refunded', value: 'REFUNDED' },
-          ],
-        }]}
-      />
+      <div className={`table-${density}`}>
+        <ClientSideTable
+          data={sales}
+          columns={columns}
+          isLoading={loading}
+          pageCount={Math.ceil((sales.length || 1) / 20)}
+          searchableColumns={[
+            { id: 'invoiceNumber', title: 'Invoice' },
+            { id: 'customerName',  title: 'Customer' },
+          ]}
+          filterableColumns={[{
+            id: 'status',
+            title: 'Status',
+            options: [
+              { label: 'Paid',     value: 'PAID'     },
+              { label: 'Partial',  value: 'PARTIAL'  },
+              { label: 'Unpaid',   value: 'UNPAID'   },
+              { label: 'Returned', value: 'RETURNED' },
+              { label: 'Refunded', value: 'REFUNDED' },
+            ],
+          }]}
+        />
+      </div>
 
-      {detailSale  && <SaleDetailsModal sale={detailSale} onClose={() => setDetailSale(null)} />}
+      {detailSale && <SaleDetailsModal sale={detailSale} onClose={() => setDetailSale(null)} />}
     </div>
   )
 }

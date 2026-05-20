@@ -10,6 +10,7 @@ import {
   Clock, Loader2, Hash, MapPin, Phone, MessageSquare,
   Printer, Upload, Settings,
 } from 'lucide-react'
+import { EmptyState } from '@/components/ui/EmptyState'
 import toast from 'react-hot-toast'
 import {
   deliveryApi, DeliveryOrder, Courier, TrackingNumber,
@@ -401,24 +402,42 @@ export default function DeliveryPage() {
 
       {/* Orders Tab */}
       {tab === 'Orders' && (
-        <ClientSideTable
-          data={orders}
-          columns={orderColumns}
-          isLoading={loading}
-          pageCount={Math.ceil((orders.length || 1) / 20)}
-          searchableColumns={[
-            { id: 'orderNumber',  title: 'Order #'  },
-            { id: 'customerName', title: 'Customer' },
-            { id: 'courier',      title: 'Tracking' },
-          ]}
-          filterableColumns={[
-            {
-              id: 'status',
-              title: 'Status',
-              options: Object.entries(statusLabels).map(([v, l]) => ({ value: v, label: l })),
-            },
-          ]}
-        />
+        !loading && orders.length === 0 ? (
+          <EmptyState
+            icon={Truck}
+            title="No delivery orders yet"
+            description="Create delivery orders to dispatch products via courier. Assign tracking numbers, generate waybills, and send WhatsApp notifications automatically."
+            accentColor="violet"
+            actions={[
+              { label: 'Create First Order', onClick: () => setShowCreate(true), primary: true },
+              { label: 'Setup Couriers', onClick: () => setShowCouriers(true) },
+            ]}
+            hints={[
+              'Add couriers (Koombiyo, Domex, etc.) under the Couriers tab first.',
+              'Upload tracking numbers in bulk via Tracking Pool.',
+              'WhatsApp notifications are sent automatically when order status changes.',
+            ]}
+          />
+        ) : (
+          <ClientSideTable
+            data={orders}
+            columns={orderColumns}
+            isLoading={loading}
+            pageCount={Math.ceil((orders.length || 1) / 20)}
+            searchableColumns={[
+              { id: 'orderNumber',  title: 'Order #'  },
+              { id: 'customerName', title: 'Customer' },
+              { id: 'courier',      title: 'Tracking' },
+            ]}
+            filterableColumns={[
+              {
+                id: 'status',
+                title: 'Status',
+                options: Object.entries(statusLabels).map(([v, l]) => ({ value: v, label: l })),
+              },
+            ]}
+          />
+        )
       )}
 
       {/* Tracking Pool Tab */}
@@ -460,9 +479,17 @@ export default function DeliveryPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {couriers.length === 0 ? (
-              <div className="col-span-3 rounded-xl p-10 text-center text-sm"
-                style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
-                No couriers yet. Click "Add Defaults" to add Koombiyo, Domex, Pronto, CityPak.
+              <div className="col-span-3">
+                <EmptyState
+                  icon={Truck}
+                  title="No couriers configured"
+                  description="Add courier partners to start dispatching orders. Click 'Add Defaults' to instantly add Koombiyo, Domex, Pronto, and CityPak."
+                  accentColor="blue"
+                  actions={[
+                    { label: 'Add Default Couriers', onClick: handleSeedCouriers, primary: true },
+                    { label: 'Add Custom Courier', onClick: () => setShowCouriers(true) },
+                  ]}
+                />
               </div>
             ) : couriers.map(c => (
               <div key={c.id} className="rounded-xl p-4 flex items-start gap-3"
