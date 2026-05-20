@@ -39,4 +39,5 @@ Thumbs.db
 
 # Deploy scripts (contain server credentials)
 scripts/deploy.ps1
+scripts/deploy.sh
 scripts/server-init.sh
