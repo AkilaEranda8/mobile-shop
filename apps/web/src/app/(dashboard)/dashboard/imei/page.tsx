@@ -138,12 +138,33 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
               )}
             </div>
 
-            {/* Customer / Sale */}
-            {(customer || sale) && (
+            {/* Registration Info */}
+            {record && (
               <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
                 <p className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
-                  <User size={11} />Owner / Sale
+                  <Tag size={11} />Registration Info
                 </p>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>IMEI Number</p>
+                    <p className="font-mono text-xs font-semibold tracking-wider" style={{ color: 'var(--text-primary)' }}>{imei}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Registered On</p>
+                    <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{formatDate(record.createdAt)}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Customer / Sale */}
+            <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
+              <p className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                <User size={11} />Owner / Sale
+              </p>
+              {(!customer && !sale) ? (
+                <p className="text-xs py-1" style={{ color: 'var(--text-muted)' }}>No sale or customer linked to this device yet</p>
+              ) : (
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   {customer && <>
                     <div>
@@ -174,8 +195,8 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
                     </div>
                   </>}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Repair History */}
             <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
