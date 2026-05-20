@@ -331,7 +331,7 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
+      <div className="rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
         <div className="flex items-center justify-between p-5 border-b sticky top-0 z-10" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center gap-2">
             <Shield size={16} className="text-violet-400" />
