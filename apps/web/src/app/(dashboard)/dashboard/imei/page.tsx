@@ -169,45 +169,78 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
             )}
 
             {/* Customer / Sale */}
-            <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
-              <p className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
-                <User size={11} />Owner / Sale
-              </p>
-              {(!customer && !sale) ? (
-                <p className="text-xs py-1" style={{ color: 'var(--text-muted)' }}>No sale or customer linked to this device yet</p>
-              ) : (
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  {customer && <>
-                    <div>
-                      <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Customer</p>
-                      <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{customer.name}</p>
+            {(() => {
+              const repairCustomerName  = firstRepair?.customerName
+              const repairCustomerPhone = firstRepair?.customerPhone
+              const hasAny = customer || sale || repairCustomerName
+              return (
+                <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                      <User size={11} />Owner / Sale
+                    </p>
+                    {!customer && !sale && repairCustomerName && (
+                      <span className="text-[10px] px-2 py-0.5 rounded border text-violet-400 bg-violet-500/10 border-violet-500/20 font-medium">From Repair Record</span>
+                    )}
+                  </div>
+                  {!hasAny ? (
+                    <p className="text-xs py-1" style={{ color: 'var(--text-muted)' }}>No sale or customer linked to this device yet</p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      {/* From ImeiRecord customer */}
+                      {customer && <>
+                        <div>
+                          <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Customer</p>
+                          <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{customer.name}</p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Phone</p>
+                          <p className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{customer.phone ?? '—'}</p>
+                        </div>
+                      </>}
+                      {/* From repair ticket (fallback) */}
+                      {!customer && repairCustomerName && <>
+                        <div>
+                          <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Customer</p>
+                          <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{repairCustomerName}</p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Phone</p>
+                          <p className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{repairCustomerPhone ?? '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Last Seen</p>
+                          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{formatDate(firstRepair.createdAt)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Ticket</p>
+                          <p className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>#{firstRepair.ticketNumber}</p>
+                        </div>
+                      </>}
+                      {/* Sale details */}
+                      {sale && <>
+                        <div>
+                          <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Invoice</p>
+                          <p className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{sale.invoiceNumber ?? '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Sale Date</p>
+                          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{formatDate(sale.createdAt)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Sale Amount</p>
+                          <p className="text-xs font-semibold text-green-400">{formatCurrency(sale.total)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Cashier</p>
+                          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{sale.cashierName ?? '—'}</p>
+                        </div>
+                      </>}
                     </div>
-                    <div>
-                      <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Phone</p>
-                      <p className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{customer.phone ?? '—'}</p>
-                    </div>
-                  </>}
-                  {sale && <>
-                    <div>
-                      <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Invoice</p>
-                      <p className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{sale.invoiceNumber ?? '—'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Sale Date</p>
-                      <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{formatDate(sale.createdAt)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Sale Amount</p>
-                      <p className="text-xs font-semibold text-green-400">{formatCurrency(sale.total)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Cashier</p>
-                      <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{sale.cashierName ?? '—'}</p>
-                    </div>
-                  </>}
+                  )}
                 </div>
-              )}
-            </div>
+              )
+            })()}
 
             {/* Repair History */}
             <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
