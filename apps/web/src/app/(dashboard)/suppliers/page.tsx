@@ -409,10 +409,13 @@ const poStatusColors: Record<string, string> = {
 }
 
 /* ── Supplier Details Modal ─────────────────────────────────────────── */
-function SupplierDetailsModal({ supplier, onClose, onEdit }: { supplier: Supplier; onClose: () => void; onEdit: () => void }) {
+function SupplierDetailsModal({ supplier, allPOs, onClose, onEdit }: { supplier: Supplier; allPOs: PurchaseOrder[]; onClose: () => void; onEdit: () => void }) {
+  const supplierPOs = allPOs.filter(p => p.supplierId === supplier.id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  const totalPaid = supplierPOs.reduce((s, p) => s + (p.paidAmount ?? 0), 0)
+  const totalDue  = supplierPOs.reduce((s, p) => s + (p.dueAmount ?? 0), 0)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between p-5 border-b border-white/5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/30 to-cyan-500/20 border border-violet-500/20 flex items-center justify-center text-base font-bold text-violet-300">
@@ -431,16 +434,17 @@ function SupplierDetailsModal({ supplier, onClose, onEdit }: { supplier: Supplie
           </div>
         </div>
 
-        <div className="p-5 space-y-4">
+        <div className="p-5 space-y-4 overflow-y-auto flex-1">
           {/* KPIs */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-2">
             {[
-              { icon: ShoppingBag,  label: 'Total Orders',    value: supplier.totalOrders,                              cls: 'text-violet-400' },
-              { icon: TrendingUp,   label: 'Purchase Value',  value: formatCurrency(supplier.totalPurchaseValue ?? 0),   cls: 'text-emerald-400' },
-              { icon: AlertCircle,  label: 'Outstanding',     value: formatCurrency(supplier.outstandingDues ?? 0),      cls: supplier.outstandingDues > 0 ? 'text-red-400' : 'text-green-400' },
+              { icon: ShoppingBag,  label: 'Orders',       value: String(supplier.totalOrders),                       cls: 'text-violet-400'  },
+              { icon: TrendingUp,   label: 'Total Value',  value: formatCurrency(supplier.totalPurchaseValue ?? 0),   cls: 'text-emerald-400' },
+              { icon: CreditCard,   label: 'Paid',         value: formatCurrency(totalPaid),                          cls: 'text-green-400'   },
+              { icon: AlertCircle,  label: 'Outstanding',  value: formatCurrency(totalDue),                           cls: totalDue > 0 ? 'text-red-400' : 'text-green-400' },
             ].map(({ icon: Icon, label, value, cls }) => (
               <div key={label} className="bg-white/3 rounded-xl p-3 text-center border border-white/5">
-                <Icon size={14} className={`mx-auto mb-1 ${cls}`} />
+                <Icon size={13} className={`mx-auto mb-1 ${cls}`} />
                 <p className={`text-sm font-bold ${cls}`}>{value}</p>
                 <p className="text-[10px] text-slate-600 mt-0.5">{label}</p>
               </div>
@@ -477,6 +481,33 @@ function SupplierDetailsModal({ supplier, onClose, onEdit }: { supplier: Supplie
               <Calendar size={11} />
               <span>Joined {formatDate(supplier.createdAt)}</span>
             </div>
+          </div>
+
+          {/* ── Ledger ── */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1.5"><Receipt size={10} />Purchase Order Ledger</p>
+            {supplierPOs.length === 0 ? (
+              <p className="text-xs text-center text-slate-600 py-6">No purchase orders yet</p>
+            ) : (
+              <div className="space-y-1.5">
+                {supplierPOs.map(po => (
+                  <div key={po.id} className="bg-white/3 rounded-xl p-3 border border-white/5">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-mono text-violet-400">{po.poNumber}</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${poStatusColors[po.status] ?? 'text-slate-400 bg-white/5 border-white/10'}`}>{po.status}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] text-slate-500 flex items-center gap-1"><Calendar size={9} />{formatDate(po.createdAt)}</p>
+                      <div className="text-right">
+                        <p className="text-xs font-bold text-white">{formatCurrency(po.total)}</p>
+                        {po.dueAmount > 0 && <p className="text-[10px] text-red-400">Due: {formatCurrency(po.dueAmount)}</p>}
+                        {po.paidAmount > 0 && <p className="text-[10px] text-green-400">Paid: {formatCurrency(po.paidAmount)}</p>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1091,7 +1122,7 @@ export default function SuppliersPage() {
     <div className="space-y-6">
       {showAddSupplier && <AddSupplierModal onClose={() => setShowAddSupplier(false)} onSaved={refetchSuppliers} />}
       {showNewPO       && <NewPOModal suppliers={suppliers} onClose={() => setShowNewPO(false)} onSaved={() => { refetchOrders(); refetchSuppliers() }} />}
-      {detailSupplier  && <SupplierDetailsModal supplier={detailSupplier} onClose={() => setDetailSupplier(null)} onEdit={() => { setEditSupplier(detailSupplier); setDetailSupplier(null) }} />}
+      {detailSupplier  && <SupplierDetailsModal supplier={detailSupplier} allPOs={purchaseOrders} onClose={() => setDetailSupplier(null)} onEdit={() => { setEditSupplier(detailSupplier); setDetailSupplier(null) }} />}
       {editSupplier    && <EditSupplierModal supplier={editSupplier} onClose={() => setEditSupplier(null)} onSaved={() => { refetchSuppliers(); setEditSupplier(null) }} />}
       {confirmPO       && <ConfirmReceiveModal po={confirmPO} onConfirm={doReceive} onCancel={() => setConfirmPO(null)} loading={!!markReceiving} />}
       {registerImeiPO  && <IMEIRegisterModal po={registerImeiPO} onClose={() => setRegisterImeiPO(null)} onSaved={(poId) => { setRegisteredImeiPOs(prev => new Set([...prev, poId])); refetchOrders() }} />}

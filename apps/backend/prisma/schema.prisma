@@ -147,6 +147,7 @@ model Tenant {
   deliveryOrders  DeliveryOrder[]
   supportNotes    SupportNote[]
   saleReturns     SaleReturn[]
+  exchanges       DeviceExchange[]
 }
 
 model Branch {
@@ -173,6 +174,7 @@ model Branch {
   stockMovements StockMovement[]
   dailySummaries DailySummary[]
   imeiRecords    ImeiRecord[]
+  exchanges      DeviceExchange[]
 }
 
 model User {
@@ -187,11 +189,12 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branches       UserBranch[]
   salesAssCashier Sale[]     @relation("SaleCashier")
   repairs        RepairTicket[] @relation("RepairTechnician")
   refreshTokens  RefreshToken[]
+  exchanges      DeviceExchange[]
 
   @@unique([tenantId, email])
 }
@@ -339,6 +342,7 @@ model Customer {
   repairs     RepairTicket[]
   warranties  Warranty[]
   imeiRecords ImeiRecord[]
+  exchanges   DeviceExchange[]
 
   @@unique([tenantId, phone])
 }
@@ -541,6 +545,39 @@ model RepairStatusHistory {
   timestamp  DateTime     @default(now())
 
   repair RepairTicket @relation(fields: [repairId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────── Device Exchange ───────────────
+
+model DeviceExchange {
+  id             String   @id @default(cuid())
+  tenantId       String
+  branchId       String
+  exchangeNumber String
+  customerId     String?
+  customerName   String
+  customerPhone  String
+  oldBrand       String
+  oldModel       String
+  oldImei        String?
+  oldCondition   String   @default("GOOD")
+  exchangeValue  Float    @default(0)
+  newBrand       String?
+  newModel       String?
+  newImei        String?
+  newDevicePrice Float?
+  saleId         String?
+  notes          String?
+  status         String   @default("COMPLETED")
+  createdBy      String   @default("system")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch   Branch    @relation(fields: [branchId], references: [id])
+  customer Customer? @relation(fields: [customerId], references: [id])
+
+  @@unique([tenantId, exchangeNumber])
 }
 
 // ─────────────── Warranty ───────────────

@@ -6,7 +6,7 @@ import {
   LayoutDashboard, ShoppingCart, Package, Users, Wrench,
   Shield, Truck, BarChart3, Settings, LogOut,
   CreditCard, Smartphone, FileText, Building2,
-  UserCheck, ChevronLeft, ChevronRight, Receipt, MessageSquare, PackageCheck, RotateCcw
+  UserCheck, ChevronLeft, ChevronRight, Receipt, MessageSquare, PackageCheck, RotateCcw, ArrowLeftRight
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
@@ -41,8 +41,9 @@ const navItems = [
   {
     label: 'Service',
     items: [
-      { href: '/dashboard/repairs', icon: Wrench, label: 'Repair Jobs' },
-      { href: '/dashboard/warranty', icon: Shield, label: 'Warranty' },
+      { href: '/dashboard/repairs',   icon: Wrench,          label: 'Repair Jobs'     },
+      { href: '/dashboard/warranty',  icon: Shield,          label: 'Warranty'        },
+      { href: '/dashboard/exchanges', icon: ArrowLeftRight,  label: 'Device Exchange', badge: 'NEW' },
     ],
   },
   {

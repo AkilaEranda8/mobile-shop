@@ -232,6 +232,15 @@ export const plansApi = {
   list: () => api.get('/plans'),
 }
 
+export const exchangesApi = {
+  list: (params?: Record<string, string>) =>
+    api.get(`/exchanges${params ? '?' + new URLSearchParams(params) : ''}`),
+  create: (body: unknown) => api.post('/exchanges', body),
+  getById: (id: string) => api.get(`/exchanges/${id}`),
+  update: (id: string, body: unknown) => api.put(`/exchanges/${id}`, body),
+  remove: (id: string) => api.delete(`/exchanges/${id}`),
+}
+
 export const analyticsApi = {
   dashboard: () => api.get('/analytics/dashboard'),
   revenue: (params?: Record<string, string>) =>
