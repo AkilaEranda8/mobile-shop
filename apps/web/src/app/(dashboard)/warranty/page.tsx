@@ -653,6 +653,12 @@ export default function WarrantyPage() {
   const [deletingId, setDeletingId]       = useState<string | null>(null)
   const warranties: Warranty[] = (warrantyData?.data ?? []) as Warranty[]
 
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') refetch() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [refetch])
+
   const now        = new Date()
   const thirtyDays = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
   const expiringCount = warranties.filter((w: Warranty) => new Date(w.endDate) <= thirtyDays && w.status === 'ACTIVE').length
