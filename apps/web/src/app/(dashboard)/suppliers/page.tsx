@@ -2,16 +2,149 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Search, Truck, Phone, Mail, Package, Eye, Edit, Loader2, X, ChevronDown, Trash2, FileText, MapPin, Globe, Hash, ShoppingBag, TrendingUp, AlertCircle, Calendar, CheckCircle, Save, PackageCheck, ShieldAlert, CreditCard, Banknote, Receipt } from 'lucide-react'
+import { Plus, Search, Truck, Phone, Mail, Package, Eye, Edit, Loader2, X, ChevronDown, Trash2, FileText, MapPin, Globe, Hash, ShoppingBag, TrendingUp, AlertCircle, Calendar, CheckCircle, Save, PackageCheck, ShieldAlert, CreditCard, Banknote, Receipt, Smartphone, ClipboardList } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useSuppliers, usePurchaseOrders, useProducts } from '@/lib/hooks'
-import { suppliersApi, branchesApi } from '@/lib/api'
+import { suppliersApi, branchesApi, imeiApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import type { Supplier, PurchaseOrder } from '@/types'
+
+/* ── IMEI Register Modal ─────────────────────────────────────────── */
+function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClose: () => void; onSaved: () => void }) {
+  const [branches, setBranches] = useState<any[]>([])
+  const [defaultBranch, setDefaultBranch] = useState('')
+  // imeis[productId] = string[] (one per unit)
+  const [imeis, setImeis] = useState<Record<string, string[]>>(() => {
+    const init: Record<string, string[]> = {}
+    for (const item of po.items) {
+      if (item.productId) init[item.productId] = Array(item.quantity).fill('')
+    }
+    return init
+  })
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    branchesApi.list().then((r: any) => {
+      const list = r.data ?? []
+      setBranches(list)
+      setDefaultBranch(list[0]?.id ?? '')
+    }).catch(() => {})
+  }, [])
+
+  const setImei = (productId: string, idx: number, val: string) =>
+    setImeis(prev => ({ ...prev, [productId]: prev[productId].map((v, i) => i === idx ? val : v) }))
+
+  const handlePaste = (productId: string, idx: number, text: string) => {
+    const lines = text.split(/[\n,;\s]+/).map(s => s.trim()).filter(Boolean)
+    if (lines.length > 1) {
+      setImeis(prev => {
+        const arr = [...prev[productId]]
+        lines.forEach((line, i) => { if (idx + i < arr.length) arr[idx + i] = line })
+        return { ...prev, [productId]: arr }
+      })
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const items: { productId: string; branchId: string; imei: string }[] = []
+    for (const [productId, imeiList] of Object.entries(imeis)) {
+      for (const imei of imeiList) {
+        if (imei.trim()) items.push({ productId, branchId: defaultBranch, imei: imei.trim() })
+      }
+    }
+    if (!items.length) { toast.error('Enter at least one IMEI'); return }
+    setLoading(true)
+    try {
+      const r: any = await suppliersApi.registerPoImei(po.id, items)
+      toast.success(r.message ?? `${r.data?.created ?? 0} IMEI(s) registered`)
+      if ((r.data?.errors?.length ?? 0) > 0) toast.error(`Errors: ${r.data.errors.join(', ')}`)
+      onSaved()
+      onClose()
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to register IMEIs')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const itemsWithId = po.items.filter(i => i.productId)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)] flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+              <Smartphone size={16} className="text-violet-400" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Register IMEIs</h3>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>PO {po.poNumber} — enter IMEI for each unit received</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/5 text-slate-500 hover:text-white"><X size={16} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="overflow-y-auto p-5 space-y-5 flex-1">
+          {branches.length > 1 && (
+            <div>
+              <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Branch</label>
+              <select className="input-field" value={defaultBranch} onChange={e => setDefaultBranch(e.target.value)}>
+                {branches.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            </div>
+          )}
+          {itemsWithId.length === 0 && (
+            <p className="text-xs text-amber-400 text-center py-4">No linked products in this PO. Assign products first.</p>
+          )}
+          {itemsWithId.map(item => (
+            <div key={item.productId} className="rounded-xl border p-4 space-y-3" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{item.productName}</p>
+                <span className="text-[11px] px-2 py-0.5 rounded bg-violet-500/10 border border-violet-500/20 text-violet-400">{item.quantity} units</span>
+              </div>
+              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Paste multiple IMEIs separated by newlines or enter one per field</p>
+              <div className="grid grid-cols-2 gap-2">
+                {(imeis[item.productId] ?? []).map((val, idx) => (
+                  <div key={idx}>
+                    <label className="block text-[10px] mb-1" style={{ color: 'var(--text-muted)' }}>Unit {idx + 1}</label>
+                    <input
+                      className={`input-field font-mono text-xs tracking-wider ${
+                        val.length === 15 ? 'border-green-500/40' : val.length > 0 ? 'border-red-500/40' : ''
+                      }`}
+                      placeholder="000000000000000"
+                      maxLength={15}
+                      value={val}
+                      onChange={e => setImei(item.productId, idx, e.target.value)}
+                      onPaste={e => {
+                        const text = e.clipboardData.getData('text')
+                        if (text.includes('\n') || text.includes(',')) {
+                          e.preventDefault()
+                          handlePaste(item.productId, idx, text)
+                        }
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
+            <button type="submit" disabled={loading || itemsWithId.length === 0} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <Smartphone size={14} />}
+              Register IMEIs
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
 
 /* ── Record Payment Modal ────────────────────────────────────────── */
 const PAYMENT_METHODS = ['CASH', 'BANK_TRANSFER', 'CHEQUE', 'UPI', 'CARD'] as const
@@ -750,6 +883,7 @@ export default function SuppliersPage() {
   const [editSupplier,   setEditSupplier]         = useState<Supplier | null>(null)
   const [markReceiving,  setMarkReceiving]        = useState<string | null>(null)
   const [confirmPO,       setConfirmPO]           = useState<PurchaseOrder | null>(null)
+  const [registerImeiPO,  setRegisterImeiPO]      = useState<PurchaseOrder | null>(null)
   const [paySupplier,     setPaySupplier]         = useState<Supplier | null>(null)
   const { data: suppliersData, loading: suppliersLoading, refetch: refetchSuppliers } = useSuppliers()
   const { data: ordersData,    loading: ordersLoading,    refetch: refetchOrders    } = usePurchaseOrders()
@@ -887,6 +1021,7 @@ export default function SuppliersPage() {
       cell: ({ row }) => {
         const po = row.original
         const canReceive = po.status !== 'CLOSED'
+        const canRegisterImei = (po.status === 'RECEIVED' || po.status === 'CLOSED') && po.items.some(i => i.productId)
         return (
           <div className="flex items-center gap-2">
             {canReceive && (
@@ -900,6 +1035,13 @@ export default function SuppliersPage() {
                 Receive
               </button>
             )}
+            {canRegisterImei && (
+              <button
+                onClick={() => setRegisterImeiPO(po)}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-violet-500/10 text-violet-400 border border-violet-500/20 hover:bg-violet-500/20 transition-colors">
+                <Smartphone size={10} />IMEIs
+              </button>
+            )}
             <TableActionsRow
               dropMoreActions={[{ text: 'View Invoice', function: () => router.push(`/purchase-invoice?id=${po.id}`), icon: <FileText size={13} /> }]}
             />
@@ -907,7 +1049,7 @@ export default function SuppliersPage() {
         )
       },
     },
-  ], [router, markReceiving, handleMarkReceived])
+  ], [router, markReceiving, handleMarkReceived, setRegisterImeiPO])
 
   return (
     <div className="space-y-6">
@@ -916,6 +1058,7 @@ export default function SuppliersPage() {
       {detailSupplier  && <SupplierDetailsModal supplier={detailSupplier} onClose={() => setDetailSupplier(null)} onEdit={() => { setEditSupplier(detailSupplier); setDetailSupplier(null) }} />}
       {editSupplier    && <EditSupplierModal supplier={editSupplier} onClose={() => setEditSupplier(null)} onSaved={() => { refetchSuppliers(); setEditSupplier(null) }} />}
       {confirmPO       && <ConfirmReceiveModal po={confirmPO} onConfirm={doReceive} onCancel={() => setConfirmPO(null)} loading={!!markReceiving} />}
+      {registerImeiPO  && <IMEIRegisterModal po={registerImeiPO} onClose={() => setRegisterImeiPO(null)} onSaved={refetchOrders} />}
       {paySupplier     && <RecordPaymentModal supplier={paySupplier} allPOs={purchaseOrders} onClose={() => setPaySupplier(null)} onSaved={() => { refetchSuppliers(); refetchOrders() }} />}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">

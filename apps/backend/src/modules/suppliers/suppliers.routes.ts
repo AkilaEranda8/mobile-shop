@@ -203,6 +203,35 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
   } catch (e) { next(e) }
 })
 
+router.post('/purchase-orders/:id/register-imei', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const po = await prisma.purchaseOrder.findFirst({
+      where: { id: req.params.id, tenantId: req.tenantId! },
+    })
+    if (!po) throw new AppError('Purchase order not found', 404)
+
+    // items: [{ productId, branchId, imei }]
+    const entries: { productId: string; branchId: string; imei: string }[] = req.body.items ?? []
+    if (!entries.length) throw new AppError('No IMEI entries provided', 400)
+
+    const results = { created: 0, skipped: 0, errors: [] as string[] }
+
+    for (const entry of entries) {
+      const { productId, branchId, imei } = entry
+      if (!imei || !/^\d{15}$/.test(imei.trim())) { results.errors.push(`Invalid IMEI: ${imei}`); continue }
+      const trimmed = imei.trim()
+      const product = await prisma.product.findFirst({ where: { id: productId, tenantId: req.tenantId! } })
+      if (!product) { results.errors.push(`Product not found: ${productId}`); continue }
+      const existing = await prisma.imeiRecord.findUnique({ where: { imei: trimmed } })
+      if (existing) { results.skipped++; continue }
+      await prisma.imeiRecord.create({ data: { imei: trimmed, productId, branchId, status: 'IN_STOCK' } })
+      results.created++
+    }
+
+    sendSuccess(res, results, `${results.created} IMEI(s) registered, ${results.skipped} skipped`)
+  } catch (e) { next(e) }
+})
+
 router.post('/:id/payments', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const supplier = await prisma.supplier.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! } })

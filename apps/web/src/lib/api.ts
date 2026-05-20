@@ -205,6 +205,8 @@ export const suppliersApi = {
     api.get(`/suppliers/purchase-orders${params ? '?' + new URLSearchParams(params) : ''}`),
   createPO: (body: unknown) => api.post('/suppliers/purchase-orders', body),
   updatePO: (id: string, body: unknown) => api.put(`/suppliers/purchase-orders/${id}`, body),
+  registerPoImei: (poId: string, items: { productId: string; branchId: string; imei: string }[]) =>
+    api.post(`/suppliers/purchase-orders/${poId}/register-imei`, { items }),
   recordPayment: (supplierId: string, body: unknown) => api.post(`/suppliers/${supplierId}/payments`, body),
 }
 
