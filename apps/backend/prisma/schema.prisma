@@ -194,7 +194,6 @@ model User {
   salesAssCashier Sale[]     @relation("SaleCashier")
   repairs        RepairTicket[] @relation("RepairTechnician")
   refreshTokens  RefreshToken[]
-  exchanges      DeviceExchange[]
 
   @@unique([tenantId, email])
 }
