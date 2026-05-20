@@ -5,7 +5,7 @@ import {
   Plus, Clock, CheckCircle, PhoneCall, Loader2, X, Check, ChevronDown,
   Eye, Edit, ChevronRight, Smartphone, User, Wrench, DollarSign, AlertTriangle,
   Calendar, Hash, Save, ArrowRight, MessageSquare, Package, Search, UserPlus, CheckCircle2, Download, Printer,
-  History,
+  History, XCircle, AlertCircle,
 } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
@@ -1417,6 +1417,15 @@ export default function RepairsPage() {
 
   const allRepairs: RepairTicket[] = (repairsData?.data ?? []) as RepairTicket[]
 
+  const stats = useMemo(() => ({
+    total:     allRepairs.length,
+    active:    allRepairs.filter(r => ['RECEIVED','DIAGNOSED','IN_REPAIR','QC'].includes(r.status)).length,
+    ready:     allRepairs.filter(r => r.status === 'READY').length,
+    delivered: allRepairs.filter(r => r.status === 'DELIVERED').length,
+    urgent:    allRepairs.filter(r => r.priority === 'URGENT').length,
+    revenue:   allRepairs.filter(r => r.status === 'DELIVERED').reduce((s, r) => s + ((r as any).actualCost ?? r.estimatedCost ?? 0), 0),
+  }), [allRepairs])
+
   const repairs = useMemo(() => {
     const q = search.toLowerCase().trim()
     if (!q) return allRepairs
@@ -1538,6 +1547,28 @@ export default function RepairsPage() {
         </div>
       </div>
 
+
+      {/* ── Stat Cards ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {[
+          { icon: Wrench,       label: 'Total Jobs',   value: String(stats.total),              iconBg: 'bg-violet-500/10',  iconColor: 'text-violet-400',  valColor: 'text-violet-400'  },
+          { icon: Clock,        label: 'In Progress',  value: String(stats.active),             iconBg: 'bg-blue-500/10',    iconColor: 'text-blue-400',    valColor: 'text-blue-400'    },
+          { icon: CheckCircle,  label: 'Ready',        value: String(stats.ready),              iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-400', valColor: 'text-emerald-400' },
+          { icon: Smartphone,   label: 'Delivered',    value: String(stats.delivered),          iconBg: 'bg-green-500/10',   iconColor: 'text-green-400',   valColor: 'text-green-400'   },
+          { icon: AlertCircle,  label: 'Urgent',       value: String(stats.urgent),             iconBg: 'bg-red-500/10',     iconColor: 'text-red-400',     valColor: stats.urgent > 0 ? 'text-red-400' : 'text-slate-400' },
+          { icon: DollarSign,   label: 'Revenue',      value: formatCurrency(stats.revenue),    iconBg: 'bg-amber-500/10',   iconColor: 'text-amber-400',   valColor: 'text-amber-400'   },
+        ].map(({ icon: Icon, label, value, iconBg, iconColor, valColor }) => (
+          <div key={label} className="card p-4 flex items-center gap-3">
+            <div className={`w-9 h-9 rounded-xl ${iconBg} border border-white/5 flex items-center justify-center flex-shrink-0`}>
+              <Icon size={16} className={iconColor} />
+            </div>
+            <div className="min-w-0">
+              <p className={`text-base font-bold leading-none ${valColor}`}>{value}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5 truncate">{label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
 
       {/* Search bar */}
       <div className="relative max-w-sm">
