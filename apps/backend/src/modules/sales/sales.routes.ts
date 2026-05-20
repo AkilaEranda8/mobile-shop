@@ -91,7 +91,7 @@ router.post('/:id/returns', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req
         include: { items: true },
       })
 
-      // Restock products + create StockMovements
+      // Restock products + create StockMovements + reset IMEI status
       for (const ri of items) {
         if (ri.productId) {
           await tx.product.update({
@@ -108,6 +108,14 @@ router.post('/:id/returns', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req
               note:        `Return for ${sale.invoiceNumber} — ${reason}`,
               performedBy: req.user?.userId ?? 'system',
             },
+          })
+        }
+        // Reset IMEI status for returned item
+        const origItem = sale.items.find((si: any) => si.productId === ri.productId)
+        if (origItem?.imei) {
+          await tx.imeiRecord.updateMany({
+            where: { imei: origItem.imei },
+            data:  { status: 'IN_STOCK', saleId: null, customerId: null },
           })
         }
       }

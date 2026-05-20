@@ -377,7 +377,7 @@ export default function IMEIPage() {
   const [quickSearch,  setQuickSearch]  = useState('')
   const [quickResult,  setQuickResult]  = useState<null | 'loading' | 'found' | 'notfound'>(null)
 
-  const { data, loading, refetch } = useImeiRecords()
+  const { data, loading, refetch } = useImeiRecords({ limit: '500' })
   const records: any[] = (data?.data ?? []) as any[]
   const total = (data as any)?.meta?.total ?? records.length
 

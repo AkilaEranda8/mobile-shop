@@ -15,6 +15,7 @@ import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrin
 import { printThermalReceipt } from '@/components/invoice/ThermalReceipt'
 
 interface CartItem {
+  cartId: string
   productId: string
   name: string
   sku: string
@@ -336,9 +337,11 @@ export default function POSPage() {
 
   const addToCart = (product: any, imei?: string) => {
     setCart(prev => {
-      const existing = prev.find(i => i.productId === product.id)
-      if (existing) return prev.map(i => i.productId === product.id ? { ...i, quantity: i.quantity + 1, imei: imei ?? i.imei } : i)
-      return [...prev, { productId: product.id, name: product.name, sku: product.sku ?? '', price: product.sellingPrice, originalPrice: product.sellingPrice, quantity: 1, imei }]
+      if (!imei) {
+        const existing = prev.find(i => i.productId === product.id && !i.imei)
+        if (existing) return prev.map(i => i.cartId === existing.cartId ? { ...i, quantity: i.quantity + 1 } : i)
+      }
+      return [...prev, { cartId: `${product.id}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`, productId: product.id, name: product.name, sku: product.sku ?? '', price: product.sellingPrice, originalPrice: product.sellingPrice, quantity: 1, imei }]
     })
   }
 
@@ -355,19 +358,21 @@ export default function POSPage() {
         addToCart(product, imei)
         toast.success(`Added: ${product.name} — IMEI linked`)
       } else {
-        // IMEI not registered — attach to last cart item if any
-        if (cart.length > 0) {
-          setCart(prev => prev.map((item, idx) => idx === prev.length - 1 ? { ...item, imei } : item))
-          toast(`IMEI attached to ${cart[cart.length - 1].name}`)
+        // IMEI not registered — attach to first cart item without an IMEI
+        const targetIdx = cart.findIndex(i => !i.imei)
+        if (targetIdx !== -1) {
+          setCart(prev => prev.map((item, idx) => idx === targetIdx ? { ...item, imei } : item))
+          toast(`IMEI attached to ${cart[targetIdx].name}`)
         } else {
           toast.error('IMEI not found. Add a product to cart first, then scan.')
         }
       }
     } catch {
-      // Lookup failed — attach to last cart item
-      if (cart.length > 0) {
-        setCart(prev => prev.map((item, idx) => idx === prev.length - 1 ? { ...item, imei } : item))
-        toast(`IMEI attached to ${cart[cart.length - 1].name}`)
+      // Lookup failed — attach to first cart item without an IMEI
+      const targetIdx = cart.findIndex(i => !i.imei)
+      if (targetIdx !== -1) {
+        setCart(prev => prev.map((item, idx) => idx === targetIdx ? { ...item, imei } : item))
+        toast(`IMEI attached to ${cart[targetIdx].name}`)
       } else {
         toast.error('IMEI not registered. Add a product to cart first.')
       }
@@ -377,12 +382,12 @@ export default function POSPage() {
     }
   }
 
-  const updateQty = (id: string, delta: number) =>
-    setCart(prev => prev.map(i => i.productId === id ? { ...i, quantity: i.quantity + delta } : i).filter(i => i.quantity > 0))
+  const updateQty = (cartId: string, delta: number) =>
+    setCart(prev => prev.map(i => i.cartId === cartId ? { ...i, quantity: i.quantity + delta } : i).filter(i => i.quantity > 0))
 
-  const saveEditPrice = (id: string) => {
+  const saveEditPrice = (cartId: string) => {
     const val = parseFloat(editPriceVal)
-    if (!isNaN(val) && val > 0) setCart(prev => prev.map(i => i.productId === id ? { ...i, price: val } : i))
+    if (!isNaN(val) && val > 0) setCart(prev => prev.map(i => i.cartId === cartId ? { ...i, price: val } : i))
     setEditPriceId(null)
   }
 
@@ -765,24 +770,25 @@ export default function POSPage() {
                   <Receipt size={30} className="text-slate-600 mb-2" />
                   <p className="text-sm text-slate-500">Add items to cart</p>
                 </div>
-              ) : cart.map((item) => (
-                <div key={item.productId} className="p-2.5 rounded-xl bg-white/3 border border-white/5">
+              } : cart.map((item) => (
+                <div key={item.cartId} className="p-2.5 rounded-xl bg-white/3 border border-white/5">
                   <div className="flex items-start gap-2">
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium text-slate-200 truncate">{item.name}</p>
+                      {item.imei && <p className="text-[9px] font-mono text-violet-400 truncate">IMEI: {item.imei}</p>}
                       {/* Editable unit price */}
-                      {editPriceId === item.productId ? (
+                      {editPriceId === item.cartId ? (
                         <div className="flex items-center gap-1 mt-0.5">
                           <input autoFocus type="number" min="0"
                             className="w-20 bg-white/5 border border-violet-500/40 rounded px-1.5 py-0.5 text-xs text-white"
                             value={editPriceVal}
                             onChange={e => setEditPriceVal(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') saveEditPrice(item.productId); if (e.key === 'Escape') setEditPriceId(null) }} />
-                          <button onClick={() => saveEditPrice(item.productId)} className="text-green-400 hover:text-green-300"><Check size={12} /></button>
+                            onKeyDown={e => { if (e.key === 'Enter') saveEditPrice(item.cartId); if (e.key === 'Escape') setEditPriceId(null) }} />
+                          <button onClick={() => saveEditPrice(item.cartId)} className="text-green-400 hover:text-green-300"><Check size={12} /></button>
                           <button onClick={() => setEditPriceId(null)} className="text-slate-500 hover:text-white"><X size={12} /></button>
                         </div>
                       ) : (
-                        <button onClick={() => { setEditPriceId(item.productId); setEditPriceVal(String(item.price)) }}
+                        <button onClick={() => { setEditPriceId(item.cartId); setEditPriceVal(String(item.price)) }}
                           className="flex items-center gap-1 text-xs text-slate-500 hover:text-violet-400 transition-colors mt-0.5">
                           {formatCurrency(item.price)} each
                           {item.price !== item.originalPrice && <span className="text-green-400 text-[9px]">edited</span>}
@@ -791,11 +797,11 @@ export default function POSPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-1">
-                      <button onClick={() => updateQty(item.productId, -1)} className="w-6 h-6 rounded-lg bg-white/5 hover:bg-red-500/20 flex items-center justify-center text-slate-400 hover:text-red-400 transition-colors">
+                      <button onClick={() => updateQty(item.cartId, -1)} className="w-6 h-6 rounded-lg bg-white/5 hover:bg-red-500/20 flex items-center justify-center text-slate-400 hover:text-red-400 transition-colors">
                         <Minus size={10} />
                       </button>
                       <span className="text-xs font-bold text-white w-5 text-center">{item.quantity}</span>
-                      <button onClick={() => updateQty(item.productId, 1)} className="w-6 h-6 rounded-lg bg-white/5 hover:bg-green-500/20 flex items-center justify-center text-slate-400 hover:text-green-400 transition-colors">
+                      <button onClick={() => updateQty(item.cartId, 1)} className="w-6 h-6 rounded-lg bg-white/5 hover:bg-green-500/20 flex items-center justify-center text-slate-400 hover:text-green-400 transition-colors">
                         <Plus size={10} />
                       </button>
                     </div>

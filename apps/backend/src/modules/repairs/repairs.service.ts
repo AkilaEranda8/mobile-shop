@@ -47,6 +47,9 @@ export const repairsService = {
       include: { notes: true, spareParts: true, history: true },
     })
     await prisma.customer.update({ where: { id: body.customerId }, data: { totalRepairs: { increment: 1 } } }).catch(() => {})
+    if (repairData.imei) {
+      await prisma.imeiRecord.updateMany({ where: { imei: repairData.imei }, data: { status: 'IN_REPAIR' } }).catch(() => {})
+    }
     return repair
   },
 
@@ -62,7 +65,15 @@ export const repairsService = {
     if (deviceBrand         !== undefined) data.deviceBrand         = deviceBrand
     if (deviceModel         !== undefined) data.deviceModel         = deviceModel
     if (deviceColor         !== undefined) data.deviceColor         = deviceColor
-    if (imei                !== undefined) data.imei                = imei
+    if (imei                !== undefined) {
+      data.imei = imei
+      if (imei && imei !== r.imei) {
+        await prisma.imeiRecord.updateMany({ where: { imei }, data: { status: 'IN_REPAIR' } }).catch(() => {})
+        if (r.imei) {
+          await prisma.imeiRecord.updateMany({ where: { imei: r.imei }, data: { status: 'IN_STOCK' } }).catch(() => {})
+        }
+      }
+    }
     if (reportedIssue       !== undefined) data.reportedIssue       = reportedIssue
     if (technicianId        !== undefined) data.technicianId        = technicianId
     if (technicianName      !== undefined) data.technicianName      = technicianName
@@ -82,6 +93,9 @@ export const repairsService = {
       prisma.repairTicket.update({ where: { id }, data: { status: status as any, ...(completedAt && { completedAt }) } }),
       prisma.repairStatusHistory.create({ data: { repairId: id, status: status as any, changedBy, note } }),
     ])
+    if ((status === 'DELIVERED' || status === 'CANCELLED') && r.imei) {
+      await prisma.imeiRecord.updateMany({ where: { imei: r.imei }, data: { status: 'IN_STOCK' } }).catch(() => {})
+    }
     return prisma.repairTicket.findUnique({ where: { id }, include: { notes: true, spareParts: true, history: true } })
   },
 

@@ -172,6 +172,7 @@ model Branch {
   transactions   Transaction[]
   stockMovements StockMovement[]
   dailySummaries DailySummary[]
+  imeiRecords    ImeiRecord[]
 }
 
 model User {
@@ -294,7 +295,10 @@ model ImeiRecord {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  product Product @relation(fields: [productId], references: [id])
+  product  Product   @relation(fields: [productId], references: [id])
+  branch   Branch    @relation(fields: [branchId], references: [id])
+  customer Customer? @relation(fields: [customerId], references: [id])
+  sale     Sale?     @relation(fields: [saleId], references: [id])
 }
 
 model StockMovement {
@@ -330,10 +334,11 @@ model Customer {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  tenant     Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  sales      Sale[]
-  repairs    RepairTicket[]
-  warranties Warranty[]
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sales       Sale[]
+  repairs     RepairTicket[]
+  warranties  Warranty[]
+  imeiRecords ImeiRecord[]
 
   @@unique([tenantId, phone])
 }
@@ -371,6 +376,7 @@ model Sale {
   items         SaleItem[]
   payments      SalePayment[]
   returns       SaleReturn[]
+  imeiRecords   ImeiRecord[]
 
   @@unique([tenantId, invoiceNumber])
 }
