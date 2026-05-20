@@ -6,7 +6,7 @@ import {
   ScanLine, X, Loader2, UserPlus, Edit2, Check, Download, Tag, Printer,
   Heart, Trash2, ChevronRight, ChevronLeft, ChevronDown, Gift, Archive,
   FileText, FilePlus2, Calculator, SlidersHorizontal, Package, Tablet,
-  Headphones, Wrench, PackageSearch,
+  Headphones, Wrench, PackageSearch, ShoppingBag, User, CheckCircle2,
 } from 'lucide-react'
 import { useProducts } from '@/lib/hooks'
 import { salesApi, customersApi, productsApi, imeiApi, warrantyApi } from '@/lib/api'
@@ -771,33 +771,73 @@ export default function POSPage() {
         )
       })()}
 
-      {/* ── TOP BAR: Search + Scan ── */}
-      <div className="flex items-center gap-3 px-4 py-2.5 border-b flex-shrink-0" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
-        <div className="relative flex-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          <input ref={searchRef} type="text"
-            placeholder="Search by name, SKU, IMEI, Serial or Barcode..."
-            className="input-field pl-9 pr-14 h-9 text-sm w-full"
+      {/* ══ TOP BAR ══ */}
+      <div className="flex items-center gap-2 px-4 py-2 flex-shrink-0" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border-subtle)' }}>
+        <div className="relative" style={{ flex: '1 1 0', minWidth: 0 }}>
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-muted)' }} />
+          <input ref={searchRef} type="text" placeholder="Search products, SKU, IMEI…"
+            className="w-full h-9 pl-10 pr-9 rounded-xl border text-sm outline-none"
+            style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
             value={search} onChange={e => setSearch(e.target.value)} />
-          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 bg-white/5 px-1.5 py-0.5 rounded border border-white/10 pointer-events-none">(F1)</kbd>
+          <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] px-1 py-0.5 rounded border pointer-events-none" style={{ color: 'var(--text-muted)', background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>F1</kbd>
         </div>
         {showScanInput ? (
           <div className="relative flex-shrink-0">
-            <ScanLine size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" />
-            <input autoFocus type="text" placeholder="Scan or type IMEI…"
-              className="input-field pl-8 w-52 h-9 text-sm border-blue-500/40"
-              value={imeiScan}
-              onChange={e => setImeiScan(e.target.value)}
+            <ScanLine size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" />
+            <input autoFocus type="text" placeholder="Scan IMEI…"
+              className="pl-8 w-40 h-9 rounded-xl border text-sm outline-none"
+              style={{ background: 'var(--bg-subtle)', borderColor: 'rgba(59,130,246,.4)', color: 'var(--text-primary)' }}
+              value={imeiScan} onChange={e => setImeiScan(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { handleImeiScan(imeiScan); setShowScanInput(false) } if (e.key === 'Escape') { setShowScanInput(false); setImeiScan('') } }}
               onBlur={() => { if (!imeiScan) setShowScanInput(false) }} />
-            {imeiScanning && <Loader2 size={12} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-blue-400" />}
+            {imeiScanning && <Loader2 size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 animate-spin text-blue-400" />}
           </div>
         ) : (
           <button onClick={() => setShowScanInput(true)}
-            className="flex items-center gap-2 px-4 h-9 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 text-sm font-semibold flex-shrink-0 transition-colors">
-            <ScanLine size={14} /> Scan IMEI / Barcode
+            className="h-9 px-3 rounded-xl border text-xs font-semibold flex items-center gap-1.5 flex-shrink-0"
+            style={{ background: 'rgba(59,130,246,.08)', borderColor: 'rgba(59,130,246,.25)', color: '#60a5fa' }}>
+            <ScanLine size={13} />Scan
           </button>
         )}
+        <div className="relative flex-shrink-0">
+          <button onClick={() => { setShowCustDrop(o => !o); setCustSearch('') }}
+            className="h-9 px-3 rounded-xl border flex items-center gap-1.5 text-xs font-medium"
+            style={{ background: selectedCustomer ? 'rgba(139,92,246,.1)' : 'var(--bg-subtle)', borderColor: selectedCustomer ? 'rgba(139,92,246,.35)' : 'var(--border-default)', color: 'var(--text-primary)' }}>
+            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-extrabold flex-shrink-0"
+              style={{ background: selectedCustomer ? 'rgba(139,92,246,.25)' : 'var(--bg-card)', color: selectedCustomer ? '#c4b5fd' : 'var(--text-muted)' }}>
+              {selectedCustomer ? selectedCustomer.name[0]?.toUpperCase() : <User size={9} />}
+            </div>
+            <span className="max-w-[90px] truncate">{selectedCustomer ? selectedCustomer.name : 'Walk-in'}</span>
+            <ChevronDown size={10} style={{ color: 'var(--text-muted)' }} />
+          </button>
+          {showCustDrop && (
+            <div className="absolute top-full mt-1.5 right-0 z-40 w-64 rounded-2xl shadow-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+              <div className="p-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                <input autoFocus className="input-field text-xs py-1.5 w-full" placeholder="Search customer…" value={custSearch} onChange={e => setCustSearch(e.target.value)} />
+              </div>
+              <div className="overflow-y-auto" style={{ maxHeight: 240 }}>
+                <button onClick={() => { setSelectedCustomer(null); setShowCustDrop(false) }} className="w-full px-3 py-2.5 text-xs text-left border-b transition-colors hover:bg-violet-500/5" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}>Walk-in Customer</button>
+                <button onClick={() => { setShowCustDrop(false); setShowRegister(true) }} className="w-full px-3 py-2 text-xs text-left border-b flex items-center gap-1.5 transition-colors hover:bg-violet-500/5" style={{ color: '#a78bfa', borderColor: 'var(--border-subtle)' }}><Plus size={10} />New Customer</button>
+                {custLoading ? <div className="flex items-center justify-center py-5 gap-2"><Loader2 size={13} className="animate-spin text-violet-400" /><span className="text-xs" style={{ color: 'var(--text-muted)' }}>Loading…</span></div>
+                  : filteredCustomers.length === 0 ? <div className="flex items-center justify-center py-4"><p className="text-xs" style={{ color: 'var(--text-muted)' }}>{custSearch ? 'No results' : 'No customers'}</p></div>
+                  : filteredCustomers.slice(0, 100).map((c: any) => (
+                    <button key={c.id} onClick={() => { setSelectedCustomer(c); setShowCustDrop(false) }} className="w-full px-3 py-2 text-left border-b transition-colors hover:bg-violet-500/5" style={{ borderColor: 'var(--border-subtle)' }}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-violet-500/15 text-violet-400 text-[9px] font-extrabold flex items-center justify-center flex-shrink-0">{c.name?.[0]?.toUpperCase()}</div>
+                        <div><p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{c.name}</p><p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{c.phone}</p></div>
+                      </div>
+                    </button>
+                  ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="w-px h-5 flex-shrink-0" style={{ background: 'var(--border-subtle)' }} />
+        <button onClick={() => { setShowRecentInvoices(true); fetchRecentSales() }} className="h-9 w-9 rounded-xl border flex items-center justify-center flex-shrink-0 hover:bg-white/5 transition-colors" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }} title="Recent Invoices"><Receipt size={14} /></button>
+        <button onClick={() => setShowHeldCarts(true)} className="relative h-9 w-9 rounded-xl border flex items-center justify-center flex-shrink-0 hover:bg-white/5 transition-colors" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }} title="Held Carts">
+          <Archive size={14} />{heldCarts.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-white text-[8px] font-bold flex items-center justify-center">{heldCarts.length}</span>}
+        </button>
+        <button onClick={() => setShowCalc(p => !p)} className="h-9 w-9 rounded-xl border flex items-center justify-center flex-shrink-0 transition-all" style={{ background: showCalc ? 'rgba(139,92,246,.12)' : 'var(--bg-subtle)', borderColor: showCalc ? 'rgba(139,92,246,.35)' : 'var(--border-default)', color: showCalc ? '#a78bfa' : 'var(--text-muted)' }} title="Calculator (F12)"><Calculator size={14} /></button>
       </div>
 
       {/* ── MAIN AREA: Products + Cart ── */}
@@ -806,64 +846,18 @@ export default function POSPage() {
         {/* ── Products Panel ── */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
-          {/* Category tabs + Customer controls row */}
-          <div className="flex items-center gap-2 px-4 py-2 border-b flex-shrink-0 overflow-x-auto scrollbar-none" style={{ borderColor: 'var(--border-subtle)' }}>
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              {[{ id: 'ALL', name: 'Products', icon: Package }, ...categories.map(c => ({ ...c, icon: getCategoryIcon(c.name) }))].map(({ id, name, icon: Icon }) => (
-                <button key={id} onClick={() => setSelectedCategory(id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all flex-shrink-0 ${selectedCategory === id ? 'bg-violet-500/15 border-violet-500/30 text-violet-300' : 'border-white/10 text-slate-400 hover:text-white hover:border-white/20'}`}>
-                  <Icon size={12} />{name}
-                </button>
-              ))}
-            </div>
-            <div className="flex-1" />
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <div className="relative">
-                <button onClick={() => { setShowCustDrop(o => !o); setCustSearch('') }}
-                  className="flex items-center gap-2 px-3 h-8 rounded-lg border border-white/10 text-xs font-semibold transition-colors hover:border-white/20" style={{ color: selectedCustomer ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-                  <UserPlus size={12} className="text-slate-400 flex-shrink-0" />
-                  <span className="max-w-[120px] truncate">{selectedCustomer ? selectedCustomer.name : 'Walk-in Customer'}</span>
-                  <ChevronDown size={11} className="text-slate-500 flex-shrink-0" />
-                </button>
-                {showCustDrop && (
-                  <div className="absolute top-full mt-1 right-0 z-30 w-64 rounded-xl shadow-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                    <div className="p-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                      <input autoFocus className="input-field text-xs py-1.5 w-full" placeholder="Search customer..."
-                        value={custSearch} onChange={e => setCustSearch(e.target.value)} />
-                    </div>
-                    <div className="overflow-y-auto" style={{ maxHeight: 220 }}>
-                      <button onClick={() => { setSelectedCustomer(null); setShowCustDrop(false) }}
-                        className="w-full px-3 py-2.5 text-xs text-left hover:bg-violet-500/10 border-b transition-colors" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}>
-                        Walk-in Customer
-                      </button>
-                      {custLoading ? (
-                        <div className="flex items-center justify-center py-6 gap-2" style={{ color: 'var(--text-muted)' }}>
-                          <Loader2 size={14} className="animate-spin text-violet-400" />
-                          <span className="text-xs">Loading customers…</span>
-                        </div>
-                      ) : filteredCustomers.length === 0 ? (
-                        <div className="flex items-center justify-center py-6">
-                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{custSearch ? 'No results' : 'No customers found'}</p>
-                        </div>
-                      ) : filteredCustomers.slice(0, 100).map((c: any) => (
-                        <button key={c.id} onClick={() => { setSelectedCustomer(c); setShowCustDrop(false) }}
-                          className="w-full px-3 py-2 text-xs text-left hover:bg-violet-500/10 border-b transition-colors" style={{ borderColor: 'var(--border-subtle)' }}>
-                          <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{c.name}</p>
-                          <p style={{ color: 'var(--text-muted)' }}>{c.phone}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-              <button onClick={() => setShowRegister(true)}
-                className="flex items-center gap-1.5 px-3 h-8 rounded-lg border border-violet-500/30 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 text-xs font-semibold transition-colors flex-shrink-0">
-                <Plus size={12} />New Customer
+          {/* ── Category Bar ── */}
+          <div className="flex items-center gap-1.5 px-4 py-2 border-b flex-shrink-0 overflow-x-auto scrollbar-none" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-base)' }}>
+            {[{ id: 'ALL', name: 'All', icon: Package }, ...categories.map(c => ({ ...c, icon: getCategoryIcon(c.name) }))].map(({ id, name, icon: Icon }) => (
+              <button key={id} onClick={() => setSelectedCategory(id)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all flex-shrink-0 whitespace-nowrap"
+                style={selectedCategory === id
+                  ? { background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', color: '#fff', boxShadow: '0 2px 10px rgba(124,58,237,.35)', border: 'none' }
+                  : { background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
+                <Icon size={11} />{name}
               </button>
-              <button className="flex items-center gap-1.5 px-3 h-8 rounded-lg border text-xs font-semibold transition-colors hover:bg-white/5 flex-shrink-0" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
-                <SlidersHorizontal size={12} />Filters
-              </button>
-            </div>
+            ))}
+            <span className="ml-auto text-[10px] flex-shrink-0" style={{ color: 'var(--text-muted)' }}>{filtered.length} items</span>
           </div>
 
           {/* Product Grid */}
@@ -936,27 +930,21 @@ export default function POSPage() {
                       </div>
 
                       {/* ── INFO ZONE ── */}
-                      <div className="flex flex-col gap-1.5 p-3 flex-1">
-                        <p className="text-xs font-bold leading-snug line-clamp-2 text-gray-900 dark:text-white">{product.name}</p>
-                        <p className="text-[10px] font-mono text-gray-500 dark:text-slate-400">{product.sku}</p>
-
-                        {/* Stock badge */}
-                        <div className={`self-start flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                          isOut ? 'bg-slate-500/15 text-slate-400' :
-                          isLow ? 'bg-red-500/15 text-red-400' :
-                          'bg-emerald-500/15 text-emerald-400'}`}>
-                          <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isOut ? 'bg-slate-400' : isLow ? 'bg-red-400' : 'bg-emerald-400'}`} />
-                          {isOut ? 'Out of Stock' : `${isImeiProduct(product) ? 'IMEI' : 'Serial'}: ${product.stock}`}
-                        </div>
-
-                        {/* Price + add row */}
-                        <div className="flex items-center justify-between mt-auto pt-1">
-                          <span className="text-sm font-extrabold text-violet-600 dark:text-violet-400">{formatCurrency(product.sellingPrice)}</span>
+                      <div className="flex flex-col p-2.5 gap-1">
+                        <p className="text-[11px] font-bold leading-snug line-clamp-2" style={{ color: 'var(--text-primary)' }}>{product.name}</p>
+                        <div className="flex items-center justify-between mt-0.5">
+                          <div>
+                            <p className="text-sm font-extrabold" style={{ color: '#a78bfa' }}>{formatCurrency(product.sellingPrice)}</p>
+                            <p className={`text-[9px] font-semibold flex items-center gap-0.5 ${isOut ? 'text-slate-500' : isLow ? 'text-red-400' : 'text-emerald-400'}`}>
+                              <span className={`w-1 h-1 rounded-full inline-block ${isOut ? 'bg-slate-500' : isLow ? 'bg-red-400' : 'bg-emerald-400'}`} />
+                              {isOut ? 'Out of stock' : `Qty: ${product.stock}`}
+                            </p>
+                          </div>
                           <button type="button" disabled={isOut}
                             onClick={e => { e.stopPropagation(); if (!isOut) addToCart(product) }}
-                            className="w-7 h-7 rounded-xl flex items-center justify-center text-white transition-all disabled:opacity-30 hover:scale-110 active:scale-95"
+                            className="w-7 h-7 rounded-xl flex items-center justify-center text-white transition-all disabled:opacity-30 hover:scale-110 active:scale-95 flex-shrink-0"
                             style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)', boxShadow: '0 2px 8px rgba(124,58,237,.4)' }}>
-                            <Plus size={14} className="text-white" />
+                            <Plus size={13} />
                           </button>
                         </div>
                       </div>
@@ -999,7 +987,7 @@ export default function POSPage() {
         </div>
 
         {/* ── Cart Panel ── */}
-        <div className="w-[340px] xl:w-[380px] flex-shrink-0 border-l flex flex-col overflow-hidden" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-base)' }}>
+        <div className="w-[360px] xl:w-[395px] flex-shrink-0 border-l flex flex-col overflow-hidden" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-base)' }}>
 
           {completedSale ? (
             <div className="flex flex-col h-full">
@@ -1052,28 +1040,41 @@ export default function POSPage() {
                   {downloading ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
                   {downloading ? 'Generating PDF…' : 'Download Invoice PDF'}
                 </button>
-                <button onClick={handleNewSale} className="btn-primary w-full text-sm">New Sale</button>
+                <button onClick={handleNewSale} className="w-full py-3 rounded-2xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[.99]" style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: '0 4px 20px rgba(124,58,237,.4)' }}>+ New Sale</button>
               </div>
               {completedSale && (() => { const d = buildA4Data(); return d ? <div style={{ position: 'fixed', left: '-9999px', top: 0, width: 794, pointerEvents: 'none' }}><InvoicePrint ref={a4Ref} data={d} hideControls /></div> : null })()}
             </div>
           ) : (
             <>
               {/* Cart Header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
-                <h3 className="font-bold text-base" style={{ color: 'var(--text-primary)' }}>Cart ({cart.length})</h3>
-                {cart.length > 0 && (
-                  <button onClick={() => setCart([])} className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 border border-red-500/20 px-2.5 py-1 rounded-lg hover:bg-red-500/10 transition-colors">
-                    <Trash2 size={11} />Clear Cart
-                  </button>
-                )}
+              <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
+                <div className="flex items-center gap-2">
+                  <ShoppingBag size={14} style={{ color: cart.length > 0 ? '#a78bfa' : 'var(--text-muted)' }} />
+                  <span className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Cart</span>
+                  {cart.length > 0 && <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-500/15 text-violet-400">{cart.length}</span>}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {selectedCustomer && (
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border" style={{ borderColor: 'rgba(139,92,246,.25)', background: 'rgba(139,92,246,.06)' }}>
+                      <div className="w-4 h-4 rounded-full bg-violet-500/20 text-violet-400 text-[8px] font-extrabold flex items-center justify-center">{selectedCustomer.name[0]?.toUpperCase()}</div>
+                      <span className="text-[10px] font-semibold text-violet-400 max-w-[80px] truncate">{selectedCustomer.name}</span>
+                    </div>
+                  )}
+                  {cart.length > 0 && (
+                    <button onClick={() => setCart([])} className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors text-red-400 hover:bg-red-500/10 border-red-500/20">
+                      <Trash2 size={10} />Clear
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Cart Items */}
-              <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              <div className="flex-1 overflow-y-auto p-2.5 space-y-1.5 min-h-0">
                 {cart.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full opacity-30">
-                    <Receipt size={28} className="text-slate-600 mb-2" />
-                    <p className="text-sm text-slate-500">Cart is empty</p>
+                  <div className="flex flex-col items-center justify-center h-full opacity-20 select-none">
+                    <ShoppingBag size={44} className="mb-3" style={{ color: 'var(--text-muted)' }} />
+                    <p className="text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>Cart is empty</p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Click a product to add</p>
                   </div>
                 ) : cart.map((item) => (
                   <div key={item.cartId} className="flex items-center gap-2 p-2.5 rounded-xl border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
@@ -1138,27 +1139,44 @@ export default function POSPage() {
                   </div>
                   {discountAmount > 0 && (
                     <div className="flex justify-between text-xs text-green-400">
-                      <span>Discount applied</span><span>-{formatCurrency(discountAmount)}</span>
+                      <span>Saving</span><span>-{formatCurrency(discountAmount)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between items-center pt-1.5 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                    <span className="font-bold text-base" style={{ color: 'var(--text-primary)' }}>Total</span>
-                    <span className="font-bold text-xl text-violet-400">{formatCurrency(total)}</span>
+                  <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <span className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>Total</span>
+                    <span className="text-2xl font-extrabold" style={{ background: 'linear-gradient(135deg,#a78bfa,#7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{formatCurrency(total)}</span>
+                  </div>
+                  {/* Payment method */}
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {([
+                      { method: 'CASH' as const, label: 'Cash',   Icon: Banknote,   active: { background: 'rgba(34,197,94,.15)',  borderColor: 'rgba(34,197,94,.35)',  color: '#4ade80' } },
+                      { method: 'CARD' as const, label: 'Card',   Icon: CreditCard, active: { background: 'rgba(59,130,246,.15)', borderColor: 'rgba(59,130,246,.35)', color: '#60a5fa' } },
+                      { method: 'UPI'  as const, label: 'Online', Icon: Smartphone, active: { background: 'rgba(139,92,246,.15)', borderColor: 'rgba(139,92,246,.35)', color: '#a78bfa' } },
+                    ]).map(({ method, label, Icon: MI, active }) => (
+                      <button key={method} onClick={() => setPaymentMethod(method)}
+                        className="flex flex-col items-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold transition-all"
+                        style={paymentMethod === method
+                          ? { ...active, border: `1px solid ${active.borderColor}` }
+                          : { background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)', opacity: 0.6 }}>
+                        <MI size={15} />{label}
+                      </button>
+                    ))}
                   </div>
                   {checkoutError && <p className="text-xs text-red-400 text-center">{checkoutError}</p>}
                   <button onClick={handleCheckout} disabled={checkoutLoading}
-                    className="w-full flex items-center justify-between px-5 py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm transition-colors disabled:opacity-60">
-                    <span>{checkoutLoading ? 'Processing…' : 'Proceed to Payment'}</span>
-                    {checkoutLoading ? <Loader2 size={14} className="animate-spin" /> : <span className="flex items-center gap-1.5 text-violet-200 text-xs">F9 <ChevronRight size={13} /></span>}
+                    className="w-full flex items-center justify-between px-5 py-3.5 rounded-2xl text-white font-bold text-sm transition-all disabled:opacity-60 active:scale-[.99]"
+                    style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: checkoutLoading ? 'none' : '0 6px 24px rgba(124,58,237,.45)' }}>
+                    <span>{checkoutLoading ? 'Processing…' : `Charge ${formatCurrency(total)}`}</span>
+                    {checkoutLoading ? <Loader2 size={15} className="animate-spin" /> : <span className="text-violet-200 text-[11px] flex items-center gap-1">F9 <ChevronRight size={13} /></span>}
                   </button>
                   <div className="grid grid-cols-3 gap-1.5">
-                    <button onClick={() => setShowHeldCarts(true)}
+                    <button onClick={holdCart}
                       className="relative flex flex-col items-center gap-0.5 py-2 rounded-xl border text-center transition-colors hover:border-amber-500/30 hover:text-amber-400 hover:bg-amber-500/5"
                       style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
-                      {heldCarts.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">{heldCarts.length}</span>}
-                      <Archive size={12} />
-                      <span className="text-[9px] leading-tight">Hold Cart</span>
-                      <kbd className="text-[9px] opacity-50">F6</kbd>
+                      {heldCarts.length > 0 && <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-500 text-white text-[7px] font-bold flex items-center justify-center">{heldCarts.length}</span>}
+                      <Archive size={11} />
+                      <span className="text-[9px] leading-tight">Hold</span>
+                      <kbd className="text-[8px] opacity-40">F6</kbd>
                     </button>
                     <button onClick={() => cart.length > 0 && setShowDocPreview('QUOTE')}
                       className="flex flex-col items-center gap-0.5 py-2 rounded-xl border text-center transition-colors hover:border-blue-500/30 hover:text-blue-400 hover:bg-blue-500/5"
@@ -1198,7 +1216,7 @@ export default function POSPage() {
 
       {/* ── Calculator ── */}
       {showCalc && (
-        <div className="fixed bottom-16 right-4 z-50 w-72 rounded-2xl shadow-2xl overflow-hidden border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
+        <div className="fixed bottom-4 right-4 z-50 w-72 rounded-2xl shadow-2xl overflow-hidden border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
           <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
             <div className="flex items-center gap-2">
               <Calculator size={13} className="text-violet-400" />
@@ -1418,31 +1436,6 @@ export default function POSPage() {
         </div>
       )}
 
-      {/* ── Bottom Action Bar ── */}
-      <div className="flex items-center gap-0.5 px-3 py-1.5 border-t flex-shrink-0" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
-        {[
-          { Icon: Search,   label: 'Search',           fn: () => { searchRef.current?.focus(); searchRef.current?.select() } },
-          { Icon: ScanLine, label: 'Scan IMEI',         fn: () => setShowScanInput(true) },
-          { Icon: UserPlus, label: 'Walk-in Customer',  fn: () => setSelectedCustomer(null) },
-          { Icon: Plus,     label: 'New Customer',      fn: () => setShowRegister(true) },
-          { Icon: SlidersHorizontal, label: 'Filters',  fn: () => {} },
-          { Icon: Receipt,  label: 'Recent Invoices',   fn: () => { setShowRecentInvoices(true); fetchRecentSales() } },
-          { Icon: Archive,  label: 'Open Drawer',       fn: openDrawer },
-        ].map(({ Icon, label, fn }) => (
-          <button key={label} onClick={fn}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors hover:bg-white/5"
-            style={{ color: 'var(--text-muted)' }}>
-            <Icon size={12} />{label}
-          </button>
-        ))}
-        <div className="ml-auto">
-          <button onClick={() => setShowCalc(p => !p)} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border transition-colors ${showCalc ? 'border-violet-500/40 text-violet-400 bg-violet-500/10' : 'hover:bg-white/5'}`} style={{ borderColor: showCalc ? undefined : 'var(--border-subtle)', color: showCalc ? undefined : 'var(--text-muted)' }}>
-            <kbd className="text-[10px] font-mono">F12</kbd>
-            <Calculator size={12} />
-            Calculator
-          </button>
-        </div>
-      </div>
     </div>
   )
 }
