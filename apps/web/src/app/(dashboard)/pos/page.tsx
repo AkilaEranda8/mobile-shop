@@ -6,7 +6,7 @@ import {
   ScanLine, X, Loader2, UserPlus, Edit2, Check, Download, Tag, Printer,
 } from 'lucide-react'
 import { useProducts, useCustomers } from '@/lib/hooks'
-import { salesApi, customersApi, productsApi } from '@/lib/api'
+import { salesApi, customersApi, productsApi, imeiApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -309,6 +309,8 @@ export default function POSPage() {
   const [showA4Invoice, setShowA4Invoice]       = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL')
   const [categories, setCategories]             = useState<{ id: string; name: string }[]>([])
+  const [imeiScan, setImeiScan]                 = useState('')
+  const [imeiScanning, setImeiScanning]         = useState(false)
   const a4Ref                                   = useRef<HTMLDivElement>(null)
 
   const { data: productsData } = useProducts({ limit: '500' })
@@ -332,12 +334,47 @@ export default function POSPage() {
     return matchCat && matchSearch
   })
 
-  const addToCart = (product: any) => {
+  const addToCart = (product: any, imei?: string) => {
     setCart(prev => {
       const existing = prev.find(i => i.productId === product.id)
-      if (existing) return prev.map(i => i.productId === product.id ? { ...i, quantity: i.quantity + 1 } : i)
-      return [...prev, { productId: product.id, name: product.name, sku: product.sku ?? '', price: product.sellingPrice, originalPrice: product.sellingPrice, quantity: 1 }]
+      if (existing) return prev.map(i => i.productId === product.id ? { ...i, quantity: i.quantity + 1, imei: imei ?? i.imei } : i)
+      return [...prev, { productId: product.id, name: product.name, sku: product.sku ?? '', price: product.sellingPrice, originalPrice: product.sellingPrice, quantity: 1, imei }]
     })
+  }
+
+  const handleImeiScan = async (scanned: string) => {
+    const imei = scanned.trim()
+    if (!imei) return
+    setImeiScanning(true)
+    try {
+      const res: any = await imeiApi.lookup(imei)
+      const rec = res?.data?.record
+      const productId = rec?.productId
+      const product = products.find((p: any) => p.id === productId)
+      if (product) {
+        addToCart(product, imei)
+        toast.success(`Added: ${product.name} — IMEI linked`)
+      } else {
+        // IMEI not registered — attach to last cart item if any
+        if (cart.length > 0) {
+          setCart(prev => prev.map((item, idx) => idx === prev.length - 1 ? { ...item, imei } : item))
+          toast(`IMEI attached to ${cart[cart.length - 1].name}`)
+        } else {
+          toast.error('IMEI not found. Add a product to cart first, then scan.')
+        }
+      }
+    } catch {
+      // Lookup failed — attach to last cart item
+      if (cart.length > 0) {
+        setCart(prev => prev.map((item, idx) => idx === prev.length - 1 ? { ...item, imei } : item))
+        toast(`IMEI attached to ${cart[cart.length - 1].name}`)
+      } else {
+        toast.error('IMEI not registered. Add a product to cart first.')
+      }
+    } finally {
+      setImeiScanning(false)
+      setImeiScan('')
+    }
   }
 
   const updateQty = (id: string, delta: number) =>
@@ -531,7 +568,14 @@ export default function POSPage() {
           </div>
           <div className="relative">
             <ScanLine size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input type="text" placeholder="Scan IMEI" className="input-field pl-9 w-36" />
+            <input
+              type="text" placeholder="Scan IMEI" className="input-field pl-9 w-40"
+              value={imeiScan}
+              onChange={e => setImeiScan(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleImeiScan(imeiScan) }}
+              disabled={imeiScanning}
+            />
+            {imeiScanning && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-violet-400" />}
           </div>
         </div>
 

@@ -57,7 +57,15 @@ export const salesService = {
         }
         await tx.product.update({ where: { id: item.productId }, data: { stock: { decrement: item.quantity } } })
         await tx.stockMovement.create({ data: { productId: item.productId, branchId: body.branchId, type: 'SALE', quantity: -item.quantity, reference: invoiceNumber, performedBy: cashierName } })
-        if (item.imei) await tx.imeiRecord.updateMany({ where: { imei: item.imei }, data: { status: 'SOLD', customerId: body.customerId, saleId: s.id } })
+        if (item.imei) {
+          const existingImei = await tx.imeiRecord.findUnique({ where: { imei: item.imei } })
+          if (existingImei) {
+            await tx.imeiRecord.update({ where: { imei: item.imei }, data: { status: 'SOLD', customerId: body.customerId ?? existingImei.customerId, saleId: s.id } })
+          } else if (item.productId) {
+            // Auto-create ImeiRecord if not pre-registered
+            await tx.imeiRecord.create({ data: { imei: item.imei, productId: item.productId, branchId: body.branchId, status: 'SOLD', customerId: body.customerId, saleId: s.id } })
+          }
+        }
       }
       if (body.customerId) {
         await tx.customer.update({ where: { id: body.customerId }, data: { totalPurchases: { increment: 1 }, totalDue: { increment: body.dueAmount ?? 0 } } })
