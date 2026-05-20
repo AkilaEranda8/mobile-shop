@@ -419,12 +419,29 @@ export default function POSPage() {
     setCustLoading(true)
     try {
       const res: any = await customersApi.list({ limit: '5000' })
-      setCustomers(res?.data ?? [])
-    } catch { setCustomers([]) }
+      const raw = res?.data ?? res
+      setCustomers(Array.isArray(raw) ? raw : [])
+    } catch (e) { console.error('Customer load error:', e); setCustomers([]) }
     finally { setCustLoading(false) }
   }, [])
 
   useEffect(() => { refetchCustomers() }, [refetchCustomers])
+
+  useEffect(() => {
+    if (!custSearch.trim()) return
+    const t = setTimeout(async () => {
+      try {
+        const res: any = await customersApi.search(custSearch.trim())
+        const raw = res?.data ?? res
+        if (Array.isArray(raw) && raw.length > 0) setCustomers(prev => {
+          const ids = new Set(raw.map((c: any) => c.id))
+          return [...raw, ...prev.filter((c: any) => !ids.has(c.id))]
+        })
+      } catch {}
+    }, 300)
+    return () => clearTimeout(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [custSearch])
 
   useEffect(() => {
     productsApi.categories().then((res: any) => {
