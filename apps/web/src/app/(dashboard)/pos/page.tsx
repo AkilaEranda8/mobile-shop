@@ -590,6 +590,10 @@ export default function POSPage() {
 
   const handleCheckout = async () => {
     if (cart.length === 0) return
+    if (addWarranty && !selectedCustomer) {
+      setCheckoutError('Please select a customer to add warranty')
+      return
+    }
     setCheckoutLoading(true)
     setCheckoutError('')
     try {
@@ -824,7 +828,7 @@ export default function POSPage() {
                 <input autoFocus className="input-field text-xs py-1.5 w-full" placeholder="Search customer…" value={custSearch} onChange={e => setCustSearch(e.target.value)} />
               </div>
               <div className="overflow-y-auto" style={{ maxHeight: 240 }}>
-                <button onClick={() => { setSelectedCustomer(null); setShowCustDrop(false) }} className="w-full px-3 py-2.5 text-xs text-left border-b transition-colors hover:bg-violet-500/5" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}>Walk-in Customer</button>
+                <button onClick={() => { setSelectedCustomer(null); setShowCustDrop(false); setAddWarranty(false) }} className="w-full px-3 py-2.5 text-xs text-left border-b transition-colors hover:bg-violet-500/5" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}>Walk-in Customer</button>
                 <button onClick={() => { setShowCustDrop(false); setShowRegister(true) }} className="w-full px-3 py-2 text-xs text-left border-b flex items-center gap-1.5 transition-colors hover:bg-violet-500/5" style={{ color: '#a78bfa', borderColor: 'var(--border-subtle)' }}><Plus size={10} />New Customer</button>
                 {custLoading ? <div className="flex items-center justify-center py-5 gap-2"><Loader2 size={13} className="animate-spin text-violet-400" /><span className="text-xs" style={{ color: 'var(--text-muted)' }}>Loading…</span></div>
                   : filteredCustomers.length === 0 ? <div className="flex items-center justify-center py-4"><p className="text-xs" style={{ color: 'var(--text-muted)' }}>{custSearch ? 'No results' : 'No customers'}</p></div>
@@ -1167,20 +1171,21 @@ export default function POSPage() {
                     <span className="text-2xl font-extrabold" style={{ background: 'linear-gradient(135deg,#a78bfa,#7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{formatCurrency(total)}</span>
                   </div>
                   {/* Warranty Section */}
-                  <div className="rounded-xl border p-2.5" style={{ borderColor: addWarranty ? 'rgba(245,158,11,.4)' : 'var(--border-subtle)', background: addWarranty ? 'rgba(245,158,11,.04)' : 'var(--bg-card)' }}>
+                  <div className="rounded-xl border p-2.5" style={{ borderColor: addWarranty ? 'rgba(245,158,11,.4)' : 'var(--border-subtle)', background: addWarranty ? 'rgba(245,158,11,.04)' : 'var(--bg-card)', opacity: !selectedCustomer ? 0.5 : 1 }}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
                         <Shield size={13} className="text-amber-400" />
                         <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Add Warranty</span>
-                        {addWarranty && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/15 text-amber-400">{warrantyMonths < 12 ? `${warrantyMonths}mo` : `${warrantyMonths/12}yr`}</span>}
+                        {addWarranty && selectedCustomer && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/15 text-amber-400">{warrantyMonths < 12 ? `${warrantyMonths}mo` : `${warrantyMonths/12}yr`}</span>}
+                        {!selectedCustomer && <span className="text-[9px] text-slate-500">Select customer first</span>}
                       </div>
-                      <button onClick={() => setAddWarranty(p => !p)}
+                      <button onClick={() => { if (selectedCustomer) setAddWarranty(p => !p) }}
                         className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
-                        style={{ background: addWarranty ? '#f59e0b' : 'rgba(255,255,255,.1)' }}>
-                        <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left: addWarranty ? '18px' : '2px' }} />
+                        style={{ background: addWarranty && selectedCustomer ? '#f59e0b' : 'rgba(255,255,255,.1)', cursor: !selectedCustomer ? 'not-allowed' : 'pointer' }}>
+                        <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left: addWarranty && selectedCustomer ? '18px' : '2px' }} />
                       </button>
                     </div>
-                    {addWarranty && (
+                    {addWarranty && selectedCustomer && (
                       <div className="grid grid-cols-4 gap-1 mt-2">
                         {[3, 6, 12, 24].map(m => (
                           <button key={m} onClick={() => setWarrantyMonths(m)}
