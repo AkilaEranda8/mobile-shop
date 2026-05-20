@@ -71,6 +71,23 @@ export const salesService = {
       if (body.customerId) {
         await tx.customer.update({ where: { id: body.customerId }, data: { totalPurchases: { increment: 1 }, totalDue: { increment: body.dueAmount ?? 0 } } })
       }
+      // ── Auto-create income transaction in Finance ──
+      if (body.branchId && body.total > 0) {
+        const paymentMethod = (body.payments?.[0]?.method ?? 'CASH') as any
+        await tx.transaction.create({
+          data: {
+            tenantId,
+            branchId:      body.branchId,
+            type:          'INCOME',
+            category:      'Sales',
+            amount:        body.total,
+            description:   `Sale - ${invoiceNumber}${body.customerName && body.customerName !== 'Walk-in Customer' ? ` (${body.customerName})` : ''}`,
+            paymentMethod,
+            reference:     invoiceNumber,
+            performedBy:   cashierName,
+          },
+        })
+      }
       return s
     })
     return sale
