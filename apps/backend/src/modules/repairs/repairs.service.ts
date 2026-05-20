@@ -166,12 +166,16 @@ export const repairsService = {
       })
       for (const p of r.spareParts) {
         if (p.productId) {
+          const prod = await tx.product.findUnique({ where: { id: p.productId }, select: { stock: true, name: true } })
+          if (prod && prod.stock < p.quantity) {
+            throw new AppError(`Insufficient stock for "${prod.name}". Available: ${prod.stock}, Required: ${p.quantity}`, 400)
+          }
           await tx.product.update({ where: { id: p.productId }, data: { stock: { decrement: p.quantity } } })
           await tx.stockMovement.create({
             data: {
               productId:   p.productId,
               branchId:    r.branchId,
-              type:        'SALE',
+              type:        'REPAIR_USE',
               quantity:    -p.quantity,
               reference:   r.ticketNumber,
               note:        `Spare part used in repair ${r.ticketNumber}`,
@@ -181,6 +185,22 @@ export const repairsService = {
         }
       }
     })
+    // ── Auto-create Finance INCOME transaction for repair payment ──
+    try {
+      await prisma.transaction.create({
+        data: {
+          tenantId,
+          branchId:    r.branchId,
+          type:        'INCOME',
+          category:    'Repairs',
+          amount:      finalAmount,
+          description: `Repair - ${r.ticketNumber} (${r.deviceBrand} ${r.deviceModel})${r.customerName ? ' — ' + r.customerName : ''}`,
+          paymentMethod: body.paymentMethod as any,
+          reference:   r.ticketNumber,
+          performedBy: cashierName,
+        },
+      })
+    } catch (e) { console.error('Finance repair transaction error:', e) }
     return prisma.repairTicket.findUnique({ where: { id }, include: { notes: true, spareParts: true, history: true } })
   },
 }

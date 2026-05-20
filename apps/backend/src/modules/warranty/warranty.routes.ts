@@ -12,6 +12,11 @@ router.use(authenticate)
 
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    // Auto-expire any warranties whose endDate has passed
+    await prisma.warranty.updateMany({
+      where: { tenantId: req.tenantId!, status: 'ACTIVE', endDate: { lt: new Date() } },
+      data:  { status: 'EXPIRED' },
+    }).catch(() => {})
     const { skip, limit, page, search } = getPagination(req)
     const status = req.query.status as string | undefined
     const where: any = { tenantId: req.tenantId!, ...(status && { status }), ...(search && { OR: [{ warrantyCode: { contains: search, mode: 'insensitive' } }, { customerName: { contains: search, mode: 'insensitive' } }, { productName: { contains: search, mode: 'insensitive' } }, { imei: { contains: search } }] }) }

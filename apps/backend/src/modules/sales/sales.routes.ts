@@ -36,7 +36,11 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 })
 
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
-  try { sendSuccess(res, await salesService.create(req.tenantId!, req.user!.userId, req.user!.email, req.body), 'Sale created', 201) } catch (e) { next(e) }
+  try {
+    const u = await prisma.user.findUnique({ where: { id: req.user!.userId }, select: { name: true } })
+    const cashierName = u?.name || req.user!.email
+    sendSuccess(res, await salesService.create(req.tenantId!, req.user!.userId, cashierName, req.body), 'Sale created', 201)
+  } catch (e) { next(e) }
 })
 
 router.post('/:id/returns', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req: Request, res: Response, next: NextFunction) => {
@@ -149,21 +153,17 @@ router.post('/:id/returns', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req
         },
       })
 
-      // Create Transaction for refund payout
-      if (branchId) {
-        await tx.transaction.create({
-          data: {
-            tenantId:      req.tenantId!,
-            branchId,
-            type:          'EXPENSE',
-            category:      'Refund',
-            amount:        refundAmount,
-            description:   `Refund for ${sale.invoiceNumber} — ${reason}`,
-            paymentMethod: refundMethod,
-            reference:     returnNumber,
-            performedBy:   req.user?.userId ?? 'system',
-          },
-        })
+      // Adjust original INCOME transaction to reflect the refund
+      const origIncomeTx = await tx.transaction.findFirst({
+        where: { reference: sale.invoiceNumber, type: 'INCOME', tenantId: req.tenantId! },
+      })
+      if (origIncomeTx) {
+        const newAmount = origIncomeTx.amount - refundAmount
+        if (newAmount <= 0) {
+          await tx.transaction.delete({ where: { id: origIncomeTx.id } })
+        } else {
+          await tx.transaction.update({ where: { id: origIncomeTx.id }, data: { amount: newAmount } })
+        }
       }
 
       // Decrement customer totalPurchases on full return only

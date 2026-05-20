@@ -42,8 +42,8 @@ router.get('/summary', async (req: Request, res: Response, next: NextFunction) =
     const saleWhere: any = { tenantId, ...(branchId && { branchId }), status: { not: 'RETURNED' }, createdAt: { gte: from, lte: to } }
 
     const [txIncome, txExpense, salesAgg, cogsRaw] = await Promise.all([
-      // Manual income transactions (repair fees, other income)
-      prisma.transaction.aggregate({ where: { ...txWhere, type: 'INCOME'  }, _sum: { amount: true } }),
+      // Manual income transactions (repair fees, other income) — exclude POS Sales (already in salesRevenue)
+      prisma.transaction.aggregate({ where: { ...txWhere, type: 'INCOME', category: { not: 'Sales' } }, _sum: { amount: true } }),
       // Operating expense transactions (rent, salary, utilities — exclude Refunds since returned sales excluded above)
       prisma.transaction.aggregate({ where: { ...txWhere, type: 'EXPENSE', category: { not: 'Refund' } }, _sum: { amount: true } }),
       // POS sales revenue (exclude returned orders)
