@@ -517,7 +517,7 @@ export default function POSPage() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'F1') { e.preventDefault(); searchRef.current?.focus(); searchRef.current?.select() }
-      if (e.key === 'F6') { e.preventDefault(); if (cart.length > 0) holdCart(); else setShowHeldCarts(true) }
+      if (e.key === 'F6') { e.preventDefault(); setShowHeldCarts(true) }
       if (e.key === 'F7') { e.preventDefault(); if (cart.length > 0) setShowDocPreview('QUOTE') }
       if (e.key === 'F8') { e.preventDefault(); if (cart.length > 0) setShowDocPreview('DRAFT') }
       if (e.key === 'F9' || (e.ctrlKey && e.key === 'Enter')) {
@@ -1055,7 +1055,7 @@ export default function POSPage() {
                     {checkoutLoading ? <Loader2 size={14} className="animate-spin" /> : <span className="flex items-center gap-1.5 text-violet-200 text-xs">F9 <ChevronRight size={13} /></span>}
                   </button>
                   <div className="grid grid-cols-3 gap-1.5">
-                    <button onClick={() => { if (cart.length > 0) holdCart(); else setShowHeldCarts(true) }}
+                    <button onClick={() => setShowHeldCarts(true)}
                       className="relative flex flex-col items-center gap-0.5 py-2 rounded-xl border text-center transition-colors hover:border-amber-500/30 hover:text-amber-400 hover:bg-amber-500/5"
                       style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
                       {heldCarts.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">{heldCarts.length}</span>}
@@ -1108,7 +1108,14 @@ export default function POSPage() {
                 <Archive size={15} className="text-amber-400" />
                 <h3 className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Held Carts ({heldCarts.length})</h3>
               </div>
-              <button onClick={() => setShowHeldCarts(false)} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'var(--text-muted)' }}><X size={14} /></button>
+              <div className="flex items-center gap-2">
+                {cart.length > 0 && (
+                  <button onClick={holdCart} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 border border-amber-500/20 transition-colors">
+                    <Archive size={12} /> Hold Current Cart
+                  </button>
+                )}
+                <button onClick={() => setShowHeldCarts(false)} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'var(--text-muted)' }}><X size={14} /></button>
+              </div>
             </div>
             <div className="overflow-y-auto" style={{ maxHeight: 360 }}>
               {heldCarts.length === 0 ? (
