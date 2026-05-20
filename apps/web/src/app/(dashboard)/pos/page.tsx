@@ -331,7 +331,34 @@ export default function POSPage() {
     try { return JSON.parse(localStorage.getItem('pos_held_carts') ?? '[]') } catch { return [] }
   })
   const [showDocPreview, setShowDocPreview]       = useState<'QUOTE'|'DRAFT'|null>(null)
+  const [showCalc, setShowCalc]                   = useState(false)
+  const [calcDisplay, setCalcDisplay]             = useState('0')
+  const [calcPrev, setCalcPrev]                   = useState<string|null>(null)
+  const [calcOp, setCalcOp]                       = useState<string|null>(null)
+  const [calcReset, setCalcReset]                 = useState(false)
   const searchRef                                 = useRef<HTMLInputElement>(null)
+
+  const calcInput = (val: string) => {
+    if (calcDisplay === '0' || calcReset) { setCalcDisplay(val); setCalcReset(false) }
+    else setCalcDisplay(prev => prev.length < 14 ? prev + val : prev)
+  }
+  const calcDot = () => { if (calcReset) { setCalcDisplay('0.'); setCalcReset(false); return }; if (!calcDisplay.includes('.')) setCalcDisplay(p => p + '.') }
+  const calcClear = () => { setCalcDisplay('0'); setCalcPrev(null); setCalcOp(null); setCalcReset(false) }
+  const calcBackspace = () => setCalcDisplay(p => p.length > 1 ? p.slice(0,-1) : '0')
+  const calcSetOp = (op: string) => { setCalcPrev(calcDisplay); setCalcOp(op); setCalcReset(true) }
+  const calcEqual = () => {
+    if (!calcOp || calcPrev === null) return
+    const a = parseFloat(calcPrev), b = parseFloat(calcDisplay)
+    let r = 0
+    if (calcOp === '+') r = a + b
+    else if (calcOp === '-') r = a - b
+    else if (calcOp === '×') r = a * b
+    else if (calcOp === '÷') r = b !== 0 ? a / b : 0
+    const s = parseFloat(r.toFixed(8)).toString()
+    setCalcDisplay(s); setCalcPrev(null); setCalcOp(null); setCalcReset(true)
+  }
+  const calcPercent = () => setCalcDisplay(p => parseFloat((parseFloat(p) / 100).toFixed(8)).toString())
+  const calcSign = () => setCalcDisplay(p => p.startsWith('-') ? p.slice(1) : '-' + p)
 
   const saveHeldCarts = (list: typeof heldCarts) => {
     setHeldCarts(list)
@@ -517,6 +544,7 @@ export default function POSPage() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'F1') { e.preventDefault(); searchRef.current?.focus(); searchRef.current?.select() }
+      if (e.key === 'F12') { e.preventDefault(); setShowCalc(p => !p) }
       if (e.key === 'F6') { e.preventDefault(); setShowHeldCarts(true) }
       if (e.key === 'F7') { e.preventDefault(); if (cart.length > 0) setShowDocPreview('QUOTE') }
       if (e.key === 'F8') { e.preventDefault(); if (cart.length > 0) setShowDocPreview('DRAFT') }
@@ -1099,6 +1127,55 @@ export default function POSPage() {
         </div>
       </div>
 
+      {/* ── Calculator ── */}
+      {showCalc && (
+        <div className="fixed bottom-16 right-4 z-50 w-72 rounded-2xl shadow-2xl overflow-hidden border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
+          <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div className="flex items-center gap-2">
+              <Calculator size={13} className="text-violet-400" />
+              <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>Calculator</span>
+            </div>
+            <button onClick={() => setShowCalc(false)} className="p-1 rounded hover:bg-white/5 transition-colors" style={{ color: 'var(--text-muted)' }}><X size={13} /></button>
+          </div>
+          {/* Display */}
+          <div className="px-4 py-4" style={{ background: 'var(--bg-subtle)' }}>
+            {calcOp && calcPrev !== null && <p className="text-right text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>{calcPrev} {calcOp}</p>}
+            <p className="text-right text-3xl font-extrabold tracking-tight truncate" style={{ color: 'var(--text-primary)' }}>{calcDisplay}</p>
+          </div>
+          {/* Buttons */}
+          <div className="grid grid-cols-4 gap-1 p-3">
+            {[
+              { l: 'AC',  fn: calcClear,     cls: 'text-red-400 hover:bg-red-500/10' },
+              { l: '+/-', fn: calcSign,      cls: 'text-slate-400 hover:bg-white/5' },
+              { l: '%',   fn: calcPercent,   cls: 'text-slate-400 hover:bg-white/5' },
+              { l: '÷',   fn: () => calcSetOp('÷'), cls: 'text-violet-400 bg-violet-500/10 hover:bg-violet-500/20' },
+              { l: '7',   fn: () => calcInput('7'), cls: 'hover:bg-white/5' },
+              { l: '8',   fn: () => calcInput('8'), cls: 'hover:bg-white/5' },
+              { l: '9',   fn: () => calcInput('9'), cls: 'hover:bg-white/5' },
+              { l: '×',   fn: () => calcSetOp('×'), cls: 'text-violet-400 bg-violet-500/10 hover:bg-violet-500/20' },
+              { l: '4',   fn: () => calcInput('4'), cls: 'hover:bg-white/5' },
+              { l: '5',   fn: () => calcInput('5'), cls: 'hover:bg-white/5' },
+              { l: '6',   fn: () => calcInput('6'), cls: 'hover:bg-white/5' },
+              { l: '−',   fn: () => calcSetOp('-'), cls: 'text-violet-400 bg-violet-500/10 hover:bg-violet-500/20' },
+              { l: '1',   fn: () => calcInput('1'), cls: 'hover:bg-white/5' },
+              { l: '2',   fn: () => calcInput('2'), cls: 'hover:bg-white/5' },
+              { l: '3',   fn: () => calcInput('3'), cls: 'hover:bg-white/5' },
+              { l: '+',   fn: () => calcSetOp('+'), cls: 'text-violet-400 bg-violet-500/10 hover:bg-violet-500/20' },
+              { l: '⌫',   fn: calcBackspace,  cls: 'hover:bg-white/5 text-slate-400' },
+              { l: '0',   fn: () => calcInput('0'), cls: 'hover:bg-white/5' },
+              { l: '.',   fn: calcDot,        cls: 'hover:bg-white/5' },
+              { l: '=',   fn: calcEqual,      cls: 'text-white bg-violet-600 hover:bg-violet-500' },
+            ].map(({ l, fn, cls }) => (
+              <button key={l} onClick={fn}
+                className={`h-12 rounded-xl text-sm font-bold transition-all active:scale-95 ${cls}`}
+                style={{ color: cls.includes('text-') ? undefined : 'var(--text-primary)' }}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Held Carts Modal ── */}
       {showHeldCarts && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -1290,7 +1367,7 @@ export default function POSPage() {
           </button>
         ))}
         <div className="ml-auto">
-          <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border transition-colors hover:bg-white/5" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
+          <button onClick={() => setShowCalc(p => !p)} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border transition-colors ${showCalc ? 'border-violet-500/40 text-violet-400 bg-violet-500/10' : 'hover:bg-white/5'}`} style={{ borderColor: showCalc ? undefined : 'var(--border-subtle)', color: showCalc ? undefined : 'var(--text-muted)' }}>
             <kbd className="text-[10px] font-mono">F12</kbd>
             <Calculator size={12} />
             Calculator
