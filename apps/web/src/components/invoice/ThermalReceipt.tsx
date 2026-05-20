@@ -15,6 +15,8 @@ export interface ThermalSale {
   paymentMethod?: string
   cashReceived?: number
   changeAmount?: number
+  warrantyNumbers?: string[]
+  warrantyMonths?: number
 }
 
 interface ThermalReceiptProps {
@@ -277,6 +279,13 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
   ${sale.paymentMethod ? `<div class="row"><span>Payment:</span><span>${sale.paymentMethod.toUpperCase()}</span></div>` : ''}
   ${(sale.cashReceived != null && sale.cashReceived > 0) ? `<div class="row"><span>Cash:</span><span>${f(sale.cashReceived)}</span></div>` : ''}
   ${(sale.changeAmount != null && sale.changeAmount > 0) ? `<div class="row bold"><span>Change:</span><span>${f(sale.changeAmount)}</span></div>` : ''}
+
+  ${(sale.warrantyNumbers && sale.warrantyNumbers.length > 0) ? `
+  <div class="dash"></div>
+  <div class="center bold" style="font-size:11px">WARRANTY CERTIFICATE</div>
+  ${(sale.warrantyNumbers ?? []).map((w, i) => `<div class="row"><span>Warranty ${(sale.warrantyNumbers ?? []).length > 1 ? i+1 : ''}:</span><span style="font-weight:bold">${w}</span></div>`).join('')}
+  ${sale.warrantyMonths ? `<div class="center small">Valid for ${sale.warrantyMonths} month${sale.warrantyMonths !== 1 ? 's' : ''} from purchase</div>` : ''}
+  ` : ''}
 
   ${(settings.bankName || settings.accNumber) ? `
   <div class="dash"></div>

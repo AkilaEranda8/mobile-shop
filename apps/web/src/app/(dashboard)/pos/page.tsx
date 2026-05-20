@@ -6,7 +6,7 @@ import {
   ScanLine, X, Loader2, UserPlus, Edit2, Check, Download, Tag, Printer,
   Heart, Trash2, ChevronRight, ChevronLeft, ChevronDown, Gift, Archive,
   FileText, FilePlus2, Calculator, SlidersHorizontal, Package, Tablet,
-  Headphones, Wrench, PackageSearch, ShoppingBag, User, CheckCircle2,
+  Headphones, Wrench, PackageSearch, ShoppingBag, User, CheckCircle2, Shield,
 } from 'lucide-react'
 import { useProducts } from '@/lib/hooks'
 import { salesApi, customersApi, productsApi, imeiApi, warrantyApi } from '@/lib/api'
@@ -331,6 +331,8 @@ export default function POSPage() {
     try { return JSON.parse(localStorage.getItem('pos_held_carts') ?? '[]') } catch { return [] }
   })
   const [showDocPreview, setShowDocPreview]       = useState<'QUOTE'|'DRAFT'|null>(null)
+  const [addWarranty, setAddWarranty]             = useState(false)
+  const [warrantyMonths, setWarrantyMonths]       = useState(12)
   const [showCalc, setShowCalc]                   = useState(false)
   const [calcDisplay, setCalcDisplay]             = useState('0')
   const [calcPrev, setCalcPrev]                   = useState<string|null>(null)
@@ -615,6 +617,34 @@ export default function POSPage() {
         })),
         payments: [{ method: paymentMethod, amount: total }],
       })
+      // ── Create warranties if user opted in ──
+      const createdWarrantyCodes: string[] = []
+      if (addWarranty && cart.length > 0) {
+        const start = new Date()
+        const end   = new Date(start)
+        end.setMonth(end.getMonth() + warrantyMonths)
+        for (const item of cart) {
+          try {
+            const w: any = await warrantyApi.create({
+              customerId:     selectedCustomer?.id,
+              customerName:   selectedCustomer?.name  || 'Walk-in Customer',
+              customerPhone:  selectedCustomer?.phone || '',
+              productId:      item.productId,
+              productName:    item.name,
+              imei:           item.imei   || '',
+              saleId:         res.data?.id || '',
+              invoiceNumber:  res.data?.invoiceNumber || '',
+              startDate:      start.toISOString(),
+              endDate:        end.toISOString(),
+              monthsDuration: warrantyMonths,
+            })
+            const code = w?.data?.warrantyCode || w?.warrantyCode
+            if (code) createdWarrantyCodes.push(code)
+          } catch (e) { console.error('Warranty creation failed:', e) }
+        }
+        if (createdWarrantyCodes.length > 0)
+          toast.success(`${createdWarrantyCodes.length} warranty${createdWarrantyCodes.length > 1 ? 's' : ''} created`, { icon: '🛡️' })
+      }
       setCompletedSale({
         ...res.data,
         items: cart.map(i => ({ productName: i.name, sku: i.sku, imei: i.imei, quantity: i.quantity, unitPrice: i.price, total: i.price * i.quantity })),
@@ -622,39 +652,9 @@ export default function POSPage() {
         customerName:  selectedCustomer?.name || 'Walk-in Customer',
         customerPhone: selectedCustomer?.phone || '',
         cashierName:   user?.name || 'Staff',
+        warrantyNumbers: createdWarrantyCodes,
+        warrantyMonths:  addWarranty ? warrantyMonths : undefined,
       })
-      // ── Auto-create warranties for products with warrantyMonths > 0 ──
-      const warrantyItems = cart.filter(i => {
-        const p = products.find((x: any) => x.id === i.productId)
-        return p?.warrantyMonths && p.warrantyMonths > 0
-      })
-      if (warrantyItems.length > 0) {
-        let created = 0
-        for (const item of warrantyItems) {
-          const p = products.find((x: any) => x.id === item.productId) as any
-          if (!p) continue
-          const start = new Date()
-          const end   = new Date(start)
-          end.setMonth(end.getMonth() + p.warrantyMonths)
-          try {
-            await warrantyApi.create({
-              customerId:     selectedCustomer?.id,
-              customerName:   selectedCustomer?.name  || 'Walk-in Customer',
-              customerPhone:  selectedCustomer?.phone || '',
-              productId:      item.productId,
-              productName:    item.name,
-              brandName:      p.brandName || '',
-              imei:           item.imei   || '',
-              invoiceNumber:  res.data?.invoiceNumber || '',
-              startDate:      start.toISOString(),
-              endDate:        end.toISOString(),
-              monthsDuration: p.warrantyMonths,
-            })
-            created++
-          } catch (e) { console.error('Auto warranty failed:', e) }
-        }
-        if (created > 0) toast.success(`${created} warranty${created > 1 ? 'ies' : ''} auto-created`)
-      }
     } catch (e: any) {
       setCheckoutError(e.message || 'Checkout failed')
     } finally {
@@ -693,10 +693,15 @@ export default function POSPage() {
       currency:      s.currency     || 'LKR',
       taxRate:       s.taxRate      ?? 0,
       discountRate:  subtotal > 0 ? Math.round((discountAmount / subtotal) * 100) : (s.discountRate ?? 0),
-      terms:         s.terms?.length ? s.terms : [
-        'Payment is due upon receipt of this invoice.',
-        'All sales are final unless otherwise agreed.',
-        s.footerNote || 'Thank you for your business!',
+      terms:         [
+        ...(s.terms?.length ? s.terms : [
+          'Payment is due upon receipt of this invoice.',
+          'All sales are final unless otherwise agreed.',
+          s.footerNote || 'Thank you for your business!',
+        ]),
+        ...(completedSale.warrantyNumbers?.length
+          ? [`Warranty: ${completedSale.warrantyNumbers.join(', ')} (${completedSale.warrantyMonths} months)`]
+          : []),
       ],
       signatoryName:  s.signatoryName  || s.shopName || shopName,
       signatoryTitle: s.signatoryTitle || 'Authorized Signatory',
@@ -740,6 +745,7 @@ export default function POSPage() {
   const handleNewSale = () => {
     setCart([]); setCompletedSale(null); setSearch('')
     setDiscountPct(0); setDiscountFlat(0); setSelectedCustomer(null); setCheckoutError('')
+    setAddWarranty(false); setWarrantyMonths(12)
   }
 
   const handleCustomerCreated = useCallback((c: any) => {
@@ -1009,6 +1015,18 @@ export default function POSPage() {
                   <p className="text-xs font-semibold text-slate-200">{completedSale.customerName}</p>
                   {completedSale.customerPhone && <p className="text-[10px] text-slate-500">{completedSale.customerPhone}</p>}
                 </div>
+                {completedSale.warrantyNumbers?.length > 0 && (
+                  <div className="rounded-xl border p-3 space-y-1" style={{ background: 'rgba(245,158,11,.06)', borderColor: 'rgba(245,158,11,.25)' }}>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Shield size={12} className="text-amber-400" />
+                      <p className="text-[9px] uppercase font-bold tracking-wider text-amber-400">Warranty Certificate</p>
+                    </div>
+                    {completedSale.warrantyNumbers.map((code: string, i: number) => (
+                      <p key={i} className="text-xs font-bold font-mono text-amber-300">{code}</p>
+                    ))}
+                    <p className="text-[10px] text-amber-500/70">Valid {completedSale.warrantyMonths} month{completedSale.warrantyMonths !== 1 ? 's' : ''} from purchase date</p>
+                  </div>
+                )}
                 <div className="bg-white/3 rounded-xl border border-white/5 overflow-hidden">
                   <div className="px-3 py-2 border-b border-white/5"><p className="text-[10px] text-slate-500 uppercase tracking-wide">Items</p></div>
                   {completedSale.items?.map((item: any, i: number) => (
@@ -1032,7 +1050,7 @@ export default function POSPage() {
                   <button onClick={() => setShowA4Invoice(true)} className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold rounded-xl bg-white/5 text-slate-200 hover:bg-white/10 border border-white/10 transition-colors">
                     <Receipt size={12} /> A4 Invoice
                   </button>
-                  <button onClick={() => printThermalReceipt({ invoiceNumber: completedSale.invoiceNumber, createdAt: completedSale.createdAt, customerName: completedSale.customerName, customerPhone: completedSale.customerPhone, items: completedSale.items ?? [], subtotal, discountAmount, total, paymentMethod: completedSale.paymentMethod, cashReceived: completedSale.cashReceived, changeAmount: completedSale.changeAmount }, invoiceSettings)} className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors">
+                  <button onClick={() => printThermalReceipt({ invoiceNumber: completedSale.invoiceNumber, createdAt: completedSale.createdAt, customerName: completedSale.customerName, customerPhone: completedSale.customerPhone, items: completedSale.items ?? [], subtotal, discountAmount, total, paymentMethod: completedSale.paymentMethod, cashReceived: completedSale.cashReceived, changeAmount: completedSale.changeAmount, warrantyNumbers: completedSale.warrantyNumbers, warrantyMonths: completedSale.warrantyMonths }, invoiceSettings)} className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors">
                     <Printer size={12} /> Thermal Print
                   </button>
                 </div>
@@ -1145,6 +1163,34 @@ export default function POSPage() {
                   <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
                     <span className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>Total</span>
                     <span className="text-2xl font-extrabold" style={{ background: 'linear-gradient(135deg,#a78bfa,#7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{formatCurrency(total)}</span>
+                  </div>
+                  {/* Warranty Section */}
+                  <div className="rounded-xl border p-2.5" style={{ borderColor: addWarranty ? 'rgba(245,158,11,.4)' : 'var(--border-subtle)', background: addWarranty ? 'rgba(245,158,11,.04)' : 'var(--bg-card)' }}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Shield size={13} className="text-amber-400" />
+                        <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Add Warranty</span>
+                        {addWarranty && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/15 text-amber-400">{warrantyMonths < 12 ? `${warrantyMonths}mo` : `${warrantyMonths/12}yr`}</span>}
+                      </div>
+                      <button onClick={() => setAddWarranty(p => !p)}
+                        className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
+                        style={{ background: addWarranty ? '#f59e0b' : 'rgba(255,255,255,.1)' }}>
+                        <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left: addWarranty ? '18px' : '2px' }} />
+                      </button>
+                    </div>
+                    {addWarranty && (
+                      <div className="grid grid-cols-4 gap-1 mt-2">
+                        {[3, 6, 12, 24].map(m => (
+                          <button key={m} onClick={() => setWarrantyMonths(m)}
+                            className="py-1.5 rounded-lg text-[10px] font-bold border transition-all"
+                            style={warrantyMonths === m
+                              ? { background: 'rgba(245,158,11,.2)', borderColor: 'rgba(245,158,11,.45)', color: '#fbbf24' }
+                              : { background: 'transparent', borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
+                            {m < 12 ? `${m} mo` : `${m/12} yr`}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   {/* Payment method */}
                   <div className="grid grid-cols-3 gap-1.5">
