@@ -47,7 +47,7 @@ export const authService = {
     const existing = await prisma.user.findFirst({ where: { email: data.ownerEmail } })
     if (existing) throw new AppError('Email already in use', 409)
 
-    const baseSlug = data.shopName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+    const baseSlug = data.shopName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/^-+|-+$/g, '')
     const existing_slug = await prisma.tenant.findFirst({ where: { slug: baseSlug } })
     const slug = existing_slug ? `${baseSlug}-${Date.now().toString(36)}` : baseSlug
     const subdomain = `${slug}.app.hexalyte.com`
