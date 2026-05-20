@@ -415,12 +415,17 @@ export default function SalesPage() {
     {
       accessorKey: 'total',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Total" />,
-      cell: ({ row }) => (
-        <div>
-          <p className="text-xs font-bold text-white whitespace-nowrap">{formatCurrency(row.original.total)}</p>
-          {row.original.dueAmount > 0 && <p className="text-[10px] text-yellow-400">Due: {formatCurrency(row.original.dueAmount)}</p>}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const s = row.original
+        const totalRefunded = (s.returns ?? []).reduce((sum: number, r: any) => sum + (r.refundAmount ?? 0), 0)
+        return (
+          <div>
+            <p className="text-xs font-bold text-white whitespace-nowrap">{formatCurrency(s.total)}</p>
+            {totalRefunded > 0 && <p className="text-[10px] text-rose-400 whitespace-nowrap">Refunded: {formatCurrency(totalRefunded)}</p>}
+            {s.dueAmount > 0 && <p className="text-[10px] text-yellow-400 whitespace-nowrap">Due: {formatCurrency(s.dueAmount)}</p>}
+          </div>
+        )
+      },
     },
     {
       accessorKey: 'status',
