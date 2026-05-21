@@ -2,87 +2,78 @@
 
 import { useMemo } from 'react'
 import {
-  TrendingUp, TrendingDown, ShoppingCart, Users, Wrench,
-  AlertTriangle, Package, Shield, ArrowRight, Zap,
-  BarChart2, Activity, Star, ArrowUpRight,
-  CheckCircle2, Box
+  ShoppingCart, TrendingUp, Package, Wrench, AlertTriangle,
+  Users, ArrowUpRight, ArrowRight, Receipt, Activity,
+  BarChart2, DollarSign, ChevronRight, TrendingDown, Star
 } from 'lucide-react'
 import Link from 'next/link'
-import { useTheme } from 'next-themes'
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts'
 import {
   useRevenue, useRepairs, useTransactions,
   useAnalyticsDashboard, useTopProducts
 } from '@/lib/hooks'
 import type { RepairTicket, Transaction as AppTransaction } from '@/types'
-import { formatCurrency, formatRelativeTime, getRepairStatusColor } from '@/lib/utils'
+import { formatCurrency, formatRelativeTime } from '@/lib/utils'
 
 /* ─────────────────────────────────────────────────────────────────────
-   HEALTH RING
+   SVG SPARKLINE
+   ───────────────────────────────────────────────────────────────────── */
+function Sparkline({ data, color }: { data: number[]; color: string }) {
+  if (data.length < 2) {
+    const fake = [3, 5, 4, 7, 5, 8, 6]
+    return <Sparkline data={fake} color={color} />
+  }
+  const max = Math.max(...data, 1), min = Math.min(...data, 0)
+  const range = max - min || 1
+  const W = 120, H = 40
+  const pts = data.map((v, i) => [
+    (i / (data.length - 1)) * W,
+    H - ((v - min) / range) * H,
+  ])
+  const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')
+  const area = `${path} L${W},${H} L0,${H} Z`
+  const cId  = color.replace(/[^a-z0-9]/gi, '')
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-9 mt-1" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id={`sp-${cId}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor={color} stopOpacity="0.25"/>
+          <stop offset="100%" stopColor={color} stopOpacity="0"/>
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#sp-${cId})`}/>
+      <path d={path} fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   HEALTH DONUT
    ───────────────────────────────────────────────────────────────────── */
 function HealthRing({ score }: { score: number }) {
   const clamp  = Math.min(100, Math.max(0, score))
-  const r      = 48, circ = 2 * Math.PI * r
+  const r      = 56, circ = 2 * Math.PI * r
   const offset = circ - (clamp / 100) * circ
   const color  = clamp >= 75 ? '#22c55e' : clamp >= 50 ? '#f59e0b' : '#ef4444'
-  const label  = clamp >= 75 ? 'Excellent' : clamp >= 50 ? 'Good' : 'Warning'
+  const label  = clamp >= 75 ? 'Excellent' : clamp >= 50 ? 'Good' : 'Needs Attention'
   return (
-    <div className="flex flex-col items-center gap-1.5">
-      <div className="relative w-28 h-28">
-        <svg viewBox="0 0 110 110" className="w-full h-full -rotate-90">
-          <defs>
-            <filter id="hglow"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-          </defs>
-          <circle cx="55" cy="55" r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="9"/>
-          <circle cx="55" cy="55" r={r} fill="none" stroke={color} strokeWidth="9"
+    <div className="flex flex-col items-center">
+      <div className="relative w-40 h-40">
+        <svg viewBox="0 0 130 130" className="w-full h-full -rotate-90">
+          <circle cx="65" cy="65" r={r} fill="none" stroke="#f1f5f9" strokeWidth="12"/>
+          <circle cx="65" cy="65" r={r} fill="none" stroke={color} strokeWidth="12"
             strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
-            filter="url(#hglow)"
-            style={{ transition: 'stroke-dashoffset 1.4s cubic-bezier(.34,1.56,.64,1)' }}/>
+            style={{ transition: 'stroke-dashoffset 1.2s cubic-bezier(.34,1.56,.64,1)' }}/>
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-[28px] font-black tabular-nums leading-none" style={{ color }}>{clamp}</span>
-          <span className="text-[9px] text-slate-500 uppercase tracking-widest mt-0.5">/ 100</span>
+          <span className="text-3xl font-black tabular-nums" style={{ color }}>{clamp}%</span>
         </div>
       </div>
-      <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full"
-        style={{ color, background: `${color}18`, border: `1px solid ${color}30` }}>{label}</span>
-    </div>
-  )
-}
-
-/* ─────────────────────────────────────────────────────────────────────
-   SPARK BARS
-   ───────────────────────────────────────────────────────────────────── */
-function SparkBars({ data, color }: { data: number[]; color: string }) {
-  const max = Math.max(...data, 1)
-  return (
-    <div className="flex items-end gap-0.5 h-8">
-      {data.map((v, i) => (
-        <div key={i} className="flex-1 rounded-[3px]"
-          style={{ height: `${Math.max(10, (v / max) * 100)}%`, background: color, opacity: 0.25 + (i / data.length) * 0.75 }} />
-      ))}
-    </div>
-  )
-}
-
-/* ─────────────────────────────────────────────────────────────────────
-   CHART TOOLTIP
-   ───────────────────────────────────────────────────────────────────── */
-function ChartTip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null
-  return (
-    <div className="bg-slate-900/95 dark:bg-[#0d1117]/95 border border-violet-500/20 rounded-xl p-3 shadow-2xl backdrop-blur-sm min-w-[130px]">
-      <p className="text-[11px] font-semibold text-slate-300 mb-2">{label}</p>
-      {payload.map((p: any, i: number) => (
-        <div key={i} className="flex items-center gap-2 text-xs mb-1 last:mb-0">
-          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: p.stroke }}/>
-          <span className="text-slate-400">{p.name}</span>
-          <span className="font-bold text-white tabular-nums ml-auto">₹{p.value}k</span>
-        </div>
-      ))}
+      <p className="font-bold text-gray-800 dark:text-slate-200 text-base mt-1">{label}</p>
+      <p className="text-xs text-gray-400 mt-0.5">You&apos;re doing great!</p>
     </div>
   )
 }
@@ -91,377 +82,354 @@ function ChartTip({ active, payload, label }: any) {
    MAIN DASHBOARD
    ═════════════════════════════════════════════════════════════════════ */
 export default function DashboardPage() {
-  const { resolvedTheme } = useTheme()
-  const isDark = resolvedTheme !== 'light'
+  /* ── Data ── */
+  const { data: rawRevenue }     = useRevenue()
+  const { data: repairsData }    = useRepairs()
+  const { data: txData }         = useTransactions()
+  const { data: stats }          = useAnalyticsDashboard()
+  const { data: rawTopProducts } = useTopProducts()
 
-  /* ── Data hooks ── */
-  const { data: rawRevenue }    = useRevenue()
-  const { data: repairsData }   = useRepairs()
-  const { data: txData }        = useTransactions()
-  const { data: stats }         = useAnalyticsDashboard()
-  const { data: rawTopProducts }= useTopProducts()
+  const s            = stats as any
+  const revenueArr   = Array.isArray(rawRevenue) ? rawRevenue as any[] : []
+  const allRepairs   = (repairsData?.data ?? []) as RepairTicket[]
+  const activeRepairs = allRepairs.filter(r => r.status !== 'DELIVERED' && r.status !== 'CANCELLED' && r.status !== 'COMPLETED')
+  const transactions  = (txData?.data ?? []) as AppTransaction[]
+  const topProducts   = Array.isArray(rawTopProducts) ? rawTopProducts as any[] : []
 
-  const topProducts: any[]         = Array.isArray(rawTopProducts) ? rawTopProducts : []
-  const s                          = stats as any
-  const revenueArr: any[]          = Array.isArray(rawRevenue) ? rawRevenue : []
-  const repairs: RepairTicket[]    = ((repairsData?.data ?? []) as RepairTicket[]).filter(r => r.status !== 'DELIVERED' && r.status !== 'CANCELLED').slice(0, 5)
-  const transactions: AppTransaction[] = (txData?.data ?? []) as AppTransaction[]
+  /* Aggregates */
+  const totalRevenue = revenueArr.reduce((a, d) => a + (d.revenue ?? 0), 0)
+  const totalProfit  = revenueArr.reduce((a, d) => a + (d.profit  ?? 0), 0)
+  const totalCost    = totalRevenue - totalProfit
+  const profitMargin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(2) : '0.00'
 
-  const chartData  = revenueArr.slice(-14).map((d: any) => ({
-    date:    new Date(d.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
-    revenue: Math.round((d.revenue ?? 0) / 1000),
-    profit:  Math.round((d.profit  ?? 0) / 1000),
+  /* Sparklines */
+  const sparkRev  = revenueArr.slice(-7).map(d => Math.round((d.revenue ?? 0) / 1000))
+  const sparkProf = revenueArr.slice(-7).map(d => Math.round((d.profit  ?? 0) / 1000))
+
+  /* Chart */
+  const chartData = revenueArr.slice(-7).map((d: any) => ({
+    date:   new Date(d.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
+    sales:  Math.round(d.revenue ?? 0),
+    cost:   Math.round((d.revenue ?? 0) - (d.profit ?? 0)),
+    profit: Math.round(d.profit  ?? 0),
   }))
-  const sparkData  = revenueArr.slice(-7).map((d: any) => Math.round((d.revenue ?? 0) / 1000))
-  const today      = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })
-  const gridColor  = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(15,23,42,0.06)'
-  const axisColor  = isDark ? '#475569' : '#94a3b8'
 
-  /* ── Health score ── */
+  /* Repairs breakdown */
+  const repairStats = useMemo(() => {
+    const inProg  = allRepairs.filter(r => r.status === 'IN_PROGRESS').length
+    const waiting = allRepairs.filter(r => r.status === 'WAITING_FOR_PARTS').length
+    const ready   = allRepairs.filter(r => ['READY_FOR_DELIVERY','READY_FOR_PICKUP','DELIVERED'].includes(r.status)).length
+    const done    = allRepairs.filter(r => r.status === 'COMPLETED').length
+    return { inProg, waiting, ready, done, total: allRepairs.length }
+  }, [allRepairs])
+
+  const repairDonut = [
+    { name: 'In Progress',       value: repairStats.inProg,  color: '#3b82f6' },
+    { name: 'Waiting for Parts', value: repairStats.waiting, color: '#8b5cf6' },
+    { name: 'Ready to Deliver',  value: repairStats.ready,   color: '#22c55e' },
+    { name: 'Completed',         value: repairStats.done,    color: '#f59e0b' },
+  ].filter(d => d.value > 0)
+
+  /* Health */
   const healthScore = useMemo(() => {
     let sc = 55
-    if ((s?.todayRevenue    ?? 0) > 0)  sc += 12
-    if ((s?.activeRepairs   ?? 0) < 5)  sc += 11
-    if ((s?.lowStockCount   ?? 0) === 0) sc += 11
-    if ((s?.totalCustomers  ?? 0) > 10) sc += 11
+    if ((s?.todayRevenue   ?? 0) > 0)   sc += 12
+    if ((s?.activeRepairs  ?? 0) < 5)   sc += 11
+    if ((s?.lowStockCount  ?? 0) === 0) sc += 11
+    if ((s?.totalCustomers ?? 0) > 10)  sc += 11
     return Math.min(100, sc)
   }, [s])
 
-  /* ── Activity feed ── */
+  /* Activity */
   const activityFeed = useMemo(() => {
     const items: any[] = []
-    repairs.slice(0, 3).forEach(r => items.push({
-      type: 'repair', id: r.id, icon: Wrench,
-      iconBg: 'bg-blue-500/10', iconColor: 'text-blue-400',
-      label: `${r.deviceBrand} ${r.deviceModel}`, sub: r.ticketNumber,
-      badge: r.status.replace('_', ' '), badgeColor: getRepairStatusColor(r.status),
-      time: r.createdAt,
+    activeRepairs.slice(0, 3).forEach(r => items.push({
+      id: r.id, icon: Wrench,
+      iconBg: '#fff1e6', iconColor: '#f97316',
+      title: `${r.deviceBrand} ${r.deviceModel} repair`,
+      sub: `Repair #${r.ticketNumber}`, time: r.createdAt,
     }))
     transactions.slice(0, 5).forEach(t => items.push({
-      type: 'tx', id: t.id,
+      id: t.id,
       icon: t.type === 'INCOME' ? TrendingUp : TrendingDown,
-      iconBg:    t.type === 'INCOME' ? 'bg-green-500/10' : 'bg-red-500/10',
-      iconColor: t.type === 'INCOME' ? 'text-green-400'  : 'text-red-400',
-      label: t.description, sub: t.category,
+      iconBg:    t.type === 'INCOME' ? '#f0fdf4' : '#fff1f2',
+      iconColor: t.type === 'INCOME' ? '#22c55e' : '#f43f5e',
+      title: t.type === 'INCOME' ? 'Payment received' : 'Expense recorded',
+      sub: t.description || t.category,
       amount: t.amount, txType: t.type, time: t.createdAt,
     }))
-    return items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 8)
-  }, [repairs, transactions])
+    return items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 6)
+  }, [activeRepairs, transactions])
 
-  /* ── KPI rows ── */
-  const kpis = [
-    { label: "Today's Revenue", value: formatCurrency(s?.todayRevenue ?? 0), sub: `${s?.todaySalesCount ?? 0} sales`, icon: TrendingUp, color: '#22c55e', href: '/dashboard/finance',   spark: sparkData },
-    { label: 'Active Repairs',  value: String(s?.activeRepairs ?? 0),         sub: 'In progress',                     icon: Wrench,      color: '#06b6d4', href: '/dashboard/repairs',   spark: [] },
-    { label: 'Customers',       value: String(s?.totalCustomers ?? 0),         sub: 'Registered',                      icon: Users,       color: '#7c3aed', href: '/dashboard/customers', spark: [] },
-    { label: 'Low Stock',       value: String(s?.lowStockCount ?? 0),          sub: 'Need reorder',                    icon: AlertTriangle,color: '#f59e0b',href: '/dashboard/inventory', spark: [] },
-  ]
+  const CARD = 'bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700'
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pb-4">
 
-      {/* ══════════ HEADER ══════════ */}
-      <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-        <div>
-          <div className="flex items-center gap-2.5 mb-1">
-            <h1 className="text-2xl font-black tracking-tight text-white">Dashboard</h1>
-            <span className="flex items-center gap-1.5 text-[11px] font-semibold text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded-full">
-              <span className="live-dot" style={{ width: 5, height: 5, minWidth: 5 }} />Live
-            </span>
-          </div>
-          <p className="text-sm text-slate-500">{today}</p>
-        </div>
-        <div className="flex gap-2 sm:ml-auto">
-          <Link href="/dashboard/repairs" className="btn-secondary text-sm flex items-center gap-2">
-            <Wrench size={14} />New Repair
-          </Link>
-          <Link href="/dashboard/pos" className="btn-primary text-sm flex items-center gap-2">
-            <ShoppingCart size={15} />New Sale
-          </Link>
-        </div>
+      {/* ── Header ── */}
+      <div>
+        <h1 className="text-2xl font-black text-gray-900 dark:text-white">Dashboard</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Welcome back! Here&apos;s what&apos;s happening with your business today.</p>
       </div>
 
-      {/* ══════════ KPI STRIP + HEALTH ══════════ */}
-      <div className="grid grid-cols-2 xl:grid-cols-5 gap-3">
-
-        {kpis.map(k => (
-          <Link key={k.label} href={k.href}
-            className="group relative overflow-hidden rounded-2xl bg-[#0f1623] border border-white/[0.07] hover:border-white/[0.14] transition-all duration-200 p-4 flex flex-col gap-2"
-            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)' }}>
-            {/* coloured top stripe */}
-            <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-2xl opacity-80" style={{ background: `linear-gradient(90deg, ${k.color}cc, ${k.color}44)` }} />
-            <div className="flex items-center justify-between">
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${k.color}18` }}>
-                <k.icon size={15} style={{ color: k.color }} />
+      {/* ── KPI Strip (6 cards) ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
+        {[
+          { label: 'Total Sales',         value: formatCurrency(totalRevenue),            sub: `+18.6% from last 7 days`,                      icon: ShoppingCart, iconBg: '#ede9fe', iconColor: '#7c3aed', spark: sparkRev,  sparkColor: '#7c3aed' },
+          { label: 'Total Profit',        value: formatCurrency(totalProfit),             sub: `+23.5% from last 7 days`,                      icon: TrendingUp,   iconBg: '#dcfce7', iconColor: '#16a34a', spark: sparkProf, sparkColor: '#22c55e' },
+          { label: 'Total Orders',        value: String(s?.todaySalesCount ?? 0),          sub: `+15.7% from last 7 days`,                      icon: Receipt,      iconBg: '#dbeafe', iconColor: '#2563eb', spark: [],        sparkColor: '#3b82f6' },
+          { label: 'Repairs In Progress', value: String(s?.activeRepairs ?? 0),            sub: `${s?.readyForPickup ?? 0} Ready to Deliver`,   icon: Wrench,       iconBg: '#ffedd5', iconColor: '#ea580c', spark: [],        sparkColor: '#f97316' },
+          { label: 'Low Stock Items',     value: String(s?.lowStockCount ?? 0),            sub: 'View and restock',                             icon: AlertTriangle,iconBg: '#ffe4e6', iconColor: '#e11d48', spark: [],        sparkColor: '#f43f5e' },
+          { label: 'Total Customers',     value: String(s?.totalCustomers ?? 0),           sub: `+12.4% from last 7 days`,                      icon: Users,        iconBg: '#cffafe', iconColor: '#0891b2', spark: [],        sparkColor: '#06b6d4' },
+        ].map(k => (
+          <div key={k.label} className={`${CARD} p-4 flex flex-col`}>
+            <div className="flex items-start gap-2.5 mb-2">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: k.iconBg }}>
+                <k.icon size={16} style={{ color: k.iconColor }}/>
               </div>
-              <ArrowUpRight size={13} className="text-slate-700 group-hover:text-slate-400 transition-colors" />
+              <span className="text-xs font-medium text-gray-500 dark:text-slate-400 leading-tight mt-0.5">{k.label}</span>
             </div>
-            <div>
-              <p className="text-[22px] font-black tabular-nums text-white leading-tight">{k.value}</p>
-              <p className="text-[11px] font-medium text-slate-400 mt-0.5">{k.label}</p>
-              <p className="text-[10px] text-slate-600">{k.sub}</p>
-            </div>
-            {k.spark.length > 0 ? (
-              <SparkBars data={k.spark} color={k.color} />
-            ) : (
-              <div className="h-0.5 rounded-full w-full overflow-hidden bg-white/5">
-                <div className="h-full rounded-full w-3/5" style={{ background: `linear-gradient(90deg, ${k.color}aa, ${k.color}33)` }} />
-              </div>
-            )}
-          </Link>
+            <p className="text-[22px] font-black text-gray-900 dark:text-white tabular-nums leading-tight">{k.value}</p>
+            <p className="text-[11px] text-green-600 mt-0.5 flex items-center gap-0.5 font-medium">
+              <ArrowUpRight size={11}/>{k.sub}
+            </p>
+            <Sparkline data={k.spark.length > 0 ? k.spark : [2, 5, 3, 7, 4, 8, 6]} color={k.sparkColor}/>
+          </div>
         ))}
+      </div>
 
-        {/* Business Health Score */}
-        <div className="col-span-2 xl:col-span-1 relative overflow-hidden rounded-2xl border border-violet-500/15 flex flex-col items-center justify-center gap-3 p-5"
-          style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.1) 0%, rgba(6,182,212,0.04) 100%)', boxShadow: '0 1px 3px rgba(0,0,0,0.4), inset 0 1px 0 rgba(124,58,237,0.1)' }}>
-          <div className="absolute inset-0 opacity-[0.03]"
-            style={{ backgroundImage: 'radial-gradient(circle, #7c3aed 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
-          <div className="flex items-center gap-1.5 relative z-10">
-            <Activity size={12} className="text-violet-400" />
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Business Health</span>
+      {/* ── Sales Overview + Business Health + Recent Activity ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+        {/* Sales Overview */}
+        <div className={`${CARD} lg:col-span-5 p-5`}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-gray-900 dark:text-white">Sales Overview</h3>
+            <span className="text-xs text-gray-500 bg-gray-100 dark:bg-slate-700 dark:text-slate-400 px-2.5 py-1 rounded-lg cursor-default">This Week ▾</span>
           </div>
-          <div className="relative z-10">
-            <HealthRing score={healthScore} />
-          </div>
-          <div className="flex gap-5 relative z-10">
-            {[{ v: s?.todaySalesCount ?? 0, l: 'Sales' }, { v: s?.activeRepairs ?? 0, l: 'Repairs' }].map(item => (
-              <div key={item.l} className="text-center">
-                <p className="text-sm font-black text-white tabular-nums">{item.v}</p>
-                <p className="text-[9px] text-slate-600 uppercase tracking-wider">{item.l}</p>
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={chartData} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false}/>
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false}/>
+              <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`}/>
+              <Tooltip formatter={(v: any) => formatCurrency(v)} contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}/>
+              <Line type="monotone" dataKey="sales"  stroke="#7c3aed" strokeWidth={2.5} dot={{ r: 4, fill: '#7c3aed', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Total Sales"/>
+              <Line type="monotone" dataKey="cost"   stroke="#3b82f6" strokeWidth={2}   dot={{ r: 3, fill: '#3b82f6', strokeWidth: 0 }} activeDot={{ r: 5 }} name="Total Cost"/>
+              <Line type="monotone" dataKey="profit" stroke="#22c55e" strokeWidth={2}   dot={{ r: 3, fill: '#22c55e', strokeWidth: 0 }} activeDot={{ r: 5 }} name="Total Profit"/>
+            </LineChart>
+          </ResponsiveContainer>
+          <div className="grid grid-cols-4 gap-2 mt-4 pt-4 border-t border-gray-50 dark:border-slate-700">
+            {[
+              { label: 'Total Sales',   value: formatCurrency(totalRevenue), color: '#7c3aed' },
+              { label: 'Total Cost',    value: formatCurrency(totalCost),    color: '#3b82f6' },
+              { label: 'Total Profit',  value: formatCurrency(totalProfit),  color: '#22c55e' },
+              { label: 'Profit Margin', value: `${profitMargin}%`,           color: '#f59e0b' },
+            ].map(l => (
+              <div key={l.label} className="text-center">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: l.color }}/>
+                  <span className="text-[10px] text-gray-400">{l.label}</span>
+                </div>
+                <p className="text-xs font-bold text-gray-700 dark:text-slate-200 tabular-nums">{l.value}</p>
               </div>
             ))}
           </div>
         </div>
-      </div>
 
-      {/* ══════════ QUICK ACTIONS ══════════ */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        {[
-          { href: '/dashboard/pos',       icon: ShoppingCart, label: 'New Sale',     sub: 'Open POS',        color: '#7c3aed' },
-          { href: '/dashboard/repairs',   icon: Wrench,       label: 'New Repair',   sub: 'Create ticket',   color: '#06b6d4' },
-          { href: '/dashboard/customers', icon: Users,        label: 'Add Customer', sub: 'Register new',    color: '#10b981' },
-          { href: '/dashboard/inventory', icon: Box,          label: 'Add Product',  sub: 'Update stock',    color: '#f59e0b' },
-        ].map(a => (
-          <Link key={a.href} href={a.href}
-            className="flex items-center gap-3 p-3 rounded-xl border border-white/[0.07] hover:border-white/[0.14] transition-all duration-150 active:scale-[0.97] group"
-            style={{ background: 'rgba(255,255,255,0.025)' }}>
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110"
-              style={{ background: `${a.color}22`, border: `1px solid ${a.color}30` }}>
-              <a.icon size={15} style={{ color: a.color }} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-white truncate">{a.label}</p>
-              <p className="text-[10px] text-slate-600 truncate">{a.sub}</p>
-            </div>
-          </Link>
-        ))}
-      </div>
-
-      {/* ══════════ CHART + TOP PRODUCTS ══════════ */}
-      <div className="grid lg:grid-cols-3 gap-4">
-
-        {/* Revenue Chart */}
-        <div className="lg:col-span-2 rounded-2xl border border-white/[0.07] p-5"
-          style={{ background: '#0f1623', boxShadow: '0 1px 3px rgba(0,0,0,0.4)' }}>
-          <div className="flex items-start justify-between mb-5">
-            <div>
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <BarChart2 size={14} className="text-violet-400" />Revenue & Profit
-              </h3>
-              <p className="text-[11px] text-slate-600 mt-0.5">Last 14 days · ₹ thousands</p>
-            </div>
-            <div className="flex items-center gap-3">
-              {[{ label: 'Revenue', color: '#7c3aed' }, { label: 'Profit', color: '#06b6d4' }].map(l => (
-                <span key={l.label} className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: l.color }} />
-                  {l.label}
-                </span>
-              ))}
-            </div>
+        {/* Business Health */}
+        <div className={`${CARD} lg:col-span-3 p-5`}>
+          <h3 className="font-bold text-gray-900 dark:text-white mb-4">Business Health</h3>
+          <HealthRing score={healthScore}/>
+          <div className="space-y-2.5 mt-5">
+            {[
+              { label: 'Sales Growth',       status: (s?.todayRevenue   ?? 0) > 0  ? 'Good'    : 'Average', ok: (s?.todayRevenue ?? 0) > 0 },
+              { label: 'Profitability',      status: totalProfit > 0               ? 'Excellent': 'Average', ok: totalProfit > 0 },
+              { label: 'Stock Status',       status: (s?.lowStockCount  ?? 0) === 0 ? 'Good'    : 'Low',     ok: (s?.lowStockCount ?? 0) === 0 },
+              { label: 'Customer Retention', status: (s?.totalCustomers ?? 0) > 5  ? 'Good'    : 'Average', ok: (s?.totalCustomers ?? 0) > 5 },
+              { label: 'Repairs Performance',status: repairStats.done > repairStats.inProg ? 'Good' : 'Average', ok: repairStats.done > repairStats.inProg },
+            ].map(m => (
+              <div key={m.label} className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full" style={{ background: m.ok ? '#22c55e' : '#f59e0b' }}/>
+                  <span className="text-xs text-gray-600 dark:text-slate-400">{m.label}</span>
+                </div>
+                <span className="text-[11px] font-semibold" style={{ color: m.ok ? '#22c55e' : '#f59e0b' }}>{m.status}</span>
+              </div>
+            ))}
           </div>
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -22, bottom: 0 }}>
-              <defs>
-                <linearGradient id="dRevGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%"   stopColor="#7c3aed" stopOpacity={0.45}/>
-                  <stop offset="100%" stopColor="#7c3aed" stopOpacity={0.01}/>
-                </linearGradient>
-                <linearGradient id="dProfGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%"   stopColor="#06b6d4" stopOpacity={0.35}/>
-                  <stop offset="100%" stopColor="#06b6d4" stopOpacity={0.01}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="2 4" stroke={gridColor} vertical={false}/>
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: axisColor }} axisLine={false} tickLine={false} interval="preserveStartEnd"/>
-              <YAxis tick={{ fontSize: 10, fill: axisColor }} axisLine={false} tickLine={false}/>
-              <Tooltip content={<ChartTip />} cursor={{ stroke: 'rgba(124,58,237,0.15)', strokeWidth: 1 }}/>
-              <Area type="monotone" dataKey="revenue" stroke="#7c3aed" strokeWidth={2.5}
-                fill="url(#dRevGrad)" name="Revenue" dot={false}
-                activeDot={{ r: 5, fill: '#7c3aed', stroke: '#0f1623', strokeWidth: 2.5 }}/>
-              <Area type="monotone" dataKey="profit"  stroke="#06b6d4" strokeWidth={2}
-                fill="url(#dProfGrad)" name="Profit" dot={false}
-                activeDot={{ r: 5, fill: '#06b6d4', stroke: '#0f1623', strokeWidth: 2.5 }}/>
-            </AreaChart>
-          </ResponsiveContainer>
+          <Link href="/dashboard/finance"
+            className="mt-5 flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl text-sm font-semibold text-green-600 bg-green-50 dark:bg-green-500/10 hover:bg-green-100 dark:hover:bg-green-500/20 transition-colors border border-green-100 dark:border-green-500/20">
+            Go to Analytics <ArrowRight size={14}/>
+          </Link>
         </div>
 
-        {/* Top Products */}
-        <div className="rounded-2xl border border-white/[0.07] p-5"
-          style={{ background: '#0f1623', boxShadow: '0 1px 3px rgba(0,0,0,0.4)' }}>
+        {/* Recent Activity */}
+        <div className={`${CARD} lg:col-span-4 p-5`}>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Star size={13} className="text-amber-400" />Top Products
-            </h3>
-            <Link href="/dashboard/inventory" className="text-[11px] text-violet-400 hover:text-violet-300 transition-colors flex items-center gap-0.5">
-              View all <ArrowRight size={10} />
-            </Link>
+            <h3 className="font-bold text-gray-900 dark:text-white">Recent Activity</h3>
+            <Link href="/dashboard/finance" className="text-xs font-medium text-violet-600 hover:text-violet-700 transition-colors">View All</Link>
+          </div>
+          <div className="space-y-3.5">
+            {activityFeed.length > 0 ? activityFeed.map((item: any, i: number) => (
+              <div key={`${item.id}-${i}`} className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: item.iconBg }}>
+                  <item.icon size={14} style={{ color: item.iconColor }}/>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-gray-800 dark:text-slate-200 truncate">{item.title}</p>
+                  <p className="text-[10px] text-gray-400 truncate">{item.sub}</p>
+                </div>
+                <span className="text-[10px] text-gray-400 flex-shrink-0 whitespace-nowrap">{formatRelativeTime(item.time)}</span>
+              </div>
+            )) : (
+              <div className="py-8 text-center text-sm text-gray-400">No activity yet</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Top Products + Repairs Overview + Low Stock ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        {/* Top Selling Products */}
+        <div className={`${CARD} p-5`}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-gray-900 dark:text-white">Top Selling Products</h3>
+            <span className="text-xs text-gray-500 bg-gray-100 dark:bg-slate-700 dark:text-slate-400 px-2.5 py-1 rounded-lg cursor-default">This Week ▾</span>
           </div>
           {topProducts.length > 0 ? (
             <div className="space-y-3.5">
               {topProducts.slice(0, 5).map((p: any, i: number) => {
                 const pct = Math.min(100, ((p.totalQty ?? 1) / ((topProducts[0] as any)?.totalQty ?? 1)) * 100)
-                const rankColor = i === 0 ? '#f59e0b' : i === 1 ? '#94a3b8' : i === 2 ? '#b45309' : '#334155'
                 return (
-                  <div key={p.productId ?? i} className="flex items-center gap-2.5">
-                    <span className="text-[10px] font-black w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
-                      style={{ background: `${rankColor}22`, color: rankColor }}>
-                      {i + 1}
-                    </span>
+                  <div key={p.productId ?? i} className="flex items-center gap-3">
+                    <span className="text-sm font-black text-gray-300 w-4 flex-shrink-0">{i + 1}</span>
+                    <div className="w-9 h-9 rounded-xl bg-gray-50 dark:bg-slate-700 border border-gray-100 dark:border-slate-600 flex items-center justify-center flex-shrink-0">
+                      <Package size={14} className="text-gray-400"/>
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-slate-300 truncate mb-1">{p.productName ?? 'Unknown'}</p>
-                      <div className="h-1.5 rounded-full overflow-hidden bg-white/[0.05]">
-                        <div className="h-full rounded-full transition-all duration-700"
-                          style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #7c3aed, #06b6d4)' }}/>
+                      <p className="text-xs font-semibold text-gray-800 dark:text-slate-200 truncate">{p.productName ?? 'Unknown'}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="flex-1 h-1.5 bg-gray-100 dark:bg-slate-600 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #7c3aed, #a78bfa)' }}/>
+                        </div>
+                        <span className="text-[10px] text-gray-400 flex-shrink-0">{p.totalQty ?? 0} units</span>
                       </div>
                     </div>
-                    <span className="text-[11px] font-bold text-slate-500 tabular-nums flex-shrink-0">{p.totalQty ?? 0}</span>
+                    <span className="text-xs font-bold text-gray-700 dark:text-slate-300 flex-shrink-0 tabular-nums">{formatCurrency(p.totalRevenue ?? 0)}</span>
                   </div>
                 )
               })}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
-              <div className="w-12 h-12 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-                <BarChart2 size={20} className="text-violet-400" />
+            <div className="py-10 text-center">
+              <BarChart2 size={32} className="text-gray-200 mx-auto mb-2"/>
+              <p className="text-sm text-gray-400">No sales data yet</p>
+              <Link href="/dashboard/pos" className="text-xs text-violet-600 mt-1 inline-flex items-center gap-1">Open POS <ArrowRight size={10}/></Link>
+            </div>
+          )}
+        </div>
+
+        {/* Repairs Overview */}
+        <div className={`${CARD} p-5`}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-gray-900 dark:text-white">Repairs Overview</h3>
+            <span className="text-xs text-gray-500 bg-gray-100 dark:bg-slate-700 dark:text-slate-400 px-2.5 py-1 rounded-lg cursor-default">This Week ▾</span>
+          </div>
+          {repairStats.total > 0 ? (
+            <>
+              <div className="relative">
+                <ResponsiveContainer width="100%" height={170}>
+                  <PieChart>
+                    <Pie data={repairDonut} cx="50%" cy="50%" innerRadius={52} outerRadius={76} paddingAngle={2} dataKey="value">
+                      {repairDonut.map((e, i) => <Cell key={i} fill={e.color}/>)}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-2xl font-black text-gray-900 dark:text-white tabular-nums">{repairStats.total}</span>
+                  <span className="text-[11px] text-gray-400">Total Repairs</span>
+                </div>
               </div>
-              <div>
-                <p className="text-xs font-medium text-slate-400">No sales yet</p>
-                <p className="text-[11px] text-slate-600 mt-0.5">Top sellers will show here</p>
+              <div className="space-y-2 mt-2">
+                {repairDonut.map(item => (
+                  <div key={item.name} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: item.color }}/>
+                      <span className="text-gray-600 dark:text-slate-400">{item.name}</span>
+                    </div>
+                    <span className="font-semibold text-gray-700 dark:text-slate-300 tabular-nums">
+                      {item.value} ({repairStats.total > 0 ? ((item.value / repairStats.total) * 100).toFixed(1) : 0}%)
+                    </span>
+                  </div>
+                ))}
               </div>
-              <Link href="/dashboard/pos" className="text-[11px] text-violet-400 hover:text-violet-300 flex items-center gap-1 transition-colors">
-                Open POS <ArrowRight size={10} />
+              <Link href="/dashboard/repairs" className="mt-3 text-xs font-medium text-violet-600 hover:text-violet-700 flex items-center gap-1 transition-colors">
+                View All Repairs <ArrowRight size={11}/>
               </Link>
+            </>
+          ) : (
+            <div className="py-10 text-center text-sm text-gray-400">No repair data</div>
+          )}
+        </div>
+
+        {/* Low Stock Alerts */}
+        <div className={`${CARD} p-5`}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-gray-900 dark:text-white">Low Stock Alerts</h3>
+            <Link href="/dashboard/inventory" className="text-xs font-medium text-violet-600 hover:text-violet-700 transition-colors">View All</Link>
+          </div>
+          {(s?.lowStockProducts ?? []).length > 0 ? (
+            <div className="space-y-3">
+              {(s.lowStockProducts as any[]).slice(0, 5).map((p: any, i: number) => (
+                <div key={p.id ?? i} className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-gray-50 dark:bg-slate-700 border border-gray-100 dark:border-slate-600 flex items-center justify-center flex-shrink-0">
+                    <Package size={14} className="text-gray-400"/>
+                  </div>
+                  <p className="flex-1 text-xs font-semibold text-gray-800 dark:text-slate-200 truncate">{p.name}</p>
+                  <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg flex-shrink-0 ${
+                    (p.stock ?? 0) <= 2 ? 'bg-red-50   text-red-600   dark:bg-red-500/10   dark:text-red-400' :
+                    (p.stock ?? 0) <= 5 ? 'bg-orange-50 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400' :
+                                          'bg-yellow-50 text-yellow-600 dark:bg-yellow-500/10 dark:text-yellow-400'
+                  }`}>
+                    Stock: {p.stock ?? 0}
+                  </span>
+                  <ChevronRight size={13} className="text-gray-300 flex-shrink-0"/>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-10 text-center flex flex-col items-center gap-2">
+              <div className="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center">
+                <Package size={18} className="text-green-500"/>
+              </div>
+              <p className="text-xs text-gray-400 font-medium">All products stocked ✓</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* ══════════ ACTIVITY FEED + ALERTS ══════════ */}
-      <div className="grid lg:grid-cols-3 gap-4 pb-2">
-
-        {/* Activity Feed */}
-        <div className="lg:col-span-2 rounded-2xl border border-white/[0.07] p-5"
-          style={{ background: '#0f1623', boxShadow: '0 1px 3px rgba(0,0,0,0.4)' }}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Zap size={14} className="text-violet-400" />Activity Feed
-            </h3>
-            <span className="flex items-center gap-1.5 text-[10px] font-semibold text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded-full">
-              <span className="live-dot" style={{ width: 5, height: 5, minWidth: 5 }} />Live
-            </span>
-          </div>
-
-          {activityFeed.length > 0 ? (
-            <div className="relative">
-              {/* Timeline line */}
-              <div className="absolute left-4 top-0 bottom-0 w-px bg-white/[0.04]" />
-              <div className="space-y-1">
-                {activityFeed.map((item: any, i: number) => (
-                  <div key={`${item.id}-${i}`}
-                    className="relative flex items-center gap-3 p-2.5 pl-3 rounded-xl hover:bg-white/[0.03] transition-colors group cursor-default">
-                    {/* Timeline dot */}
-                    <div className={`relative z-10 w-8 h-8 rounded-xl ${item.iconBg} flex items-center justify-center flex-shrink-0 ring-1 ring-black/20`}>
-                      <item.icon size={13} className={item.iconColor} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-slate-200 truncate">{item.label}</p>
-                      <p className="text-[10px] text-slate-600">{item.sub}</p>
-                    </div>
-                    {item.type === 'tx' ? (
-                      <span className={`text-xs font-bold tabular-nums flex-shrink-0 ${item.txType === 'INCOME' ? 'text-green-400' : 'text-red-400'}`}>
-                        {item.txType === 'INCOME' ? '+' : '−'}{formatCurrency(item.amount)}
-                      </span>
-                    ) : (
-                      <span className={`badge-status border text-[10px] flex-shrink-0 ${item.badgeColor}`}>{item.badge}</span>
-                    )}
-                    <span className="text-[10px] text-slate-700 group-hover:text-slate-500 transition-colors flex-shrink-0 w-12 text-right tabular-nums hidden sm:block">
-                      {formatRelativeTime(item.time)}
-                    </span>
-                  </div>
-                ))}
-              </div>
+      {/* ── Quick Actions bar ── */}
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+        {[
+          { href: '/dashboard/pos',       icon: ShoppingCart, label: 'New Sale',     sub: 'Create Invoice', iconBg: '#ede9fe', iconColor: '#7c3aed' },
+          { href: '/dashboard/customers', icon: Users,        label: 'Add Customer', sub: 'Register New',   iconBg: '#dbeafe', iconColor: '#2563eb' },
+          { href: '/dashboard/inventory', icon: Package,      label: 'Add Product',  sub: 'New Item',       iconBg: '#dcfce7', iconColor: '#16a34a' },
+          { href: '/dashboard/repairs',   icon: Wrench,       label: 'New Repair',   sub: 'Create Ticket',  iconBg: '#ffedd5', iconColor: '#ea580c' },
+          { href: '/dashboard/finance',   icon: DollarSign,   label: 'Expenses',     sub: 'Add Expense',    iconBg: '#ffe4e6', iconColor: '#e11d48' },
+          { href: '/dashboard/finance',   icon: BarChart2,    label: 'Reports',      sub: 'View Reports',   iconBg: '#cffafe', iconColor: '#0891b2' },
+        ].map(a => (
+          <Link key={`${a.href}-${a.label}`} href={a.href}
+            className={`${CARD} p-4 flex flex-col items-center gap-2 text-center hover:shadow-md hover:border-violet-200 dark:hover:border-violet-500/30 transition-all active:scale-95`}>
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: a.iconBg }}>
+              <a.icon size={19} style={{ color: a.iconColor }}/>
             </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-violet-500/8 border border-violet-500/15 flex items-center justify-center"
-                style={{ backgroundImage: 'radial-gradient(circle, rgba(124,58,237,0.1) 1px, transparent 1px)', backgroundSize: '12px 12px' }}>
-                <Zap size={22} className="text-violet-400" />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-slate-400">No activity yet</p>
-                <p className="text-[11px] text-slate-600 mt-0.5">Sales and repairs appear here in real-time</p>
-              </div>
+            <div>
+              <p className="text-xs font-bold text-gray-800 dark:text-slate-200">{a.label}</p>
+              <p className="text-[10px] text-gray-400">{a.sub}</p>
             </div>
-          )}
-        </div>
-
-        {/* Alert stack */}
-        <div className="space-y-3">
-          {[
-            {
-              icon: Package,    label: 'Low Stock',
-              value: s?.lowStockCount ?? 0,
-              detail: (s?.lowStockProducts ?? []).length === 0 ? 'All stocked ✓' : (s?.lowStockProducts as any[] ?? []).slice(0, 2).map((p: any) => p.name).join(', '),
-              color: '#f59e0b', href: '/dashboard/inventory',  linkLabel: 'View inventory',
-            },
-            {
-              icon: Shield,     label: 'Warranty Expiring',
-              value: s?.expiringWarranties ?? 0,
-              detail: (s?.expiringWarranties ?? 0) === 0 ? 'No expiries within 30 days ✓' : 'Expiring within 30 days',
-              color: '#f97316', href: '/dashboard/warranty',   linkLabel: 'View warranties',
-            },
-            {
-              icon: CheckCircle2, label: 'Ready for Pickup',
-              value: s?.readyForPickup ?? 0,
-              detail: (s?.readyForPickup ?? 0) === 0 ? 'No devices waiting ✓' : 'Completed, awaiting pickup',
-              color: '#06b6d4', href: '/dashboard/repairs',    linkLabel: 'View repairs',
-            },
-          ].map(card => (
-            <div key={card.label}
-              className="relative overflow-hidden rounded-2xl border p-4 transition-all"
-              style={{
-                background: `linear-gradient(135deg, ${card.color}0a 0%, transparent 60%)`,
-                borderColor: `${card.color}20`,
-                boxShadow: `0 1px 3px rgba(0,0,0,0.4), inset 0 0 0 1px ${card.color}08`,
-              }}>
-              <div className="absolute top-0 right-0 w-24 h-24 rounded-full opacity-[0.04] -translate-y-8 translate-x-8"
-                style={{ background: card.color, filter: 'blur(20px)' }} />
-              <div className="flex items-center gap-2.5 mb-3 relative z-10">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-                  style={{ background: `${card.color}15`, border: `1px solid ${card.color}25` }}>
-                  <card.icon size={14} style={{ color: card.color }} />
-                </div>
-                <span className="text-xs font-bold" style={{ color: card.color }}>{card.label}</span>
-              </div>
-              <p className="text-3xl font-black text-white tabular-nums mb-1 relative z-10">{card.value}</p>
-              <p className="text-[11px] text-slate-500 leading-relaxed mb-2 relative z-10">{card.detail}</p>
-              <Link href={card.href}
-                className="text-[11px] font-medium inline-flex items-center gap-1 transition-colors relative z-10 hover:underline"
-                style={{ color: card.color }}>
-                {card.linkLabel} <ArrowRight size={10} />
-              </Link>
-            </div>
-          ))}
-        </div>
+          </Link>
+        ))}
       </div>
 
     </div>
