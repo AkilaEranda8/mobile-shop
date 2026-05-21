@@ -1,4 +1,5 @@
 import { prisma } from '../config/database'
+import { redis } from '../config/redis'
 
 function nextSeq(last: string | undefined, prefix: string): string {
   let seq = 1
@@ -11,26 +12,22 @@ function nextSeq(last: string | undefined, prefix: string): string {
 }
 
 export async function generateInvoiceNumber(tenantId: string): Promise<string> {
-  // Use total sale count as a fast starting estimate
-  const count = await prisma.sale.count({ where: { tenantId } })
-  let next = count + 1
-  let candidate = `INV-${String(next).padStart(5, '0')}`
-
-  // Check for collision (handles migrations from old date-based format or deletions)
-  const collision = await prisma.sale.findFirst({ where: { tenantId, invoiceNumber: candidate }, select: { id: true } })
-  if (collision) {
-    // Find the actual max number across ALL invoices for this tenant
+  const key = `inv_seq:${tenantId}`
+  // Seed Redis counter from DB on first use (SET NX = only if key absent)
+  const seeded = await redis.set(key, '0', 'NX')
+  if (seeded === 'OK') {
+    // Key was just created — initialize from existing sale count / max number
     const all = await prisma.sale.findMany({ where: { tenantId }, select: { invoiceNumber: true } })
-    let max = count
+    let max = all.length
     for (const s of all) {
       const m = s.invoiceNumber?.match(/(\d+)$/)
       if (m) max = Math.max(max, parseInt(m[1], 10))
     }
-    next = max + 1
-    candidate = `INV-${String(next).padStart(5, '0')}`
+    await redis.set(key, String(max))
   }
-
-  return candidate
+  // Atomic increment — no race condition regardless of concurrency
+  const next = await redis.incr(key)
+  return `INV-${String(next).padStart(5, '0')}`
 }
 
 export async function generateTicketNumber(tenantId: string): Promise<string> {

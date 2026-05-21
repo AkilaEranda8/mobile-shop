@@ -69,6 +69,14 @@ app.use('/uploads', (_req, res, next) => {
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 500, standardHeaders: true, legacyHeaders: false })
 app.use(limiter)
 
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many login attempts. Please try again in 15 minutes.' },
+})
+
 const API = `/${env.API_PREFIX}`
 
 app.get('/health', (_req, res) => res.json({ status: 'ok', version: '1.0.0', timestamp: new Date() }))
@@ -115,6 +123,10 @@ app.get(`${API}/plans`, async (_req, res) => {
   } catch { res.json({ success: true, data: PLANS }) }
 })
 
+app.use(`${API}/auth/login`,      authLimiter)
+app.use(`${API}/auth/kc-login`,   authLimiter)
+app.use(`${API}/auth/register`,   authLimiter)
+app.use(`${API}/auth/kc-refresh`, authLimiter)
 app.use(`${API}/auth`, authRoutes)
 app.use(`${API}/users`, usersRoutes)
 app.use(`${API}/tenants`, tenantsRoutes)

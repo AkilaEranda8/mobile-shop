@@ -192,32 +192,53 @@ router.get('/analytics', async (_req: Request, res: Response, next: NextFunction
       prisma.tenant.count({ where: { status: 'ACTIVE' } }),
     ])
 
-    // Monthly GMV trend — last 12 months
+    // Monthly GMV trend — last 12 months (single SQL query, replaces 12 sequential round-trips)
+    const from12 = new Date(now); from12.setMonth(from12.getMonth() - 11); from12.setDate(1); from12.setHours(0, 0, 0, 0)
+    const gmvRaw = await prisma.$queryRaw<Array<{ month: Date; gmv: number; invoices: bigint }>>`
+      SELECT DATE_TRUNC('month', "createdAt") AS month,
+             COALESCE(SUM(total), 0)::float   AS gmv,
+             COUNT(*)::bigint                 AS invoices
+      FROM   "Sale"
+      WHERE  "createdAt" >= ${from12}
+      GROUP  BY 1
+      ORDER  BY 1 ASC
+    `
+    const gmvMap: Record<string, { gmv: number; invoices: number }> = {}
+    for (const r of gmvRaw) {
+      const key = new Date(r.month).toISOString().slice(0, 7)
+      gmvMap[key] = { gmv: Number(r.gmv), invoices: Number(r.invoices) }
+    }
     const gmvMonths: { month: string; gmv: number; invoices: number }[] = []
     for (let i = 11; i >= 0; i--) {
-      const from = new Date(now); from.setMonth(from.getMonth() - i); from.setDate(1); from.setHours(0, 0, 0, 0)
-      const to   = new Date(from); to.setMonth(to.getMonth() + 1)
-      const agg  = await prisma.sale.aggregate({
-        where: { createdAt: { gte: from, lt: to } },
-        _sum: { total: true }, _count: true,
-      })
+      const d = new Date(now); d.setMonth(d.getMonth() - i); d.setDate(1)
+      const key = d.toISOString().slice(0, 7)
       gmvMonths.push({
-        month: from.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }),
-        gmv: Number(agg._sum.total ?? 0),
-        invoices: agg._count,
+        month: d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }),
+        gmv:      gmvMap[key]?.gmv      ?? 0,
+        invoices: gmvMap[key]?.invoices ?? 0,
       })
     }
 
-    // New tenants per month — last 12 months
+    // New tenants per month — last 12 months (single SQL query, replaces 12 sequential round-trips)
+    const tenantRaw = await prisma.$queryRaw<Array<{ month: Date; cnt: bigint }>>`
+      SELECT DATE_TRUNC('month', "createdAt") AS month,
+             COUNT(*)::bigint                 AS cnt
+      FROM   "Tenant"
+      WHERE  "createdAt" >= ${from12}
+      GROUP  BY 1
+      ORDER  BY 1 ASC
+    `
+    const tenantMap: Record<string, number> = {}
+    for (const r of tenantRaw) tenantMap[new Date(r.month).toISOString().slice(0, 7)] = Number(r.cnt)
     const tenantMonths: { month: string; newTenants: number; cumulative: number }[] = []
     let cumulative = 0
     for (let i = 11; i >= 0; i--) {
-      const from = new Date(now); from.setMonth(from.getMonth() - i); from.setDate(1); from.setHours(0, 0, 0, 0)
-      const to   = new Date(from); to.setMonth(to.getMonth() + 1)
-      const cnt  = await prisma.tenant.count({ where: { createdAt: { gte: from, lt: to } } })
+      const d = new Date(now); d.setMonth(d.getMonth() - i); d.setDate(1)
+      const key = d.toISOString().slice(0, 7)
+      const cnt = tenantMap[key] ?? 0
       cumulative += cnt
       tenantMonths.push({
-        month: from.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }),
+        month: d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }),
         newTenants: cnt,
         cumulative,
       })
