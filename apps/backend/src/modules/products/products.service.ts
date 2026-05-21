@@ -22,7 +22,10 @@ export const productsService = {
   },
 
   async create(tenantId: string, body: any) {
-    if (body.sku) {
+    if (!body.sku?.trim()) {
+      body.sku = `SKU-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`
+    } else {
+      body.sku = body.sku.trim()
       const existing = await prisma.product.findFirst({ where: { tenantId, sku: body.sku, isActive: true } })
       if (existing) throw new AppError('SKU already in use', 409)
     }
