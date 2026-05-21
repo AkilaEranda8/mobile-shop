@@ -92,7 +92,7 @@ export default function DashboardPage() {
   const s            = stats as any
   const revenueArr   = Array.isArray(rawRevenue) ? rawRevenue as any[] : []
   const allRepairs   = (repairsData?.data ?? []) as RepairTicket[]
-  const activeRepairs = allRepairs.filter(r => r.status !== 'DELIVERED' && r.status !== 'CANCELLED' && r.status !== 'COMPLETED')
+  const activeRepairs = allRepairs.filter(r => r.status !== 'READY')
   const transactions  = (txData?.data ?? []) as AppTransaction[]
   const topProducts   = Array.isArray(rawTopProducts) ? rawTopProducts as any[] : []
 
@@ -116,18 +116,18 @@ export default function DashboardPage() {
 
   /* Repairs breakdown */
   const repairStats = useMemo(() => {
-    const inProg  = allRepairs.filter(r => r.status === 'IN_PROGRESS').length
-    const waiting = allRepairs.filter(r => r.status === 'WAITING_FOR_PARTS').length
-    const ready   = allRepairs.filter(r => ['READY_FOR_DELIVERY','READY_FOR_PICKUP','DELIVERED'].includes(r.status)).length
-    const done    = allRepairs.filter(r => r.status === 'COMPLETED').length
+    const inProg  = allRepairs.filter(r => r.status === 'IN_REPAIR').length
+    const waiting = allRepairs.filter(r => r.status === 'RECEIVED' || r.status === 'DIAGNOSED').length
+    const ready   = allRepairs.filter(r => r.status === 'READY').length
+    const done    = allRepairs.filter(r => r.status === 'QC').length
     return { inProg, waiting, ready, done, total: allRepairs.length }
   }, [allRepairs])
 
   const repairDonut = [
-    { name: 'In Progress',       value: repairStats.inProg,  color: '#3b82f6' },
-    { name: 'Waiting for Parts', value: repairStats.waiting, color: '#8b5cf6' },
-    { name: 'Ready to Deliver',  value: repairStats.ready,   color: '#22c55e' },
-    { name: 'Completed',         value: repairStats.done,    color: '#f59e0b' },
+    { name: 'In Repair',   value: repairStats.inProg,  color: '#3b82f6' },
+    { name: 'Received / Diagnosed', value: repairStats.waiting, color: '#8b5cf6' },
+    { name: 'Ready for Pickup', value: repairStats.ready,   color: '#22c55e' },
+    { name: 'Quality Check',    value: repairStats.done,    color: '#f59e0b' },
   ].filter(d => d.value > 0)
 
   /* Health */
