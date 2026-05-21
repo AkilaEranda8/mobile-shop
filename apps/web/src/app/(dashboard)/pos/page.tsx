@@ -1181,7 +1181,7 @@ export default function POSPage() {
                       </div>
                       <button onClick={() => { if (selectedCustomer) setAddWarranty(p => !p) }}
                         className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
-                        style={{ background: addWarranty && selectedCustomer ? '#f59e0b' : 'rgba(255,255,255,.1)', cursor: !selectedCustomer ? 'not-allowed' : 'pointer' }}>
+                        style={{ background: addWarranty && selectedCustomer ? '#f59e0b' : 'var(--border-default, #cbd5e1)', cursor: !selectedCustomer ? 'not-allowed' : 'pointer' }}>
                         <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left: addWarranty && selectedCustomer ? '18px' : '2px' }} />
                       </button>
                     </div>
