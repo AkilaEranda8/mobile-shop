@@ -11,14 +11,26 @@ function nextSeq(last: string | undefined, prefix: string): string {
 }
 
 export async function generateInvoiceNumber(tenantId: string): Promise<string> {
-  const today = new Date()
-  const prefix = `INV-${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`
-  const last = await prisma.sale.findFirst({
-    where: { tenantId, invoiceNumber: { startsWith: prefix } },
-    orderBy: { invoiceNumber: 'desc' },
-    select: { invoiceNumber: true },
-  })
-  return nextSeq(last?.invoiceNumber, prefix)
+  // Use total sale count as a fast starting estimate
+  const count = await prisma.sale.count({ where: { tenantId } })
+  let next = count + 1
+  let candidate = `INV-${String(next).padStart(5, '0')}`
+
+  // Check for collision (handles migrations from old date-based format or deletions)
+  const collision = await prisma.sale.findFirst({ where: { tenantId, invoiceNumber: candidate }, select: { id: true } })
+  if (collision) {
+    // Find the actual max number across ALL invoices for this tenant
+    const all = await prisma.sale.findMany({ where: { tenantId }, select: { invoiceNumber: true } })
+    let max = count
+    for (const s of all) {
+      const m = s.invoiceNumber?.match(/(\d+)$/)
+      if (m) max = Math.max(max, parseInt(m[1], 10))
+    }
+    next = max + 1
+    candidate = `INV-${String(next).padStart(5, '0')}`
+  }
+
+  return candidate
 }
 
 export async function generateTicketNumber(tenantId: string): Promise<string> {
