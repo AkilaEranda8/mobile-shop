@@ -164,7 +164,7 @@ export default function DashboardPage() {
   const CARD = 'bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700'
 
   return (
-    <div className="space-y-5 pb-4">
+    <div className="space-y-5 pb-4 min-h-screen -m-4 lg:-m-6 p-4 lg:p-6 bg-[#f3f5f9] dark:bg-transparent">
 
       {/* ── Header ── */}
       <div>
