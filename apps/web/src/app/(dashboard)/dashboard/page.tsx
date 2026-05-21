@@ -92,7 +92,7 @@ export default function DashboardPage() {
   const s            = stats as any
   const revenueArr   = Array.isArray(rawRevenue) ? rawRevenue as any[] : []
   const allRepairs   = (repairsData?.data ?? []) as RepairTicket[]
-  const activeRepairs = allRepairs.filter(r => r.status !== 'READY')
+  const activeRepairs = allRepairs.filter(r => !['READY','DELIVERED','CANCELLED'].includes(r.status as string))
   const transactions  = (txData?.data ?? []) as AppTransaction[]
   const topProducts   = Array.isArray(rawTopProducts) ? rawTopProducts as any[] : []
 
@@ -116,29 +116,35 @@ export default function DashboardPage() {
 
   /* Repairs breakdown */
   const repairStats = useMemo(() => {
-    const inProg  = allRepairs.filter(r => r.status === 'IN_REPAIR').length
-    const waiting = allRepairs.filter(r => r.status === 'RECEIVED' || r.status === 'DIAGNOSED').length
-    const ready   = allRepairs.filter(r => r.status === 'READY').length
-    const done    = allRepairs.filter(r => r.status === 'QC').length
-    return { inProg, waiting, ready, done, total: allRepairs.length }
+    const received  = allRepairs.filter(r => r.status === 'RECEIVED').length
+    const diagnosed = allRepairs.filter(r => r.status === 'DIAGNOSED').length
+    const inProg    = allRepairs.filter(r => r.status === 'IN_REPAIR').length
+    const qc        = allRepairs.filter(r => r.status === 'QC').length
+    const ready     = allRepairs.filter(r => r.status === 'READY').length
+    const delivered = allRepairs.filter(r => r.status === 'DELIVERED').length
+    const cancelled = allRepairs.filter(r => r.status === 'CANCELLED').length
+    const active    = received + diagnosed + inProg + qc + ready
+    return { received, diagnosed, inProg, qc, ready, delivered, cancelled, active, total: allRepairs.length }
   }, [allRepairs])
 
   const repairDonut = [
-    { name: 'In Repair',   value: repairStats.inProg,  color: '#3b82f6' },
-    { name: 'Received / Diagnosed', value: repairStats.waiting, color: '#8b5cf6' },
-    { name: 'Ready for Pickup', value: repairStats.ready,   color: '#22c55e' },
-    { name: 'Quality Check',    value: repairStats.done,    color: '#f59e0b' },
+    { name: 'In Repair',        value: repairStats.inProg,    color: '#3b82f6' },
+    { name: 'Received',         value: repairStats.received,  color: '#8b5cf6' },
+    { name: 'Diagnosed',        value: repairStats.diagnosed, color: '#a855f7' },
+    { name: 'Quality Check',    value: repairStats.qc,        color: '#f59e0b' },
+    { name: 'Ready for Pickup', value: repairStats.ready,     color: '#22c55e' },
   ].filter(d => d.value > 0)
 
   /* Health */
   const healthScore = useMemo(() => {
-    let sc = 55
-    if ((s?.todayRevenue   ?? 0) > 0)   sc += 12
-    if ((s?.activeRepairs  ?? 0) < 5)   sc += 11
-    if ((s?.lowStockCount  ?? 0) === 0) sc += 11
-    if ((s?.totalCustomers ?? 0) > 10)  sc += 11
+    let sc = 50
+    if (totalRevenue > 0)                        sc += 12
+    if (totalProfit > 0)                         sc += 10
+    if ((s?.activeRepairs  ?? 0) < 10)           sc += 8
+    if ((s?.lowStockCount  ?? 0) === 0)          sc += 10
+    if ((s?.totalCustomers ?? 0) > 5)            sc += 10
     return Math.min(100, sc)
-  }, [s])
+  }, [s, totalRevenue, totalProfit])
 
   /* Activity */
   const activityFeed = useMemo(() => {
@@ -175,12 +181,12 @@ export default function DashboardPage() {
       {/* ── KPI Strip (6 cards) ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
         {[
-          { label: 'Total Sales',         value: formatCurrency(totalRevenue),            sub: `+18.6% from last 7 days`,                      icon: ShoppingCart, iconBg: '#ede9fe', iconColor: '#7c3aed', spark: sparkRev,  sparkColor: '#7c3aed' },
-          { label: 'Total Profit',        value: formatCurrency(totalProfit),             sub: `+23.5% from last 7 days`,                      icon: TrendingUp,   iconBg: '#dcfce7', iconColor: '#16a34a', spark: sparkProf, sparkColor: '#22c55e' },
-          { label: 'Total Orders',        value: String(s?.todaySalesCount ?? 0),          sub: `+15.7% from last 7 days`,                      icon: Receipt,      iconBg: '#dbeafe', iconColor: '#2563eb', spark: [],        sparkColor: '#3b82f6' },
-          { label: 'Repairs In Progress', value: String(s?.activeRepairs ?? 0),            sub: `${s?.readyForPickup ?? 0} Ready to Deliver`,   icon: Wrench,       iconBg: '#ffedd5', iconColor: '#ea580c', spark: [],        sparkColor: '#f97316' },
-          { label: 'Low Stock Items',     value: String(s?.lowStockCount ?? 0),            sub: 'View and restock',                             icon: AlertTriangle,iconBg: '#ffe4e6', iconColor: '#e11d48', spark: [],        sparkColor: '#f43f5e' },
-          { label: 'Total Customers',     value: String(s?.totalCustomers ?? 0),           sub: `+12.4% from last 7 days`,                      icon: Users,        iconBg: '#cffafe', iconColor: '#0891b2', spark: [],        sparkColor: '#06b6d4' },
+          { label: 'Sales (30 Days)',      value: formatCurrency(totalRevenue),            sub: `${profitMargin}% profit margin`,              icon: ShoppingCart, iconBg: '#ede9fe', iconColor: '#7c3aed', spark: sparkRev,  sparkColor: '#7c3aed' },
+          { label: 'Profit (30 Days)',     value: formatCurrency(totalProfit),             sub: `Cost: ${formatCurrency(totalCost)}`,           icon: TrendingUp,   iconBg: '#dcfce7', iconColor: '#16a34a', spark: sparkProf, sparkColor: '#22c55e' },
+          { label: 'Total Orders',        value: String(s?.totalSalesCount ?? s?.todaySalesCount ?? 0), sub: `${s?.todaySalesCount ?? 0} today`,   icon: Receipt,      iconBg: '#dbeafe', iconColor: '#2563eb', spark: [],        sparkColor: '#3b82f6' },
+          { label: 'Active Repairs',      value: String(repairStats.active),               sub: `${repairStats.ready} ready for pickup`,       icon: Wrench,       iconBg: '#ffedd5', iconColor: '#ea580c', spark: [],        sparkColor: '#f97316' },
+          { label: 'Low Stock Items',     value: String(s?.lowStockCount ?? 0),            sub: (s?.lowStockCount ?? 0) === 0 ? 'All stocked ✓' : 'Needs restocking', icon: AlertTriangle,iconBg: '#ffe4e6', iconColor: '#e11d48', spark: [], sparkColor: '#f43f5e' },
+          { label: 'Total Customers',     value: String(s?.totalCustomers ?? 0),           sub: `${s?.expiringWarranties ?? 0} warranties expiring`, icon: Users, iconBg: '#cffafe', iconColor: '#0891b2', spark: [],        sparkColor: '#06b6d4' },
         ].map(k => (
           <div key={k.label} className={`${CARD} p-4 flex flex-col`}>
             <div className="flex items-start gap-2.5 mb-2">
@@ -242,11 +248,11 @@ export default function DashboardPage() {
           <HealthRing score={healthScore}/>
           <div className="space-y-2.5 mt-5">
             {[
-              { label: 'Sales Growth',       status: (s?.todayRevenue   ?? 0) > 0  ? 'Good'    : 'Average', ok: (s?.todayRevenue ?? 0) > 0 },
-              { label: 'Profitability',      status: totalProfit > 0               ? 'Excellent': 'Average', ok: totalProfit > 0 },
-              { label: 'Stock Status',       status: (s?.lowStockCount  ?? 0) === 0 ? 'Good'    : 'Low',     ok: (s?.lowStockCount ?? 0) === 0 },
-              { label: 'Customer Retention', status: (s?.totalCustomers ?? 0) > 5  ? 'Good'    : 'Average', ok: (s?.totalCustomers ?? 0) > 5 },
-              { label: 'Repairs Performance',status: repairStats.done > repairStats.inProg ? 'Good' : 'Average', ok: repairStats.done > repairStats.inProg },
+              { label: 'Sales (30d)',         status: totalRevenue > 0 ? 'Active' : 'No Sales',  ok: totalRevenue > 0 },
+              { label: 'Profitability',      status: totalProfit > 0 ? `${profitMargin}%` : 'No Profit', ok: totalProfit > 0 },
+              { label: 'Stock Status',       status: (s?.lowStockCount ?? 0) === 0 ? 'All Stocked' : `${s?.lowStockCount} Low`, ok: (s?.lowStockCount ?? 0) === 0 },
+              { label: 'Customers',          status: `${s?.totalCustomers ?? 0} registered`, ok: (s?.totalCustomers ?? 0) > 0 },
+              { label: 'Active Repairs',     status: repairStats.active > 0 ? `${repairStats.active} open` : 'None', ok: repairStats.active < 10 },
             ].map(m => (
               <div key={m.label} className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -300,7 +306,7 @@ export default function DashboardPage() {
           {topProducts.length > 0 ? (
             <div className="space-y-3.5">
               {topProducts.slice(0, 5).map((p: any, i: number) => {
-                const pct = Math.min(100, ((p.totalQty ?? 1) / ((topProducts[0] as any)?.totalQty ?? 1)) * 100)
+                const pct = Math.min(100, ((p.quantitySold ?? p.totalQty ?? 1) / ((topProducts[0] as any)?.quantitySold ?? (topProducts[0] as any)?.totalQty ?? 1)) * 100)
                 return (
                   <div key={p.productId ?? i} className="flex items-center gap-3">
                     <span className="text-sm font-black text-gray-300 w-4 flex-shrink-0">{i + 1}</span>
@@ -313,10 +319,10 @@ export default function DashboardPage() {
                         <div className="flex-1 h-1.5 bg-gray-100 dark:bg-slate-600 rounded-full overflow-hidden">
                           <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #7c3aed, #a78bfa)' }}/>
                         </div>
-                        <span className="text-[10px] text-gray-400 flex-shrink-0">{p.totalQty ?? 0} units</span>
+                        <span className="text-[10px] text-gray-400 flex-shrink-0">{p.quantitySold ?? p.totalQty ?? 0} units</span>
                       </div>
                     </div>
-                    <span className="text-xs font-bold text-gray-700 dark:text-slate-300 flex-shrink-0 tabular-nums">{formatCurrency(p.totalRevenue ?? 0)}</span>
+                    <span className="text-xs font-bold text-gray-700 dark:text-slate-300 flex-shrink-0 tabular-nums">{formatCurrency(p.revenue ?? p.totalRevenue ?? 0)}</span>
                   </div>
                 )
               })}
@@ -336,7 +342,7 @@ export default function DashboardPage() {
             <h3 className="font-bold text-gray-900 dark:text-white">Repairs Overview</h3>
             <span className="text-xs text-gray-500 bg-gray-100 dark:bg-slate-700 dark:text-slate-400 px-2.5 py-1 rounded-lg cursor-default">This Week ▾</span>
           </div>
-          {repairStats.total > 0 ? (
+          {repairStats.total > 0 || repairStats.active > 0 ? (
             <>
               <div className="relative">
                 <ResponsiveContainer width="100%" height={170}>
@@ -347,8 +353,8 @@ export default function DashboardPage() {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-2xl font-black text-gray-900 dark:text-white tabular-nums">{repairStats.total}</span>
-                  <span className="text-[11px] text-gray-400">Total Repairs</span>
+                  <span className="text-2xl font-black text-gray-900 dark:text-white tabular-nums">{repairStats.active}</span>
+                  <span className="text-[11px] text-gray-400">Active Repairs</span>
                 </div>
               </div>
               <div className="space-y-2 mt-2">
@@ -359,7 +365,7 @@ export default function DashboardPage() {
                       <span className="text-gray-600 dark:text-slate-400">{item.name}</span>
                     </div>
                     <span className="font-semibold text-gray-700 dark:text-slate-300 tabular-nums">
-                      {item.value} ({repairStats.total > 0 ? ((item.value / repairStats.total) * 100).toFixed(1) : 0}%)
+                      {item.value} ({repairStats.active > 0 ? ((item.value / repairStats.active) * 100).toFixed(1) : 0}%)
                     </span>
                   </div>
                 ))}

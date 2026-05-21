@@ -16,7 +16,7 @@ router.get('/dashboard', async (req: Request, res: Response, next: NextFunction)
     const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999)
     const in30Days = new Date(); in30Days.setDate(in30Days.getDate() + 30)
 
-    const [todaySales, activeRepairs, totalCustomers, lowStockProducts, totalRevenue, expiringWarranties, readyForPickup] = await Promise.all([
+    const [todaySales, activeRepairs, totalCustomers, lowStockProducts, totalRevenue, expiringWarranties, readyForPickup, totalSalesCount] = await Promise.all([
       prisma.sale.aggregate({ where: { tenantId, ...branchFilter, status: { not: 'RETURNED' }, createdAt: { gte: today, lte: todayEnd } }, _sum: { total: true }, _count: true }),
       prisma.repairTicket.count({ where: { tenantId, ...branchFilter, status: { notIn: ['DELIVERED', 'CANCELLED'] } } }),
       prisma.customer.count({ where: { tenantId } }),
@@ -24,11 +24,13 @@ router.get('/dashboard', async (req: Request, res: Response, next: NextFunction)
       prisma.sale.aggregate({ where: { tenantId, ...branchFilter, status: { not: 'RETURNED' } }, _sum: { total: true } }),
       prisma.warranty.count({ where: { tenantId, endDate: { lte: in30Days }, status: 'ACTIVE' } }),
       prisma.repairTicket.count({ where: { tenantId, ...branchFilter, status: 'READY' } }),
+      prisma.sale.count({ where: { tenantId, ...branchFilter, status: { not: 'RETURNED' } } }),
     ])
 
     sendSuccess(res, {
       todayRevenue:    todaySales._sum.total ?? 0,
       todaySalesCount: todaySales._count,
+      totalSalesCount,
       activeRepairs,
       totalCustomers,
       lowStockCount:    lowStockProducts.length,
