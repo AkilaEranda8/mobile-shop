@@ -83,7 +83,7 @@ function HealthRing({ score }: { score: number }) {
    ═════════════════════════════════════════════════════════════════════ */
 export default function DashboardPage() {
   /* ── Data ── */
-  const { data: rawRevenue }     = useRevenue()
+  const { data: rawRevenue }     = useRevenue({ days: '30' })
   const { data: repairsData }    = useRepairs()
   const { data: txData }         = useTransactions()
   const { data: stats }          = useAnalyticsDashboard()
@@ -97,20 +97,20 @@ export default function DashboardPage() {
   const topProducts   = Array.isArray(rawTopProducts) ? rawTopProducts as any[] : []
 
   /* Aggregates */
-  const totalRevenue = revenueArr.reduce((a, d) => a + (d.revenue ?? 0), 0)
-  const totalProfit  = revenueArr.reduce((a, d) => a + (d.profit  ?? 0), 0)
+  const totalRevenue = revenueArr.reduce((a, d) => a + (d.totalRevenue ?? d.revenue ?? 0), 0)
+  const totalProfit  = revenueArr.reduce((a, d) => a + (d.profit ?? 0), 0)
   const totalCost    = totalRevenue - totalProfit
   const profitMargin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(2) : '0.00'
 
   /* Sparklines */
-  const sparkRev  = revenueArr.slice(-7).map(d => Math.round((d.revenue ?? 0) / 1000))
-  const sparkProf = revenueArr.slice(-7).map(d => Math.round((d.profit  ?? 0) / 1000))
+  const sparkRev  = revenueArr.slice(-7).map(d => Math.round((d.totalRevenue ?? d.revenue ?? 0) / 1000))
+  const sparkProf = revenueArr.slice(-7).map(d => Math.round((d.profit ?? 0) / 1000))
 
   /* Chart */
   const chartData = revenueArr.slice(-7).map((d: any) => ({
     date:   new Date(d.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
-    sales:  Math.round(d.revenue ?? 0),
-    cost:   Math.round((d.revenue ?? 0) - (d.profit ?? 0)),
+    sales:  Math.round(d.totalRevenue ?? d.revenue ?? 0),
+    cost:   Math.round((d.totalRevenue ?? d.revenue ?? 0) - (d.profit ?? 0)),
     profit: Math.round(d.profit  ?? 0),
   }))
 
