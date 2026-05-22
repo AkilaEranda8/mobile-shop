@@ -162,49 +162,63 @@ function InvoicePrint({ data = SAMPLE_INVOICE, hideControls = false }, outerRef)
         style={{ fontFamily: "'Segoe UI', Arial, sans-serif", minHeight: '1123px', padding: '40px 50px' }}
       >
         {/* 1. Company header */}
-        <div className="flex justify-between items-center mb-8">
-          {/* Left: logo + name */}
-          <div className="flex items-center gap-3">
-            <div className="w-24 h-24 flex items-center justify-center">
+        <div className="flex items-center mb-8 gap-0">
+          {/* Left: logo + name + slogan */}
+          <div className="flex items-center gap-4 flex-1">
+            <div className="w-20 h-20 flex items-center justify-center flex-shrink-0">
               {data.companyLogo ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={data.companyLogo} alt="logo" className="w-24 h-24 object-contain" />
+                <img src={data.companyLogo} alt="logo" className="w-20 h-20 object-contain" />
               ) : (
-                <svg viewBox="0 0 48 48" className="w-24 h-24">
+                <svg viewBox="0 0 48 48" width="80" height="80">
                   <polygon points="24,4 44,40 4,40" fill="#CC2200" />
                   <polygon points="24,14 38,38 10,38" fill="#991100" opacity="0.5" />
                 </svg>
               )}
             </div>
             <div>
-              <p className="text-xl font-black tracking-widest text-[#2E2E2E] leading-tight">{data.companyName}</p>
+              <p style={{ margin: 0, fontSize: 18, fontWeight: 900, letterSpacing: 1, color: '#2E2E2E', lineHeight: 1.2 }}>{data.companyName}</p>
               {data.companySlogan && (
-                <p className="text-[10px] tracking-widest text-gray-500 uppercase">{data.companySlogan}</p>
+                <p style={{ margin: '4px 0 0', fontSize: 10, letterSpacing: 2, color: '#888', textTransform: 'uppercase' }}>{data.companySlogan}</p>
               )}
             </div>
           </div>
 
-          {/* Right: contact */}
-          <div className="text-right text-xs text-gray-600 space-y-1">
-            <p className="text-[11px] text-gray-700 whitespace-pre-line leading-snug">{data.companyAddress}</p>
-            <div className="flex items-center justify-end gap-1.5 pt-1">
-              <Phone size={10} className="text-gray-400" />
-              <span>{data.companyPhone}</span>
-            </div>
-            <div className="flex items-center justify-end gap-1.5">
-              <Mail size={10} className="text-gray-400" />
-              <span>{data.companyEmail}</span>
-            </div>
-            <div className="flex items-center justify-end gap-1.5">
-              <Globe size={10} className="text-gray-400" />
-              <span>{data.companyWebsite}</span>
-            </div>
+          {/* Vertical divider */}
+          <div style={{ width: 1, alignSelf: 'stretch', background: '#d1d5db', margin: '0 32px', flexShrink: 0 }} />
+
+          {/* Right: contact info — left-aligned with icons */}
+          <div style={{ fontSize: 11, color: '#555', lineHeight: 1.8 }}>
+            {data.companyAddress && (
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                <MapPin size={12} color="#888" style={{ marginTop: 2, flexShrink: 0 }} />
+                <span style={{ whiteSpace: 'pre-line' }}>{data.companyAddress}</span>
+              </div>
+            )}
+            {data.companyPhone && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Phone size={12} color="#888" style={{ flexShrink: 0 }} />
+                <span>{data.companyPhone}</span>
+              </div>
+            )}
+            {data.companyEmail && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Mail size={12} color="#888" style={{ flexShrink: 0 }} />
+                <span>{data.companyEmail}</span>
+              </div>
+            )}
+            {data.companyWebsite && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Globe size={12} color="#888" style={{ flexShrink: 0 }} />
+                <span>{data.companyWebsite}</span>
+              </div>
+            )}
           </div>
         </div>
 
         {/* 2. INVOICE title */}
-        <div className="border-t border-b border-gray-300 py-4 mb-6 text-center">
-          <h1 className="text-4xl font-black tracking-widest text-[#2E2E2E]">INVOICE</h1>
+        <div style={{ borderTop: '1.5px solid #ccc', borderBottom: '1.5px solid #ccc', padding: '14px 0', marginBottom: 24, textAlign: 'center' }}>
+          <h1 style={{ margin: 0, fontSize: 38, fontWeight: 900, letterSpacing: 8, color: '#2E2E2E' }}>INVOICE</h1>
         </div>
 
         {/* 3. Invoice info row */}
@@ -248,22 +262,22 @@ function InvoicePrint({ data = SAMPLE_INVOICE, hideControls = false }, outerRef)
         <table className="w-full text-xs mb-8" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ backgroundColor: '#2E2E2E', color: '#FFFFFF' }}>
-              <th className="py-3 px-4 text-left font-semibold tracking-wider uppercase" style={{ width: '50%' }}>Item Description</th>
-              <th className="py-3 px-4 text-center font-semibold tracking-wider uppercase" style={{ width: '17%' }}>Price</th>
-              <th className="py-3 px-4 text-center font-semibold tracking-wider uppercase" style={{ width: '13%' }}>Qty</th>
-              <th className="py-3 px-4 text-center font-semibold tracking-wider uppercase" style={{ width: '20%' }}>Total</th>
+              <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', width: '50%' }}>Item Description</th>
+              <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', width: '17%' }}>Price</th>
+              <th style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 700, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', width: '13%' }}>Qty</th>
+              <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', width: '20%' }}>Total</th>
             </tr>
           </thead>
           <tbody>
             {data.items.map((item, i) => (
               <tr key={i} style={{ backgroundColor: i % 2 === 1 ? '#F5F5F5' : '#FFFFFF' }}>
-                <td className="py-3 px-4 align-top">
-                  <p className="font-bold text-[#2E2E2E]">{item.description}</p>
-                  {item.details && <p className="text-gray-500 text-[10px] mt-0.5 leading-snug">{item.details}</p>}
+                <td style={{ padding: '10px 14px', verticalAlign: 'top' }}>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: 12, color: '#2E2E2E' }}>{item.description}</p>
+                  {item.details && <p style={{ margin: '2px 0 0', fontSize: 10, color: '#888', lineHeight: 1.4 }}>{item.details}</p>}
                 </td>
-                <td className="py-3 px-4 text-center text-gray-700">{fmt(item.price)}</td>
-                <td className="py-3 px-4 text-center text-gray-700">{item.qty}</td>
-                <td className="py-3 px-4 text-center font-medium text-gray-700">{fmt(item.price * item.qty)}</td>
+                <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 12, color: '#555' }}>{fmt(item.price)}</td>
+                <td style={{ padding: '10px 14px', textAlign: 'center', fontSize: 12, color: '#555' }}>{item.qty}</td>
+                <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 12, fontWeight: 600, color: '#555' }}>{fmt(item.price * item.qty)}</td>
               </tr>
             ))}
           </tbody>
@@ -284,8 +298,8 @@ function InvoicePrint({ data = SAMPLE_INVOICE, hideControls = false }, outerRef)
                     ['Swift Code',  data.swiftCode],
                   ].map(([label, value]) => (
                     <tr key={label}>
-                      <td className="font-bold pr-6 py-1 w-24">{label}</td>
-                      <td className="py-1 text-gray-600">{value}</td>
+                      <td style={{ fontWeight: 700, paddingRight: 24, paddingTop: 4, paddingBottom: 4, width: 96, fontSize: 11, color: '#2E2E2E' }}>{label}</td>
+                      <td style={{ paddingTop: 4, paddingBottom: 4, fontSize: 11, color: '#555' }}>- {value}</td>
                     </tr>
                   ))}
                 </tbody>
