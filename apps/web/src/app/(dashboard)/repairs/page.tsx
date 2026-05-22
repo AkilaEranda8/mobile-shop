@@ -761,8 +761,8 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                   <div className="p-5 space-y-5">
                     {[
                       { title: 'Customer', icon: User, color: 'text-violet-500', rows: [
-                        { label: 'Name',  value: selectedCustomer?.name ?? newCust.name || '—' },
-                        { label: 'Phone', value: selectedCustomer?.phone ?? newCust.phone || '—' },
+                        { label: 'Name',  value: (selectedCustomer?.name ?? newCust.name) || '—' },
+                        { label: 'Phone', value: (selectedCustomer?.phone ?? newCust.phone) || '—' },
                       ]},
                       { title: 'Device', icon: Smartphone, color: 'text-cyan-500', rows: [
                         { label: 'Brand',       value: form.deviceBrand || '—' },
