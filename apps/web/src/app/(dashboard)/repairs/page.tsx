@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
-  Plus, Clock, CheckCircle, PhoneCall, Loader2, X, Check, ChevronDown,
+  Plus, Clock, CheckCircle, PhoneCall, Loader2, X, Check, ChevronDown, ChevronLeft,
   Eye, Edit, ChevronRight, Smartphone, User, Wrench, DollarSign, AlertTriangle,
   Calendar, Hash, Save, ArrowRight, MessageSquare, Package, Search, UserPlus, CheckCircle2, Download, Printer,
   History, XCircle, AlertCircle, ArrowLeft, MoreVertical, Phone, Mail, MapPin,
@@ -149,6 +149,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
   )
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
+  const [step, setStep]       = useState(1)
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(p => ({ ...p, [k]: e.target.value }))
 
@@ -280,19 +281,36 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
   }
 
   const summaryRows = [
-    { icon: User, label: 'Customer', value: selectedCustomer?.name ?? newCust.name },
-    { icon: Phone, label: 'Phone', value: selectedCustomer?.phone ?? newCust.phone },
-    { icon: Smartphone, label: 'Device', value: form.deviceBrand || form.deviceModel ? `${form.deviceBrand} ${form.deviceModel}`.trim() : '' },
-    { icon: Hash, label: 'IMEI', value: form.imei },
-    { icon: AlertTriangle, label: 'Issue', value: selectedIssues.join(', ') },
-    { icon: Wrench, label: 'Technician', value: form.technicianName },
-    { icon: Clock, label: 'Priority', value: form.priority },
-    { icon: DollarSign, label: 'Est. Cost', value: form.estimatedCost ? formatCurrency(Number(form.estimatedCost)) : '' },
+    { icon: User,          label: 'Customer',  value: selectedCustomer?.name ?? newCust.name },
+    { icon: Phone,         label: 'Phone',     value: selectedCustomer?.phone ?? newCust.phone },
+    { icon: Smartphone,    label: 'Device',    value: form.deviceBrand || form.deviceModel ? `${form.deviceBrand} ${form.deviceModel}`.trim() : '' },
+    { icon: Hash,          label: 'IMEI',      value: form.imei },
+    { icon: AlertTriangle, label: 'Issue',     value: selectedIssues.join(', ') },
+    { icon: Wrench,        label: 'Technician',value: form.technicianName },
+    { icon: Clock,         label: 'Priority',  value: form.priority },
+    { icon: DollarSign,    label: 'Est. Cost', value: form.estimatedCost ? formatCurrency(Number(form.estimatedCost)) : '' },
   ]
+
+  const STEPS = [
+    { n: 1, label: 'Customer' },
+    { n: 2, label: 'Device' },
+    { n: 3, label: 'Issue' },
+    { n: 4, label: 'Details' },
+    { n: 5, label: 'Review' },
+  ]
+
+  const canProceed = () => {
+    if (step === 1) return !!(selectedCustomer || (newCust.name.trim() && newCust.phone.trim()))
+    if (step === 2) return !!(form.deviceBrand.trim() && form.deviceModel.trim())
+    if (step === 3) return selectedIssues.length > 0
+    return true
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/50 backdrop-blur-sm">
       <div className="w-full max-w-6xl max-h-[96vh] overflow-y-auto rounded-2xl shadow-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+
+        {/* Header */}
         <div className="flex items-center justify-between px-8 py-6 border-b sticky top-0 z-20" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-violet-500/10 border border-violet-500/15">
@@ -307,436 +325,541 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
             <X size={20} />
           </button>
         </div>
+
         <form onSubmit={handleSubmit}>
-          <div className="px-8 py-6 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-            <div className="grid grid-cols-5 gap-4">
-              {[
-                ['1', 'Customer'],
-                ['2', 'Device'],
-                ['3', 'Issue'],
-                ['4', 'Details'],
-                ['5', 'Review'],
-              ].map(([n, label], i) => (
-                <div key={n} className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border ${i === 0 ? 'bg-violet-600 border-violet-600 text-white shadow-lg shadow-violet-500/25' : 'text-slate-500 border-slate-300/40'}`}>
-                    {n}
+
+          {/* ── Stepper ── */}
+          <div className="px-8 py-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div className="flex items-center">
+              {STEPS.map(({ n, label }, i) => (
+                <div key={n} className={`flex items-center ${i < 4 ? 'flex-1' : ''}`}>
+                  <div className="flex items-center gap-2.5 shrink-0">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
+                      n < step  ? 'bg-violet-600 text-white shadow-md shadow-violet-500/30' :
+                      n === step ? 'bg-violet-600 text-white ring-4 ring-violet-500/20' :
+                      'border-2 text-slate-400'
+                    }`} style={n > step ? { borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' } : {}}>
+                      {n < step ? <Check size={14} /> : n}
+                    </div>
+                    <span className={`text-sm font-semibold ${n === step ? 'text-violet-500' : n < step ? 'text-violet-400' : ''}`}
+                      style={n > step ? { color: 'var(--text-secondary)' } : {}}>
+                      {label}
+                    </span>
                   </div>
-                  <span className={`text-sm font-semibold ${i === 0 ? 'text-violet-500' : ''}`} style={i === 0 ? {} : { color: 'var(--text-secondary)' }}>{label}</span>
-                  {i < 4 && <div className="hidden lg:block h-px flex-1" style={{ background: 'var(--border-subtle)' }} />}
+                  {i < 4 && (
+                    <div className="flex-1 h-px mx-3 transition-all" style={{ background: n < step ? 'rgba(139,92,246,0.45)' : 'var(--border-subtle)' }} />
+                  )}
                 </div>
               ))}
             </div>
           </div>
+
+          {/* ── Body ── */}
           <div className="grid grid-cols-12 gap-6 p-8">
-            <div className="col-span-12 lg:col-span-8 space-y-0 rounded-xl border overflow-visible" style={{ borderColor: 'var(--border-subtle)' }}>
 
-              <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                <div className="flex items-center gap-3">
-                  <User size={18} className="text-violet-500" />
-                  <h4 className="font-bold" style={{ color: 'var(--text-primary)' }}>Customer Information</h4>
-                </div>
-                <ChevronDown size={16} style={{ color: 'var(--text-muted)' }} />
-              </div>
+            {/* Left column — step content */}
+            <div className="col-span-12 lg:col-span-8">
 
-              <div className="p-5 border-b space-y-4" style={{ borderColor: 'var(--border-subtle)' }}>
-              {customerMode === 'search' ? (
-                selectedCustomer ? (
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
-                    <div className="w-9 h-9 rounded-full bg-violet-500/30 flex items-center justify-center text-sm font-bold text-violet-300 shrink-0">
-                      {selectedCustomer.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{selectedCustomer.name}</p>
-                      <p className="text-xs text-slate-400">{selectedCustomer.phone}</p>
-                      <p className="text-[10px] text-violet-400 mt-0.5">{selectedCustomer.totalRepairs ?? 0} previous repairs</p>
-                    </div>
-                    <button type="button" onClick={clearCustomer} className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors">
-                      <X size={13} />
-                    </button>
+              {/* STEP 1 — Customer */}
+              {step === 1 && (
+                <div className="rounded-xl border overflow-visible" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                    <User size={18} className="text-violet-500" />
+                    <h4 className="font-bold" style={{ color: 'var(--text-primary)' }}>Customer Information</h4>
                   </div>
-                ) : (
-                  <div className="flex gap-3">
-                    <div className="relative flex-1" ref={dropRef}>
-                    <div className="relative">
-                        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                      {searching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 animate-spin" />}
-                      <input
-                          className="input-field pl-11 h-12"
-                          placeholder="Search customer by name or phone number..."
-                        value={searchQuery}
-                        onChange={e => { setSearchQuery(e.target.value); setSelectedCustomer(null) }}
-                        onFocus={() => searchResults.length > 0 && setShowDrop(true)}
-                        autoComplete="off"
-                      />
-                    </div>
-                    {showDrop && (
-                      <div className="absolute top-full left-0 right-0 mt-1 rounded-xl border border-white/10 bg-[#0f1623] shadow-2xl z-50 overflow-hidden">
-                        {searchResults.length > 0 ? (
-                          <>
-                            {searchResults.map(c => (
-                              <button key={c.id} type="button" onClick={() => selectCustomer(c)}
-                                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 transition-colors text-left">
-                                <div className="w-8 h-8 rounded-full bg-violet-500/20 flex items-center justify-center text-xs font-bold text-violet-300 shrink-0">
-                                  {c.name.charAt(0).toUpperCase()}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm truncate" style={{ color: 'var(--text-primary)' }}>{c.name}</p>
-                                  <p className="text-xs text-slate-500">{c.phone}{c.email ? ` · ${c.email}` : ''}</p>
-                                </div>
-                                <span className="text-[10px] text-slate-600 shrink-0">{c.totalRepairs ?? 0} repairs</span>
-                              </button>
-                            ))}
-                            <div className="border-t border-white/5" />
-                          </>
-                        ) : (
-                          <p className="px-4 py-3 text-xs text-slate-500">No customers found</p>
-                        )}
-                        <button type="button" onClick={() => { setCustomerMode('new'); setShowDrop(false); setNewCust(p => ({ ...p, name: searchQuery })) }}
-                          className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-emerald-500/10 transition-colors text-left">
-                          <UserPlus size={13} className="text-emerald-400" />
-                          <span className="text-xs text-emerald-400">Register as new customer</span>
+                  <div className="p-5 space-y-4">
+                    {customerMode === 'search' ? (
+                      selectedCustomer ? (
+                        <div className="flex items-center gap-3 p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
+                          <div className="w-9 h-9 rounded-full bg-violet-500/30 flex items-center justify-center text-sm font-bold text-violet-300 shrink-0">
+                            {selectedCustomer.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{selectedCustomer.name}</p>
+                            <p className="text-xs text-slate-400">{selectedCustomer.phone}</p>
+                            <p className="text-[10px] text-violet-400 mt-0.5">{selectedCustomer.totalRepairs ?? 0} previous repairs</p>
+                          </div>
+                          <button type="button" onClick={clearCustomer} className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                            <X size={13} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-3">
+                          <div className="relative flex-1" ref={dropRef}>
+                            <div className="relative">
+                              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                              {searching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 animate-spin" />}
+                              <input
+                                className="input-field pl-11 h-12"
+                                placeholder="Search customer by name or phone number..."
+                                value={searchQuery}
+                                onChange={e => { setSearchQuery(e.target.value); setSelectedCustomer(null) }}
+                                onFocus={() => searchResults.length > 0 && setShowDrop(true)}
+                                autoComplete="off"
+                              />
+                            </div>
+                            {showDrop && (
+                              <div className="absolute top-full left-0 right-0 mt-1 rounded-xl border shadow-2xl z-50 overflow-hidden" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
+                                {searchResults.length > 0 ? (
+                                  <>
+                                    {searchResults.map(c => (
+                                      <button key={c.id} type="button" onClick={() => selectCustomer(c)}
+                                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-violet-500/10 transition-colors text-left">
+                                        <div className="w-8 h-8 rounded-full bg-violet-500/20 flex items-center justify-center text-xs font-bold text-violet-300 shrink-0">
+                                          {c.name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-sm truncate" style={{ color: 'var(--text-primary)' }}>{c.name}</p>
+                                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{c.phone}{c.email ? ` · ${c.email}` : ''}</p>
+                                        </div>
+                                        <span className="text-[10px] shrink-0" style={{ color: 'var(--text-muted)' }}>{c.totalRepairs ?? 0} repairs</span>
+                                      </button>
+                                    ))}
+                                    <div className="border-t" style={{ borderColor: 'var(--border-subtle)' }} />
+                                  </>
+                                ) : (
+                                  <p className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>No customers found</p>
+                                )}
+                                <button type="button" onClick={() => { setCustomerMode('new'); setShowDrop(false); setNewCust(p => ({ ...p, name: searchQuery })) }}
+                                  className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-emerald-500/10 transition-colors text-left">
+                                  <UserPlus size={13} className="text-emerald-400" />
+                                  <span className="text-xs text-emerald-400">Register as new customer</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                          <button type="button" onClick={() => { setCustomerMode('new'); clearCustomer() }}
+                            className="h-12 px-4 rounded-xl border text-sm font-semibold flex items-center gap-2 text-violet-500 bg-violet-500/5 hover:bg-violet-500/10 transition-colors"
+                            style={{ borderColor: 'rgba(139,92,246,0.25)' }}>
+                            <Plus size={15} /> New Customer
+                          </button>
+                        </div>
+                      )
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-5">
+                          <div>
+                            <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Customer Name <span className="text-red-500">*</span></label>
+                            <div className="relative">
+                              <User size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                              <input required className="input-field pl-11 h-12" placeholder="Enter customer name" value={newCust.name}
+                                onChange={e => setNewCust(p => ({ ...p, name: e.target.value }))} />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Phone Number <span className="text-red-500">*</span></label>
+                            <div className="relative">
+                              <Phone size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                              <div className="absolute left-10 top-1/2 -translate-y-1/2 flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                                <span>🇱🇰</span><span>+94</span>
+                              </div>
+                              <input required className="input-field pl-24 pr-11 h-12" placeholder="Enter phone number" value={newCust.phone}
+                                onChange={e => setNewCust(p => ({ ...p, phone: e.target.value }))} />
+                              <MessageSquare size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500" />
+                            </div>
+                          </div>
+                          <div className="col-span-2">
+                            <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Email <span style={{ color: 'var(--text-muted)' }}>(Optional)</span></label>
+                            <div className="relative max-w-md">
+                              <Mail size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                              <input className="input-field pl-11 h-12" placeholder="Enter email address" value={newCust.email}
+                                onChange={e => setNewCust(p => ({ ...p, email: e.target.value }))} />
+                            </div>
+                          </div>
+                        </div>
+                        <button type="button" onClick={registerNewCustomer} disabled={registeringCust || !newCust.name || !newCust.phone}
+                          className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-xs font-medium hover:bg-emerald-500/25 transition-all disabled:opacity-50">
+                          {registeringCust ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                          Register & Select Customer
                         </button>
+                        <button type="button" onClick={() => setCustomerMode('search')} className="text-xs font-semibold text-violet-500">Search existing customer instead</button>
                       </div>
                     )}
                   </div>
-                    <button type="button" onClick={() => { setCustomerMode('new'); clearCustomer() }}
-                      className="h-12 px-4 rounded-xl border text-sm font-semibold flex items-center gap-2 text-violet-500 bg-violet-500/5 hover:bg-violet-500/10 transition-colors"
-                      style={{ borderColor: 'rgba(139,92,246,0.25)' }}>
-                      <Plus size={15} /> New Customer
-                    </button>
+                </div>
+              )}
+
+              {/* STEP 2 — Device */}
+              {step === 2 && (
+                <div className="rounded-xl border overflow-visible" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                    <Smartphone size={18} className="text-violet-500" />
+                    <h4 className="font-bold" style={{ color: 'var(--text-primary)' }}>Device Information</h4>
                   </div>
-                )
-              ) : (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-5">
-                    <div>
-                      <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Customer Name <span className="text-red-500">*</span></label>
+                  <div className="p-5 grid grid-cols-2 gap-5">
+                    <div className="relative">
+                      <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Device Brand <span className="text-red-500">*</span></label>
                       <div className="relative">
-                        <User size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input required className="input-field pl-11 h-12" placeholder="Enter customer name" value={newCust.name}
-                        onChange={e => setNewCust(p => ({ ...p, name: e.target.value }))} />
+                        <Smartphone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                        <input required className="input-field pl-9 h-12" placeholder="Select brand"
+                          value={brandQuery}
+                          onChange={e => { setBrandQuery(e.target.value); setForm(p => ({ ...p, deviceBrand: e.target.value, deviceModel: '' })); setModelQuery(''); setModels([]); setBrandOpen(true) }}
+                          onFocus={() => setBrandOpen(true)}
+                          onBlur={() => setTimeout(() => setBrandOpen(false), 150)}
+                        />
                       </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Phone Number <span className="text-red-500">*</span></label>
-                      <div className="relative">
-                        <Phone size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <div className="absolute left-10 top-1/2 -translate-y-1/2 flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                          <span>🇱🇰</span><span>+94</span>
+                      {brandOpen && filteredBrands.length > 0 && (
+                        <div className="absolute z-30 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden"
+                          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                          {filteredBrands.map(b => (
+                            <button key={b.id} type="button" onMouseDown={() => selectBrand(b)}
+                              className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 hover:bg-violet-500/10 transition-colors"
+                              style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                              <Smartphone size={11} className="text-violet-400 shrink-0" />
+                              <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{b.name}</span>
+                              <span className="ml-auto text-[10px]" style={{ color: 'var(--text-muted)' }}>{b.models?.length ?? 0} models</span>
+                            </button>
+                          ))}
                         </div>
-                        <input required className="input-field pl-24 pr-11 h-12" placeholder="Enter phone number" value={newCust.phone}
-                          onChange={e => setNewCust(p => ({ ...p, phone: e.target.value }))} />
-                        <MessageSquare size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500" />
+                      )}
+                    </div>
+                    <div className="relative">
+                      <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Device Model <span className="text-red-500">*</span></label>
+                      <div className="relative">
+                        <Hash size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                        <input required className="input-field pl-9 h-12" placeholder="Select model"
+                          value={modelQuery}
+                          onChange={e => { setModelQuery(e.target.value); setForm(p => ({ ...p, deviceModel: e.target.value })); setModelOpen(true) }}
+                          onFocus={() => models.length > 0 && setModelOpen(true)}
+                          onBlur={() => setTimeout(() => setModelOpen(false), 150)}
+                          disabled={models.length === 0 && !form.deviceBrand}
+                        />
                       </div>
+                      {modelOpen && filteredModels.length > 0 && (
+                        <div className="absolute z-30 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden"
+                          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                          {filteredModels.map(m => (
+                            <button key={m.id} type="button" onMouseDown={() => selectModel(m)}
+                              className="w-full text-left px-3 py-2.5 flex items-center gap-2 hover:bg-violet-500/10 transition-colors"
+                              style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                              <div className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />
+                              <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{m.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div className="col-span-2">
-                      <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Email <span style={{ color: 'var(--text-muted)' }}>(Optional)</span></label>
-                      <div className="relative max-w-md">
-                        <Mail size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input className="input-field pl-11 h-12" placeholder="Enter email address" value={newCust.email}
-                          onChange={e => setNewCust(p => ({ ...p, email: e.target.value }))} />
+                      <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>IMEI <span style={{ color: 'var(--text-muted)' }}>(Optional)</span></label>
+                      <div className="flex gap-3">
+                        <div className="relative flex-1">
+                          <Hash size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <input className="input-field pl-11 h-12 font-mono" placeholder="Enter 15-digit IMEI number" maxLength={17} value={form.imei} onChange={f('imei')} />
+                        </div>
+                        <button type="button" className="h-12 px-4 rounded-xl border text-sm font-semibold flex items-center gap-2 text-violet-500 bg-violet-500/5" style={{ borderColor: 'rgba(139,92,246,0.25)' }}>
+                          <Hash size={16} /> Scan IMEI
+                        </button>
+                      </div>
+                    </div>
+                    <div className="col-span-2 relative">
+                      <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Accessories Received</label>
+                      <button type="button" onClick={() => setAccOpen(o => !o)}
+                        className="input-field w-full h-12 flex items-center justify-between text-left">
+                        <span className={accessories.length === 0 ? 'text-slate-500 text-sm' : 'text-sm'}
+                          style={{ color: accessories.length === 0 ? undefined : 'var(--text-primary)' }}>
+                          {accessories.length === 0 ? 'Select accessories…' : accessories.join(', ')}
+                        </span>
+                        <ChevronDown size={14} className={`text-slate-400 shrink-0 transition-transform ${accOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                      {accOpen && (
+                        <div className="absolute z-30 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden"
+                          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                          {ACCESSORY_OPTIONS.map(a => (
+                            <button key={a} type="button"
+                              onMouseDown={e => { e.preventDefault(); toggleAccessory(a) }}
+                              className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-violet-500/10 transition-colors text-left"
+                              style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                              <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${accessories.includes(a) ? 'bg-violet-500 border-violet-500' : 'border-slate-600'}`}>
+                                {accessories.includes(a) && <Check size={10} className="text-white" />}
+                              </div>
+                              <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{a}</span>
+                            </button>
+                          ))}
+                          {accessories.length > 0 && (
+                            <button type="button" onMouseDown={e => { e.preventDefault(); setAccessories([]) }}
+                              className="w-full px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-colors text-left">
+                              Clear all
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 3 — Issue */}
+              {step === 3 && (
+                <div className="rounded-xl border overflow-visible" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                    <AlertTriangle size={18} className="text-violet-500" />
+                    <h4 className="font-bold" style={{ color: 'var(--text-primary)' }}>Reported Issue / Fault</h4>
+                  </div>
+                  <div className="p-5 space-y-4 relative">
+                    <div className="relative">
+                      <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Select Fault(s) <span className="text-red-500">*</span></label>
+                      <button type="button" onClick={() => setIssueOpen(o => !o)}
+                        className="input-field w-full h-12 flex items-center justify-between text-left">
+                        <span className={selectedIssues.length === 0 ? 'text-slate-500 text-sm truncate pr-2' : 'text-sm truncate pr-2'}
+                          style={{ color: selectedIssues.length === 0 ? undefined : 'var(--text-primary)' }}>
+                          {selectedIssues.length === 0 ? 'Select fault / issue…' : selectedIssues.join(', ')}
+                        </span>
+                        <ChevronDown size={14} className={`text-slate-400 shrink-0 transition-transform ${issueOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                      {issueOpen && (
+                        <div className="absolute z-30 top-full mt-1 left-0 right-0 rounded-xl shadow-2xl overflow-hidden"
+                          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                          <div className="p-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                            <input autoFocus className="input-field text-sm py-1.5" placeholder="Search faults…"
+                              value={issueQuery}
+                              onChange={e => setIssueQuery(e.target.value)}
+                              onMouseDown={e => e.stopPropagation()} />
+                          </div>
+                          <div className="overflow-y-auto" style={{ maxHeight: 220 }}>
+                            {filteredFaults.map(fault => (
+                              <button key={fault} type="button"
+                                onMouseDown={e => { e.preventDefault(); toggleIssue(fault) }}
+                                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-violet-500/10 transition-colors text-left"
+                                style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                                <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${selectedIssues.includes(fault) ? 'bg-violet-500 border-violet-500' : 'border-slate-600'}`}>
+                                  {selectedIssues.includes(fault) && <Check size={10} className="text-white" />}
+                                </div>
+                                <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{fault}</span>
+                              </button>
+                            ))}
+                            {filteredFaults.length === 0 && <p className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>No faults found</p>}
+                          </div>
+                          {selectedIssues.length > 0 && (
+                            <button type="button" onMouseDown={e => { e.preventDefault(); setSelectedIssues([]) }}
+                              className="w-full px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-colors text-left border-t"
+                              style={{ borderColor: 'var(--border-subtle)' }}>
+                              Clear all
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {selectedIssues.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {selectedIssues.map(issue => (
+                          <span key={issue} className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border border-violet-500/30 bg-violet-500/10 text-violet-400">
+                            {issue}
+                            <button type="button" onClick={() => toggleIssue(issue)} className="hover:text-red-400 transition-colors"><X size={10} /></button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 4 — Details */}
+              {step === 4 && (
+                <div className="rounded-xl border" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                    <Wrench size={18} className="text-violet-500" />
+                    <h4 className="font-bold" style={{ color: 'var(--text-primary)' }}>Job Details</h4>
+                  </div>
+                  <div className="p-5 grid grid-cols-2 gap-5">
+                    <div className="relative">
+                      <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Technician</label>
+                      <div className="relative">
+                        <Wrench size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                        <input className="input-field pl-9 h-12"
+                          placeholder={technicians.length === 0 ? 'No technicians found' : 'Select technician…'}
+                          value={techQuery}
+                          onChange={e => { setTechQuery(e.target.value); setForm(p => ({ ...p, technicianId: '', technicianName: e.target.value })); setTechOpen(true) }}
+                          onFocus={() => setTechOpen(true)}
+                          onBlur={() => setTimeout(() => setTechOpen(false), 150)}
+                        />
+                        {techQuery && (
+                          <button type="button" onClick={() => { setTechQuery(''); setForm(p => ({ ...p, technicianId: '', technicianName: '' })) }}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
+                            <X size={11} />
+                          </button>
+                        )}
+                      </div>
+                      {techOpen && filteredTechs.length > 0 && (
+                        <div className="absolute z-30 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden"
+                          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                          {filteredTechs.map((t: any) => (
+                            <button key={t.id} type="button" onMouseDown={() => selectTech(t)}
+                              className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 hover:bg-violet-500/10 transition-colors"
+                              style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                              <div className="w-7 h-7 rounded-full bg-violet-500/20 flex items-center justify-center text-[11px] font-bold text-violet-300 shrink-0">
+                                {t.name?.charAt(0)?.toUpperCase()}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{t.name}</p>
+                                <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{t.email}</p>
+                              </div>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-md font-bold bg-violet-500/10 text-violet-400 border border-violet-500/20">TECH</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Customer Source</label>
+                      <button type="button" onClick={() => setSourceOpen(o => !o)}
+                        className="input-field w-full h-12 flex items-center justify-between text-left">
+                        <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                          {SOURCE_OPTIONS.find(o => o.value === form.source)?.label ?? 'Select source'}
+                        </span>
+                        <ChevronDown size={14} className={`text-slate-400 shrink-0 transition-transform ${sourceOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                      {sourceOpen && (
+                        <div className="absolute z-30 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden"
+                          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                          {SOURCE_OPTIONS.map(opt => (
+                            <button key={opt.value} type="button"
+                              onMouseDown={e => { e.preventDefault(); setForm(p => ({ ...p, source: opt.value })); setSourceOpen(false) }}
+                              className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-violet-500/10 transition-colors text-left"
+                              style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                              <div className={`w-3.5 h-3.5 rounded-full shrink-0 border-2 ${form.source === opt.value ? 'border-violet-500 bg-violet-500' : 'border-slate-600'}`} />
+                              <span className={`text-sm ${form.source === opt.value ? opt.color : ''}`}
+                                style={{ color: form.source === opt.value ? undefined : 'var(--text-primary)' }}>
+                                {opt.label}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Priority</label>
+                      <select className="input-field h-12" value={form.priority} onChange={f('priority')}>
+                        <option value="LOW">Low</option>
+                        <option value="NORMAL">Normal</option>
+                        <option value="HIGH">High</option>
+                        <option value="URGENT">Urgent</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Estimated Cost (LKR)</label>
+                      <input type="number" min="0" className="input-field h-12" placeholder="2500" value={form.estimatedCost} onChange={f('estimatedCost')} />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Estimated Completion</label>
+                      <div className="relative">
+                        <Calendar size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input type="date" className="input-field pl-11 h-12" value={form.estimatedCompletion} onChange={f('estimatedCompletion')} />
                       </div>
                     </div>
                   </div>
-                  <button type="button" onClick={registerNewCustomer} disabled={registeringCust || !newCust.name || !newCust.phone}
-                    className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-xs font-medium hover:bg-emerald-500/25 transition-all disabled:opacity-50">
-                    {registeringCust ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
-                    Register & Select Customer
-                  </button>
-                  <button type="button" onClick={() => setCustomerMode('search')} className="text-xs font-semibold text-violet-500">Search existing customer instead</button>
                 </div>
               )}
-            </div>
 
-              <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                <div className="flex items-center gap-3">
-                  <Smartphone size={18} className="text-violet-500" />
-                  <h4 className="font-bold" style={{ color: 'var(--text-primary)' }}>Device Information</h4>
-                </div>
-                <ChevronDown size={16} style={{ color: 'var(--text-muted)' }} />
-              </div>
-              <div className="p-5 grid grid-cols-2 gap-5">
-            <div className="relative">
-                  <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Device Brand <span className="text-red-500">*</span></label>
-              <div className="relative">
-                <Smartphone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
-                    <input required className="input-field pl-9 h-12" placeholder="Select brand"
-                  value={brandQuery}
-                  onChange={e => { setBrandQuery(e.target.value); setForm(p => ({ ...p, deviceBrand: e.target.value, deviceModel: '' })); setModelQuery(''); setModels([]); setBrandOpen(true) }}
-                  onFocus={() => setBrandOpen(true)}
-                  onBlur={() => setTimeout(() => setBrandOpen(false), 150)}
-                />
-              </div>
-              {brandOpen && filteredBrands.length > 0 && (
-                <div className="absolute z-30 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden"
-                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                  {filteredBrands.map(b => (
-                    <button key={b.id} type="button" onMouseDown={() => selectBrand(b)}
-                      className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 hover:bg-violet-500/10 transition-colors"
-                      style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                      <Smartphone size={11} className="text-violet-400 shrink-0" />
-                      <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{b.name}</span>
-                      <span className="ml-auto text-[10px]" style={{ color: 'var(--text-muted)' }}>{b.models?.length ?? 0} models</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="relative">
-                  <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Device Model <span className="text-red-500">*</span></label>
-              <div className="relative">
-                <Hash size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
-                    <input required className="input-field pl-9 h-12"
-                  placeholder={models.length > 0 ? 'Select model' : 'Select model'}
-                  value={modelQuery}
-                  onChange={e => { setModelQuery(e.target.value); setForm(p => ({ ...p, deviceModel: e.target.value })); setModelOpen(true) }}
-                  onFocus={() => models.length > 0 && setModelOpen(true)}
-                  onBlur={() => setTimeout(() => setModelOpen(false), 150)}
-                  disabled={models.length === 0 && !form.deviceBrand}
-                />
-              </div>
-              {modelOpen && filteredModels.length > 0 && (
-                <div className="absolute z-30 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden"
-                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                  {filteredModels.map(m => (
-                    <button key={m.id} type="button" onMouseDown={() => selectModel(m)}
-                      className="w-full text-left px-3 py-2.5 flex items-center gap-2 hover:bg-violet-500/10 transition-colors"
-                      style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                      <div className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />
-                      <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{m.name}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="col-span-2 relative">
-                  <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Accessories Received</label>
-              <button type="button" onClick={() => setAccOpen(o => !o)}
-                    className="input-field w-full h-12 flex items-center justify-between text-left">
-                <span className={accessories.length === 0 ? 'text-slate-500 text-sm' : 'text-sm'}
-                  style={{ color: accessories.length === 0 ? undefined : 'var(--text-primary)' }}>
-                  {accessories.length === 0 ? 'Select accessories…' : accessories.join(', ')}
-                </span>
-                <ChevronDown size={14} className={`text-slate-400 shrink-0 transition-transform ${accOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {accOpen && (
-                <div className="absolute z-30 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden"
-                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                  {ACCESSORY_OPTIONS.map(a => (
-                    <button key={a} type="button"
-                      onMouseDown={e => { e.preventDefault(); toggleAccessory(a) }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-violet-500/10 transition-colors text-left"
-                      style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                      <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${
-                        accessories.includes(a)
-                          ? 'bg-violet-500 border-violet-500'
-                          : 'border-slate-600'
-                      }`}>
-                        {accessories.includes(a) && <Check size={10} className="text-white" />}
+              {/* STEP 5 — Review */}
+              {step === 5 && (
+                <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                    <CheckCircle2 size={18} className="text-green-500" />
+                    <h4 className="font-bold" style={{ color: 'var(--text-primary)' }}>Review &amp; Confirm</h4>
+                    <span className="ml-auto text-xs font-medium text-green-500">All looks good — ready to submit</span>
+                  </div>
+                  <div className="p-5 space-y-5">
+                    {[
+                      { title: 'Customer', icon: User, color: 'text-violet-500', rows: [
+                        { label: 'Name',  value: selectedCustomer?.name ?? newCust.name || '—' },
+                        { label: 'Phone', value: selectedCustomer?.phone ?? newCust.phone || '—' },
+                      ]},
+                      { title: 'Device', icon: Smartphone, color: 'text-cyan-500', rows: [
+                        { label: 'Brand',       value: form.deviceBrand || '—' },
+                        { label: 'Model',       value: form.deviceModel || '—' },
+                        { label: 'IMEI',        value: form.imei || '—' },
+                        { label: 'Accessories', value: accessories.join(', ') || '—' },
+                      ]},
+                      { title: 'Issue', icon: AlertTriangle, color: 'text-orange-500', rows: [
+                        { label: 'Fault(s)', value: selectedIssues.join(', ') || '—' },
+                      ]},
+                      { title: 'Details', icon: Wrench, color: 'text-indigo-500', rows: [
+                        { label: 'Technician',      value: form.technicianName || '—' },
+                        { label: 'Source',          value: SOURCE_OPTIONS.find(o => o.value === form.source)?.label ?? form.source },
+                        { label: 'Priority',        value: form.priority },
+                        { label: 'Est. Cost',       value: form.estimatedCost ? formatCurrency(Number(form.estimatedCost)) : '—' },
+                        { label: 'Est. Completion', value: form.estimatedCompletion || '—' },
+                      ]},
+                    ].map(section => (
+                      <div key={section.title}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <section.icon size={13} className={section.color} />
+                          <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{section.title}</span>
+                        </div>
+                        <div className="rounded-xl border divide-y overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                          {section.rows.map(row => (
+                            <div key={row.label} className="flex items-center justify-between px-4 py-2.5" style={{ background: 'var(--bg-subtle)' }}>
+                              <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{row.label}</span>
+                              <span className="text-xs font-semibold text-right max-w-[260px] truncate" style={{ color: 'var(--text-primary)' }}>{row.value}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{a}</span>
-                    </button>
-                  ))}
-                  {accessories.length > 0 && (
-                    <button type="button" onMouseDown={e => { e.preventDefault(); setAccessories([]) }}
-                      className="w-full px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-colors text-left">
-                      Clear all
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>IMEI <span style={{ color: 'var(--text-muted)' }}>(Optional)</span></label>
-                  <div className="flex gap-3">
-                    <div className="relative flex-1">
-                      <Hash size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input className="input-field pl-11 h-12 font-mono" placeholder="Enter 15-digit IMEI number" maxLength={17} value={form.imei} onChange={f('imei')} />
-                    </div>
-                    <button type="button" className="h-12 px-4 rounded-xl border text-sm font-semibold flex items-center gap-2 text-violet-500 bg-violet-500/5" style={{ borderColor: 'rgba(139,92,246,0.25)' }}>
-                      <Hash size={16} /> Scan IMEI
-                    </button>
+                    ))}
                   </div>
                 </div>
-              </div>
+              )}
+
             </div>
 
+            {/* Right column — always visible */}
             <div className="col-span-12 lg:col-span-4 space-y-5">
               <div className="rounded-xl border p-5" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
                 <div className="flex items-center gap-3 mb-5">
                   <FileText size={18} className="text-violet-500" />
                   <h4 className="font-bold" style={{ color: 'var(--text-primary)' }}>Ticket Summary</h4>
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {summaryRows.map(({ icon: Icon, label, value }) => (
                     <div key={label} className="flex items-center gap-3 text-sm">
-                      <Icon size={15} style={{ color: 'var(--text-muted)' }} />
-                      <span className="flex-1" style={{ color: 'var(--text-secondary)' }}>{label}</span>
-                      <span className="max-w-[150px] truncate font-semibold text-right" style={{ color: value ? 'var(--text-primary)' : 'var(--text-muted)' }}>{value || '-'}</span>
+                      <Icon size={14} style={{ color: 'var(--text-muted)' }} />
+                      <span className="flex-1 text-xs" style={{ color: 'var(--text-secondary)' }}>{label}</span>
+                      <span className="max-w-[140px] truncate text-xs font-semibold text-right" style={{ color: value ? 'var(--text-primary)' : 'var(--text-muted)' }}>{value || '—'}</span>
                     </div>
                   ))}
                 </div>
-                <div className="mt-6 rounded-xl border p-4 bg-violet-500/5" style={{ borderColor: 'rgba(139,92,246,0.25)' }}>
-                  <div className="flex items-center gap-2 text-violet-500 text-sm font-semibold mb-2">
-                    <Clock size={15} /> Estimated Completion
+                {form.estimatedCompletion && (
+                  <div className="mt-5 rounded-xl border p-3 bg-violet-500/5" style={{ borderColor: 'rgba(139,92,246,0.25)' }}>
+                    <div className="flex items-center gap-2 text-violet-500 text-xs font-semibold mb-1">
+                      <Clock size={13} /> Estimated Completion
+                    </div>
+                    <p className="text-sm font-bold text-violet-500">{form.estimatedCompletion}</p>
                   </div>
-                  <p className="text-sm font-bold text-violet-500">{form.estimatedCompletion || '-'}</p>
-                </div>
+                )}
               </div>
               <div className="rounded-xl border p-5" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
                 <div className="flex items-start gap-3">
-                  <AlertCircle size={20} className="text-violet-500 shrink-0" />
+                  <AlertCircle size={18} className="text-violet-500 shrink-0 mt-0.5" />
                   <div>
-                    <h4 className="font-bold mb-3" style={{ color: 'var(--text-primary)' }}>Need Help?</h4>
-                    <p className="text-sm leading-relaxed mb-4" style={{ color: 'var(--text-secondary)' }}>Fill in the basic information and we'll help you create the ticket quickly.</p>
-                    <button type="button" className="text-sm font-bold text-violet-500 flex items-center gap-2">View Ticket Guidelines <ArrowRight size={14} /></button>
+                    <h4 className="font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Need Help?</h4>
+                    <p className="text-xs leading-relaxed mb-3" style={{ color: 'var(--text-secondary)' }}>Fill in each step and click Next. Required fields are marked with <span className="text-red-500">*</span></p>
+                    <button type="button" className="text-xs font-bold text-violet-500 flex items-center gap-1.5">View Ticket Guidelines <ArrowRight size={13} /></button>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="col-span-12 lg:col-span-8 space-y-5">
-              <div className="rounded-xl border p-5 grid grid-cols-2 gap-5" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
-                <div className="col-span-2 relative">
-                  <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Fault / Issue <span className="text-red-500">*</span></label>
-                  <button type="button" onClick={() => setIssueOpen(o => !o)}
-                    className="input-field w-full h-12 flex items-center justify-between text-left">
-                    <span className={selectedIssues.length === 0 ? 'text-slate-500 text-sm truncate pr-2' : 'text-sm truncate pr-2'}
-                      style={{ color: selectedIssues.length === 0 ? undefined : 'var(--text-primary)' }}>
-                      {selectedIssues.length === 0 ? 'Select fault / issue…' : selectedIssues.join(', ')}
-                    </span>
-                    <ChevronDown size={14} className={`text-slate-400 shrink-0 transition-transform ${issueOpen ? 'rotate-180' : ''}`} />
-                  </button>
-                  {issueOpen && (
-                    <div className="absolute z-30 top-full mt-1 left-0 right-0 rounded-xl shadow-2xl overflow-hidden"
-                      style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                      <div className="p-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                        <input autoFocus className="input-field text-sm py-1.5" placeholder="Search faults…"
-                          value={issueQuery}
-                          onChange={e => setIssueQuery(e.target.value)}
-                          onMouseDown={e => e.stopPropagation()} />
-                      </div>
-                      <div className="overflow-y-auto" style={{ maxHeight: 220 }}>
-                        {filteredFaults.map(fault => (
-                          <button key={fault} type="button"
-                            onMouseDown={e => { e.preventDefault(); toggleIssue(fault) }}
-                            className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-violet-500/10 transition-colors text-left"
-                            style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                            <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${selectedIssues.includes(fault) ? 'bg-violet-500 border-violet-500' : 'border-slate-600'}`}>
-                              {selectedIssues.includes(fault) && <Check size={10} className="text-white" />}
-                            </div>
-                            <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{fault}</span>
-                          </button>
-                        ))}
-                        {filteredFaults.length === 0 && <p className="px-4 py-3 text-xs text-slate-500">No faults found</p>}
-                      </div>
-                      {selectedIssues.length > 0 && (
-                        <button type="button" onMouseDown={e => { e.preventDefault(); setSelectedIssues([]) }}
-                          className="w-full px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-colors text-left border-t"
-                          style={{ borderColor: 'var(--border-subtle)' }}>
-                          Clear all
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="relative">
-                  <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Technician</label>
-              <div className="relative">
-                <Wrench size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
-                    <input className="input-field pl-9 h-12"
-                  placeholder={technicians.length === 0 ? 'No technicians found' : 'Select technician…'}
-                  value={techQuery}
-                  onChange={e => { setTechQuery(e.target.value); setForm(p => ({ ...p, technicianId: '', technicianName: e.target.value })); setTechOpen(true) }}
-                  onFocus={() => setTechOpen(true)}
-                  onBlur={() => setTimeout(() => setTechOpen(false), 150)}
-                />
-                {techQuery && (
-                  <button type="button" onClick={() => { setTechQuery(''); setForm(p => ({ ...p, technicianId: '', technicianName: '' })) }}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
-                    <X size={11} />
-                  </button>
-                )}
-              </div>
-              {techOpen && filteredTechs.length > 0 && (
-                <div className="absolute z-30 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden"
-                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                  {filteredTechs.map((t: any) => (
-                    <button key={t.id} type="button" onMouseDown={() => selectTech(t)}
-                      className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 hover:bg-violet-500/10 transition-colors"
-                      style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                      <div className="w-7 h-7 rounded-full bg-violet-500/20 flex items-center justify-center text-[11px] font-bold text-violet-300 shrink-0">
-                        {t.name?.charAt(0)?.toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{t.name}</p>
-                        <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{t.email}</p>
-                      </div>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-md font-bold bg-violet-500/10 text-violet-400 border border-violet-500/20">TECH</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="col-span-2 relative">
-                  <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Customer Source</label>
-              <button type="button" onClick={() => setSourceOpen(o => !o)}
-                    className="input-field w-full h-12 flex items-center justify-between text-left">
-                <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
-                  {SOURCE_OPTIONS.find(o => o.value === form.source)?.label ?? 'Select source'}
-                </span>
-                <ChevronDown size={14} className={`text-slate-400 shrink-0 transition-transform ${sourceOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {sourceOpen && (
-                <div className="absolute z-30 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden"
-                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                  {SOURCE_OPTIONS.map(opt => (
-                    <button key={opt.value} type="button"
-                      onMouseDown={e => { e.preventDefault(); setForm(p => ({ ...p, source: opt.value })); setSourceOpen(false) }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-violet-500/10 transition-colors text-left"
-                      style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                      <div className={`w-3.5 h-3.5 rounded-full shrink-0 border-2 ${
-                        form.source === opt.value ? 'border-violet-500 bg-violet-500' : 'border-slate-600'
-                      }`} />
-                      <span className={`text-sm ${form.source === opt.value ? opt.color : ''}`}
-                        style={{ color: form.source === opt.value ? undefined : 'var(--text-primary)' }}>
-                        {opt.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div>
-                  <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Priority</label>
-                  <select className="input-field h-12" value={form.priority} onChange={f('priority')}>
-                <option value="LOW">Low</option>
-                <option value="NORMAL">Normal</option>
-                <option value="HIGH">High</option>
-                <option value="URGENT">Urgent</option>
-              </select>
-            </div>
-            <div>
-                  <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Estimated Cost</label>
-                  <input type="number" min="0" className="input-field h-12" placeholder="2500" value={form.estimatedCost} onChange={f('estimatedCost')} />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Estimated Completion</label>
-                  <div className="relative">
-                    <Calendar size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input type="date" className="input-field pl-11 h-12" value={form.estimatedCompletion} onChange={f('estimatedCompletion')} />
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
+
           {error && <p className="px-8 pb-2 text-xs text-red-400">{error}</p>}
+
           <div className="px-8 pb-8 flex items-center justify-between gap-4">
-            <button type="button" onClick={onClose} className="h-11 px-10 rounded-xl border text-sm font-semibold transition-colors" style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}>Cancel</button>
-            <button type="submit" disabled={loading} className="h-11 px-16 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-violet-500/20" style={{ background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)' }}>
-              {loading ? <Loader2 size={14} className="animate-spin" /> : <>Create Ticket <ArrowRight size={15} /></>}
-            </button>
+            {step === 1
+              ? <button type="button" onClick={onClose} className="h-11 px-8 rounded-xl border text-sm font-semibold transition-colors" style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}>Cancel</button>
+              : <button type="button" onClick={() => setStep(s => s - 1)} className="h-11 px-8 rounded-xl border text-sm font-semibold flex items-center gap-2 transition-colors hover:bg-violet-500/5" style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}><ChevronLeft size={16} /> Back</button>
+            }
+            {step < 5
+              ? <button type="button" disabled={!canProceed()} onClick={() => { setError(''); setStep(s => s + 1) }}
+                  className="h-11 px-10 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-40 shadow-lg shadow-violet-500/20 transition-all hover:opacity-90"
+                  style={{ background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)' }}>
+                  Next Step <ArrowRight size={15} />
+                </button>
+              : <button type="submit" disabled={loading} className="h-11 px-12 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-violet-500/20" style={{ background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)' }}>
+                  {loading ? <Loader2 size={14} className="animate-spin" /> : <><CheckCircle2 size={14} /> Create Ticket</>}
+                </button>
+            }
           </div>
+
         </form>
       </div>
     </div>
