@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { Plus, Star, Phone, Mail, MapPin, Eye, Loader2, SlidersHorizontal, X, ShoppingBag, Wrench, CreditCard, Calendar, ChevronRight, Users } from 'lucide-react'
+import { Plus, Star, Phone, Mail, MapPin, Eye, Loader2, SlidersHorizontal, X, ShoppingBag, Wrench, CreditCard, Calendar, ChevronRight, Users, User, Hash, MessageSquare, ArrowRight, CheckCircle2, UserPlus } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -50,10 +50,10 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between p-5 border-b border-white/5 flex-shrink-0">
-          <h3 className="text-base font-semibold text-white">Customer Profile</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
+      <div className="rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] flex flex-col" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+        <div className="flex items-center justify-between p-5 border-b flex-shrink-0" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
+          <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Customer Profile</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg transition-colors hover:bg-red-500/10 hover:text-red-500" style={{ color: 'var(--text-muted)' }}><X size={16} /></button>
         </div>
 
         {loading && (
@@ -71,8 +71,9 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                     tab === t.key
                       ? 'bg-violet-500/20 border border-violet-500/30 text-violet-300'
-                      : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
-                  }`}>
+                      : 'hover:bg-violet-500/5'
+                  }`}
+                  style={tab !== t.key ? { color: 'var(--text-muted)' } : {}}>
                   <t.icon size={11} />
                   {t.label}
                   {t.count !== null && (
@@ -106,37 +107,37 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-white/3 rounded-xl p-3 border border-white/5">
-                      <div className="flex items-center gap-2 mb-1"><Phone size={12} className="text-slate-500" /><span className="text-[10px] text-slate-500 uppercase tracking-wide">Phone</span></div>
-                      <p className="text-sm text-slate-200">{customer.phone}</p>
+                    <div className="rounded-xl p-3 border" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                      <div className="flex items-center gap-2 mb-1"><Phone size={12} className="text-violet-500" /><span className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: 'var(--text-muted)' }}>Phone</span></div>
+                      <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{customer.phone}</p>
                     </div>
-                    <div className="bg-white/3 rounded-xl p-3 border border-white/5">
-                      <div className="flex items-center gap-2 mb-1"><Mail size={12} className="text-slate-500" /><span className="text-[10px] text-slate-500 uppercase tracking-wide">Email</span></div>
-                      <p className="text-sm text-slate-200 truncate">{customer.email || '—'}</p>
+                    <div className="rounded-xl p-3 border" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                      <div className="flex items-center gap-2 mb-1"><Mail size={12} className="text-violet-500" /><span className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: 'var(--text-muted)' }}>Email</span></div>
+                      <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{customer.email || '—'}</p>
                     </div>
-                    <div className="bg-white/3 rounded-xl p-3 border border-white/5 col-span-2">
-                      <div className="flex items-center gap-2 mb-1"><MapPin size={12} className="text-slate-500" /><span className="text-[10px] text-slate-500 uppercase tracking-wide">Location</span></div>
-                      <p className="text-sm text-slate-200">{[customer.address, customer.city].filter(Boolean).join(', ') || '—'}</p>
+                    <div className="rounded-xl p-3 border col-span-2" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                      <div className="flex items-center gap-2 mb-1"><MapPin size={12} className="text-violet-500" /><span className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: 'var(--text-muted)' }}>Location</span></div>
+                      <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{[customer.address, customer.city].filter(Boolean).join(', ') || '—'}</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-4 gap-2">
                     {[
-                      { icon: ShoppingBag, label: 'Purchases',   value: customer.totalPurchases,            color: 'text-green-400'  },
-                      { icon: Wrench,      label: 'Repairs',     value: customer.totalRepairs,               color: 'text-cyan-400'   },
-                      { icon: Star,        label: 'Points',      value: `${customer.loyaltyPoints} pts`,     color: 'text-yellow-400' },
-                      { icon: CreditCard,  label: 'Outstanding', value: formatCurrency(customer.totalDue),   color: 'text-red-400'    },
+                      { icon: ShoppingBag, label: 'Purchases',   value: customer.totalPurchases,            color: 'text-green-500'  },
+                      { icon: Wrench,      label: 'Repairs',     value: customer.totalRepairs,               color: 'text-cyan-500'   },
+                      { icon: Star,        label: 'Points',      value: `${customer.loyaltyPoints} pts`,     color: 'text-yellow-500' },
+                      { icon: CreditCard,  label: 'Outstanding', value: formatCurrency(customer.totalDue),   color: 'text-red-500'    },
                     ].map(s => (
-                      <div key={s.label} className="bg-white/3 rounded-xl p-3 border border-white/5 text-center">
+                      <div key={s.label} className="rounded-xl p-3 border text-center" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
                         <s.icon size={14} className={`${s.color} mx-auto mb-1`} />
                         <p className={`text-sm font-bold ${s.color}`}>{s.value}</p>
-                        <p className="text-[10px] text-slate-500 mt-0.5">{s.label}</p>
+                        <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{s.label}</p>
                       </div>
                     ))}
                   </div>
                   {customer.notes && (
-                    <div className="bg-white/3 rounded-xl p-3 border border-white/5">
-                      <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">Notes</p>
-                      <p className="text-xs text-slate-300">{customer.notes}</p>
+                    <div className="rounded-xl p-3 border" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                      <p className="text-[10px] uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>Notes</p>
+                      <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{customer.notes}</p>
                     </div>
                   )}
                 </>
@@ -149,7 +150,7 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                     <div className="py-12 text-center text-slate-500 text-sm">No history found</div>
                   ) : history.map((entry: any) => (
                     entry._type === 'sale' ? (
-                      <div key={`s-${entry.id}`} className="bg-white/3 rounded-xl p-3 border border-white/5">
+                      <div key={`s-${entry.id}`} className="rounded-xl p-3 border" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
                         <div className="flex items-center justify-between mb-1.5">
                           <div className="flex items-center gap-1.5">
                             <div className="w-5 h-5 rounded-md bg-violet-500/20 border border-violet-500/30 flex items-center justify-center flex-shrink-0">
@@ -171,7 +172,7 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                           <p className="text-sm font-bold text-white">{formatCurrency(entry.total)}</p>
                         </div>
                         {entry.items?.length > 0 && (
-                          <div className="mt-2 pt-2 border-t border-white/5 space-y-0.5">
+                          <div className="mt-2 pt-2 space-y-0.5" style={{ borderTop: '1px solid var(--border-subtle)' }}>
                             {entry.items.map((item: any) => (
                               <p key={item.id} className="text-[10px] text-slate-500 flex justify-between">
                                 <span>{item.productName} × {item.quantity}</span>
@@ -182,7 +183,7 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                         )}
                       </div>
                     ) : (
-                      <div key={`r-${entry.id}`} className="bg-white/3 rounded-xl p-3 border border-white/5">
+                      <div key={`r-${entry.id}`} className="rounded-xl p-3 border" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
                         <div className="flex items-center justify-between mb-1.5">
                           <div className="flex items-center gap-1.5">
                             <div className="w-5 h-5 rounded-md bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center flex-shrink-0">
@@ -212,7 +213,7 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
         )}
 
         {!loading && !customer && (
-          <div className="py-12 text-center text-slate-500 text-sm">Failed to load customer</div>
+          <div className="py-12 text-center text-sm" style={{ color: 'var(--text-muted)' }}>Failed to load customer</div>
         )}
       </div>
     </div>
@@ -250,39 +251,72 @@ function AddCustomerModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
-        <div className="flex items-center justify-between p-5 border-b border-white/5">
-          <h3 className="text-base font-semibold text-white">Add Customer</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors"><X size={16} /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <label className="block text-xs text-slate-400 mb-1.5">Full Name *</label>
-              <input required className="input-field" placeholder="Subramaniam R" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+      <div className="rounded-2xl w-full max-w-lg shadow-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-violet-500/10 border border-violet-500/20">
+              <UserPlus size={18} className="text-violet-500" />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Phone *</label>
-              <input required className="input-field" placeholder="9876543210" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
-            </div>
-            <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Email</label>
-              <input type="email" className="input-field" placeholder="optional" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-            </div>
-            <div>
-              <label className="block text-xs text-slate-400 mb-1.5">City</label>
-              <input className="input-field" placeholder="Chennai" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
-            </div>
-            <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Address</label>
-              <input className="input-field" placeholder="Street address" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
+              <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>Add Customer</h3>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Register a new customer profile</p>
             </div>
           </div>
+          <button onClick={onClose} className="p-2 rounded-lg transition-colors hover:bg-red-500/10 hover:text-red-500" style={{ color: 'var(--text-muted)' }}><X size={16} /></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+
+          {/* Name */}
+          <div>
+            <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Full Name <span className="text-red-500">*</span></label>
+            <div className="relative">
+              <User size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input required className="input-field pl-10 h-11" placeholder="Enter full name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+          </div>
+
+          {/* Phone + Email */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Phone <span className="text-red-500">*</span></label>
+              <div className="relative">
+                <Phone size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input required className="input-field pl-10 h-11" placeholder="077 123 4567" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Email <span style={{ color: 'var(--text-muted)' }}>(Optional)</span></label>
+              <div className="relative">
+                <Mail size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input type="email" className="input-field pl-10 h-11" placeholder="email@example.com" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+              </div>
+            </div>
+          </div>
+
+          {/* City + Address */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>City</label>
+              <div className="relative">
+                <MapPin size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input className="input-field pl-10 h-11" placeholder="Colombo" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Address</label>
+              <input className="input-field h-11" placeholder="Street address" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
+            </div>
+          </div>
+
           {error && <p className="text-xs text-red-400">{error}</p>}
+
           <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
-            <button type="submit" disabled={loading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
-              {loading ? <Loader2 size={14} className="animate-spin" /> : null}Add Customer
+            <button type="button" onClick={onClose} className="h-10 px-6 rounded-xl border text-sm font-semibold transition-colors" style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}>Cancel</button>
+            <button type="submit" disabled={loading} className="flex-1 h-10 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60" style={{ background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)' }}>
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <><CheckCircle2 size={14} /> Save Customer</>}
             </button>
           </div>
         </form>
