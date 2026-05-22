@@ -896,7 +896,7 @@ export default function POSPage() {
 
                       {/* ── IMAGE ZONE ── */}
                       <div className="relative overflow-hidden" style={{ paddingBottom: '72%' }}>
-                        {/* Gradient bg */}
+                        {/* Gradient bg (always rendered as fallback) */}
                         <div className="absolute inset-0" style={{ background: gradient }}>
                           {/* Shine */}
                           <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 65% 20%, rgba(255,255,255,0.18) 0%, transparent 55%)' }} />
@@ -904,13 +904,19 @@ export default function POSPage() {
                           <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.3) 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
                         </div>
 
-                        {/* Icon + initials centred */}
-                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 pointer-events-none">
-                          <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.18)', backdropFilter: 'blur(4px)' }}>
-                            <CardIcon size={22} style={{ color: iconColor }} />
+                        {product.imageUrl ? (
+                          /* Actual product photo */
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={product.imageUrl} alt={product.name} className="absolute inset-0 w-full h-full object-cover" />
+                        ) : (
+                          /* Icon + initials centred fallback */
+                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 pointer-events-none">
+                            <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.18)', backdropFilter: 'blur(4px)' }}>
+                              <CardIcon size={22} style={{ color: iconColor }} />
+                            </div>
+                            <span className="text-[11px] font-extrabold tracking-widest" style={{ color: iconColor, opacity: 0.55 }}>{initials}</span>
                           </div>
-                          <span className="text-[11px] font-extrabold tracking-widest" style={{ color: iconColor, opacity: 0.55 }}>{initials}</span>
-                        </div>
+                        )}
 
                         {/* Hover "add" overlay */}
                         {!isOut && (
