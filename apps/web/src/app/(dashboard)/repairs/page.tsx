@@ -1704,19 +1704,18 @@ function EditRepairModal({ repair, onClose, onSaved }: {
   repair: RepairTicket; onClose: () => void; onSaved: () => void
 }) {
   const [form, setForm] = useState({
-    customerName:    repair.customerName    ?? '',
-    customerPhone:   repair.customerPhone   ?? '',
-    deviceBrand:     repair.deviceBrand     ?? '',
-    deviceModel:     repair.deviceModel     ?? '',
-    deviceColor:     (repair as any).deviceColor ?? '',
-    imei:            repair.imei            ?? '',
-    reportedIssue:   repair.reportedIssue   ?? '',
-    technicianName:  repair.technicianName  ?? '',
-    priority:        repair.priority        ?? 'NORMAL',
-    estimatedCost:   String(repair.estimatedCost ?? ''),
-    actualCost:      String(repair.actualCost    ?? ''),
-    estimatedCompletion: repair.estimatedCompletion
-      ? repair.estimatedCompletion.slice(0, 10) : '',
+    customerName:        repair.customerName    ?? '',
+    customerPhone:       repair.customerPhone   ?? '',
+    deviceBrand:         repair.deviceBrand     ?? '',
+    deviceModel:         repair.deviceModel     ?? '',
+    deviceColor:         (repair as any).deviceColor ?? '',
+    imei:                repair.imei            ?? '',
+    reportedIssue:       repair.reportedIssue   ?? '',
+    technicianName:      repair.technicianName  ?? '',
+    priority:            repair.priority        ?? 'NORMAL',
+    estimatedCost:       String(repair.estimatedCost ?? ''),
+    actualCost:          String(repair.actualCost    ?? ''),
+    estimatedCompletion: repair.estimatedCompletion ? repair.estimatedCompletion.slice(0, 10) : '',
   })
   const [loading, setLoading] = useState(false)
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -1738,57 +1737,162 @@ function EditRepairModal({ repair, onClose, onSaved }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-        <div className="flex items-center justify-between p-5 border-b sticky top-0" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
-          <div>
-            <p className="text-[10px] font-mono text-violet-400">{repair.ticketNumber}</p>
-            <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Edit Repair Job</h3>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { k: 'customerName',  label: 'Customer Name *',  type: 'text',   req: true  },
-              { k: 'customerPhone', label: 'Phone *',           type: 'text',   req: true  },
-              { k: 'deviceBrand',   label: 'Device Brand *',   type: 'text',   req: true  },
-              { k: 'deviceModel',   label: 'Device Model *',   type: 'text',   req: true  },
-              { k: 'deviceColor',   label: 'Color',            type: 'text',   req: false },
-              { k: 'imei',          label: 'IMEI',             type: 'text',   req: false },
-              { k: 'technicianName',label: 'Technician',       type: 'text',   req: false },
-              { k: 'estimatedCost', label: 'Estimated Cost',   type: 'number', req: false },
-              { k: 'actualCost',    label: 'Actual Cost',      type: 'number', req: false },
-              { k: 'estimatedCompletion', label: 'Due Date',   type: 'date',   req: false },
-            ].map(({ k, label, type, req }) => (
-              <div key={k}>
-                <label className="block text-xs text-slate-400 mb-1.5">{label}</label>
-                <input
-                  type={type} required={req}
-                  className="input-field"
-                  value={(form as any)[k]}
-                  onChange={f(k)}
-                  min={type === 'number' ? 0 : undefined}
-                />
-              </div>
-            ))}
-            <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Priority</label>
-              <select className="input-field" value={form.priority} onChange={f('priority')}>
-                {['LOW','NORMAL','HIGH','URGENT'].map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
+      <div className="rounded-2xl w-full max-w-2xl shadow-2xl max-h-[92vh] overflow-y-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-5 border-b sticky top-0 z-10" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-violet-500/10 border border-violet-500/15 shrink-0">
+              <Pencil size={18} className="text-violet-500" />
             </div>
-            <div className="col-span-2">
-              <label className="block text-xs text-slate-400 mb-1.5">Reported Issue *</label>
-              <textarea required className="input-field min-h-[72px] resize-none"
+            <div>
+              <div className="flex items-center gap-2.5">
+                <h3 className="text-base font-black" style={{ color: 'var(--text-primary)' }}>Edit Repair Job</h3>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border border-violet-500/20 bg-violet-500/10 text-violet-400">{repair.ticketNumber}</span>
+              </div>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Update the details of this repair ticket</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg transition-colors hover:bg-red-500/10 hover:text-red-400" style={{ color: 'var(--text-muted)' }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+
+          {/* ── Customer Information ── */}
+          <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+              <User size={15} className="text-violet-500" />
+              <h4 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Customer Information</h4>
+            </div>
+            <div className="p-4 grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Customer Name <span className="text-red-500">*</span></label>
+                <div className="relative">
+                  <User size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input required type="text" className="input-field pl-9 h-10" placeholder="Customer name" value={form.customerName} onChange={f('customerName')} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Phone <span className="text-red-500">*</span></label>
+                <div className="relative">
+                  <Phone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input required type="text" className="input-field pl-9 h-10" placeholder="Phone number" value={form.customerPhone} onChange={f('customerPhone')} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Device Information ── */}
+          <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+              <Smartphone size={15} className="text-violet-500" />
+              <h4 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Device Information</h4>
+            </div>
+            <div className="p-4 grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Brand <span className="text-red-500">*</span></label>
+                <div className="relative">
+                  <Smartphone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input required type="text" className="input-field pl-9 h-10" placeholder="e.g. Samsung" value={form.deviceBrand} onChange={f('deviceBrand')} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Model <span className="text-red-500">*</span></label>
+                <div className="relative">
+                  <Hash size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input required type="text" className="input-field pl-9 h-10" placeholder="e.g. Galaxy S24" value={form.deviceModel} onChange={f('deviceModel')} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>IMEI <span style={{ color: 'var(--text-muted)' }}>(Optional)</span></label>
+                <div className="relative">
+                  <Hash size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input type="text" className="input-field pl-9 h-10 font-mono" placeholder="15-digit IMEI" maxLength={17} value={form.imei} onChange={f('imei')} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Color <span style={{ color: 'var(--text-muted)' }}>(Optional)</span></label>
+                <input type="text" className="input-field h-10" placeholder="e.g. Phantom Black" value={form.deviceColor} onChange={f('deviceColor')} />
+              </div>
+            </div>
+          </div>
+
+          {/* ── Reported Issue ── */}
+          <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+              <AlertTriangle size={15} className="text-violet-500" />
+              <h4 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Reported Issue</h4>
+            </div>
+            <div className="p-4">
+              <textarea required className="input-field w-full resize-none text-sm" rows={3}
+                placeholder="Describe the fault or issue reported by the customer…"
                 value={form.reportedIssue} onChange={f('reportedIssue')} />
             </div>
           </div>
+
+          {/* ── Job Details ── */}
+          <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+              <Wrench size={15} className="text-violet-500" />
+              <h4 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Job Details</h4>
+            </div>
+            <div className="p-4 grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Technician</label>
+                <div className="relative">
+                  <Wrench size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input type="text" className="input-field pl-9 h-10" placeholder="Assign technician" value={form.technicianName} onChange={f('technicianName')} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Priority</label>
+                <select className="input-field h-10" value={form.priority} onChange={f('priority')}>
+                  {(['LOW','NORMAL','HIGH','URGENT'] as const).map(p => (
+                    <option key={p} value={p}>{p.charAt(0) + p.slice(1).toLowerCase()}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Estimated Cost (LKR)</label>
+                <div className="relative">
+                  <DollarSign size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input type="number" min={0} className="input-field pl-9 h-10" placeholder="0.00" value={form.estimatedCost} onChange={f('estimatedCost')} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Actual Cost (LKR)</label>
+                <div className="relative">
+                  <DollarSign size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input type="number" min={0} className="input-field pl-9 h-10" placeholder="0.00" value={form.actualCost} onChange={f('actualCost')} />
+                </div>
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Estimated Completion</label>
+                <div className="relative">
+                  <Calendar size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input type="date" className="input-field pl-9 h-10" value={form.estimatedCompletion} onChange={f('estimatedCompletion')} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
           <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
-            <button type="submit" disabled={loading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
-              {loading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}Save Changes
+            <button type="button" onClick={onClose}
+              className="flex-1 h-11 rounded-xl border text-sm font-semibold transition-colors hover:bg-white/5"
+              style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}>
+              Cancel
+            </button>
+            <button type="submit" disabled={loading}
+              className="flex-1 h-11 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-violet-500/20 transition-all hover:opacity-90"
+              style={{ background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)' }}>
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              Save Changes
             </button>
           </div>
+
         </form>
       </div>
     </div>
