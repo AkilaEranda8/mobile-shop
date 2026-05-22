@@ -15,7 +15,7 @@ import { DataTableColumnHeader } from '@/components/table/data-table-column-head
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency, formatDate, getRepairStatusColor } from '@/lib/utils'
 import { useRepairs, useProducts } from '@/lib/hooks'
-import { repairsApi, customersApi, deviceCatalogApi, usersApi } from '@/lib/api'
+import { repairsApi, customersApi, deviceCatalogApi, usersApi, uploadApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { getInvoiceSettings, type InvoiceSettings } from '@/lib/invoiceSettings'
 import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrint'
@@ -895,9 +895,39 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
   onRefresh: () => void
   allRepairs?: RepairTicket[]
 }) {
-  const quoteRef = useRef<HTMLDivElement>(null)
-  const [downloading, setDownloading] = useState(false)
-  const [invSettings] = useState<InvoiceSettings>(() => getInvoiceSettings())
+  const quoteRef    = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [downloading,   setDownloading]   = useState(false)
+  const [invSettings]                     = useState<InvoiceSettings>(() => getInvoiceSettings())
+  const [photos,        setPhotos]        = useState<string[]>(repair.photos ?? [])
+  const [uploading,     setUploading]     = useState(false)
+  const [lightboxUrl,   setLightboxUrl]   = useState<string | null>(null)
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
+    setUploading(true)
+    try {
+      const urls: string[] = []
+      for (const file of files) {
+        const { url } = await uploadApi.repairPhoto(file)
+        urls.push(url)
+      }
+      const updated = [...photos, ...urls]
+      await repairsApi.updatePhotos(repair.id, updated)
+      setPhotos(updated)
+      toast.success(`${urls.length} file${urls.length > 1 ? 's' : ''} uploaded`)
+    } catch (err: any) { toast.error(err?.message ?? 'Upload failed') }
+    finally { setUploading(false); if (fileInputRef.current) fileInputRef.current.value = '' }
+  }
+
+  const handleDeletePhoto = async (url: string) => {
+    const updated = photos.filter(p => p !== url)
+    try {
+      await repairsApi.updatePhotos(repair.id, updated)
+      setPhotos(updated)
+    } catch { toast.error('Delete failed') }
+  }
 
   const sendQuoteWhatsApp = () => {
     const partsTotal = repair.spareParts?.reduce((s: any, p: any) => s + p.total, 0) ?? 0
@@ -1598,32 +1628,93 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
 
             {/* Attachments */}
             <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-              <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+              <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                 <p className="text-[11px] font-black uppercase tracking-widest flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
-                  <Upload size={12} className="text-indigo-500" /> Attachments ({repair.photos?.length ?? 0})
+                  <Upload size={12} className="text-indigo-500" /> Attachments ({photos.length})
                 </p>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold text-indigo-400 border border-indigo-500/20 bg-indigo-500/10 hover:bg-indigo-500/20 transition-colors disabled:opacity-50"
+                >
+                  {uploading ? <Loader2 size={10} className="animate-spin" /> : <Upload size={10} />}
+                  {uploading ? 'Uploading…' : 'Add Files'}
+                </button>
               </div>
               <div className="p-4">
-                {repair.photos?.length > 0 ? (
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/png,image/jpeg,image/jpg,image/webp,application/pdf"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+                {photos.length > 0 ? (
                   <div className="grid grid-cols-3 gap-2">
-                    {repair.photos.map((url: string, i: number) => (
-                      <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                        <img src={url} alt={`Photo ${i + 1}`} className="w-full aspect-square object-cover rounded-lg border" style={{ borderColor: 'var(--border-subtle)' }} />
-                      </a>
-                    ))}
+                    {photos.map((url, i) => {
+                      const isPdf = url.toLowerCase().endsWith('.pdf')
+                      return (
+                        <div key={i} className="relative group aspect-square rounded-lg overflow-hidden border" style={{ borderColor: 'var(--border-subtle)' }}>
+                          {isPdf ? (
+                            <a href={url} target="_blank" rel="noopener noreferrer"
+                              className="flex flex-col items-center justify-center w-full h-full gap-1 text-[10px] font-medium hover:bg-white/5 transition-colors"
+                              style={{ background: 'var(--bg-subtle)', color: 'var(--text-secondary)' }}>
+                              <FileText size={22} className="text-red-400" />
+                              PDF
+                            </a>
+                          ) : (
+                            <button onClick={() => setLightboxUrl(url)} className="w-full h-full">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={url} alt={`Attachment ${i + 1}`} className="w-full h-full object-cover" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeletePhoto(url)}
+                            className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      )
+                    })}
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="aspect-square rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-1 text-[10px] transition-colors hover:border-indigo-500/50 hover:bg-indigo-500/5 disabled:opacity-50"
+                      style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}
+                    >
+                      {uploading ? <Loader2 size={16} className="animate-spin text-indigo-400" /> : <Upload size={16} />}
+                      {uploading ? '' : 'Add more'}
+                    </button>
                   </div>
                 ) : (
-                  <div className="rounded-xl border-2 border-dashed p-5 flex flex-col items-center gap-2 text-center" style={{ borderColor: 'var(--border-subtle)' }}>
-                    <Upload size={22} style={{ color: 'var(--text-muted)' }} />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="w-full rounded-xl border-2 border-dashed p-5 flex flex-col items-center gap-2 text-center transition-colors hover:border-indigo-500/40 hover:bg-indigo-500/5 disabled:opacity-50"
+                    style={{ borderColor: 'var(--border-subtle)' }}
+                  >
+                    {uploading ? <Loader2 size={22} className="animate-spin text-indigo-400" /> : <Upload size={22} style={{ color: 'var(--text-muted)' }} />}
                     <div>
-                      <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Drag & drop files or</p>
-                      <button className="text-xs font-bold text-indigo-500 hover:text-indigo-400">Browse Files</button>
+                      <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>{uploading ? 'Uploading files…' : 'Click to upload files'}</p>
+                      {!uploading && <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>JPG, PNG, WebP, PDF · Max 10 MB each</p>}
                     </div>
-                    <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Supported: JPG, PNG, PDF (Max 10MB)</p>
-                  </div>
+                  </button>
                 )}
               </div>
             </div>
+
+            {/* Lightbox */}
+            {lightboxUrl && (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 backdrop-blur-sm" onClick={() => setLightboxUrl(null)}>
+                <button className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20" onClick={() => setLightboxUrl(null)}>
+                  <X size={20} />
+                </button>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={lightboxUrl} alt="Attachment" className="max-w-[90vw] max-h-[90vh] rounded-xl shadow-2xl object-contain" onClick={e => e.stopPropagation()} />
+              </div>
+            )}
 
             {/* Customer Contact */}
             <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>

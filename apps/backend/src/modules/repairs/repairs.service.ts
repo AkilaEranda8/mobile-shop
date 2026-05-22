@@ -141,6 +141,12 @@ export const repairsService = {
     return prisma.repairTicket.findUnique({ where: { id: repairId }, include: { notes: true, spareParts: true, history: true } })
   },
 
+  async updatePhotos(tenantId: string, id: string, photos: string[]) {
+    const r = await prisma.repairTicket.findFirst({ where: { id, tenantId } })
+    if (!r) throw new AppError('Repair ticket not found', 404)
+    return prisma.repairTicket.update({ where: { id }, data: { photos }, include: { notes: true, spareParts: true, history: true } })
+  },
+
   async collectPayment(tenantId: string, id: string, body: { discount?: number; paymentMethod: string; cashierName?: string }) {
     const r = await prisma.repairTicket.findFirst({ where: { id, tenantId }, include: { spareParts: true } })
     if (!r) throw new AppError('Repair ticket not found', 404)

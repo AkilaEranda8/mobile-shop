@@ -113,6 +113,19 @@ export const uploadApi = {
     if (!res.ok) throw new Error(json.message || 'Upload failed')
     return json.data
   },
+  repairPhoto: async (file: File): Promise<{ url: string }> => {
+    const token = authStorage.getAccessToken()
+    const form = new FormData()
+    form.append('photo', file)
+    const res = await fetch(`${BASE_URL}/upload/repair-photo`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    })
+    const json = await res.json()
+    if (!res.ok) throw new Error(json.message || 'Upload failed')
+    return json.data
+  },
 }
 
 export const tenantApi = {
@@ -167,6 +180,8 @@ export const repairsApi = {
     api.delete(`/repairs/${id}/parts/${partId}`),
   collectPayment: (id: string, body: { discount?: number; paymentMethod: string }) =>
     api.post(`/repairs/${id}/collect-payment`, body),
+  updatePhotos: (id: string, photos: string[]) =>
+    api.put(`/repairs/${id}/photos`, { photos }),
 }
 
 export const deviceCatalogApi = {
