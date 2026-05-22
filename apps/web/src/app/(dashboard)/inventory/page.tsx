@@ -1,14 +1,14 @@
 'use client'
 
 import { useState, useRef, useMemo, useEffect } from 'react'
-import { Plus, Package, AlertTriangle, Download, Upload, QrCode, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { Plus, Package, AlertTriangle, Download, Upload, QrCode, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, ImageOff } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency } from '@/lib/utils'
 import { useProducts, useCategories } from '@/lib/hooks'
-import { productsApi } from '@/lib/api'
+import { productsApi, uploadApi } from '@/lib/api'
 import type { Product, Category } from '@/types'
 import toast from 'react-hot-toast'
 
@@ -247,11 +247,59 @@ function AddCategoryModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
   )
 }
 
+function ProductImagePicker({ imageUrl, onUploaded }: { imageUrl: string; onUploaded: (url: string) => void }) {
+  const imgRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+
+  const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const { url } = await uploadApi.productImage(file)
+      onUploaded(url)
+      toast.success('Image uploaded')
+    } catch (err: any) { toast.error(err?.message ?? 'Upload failed') }
+    finally { setUploading(false); if (imgRef.current) imgRef.current.value = '' }
+  }
+
+  return (
+    <div className="col-span-2">
+      <label className="block text-xs text-slate-400 mb-1.5">Product Image</label>
+      <input ref={imgRef} type="file" accept="image/png,image/jpeg,image/jpg,image/webp" className="hidden" onChange={handleChange} />
+      <button type="button" onClick={() => imgRef.current?.click()} disabled={uploading}
+        className="w-full h-28 rounded-xl border-2 border-dashed flex items-center justify-center gap-3 transition-colors hover:border-violet-500/40 hover:bg-violet-500/5 disabled:opacity-50 overflow-hidden"
+        style={{ borderColor: 'var(--border-subtle)' }}>
+        {uploading ? (
+          <div className="flex flex-col items-center gap-2 text-violet-400">
+            <Loader2 size={22} className="animate-spin" />
+            <span className="text-xs">Uploading…</span>
+          </div>
+        ) : imageUrl ? (
+          <div className="relative w-full h-full group">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={imageUrl} alt="Product" className="w-full h-full object-contain" />
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 text-white text-xs font-semibold">
+              <Camera size={14} /> Change Image
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-2" style={{ color: 'var(--text-muted)' }}>
+            <Camera size={22} />
+            <span className="text-xs">Click to upload product image</span>
+            <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>JPG, PNG, WebP · Max 5 MB</span>
+          </div>
+        )}
+      </button>
+    </div>
+  )
+}
+
 function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const { data: cats, refetch: refetchCats } = useCategories()
   const categories: Category[] = (cats ?? []) as Category[]
   const [showAddCat, setShowAddCat] = useState(false)
-  const [form, setForm] = useState({ name: '', sku: '', categoryName: '', brandName: '', buyingPrice: '', sellingPrice: '', stock: '', minStock: '5', description: '' })
+  const [form, setForm] = useState({ name: '', sku: '', categoryName: '', brandName: '', buyingPrice: '', sellingPrice: '', stock: '', minStock: '5', description: '', imageUrl: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(p => ({ ...p, [k]: e.target.value }))
@@ -273,6 +321,7 @@ function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
         sellingPrice: Number(form.sellingPrice),
         stock: Number(form.stock),
         minStock: Number(form.minStock),
+        imageUrl: form.imageUrl || undefined,
       })
       onSaved(); onClose()
     } catch (err: any) { setError(err.message || 'Failed to create product') }
@@ -288,6 +337,7 @@ function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-4">
+            <ProductImagePicker imageUrl={form.imageUrl} onUploaded={url => setForm(p => ({ ...p, imageUrl: url }))} />
             <div className="col-span-2">
               <label className="block text-xs text-slate-400 mb-1.5">Product Name *</label>
               <input required className="input-field" placeholder="iPhone 15 Pro Max 256GB" value={form.name} onChange={f('name')} />
@@ -315,11 +365,11 @@ function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
               </div>
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Buying Price (₹) *</label>
+              <label className="block text-xs text-slate-400 mb-1.5">Buying Price (LKR) *</label>
               <input required type="number" min="0" className="input-field" placeholder="75000" value={form.buyingPrice} onChange={f('buyingPrice')} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Selling Price (₹) *</label>
+              <label className="block text-xs text-slate-400 mb-1.5">Selling Price (LKR) *</label>
               <input required type="number" min="0" className="input-field" placeholder="89999" value={form.sellingPrice} onChange={f('sellingPrice')} />
             </div>
             <div>
@@ -352,6 +402,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
     brandName: (product as any).brandName ?? '',
     buyingPrice: String(product.buyingPrice), sellingPrice: String(product.sellingPrice),
     stock: String(product.stock), minStock: String(product.minStock),
+    imageUrl: product.imageUrl ?? '',
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -365,6 +416,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
         ...form,
         buyingPrice: Number(form.buyingPrice), sellingPrice: Number(form.sellingPrice),
         mrp: Number(form.sellingPrice), stock: Number(form.stock), minStock: Number(form.minStock),
+        imageUrl: form.imageUrl || undefined,
       })
       onSaved(); onClose()
     } catch (err: any) { setError(err.message || 'Failed to update') }
@@ -380,6 +432,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-4">
+            <ProductImagePicker imageUrl={form.imageUrl} onUploaded={url => setForm(p => ({ ...p, imageUrl: url }))} />
             <div className="col-span-2">
               <label className="block text-xs text-slate-400 mb-1.5">Product Name *</label>
               <input required className="input-field" value={form.name} onChange={f('name')} />
@@ -399,11 +452,11 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
               </select>
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Buying Price (₹)</label>
+              <label className="block text-xs text-slate-400 mb-1.5">Buying Price (LKR)</label>
               <input type="number" min="0" className="input-field" value={form.buyingPrice} onChange={f('buyingPrice')} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Selling Price (₹)</label>
+              <label className="block text-xs text-slate-400 mb-1.5">Selling Price (LKR)</label>
               <input type="number" min="0" className="input-field" value={form.sellingPrice} onChange={f('sellingPrice')} />
             </div>
             <div>
@@ -457,10 +510,19 @@ function ProductDetailModal({ product, onClose, onEdit }: { product: Product; on
 
         <div className="p-5 space-y-5">
           {/* Hero banner */}
-          <div className="w-full h-28 bg-gradient-to-br from-violet-600/20 via-violet-500/10 to-cyan-500/10 rounded-2xl flex flex-col items-center justify-center border border-violet-500/15 relative overflow-hidden">
-            <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle at 30% 50%, #7c3aed 0%, transparent 60%)' }} />
-            <Package size={32} className="text-violet-400 mb-1.5 opacity-80" />
-            <p className="text-xs text-violet-300 font-mono">{product.sku}</p>
+          <div className="w-full h-36 rounded-2xl overflow-hidden border border-violet-500/15 relative flex items-center justify-center bg-gradient-to-br from-violet-600/20 via-violet-500/10 to-cyan-500/10">
+            {product.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={product.imageUrl} alt={product.name} className="h-full w-full object-contain" />
+            ) : (
+              <>
+                <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle at 30% 50%, #7c3aed 0%, transparent 60%)' }} />
+                <div className="flex flex-col items-center gap-1">
+                  <Package size={32} className="text-violet-400 opacity-80" />
+                  <p className="text-xs text-violet-300 font-mono">{product.sku}</p>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Name + brand */}
@@ -560,8 +622,13 @@ export default function InventoryPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Product" />,
       cell: ({ row }) => (
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
-            <Package size={14} className="text-violet-400" />
+          <div className="w-8 h-8 rounded-lg overflow-hidden border border-violet-500/20 flex items-center justify-center flex-shrink-0 bg-violet-500/10">
+            {row.original.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={row.original.imageUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <Package size={14} className="text-violet-400" />
+            )}
           </div>
           <div>
             <button className="text-sm font-medium text-slate-200 hover:text-violet-400 text-left transition-colors" onClick={() => setViewProduct(row.original)}>{row.original.name}</button>

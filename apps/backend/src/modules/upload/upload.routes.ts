@@ -9,8 +9,11 @@ import { env } from '../../config/env'
 const UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'logos')
 fs.mkdirSync(UPLOAD_DIR, { recursive: true })
 
-const REPAIR_DIR = path.join(process.cwd(), 'uploads', 'repairs')
+const REPAIR_DIR   = path.join(process.cwd(), 'uploads', 'repairs')
 fs.mkdirSync(REPAIR_DIR, { recursive: true })
+
+const PRODUCT_DIR = path.join(process.cwd(), 'uploads', 'products')
+fs.mkdirSync(PRODUCT_DIR, { recursive: true })
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
@@ -46,6 +49,23 @@ const repairUpload = multer({
   },
 })
 
+const productStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, PRODUCT_DIR),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase() || '.jpg'
+    cb(null, `product_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`)
+  },
+})
+
+const productUpload = multer({
+  storage: productStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
+    cb(null, allowed.includes(file.mimetype))
+  },
+})
+
 const router = Router()
 router.use(authenticate)
 
@@ -62,6 +82,14 @@ router.post('/repair-photo', repairUpload.single('photo'), (req: Request, res: R
     if (!req.file) { res.status(400).json({ message: 'No file uploaded' }); return }
     const url = `${env.BACKEND_URL.replace(/\/$/, '')}/uploads/repairs/${req.file.filename}`
     sendSuccess(res, { url }, 'Photo uploaded', 201)
+  } catch (e) { next(e) }
+})
+
+router.post('/product-image', productUpload.single('image'), (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.file) { res.status(400).json({ message: 'No file uploaded' }); return }
+    const url = `${env.BACKEND_URL.replace(/\/$/, '')}/uploads/products/${req.file.filename}`
+    sendSuccess(res, { url }, 'Image uploaded', 201)
   } catch (e) { next(e) }
 })
 

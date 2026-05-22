@@ -126,6 +126,19 @@ export const uploadApi = {
     if (!res.ok) throw new Error(json.message || 'Upload failed')
     return json.data
   },
+  productImage: async (file: File): Promise<{ url: string }> => {
+    const token = authStorage.getAccessToken()
+    const form = new FormData()
+    form.append('image', file)
+    const res = await fetch(`${BASE_URL}/upload/product-image`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    })
+    const json = await res.json()
+    if (!res.ok) throw new Error(json.message || 'Upload failed')
+    return json.data
+  },
 }
 
 export const tenantApi = {
