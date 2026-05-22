@@ -38,18 +38,33 @@ export const repairsService = {
     }
     if (!body.customerId) throw new AppError('Customer phone is required', 400)
 
-    if (body.estimatedCost === undefined || body.estimatedCost === null || body.estimatedCost === '') body.estimatedCost = 0
-
-    const { createdBy, deviceColor, ...repairData } = body
-    if (!repairData.source) repairData.source = 'WALK_IN'
     const ticketNumber = await generateTicketNumber(tenantId)
     const repair = await prisma.repairTicket.create({
-      data: { ...repairData, tenantId, ticketNumber, history: { create: [{ status: 'RECEIVED', changedBy: createdBy ?? 'system', note: 'Ticket created' }] } },
+      data: {
+        tenantId,
+        ticketNumber,
+        branchId:            body.branchId,
+        customerId:          body.customerId,
+        customerName:        body.customerName   || 'Unknown',
+        customerPhone:       body.customerPhone  || '',
+        deviceBrand:         body.deviceBrand    || '',
+        deviceModel:         body.deviceModel    || '',
+        imei:                body.imei           || undefined,
+        accessories:         body.accessories    || undefined,
+        reportedIssue:       body.reportedIssue  || '',
+        estimatedCost:       Number(body.estimatedCost) || 0,
+        priority:            body.priority       || 'NORMAL',
+        technicianId:        body.technicianId   || undefined,
+        technicianName:      body.technicianName || undefined,
+        source:              body.source         || 'WALK_IN',
+        estimatedCompletion: body.estimatedCompletion ? new Date(body.estimatedCompletion) : undefined,
+        history: { create: [{ status: 'RECEIVED', changedBy: body.createdBy ?? 'system', note: 'Ticket created' }] },
+      },
       include: { notes: true, spareParts: true, history: true },
     })
     await prisma.customer.update({ where: { id: body.customerId }, data: { totalRepairs: { increment: 1 } } }).catch(() => {})
-    if (repairData.imei) {
-      await prisma.imeiRecord.updateMany({ where: { imei: repairData.imei }, data: { status: 'IN_REPAIR' } }).catch(() => {})
+    if (body.imei) {
+      await prisma.imeiRecord.updateMany({ where: { imei: body.imei }, data: { status: 'IN_REPAIR' } }).catch(() => {})
     }
     return repair
   },
