@@ -16,26 +16,38 @@ router.get('/dashboard', async (req: Request, res: Response, next: NextFunction)
     const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999)
     const in30Days = new Date(); in30Days.setDate(in30Days.getDate() + 30)
 
-    const [todaySales, activeRepairs, totalCustomers, lowStockProducts, totalRevenue, expiringWarranties, readyForPickup, totalSalesCount] = await Promise.all([
+    const [todaySales, activeRepairs, totalCustomers, lowStockProducts, posRevenue, otherRevenue, expiringWarranties, readyForPickup, totalSalesCount] = await Promise.all([
       prisma.sale.aggregate({ where: { tenantId, ...branchFilter, status: { not: 'RETURNED' }, createdAt: { gte: today, lte: todayEnd } }, _sum: { total: true }, _count: true }),
       prisma.repairTicket.count({ where: { tenantId, ...branchFilter, status: { notIn: ['DELIVERED', 'CANCELLED'] } } }),
       prisma.customer.count({ where: { tenantId } }),
-      prisma.product.findMany({ where: { tenantId, isActive: true, stock: { lte: 5 } }, select: { id: true, name: true, stock: true, minStock: true }, orderBy: { stock: 'asc' }, take: 5 }),
+      // Low stock: compare stock against each product's own minStock (not a hardcoded value)
+      prisma.$queryRaw<Array<{ id: string; name: string; stock: number; minStock: number }>>`
+        SELECT id, name, stock, "minStock"
+        FROM   "Product"
+        WHERE  "tenantId" = ${tenantId}
+          AND  "isActive" = true
+          AND  stock < "minStock"
+        ORDER  BY stock ASC
+        LIMIT  5
+      `,
       prisma.sale.aggregate({ where: { tenantId, ...branchFilter, status: { not: 'RETURNED' } }, _sum: { total: true } }),
+      // Other income (repairs, manual entries) — exclude 'Sales' category (already in posRevenue)
+      prisma.transaction.aggregate({ where: { tenantId, type: 'INCOME', category: { not: 'Sales' } }, _sum: { amount: true } }),
       prisma.warranty.count({ where: { tenantId, endDate: { lte: in30Days }, status: 'ACTIVE' } }),
       prisma.repairTicket.count({ where: { tenantId, ...branchFilter, status: 'READY' } }),
       prisma.sale.count({ where: { tenantId, ...branchFilter, status: { not: 'RETURNED' } } }),
     ])
 
+    const totalRevenue = (posRevenue._sum.total ?? 0) + (otherRevenue._sum.amount ?? 0)
     sendSuccess(res, {
       todayRevenue:    todaySales._sum.total ?? 0,
       todaySalesCount: todaySales._count,
       totalSalesCount,
       activeRepairs,
       totalCustomers,
-      lowStockCount:    lowStockProducts.length,
+      lowStockCount:    (lowStockProducts as any[]).length,
       lowStockProducts,
-      totalRevenue:    totalRevenue._sum.total ?? 0,
+      totalRevenue,
       expiringWarranties,
       readyForPickup,
     })
@@ -104,7 +116,8 @@ router.get('/revenue', async (req: Request, res: Response, next: NextFunction) =
       ORDER  BY 1 ASC
     `
 
-    // 4. Other income per day (Transaction.INCOME)
+    // 4. Other income per day (Transaction.INCOME) — exclude category='Sales' to avoid
+    //    double-counting POS sales already captured in salesRaw above
     const incomeRaw: Array<{ date: Date; total: number }> = await prisma.$queryRaw`
       SELECT DATE_TRUNC('day', "createdAt" AT TIME ZONE 'UTC') AS date,
              COALESCE(SUM(amount), 0)::float                   AS total
@@ -112,6 +125,7 @@ router.get('/revenue', async (req: Request, res: Response, next: NextFunction) =
       WHERE  "tenantId" = ${tenantId}
         ${txBranch}
         AND  type = 'INCOME'
+        AND  category != 'Sales'
         AND  "createdAt" >= ${from}
         AND  "createdAt" <= ${to}
       GROUP  BY 1

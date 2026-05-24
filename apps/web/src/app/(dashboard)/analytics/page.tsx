@@ -273,7 +273,7 @@ export default function AnalyticsPage() {
                 {dash?.lowStockCount ?? 0}
               </p>
               <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                {dash?.lowStockCount > 0 ? 'Products with low stock (≤5 units)' : 'All products sufficiently stocked'}
+                {dash?.lowStockCount > 0 ? 'Products below their minimum stock level' : 'All products sufficiently stocked'}
               </p>
             </div>
           </div>
