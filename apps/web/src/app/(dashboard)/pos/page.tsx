@@ -1291,15 +1291,15 @@ export default function POSPage() {
       {mobileView === 'products' && cart.length > 0 && (
         <div className="fixed bottom-4 left-3 right-3 z-30 md:hidden">
           <button onClick={() => setMobileView('cart')}
-            className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-white font-bold"
-            style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: '0 8px 30px rgba(124,58,237,.55)' }}>
-            <div className="flex items-center gap-2">
-              <ShoppingBag size={17} />
-              <span className="text-sm">{cart.length} item{cart.length !== 1 ? 's' : ''}</span>
+            className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl font-bold"
+            style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: '0 8px 30px rgba(124,58,237,.55)', color: '#ffffff' }}>
+            <div className="flex items-center gap-2" style={{ color: '#ffffff' }}>
+              <ShoppingBag size={17} color="#ffffff" />
+              <span className="text-sm" style={{ color: '#ffffff' }}>{cart.length} item{cart.length !== 1 ? 's' : ''}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-base font-extrabold">{formatCurrency(total)}</span>
-              <ChevronRight size={16} />
+            <div className="flex items-center gap-2" style={{ color: '#ffffff' }}>
+              <span className="text-base font-extrabold" style={{ color: '#ffffff' }}>{formatCurrency(total)}</span>
+              <ChevronRight size={16} color="#ffffff" />
             </div>
           </button>
         </div>
