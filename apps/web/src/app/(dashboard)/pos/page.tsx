@@ -334,6 +334,7 @@ export default function POSPage() {
   const [addWarranty, setAddWarranty]             = useState(false)
   const [warrantyMonths, setWarrantyMonths]       = useState(12)
   const [showCalc, setShowCalc]                   = useState(false)
+  const [mobileView, setMobileView]               = useState<'products' | 'cart'>('products')
   const [calcDisplay, setCalcDisplay]             = useState('0')
   const [calcPrev, setCalcPrev]                   = useState<string|null>(null)
   const [calcOp, setCalcOp]                       = useState<string|null>(null)
@@ -651,6 +652,7 @@ export default function POSPage() {
         if (createdWarrantyCodes.length > 0)
           toast.success(`${createdWarrantyCodes.length} warranty${createdWarrantyCodes.length > 1 ? 's' : ''} created`, { icon: '🛡️' })
       }
+      setMobileView('cart')
       setCompletedSale({
         ...res.data,
         items: cart.map(i => ({ productName: i.name, sku: i.sku, imei: i.imei, quantity: i.quantity, unitPrice: i.price, total: i.price * i.quantity })),
@@ -751,7 +753,7 @@ export default function POSPage() {
   const handleNewSale = () => {
     setCart([]); setCompletedSale(null); setSearch('')
     setDiscountPct(0); setDiscountFlat(0); setSelectedCustomer(null); setCheckoutError('')
-    setAddWarranty(false); setWarrantyMonths(12)
+    setAddWarranty(false); setWarrantyMonths(12); setMobileView('products')
   }
 
   const handleCustomerCreated = useCallback((c: any) => {
@@ -784,14 +786,14 @@ export default function POSPage() {
       })()}
 
       {/* ══ TOP BAR ══ */}
-      <div className="flex items-center gap-2 px-4 py-2 flex-shrink-0" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border-subtle)' }}>
-        <div className="relative" style={{ flex: '1 1 0', minWidth: 0 }}>
+      <div className="flex flex-wrap items-center gap-2 px-3 md:px-4 py-2 flex-shrink-0" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border-subtle)' }}>
+        <div className="relative w-full md:flex-1" style={{ minWidth: 0 }}>
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-muted)' }} />
           <input ref={searchRef} type="text" placeholder="Search products, SKU, IMEI…"
             className="w-full h-9 pl-10 pr-9 rounded-xl border text-sm outline-none"
             style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
             value={search} onChange={e => setSearch(e.target.value)} />
-          <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] px-1 py-0.5 rounded border pointer-events-none" style={{ color: 'var(--text-muted)', background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>F1</kbd>
+          <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] px-1 py-0.5 rounded border pointer-events-none hidden md:block" style={{ color: 'var(--text-muted)', background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>F1</kbd>
         </div>
         {showScanInput ? (
           <div className="relative flex-shrink-0">
@@ -856,7 +858,7 @@ export default function POSPage() {
       <div className="flex flex-1 min-h-0">
 
         {/* ── Products Panel ── */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <div className={`flex-1 flex-col min-w-0 overflow-hidden ${mobileView === 'cart' ? 'hidden md:flex' : 'flex'}`}>
 
           {/* ── Category Bar ── */}
           <div className="flex items-center gap-1.5 px-4 py-2 border-b flex-shrink-0 overflow-x-auto scrollbar-none" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-base)' }}>
@@ -873,14 +875,14 @@ export default function POSPage() {
           </div>
 
           {/* Product Grid */}
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-4 pb-20 md:pb-4">
             {pagedProducts.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-40 opacity-30">
                 <PackageSearch size={32} className="text-slate-600 mb-2" />
                 <p className="text-sm text-slate-500">{products.length === 0 ? 'Loading products…' : 'No products found'}</p>
               </div>
             ) : (
-              <div className="grid grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
                 {pagedProducts.map((product: any) => {
                   const isLow  = product.stock > 0 && product.stock <= 4
                   const isHot  = product.stock >= 25
@@ -1005,7 +1007,7 @@ export default function POSPage() {
         </div>
 
         {/* ── Cart Panel ── */}
-        <div className="w-[360px] xl:w-[395px] flex-shrink-0 border-l flex flex-col overflow-hidden" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-base)' }}>
+        <div className={`flex-col overflow-hidden w-full md:w-[360px] xl:w-[395px] md:flex-shrink-0 md:border-l ${mobileView === 'products' ? 'hidden md:flex' : 'flex'}`} style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-base)' }}>
 
           {completedSale ? (
             <div className="flex flex-col h-full">
@@ -1079,6 +1081,9 @@ export default function POSPage() {
               {/* Cart Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
                 <div className="flex items-center gap-2">
+                  <button onClick={() => setMobileView('products')} className="md:hidden flex items-center gap-1 text-xs mr-1 px-2 py-1 rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'var(--text-muted)' }}>
+                    <ChevronLeft size={14} /><span>Products</span>
+                  </button>
                   <ShoppingBag size={14} style={{ color: cart.length > 0 ? '#a78bfa' : 'var(--text-muted)' }} />
                   <span className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Cart</span>
                   {cart.length > 0 && <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-500/15 text-violet-400">{cart.length}</span>}
@@ -1272,6 +1277,24 @@ export default function POSPage() {
           )}
         </div>
       </div>
+
+      {/* ── Mobile Cart FAB ── */}
+      {mobileView === 'products' && cart.length > 0 && (
+        <div className="fixed bottom-4 left-3 right-3 z-30 md:hidden">
+          <button onClick={() => setMobileView('cart')}
+            className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-white font-bold"
+            style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: '0 8px 30px rgba(124,58,237,.55)' }}>
+            <div className="flex items-center gap-2">
+              <ShoppingBag size={17} />
+              <span className="text-sm">{cart.length} item{cart.length !== 1 ? 's' : ''}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-base font-extrabold">{formatCurrency(total)}</span>
+              <ChevronRight size={16} />
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* ── Calculator ── */}
       {showCalc && (
