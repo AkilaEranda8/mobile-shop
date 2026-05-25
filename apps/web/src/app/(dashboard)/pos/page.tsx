@@ -335,6 +335,13 @@ export default function POSPage() {
   const [warrantyMonths, setWarrantyMonths]       = useState(12)
   const [showCalc, setShowCalc]                   = useState(false)
   const [mobileView, setMobileView]               = useState<'products' | 'cart'>('products')
+  const [isDesktop, setIsDesktop]                 = useState(false)
+  useEffect(() => {
+    const check = () => setIsDesktop(window.innerWidth >= 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
   const [calcDisplay, setCalcDisplay]             = useState('0')
   const [calcPrev, setCalcPrev]                   = useState<string|null>(null)
   const [calcOp, setCalcOp]                       = useState<string|null>(null)
@@ -858,7 +865,8 @@ export default function POSPage() {
       <div className="flex flex-1 min-h-0">
 
         {/* ── Products Panel ── */}
-        <div className={`flex-1 flex-col min-w-0 overflow-hidden ${mobileView === 'cart' ? 'hidden md:flex' : 'flex'}`}>
+        <div className="flex-1 flex-col min-w-0 overflow-hidden"
+          style={{ display: isDesktop || mobileView === 'products' ? 'flex' : 'none' }}>
 
           {/* ── Category Bar ── */}
           <div className="flex items-center gap-1.5 px-4 py-2 border-b flex-shrink-0 overflow-x-auto scrollbar-none" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-base)' }}>
@@ -1007,7 +1015,8 @@ export default function POSPage() {
         </div>
 
         {/* ── Cart Panel ── */}
-        <div className={`flex-col overflow-hidden w-full md:w-[360px] xl:w-[395px] md:flex-shrink-0 md:border-l ${mobileView === 'products' ? 'hidden md:flex' : 'flex'}`} style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-base)' }}>
+        <div className="flex-col overflow-hidden"
+          style={{ display: isDesktop || mobileView === 'cart' ? 'flex' : 'none', width: isDesktop ? 360 : '100%', flexShrink: isDesktop ? 0 : 1, borderLeft: isDesktop ? '1px solid var(--border-subtle)' : 'none', borderColor: 'var(--border-subtle)', background: 'var(--bg-base)' }}>
 
           {completedSale ? (
             <div className="flex flex-col h-full">
