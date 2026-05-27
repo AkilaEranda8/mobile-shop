@@ -1,0 +1,119 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hexalyte_postgres
+    environment:
+      POSTGRES_USER: hexalyte
+      POSTGRES_PASSWORD: hexalyte_secret
+      POSTGRES_DB: hexalyte
+    ports:
+      - 127.0.0.1:5434:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - hexalyte-network
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U hexalyte]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: hexalyte_redis
+    ports:
+      - 127.0.0.1:6380:6379
+    volumes:
+      - redis_data:/data
+    networks:
+      - hexalyte-network
+    command: redis-server --appendonly yes --requirepass HxR3d1s@2025#Secure --bind 0.0.0.0 --maxmemory 256mb --maxmemory-policy noeviction
+
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile.prod
+    container_name: hexalyte_backend
+    restart: unless-stopped
+    ports:
+      - 127.0.0.1:3001:3001
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://hexalyte:hexalyte_secret@hexalyte_postgres:5432/hexalyte
+      REDIS_URL: redis://:HxR3d1s%402025%23Secure@hexalyte_redis:6379
+      REDIS_URL_OLD: redis://:HxR3d1s%402025%23Secure@hexalyte_redis:6379
+      JWT_SECRET: hexalyte-super-secret-jwt-key-for-development-only
+      JWT_EXPIRES_IN: 60m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      FRONTEND_URL: https://app.hexalyte.com
+      API_PREFIX: api/v1
+      KEYCLOAK_URL: https://auth.hexalyte.com
+      KC_REALM: hexalyte
+      KC_CLIENT_ID: hexalyte-backend
+      KC_CLIENT_SECRET: MTn88PrnUswYgydsveQZumTX2lzqkbbg
+      KEYCLOAK_AUTH_ENABLED: false
+      AWS_REGION: ap-south-1
+      AWS_S3_BUCKET: hexalyte-storage
+      BACKEND_URL: https://api.shop.hexalyte.com
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - hexalyte-network
+      - fashionerp_default
+    volumes:
+      - uploads_data:/app/uploads
+
+  admin:
+    build:
+      context: ./apps/admin
+      dockerfile: Dockerfile.prod
+      args:
+        NEXT_PUBLIC_API_URL: https://api.shop.hexalyte.com/api/v1
+        NEXT_PUBLIC_ADMIN_API_URL: https://api.shop.hexalyte.com/admin/v1
+    container_name: hexalyte_admin
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: https://api.shop.hexalyte.com/api/v1
+      NEXT_PUBLIC_ADMIN_API_URL: https://api.shop.hexalyte.com/admin/v1
+      NEXTAUTH_SECRET: hexalyte-admin-nextauth-secret-dev
+      NEXTAUTH_URL: https://admin2.hexalyte.com
+    depends_on:
+      - backend
+    networks:
+      - fashionerp_default
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile.prod
+      args:
+        NEXT_PUBLIC_API_URL: https://api.shop.hexalyte.com/api/v1
+        NEXT_PUBLIC_KEYCLOAK_URL: https://auth.hexalyte.com
+    container_name: hexalyte_web
+    restart: unless-stopped
+    ports:
+      - 127.0.0.1:3000:3000
+    environment:
+      NEXT_PUBLIC_API_URL: https://api.shop.hexalyte.com/api/v1
+      NEXT_PUBLIC_KEYCLOAK_URL: https://auth.hexalyte.com
+      NEXTAUTH_SECRET: your-nextauth-secret-min-32-chars
+      NEXTAUTH_URL: https://app.hexalyte.com
+    depends_on:
+      - backend
+    networks:
+      - fashionerp_default
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads_data:
+
+networks:
+  hexalyte-network:
+    driver: bridge
+  fashionerp_default:
+    external: true
