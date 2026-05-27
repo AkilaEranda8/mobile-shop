@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, Pencil, Trash2, Save, X, Wrench, Tag, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, X, Wrench, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -53,7 +53,6 @@ export default function ServicesPage() {
 
   const activeCount   = services.filter(s => s.isActive).length
   const inactiveCount = services.length - activeCount
-  const categoryCount = new Set(services.map(s => s.category)).size
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -153,12 +152,11 @@ export default function ServicesPage() {
       </div>
 
       {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         {[
-          { label: 'Total Services',   value: String(services.length),  icon: <Wrench size={15} />,       color: '#6d28d9', bg: 'rgba(109,40,217,0.08)', border: 'rgba(109,40,217,0.20)' },
-          { label: 'Active',           value: String(activeCount),       icon: <CheckCircle2 size={15} />, color: '#15803d', bg: 'rgba(21,128,61,0.08)',  border: 'rgba(21,128,61,0.20)' },
-          { label: 'Inactive',         value: String(inactiveCount),     icon: <XCircle size={15} />,      color: '#b91c1c', bg: 'rgba(185,28,28,0.08)', border: 'rgba(185,28,28,0.20)' },
-          { label: 'Categories',       value: String(categoryCount),     icon: <Tag size={15} />,          color: '#c2410c', bg: 'rgba(194,65,12,0.08)',  border: 'rgba(194,65,12,0.20)' },
+          { label: 'Total Services', value: String(services.length), icon: <Wrench size={15} />,       color: '#6d28d9', bg: 'rgba(109,40,217,0.08)', border: 'rgba(109,40,217,0.20)' },
+          { label: 'Active',         value: String(activeCount),      icon: <CheckCircle2 size={15} />, color: '#15803d', bg: 'rgba(21,128,61,0.08)',  border: 'rgba(21,128,61,0.20)'  },
+          { label: 'Inactive',       value: String(inactiveCount),    icon: <XCircle size={15} />,      color: '#b91c1c', bg: 'rgba(185,28,28,0.08)', border: 'rgba(185,28,28,0.20)'  },
         ].map(({ label, value, icon, color, bg, border }) => (
           <div key={label} className="card p-4" style={{ borderColor: border, background: bg }}>
             <div className="flex items-center justify-between mb-2">
