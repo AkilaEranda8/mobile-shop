@@ -108,17 +108,25 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const user = authStorage.getUser()
   const [shopName, setShopName] = useState('')
   const [plan, setPlan]         = useState('')
+  const [logo, setLogo]         = useState('')
   const { hasFeature }          = useTenantFeatures()
 
   useEffect(() => {
     const inv = getInvoiceSettings()
     if (inv.shopName) setShopName(inv.shopName)
+    if (inv.logo)     setLogo(inv.logo)
     if (user?.tenantId) {
       tenantApi.get(user.tenantId).then((res: any) => {
         const t = res.data ?? res
         if (t.plan) setPlan(t.plan)
         if (!inv.shopName && t.name) setShopName(t.name)
       }).catch(() => {})
+      import('@/lib/invoiceSettings').then(({ fetchInvoiceSettings }) =>
+        fetchInvoiceSettings(user.tenantId!).then(s => {
+          if (s.shopName) setShopName(s.shopName)
+          if (s.logo)     setLogo(s.logo)
+        })
+      )
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -152,8 +160,11 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
 
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-        <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg shadow-violet-500/20">
-          <span className="text-white font-black text-sm">{(shopName || 'H').charAt(0).toUpperCase()}</span>
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden shadow-lg" style={{ background: logo ? 'transparent' : undefined }}>
+          {logo
+            ? <img src={logo} alt={shopName} className="w-full h-full object-contain" />
+            : <div className="w-full h-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center"><span className="text-white font-black text-sm">{(shopName || 'H').charAt(0).toUpperCase()}</span></div>
+          }
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
