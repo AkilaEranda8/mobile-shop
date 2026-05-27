@@ -52,8 +52,10 @@ export const salesService = {
         include: { items: true, payments: true },
       })
       for (const item of body.items) {
+        if (!item.productId) continue  // service items have no productId — skip stock ops
         const product = await tx.product.findUnique({ where: { id: item.productId }, select: { stock: true, name: true } })
-        if (product && product.stock < item.quantity) {
+        if (!product) continue         // productId present but not found — skip safely
+        if (product.stock < item.quantity) {
           throw new AppError(`Insufficient stock for "${product.name}". Available: ${product.stock}, Requested: ${item.quantity}`, 400)
         }
         await tx.product.update({ where: { id: item.productId }, data: { stock: { decrement: item.quantity } } })

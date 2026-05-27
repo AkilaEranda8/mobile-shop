@@ -19,13 +19,14 @@ import { printThermalReceipt } from '@/components/invoice/ThermalReceipt'
 
 interface CartItem {
   cartId: string
-  productId: string
+  productId: string | null
   name: string
   sku: string
   price: number
   originalPrice: number
   quantity: number
   imei?: string
+  isService?: boolean
 }
 
 /* ── Invoice Template ───────────────────────────────────────────────────── */
@@ -522,12 +523,13 @@ export default function POSPage() {
 
   const addToCart = (product: any, imei?: string) => {
     const price = product.sellingPrice ?? product.price
+    const isService = product.sellingPrice === undefined && product.price !== undefined
     setCart(prev => {
       if (!imei) {
-        const existing = prev.find(i => i.productId === product.id && !i.imei)
+        const existing = prev.find(i => i.productId === (isService ? null : product.id) && i.name === product.name && !i.imei)
         if (existing) return prev.map(i => i.cartId === existing.cartId ? { ...i, quantity: i.quantity + 1 } : i)
       }
-      return [...prev, { cartId: `${product.id}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`, productId: product.id, name: product.name, sku: product.sku ?? product.category ?? '', price, originalPrice: price, quantity: 1, imei }]
+      return [...prev, { cartId: `${product.id}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`, productId: isService ? null : product.id, name: product.name, sku: product.sku ?? product.category ?? '', price, originalPrice: price, quantity: 1, imei, isService }]
     })
   }
 
@@ -640,7 +642,7 @@ export default function POSPage() {
         dueAmount:     0,
         status:        'PAID',
         items: cart.map(i => ({
-          productId:   i.productId,
+          productId:   i.isService ? undefined : i.productId,
           productName: i.name,
           sku:         i.sku,
           quantity:    i.quantity,
