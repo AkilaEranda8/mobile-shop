@@ -1,7 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Plus, Pencil, Trash2, Search, Save, X, Wrench, Tag, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { Plus, Pencil, Trash2, Save, X, Wrench, Tag, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { type ColumnDef } from '@tanstack/react-table'
+import { ClientSideTable } from '@/components/table/client-side-table'
+import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
+import { TableActionsRow } from '@/components/table/table-actions-row'
 import { servicesApi } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -26,14 +30,12 @@ const CATEGORY_COLORS: Record<string, { color: string; bg: string; border: strin
 const getColor = (cat: string) => CATEGORY_COLORS[cat] ?? { color: '#64748b', bg: 'rgba(100,116,139,0.10)', border: 'rgba(100,116,139,0.25)' }
 
 export default function ServicesPage() {
-  const [services, setServices]       = useState<Service[]>([])
-  const [categories, setCategories]   = useState<string[]>([])
-  const [loading, setLoading]         = useState(true)
-  const [saving, setSaving]           = useState(false)
-  const [search, setSearch]           = useState('')
-  const [filterCategory, setFilterCategory] = useState('')
-  const [editing, setEditing]         = useState<Service | null>(null)
-  const [showModal, setShowModal]     = useState(false)
+  const [services, setServices]   = useState<Service[]>([])
+  const [categories, setCategories] = useState<string[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [saving, setSaving]       = useState(false)
+  const [editing, setEditing]     = useState<Service | null>(null)
+  const [showModal, setShowModal] = useState(false)
 
   const load = async () => {
     try {
@@ -48,11 +50,6 @@ export default function ServicesPage() {
   }
 
   useEffect(() => { load() }, [])
-
-  const filtered = services.filter(s =>
-    s.name.toLowerCase().includes(search.toLowerCase()) &&
-    (!filterCategory || s.category === filterCategory)
-  )
 
   const activeCount   = services.filter(s => s.isActive).length
   const inactiveCount = services.length - activeCount
@@ -82,6 +79,64 @@ export default function ServicesPage() {
     setEditing({ id: 'new-' + Date.now(), name: '', description: '', price: 0, category: categories[0] || 'General', isActive: true, createdAt: '', updatedAt: '' })
     setShowModal(true)
   }
+
+  const columns = useMemo<ColumnDef<Service>[]>(() => [
+    {
+      accessorKey: 'name',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Service" />,
+      cell: ({ row: { original: s } }) => {
+        const { color, bg, border } = getColor(s.category)
+        return (
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: bg, border: `1px solid ${border}` }}>
+              <Wrench size={13} style={{ color }} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{s.name}</p>
+              {s.description && <p className="text-xs mt-0.5 truncate max-w-[220px]" style={{ color: 'var(--text-muted)' }}>{s.description}</p>}
+            </div>
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: 'category',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Category" />,
+      cell: ({ row: { original: s } }) => {
+        const { color, bg, border } = getColor(s.category)
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium" style={{ color, background: bg, border: `1px solid ${border}` }}>
+            {s.category}
+          </span>
+        )
+      },
+    },
+    {
+      accessorKey: 'price',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Price" />,
+      cell: ({ row: { original: s } }) => <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(s.price)}</span>,
+    },
+    {
+      id: 'status',
+      accessorFn: (s) => s.isActive ? 'Active' : 'Inactive',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+      cell: ({ row: { original: s } }) => (
+        <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border ${s.isActive ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-slate-500/10 text-slate-400 border-slate-500/20'}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${s.isActive ? 'bg-emerald-400' : 'bg-slate-400'}`} />
+          {s.isActive ? 'Active' : 'Inactive'}
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      cell: ({ row: { original: s } }) => (
+        <TableActionsRow
+          editAction={{ action: () => { setEditing(s); setShowModal(true) } }}
+          deleteAction={{ action: () => handleDelete(s.id) }}
+        />
+      ),
+    },
+  ], [categories, handleDelete])
 
   return (
     <div className="space-y-6">
@@ -115,103 +170,32 @@ export default function ServicesPage() {
         ))}
       </div>
 
-      {/* ── Filters + Table ── */}
-      <div className="card overflow-hidden">
-        {/* Toolbar */}
-        <div className="flex flex-col sm:flex-row gap-3 p-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-          <div className="relative flex-1">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-muted)' }} />
-            <input
-              type="text" placeholder="Search services…" value={search} onChange={e => setSearch(e.target.value)}
-              className="input-field pl-9 w-full text-sm"
-            />
-          </div>
-          <select
-            value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
-            className="input-field text-sm"
-            style={{ minWidth: 140 }}
-          >
-            <option value="">All Categories</option>
-            {categories.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </div>
-
-        {/* Table */}
-        {loading ? (
-          <div className="flex items-center justify-center py-16 gap-2">
-            <Loader2 size={18} className="animate-spin" style={{ color: 'var(--text-muted)' }} />
-            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading…</span>
-          </div>
-        ) : (
-          <table className="w-full">
-            <thead>
-              <tr style={{ background: 'var(--bg-subtle)' }}>
-                {['Service', 'Category', 'Price', 'Status', ''].map(h => (
-                  <th key={h} className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider ${h === '' ? 'text-right' : 'text-left'}`} style={{ color: 'var(--text-muted)' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((s, i) => {
-                const { color, bg, border } = getColor(s.category)
-                return (
-                  <tr key={s.id} style={{ borderTop: i > 0 ? '1px solid var(--border-subtle)' : undefined }}
-                    className="transition-colors hover:bg-white/[0.02]">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: bg, border: `1px solid ${border}` }}>
-                          <Wrench size={13} style={{ color }} />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{s.name}</p>
-                          {s.description && <p className="text-xs mt-0.5 truncate max-w-[200px]" style={{ color: 'var(--text-muted)' }}>{s.description}</p>}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium" style={{ color, background: bg, border: `1px solid ${border}` }}>
-                        {s.category}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(s.price)}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border ${s.isActive ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-slate-500/10 text-slate-400 border-slate-500/20'}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${s.isActive ? 'bg-emerald-400' : 'bg-slate-400'}`} />
-                        {s.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => { setEditing(s); setShowModal(true) }}
-                          className="p-1.5 rounded-lg transition-colors hover:bg-white/5"
-                          style={{ color: 'var(--text-muted)' }} title="Edit">
-                          <Pencil size={14} />
-                        </button>
-                        <button onClick={() => handleDelete(s.id)}
-                          className="p-1.5 rounded-lg transition-colors hover:bg-red-500/10 hover:text-red-400"
-                          style={{ color: 'var(--text-muted)' }} title="Delete">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-              {filtered.length === 0 && !loading && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-16 text-center">
-                    <Wrench size={28} className="mx-auto mb-3 opacity-20" style={{ color: 'var(--text-muted)' }} />
-                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No services found</p>
-                    {!search && <button onClick={openNew} className="mt-3 btn-primary text-xs px-3 py-1.5 flex items-center gap-1.5 mx-auto"><Plus size={12} />Add your first service</button>}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
-      </div>
+      {/* ── Table ── */}
+      <ClientSideTable
+        data={services}
+        columns={columns}
+        isLoading={loading}
+        pageCount={Math.ceil((services.length || 1) / 20)}
+        searchableColumns={[
+          { id: 'name',     title: 'Name'     },
+          { id: 'category', title: 'Category' },
+        ]}
+        filterableColumns={[
+          {
+            id: 'status' as any,
+            title: 'Status',
+            options: [
+              { label: 'Active',   value: 'Active'   },
+              { label: 'Inactive', value: 'Inactive' },
+            ],
+          },
+          {
+            id: 'category',
+            title: 'Category',
+            options: categories.map(c => ({ label: c, value: c })),
+          },
+        ]}
+      />
 
       {/* ── Modal ── */}
       {showModal && editing && (

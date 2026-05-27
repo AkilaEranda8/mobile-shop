@@ -569,6 +569,9 @@ export default function POSPage() {
   const updateQty = (cartId: string, delta: number) =>
     setCart(prev => prev.map(i => i.cartId === cartId ? { ...i, quantity: i.quantity + delta } : i).filter(i => i.quantity > 0))
 
+  const setQty = (cartId: string, qty: number) =>
+    setCart(prev => prev.map(i => i.cartId === cartId ? { ...i, quantity: Math.max(1, qty) } : i))
+
   const saveEditPrice = (cartId: string) => {
     const val = parseFloat(editPriceVal)
     if (!isNaN(val) && val > 0) setCart(prev => prev.map(i => i.cartId === cartId ? { ...i, price: val } : i))
@@ -1178,7 +1181,15 @@ export default function POSPage() {
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
                       <button onClick={() => updateQty(item.cartId, -1)} className="w-6 h-6 rounded-md bg-white/5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 flex items-center justify-center transition-colors"><Minus size={10} /></button>
-                      <span className="text-xs font-bold w-5 text-center" style={{ color: 'var(--text-primary)' }}>{item.quantity}</span>
+                      <input
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={e => { const v = parseInt(e.target.value); if (!isNaN(v) && v > 0) setQty(item.cartId, v) }}
+                        onFocus={e => e.target.select()}
+                        className="w-8 h-6 text-center text-xs font-bold rounded border bg-white/5 border-white/10 focus:outline-none focus:border-violet-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                        style={{ color: 'var(--text-primary)' }}
+                      />
                       <button onClick={() => updateQty(item.cartId, 1)} className="w-6 h-6 rounded-md bg-white/5 hover:bg-green-500/20 text-slate-400 hover:text-green-400 flex items-center justify-center transition-colors"><Plus size={10} /></button>
                     </div>
                     <span className="text-xs font-bold w-16 text-right flex-shrink-0" style={{ color: 'var(--text-primary)' }}>{formatCurrency(item.price * item.quantity)}</span>
