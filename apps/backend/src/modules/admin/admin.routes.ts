@@ -125,6 +125,42 @@ router.patch('/tenants/:id', async (req: Request, res: Response, next: NextFunct
   } catch (e) { next(e) }
 })
 
+// ── Tenant Feature Flags ──────────────────────────────────────────────────────
+const ALL_FEATURES = [
+  'POS', 'REPAIRS', 'WARRANTY', 'WHATSAPP', 'ANALYTICS', 'REPORTS',
+  'FINANCE', 'DELIVERY', 'EXCHANGES', 'STAFF', 'SUPPLIERS', 'IMEI',
+]
+
+router.get('/tenants/:id/features', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const rows = await prisma.tenantFeature.findMany({ where: { tenantId: req.params.id } })
+    const map: Record<string, boolean> = {}
+    for (const f of ALL_FEATURES) map[f] = true
+    for (const r of rows) map[r.feature] = r.enabled
+    sendSuccess(res, map)
+  } catch (e) { next(e) }
+})
+
+router.put('/tenants/:id/features', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const features: Record<string, boolean> = req.body.features ?? {}
+    await Promise.all(
+      Object.entries(features).map(([feature, enabled]) =>
+        prisma.tenantFeature.upsert({
+          where: { tenantId_feature: { tenantId: req.params.id, feature } },
+          create: { tenantId: req.params.id, feature, enabled },
+          update: { enabled },
+        })
+      )
+    )
+    const rows = await prisma.tenantFeature.findMany({ where: { tenantId: req.params.id } })
+    const map: Record<string, boolean> = {}
+    for (const f of ALL_FEATURES) map[f] = true
+    for (const r of rows) map[r.feature] = r.enabled
+    sendSuccess(res, map, 'Features updated')
+  } catch (e) { next(e) }
+})
+
 // ── Tenant-specific sales ─────────────────────────────────────────────────────
 router.get('/tenants/:id/sales', async (req: Request, res: Response, next: NextFunction) => {
   try {

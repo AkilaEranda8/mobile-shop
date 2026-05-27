@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 import { authStorage } from '@/lib/auth'
 import { authApi, tenantApi } from '@/lib/api'
 import { getInvoiceSettings } from '@/lib/invoiceSettings'
+import { useTenantFeatures } from '@/lib/hooks'
 
 const navItems = [
   {
@@ -24,66 +25,66 @@ const navItems = [
   {
     label: 'Sales',
     items: [
-      { href: '/dashboard/pos', icon: ShoppingCart, label: 'Point of Sale', badge: 'POS' },
-      { href: '/dashboard/sales', icon: Receipt, label: 'Sales History' },
-      { href: '/dashboard/returns', icon: RotateCcw, label: 'Returns' },
-      { href: '/dashboard/customers', icon: Users, label: 'Customers' },
+      { href: '/dashboard/pos',       icon: ShoppingCart, label: 'Point of Sale',  badge: 'POS', feature: 'POS' },
+      { href: '/dashboard/sales',     icon: Receipt,      label: 'Sales History',               feature: 'POS' },
+      { href: '/dashboard/returns',   icon: RotateCcw,    label: 'Returns',                     feature: 'POS' },
+      { href: '/dashboard/customers', icon: Users,        label: 'Customers' },
     ],
   },
   {
     label: 'Inventory',
     items: [
-      { href: '/dashboard/inventory', icon: Package, label: 'Inventory' },
-      { href: '/dashboard/imei', icon: Smartphone, label: 'IMEI Tracker', badge: 'NEW' },
-      { href: '/dashboard/suppliers', icon: Truck, label: 'Suppliers & PO' },
+      { href: '/dashboard/inventory',  icon: Package,    label: 'Inventory' },
+      { href: '/dashboard/imei',       icon: Smartphone, label: 'IMEI Tracker',    badge: 'NEW', feature: 'IMEI' },
+      { href: '/dashboard/suppliers',  icon: Truck,      label: 'Suppliers & PO',              feature: 'SUPPLIERS' },
     ],
   },
   {
     label: 'Service',
     items: [
-      { href: '/dashboard/repairs',   icon: Wrench,          label: 'Repair Jobs'     },
-      { href: '/dashboard/warranty',  icon: Shield,          label: 'Warranty'        },
-      { href: '/dashboard/exchanges', icon: ArrowLeftRight,  label: 'Device Exchange', badge: 'NEW' },
+      { href: '/dashboard/repairs',   icon: Wrench,         label: 'Repair Jobs',                 feature: 'REPAIRS' },
+      { href: '/dashboard/warranty',  icon: Shield,         label: 'Warranty',                    feature: 'WARRANTY' },
+      { href: '/dashboard/exchanges', icon: ArrowLeftRight, label: 'Device Exchange', badge: 'NEW', feature: 'EXCHANGES' },
     ],
   },
   {
     label: 'Finance',
     items: [
-      { href: '/dashboard/finance', icon: CreditCard, label: 'Finance' },
-      { href: '/dashboard/expenses', icon: Receipt, label: 'Expenses', badge: 'NEW' },
-      { href: '/dashboard/analytics', icon: BarChart3, label: 'Analytics' },
+      { href: '/dashboard/finance',   icon: CreditCard, label: 'Finance',   feature: 'FINANCE' },
+      { href: '/dashboard/expenses',  icon: Receipt,    label: 'Expenses',  badge: 'NEW', feature: 'FINANCE' },
+      { href: '/dashboard/analytics', icon: BarChart3,  label: 'Analytics', feature: 'ANALYTICS' },
     ],
   },
   {
     label: 'Reports',
     items: [
-      { href: '/dashboard/reports', icon: FileText, label: 'Reports', badge: 'NEW' },
-      { href: '/dashboard/invoice', icon: Receipt, label: 'Invoice', badge: 'NEW' },
+      { href: '/dashboard/reports', icon: FileText, label: 'Reports', badge: 'NEW', feature: 'REPORTS' },
+      { href: '/dashboard/invoice', icon: Receipt,  label: 'Invoice', badge: 'NEW', feature: 'REPORTS' },
     ],
   },
   {
     label: 'HR & Staff',
     items: [
-      { href: '/dashboard/staff', icon: UserCheck, label: 'Staff & Roles', badge: 'NEW' },
+      { href: '/dashboard/staff', icon: UserCheck, label: 'Staff & Roles', badge: 'NEW', feature: 'STAFF' },
     ],
   },
   {
     label: 'Delivery',
     items: [
-      { href: '/dashboard/delivery', icon: PackageCheck, label: 'Delivery Orders', badge: 'NEW' },
+      { href: '/dashboard/delivery', icon: PackageCheck, label: 'Delivery Orders', badge: 'NEW', feature: 'DELIVERY' },
     ],
   },
   {
     label: 'Messaging',
     items: [
-      { href: '/dashboard/whatsapp', icon: MessageSquare, label: 'WhatsApp' },
+      { href: '/dashboard/whatsapp', icon: MessageSquare, label: 'WhatsApp', feature: 'WHATSAPP' },
     ],
   },
   {
     label: 'System',
     items: [
       { href: '/dashboard/branches', icon: Building2, label: 'Branches', badge: 'NEW' },
-      { href: '/dashboard/settings', icon: Settings, label: 'Settings' },
+      { href: '/dashboard/settings', icon: Settings,  label: 'Settings' },
     ],
   },
 ]
@@ -106,6 +107,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const user = authStorage.getUser()
   const [shopName, setShopName] = useState('')
   const [plan, setPlan]         = useState('')
+  const { hasFeature }          = useTenantFeatures()
 
   useEffect(() => {
     const inv = getInvoiceSettings()
@@ -162,7 +164,10 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-3 scrollbar-thin">
-        {navItems.map((group) => (
+        {navItems.map((group) => {
+          const visibleItems = group.items.filter(item => !('feature' in item) || !(item as any).feature || hasFeature((item as any).feature as string))
+          if (visibleItems.length === 0) return null
+          return (
           <div key={group.label}>
             {!collapsed && (
               <p className="text-[9px] font-bold uppercase tracking-widest text-slate-600 px-3 mb-1 mt-1">
@@ -171,7 +176,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
             )}
             {collapsed && <div className="my-1 h-px bg-white/5 mx-2" />}
             <div className="space-y-0.5">
-              {group.items.map((item) => {
+              {visibleItems.map((item) => {
                 const active = isActive(item.href)
                 return (
                   <Link
@@ -205,7 +210,8 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
               })}
             </div>
           </div>
-        ))}
+          )
+        })}
       </nav>
 
       {/* User section — no avatar */}

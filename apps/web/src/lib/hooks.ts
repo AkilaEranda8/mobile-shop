@@ -3,8 +3,42 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   productsApi, customersApi, salesApi, repairsApi,
   warrantyApi, suppliersApi, financeApi, analyticsApi,
-  imeiApi, usersApi, branchesApi,
+  imeiApi, usersApi, branchesApi, tenantApi,
 } from './api'
+
+const FEATURES_CACHE_KEY = 'hx_tenant_features'
+const FEATURES_CACHE_TTL = 5 * 60 * 1000
+
+export function useTenantFeatures() {
+  const [features, setFeatures] = useState<Record<string, boolean>>(() => {
+    try {
+      const cached = localStorage.getItem(FEATURES_CACHE_KEY)
+      if (cached) {
+        const { data, ts } = JSON.parse(cached)
+        if (Date.now() - ts < FEATURES_CACHE_TTL) return data
+      }
+    } catch {}
+    return {}
+  })
+
+  useEffect(() => {
+    tenantApi.myFeatures().then((res: any) => {
+      const data = res?.data ?? res
+      if (data && typeof data === 'object') {
+        setFeatures(data)
+        try { localStorage.setItem(FEATURES_CACHE_KEY, JSON.stringify({ data, ts: Date.now() })) } catch {}
+      }
+    }).catch(() => {})
+  }, [])
+
+  const hasFeature = (f: string) => features[f] !== false
+  return { features, hasFeature }
+}
+
+export function useFeatureFlag(feature: string): boolean {
+  const { hasFeature } = useTenantFeatures()
+  return hasFeature(feature)
+}
 
 export function useApi<T>(
   fetcher: () => Promise<{ data: T }>,
