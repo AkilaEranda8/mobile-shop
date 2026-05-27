@@ -30,6 +30,7 @@ import deliveryRoutes from './modules/delivery/delivery.routes'
 import deviceCatalogRoutes from './modules/device-catalog/device-catalog.routes'
 import uploadRoutes from './modules/upload/upload.routes'
 import exchangesRoutes from './modules/exchanges/exchanges.routes'
+import servicesRoutes from './modules/services/services.routes'
 
 const app = express()
 
@@ -141,6 +142,7 @@ app.use(`${API}/suppliers`, suppliersRoutes)
 app.use(`${API}/finance`, financeRoutes)
 app.use(`${API}/analytics`, analyticsRoutes)
 app.use(`${API}/whatsapp`, whatsappRoutes)
+app.use(`${API}/services`, servicesRoutes)
 app.use(`${API}/delivery`, deliveryRoutes)
 app.use(`${API}/device-catalog`, deviceCatalogRoutes)
 app.use(`${API}/upload`, uploadRoutes)

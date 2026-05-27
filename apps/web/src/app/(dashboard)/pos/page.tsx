@@ -8,8 +8,8 @@ import {
   FileText, FilePlus2, Calculator, SlidersHorizontal, Package, Tablet,
   Headphones, Wrench, PackageSearch, ShoppingBag, User, CheckCircle2, Shield,
 } from 'lucide-react'
-import { useProducts } from '@/lib/hooks'
-import { salesApi, customersApi, productsApi, imeiApi, warrantyApi } from '@/lib/api'
+import { useProducts, useFeatureFlag } from '@/lib/hooks'
+import { salesApi, customersApi, productsApi, imeiApi, warrantyApi, servicesApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -313,6 +313,7 @@ export default function POSPage() {
   const [showA4Invoice, setShowA4Invoice]       = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL')
   const [categories, setCategories]             = useState<{ id: string; name: string }[]>([])
+  const [services, setServices]                 = useState<any[]>([])
   const [imeiScan, setImeiScan]                 = useState('')
   const [imeiScanning, setImeiScanning]         = useState(false)
   const a4Ref                                   = useRef<HTMLDivElement>(null)
@@ -460,6 +461,15 @@ export default function POSPage() {
     }).catch(() => {})
   }, [])
 
+  const hasServices = useFeatureFlag('SERVICES')
+  useEffect(() => {
+    if (hasServices) {
+      servicesApi.list({ active: 'true' }).then((res: any) => {
+        setServices((res?.data ?? res) ?? [])
+      }).catch(() => {})
+    }
+  }, [hasServices])
+
   useEffect(() => { setPage(1) }, [search, selectedCategory])
 
   const filtered = products.filter((p: any) => {
@@ -469,8 +479,15 @@ export default function POSPage() {
     return matchCat && matchSearch
   })
 
-  const totalPages    = Math.max(1, Math.ceil(filtered.length / perPage))
-  const pagedProducts = filtered.slice((page - 1) * perPage, page * perPage)
+  const filteredServices = services.filter((s: any) => {
+    const matchCat = selectedCategory === 'SERVICES' || selectedCategory === 'ALL'
+    const matchSearch = s.name.toLowerCase().includes(search.toLowerCase())
+    return matchCat && matchSearch
+  })
+
+  const displayItems = selectedCategory === 'SERVICES' ? filteredServices : filtered
+  const totalPages    = Math.max(1, Math.ceil(displayItems.length / perPage))
+  const pagedProducts = displayItems.slice((page - 1) * perPage, page * perPage)
 
   const filteredCustomers = custSearch
     ? customers.filter((c: any) => c.name?.toLowerCase().includes(custSearch.toLowerCase()) || c.phone?.includes(custSearch))
@@ -504,12 +521,13 @@ export default function POSPage() {
   }
 
   const addToCart = (product: any, imei?: string) => {
+    const price = product.sellingPrice ?? product.price
     setCart(prev => {
       if (!imei) {
         const existing = prev.find(i => i.productId === product.id && !i.imei)
         if (existing) return prev.map(i => i.cartId === existing.cartId ? { ...i, quantity: i.quantity + 1 } : i)
       }
-      return [...prev, { cartId: `${product.id}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`, productId: product.id, name: product.name, sku: product.sku ?? '', price: product.sellingPrice, originalPrice: product.sellingPrice, quantity: 1, imei }]
+      return [...prev, { cartId: `${product.id}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`, productId: product.id, name: product.name, sku: product.sku ?? product.category ?? '', price, originalPrice: price, quantity: 1, imei }]
     })
   }
 
@@ -870,7 +888,11 @@ export default function POSPage() {
 
           {/* ── Category Bar ── */}
           <div className="flex items-center gap-1.5 px-4 py-2 border-b flex-shrink-0 overflow-x-auto scrollbar-none" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-base)' }}>
-            {[{ id: 'ALL', name: 'All', icon: Package }, ...categories.map(c => ({ ...c, icon: getCategoryIcon(c.name) }))].map(({ id, name, icon: Icon }) => (
+            {[
+              { id: 'ALL', name: 'All', icon: Package },
+              ...(hasServices ? [{ id: 'SERVICES', name: 'Services', icon: Wrench }] : []),
+              ...categories.map(c => ({ ...c, icon: getCategoryIcon(c.name) }))
+            ].map(({ id, name, icon: Icon }) => (
               <button key={id} onClick={() => setSelectedCategory(id)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all flex-shrink-0 whitespace-nowrap"
                 style={selectedCategory === id
@@ -879,7 +901,7 @@ export default function POSPage() {
                 <Icon size={11} />{name}
               </button>
             ))}
-            <span className="ml-auto text-[10px] flex-shrink-0" style={{ color: 'var(--text-muted)' }}>{filtered.length} items</span>
+            <span className="ml-auto text-[10px] flex-shrink-0" style={{ color: 'var(--text-muted)' }}>{displayItems.length} items</span>
           </div>
 
           {/* Product Grid */}
@@ -887,22 +909,23 @@ export default function POSPage() {
             {pagedProducts.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-40 opacity-30">
                 <PackageSearch size={32} className="text-slate-600 mb-2" />
-                <p className="text-sm text-slate-500">{products.length === 0 ? 'Loading products…' : 'No products found'}</p>
+                <p className="text-sm text-slate-500">{selectedCategory === 'SERVICES' ? 'No services found' : products.length === 0 ? 'Loading products…' : 'No products found'}</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
-                {pagedProducts.map((product: any) => {
-                  const isLow  = product.stock > 0 && product.stock <= 4
-                  const isHot  = product.stock >= 25
-                  const isOut  = product.stock === 0
-                  const { gradient, iconColor, Icon: CardIcon } = getProductCardStyle(product)
-                  const initials = (product.name as string).split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()
-                  const isFav  = favorites.has(product.id)
+                {pagedProducts.map((item: any) => {
+                  const isService = selectedCategory === 'SERVICES'
+                  const isLow  = !isService && item.stock > 0 && item.stock <= 4
+                  const isHot  = !isService && item.stock >= 25
+                  const isOut  = !isService && item.stock === 0
+                  const { gradient, iconColor, Icon: CardIcon } = isService ? { gradient: 'linear-gradient(135deg, #059669 0%, #047857 100%)', iconColor: '#34d399', Icon: Wrench } : getProductCardStyle(item)
+                  const initials = (item.name as string).split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()
+                  const isFav  = favorites.has(item.id)
                   return (
-                    <div key={product.id}
+                    <div key={item.id}
                       className={`relative flex flex-col rounded-2xl overflow-hidden border transition-all group cursor-pointer select-none ${isOut ? 'opacity-40 cursor-not-allowed' : 'hover:shadow-xl hover:shadow-black/30 hover:-translate-y-0.5'}`}
                       style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
-                      onClick={() => !isOut && addToCart(product)}>
+                      onClick={() => !isOut && addToCart(item)}>
 
                       {/* ── IMAGE ZONE ── */}
                       <div className="relative overflow-hidden" style={{ paddingBottom: '72%' }}>
@@ -914,10 +937,10 @@ export default function POSPage() {
                           <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.3) 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
                         </div>
 
-                        {product.imageUrl ? (
+                        {item.imageUrl ? (
                           /* Actual product photo */
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={product.imageUrl} alt={product.name} className="absolute inset-0 w-full h-full object-cover" />
+                          <img src={item.imageUrl} alt={item.name} className="absolute inset-0 w-full h-full object-cover" />
                         ) : (
                           /* Icon + initials centred fallback */
                           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 pointer-events-none">
@@ -950,7 +973,7 @@ export default function POSPage() {
                         )}
 
                         {/* Favourite button */}
-                        <button type="button" onClick={e => { e.stopPropagation(); setFavorites(prev => { const n = new Set(prev); n.has(product.id) ? n.delete(product.id) : n.add(product.id); return n }) }}
+                        <button type="button" onClick={e => { e.stopPropagation(); setFavorites(prev => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n }) }}
                           className={`absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-all ${isFav ? 'opacity-100 bg-red-500/30 text-red-400' : 'opacity-0 group-hover:opacity-100 bg-black/30 text-white/70 hover:text-red-400'}`}>
                           <Heart size={12} fill={isFav ? 'currentColor' : 'none'} />
                         </button>
@@ -959,17 +982,19 @@ export default function POSPage() {
 
                       {/* ── INFO ZONE ── */}
                       <div className="flex flex-col p-2.5 gap-1">
-                        <p className="text-[11px] font-bold leading-snug line-clamp-2" style={{ color: 'var(--text-primary)' }}>{product.name}</p>
+                        <p className="text-[11px] font-bold leading-snug line-clamp-2" style={{ color: 'var(--text-primary)' }}>{item.name}</p>
                         <div className="flex items-center justify-between mt-0.5">
                           <div>
-                            <p className="text-sm font-extrabold" style={{ color: '#a78bfa' }}>{formatCurrency(product.sellingPrice)}</p>
-                            <p className={`text-[9px] font-semibold flex items-center gap-0.5 ${isOut ? 'text-slate-500' : isLow ? 'text-red-400' : 'text-emerald-400'}`}>
-                              <span className={`w-1 h-1 rounded-full inline-block ${isOut ? 'bg-slate-500' : isLow ? 'bg-red-400' : 'bg-emerald-400'}`} />
-                              {isOut ? 'Out of stock' : `Qty: ${product.stock}`}
-                            </p>
+                            <p className="text-sm font-extrabold" style={{ color: '#a78bfa' }}>{formatCurrency(isService ? item.price : item.sellingPrice)}</p>
+                            {!isService && (
+                              <p className={`text-[9px] font-semibold flex items-center gap-0.5 ${isOut ? 'text-slate-500' : isLow ? 'text-red-400' : 'text-emerald-400'}`}>
+                                <span className={`w-1 h-1 rounded-full inline-block ${isOut ? 'bg-slate-500' : isLow ? 'bg-red-400' : 'bg-emerald-400'}`} />
+                                {isOut ? 'Out of stock' : `Qty: ${item.stock}`}
+                              </p>
+                            )}
                           </div>
                           <button type="button" disabled={isOut}
-                            onClick={e => { e.stopPropagation(); if (!isOut) addToCart(product) }}
+                            onClick={e => { e.stopPropagation(); if (!isOut) addToCart(item) }}
                             className="w-7 h-7 rounded-xl flex items-center justify-center text-white transition-all disabled:opacity-30 hover:scale-110 active:scale-95 flex-shrink-0"
                             style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)', boxShadow: '0 2px 8px rgba(124,58,237,.4)' }}>
                             <Plus size={13} />
@@ -985,7 +1010,7 @@ export default function POSPage() {
 
           {/* Pagination */}
           <div className="flex items-center justify-between px-4 py-2 border-t flex-shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
-            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Total {filtered.length} items</span>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Total {displayItems.length} items</span>
             <div className="flex items-center gap-1">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
                 className="w-7 h-7 rounded-lg flex items-center justify-center border border-white/10 hover:bg-white/5 disabled:opacity-30 text-slate-400 transition-colors">

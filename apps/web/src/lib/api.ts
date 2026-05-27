@@ -149,6 +149,16 @@ export const tenantApi = {
   myFeatures: () => api.get<{ data: Record<string, boolean> }>('/tenants/my-features'),
 }
 
+export const servicesApi = {
+  list: (params?: Record<string, string>) =>
+    api.get(`/services${params ? '?' + new URLSearchParams(params) : ''}`),
+  categories: () => api.get<string[]>('/services/categories'),
+  getById: (id: string) => api.get(`/services/${id}`),
+  create: (body: unknown) => api.post('/services', body),
+  update: (id: string, body: unknown) => api.put(`/services/${id}`, body),
+  delete: (id: string) => api.delete(`/services/${id}`),
+}
+
 export const productsApi = {
   list: (params?: Record<string, string>) =>
     api.get(`/products${params ? '?' + new URLSearchParams(params) : ''}`),

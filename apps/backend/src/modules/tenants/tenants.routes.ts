@@ -9,7 +9,7 @@ router.use(authenticate)
 
 const ALL_FEATURES = [
   'POS', 'REPAIRS', 'WARRANTY', 'WHATSAPP', 'ANALYTICS', 'REPORTS',
-  'FINANCE', 'DELIVERY', 'EXCHANGES', 'STAFF', 'SUPPLIERS', 'IMEI',
+  'FINANCE', 'DELIVERY', 'EXCHANGES', 'STAFF', 'SUPPLIERS', 'IMEI', 'SERVICES',
 ]
 
 router.get('/my-features', async (req: Request, res: Response, next: NextFunction) => {
