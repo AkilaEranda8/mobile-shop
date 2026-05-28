@@ -7,6 +7,7 @@ import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { dailyReloadApi } from '@/lib/api'
+import { useFeatureFlag } from '@/lib/hooks'
 
 /* ── Types ───────────────────────────────────────────────────────────────────── */
 interface Reload {
@@ -39,6 +40,7 @@ function fmtDate(iso: string) {
 
 /* ══════════════════════════════════════════════════════════════════════════════ */
 export default function DailyReloadPage() {
+  const hasAccess = useFeatureFlag('DAILY_RELOAD')
   const [date, setDate]               = useState(today())
   const [summary, setSummary]         = useState<Summary>({ data: [], total: 0, totalAmount: 0, commission: 0 })
   const [loading, setLoading]         = useState(false)
@@ -205,6 +207,19 @@ export default function DailyReloadPage() {
 
   /* ── UI ──────────────────────────────────────────────────────────────────── */
   const successCount = summary.data.filter(r => r.status === 'Success').length
+
+  if (!hasAccess) return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+      <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.1)' }}>
+        <PhoneCall size={26} style={{ color: '#8b5cf6' }} />
+      </div>
+      <div className="text-center">
+        <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Daily Reload</h2>
+        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>This feature is not enabled for your account.</p>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Contact your administrator to enable Daily Reload.</p>
+      </div>
+    </div>
+  )
 
   return (
     <div className="space-y-5">
