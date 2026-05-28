@@ -40,6 +40,13 @@ export function useFeatureFlag(feature: string): boolean {
   return hasFeature(feature)
 }
 
+export function useCategorySales(params?: Record<string, string>) {
+  return useApi<unknown>(
+    () => analyticsApi.categorySales(params) as Promise<{ data: unknown }>,
+    [JSON.stringify(params)],
+  )
+}
+
 export function useDailyReloadReport(params?: Record<string, string>) {
   return useApi<unknown>(
     () => dailyReloadApi.getReport(params) as Promise<{ data: unknown }>,

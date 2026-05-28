@@ -316,4 +316,6 @@ export const analyticsApi = {
   inventorySummary: () => api.get('/analytics/inventory-summary'),
   deliverySummary: (params?: Record<string, string>) =>
     api.get(`/analytics/delivery-summary${params ? '?' + new URLSearchParams(params) : ''}`),
+  categorySales: (params?: Record<string, string>) =>
+    api.get(`/analytics/category-sales${params ? '?' + new URLSearchParams(params) : ''}`),
 }

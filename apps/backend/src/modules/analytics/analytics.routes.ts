@@ -246,4 +246,77 @@ router.get('/delivery-summary', async (req: Request, res: Response, next: NextFu
   } catch (e) { next(e) }
 })
 
+router.get('/category-sales', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenantId = req.tenantId!
+    const branchId = req.query.branchId as string | undefined
+    let from: Date
+    let to: Date = new Date(); to.setHours(23, 59, 59, 999)
+    if (req.query.from) {
+      from = new Date(req.query.from as string); from.setHours(0, 0, 0, 0)
+      if (req.query.to) { to = new Date(req.query.to as string); to.setHours(23, 59, 59, 999) }
+    } else {
+      const days = parseInt(req.query.days as string) || 30
+      from = new Date(); from.setDate(from.getDate() - days); from.setHours(0, 0, 0, 0)
+    }
+
+    const branchClause = branchId ? Prisma.sql`AND s."branchId" = ${branchId}` : Prisma.empty
+
+    const rows: Array<{
+      category: string
+      revenue: number
+      cogs: number
+      profit: number
+      units_sold: number
+      transactions: number
+    }> = await prisma.$queryRaw`
+      SELECT
+        COALESCE(c.name, 'Uncategorised')         AS category,
+        COALESCE(SUM(si.total), 0)::float          AS revenue,
+        COALESCE(SUM(si.quantity * p."buyingPrice"), 0)::float AS cogs,
+        COALESCE(SUM(si.total - si.quantity * p."buyingPrice"), 0)::float AS profit,
+        COALESCE(SUM(si.quantity), 0)::float       AS units_sold,
+        COUNT(DISTINCT si."saleId")::int           AS transactions
+      FROM   "SaleItem"  si
+      JOIN   "Sale"      s ON s.id = si."saleId"
+      JOIN   "Product"   p ON p.id = si."productId"
+      LEFT   JOIN "Category" c ON c.id = p."categoryId"
+      WHERE  s."tenantId" = ${tenantId}
+        AND  s.status != 'RETURNED'
+        AND  s."createdAt" >= ${from}
+        AND  s."createdAt" <= ${to}
+        ${branchClause}
+      GROUP  BY c.name
+      ORDER  BY revenue DESC
+    `
+
+    const totalRevenue = rows.reduce((s, r) => s + Number(r.revenue), 0)
+    const totalCogs    = rows.reduce((s, r) => s + Number(r.cogs),    0)
+    const totalProfit  = rows.reduce((s, r) => s + Number(r.profit),  0)
+    const totalUnits   = rows.reduce((s, r) => s + Number(r.units_sold), 0)
+
+    const categories = rows.map(r => ({
+      category:     r.category,
+      revenue:      Number(r.revenue),
+      cogs:         Number(r.cogs),
+      profit:       Number(r.profit),
+      margin:       Number(r.revenue) > 0 ? Math.round((Number(r.profit) / Number(r.revenue)) * 100) : 0,
+      unitsSold:    Number(r.units_sold),
+      transactions: Number(r.transactions),
+      share:        totalRevenue > 0 ? Math.round((Number(r.revenue) / totalRevenue) * 100) : 0,
+    }))
+
+    sendSuccess(res, {
+      categories,
+      totals: {
+        revenue: Math.round(totalRevenue * 100) / 100,
+        cogs:    Math.round(totalCogs    * 100) / 100,
+        profit:  Math.round(totalProfit  * 100) / 100,
+        margin:  totalRevenue > 0 ? Math.round((totalProfit / totalRevenue) * 100) : 0,
+        units:   Math.round(totalUnits),
+      },
+    })
+  } catch (e) { next(e) }
+})
+
 export default router
