@@ -293,7 +293,7 @@ export const dailyReloadApi = {
     const base = process.env.NEXT_PUBLIC_API_URL ?? ''
     const form = new FormData()
     form.append('file', file)
-    const res = await fetch(`${base}/api/v1/daily-reloads/upload`, {
+    const res = await fetch(`${base}/daily-reloads/upload`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: form,
