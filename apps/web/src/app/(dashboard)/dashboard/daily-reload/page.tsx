@@ -75,7 +75,7 @@ export default function DailyReloadPage() {
   const fetch = useCallback(async () => {
     setLoading(true)
     try {
-      const res: any = await dailyReloadApi.list({ date })
+      const res: any = await dailyReloadApi.list({ date, _t: Date.now().toString() })
       setSummary({
         data:        res.data?.data        ?? [],
         total:       res.data?.total       ?? 0,

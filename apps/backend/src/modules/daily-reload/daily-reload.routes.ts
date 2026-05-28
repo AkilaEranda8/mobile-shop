@@ -22,6 +22,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     const skip = (parseInt(page) - 1) * parseInt(limit)
     const where = { tenantId, ...buildDateFilter(date) }
 
+    res.setHeader('Cache-Control', 'no-store')
     const [reloads, total, agg] = await Promise.all([
       prisma.dailyReload.findMany({ where, orderBy: { reloadDate: 'desc' }, skip, take: parseInt(limit) }),
       prisma.dailyReload.count({ where }),
@@ -73,7 +74,7 @@ router.post('/bulk', async (req: Request, res: Response, next: NextFunction) => 
         connectionNo:  String(r.connectionNo  || '').trim(),
         transactionId: r.transactionId ? String(r.transactionId).trim() : undefined,
         executedBy:    r.executedBy    ? String(r.executedBy).trim()    : undefined,
-        reloadDate:    r.date          ? new Date(r.date)               : new Date(),
+        reloadDate:    new Date(),
         status:        r.status        ? String(r.status)               : 'Success',
         amount:        parseFloat(String(r.amount || '0').replace(/[^0-9.]/g, '')),
       }))
