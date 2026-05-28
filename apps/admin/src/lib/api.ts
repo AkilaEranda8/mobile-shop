@@ -138,6 +138,16 @@ export async function deleteTenant(id: string) {
   return req<null>(ADMIN_BASE, `/tenants/${id}`, { method: 'DELETE' })
 }
 
+export async function fetchTenantFeatures(id: string) {
+  return req<Record<string, boolean>>(ADMIN_BASE, `/tenants/${id}/features`)
+}
+
+export async function updateTenantFeatures(id: string, features: Record<string, boolean>) {
+  return req<Record<string, boolean>>(ADMIN_BASE, `/tenants/${id}/features`, {
+    method: 'PUT', body: JSON.stringify({ features }),
+  })
+}
+
 export async function createTenant(data: { shopName: string; ownerName: string; email: string; phone?: string; plan: string; password?: string }) {
   return req<{ tenant: TenantRow; subdomain: string; ownerEmail: string; tempPassword?: string }>(
     ADMIN_BASE, '/tenants', { method: 'POST', body: JSON.stringify(data) },

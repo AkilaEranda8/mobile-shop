@@ -11,6 +11,7 @@ import {
 import {
   fetchTenant, fetchTenantSales, fetchActivityLogs,
   updateTenantStatus, updateTenant, deleteTenant,
+  fetchTenantFeatures, updateTenantFeatures,
   type TenantRow, type TenantSale,
 } from '@/lib/api'
 
@@ -27,7 +28,24 @@ function fmtDateTime(s: string) {
   return new Date(s).toLocaleString('en-LK', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
-const TABS = ['Overview', 'Users', 'Sales', 'Audit Log', 'Danger Zone']
+const TABS = ['Overview', 'Features', 'Users', 'Sales', 'Audit Log', 'Danger Zone']
+
+const FEATURE_DEFS = [
+  { key: 'POS',          label: 'Point of Sale',     desc: 'POS billing & invoicing',             optIn: false },
+  { key: 'REPAIRS',      label: 'Repair Jobs',        desc: 'Repair ticket management',             optIn: false },
+  { key: 'WARRANTY',     label: 'Warranty',           desc: 'Warranty card management',             optIn: false },
+  { key: 'WHATSAPP',     label: 'WhatsApp',           desc: 'WhatsApp messaging integration',       optIn: false },
+  { key: 'ANALYTICS',    label: 'Analytics',          desc: 'Dashboard analytics & charts',         optIn: false },
+  { key: 'REPORTS',      label: 'Reports',            desc: 'Sales & finance report exports',       optIn: false },
+  { key: 'FINANCE',      label: 'Finance',            desc: 'Finance, expenses & P&L',              optIn: false },
+  { key: 'DELIVERY',     label: 'Delivery',           desc: 'Delivery & order tracking',            optIn: false },
+  { key: 'EXCHANGES',    label: 'Device Exchange',    desc: 'Device exchange & trade-in module',    optIn: false },
+  { key: 'STAFF',        label: 'Staff Management',   desc: 'User roles & staff access',            optIn: false },
+  { key: 'SUPPLIERS',    label: 'Suppliers & PO',     desc: 'Supplier & purchase order management', optIn: false },
+  { key: 'IMEI',         label: 'IMEI Tracker',       desc: 'IMEI registration & lookup',           optIn: false },
+  { key: 'SERVICES',     label: 'Services',           desc: 'Billable services catalogue',          optIn: false },
+  { key: 'DAILY_RELOAD', label: 'Daily Reload',       desc: 'Mobile top-up reload management',      optIn: true  },
+]
 const SALE_STATUS_BADGE: Record<string, string> = {
   PAID: 'badge-green', PARTIAL: 'badge-yellow', UNPAID: 'badge-red', REFUNDED: 'badge-gray',
 }
@@ -44,8 +62,11 @@ export default function TenantDetailPage() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab]         = useState('Overview')
   const [actionLoading, setActionLoading] = useState(false)
-  const [showSuspend, setShowSuspend] = useState(false)
-  const [showDelete, setShowDelete]   = useState(false)
+  const [showSuspend, setShowSuspend]   = useState(false)
+  const [showDelete, setShowDelete]     = useState(false)
+  const [features, setFeatures]         = useState<Record<string, boolean>>({})
+  const [featLoading, setFeatLoading]   = useState(false)
+  const [featSaving, setFeatSaving]     = useState(false)
   const [deleteInput, setDeleteInput] = useState('')
   const [editPlan, setEditPlan]       = useState<{ plan: string; mrr: string } | null>(null)
 
@@ -60,10 +81,19 @@ export default function TenantDetailPage() {
   useEffect(() => {
     loadTenant()
     fetchTenantSales(id).then(setSales).catch(() => {})
-    fetchActivityLogs({ limit: 50 }).then(r => {
-      setAuditLogs(r.data)
-    }).catch(() => {})
+    fetchActivityLogs({ limit: 50 }).then(r => { setAuditLogs(r.data) }).catch(() => {})
+    setFeatLoading(true)
+    fetchTenantFeatures(id).then(setFeatures).catch(() => {}).finally(() => setFeatLoading(false))
   }, [id, loadTenant])
+
+  async function handleSaveFeatures() {
+    setFeatSaving(true)
+    try {
+      const updated = await updateTenantFeatures(id, features)
+      setFeatures(updated)
+    } catch {}
+    setFeatSaving(false)
+  }
 
   async function handleSuspend() {
     if (!tenant) return
@@ -246,6 +276,63 @@ export default function TenantDetailPage() {
                 </div>
               ))}
             </dl>
+          </div>
+        </div>
+      )}
+
+      {/* ── Features ── */}
+      {tab === 'Features' && (
+        <div className="space-y-4">
+          <div className="card p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-sm font-bold text-gray-900">Feature Flags</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Toggle features on/off for this tenant. Opt-in features are disabled by default.</p>
+              </div>
+              <button onClick={handleSaveFeatures} disabled={featSaving || featLoading}
+                className="btn-primary text-xs disabled:opacity-50">
+                {featSaving ? <><RefreshCw size={12} className="animate-spin" /> Saving…</> : 'Save Changes'}
+              </button>
+            </div>
+            {featLoading ? (
+              <div className="flex items-center justify-center py-10 text-gray-400">
+                <RefreshCw size={18} className="animate-spin mr-2" />Loading features…
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 gap-3">
+                {FEATURE_DEFS.map(f => {
+                  const enabled = f.key in features ? features[f.key] : !f.optIn
+                  return (
+                    <div key={f.key}
+                      className={`flex items-center justify-between p-3.5 rounded-xl border transition-colors ${
+                        enabled ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200'
+                      }`}
+                    >
+                      <div className="flex-1 min-w-0 mr-3">
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-semibold text-gray-800">{f.label}</p>
+                          {f.optIn && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-600 font-semibold">OPT-IN</span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-gray-500 mt-0.5 truncate">{f.desc}</p>
+                      </div>
+                      <button
+                        onClick={() => setFeatures(prev => ({ ...prev, [f.key]: !enabled }))}
+                        className={`relative w-10 h-5.5 rounded-full transition-colors flex-shrink-0 ${
+                          enabled ? 'bg-emerald-500' : 'bg-gray-300'
+                        }`}
+                        style={{ width: 40, height: 22 }}
+                      >
+                        <span className={`absolute top-0.5 w-[18px] h-[18px] bg-white rounded-full shadow transition-all ${
+                          enabled ? 'left-[19px]' : 'left-[2px]'
+                        }`} />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
