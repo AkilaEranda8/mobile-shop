@@ -1,8 +1,11 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { Upload, Plus, Trash2, Download, RefreshCw, Calendar, TrendingUp, PhoneCall, CheckCircle2, X, FileSpreadsheet, AlertCircle } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { Upload, Plus, Trash2, Download, RefreshCw, Calendar, TrendingUp, PhoneCall, CheckCircle2, FileSpreadsheet, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { type ColumnDef } from '@tanstack/react-table'
+import { ClientSideTable } from '@/components/table/client-side-table'
+import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { dailyReloadApi } from '@/lib/api'
 
 /* ── Types ───────────────────────────────────────────────────────────────────── */
@@ -139,14 +142,86 @@ export default function DailyReloadPage() {
   }
 
   /* ── Delete ──────────────────────────────────────────────────────────────── */
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     if (!confirm('Delete this reload record?')) return
     try {
       await dailyReloadApi.remove(id)
       toast.success('Deleted')
       fetch()
     } catch { toast.error('Delete failed') }
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /* ── Columns ─────────────────────────────────────────────────────────────── */
+  const columns = useMemo<ColumnDef<Reload>[]>(() => [
+    {
+      accessorKey: 'connectionNo',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Connection No" />,
+      cell: ({ row: { original: r } }) => (
+        <span className="font-mono font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{r.connectionNo}</span>
+      ),
+    },
+    {
+      accessorKey: 'transactionId',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Transaction ID" />,
+      cell: ({ row: { original: r } }) => (
+        <span className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>{r.transactionId || '—'}</span>
+      ),
+    },
+    {
+      accessorKey: 'executedBy',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Executed By" />,
+      cell: ({ row: { original: r } }) => (
+        <span className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>{r.executedBy || '—'}</span>
+      ),
+    },
+    {
+      accessorKey: 'reloadDate',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Date & Time" />,
+      cell: ({ row: { original: r } }) => (
+        <span className="text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{fmtDate(r.reloadDate)}</span>
+      ),
+    },
+    {
+      id: 'status',
+      accessorFn: (r) => r.status,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+      cell: ({ row: { original: r } }) => (
+        <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{
+          background: r.status === 'Success' ? 'rgba(16,185,129,0.12)' : r.status === 'Failed' ? 'rgba(239,68,68,0.12)' : 'rgba(245,158,11,0.12)',
+          color:      r.status === 'Success' ? '#10b981'               : r.status === 'Failed' ? '#ef4444'               : '#f59e0b',
+        }}>{r.status}</span>
+      ),
+    },
+    {
+      accessorKey: 'amount',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Amount" />,
+      cell: ({ row: { original: r } }) => (
+        <span className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Rs {r.amount.toLocaleString()}</span>
+      ),
+    },
+    {
+      id: 'commission',
+      accessorFn: (r) => r.amount * 0.03,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Commission (3%)" />,
+      cell: ({ row: { original: r } }) => (
+        <span className="font-semibold text-sm text-emerald-400">Rs {(r.amount * 0.03).toFixed(2)}</span>
+      ),
+    },
+    {
+      id: 'actions',
+      cell: ({ row: { original: r } }) => (
+        <button
+          onClick={() => handleDelete(r.id)}
+          className="p-1.5 rounded-lg transition-colors hover:bg-red-500/10 hover:text-red-400"
+          style={{ color: 'var(--text-muted)' }}
+          title="Delete"
+        >
+          <Trash2 size={13} />
+        </button>
+      ),
+    },
+  ], [handleDelete])
 
   /* ── Export Excel ────────────────────────────────────────────────────────── */
   const handleExport = async () => {
@@ -179,7 +254,7 @@ export default function DailyReloadPage() {
   const successCount = summary.data.filter(r => r.status === 'Success').length
 
   return (
-    <div className="p-4 md:p-6 space-y-5 max-w-7xl mx-auto">
+    <div className="space-y-5">
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -338,91 +413,56 @@ export default function DailyReloadPage() {
         </div>
       </div>
 
-      {/* ── Data Table ─────────────────────────────────────────────────────── */}
-      <div className="card rounded-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-          <h2 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
-            Reload Records — {new Date(date).toLocaleDateString('en-LK', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}
-          </h2>
-          <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,0.1)', color: '#8b5cf6' }}>
-            {summary.total} records
-          </span>
-        </div>
+      {/* ── Table ──────────────────────────────────────────────────────────── */}
+      <ClientSideTable
+        data={summary.data}
+        columns={columns}
+        isLoading={loading}
+        pageCount={Math.ceil((summary.total || 1) / 20)}
+        searchableColumns={[
+          { id: 'connectionNo',  title: 'Connection No'  },
+          { id: 'transactionId', title: 'Transaction ID' },
+          { id: 'executedBy',    title: 'Executed By'    },
+        ]}
+        filterableColumns={[
+          {
+            id: 'status' as any,
+            title: 'Status',
+            options: [
+              { label: 'Success', value: 'Success' },
+              { label: 'Failed',  value: 'Failed'  },
+              { label: 'Pending', value: 'Pending' },
+            ],
+          },
+        ]}
+      />
 
-        {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <RefreshCw size={20} className="animate-spin" style={{ color: 'var(--text-muted)' }} />
-          </div>
-        ) : summary.data.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-16">
-            <PhoneCall size={32} style={{ color: 'var(--text-muted)' }} />
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No reload records for this date</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-xs uppercase tracking-wide font-semibold" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
-                  {['#', 'Connection No', 'Transaction ID', 'Executed By', 'Date & Time', 'Status', 'Amount', 'Commission (3%)', ''].map(h => (
-                    <th key={h} className="text-left px-4 py-3 whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {summary.data.map((r, i) => (
-                  <tr key={r.id} className="border-b transition-colors hover:bg-white/3" style={{ borderColor: 'var(--border-subtle)' }}>
-                    <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{i + 1}</td>
-                    <td className="px-4 py-3 font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{r.connectionNo}</td>
-                    <td className="px-4 py-3 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>{r.transactionId || '—'}</td>
-                    <td className="px-4 py-3 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>{r.executedBy || '—'}</td>
-                    <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{fmtDate(r.reloadDate)}</td>
-                    <td className="px-4 py-3">
-                      <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{
-                        background: r.status === 'Success' ? 'rgba(16,185,129,0.12)' : r.status === 'Failed' ? 'rgba(239,68,68,0.12)' : 'rgba(245,158,11,0.12)',
-                        color:      r.status === 'Success' ? '#10b981'               : r.status === 'Failed' ? '#ef4444'               : '#f59e0b',
-                      }}>{r.status}</span>
-                    </td>
-                    <td className="px-4 py-3 font-bold" style={{ color: 'var(--text-primary)' }}>Rs {r.amount.toLocaleString()}</td>
-                    <td className="px-4 py-3 font-semibold text-emerald-400">Rs {(r.amount * 0.03).toFixed(2)}</td>
-                    <td className="px-4 py-3">
-                      <button onClick={() => handleDelete(r.id)} className="p-1.5 rounded-lg transition-colors hover:bg-red-500/10 hover:text-red-400" style={{ color: 'var(--text-muted)' }}>
-                        <Trash2 size={13} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* ── Commission Footer ───────────────────────────────────────────── */}
-        {summary.data.length > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 border-t" style={{ borderColor: 'var(--border-subtle)', background: 'rgba(16,185,129,0.04)' }}>
-            <div className="flex flex-wrap gap-6">
-              <div>
-                <p className="text-[10px] uppercase tracking-wide font-medium" style={{ color: 'var(--text-muted)' }}>Total Amount</p>
-                <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{formatAmt(summary.totalAmount)}</p>
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-wide font-medium" style={{ color: 'var(--text-muted)' }}>3% Commission</p>
-                <p className="text-lg font-bold text-emerald-400">{formatAmt(summary.commission)}</p>
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-wide font-medium" style={{ color: 'var(--text-muted)' }}>Transactions</p>
-                <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{summary.total}</p>
-              </div>
+      {/* ── Commission Footer ──────────────────────────────────────────────── */}
+      {summary.data.length > 0 && (
+        <div className="card rounded-2xl flex flex-wrap items-center justify-between gap-4 px-5 py-4" style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.15)' }}>
+          <div className="flex flex-wrap gap-6">
+            <div>
+              <p className="text-[10px] uppercase tracking-wide font-medium" style={{ color: 'var(--text-muted)' }}>Total Amount</p>
+              <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{formatAmt(summary.totalAmount)}</p>
             </div>
-            <button
-              onClick={handleExport}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
-              style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}
-            >
-              <Download size={14} /> Download Commission Report
-            </button>
+            <div>
+              <p className="text-[10px] uppercase tracking-wide font-medium" style={{ color: 'var(--text-muted)' }}>3% Commission Earned</p>
+              <p className="text-lg font-bold text-emerald-400">{formatAmt(summary.commission)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wide font-medium" style={{ color: 'var(--text-muted)' }}>Transactions</p>
+              <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{summary.total}</p>
+            </div>
           </div>
-        )}
-      </div>
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+            style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}
+          >
+            <Download size={14} /> Download Commission Report
+          </button>
+        </div>
+      )}
     </div>
   )
 }
