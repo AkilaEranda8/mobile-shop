@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   productsApi, customersApi, salesApi, repairsApi,
   warrantyApi, suppliersApi, financeApi, analyticsApi,
-  imeiApi, usersApi, branchesApi, tenantApi,
+  imeiApi, usersApi, branchesApi, tenantApi, dailyReloadApi,
 } from './api'
 
 const FEATURES_CACHE_KEY = 'hx_tenant_features'
@@ -38,6 +38,13 @@ export function useTenantFeatures() {
 export function useFeatureFlag(feature: string): boolean {
   const { hasFeature } = useTenantFeatures()
   return hasFeature(feature)
+}
+
+export function useDailyReloadReport(params?: Record<string, string>) {
+  return useApi<unknown>(
+    () => dailyReloadApi.getReport(params) as Promise<{ data: unknown }>,
+    [JSON.stringify(params)],
+  )
 }
 
 export function useApi<T>(

@@ -128,6 +128,42 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
   } catch (e) { next(e) }
 })
 
+// ── Report (date range) ───────────────────────────────────────────────────────
+router.get('/report', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenantId = req.tenantId!
+    const { from, to } = req.query as Record<string, string>
+    const where: any = { tenantId }
+    if (from) where.reloadDate = { ...(where.reloadDate ?? {}), gte: new Date(from + 'T00:00:00.000Z') }
+    if (to)   where.reloadDate = { ...(where.reloadDate ?? {}), lte: new Date(to   + 'T23:59:59.999Z') }
+
+    res.setHeader('Cache-Control', 'no-store')
+    const reloads = await prisma.dailyReload.findMany({ where, orderBy: { reloadDate: 'asc' } })
+
+    const totalAmount  = reloads.reduce((s: number, r: any) => s + Number(r.amount), 0)
+    const successCount = reloads.filter((r: any) => r.status === 'Success').length
+
+    const byDate: Record<string, { date: string; count: number; totalAmount: number; commission: number; successCount: number }> = {}
+    for (const r of reloads) {
+      const d = r.reloadDate.toISOString().split('T')[0]
+      if (!byDate[d]) byDate[d] = { date: d, count: 0, totalAmount: 0, commission: 0, successCount: 0 }
+      byDate[d].count++
+      byDate[d].totalAmount += Number(r.amount)
+      if (r.status === 'Success') byDate[d].successCount++
+    }
+    for (const d of Object.values(byDate)) d.commission = Math.round(d.totalAmount * 0.03 * 100) / 100
+
+    sendSuccess(res, {
+      totalCount:     reloads.length,
+      totalAmount:    Math.round(totalAmount * 100) / 100,
+      commission:     Math.round(totalAmount * 0.03 * 100) / 100,
+      successCount,
+      failCount:      reloads.length - successCount,
+      dailyBreakdown: Object.values(byDate),
+    })
+  } catch (e) { next(e) }
+})
+
 // ── Delete ────────────────────────────────────────────────────────────────────
 router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {

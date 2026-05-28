@@ -9,13 +9,13 @@ import {
 import {
   TrendingUp, TrendingDown, Package, Wrench, Truck, Download,
   ShoppingCart, AlertTriangle, CheckCircle, Clock, XCircle,
-  DollarSign, BarChart3, ArrowUpRight, ArrowDownRight, Users, Wallet,
-  Calendar, Building2, Activity,
+  DollarSign, BarChart3, ArrowUpRight, ArrowDownRight, Users,
+  Calendar, Building2, Activity, PhoneCall,
 } from 'lucide-react'
 import {
   useRevenue, useTopProducts, useRepairsByStatus,
   useInventorySummary, useDeliverySummary, useAnalyticsDashboard,
-  useFinanceSummary, useBranches,
+  useFinanceSummary, useBranches, useDailyReloadReport, useFeatureFlag,
 } from '@/lib/hooks'
 import { formatCurrency } from '@/lib/utils'
 
@@ -86,15 +86,103 @@ function ExportCSV({ filename, rows, headers }: { filename: string; rows: (strin
 }
 
 /* ── tabs ───────────────────────────────────────────────────────── */
-const TABS = [
-  { id: 'overview',  label: 'Overview',   icon: BarChart3    },
-  { id: 'sales',     label: 'Sales',      icon: ShoppingCart },
-  { id: 'pl',        label: 'P&L Report', icon: DollarSign   },
-  { id: 'cashflow',  label: 'Cash Flow',  icon: Activity     },
-  { id: 'inventory', label: 'Inventory',  icon: Package      },
-  { id: 'repairs',   label: 'Repairs',    icon: Wrench       },
-  { id: 'delivery',  label: 'Delivery',   icon: Truck        },
+const BASE_TABS = [
+  { id: 'overview',     label: 'Overview',      icon: BarChart3    },
+  { id: 'sales',        label: 'Sales',         icon: ShoppingCart },
+  { id: 'pl',           label: 'P&L Report',    icon: DollarSign   },
+  { id: 'cashflow',     label: 'Cash Flow',     icon: Activity     },
+  { id: 'inventory',    label: 'Inventory',     icon: Package      },
+  { id: 'repairs',      label: 'Repairs',       icon: Wrench       },
+  { id: 'delivery',     label: 'Delivery',      icon: Truck        },
 ]
+const RELOAD_TAB = { id: 'dailyreload', label: 'Daily Reload', icon: PhoneCall }
+
+/* ── Daily Reload Tab ──────────────────────────────────────────── */
+function DailyReloadTab({ fromDate, toDate }: { fromDate: string; toDate: string }) {
+  const { data: rawData } = useDailyReloadReport({ from: fromDate, to: toDate })
+  const d = rawData as any
+
+  const totalCount   = d?.totalCount   ?? 0
+  const totalAmount  = d?.totalAmount  ?? 0
+  const commission   = d?.commission   ?? 0
+  const successCount = d?.successCount ?? 0
+  const failCount    = d?.failCount    ?? 0
+  const breakdown: any[] = d?.dailyBreakdown ?? []
+  const successRate  = totalCount > 0 ? Math.round((successCount / totalCount) * 100) : 0
+
+  const chartData = breakdown.map((r: any) => ({
+    date:       new Date(r.date + 'T00:00:00').toLocaleDateString('en-LK', { month: 'short', day: 'numeric' }),
+    Amount:     r.totalAmount,
+    Commission: r.commission,
+  }))
+
+  const exportRows = breakdown.map((r: any) => [
+    r.date, r.count, r.totalAmount.toFixed(2), r.commission.toFixed(2), r.successCount, r.count - r.successCount,
+  ])
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatCard label="Total Reloads"       value={String(totalCount)}           icon={PhoneCall}    color="violet" />
+        <StatCard label="Total Amount"        value={formatCurrency(totalAmount)}  icon={DollarSign}   color="blue"   />
+        <StatCard label="Commission (Profit)" value={formatCurrency(commission)}   icon={TrendingUp}   color="green"  sub="3% of total" />
+        <StatCard label="Success Rate"        value={`${successRate}%`}            icon={CheckCircle}  color="green"  sub={`${failCount} failed`} />
+      </div>
+
+      <div className="card p-5">
+        <SectionTitle title="Daily Reload Revenue &amp; Commission" sub={`${fromDate} → ${toDate}`} />
+        {chartData.length === 0 ? (
+          <div className="h-48 flex items-center justify-center text-sm" style={{ color: 'var(--text-muted)' }}>No reload data for this period</div>
+        ) : (
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} tickFormatter={v => formatCurrency(v)} width={70} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any) => formatCurrency(v)} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="Amount"     fill="#6d28d9" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Commission" fill="#16a34a" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      <div className="card p-5">
+        <div className="flex items-center justify-between mb-4">
+          <SectionTitle title="Daily Breakdown" />
+          <ExportCSV filename="reload-report.csv" headers={['Date','Reloads','Amount','Commission','Success','Failed']} rows={exportRows} />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                {['Date','Reloads','Total Amount','Commission (3%)','Success','Failed'].map((h, i) => (
+                  <th key={h} className={`text-[11px] font-semibold uppercase tracking-wide px-3 py-2 ${i === 0 ? 'text-left' : 'text-right'}`} style={{ color: 'var(--text-muted)' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {breakdown.map((r: any, i: number) => (
+                <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  <td className="px-3 py-2.5 text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{r.date}</td>
+                  <td className="px-3 py-2.5 text-xs text-right" style={{ color: 'var(--text-secondary)' }}>{r.count}</td>
+                  <td className="px-3 py-2.5 text-xs text-right font-semibold text-violet-600 dark:text-violet-400">{formatCurrency(r.totalAmount)}</td>
+                  <td className="px-3 py-2.5 text-xs text-right font-semibold text-green-600 dark:text-green-400">{formatCurrency(r.commission)}</td>
+                  <td className="px-3 py-2.5 text-xs text-right text-green-600 dark:text-green-400">{r.successCount}</td>
+                  <td className="px-3 py-2.5 text-xs text-right text-red-600 dark:text-red-400">{r.count - r.successCount}</td>
+                </tr>
+              ))}
+              {breakdown.length === 0 && (
+                <tr><td colSpan={6} className="text-center py-8 text-xs" style={{ color: 'var(--text-muted)' }}>No reload data for this period</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 /* ── Sales Tab ─────────────────────────────────────────────────── */
 function SalesTab({ days, fromDate, toDate, branchId }: { days: string; fromDate: string; toDate: string; branchId?: string }) {
@@ -837,6 +925,7 @@ function CashFlowTab({ fromDate, toDate, branchId }: { fromDate: string; toDate:
 
 /* ── Main Page ───────────────────────────────────────────────────── */
 export default function ReportsPage() {
+  const hasDailyReload = useFeatureFlag('DAILY_RELOAD')
   const [activeTab, setActiveTab]   = useState('overview')
   const [period, setPeriod]         = useState('30')
   const [branchId, setBranchId]     = useState('')
@@ -862,6 +951,7 @@ export default function ReportsPage() {
 
   const handlePeriod = (days: string) => { setPeriod(days); setIsCustom(false) }
   const activeBranch = branchId || undefined
+  const TABS = hasDailyReload ? [...BASE_TABS, RELOAD_TAB] : BASE_TABS
 
   return (
     <div className="space-y-5">
@@ -941,8 +1031,9 @@ export default function ReportsPage() {
       {activeTab === 'pl'        && <PLTab        fromDate={fromDate} toDate={toDate} branchId={activeBranch} />}
       {activeTab === 'cashflow'  && <CashFlowTab  fromDate={fromDate} toDate={toDate} branchId={activeBranch} />}
       {activeTab === 'inventory' && <InventoryTab />}
-      {activeTab === 'repairs'   && <RepairsTab />}
-      {activeTab === 'delivery'  && <DeliveryTab days={period} />}
+      {activeTab === 'repairs'      && <RepairsTab />}
+      {activeTab === 'delivery'     && <DeliveryTab days={period} />}
+      {activeTab === 'dailyreload'  && <DailyReloadTab fromDate={fromDate} toDate={toDate} />}
     </div>
   )
 }

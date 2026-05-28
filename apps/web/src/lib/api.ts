@@ -287,6 +287,8 @@ export const dailyReloadApi = {
   create: (body: unknown) => api.post('/daily-reloads', body),
   bulkImport: (rows: unknown[]) => api.post('/daily-reloads/bulk', { rows }),
   remove: (id: string) => api.delete(`/daily-reloads/${id}`),
+  getReport: (params?: Record<string, string>) =>
+    api.get(`/daily-reloads/report${params ? '?' + new URLSearchParams(params) : ''}`),
   uploadFile: async (file: File): Promise<{ imported: number }> => {
     const { authStorage } = await import('@/lib/auth')
     const token = authStorage.getAccessToken()
