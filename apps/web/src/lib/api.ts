@@ -287,6 +287,21 @@ export const dailyReloadApi = {
   create: (body: unknown) => api.post('/daily-reloads', body),
   bulkImport: (rows: unknown[]) => api.post('/daily-reloads/bulk', { rows }),
   remove: (id: string) => api.delete(`/daily-reloads/${id}`),
+  uploadFile: async (file: File): Promise<{ imported: number }> => {
+    const { authStorage } = await import('@/lib/auth')
+    const token = authStorage.getAccessToken()
+    const base = process.env.NEXT_PUBLIC_API_URL ?? ''
+    const form = new FormData()
+    form.append('file', file)
+    const res = await fetch(`${base}/api/v1/daily-reloads/upload`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    })
+    const json = await res.json()
+    if (!res.ok) throw new Error(json?.message ?? 'Upload failed')
+    return json.data
+  },
 }
 
 export const analyticsApi = {

@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express'
+import multer from 'multer'
 import { prisma } from '../../config/database'
 import { sendSuccess } from '../../utils/response'
 import { authenticate } from '../../middleware/auth.middleware'
@@ -6,6 +7,12 @@ import { AppError } from '../../middleware/error.middleware'
 
 const router = Router()
 router.use(authenticate)
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
+
+function parseAmt(raw: unknown): number {
+  return parseFloat(String(raw ?? '0').replace(/[^0-9.]/g, '')) || 0
+}
 
 function buildDateFilter(date?: string) {
   if (!date) return {}
@@ -81,6 +88,40 @@ router.post('/bulk', async (req: Request, res: Response, next: NextFunction) => 
       .filter(r => r.connectionNo && !isNaN(r.amount) && r.amount > 0)
 
     if (data.length === 0) throw new AppError('No valid rows found in the file', 400)
+
+    await prisma.dailyReload.createMany({ data })
+    sendSuccess(res, { imported: data.length }, `${data.length} reloads imported`, 201)
+  } catch (e) { next(e) }
+})
+
+// ── Server-side Excel upload & parse ─────────────────────────────────────────
+router.post('/upload', upload.single('file'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenantId = req.tenantId!
+    if (!req.file) throw new AppError('No file uploaded', 400)
+
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const XLSX = require('xlsx') as typeof import('xlsx')
+    const wb     = XLSX.read(req.file.buffer, { type: 'buffer' })
+    const ws     = wb.Sheets[wb.SheetNames[0]]
+    const matrix: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
+
+    if (!matrix || matrix.length < 2) throw new AppError('File is empty or has no data rows', 400)
+
+    // Skip row 0 (header). Columns: A=connNo B=txId C=agent D=date E=time F=status G=amount
+    const data = matrix.slice(1)
+      .map((r: any[]) => ({
+        tenantId,
+        connectionNo:  String(r[0] ?? '').trim(),
+        transactionId: r[1] != null && r[1] !== '' ? String(r[1]).trim() : undefined,
+        executedBy:    r[2] != null && r[2] !== '' ? String(r[2]).trim() : undefined,
+        reloadDate:    new Date(),
+        status:        r[5] != null && r[5] !== '' ? String(r[5]).trim() : 'Success',
+        amount:        parseAmt(r[6]),
+      }))
+      .filter(r => r.connectionNo && r.amount > 0)
+
+    if (data.length === 0) throw new AppError('No valid rows found. Ensure Connection No (col A) and Amount (col G) are filled.', 400)
 
     await prisma.dailyReload.createMany({ data })
     sendSuccess(res, { imported: data.length }, `${data.length} reloads imported`, 201)

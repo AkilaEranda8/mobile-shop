@@ -37,22 +37,6 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleString('en-LK', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
-/* ── Parse amount from "Rs 159" or "159" ────────────────────────────────────── */
-function parseAmt(raw: unknown): number {
-  return parseFloat(String(raw ?? '0').replace(/[^0-9.]/g, '')) || 0
-}
-
-/* ── Parse date "17/05/2026" + time "09:32 PM" into ISO ────────────────────── */
-function parseDateTime(dateStr: string, timeStr: string): string {
-  try {
-    const [d, m, y] = String(dateStr).split('/')
-    if (!d || !m || !y) return new Date().toISOString()
-    const base = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
-    if (!timeStr) return new Date(base).toISOString()
-    return new Date(`${base} ${timeStr}`).toISOString()
-  } catch { return new Date().toISOString() }
-}
-
 /* ══════════════════════════════════════════════════════════════════════════════ */
 export default function DailyReloadPage() {
   const [date, setDate]               = useState(today())
@@ -93,28 +77,8 @@ export default function DailyReloadPage() {
     if (!file.name.match(/\.(xlsx|xls)$/i)) { toast.error('Please upload an Excel (.xlsx) file'); return }
     setUploading(true)
     try {
-      const xlsx: any = await import('xlsx')
-      const buf    = await file.arrayBuffer()
-      const wb     = xlsx.read(buf, { type: 'array' })
-      const ws     = wb.Sheets[wb.SheetNames[0]]
-      const matrix: any[][] = xlsx.utils.sheet_to_json(ws, { header: 1, defval: '' })
-
-      /* Skip header row, map columns: A=connNo B=txId C=agent D=date E=time F=status G=amount */
-      const rows = (matrix as any[][]).slice(1)
-        .map((r) => ({
-          connectionNo:  String(r[0] ?? '').trim(),
-          transactionId: String(r[1] ?? '').trim(),
-          executedBy:    String(r[2] ?? '').trim(),
-          date:          parseDateTime(String(r[3] ?? ''), String(r[4] ?? '')),
-          status:        String(r[5] ?? 'Success').trim() || 'Success',
-          amount:        parseAmt(r[6]),
-        }))
-        .filter(r => r.connectionNo && r.amount > 0)
-
-      if (rows.length === 0) { toast.error('No valid rows found in the file'); return }
-
-      const res: any = await dailyReloadApi.bulkImport(rows)
-      toast.success(`${res.data?.imported ?? rows.length} reloads imported`)
+      const result = await dailyReloadApi.uploadFile(file)
+      toast.success(`${result?.imported ?? 0} reloads imported successfully`)
       fetch()
     } catch (e: any) { toast.error(e.message || 'Import failed') }
     finally { setUploading(false) }
@@ -223,29 +187,18 @@ export default function DailyReloadPage() {
     },
   ], [handleDelete])
 
-  /* ── Export Excel ────────────────────────────────────────────────────────── */
-  const handleExport = async () => {
+  /* ── Export CSV ──────────────────────────────────────────────────────────── */
+  const handleExport = () => {
     try {
-      const xlsx: any = await import('xlsx')
-      const header = [['Connection No', 'Transaction ID', 'Executed By', 'Date & Time', 'Status', 'Amount (Rs)', 'Commission (3%)']]
-      const rows   = summary.data.map(r => [
-        r.connectionNo,
-        r.transactionId ?? '',
-        r.executedBy    ?? '',
-        fmtDate(r.reloadDate),
-        r.status,
-        r.amount,
-        Math.round(r.amount * 0.03 * 100) / 100,
-      ])
-      const footer = [
-        [],
-        ['', '', '', '', 'Total', summary.totalAmount, summary.commission],
-      ]
-      const ws = xlsx.utils.aoa_to_sheet([...header, ...rows, ...footer])
-      ws['!cols'] = [{ wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 20 }, { wch: 10 }, { wch: 14 }, { wch: 14 }]
-      const wb = xlsx.utils.book_new()
-      xlsx.utils.book_append_sheet(wb, ws, 'Daily Reload')
-      xlsx.writeFile(wb, `DailyReload_${date}_commission.xlsx`)
+      const header = 'Connection No,Transaction ID,Executed By,Date & Time,Status,Amount (Rs),Commission (3%)'
+      const rows   = summary.data.map(r =>
+        [r.connectionNo, r.transactionId ?? '', r.executedBy ?? '', fmtDate(r.reloadDate), r.status, r.amount, (r.amount * 0.03).toFixed(2)].join(',')
+      )
+      rows.push(`,,,,Total,${summary.totalAmount},${summary.commission}`)
+      const blob = new Blob([[header, ...rows].join('\n')], { type: 'text/csv' })
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a'); a.href = url; a.download = `DailyReload_${date}_commission.csv`; a.click()
+      URL.revokeObjectURL(url)
       toast.success('Report downloaded')
     } catch { toast.error('Export failed') }
   }
