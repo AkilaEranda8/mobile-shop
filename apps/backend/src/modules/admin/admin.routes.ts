@@ -110,7 +110,15 @@ router.delete('/tenants/:id', async (req: Request, res: Response, next: NextFunc
   try {
     const tenant = await prisma.tenant.findUnique({ where: { id: req.params.id } })
     if (!tenant) throw new AppError('Tenant not found', 404)
-    await prisma.tenant.delete({ where: { id: req.params.id } })
+    const id = req.params.id
+    await prisma.$transaction(async (tx) => {
+      // These three tables reference Product without onDelete:Cascade, so they must be
+      // removed first — otherwise the Product cascade from Tenant is blocked (P2003).
+      await tx.stockMovement.deleteMany({ where: { product: { tenantId: id } } })
+      await tx.imeiRecord.deleteMany({ where: { product: { tenantId: id } } })
+      await tx.repairSparePart.deleteMany({ where: { repair: { tenantId: id } } })
+      await tx.tenant.delete({ where: { id } })
+    })
     sendSuccess(res, null, 'Tenant deleted')
   } catch (e) { next(e) }
 })
