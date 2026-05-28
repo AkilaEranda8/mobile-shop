@@ -155,6 +155,7 @@ model Tenant {
   exchanges       DeviceExchange[]
   features        TenantFeature[]
   services        Service[]
+  dailyReloads    DailyReload[]
 }
 
 model TenantFeature {
@@ -983,6 +984,25 @@ model SupportNote {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
+}
+
+// ─────────────── Daily Reload ───────────────
+
+model DailyReload {
+  id            String   @id @default(cuid())
+  tenantId      String
+  connectionNo  String
+  transactionId String?
+  executedBy    String?
+  reloadDate    DateTime @default(now())
+  status        String   @default("Success")
+  amount        Float
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, reloadDate])
 }
 
 // ─────────────── Platform Announcements ───────────────

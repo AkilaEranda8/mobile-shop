@@ -136,7 +136,7 @@ router.patch('/tenants/:id', async (req: Request, res: Response, next: NextFunct
 // ── Tenant Feature Flags ──────────────────────────────────────────────────────
 const ALL_FEATURES = [
   'POS', 'REPAIRS', 'WARRANTY', 'WHATSAPP', 'ANALYTICS', 'REPORTS',
-  'FINANCE', 'DELIVERY', 'EXCHANGES', 'STAFF', 'SUPPLIERS', 'IMEI', 'SERVICES',
+  'FINANCE', 'DELIVERY', 'EXCHANGES', 'STAFF', 'SUPPLIERS', 'IMEI', 'SERVICES', 'DAILY_RELOAD',
 ]
 
 router.get('/tenants/:id/features', async (req: Request, res: Response, next: NextFunction) => {

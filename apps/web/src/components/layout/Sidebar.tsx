@@ -6,7 +6,7 @@ import {
   LayoutDashboard, ShoppingCart, Package, Users, Wrench,
   Shield, Truck, BarChart3, Settings, LogOut,
   CreditCard, Smartphone, FileText, Building2,
-  UserCheck, ChevronLeft, ChevronRight, Receipt, MessageSquare, PackageCheck, RotateCcw, ArrowLeftRight, Layers
+  UserCheck, ChevronLeft, ChevronRight, Receipt, MessageSquare, PackageCheck, RotateCcw, ArrowLeftRight, Layers, RefreshCw
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
@@ -79,6 +79,12 @@ const navItems = [
     label: 'Messaging',
     items: [
       { href: '/dashboard/whatsapp', icon: MessageSquare, label: 'WhatsApp', feature: 'WHATSAPP' },
+    ],
+  },
+  {
+    label: 'Reload',
+    items: [
+      { href: '/dashboard/daily-reload', icon: RefreshCw, label: 'Daily Reload', badge: 'NEW', feature: 'DAILY_RELOAD' },
     ],
   },
   {

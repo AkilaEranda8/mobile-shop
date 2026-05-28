@@ -281,6 +281,14 @@ export const exchangesApi = {
   remove: (id: string) => api.delete(`/exchanges/${id}`),
 }
 
+export const dailyReloadApi = {
+  list: (params?: Record<string, string>) =>
+    api.get(`/daily-reloads${params ? '?' + new URLSearchParams(params) : ''}`),
+  create: (body: unknown) => api.post('/daily-reloads', body),
+  bulkImport: (rows: unknown[]) => api.post('/daily-reloads/bulk', { rows }),
+  remove: (id: string) => api.delete(`/daily-reloads/${id}`),
+}
+
 export const analyticsApi = {
   dashboard: () => api.get('/analytics/dashboard'),
   revenue: (params?: Record<string, string>) =>
