@@ -595,12 +595,6 @@ export default function POSPage() {
     fetchInvoiceSettings(currentUser.tenantId).then(s => setInvoiceSettings(s)).catch(() => {})
   }, [currentUser?.tenantId])
 
-  useEffect(() => {
-    if (!completedSale) return
-    const timer = setTimeout(() => { downloadInvoice() }, 400)
-    return () => clearTimeout(timer)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [completedSale])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
