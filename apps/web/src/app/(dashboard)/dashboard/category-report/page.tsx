@@ -5,10 +5,10 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
 import {
-  BarChart3, TrendingUp, TrendingDown, DollarSign, Package,
-  ShoppingCart, Download, Calendar, Building2, Tag,
+  TrendingUp, TrendingDown, DollarSign, Package,
+  Download, Calendar, Building2, Tag, X, ChevronRight,
 } from 'lucide-react'
-import { useCategorySales, useBranches } from '@/lib/hooks'
+import { useCategorySales, useCategoryProducts, useBranches } from '@/lib/hooks'
 import { formatCurrency } from '@/lib/utils'
 
 /* ── constants ─────────────────────────────────────────────────── */
@@ -78,6 +78,7 @@ const renderPieLabel = ({ name, percent }: any) =>
 export default function CategoryReportPage() {
   const [period, setPeriod]         = useState('30')
   const [branchId, setBranchId]     = useState('')
+  const [selectedCat, setSelectedCat] = useState('')
   const [isCustom, setIsCustom]     = useState(false)
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo]     = useState('')
@@ -109,6 +110,17 @@ export default function CategoryReportPage() {
 
   const bestCat = categories[0]
 
+  // Product drill-down
+  const productParams: Record<string, string> = { from: fromDate, to: toDate }
+  if (branchId)     productParams.branchId = branchId
+  if (selectedCat)  productParams.category = selectedCat
+  const { data: rawProducts, loading: prodLoading } = useCategoryProducts(
+    selectedCat ? productParams : undefined
+  )
+  const products: any[] = Array.isArray(rawProducts) ? rawProducts : []
+
+  const activeCatData = selectedCat ? categories.find(c => c.category === selectedCat) : null
+
   const barData = categories.slice(0, 10).map(c => ({
     category: c.category.length > 14 ? c.category.slice(0, 13) + '…' : c.category,
     fullName: c.category,
@@ -122,6 +134,11 @@ export default function CategoryReportPage() {
     value: c.revenue,
     fill:  COLORS[i % COLORS.length],
   }))
+
+  const productExportRows = products.map((p: any) => [
+    p.product, p.sku, p.revenue.toFixed(2), p.cogs.toFixed(2),
+    p.profit.toFixed(2), `${p.margin}%`, p.unitsSold, p.transactions,
+  ])
 
   const exportRows = categories.map(c => [
     c.category, c.revenue.toFixed(2), c.cogs.toFixed(2),
@@ -178,6 +195,29 @@ export default function CategoryReportPage() {
           <span className="text-[11px] px-2 py-1 rounded-lg" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>
             {fromDate} → {toDate}
           </span>
+
+          {/* Category selector */}
+          {categories.length > 0 && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
+              <Tag size={13} style={{ color: 'var(--text-muted)' }} />
+              <select
+                value={selectedCat}
+                onChange={e => setSelectedCat(e.target.value)}
+                className="bg-transparent text-xs outline-none cursor-pointer font-medium"
+                style={{ color: selectedCat ? '#6d28d9' : 'var(--text-muted)', minWidth: 120 }}
+              >
+                <option value="">All Categories</option>
+                {categories.map((c: any) => (
+                  <option key={c.category} value={c.category}>{c.category}</option>
+                ))}
+              </select>
+              {selectedCat && (
+                <button onClick={() => setSelectedCat('')} className="ml-1 hover:text-red-500 transition-colors" style={{ color: 'var(--text-muted)' }}>
+                  <X size={11} />
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -188,13 +228,34 @@ export default function CategoryReportPage() {
       ) : (
         <>
           {/* ── KPI Cards ── */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-            <StatCard label="Total Revenue"   value={formatCurrency(totals.revenue)} icon={DollarSign}  color="violet" />
-            <StatCard label="Total COGS"      value={formatCurrency(totals.cogs)}    icon={TrendingDown} color="red"   />
-            <StatCard label="Total Profit"    value={formatCurrency(totals.profit)}  icon={TrendingUp}   color="green" sub={`${totals.margin}% margin`} />
-            <StatCard label="Units Sold"      value={totals.units.toLocaleString()}  icon={Package}      color="blue"  />
-            <StatCard label="Best Category"   value={bestCat?.category ?? '—'}       icon={Tag}          color="orange" sub={bestCat ? formatCurrency(bestCat.revenue) : ''} />
-          </div>
+          {selectedCat && activeCatData ? (
+            <>
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
+                <div className="w-2 h-2 rounded-full bg-violet-500" />
+                <span className="text-xs font-semibold text-violet-600 dark:text-violet-400">Category:</span>
+                <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{selectedCat}</span>
+                <ChevronRight size={12} style={{ color: 'var(--text-muted)' }} />
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Showing product breakdown</span>
+                <button onClick={() => setSelectedCat('')} className="ml-auto text-[11px] flex items-center gap-1 hover:text-red-500 transition-colors" style={{ color: 'var(--text-muted)' }}>
+                  <X size={11} /> Clear
+                </button>
+              </div>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <StatCard label="Category Revenue" value={formatCurrency(activeCatData.revenue)} icon={DollarSign}  color="violet" />
+                <StatCard label="Category COGS"    value={formatCurrency(activeCatData.cogs)}    icon={TrendingDown} color="red"   />
+                <StatCard label="Category Profit"  value={formatCurrency(activeCatData.profit)}  icon={TrendingUp}   color="green" sub={`${activeCatData.margin}% margin`} />
+                <StatCard label="Units Sold"        value={activeCatData.unitsSold.toLocaleString()} icon={Package} color="blue" sub={`${activeCatData.transactions} transactions`} />
+              </div>
+            </>
+          ) : (
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+              <StatCard label="Total Revenue"   value={formatCurrency(totals.revenue)} icon={DollarSign}  color="violet" />
+              <StatCard label="Total COGS"      value={formatCurrency(totals.cogs)}    icon={TrendingDown} color="red"   />
+              <StatCard label="Total Profit"    value={formatCurrency(totals.profit)}  icon={TrendingUp}   color="green" sub={`${totals.margin}% margin`} />
+              <StatCard label="Units Sold"      value={totals.units.toLocaleString()}  icon={Package}      color="blue"  />
+              <StatCard label="Best Category"   value={bestCat?.category ?? '—'}       icon={Tag}          color="orange" sub={bestCat ? formatCurrency(bestCat.revenue) : ''} />
+            </div>
+          )}
 
           {/* ── Charts ── */}
           <div className="grid lg:grid-cols-2 gap-5">
@@ -237,6 +298,58 @@ export default function CategoryReportPage() {
               )}
             </div>
           </div>
+
+          {/* ── Product drill-down (visible when a category is selected) ── */}
+          {selectedCat && (
+            <div className="card p-5">
+              <div className="flex items-center justify-between mb-4">
+                <SectionTitle
+                  title={`Product Breakdown — ${selectedCat}`}
+                  sub={`All products sold in this category · ${fromDate} → ${toDate}`}
+                />
+                <ExportCSV
+                  filename={`${selectedCat.replace(/\s+/g, '-')}-products.csv`}
+                  headers={['Product','SKU','Revenue','COGS','Profit','Margin','Units','Transactions']}
+                  rows={productExportRows}
+                />
+              </div>
+              {prodLoading ? (
+                <div className="py-10 text-center text-xs" style={{ color: 'var(--text-muted)' }}>Loading products…</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                        {['#','Product','SKU','Revenue','COGS','Profit','Margin','Units','Txns'].map((h, i) => (
+                          <th key={h} className={`text-[11px] font-semibold uppercase tracking-wide px-3 py-2.5 ${i <= 2 ? 'text-left' : 'text-right'}`} style={{ color: 'var(--text-muted)' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {products.map((p: any, i: number) => (
+                        <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                          <td className="px-3 py-2.5 text-[11px] font-mono" style={{ color: 'var(--text-muted)' }}>{i + 1}</td>
+                          <td className="px-3 py-2.5 text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{p.product}</td>
+                          <td className="px-3 py-2.5 text-[11px] font-mono" style={{ color: 'var(--text-muted)' }}>{p.sku}</td>
+                          <td className="px-3 py-2.5 text-xs text-right font-semibold text-violet-600 dark:text-violet-400">{formatCurrency(p.revenue)}</td>
+                          <td className="px-3 py-2.5 text-xs text-right text-red-600 dark:text-red-400">{formatCurrency(p.cogs)}</td>
+                          <td className="px-3 py-2.5 text-xs text-right font-semibold text-green-600 dark:text-green-400">{formatCurrency(p.profit)}</td>
+                          <td className="px-3 py-2.5 text-right">
+                            <span className={`text-xs font-semibold ${p.margin >= 20 ? 'text-green-600 dark:text-green-400' : p.margin >= 10 ? 'text-yellow-500' : 'text-red-500'}`}>{p.margin}%</span>
+                          </td>
+                          <td className="px-3 py-2.5 text-xs text-right" style={{ color: 'var(--text-secondary)' }}>{Number(p.unitsSold).toLocaleString()}</td>
+                          <td className="px-3 py-2.5 text-xs text-right" style={{ color: 'var(--text-secondary)' }}>{p.transactions}</td>
+                        </tr>
+                      ))}
+                      {products.length === 0 && (
+                        <tr><td colSpan={9} className="text-center py-8 text-xs" style={{ color: 'var(--text-muted)' }}>No products found for this category in the selected period.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── COGS vs Profit stacked bar ── */}
           <div className="card p-5">

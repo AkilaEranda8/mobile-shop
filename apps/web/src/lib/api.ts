@@ -318,4 +318,6 @@ export const analyticsApi = {
     api.get(`/analytics/delivery-summary${params ? '?' + new URLSearchParams(params) : ''}`),
   categorySales: (params?: Record<string, string>) =>
     api.get(`/analytics/category-sales${params ? '?' + new URLSearchParams(params) : ''}`),
+  categoryProducts: (params?: Record<string, string>) =>
+    api.get(`/analytics/category-products${params ? '?' + new URLSearchParams(params) : ''}`),
 }

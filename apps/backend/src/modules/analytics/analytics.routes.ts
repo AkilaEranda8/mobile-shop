@@ -246,6 +246,69 @@ router.get('/delivery-summary', async (req: Request, res: Response, next: NextFu
   } catch (e) { next(e) }
 })
 
+router.get('/category-products', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenantId = req.tenantId!
+    const category = (req.query.category as string) ?? ''
+    const branchId = req.query.branchId as string | undefined
+    let from: Date
+    let to: Date = new Date(); to.setHours(23, 59, 59, 999)
+    if (req.query.from) {
+      from = new Date(req.query.from as string); from.setHours(0, 0, 0, 0)
+      if (req.query.to) { to = new Date(req.query.to as string); to.setHours(23, 59, 59, 999) }
+    } else {
+      const days = parseInt(req.query.days as string) || 30
+      from = new Date(); from.setDate(from.getDate() - days); from.setHours(0, 0, 0, 0)
+    }
+
+    const branchClause = branchId ? Prisma.sql`AND s."branchId" = ${branchId}` : Prisma.empty
+    const categoryClause = category
+      ? Prisma.sql`AND COALESCE(c.name, 'Uncategorised') = ${category}`
+      : Prisma.empty
+
+    const rows: Array<{
+      product: string; sku: string
+      revenue: number; cogs: number; profit: number
+      units_sold: number; transactions: number
+    }> = await prisma.$queryRaw`
+      SELECT
+        p.name                                                     AS product,
+        p.sku                                                      AS sku,
+        COALESCE(SUM(si.total), 0)::float                          AS revenue,
+        COALESCE(SUM(si.quantity * p."buyingPrice"), 0)::float     AS cogs,
+        COALESCE(SUM(si.total - si.quantity * p."buyingPrice"), 0)::float AS profit,
+        COALESCE(SUM(si.quantity), 0)::float                       AS units_sold,
+        COUNT(DISTINCT si."saleId")::int                           AS transactions
+      FROM   "SaleItem"  si
+      JOIN   "Sale"      s ON s.id = si."saleId"
+      JOIN   "Product"   p ON p.id = si."productId"
+      LEFT   JOIN "Category" c ON c.id = p."categoryId"
+      WHERE  s."tenantId" = ${tenantId}
+        AND  s.status != 'RETURNED'
+        AND  s."createdAt" >= ${from}
+        AND  s."createdAt" <= ${to}
+        ${branchClause}
+        ${categoryClause}
+      GROUP  BY p.name, p.sku
+      ORDER  BY revenue DESC
+    `
+
+    const totalRevenue = rows.reduce((s, r) => s + Number(r.revenue), 0)
+
+    sendSuccess(res, rows.map(r => ({
+      product:      r.product,
+      sku:          r.sku,
+      revenue:      Number(r.revenue),
+      cogs:         Number(r.cogs),
+      profit:       Number(r.profit),
+      margin:       Number(r.revenue) > 0 ? Math.round((Number(r.profit) / Number(r.revenue)) * 100) : 0,
+      unitsSold:    Number(r.units_sold),
+      transactions: Number(r.transactions),
+      share:        totalRevenue > 0 ? Math.round((Number(r.revenue) / totalRevenue) * 100) : 0,
+    })))
+  } catch (e) { next(e) }
+})
+
 router.get('/category-sales', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
