@@ -9,9 +9,15 @@ import { createOrGetGroup, createKcUser } from '../../utils/keycloakAdmin'
 import { sendMail } from '../../utils/mailer'
 
 export const authService = {
-  async login(email: string, password: string) {
+  async login(email: string, password: string, tenantSlug?: string) {
+    const where: any = { email, isActive: true }
+    if (tenantSlug) {
+      const tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug } })
+      if (!tenant) throw new AppError('Invalid email or password', 401)
+      where.tenantId = tenant.id
+    }
     const user = await prisma.user.findFirst({
-      where: { email, isActive: true },
+      where,
       include: { branches: { select: { branchId: true } } },
     })
     if (!user || !(await bcrypt.compare(password, user.password))) {

@@ -5,7 +5,8 @@ import { sendSuccess } from '../../utils/response'
 export const authController = {
   async login(req: Request, res: Response, next: NextFunction) {
     try {
-      const result = await authService.login(req.body.email, req.body.password)
+      const tenantSlug = String(req.header('x-tenant-id') ?? '').trim() || undefined
+      const result = await authService.login(req.body.email, req.body.password, tenantSlug)
       sendSuccess(res, result, 'Login successful')
     } catch (e) { next(e) }
   },
