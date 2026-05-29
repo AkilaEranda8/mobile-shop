@@ -718,7 +718,7 @@ router.post('/support/impersonate/:tenantId', async (req: Request, res: Response
       where: { tenantId: req.params.tenantId, role: 'OWNER' },
     })
     if (!owner) throw new AppError('No OWNER user found for this tenant', 404)
-    const { signAccessToken } = await import('../../utils/jwt')
+    const { signAccessToken } = await import('../../utils/jwt.js')
     const token = signAccessToken({
       userId: owner.id, tenantId: owner.tenantId,
       role: owner.role, email: owner.email,
