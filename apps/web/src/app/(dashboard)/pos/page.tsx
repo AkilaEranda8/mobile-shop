@@ -336,6 +336,8 @@ export default function POSPage() {
   const [addWarranty, setAddWarranty]             = useState(false)
   const [warrantyMonths, setWarrantyMonths]       = useState(12)
   const [showCalc, setShowCalc]                   = useState(false)
+  const [manualTotalMode, setManualTotalMode]     = useState(false)
+  const [manualTotal, setManualTotal]             = useState('')
   const [mobileView, setMobileView]               = useState<'products' | 'cart'>('products')
   const [isDesktop, setIsDesktop]                 = useState(false)
   useEffect(() => {
@@ -584,7 +586,8 @@ export default function POSPage() {
   const discountAmount = discountMode === '%' ? (subtotal * discountPct) / 100 : Math.min(discountFlat, subtotal)
   const afterDiscount  = subtotal - discountAmount
   const tax            = 0
-  const total          = afterDiscount
+  const calculatedTotal = afterDiscount
+  const total          = manualTotalMode && manualTotal ? parseFloat(manualTotal) : calculatedTotal
 
   const currentUser = authStorage.getUser()
   const shopName = currentUser?.name?.split(' ')[0] + ' Shop' || 'Our Shop'
@@ -778,6 +781,7 @@ export default function POSPage() {
     setCart([]); setCompletedSale(null); setSearch('')
     setDiscountPct(0); setDiscountFlat(0); setSelectedCustomer(null); setCheckoutError('')
     setAddWarranty(false); setWarrantyMonths(12); setMobileView('products')
+    setManualTotalMode(false); setManualTotal('')
   }
 
   const handleCustomerCreated = useCallback((c: any) => {
@@ -1219,8 +1223,27 @@ export default function POSPage() {
                     </div>
                   )}
                   <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                    <span className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>Total</span>
-                    <span className="text-2xl font-extrabold" style={{ background: 'linear-gradient(135deg,#a78bfa,#7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{formatCurrency(total)}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>Total</span>
+                      <button onClick={() => { setManualTotalMode(!manualTotalMode); if (!manualTotalMode) setManualTotal(String(calculatedTotal)) }}
+                        className="text-[10px] px-2 py-0.5 rounded border transition-colors"
+                        style={{ borderColor: manualTotalMode ? 'rgba(139,92,246,.4)' : 'var(--border-subtle)', background: manualTotalMode ? 'rgba(139,92,246,.1)' : 'transparent', color: manualTotalMode ? '#a78bfa' : 'var(--text-muted)' }}>
+                        {manualTotalMode ? 'Auto' : 'Edit'}
+                      </button>
+                    </div>
+                    {manualTotalMode ? (
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={manualTotal}
+                        onChange={e => setManualTotal(e.target.value)}
+                        className="w-28 text-right text-2xl font-extrabold bg-transparent outline-none"
+                        style={{ color: 'var(--text-primary)' }}
+                      />
+                    ) : (
+                      <span className="text-2xl font-extrabold" style={{ background: 'linear-gradient(135deg,#a78bfa,#7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{formatCurrency(total)}</span>
+                    )}
                   </div>
                   {/* Warranty Section */}
                   <div className="rounded-xl border p-2.5" style={{ borderColor: addWarranty ? 'rgba(245,158,11,.4)' : 'var(--border-subtle)', background: addWarranty ? 'rgba(245,158,11,.04)' : 'var(--bg-card)', opacity: !selectedCustomer ? 0.5 : 1 }}>
