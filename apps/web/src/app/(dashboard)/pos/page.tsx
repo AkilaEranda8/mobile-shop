@@ -606,10 +606,8 @@ export default function POSPage() {
       setIncludeOutstanding(false)
       return
     }
-    customersApi.getById(selectedCustomer.id)
-      .then((r: any) => setCustomerOutstanding(r.data?.totalDue ?? 0))
-      .catch(() => setCustomerOutstanding(0))
-  }, [selectedCustomer?.id])
+    setCustomerOutstanding(selectedCustomer.totalDue ?? 0)
+  }, [selectedCustomer?.id, selectedCustomer?.totalDue])
 
 
   useEffect(() => {

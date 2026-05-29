@@ -7,7 +7,31 @@ export const customersService = {
   async list(tenantId: string, req: Request) {
     const { skip, limit, page, search } = getPagination(req)
     const where: any = { tenantId, ...(search && { OR: [{ name: { contains: search, mode: 'insensitive' } }, { phone: { contains: search } }, { email: { contains: search, mode: 'insensitive' } }] }) }
-    const [data, total] = await Promise.all([prisma.customer.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }), prisma.customer.count({ where })])
+    const [data, total] = await Promise.all([
+      prisma.customer.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          tenantId: true,
+          name: true,
+          phone: true,
+          email: true,
+          address: true,
+          city: true,
+          loyaltyPoints: true,
+          totalPurchases: true,
+          totalDue: true,
+          totalRepairs: true,
+          notes: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+      prisma.customer.count({ where }),
+    ])
     return { data, total, page, limit }
   },
 
@@ -36,7 +60,26 @@ export const customersService = {
   },
 
   async search(tenantId: string, q: string) {
-    return prisma.customer.findMany({ where: { tenantId, OR: [{ name: { contains: q, mode: 'insensitive' } }, { phone: { contains: q } }] }, take: 10 })
+    return prisma.customer.findMany({
+      where: { tenantId, OR: [{ name: { contains: q, mode: 'insensitive' } }, { phone: { contains: q } }] },
+      take: 10,
+      select: {
+        id: true,
+        tenantId: true,
+        name: true,
+        phone: true,
+        email: true,
+        address: true,
+        city: true,
+        loyaltyPoints: true,
+        totalPurchases: true,
+        totalDue: true,
+        totalRepairs: true,
+        notes: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    })
   },
 
   async creditPayment(tenantId: string, customerId: string, body: { amount: number; paymentMethod: string; branchId: string; performedBy: string }) {
