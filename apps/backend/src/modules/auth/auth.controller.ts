@@ -5,8 +5,13 @@ import { sendSuccess } from '../../utils/response'
 export const authController = {
   async login(req: Request, res: Response, next: NextFunction) {
     try {
-      const tenantSlug = String(req.header('x-tenant-id') ?? '').trim() || undefined
-      const result = await authService.login(req.body.email, req.body.password, tenantSlug)
+      let tenantSlug = String(req.header('x-tenant-id') ?? '').trim()
+      if (!tenantSlug) {
+        const host = String(req.headers.host ?? '')
+        const m = host.match(/^shop\.([^.]+)\.api\.hexalyte\.com$/)
+        if (m) tenantSlug = m[1]
+      }
+      const result = await authService.login(req.body.email, req.body.password, tenantSlug || undefined)
       sendSuccess(res, result, 'Login successful')
     } catch (e) { next(e) }
   },

@@ -48,6 +48,7 @@ app.use(cors({
       env.FRONTEND_URL,
       'https://admin2.hexalyte.com',
       'https://app.hexalyte.com',
+      'https://shop.hexalyte.com',
     ]
     if (allowedOrigins.includes(origin)) return callback(null, true)
     if (/^https:\/\/[^.]+\.app\.hexalyte\.com$/.test(origin)) return callback(null, true)
