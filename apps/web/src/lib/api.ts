@@ -178,6 +178,7 @@ export const customersApi = {
   create: (body: unknown) => api.post('/customers', body),
   update: (id: string, body: unknown) => api.put(`/customers/${id}`, body),
   search: (q: string) => api.get(`/customers/search?q=${encodeURIComponent(q)}`),
+  creditPayment: (id: string, body: unknown) => api.post(`/customers/${id}/credit-payment`, body),
 }
 
 export const salesApi = {

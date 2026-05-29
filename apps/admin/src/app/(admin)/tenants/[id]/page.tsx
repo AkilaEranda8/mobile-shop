@@ -43,8 +43,9 @@ const FEATURE_DEFS = [
   { key: 'STAFF',        label: 'Staff Management',   desc: 'User roles & staff access',            optIn: false },
   { key: 'SUPPLIERS',    label: 'Suppliers & PO',     desc: 'Supplier & purchase order management', optIn: false },
   { key: 'IMEI',         label: 'IMEI Tracker',       desc: 'IMEI registration & lookup',           optIn: false },
-  { key: 'SERVICES',     label: 'Services',           desc: 'Billable services catalogue',          optIn: false },
-  { key: 'DAILY_RELOAD', label: 'Daily Reload',       desc: 'Mobile top-up reload management',      optIn: true  },
+  { key: 'SERVICES',       label: 'Services',           desc: 'Billable services catalogue',          optIn: false },
+  { key: 'DAILY_RELOAD',   label: 'Daily Reload',       desc: 'Mobile top-up reload management',      optIn: true  },
+  { key: 'CUSTOMER_CREDIT', label: 'Customer Credit',    desc: 'Customer credit payments & outstanding', optIn: true  },
 ]
 const SALE_STATUS_BADGE: Record<string, string> = {
   PAID: 'badge-green', PARTIAL: 'badge-yellow', UNPAID: 'badge-red', REFUNDED: 'badge-gray',

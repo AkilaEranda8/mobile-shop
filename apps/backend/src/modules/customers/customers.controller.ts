@@ -18,4 +18,7 @@ export const customersController = {
   async search(req: Request, res: Response, next: NextFunction) {
     try { sendSuccess(res, await customersService.search(req.tenantId!, req.query.q as string)) } catch (e) { next(e) }
   },
+  async creditPayment(req: Request, res: Response, next: NextFunction) {
+    try { sendSuccess(res, await customersService.creditPayment(req.tenantId!, req.params.id, req.body)) } catch (e) { next(e) }
+  },
 }

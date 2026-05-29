@@ -38,4 +38,33 @@ export const customersService = {
   async search(tenantId: string, q: string) {
     return prisma.customer.findMany({ where: { tenantId, OR: [{ name: { contains: q, mode: 'insensitive' } }, { phone: { contains: q } }] }, take: 10 })
   },
+
+  async creditPayment(tenantId: string, customerId: string, body: { amount: number; paymentMethod: string; branchId: string; performedBy: string }) {
+    const c = await prisma.customer.findFirst({ where: { id: customerId, tenantId } })
+    if (!c) throw new AppError('Customer not found', 404)
+
+    const { amount, paymentMethod, branchId, performedBy } = body
+    if (amount <= 0) throw new AppError('Amount must be greater than 0', 400)
+    if (amount > c.totalDue) throw new AppError('Payment amount cannot exceed outstanding balance', 400)
+
+    const newTotalDue = Math.max(0, c.totalDue - amount)
+
+    await prisma.$transaction([
+      prisma.customer.update({ where: { id: customerId }, data: { totalDue: newTotalDue } }),
+      prisma.transaction.create({
+        data: {
+          tenantId,
+          branchId,
+          type: 'INCOME',
+          category: 'Customer Credit Payment',
+          amount,
+          description: `Credit payment from ${c.name} (${c.phone})`,
+          paymentMethod: paymentMethod as any,
+          performedBy,
+        },
+      }),
+    ])
+
+    return { customerId, amountPaid: amount, newOutstanding: newTotalDue }
+  },
 }

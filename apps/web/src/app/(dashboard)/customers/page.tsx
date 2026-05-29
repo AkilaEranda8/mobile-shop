@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { Plus, Star, Phone, Mail, MapPin, Eye, Loader2, SlidersHorizontal, X, ShoppingBag, Wrench, CreditCard, Calendar, ChevronRight, Users, User, Hash, MessageSquare, ArrowRight, CheckCircle2, UserPlus } from 'lucide-react'
+import { Plus, Star, Phone, Mail, MapPin, Eye, Loader2, SlidersHorizontal, X, ShoppingBag, Wrench, CreditCard, Calendar, ChevronRight, Users, User, Hash, MessageSquare, ArrowRight, CheckCircle2, UserPlus, DollarSign, Building2, Wallet } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { useCustomers } from '@/lib/hooks'
+import { useCustomers, useFeatureFlag, useBranches } from '@/lib/hooks'
 import { customersApi } from '@/lib/api'
 import type { Customer } from '@/types'
 
@@ -21,11 +21,103 @@ const repairStatusColors: Record<string, string> = {
   CANCELLED:     'text-red-400    bg-red-500/10    border-red-500/20',
 }
 
+/* ── Credit Payment Modal ───────────────────────────────────────────── */
+function CreditPaymentModal({ customerId, customerName, outstanding, onClose, onSuccess }: {
+  customerId: string; customerName: string; outstanding: number;
+  onClose: () => void; onSuccess: () => void;
+}) {
+  const [amount, setAmount] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState('CASH')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const { data: branchesData } = useBranches()
+  const branches: any[] = Array.isArray(branchesData) ? branchesData : []
+  const branchId = branches[0]?.id ?? ''
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const amt = parseFloat(amount)
+    if (!amt || amt <= 0) { setError('Enter a valid amount'); return }
+    if (amt > outstanding) { setError('Amount cannot exceed outstanding balance'); return }
+    setLoading(true); setError('')
+    try {
+      await customersApi.creditPayment(customerId, { amount: amt, paymentMethod, branchId, performedBy: 'system' })
+      onSuccess(); onClose()
+    } catch (err: any) { setError(err.message || 'Payment failed') }
+    finally { setLoading(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="rounded-2xl w-full max-w-md shadow-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+        <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-green-500/20 border border-green-500/30 flex items-center justify-center">
+              <DollarSign size={14} className="text-green-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Credit Payment</h3>
+              <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{customerName}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg transition-colors hover:bg-red-500/10 hover:text-red-500" style={{ color: 'var(--text-muted)' }}><X size={14} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wide mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Outstanding Balance</label>
+            <div className="text-2xl font-bold text-red-500">{formatCurrency(outstanding)}</div>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wide mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Payment Amount</label>
+            <input
+              type="number" step="0.01" min="0" max={outstanding}
+              value={amount} onChange={e => setAmount(e.target.value)}
+              placeholder="Enter amount"
+              className="w-full px-3 py-2.5 rounded-lg text-sm border outline-none focus:border-violet-500 transition-colors"
+              style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+            />
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wide mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Payment Method</label>
+            <div className="grid grid-cols-2 gap-2">
+              {['CASH', 'CARD', 'BANK_TRANSFER', 'MOBILE_WALLET'].map(m => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setPaymentMethod(m)}
+                  className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all ${
+                    paymentMethod === m
+                      ? 'bg-violet-500/20 border-violet-500/50 text-violet-300'
+                      : 'hover:bg-violet-500/5'
+                  }`}
+                  style={paymentMethod !== m ? { borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' } : {}}
+                >
+                  {m.replace(/_/g, ' ')}
+                </button>
+              ))}
+            </div>
+          </div>
+          {error && <p className="text-[11px] text-red-500">{error}</p>}
+          <div className="flex gap-2 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 rounded-lg text-xs font-medium transition-colors" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>Cancel</button>
+            <button type="submit" disabled={loading} className="flex-1 px-4 py-2 rounded-lg text-xs font-medium bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 flex items-center justify-center gap-1.5">
+              {loading ? <><Loader2 size={12} className="animate-spin" /> Processing</> : <><DollarSign size={12} /> Pay</>}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 /* ── Customer Detail Modal ───────────────────────────────────────────── */
 function CustomerDetailModal({ customerId, onClose }: { customerId: string; onClose: () => void }) {
   const [customer,  setCustomer]  = useState<any>(null)
   const [loading,   setLoading]   = useState(true)
   const [tab,       setTab]       = useState<'info' | 'history'>('info')
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const hasCustomerCredit = useFeatureFlag('CUSTOMER_CREDIT')
 
   useEffect(() => {
     setLoading(true)
@@ -34,6 +126,12 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [customerId])
+
+  const handlePaymentSuccess = () => {
+    customersApi.getById(customerId)
+      .then((r: any) => setCustomer(r.data ?? r))
+      .catch(() => {})
+  }
 
   const sales   = customer?.sales   ?? []
   const repairs = customer?.repairs ?? []
@@ -134,6 +232,14 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                       </div>
                     ))}
                   </div>
+                  {hasCustomerCredit && customer.totalDue > 0 && (
+                    <button
+                      onClick={() => setShowPaymentModal(true)}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-green-600 hover:bg-green-700 text-white transition-colors"
+                    >
+                      <Wallet size={12} /> Pay Outstanding
+                    </button>
+                  )}
                   {customer.notes && (
                     <div className="rounded-xl p-3 border" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
                       <p className="text-[10px] uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>Notes</p>
@@ -216,6 +322,15 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
           <div className="py-12 text-center text-sm" style={{ color: 'var(--text-muted)' }}>Failed to load customer</div>
         )}
       </div>
+      {showPaymentModal && (
+        <CreditPaymentModal
+          customerId={customerId}
+          customerName={customer?.name ?? ''}
+          outstanding={customer?.totalDue ?? 0}
+          onClose={() => setShowPaymentModal(false)}
+          onSuccess={handlePaymentSuccess}
+        />
+      )}
     </div>
   )
 }
