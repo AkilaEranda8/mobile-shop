@@ -338,6 +338,8 @@ export default function POSPage() {
   const [showCalc, setShowCalc]                   = useState(false)
   const [manualTotalMode, setManualTotalMode]     = useState(false)
   const [manualTotal, setManualTotal]             = useState('')
+  const [customerOutstanding, setCustomerOutstanding] = useState(0)
+  const [includeOutstanding, setIncludeOutstanding] = useState(false)
   const [mobileView, setMobileView]               = useState<'products' | 'cart'>('products')
   const [isDesktop, setIsDesktop]                 = useState(false)
   useEffect(() => {
@@ -587,7 +589,7 @@ export default function POSPage() {
   const afterDiscount  = subtotal - discountAmount
   const tax            = 0
   const calculatedTotal = afterDiscount
-  const total          = manualTotalMode && manualTotal ? parseFloat(manualTotal) : calculatedTotal
+  const total          = manualTotalMode && manualTotal ? parseFloat(manualTotal) : (calculatedTotal + (includeOutstanding ? customerOutstanding : 0))
 
   const currentUser = authStorage.getUser()
   const shopName = currentUser?.name?.split(' ')[0] + ' Shop' || 'Our Shop'
@@ -597,6 +599,17 @@ export default function POSPage() {
     if (!currentUser?.tenantId) return
     fetchInvoiceSettings(currentUser.tenantId).then(s => setInvoiceSettings(s)).catch(() => {})
   }, [currentUser?.tenantId])
+
+  useEffect(() => {
+    if (!selectedCustomer?.id) {
+      setCustomerOutstanding(0)
+      setIncludeOutstanding(false)
+      return
+    }
+    customersApi.getById(selectedCustomer.id)
+      .then((r: any) => setCustomerOutstanding(r.data?.totalDue ?? 0))
+      .catch(() => setCustomerOutstanding(0))
+  }, [selectedCustomer?.id])
 
 
   useEffect(() => {
@@ -649,6 +662,19 @@ export default function POSPage() {
         })),
         payments: [{ method: paymentMethod, amount: total }],
       })
+      // ── Handle outstanding payment if included ──
+      if (includeOutstanding && selectedCustomer && customerOutstanding > 0) {
+        try {
+          await customersApi.creditPayment(selectedCustomer.id, {
+            amount: customerOutstanding,
+            paymentMethod,
+            branchId: user?.branchIds?.[0] || '',
+            performedBy: user?.name || 'system',
+          })
+        } catch (e) {
+          console.error('Failed to apply credit payment:', e)
+        }
+      }
       // ── Create warranties if user opted in ──
       const createdWarrantyCodes: string[] = []
       if (addWarranty && cart.length > 0) {
@@ -782,6 +808,7 @@ export default function POSPage() {
     setDiscountPct(0); setDiscountFlat(0); setSelectedCustomer(null); setCheckoutError('')
     setAddWarranty(false); setWarrantyMonths(12); setMobileView('products')
     setManualTotalMode(false); setManualTotal('')
+    setCustomerOutstanding(0); setIncludeOutstanding(false)
   }
 
   const handleCustomerCreated = useCallback((c: any) => {
@@ -1220,6 +1247,27 @@ export default function POSPage() {
                   {discountAmount > 0 && (
                     <div className="flex justify-between text-xs text-green-400">
                       <span>Saving</span><span>-{formatCurrency(discountAmount)}</span>
+                    </div>
+                  )}
+                  {selectedCustomer && customerOutstanding > 0 && (
+                    <div className="rounded-xl border p-2.5" style={{ borderColor: includeOutstanding ? 'rgba(239,68,68,.4)' : 'var(--border-subtle)', background: includeOutstanding ? 'rgba(239,68,68,.04)' : 'var(--bg-card)' }}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <CreditCard size={13} className="text-red-400" />
+                          <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Outstanding</span>
+                          <span className="text-[10px] font-bold text-red-400">{formatCurrency(customerOutstanding)}</span>
+                        </div>
+                        <button onClick={() => setIncludeOutstanding(p => !p)}
+                          className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
+                          style={{ background: includeOutstanding ? '#ef4444' : 'var(--border-default, #cbd5e1)' }}>
+                          <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left: includeOutstanding ? '18px' : '2px' }} />
+                        </button>
+                      </div>
+                      {includeOutstanding && (
+                        <div className="mt-2 text-[10px] text-red-400 flex items-center gap-1">
+                          <span>Added to bill</span>
+                        </div>
+                      )}
                     </div>
                   )}
                   <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
