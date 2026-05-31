@@ -340,6 +340,8 @@ export default function POSPage() {
   const [manualTotal, setManualTotal]             = useState('')
   const [customerOutstanding, setCustomerOutstanding] = useState(0)
   const [includeOutstanding, setIncludeOutstanding] = useState(false)
+  const [amountPaying, setAmountPaying] = useState('')
+  const hasCustomerCredit = useFeatureFlag('CUSTOMER_CREDIT')
   const [mobileView, setMobileView]               = useState<'products' | 'cart'>('products')
   const [isDesktop, setIsDesktop]                 = useState(false)
   useEffect(() => {
@@ -589,7 +591,21 @@ export default function POSPage() {
   const afterDiscount  = subtotal - discountAmount
   const tax            = 0
   const calculatedTotal = afterDiscount
-  const total          = manualTotalMode && manualTotal ? parseFloat(manualTotal) : (calculatedTotal + (includeOutstanding ? customerOutstanding : 0))
+  // Bill total from line items — never reduced by "Edit total" when using customer credit
+  const saleTotal = calculatedTotal
+  const creditMode = hasCustomerCredit && !!selectedCustomer?.id
+  const billTotal = creditMode
+    ? saleTotal
+    : (manualTotalMode && manualTotal ? Math.max(0, parseFloat(manualTotal) || 0) : saleTotal)
+  const settleOldOutstanding = hasCustomerCredit && includeOutstanding && !!selectedCustomer && customerOutstanding > 0
+  const payNowForSale = (() => {
+    if (!creditMode) return billTotal
+    const v = parseFloat(amountPaying)
+    if (isNaN(v)) return saleTotal
+    return Math.min(Math.max(0, v), saleTotal)
+  })()
+  const saleDueAmount = creditMode ? Math.max(0, saleTotal - payNowForSale) : 0
+  const collectAtCheckout = payNowForSale + (settleOldOutstanding ? customerOutstanding : 0)
 
   const currentUser = authStorage.getUser()
   const shopName = currentUser?.name?.split(' ')[0] + ' Shop' || 'Our Shop'
@@ -608,6 +624,14 @@ export default function POSPage() {
     }
     setCustomerOutstanding(selectedCustomer.totalDue ?? 0)
   }, [selectedCustomer?.id, selectedCustomer?.totalDue])
+
+  useEffect(() => {
+    if (creditMode) setManualTotalMode(false)
+  }, [creditMode])
+
+  useEffect(() => {
+    setAmountPaying(saleTotal > 0 ? saleTotal.toFixed(2) : '')
+  }, [saleTotal, selectedCustomer?.id, hasCustomerCredit])
 
 
   useEffect(() => {
@@ -633,10 +657,22 @@ export default function POSPage() {
       setCheckoutError('Please select a customer to add warranty')
       return
     }
+    if (creditMode && payNowForSale < saleTotal && !selectedCustomer?.id) {
+      setCheckoutError('Select a registered customer to record outstanding credit')
+      return
+    }
+    if (creditMode && payNowForSale < saleTotal && saleDueAmount <= 0) {
+      setCheckoutError('Use "Paying now" for partial payment — do not use Edit total')
+      return
+    }
     setCheckoutLoading(true)
     setCheckoutError('')
     try {
       const user = authStorage.getUser()
+      const payments: { method: string; amount: number }[] = []
+      if (payNowForSale > 0) payments.push({ method: paymentMethod, amount: payNowForSale })
+      if (saleDueAmount > 0) payments.push({ method: 'CREDIT', amount: saleDueAmount })
+
       const res: any = await salesApi.create({
         branchId:      user?.branchIds?.[0],
         customerId:    selectedCustomer?.id || undefined,
@@ -645,10 +681,10 @@ export default function POSPage() {
         subtotal,
         discount:      discountAmount,
         tax,
-        total,
-        paidAmount:    total,
-        dueAmount:     0,
-        status:        'PAID',
+        total:         saleTotal,
+        paidAmount:    payNowForSale,
+        dueAmount:     saleDueAmount,
+        status:        saleDueAmount > 0 ? (payNowForSale > 0 ? 'PARTIAL' : 'DUE') : 'PAID',
         items: cart.map(i => ({
           productId:   i.isService ? undefined : i.productId,
           productName: i.name,
@@ -658,10 +694,10 @@ export default function POSPage() {
           total:       i.price * i.quantity,
           imei:        i.imei,
         })),
-        payments: [{ method: paymentMethod, amount: total }],
+        payments,
       })
-      // ── Handle outstanding payment if included ──
-      if (includeOutstanding && selectedCustomer && customerOutstanding > 0) {
+      // ── Settle previous outstanding (separate from this sale) ──
+      if (settleOldOutstanding && selectedCustomer && customerOutstanding > 0) {
         try {
           await customersApi.creditPayment(selectedCustomer.id, {
             amount: customerOutstanding,
@@ -703,11 +739,23 @@ export default function POSPage() {
         if (createdWarrantyCodes.length > 0)
           toast.success(`${createdWarrantyCodes.length} warranty${createdWarrantyCodes.length > 1 ? 's' : ''} created`, { icon: '🛡️' })
       }
+      if (saleDueAmount > 0) {
+        toast.success(`${formatCurrency(saleDueAmount)} added to customer credit`, { icon: '📋' })
+        if (selectedCustomer?.id) {
+          setSelectedCustomer({
+            ...selectedCustomer,
+            totalDue: (selectedCustomer.totalDue ?? 0) + saleDueAmount,
+          })
+        }
+      }
       setMobileView('cart')
       setCompletedSale({
         ...res.data,
+        total: res.data?.total ?? saleTotal,
         items: cart.map(i => ({ productName: i.name, sku: i.sku, imei: i.imei, quantity: i.quantity, unitPrice: i.price, total: i.price * i.quantity })),
-        payments: [{ method: paymentMethod, amount: total }],
+        payments,
+        paidAmount: payNowForSale,
+        dueAmount: res.data?.dueAmount ?? saleDueAmount,
         customerName:  selectedCustomer?.name || 'Walk-in Customer',
         customerPhone: selectedCustomer?.phone || '',
         cashierName:   user?.name || 'Staff',
@@ -1083,7 +1131,7 @@ export default function POSPage() {
                     <p className="text-[10px] text-slate-500 font-mono">{completedSale.invoiceNumber}</p>
                   </div>
                 </div>
-                <span className="text-sm font-bold text-white">{formatCurrency(total)}</span>
+                <span className="text-sm font-bold text-white">{formatCurrency(completedSale.total ?? saleTotal)}</span>
               </div>
               <div className="flex-1 overflow-y-auto p-3 space-y-2">
                 <div className="bg-white/3 rounded-xl border border-white/5 p-3">
@@ -1118,7 +1166,10 @@ export default function POSPage() {
                 <div className="bg-white/3 rounded-xl border border-white/5 p-3 space-y-1">
                   <div className="flex justify-between text-xs text-slate-400"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
                   {discountAmount > 0 && <div className="flex justify-between text-xs text-green-400"><span>Discount</span><span>-{formatCurrency(discountAmount)}</span></div>}
-                  <div className="flex justify-between text-sm font-bold text-white pt-1 border-t border-white/5"><span>Total</span><span>{formatCurrency(total)}</span></div>
+                  <div className="flex justify-between text-sm font-bold text-white pt-1 border-t border-white/5"><span>Total</span><span>{formatCurrency(completedSale.total ?? saleTotal)}</span></div>
+                  {(completedSale.dueAmount ?? 0) > 0 && (
+                    <div className="flex justify-between text-xs text-amber-400"><span>Credit (outstanding)</span><span>{formatCurrency(completedSale.dueAmount)}</span></div>
+                  )}
                 </div>
               </div>
               <div className="p-4 border-t border-white/5 space-y-2">
@@ -1126,7 +1177,7 @@ export default function POSPage() {
                   <button onClick={() => setShowA4Invoice(true)} className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold rounded-xl bg-white/5 text-slate-200 hover:bg-white/10 border border-white/10 transition-colors">
                     <Receipt size={12} /> A4 Invoice
                   </button>
-                  <button onClick={() => printThermalReceipt({ invoiceNumber: completedSale.invoiceNumber, createdAt: completedSale.createdAt, customerName: completedSale.customerName, customerPhone: completedSale.customerPhone, items: completedSale.items ?? [], subtotal, discountAmount, total, paymentMethod: completedSale.paymentMethod, cashReceived: completedSale.cashReceived, changeAmount: completedSale.changeAmount, warrantyNumbers: completedSale.warrantyNumbers, warrantyMonths: completedSale.warrantyMonths }, invoiceSettings)} className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors">
+                  <button onClick={() => printThermalReceipt({ invoiceNumber: completedSale.invoiceNumber, createdAt: completedSale.createdAt, customerName: completedSale.customerName, customerPhone: completedSale.customerPhone, items: completedSale.items ?? [], subtotal, discountAmount, total: completedSale.total ?? saleTotal, paymentMethod: completedSale.paymentMethod, cashReceived: completedSale.cashReceived, changeAmount: completedSale.changeAmount, warrantyNumbers: completedSale.warrantyNumbers, warrantyMonths: completedSale.warrantyMonths }, invoiceSettings)} className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors">
                     <Printer size={12} /> Thermal Print
                   </button>
                 </div>
@@ -1247,12 +1298,12 @@ export default function POSPage() {
                       <span>Saving</span><span>-{formatCurrency(discountAmount)}</span>
                     </div>
                   )}
-                  {selectedCustomer && customerOutstanding > 0 && (
+                  {hasCustomerCredit && selectedCustomer && customerOutstanding > 0 && (
                     <div className="rounded-xl border p-2.5" style={{ borderColor: includeOutstanding ? 'rgba(239,68,68,.4)' : 'var(--border-subtle)', background: includeOutstanding ? 'rgba(239,68,68,.04)' : 'var(--bg-card)' }}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
                           <CreditCard size={13} className="text-red-400" />
-                          <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Outstanding</span>
+                          <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Pay old balance</span>
                           <span className="text-[10px] font-bold text-red-400">{formatCurrency(customerOutstanding)}</span>
                         </div>
                         <button onClick={() => setIncludeOutstanding(p => !p)}
@@ -1262,8 +1313,44 @@ export default function POSPage() {
                         </button>
                       </div>
                       {includeOutstanding && (
-                        <div className="mt-2 text-[10px] text-red-400 flex items-center gap-1">
-                          <span>Added to bill</span>
+                        <div className="mt-2 text-[10px] text-red-400">Collect with this checkout</div>
+                      )}
+                    </div>
+                  )}
+                  {hasCustomerCredit && saleTotal > 0 && (
+                    <div
+                      className="rounded-xl border p-2.5 space-y-2"
+                      style={{
+                        borderColor: saleDueAmount > 0 ? 'rgba(245,158,11,.45)' : creditMode ? 'rgba(245,158,11,.25)' : 'var(--border-subtle)',
+                        background: saleDueAmount > 0 ? 'rgba(245,158,11,.06)' : 'var(--bg-card)',
+                        opacity: creditMode ? 1 : 0.85,
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Paying now</span>
+                        <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Bill {formatCurrency(saleTotal)}</span>
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        max={saleTotal}
+                        step="0.01"
+                        value={amountPaying}
+                        disabled={!creditMode}
+                        onChange={e => setAmountPaying(e.target.value)}
+                        placeholder={creditMode ? 'Amount customer pays' : 'Select customer first'}
+                        className="w-full px-3 py-2 rounded-lg text-sm font-bold border outline-none focus:border-amber-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+                      />
+                      {!creditMode && (
+                        <p className="text-[10px] text-amber-400 leading-snug">
+                          Top-right eke <strong>Walk-in</strong> badala registered customer ekak select karanna — eken pasu me field active wenawa.
+                        </p>
+                      )}
+                      {creditMode && saleDueAmount > 0 && (
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-amber-400">Added to customer credit</span>
+                          <span className="font-bold text-amber-400">{formatCurrency(saleDueAmount)}</span>
                         </div>
                       )}
                     </div>
@@ -1271,13 +1358,15 @@ export default function POSPage() {
                   <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
                     <div className="flex items-center gap-2">
                       <span className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>Total</span>
-                      <button onClick={() => { setManualTotalMode(!manualTotalMode); if (!manualTotalMode) setManualTotal(String(calculatedTotal)) }}
-                        className="text-[10px] px-2 py-0.5 rounded border transition-colors"
-                        style={{ borderColor: manualTotalMode ? 'rgba(139,92,246,.4)' : 'var(--border-subtle)', background: manualTotalMode ? 'rgba(139,92,246,.1)' : 'transparent', color: manualTotalMode ? '#a78bfa' : 'var(--text-muted)' }}>
-                        {manualTotalMode ? 'Auto' : 'Edit'}
-                      </button>
+                      {!creditMode && (
+                        <button onClick={() => { setManualTotalMode(!manualTotalMode); if (!manualTotalMode) setManualTotal(String(calculatedTotal)) }}
+                          className="text-[10px] px-2 py-0.5 rounded border transition-colors"
+                          style={{ borderColor: manualTotalMode ? 'rgba(139,92,246,.4)' : 'var(--border-subtle)', background: manualTotalMode ? 'rgba(139,92,246,.1)' : 'transparent', color: manualTotalMode ? '#a78bfa' : 'var(--text-muted)' }}>
+                          {manualTotalMode ? 'Auto' : 'Edit'}
+                        </button>
+                      )}
                     </div>
-                    {manualTotalMode ? (
+                    {manualTotalMode && !creditMode ? (
                       <input
                         type="number"
                         min="0"
@@ -1288,9 +1377,15 @@ export default function POSPage() {
                         style={{ color: 'var(--text-primary)' }}
                       />
                     ) : (
-                      <span className="text-2xl font-extrabold" style={{ background: 'linear-gradient(135deg,#a78bfa,#7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{formatCurrency(total)}</span>
+                      <span className="text-2xl font-extrabold" style={{ background: 'linear-gradient(135deg,#a78bfa,#7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{formatCurrency(saleTotal)}</span>
                     )}
                   </div>
+                  {creditMode && collectAtCheckout !== saleTotal && (
+                    <div className="flex justify-between text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      <span>Collecting now</span>
+                      <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(collectAtCheckout)}</span>
+                    </div>
+                  )}
                   {/* Warranty Section */}
                   <div className="rounded-xl border p-2.5" style={{ borderColor: addWarranty ? 'rgba(245,158,11,.4)' : 'var(--border-subtle)', background: addWarranty ? 'rgba(245,158,11,.04)' : 'var(--bg-card)', opacity: !selectedCustomer ? 0.5 : 1 }}>
                     <div className="flex items-center justify-between">
@@ -1340,7 +1435,7 @@ export default function POSPage() {
                   <button onClick={handleCheckout} disabled={checkoutLoading}
                     className="w-full flex items-center justify-between px-5 py-3.5 rounded-2xl text-white font-bold text-sm transition-all disabled:opacity-60 active:scale-[.99]"
                     style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: checkoutLoading ? 'none' : '0 6px 24px rgba(124,58,237,.45)' }}>
-                    <span>{checkoutLoading ? 'Processing…' : `Charge ${formatCurrency(total)}`}</span>
+                    <span>{checkoutLoading ? 'Processing…' : `Charge ${formatCurrency(collectAtCheckout)}`}</span>
                     {checkoutLoading ? <Loader2 size={15} className="animate-spin" /> : <span className="text-violet-200 text-[11px] flex items-center gap-1">F9 <ChevronRight size={13} /></span>}
                   </button>
                   <div className="grid grid-cols-3 gap-1.5">
@@ -1399,7 +1494,7 @@ export default function POSPage() {
               <span className="text-sm" style={{ color: '#ffffff' }}>{cart.length} item{cart.length !== 1 ? 's' : ''}</span>
             </div>
             <div className="flex items-center gap-2" style={{ color: '#ffffff' }}>
-              <span className="text-base font-extrabold" style={{ color: '#ffffff' }}>{formatCurrency(total)}</span>
+              <span className="text-base font-extrabold" style={{ color: '#ffffff' }}>{formatCurrency(saleTotal)}</span>
               <ChevronRight size={16} color="#ffffff" />
             </div>
           </button>
@@ -1568,7 +1663,7 @@ export default function POSPage() {
                 <div className="px-10 py-5 bg-gray-50 border-t border-gray-100">
                   <div className="flex justify-between text-sm text-gray-500 mb-1"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
                   {discountAmount > 0 && <div className="flex justify-between text-sm text-green-600 mb-1"><span>Discount</span><span>-{formatCurrency(discountAmount)}</span></div>}
-                  <div className="flex justify-between text-base font-extrabold mt-2 pt-2 border-t border-gray-200" style={{ color }}><span>Total</span><span>{formatCurrency(total)}</span></div>
+                  <div className="flex justify-between text-base font-extrabold mt-2 pt-2 border-t border-gray-200" style={{ color }}><span>Total</span><span>{formatCurrency(saleTotal)}</span></div>
                 </div>
                 <div className="px-10 py-4 text-center">
                   <p className="text-xs text-gray-400 italic">{invoiceSettings.footerNote || 'Thank you for your business!'}</p>

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { authApi, usersApi, tenantApi, uploadApi, deviceCatalogApi, plansApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
+import { useTenantFeatures } from '@/lib/hooks'
 import { type InvoiceSettings, getInvoiceSettings, fetchInvoiceSettings, pushInvoiceSettings } from '@/lib/invoiceSettings'
 import { ImageIcon, Trash2 as TrashIcon } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -44,6 +45,9 @@ const planColors: Record<string, string> = {
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('shop')
   const currentUser = authStorage.getUser()
+  const { hasFeature, refetchFeatures } = useTenantFeatures()
+  const [featureSaving, setFeatureSaving] = useState(false)
+  const canManageFeatures = currentUser?.role === 'OWNER' || currentUser?.role === 'MANAGER'
 
   /* ── Plans ── */
   const [plans, setPlans] = useState<any[]>([])
@@ -275,6 +279,34 @@ export default function SettingsPage() {
                   <input type="email" className="input-field" value={shopForm.ownerEmail} onChange={e => setShopForm(p => ({ ...p, ownerEmail: e.target.value }))} />
                 </div>
               </div>
+              {canManageFeatures && (
+                <div className="pt-4 border-t border-white/5 space-y-3">
+                  <h3 className="text-sm font-semibold text-white">Shop Features</h3>
+                  <p className="text-xs text-slate-500">When enabled, all staff can use customer credit at POS and settle outstanding on the Customers page.</p>
+                  <div className="flex items-center justify-between rounded-xl p-4 border border-white/10 bg-white/[0.02]">
+                    <div>
+                      <p className="text-sm font-medium text-white">Customer Credit</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">Partial payments, outstanding balance & pay later</p>
+                    </div>
+                    <Toggle
+                      value={hasFeature('CUSTOMER_CREDIT')}
+                      onChange={async (v) => {
+                        setFeatureSaving(true)
+                        try {
+                          await tenantApi.updateMyFeatures({ CUSTOMER_CREDIT: v })
+                          refetchFeatures()
+                          toast.success(v ? 'Customer credit enabled' : 'Customer credit disabled')
+                        } catch {
+                          toast.error('Failed to update feature')
+                        } finally {
+                          setFeatureSaving(false)
+                        }
+                      }}
+                    />
+                  </div>
+                  {featureSaving && <p className="text-[10px] text-slate-500 flex items-center gap-1"><Loader2 size={10} className="animate-spin" /> Saving…</p>}
+                </div>
+              )}
               {tenant && (
                 <div className="pt-3 border-t border-white/5">
                   <p className="text-xs text-slate-500 mb-2">Read-only information</p>

@@ -136,14 +136,16 @@ router.patch('/tenants/:id', async (req: Request, res: Response, next: NextFunct
 // ── Tenant Feature Flags ──────────────────────────────────────────────────────
 const ALL_FEATURES = [
   'POS', 'REPAIRS', 'WARRANTY', 'WHATSAPP', 'ANALYTICS', 'REPORTS',
-  'FINANCE', 'DELIVERY', 'EXCHANGES', 'STAFF', 'SUPPLIERS', 'IMEI', 'SERVICES', 'DAILY_RELOAD',
+  'FINANCE', 'DELIVERY', 'EXCHANGES', 'STAFF', 'SUPPLIERS', 'IMEI', 'SERVICES', 'DAILY_RELOAD', 'CUSTOMER_CREDIT',
 ]
+const OPT_IN_FEATURES = ['DAILY_RELOAD', 'CUSTOMER_CREDIT']
 
 router.get('/tenants/:id/features', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const rows = await prisma.tenantFeature.findMany({ where: { tenantId: req.params.id } })
     const map: Record<string, boolean> = {}
-    for (const f of ALL_FEATURES) map[f] = true
+    for (const f of ALL_FEATURES) map[f] = !OPT_IN_FEATURES.includes(f)
+    for (const f of OPT_IN_FEATURES) map[f] = false
     for (const r of rows) map[r.feature] = r.enabled
     sendSuccess(res, map)
   } catch (e) { next(e) }
@@ -163,7 +165,8 @@ router.put('/tenants/:id/features', async (req: Request, res: Response, next: Ne
     )
     const rows = await prisma.tenantFeature.findMany({ where: { tenantId: req.params.id } })
     const map: Record<string, boolean> = {}
-    for (const f of ALL_FEATURES) map[f] = true
+    for (const f of ALL_FEATURES) map[f] = !OPT_IN_FEATURES.includes(f)
+    for (const f of OPT_IN_FEATURES) map[f] = false
     for (const r of rows) map[r.feature] = r.enabled
     sendSuccess(res, map, 'Features updated')
   } catch (e) { next(e) }

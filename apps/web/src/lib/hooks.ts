@@ -8,6 +8,7 @@ import {
 
 const FEATURES_CACHE_KEY = 'hx_tenant_features'
 const FEATURES_CACHE_TTL = 5 * 60 * 1000
+const OPT_IN_FEATURES = ['DAILY_RELOAD', 'CUSTOMER_CREDIT']
 
 export function useTenantFeatures() {
   const [features, setFeatures] = useState<Record<string, boolean>>(() => {
@@ -31,8 +32,20 @@ export function useTenantFeatures() {
     }).catch(() => {})
   }, [])
 
-  const hasFeature = (f: string) => features[f] !== false
-  return { features, hasFeature }
+  const hasFeature = (f: string) =>
+    OPT_IN_FEATURES.includes(f) ? features[f] === true : features[f] !== false
+
+  const refetchFeatures = useCallback(() => {
+    tenantApi.myFeatures().then((res: any) => {
+      const data = res?.data ?? res
+      if (data && typeof data === 'object') {
+        setFeatures(data)
+        try { localStorage.setItem(FEATURES_CACHE_KEY, JSON.stringify({ data, ts: Date.now() })) } catch {}
+      }
+    }).catch(() => {})
+  }, [])
+
+  return { features, hasFeature, refetchFeatures }
 }
 
 export function useFeatureFlag(feature: string): boolean {

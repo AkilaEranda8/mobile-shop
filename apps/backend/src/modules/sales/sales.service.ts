@@ -26,6 +26,10 @@ export const salesService = {
   },
 
   async create(tenantId: string, cashierId: string, cashierName: string, body: any) {
+    const dueAmount = Number(body.dueAmount ?? 0)
+    if (dueAmount > 0 && !body.customerId) {
+      throw new AppError('Customer is required when recording credit / partial payment', 400)
+    }
     const invoiceNumber = await generateInvoiceNumber(tenantId)
     const sale = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const s = await tx.sale.create({
@@ -84,14 +88,15 @@ export const salesService = {
         const branch = await prisma.branch.findFirst({ where: { tenantId }, select: { id: true } })
         resolvedBranchId = branch?.id
       }
-      if (resolvedBranchId && body.total > 0) {
+      const incomeAmount = Number(body.paidAmount ?? body.total ?? 0)
+      if (resolvedBranchId && incomeAmount > 0) {
         await prisma.transaction.create({
           data: {
             tenantId,
             branchId:    resolvedBranchId,
             type:        'INCOME',
             category:    'Sales',
-            amount:      body.total,
+            amount:      incomeAmount,
             description: `Sale - ${invoiceNumber}${body.customerName && body.customerName !== 'Walk-in Customer' ? ` (${body.customerName})` : ''}`,
             paymentMethod,
             reference:   invoiceNumber,

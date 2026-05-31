@@ -9,6 +9,7 @@ import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useCustomers, useFeatureFlag, useBranches } from '@/lib/hooks'
 import { customersApi } from '@/lib/api'
+import { authStorage } from '@/lib/auth'
 import type { Customer } from '@/types'
 
 const repairStatusColors: Record<string, string> = {
@@ -42,7 +43,12 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
     if (amt > outstanding) { setError('Amount cannot exceed outstanding balance'); return }
     setLoading(true); setError('')
     try {
-      await customersApi.creditPayment(customerId, { amount: amt, paymentMethod, branchId, performedBy: 'system' })
+      await customersApi.creditPayment(customerId, {
+        amount: amt,
+        paymentMethod,
+        branchId,
+        performedBy: authStorage.getUser()?.name || 'Staff',
+      })
       onSuccess(); onClose()
     } catch (err: any) { setError(err.message || 'Payment failed') }
     finally { setLoading(false) }
@@ -81,7 +87,7 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
           <div>
             <label className="text-[11px] font-semibold uppercase tracking-wide mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Payment Method</label>
             <div className="grid grid-cols-2 gap-2">
-              {['CASH', 'CARD', 'BANK_TRANSFER', 'MOBILE_WALLET'].map(m => (
+              {['CASH', 'CARD', 'BANK_TRANSFER', 'WALLET'].map(m => (
                 <button
                   key={m}
                   type="button"
@@ -444,10 +450,12 @@ function AddCustomerModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
 export default function CustomersPage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
+  const [payCustomerId, setPayCustomerId] = useState<string | null>(null)
   const [segment, setSegment] = useState('all')
   const [showSegment, setShowSegment] = useState(false)
   const segmentRef = useRef<HTMLDivElement>(null)
 
+  const hasCustomerCredit = useFeatureFlag('CUSTOMER_CREDIT')
   const { data: customersData, loading, refetch } = useCustomers()
   const customers: Customer[] = (customersData?.data ?? []) as Customer[]
 
@@ -502,6 +510,15 @@ export default function CustomersPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Points" />,
       cell: ({ row }) => <span className="text-xs text-violet-400 font-semibold">{row.original.loyaltyPoints} pts</span>,
     },
+    ...(hasCustomerCredit ? [{
+      accessorKey: 'totalDue',
+      header: ({ column }: { column: any }) => <DataTableColumnHeader column={column} title="Outstanding" />,
+      cell: ({ row }: { row: { original: Customer } }) => (
+        <span className={`text-xs font-bold ${row.original.totalDue > 0 ? 'text-red-400' : 'text-slate-500'}`}>
+          {formatCurrency(row.original.totalDue)}
+        </span>
+      ),
+    }] as ColumnDef<Customer>[] : []),
     {
       accessorKey: 'createdAt',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Joined" />,
@@ -510,10 +527,21 @@ export default function CustomersPage() {
     {
       id: 'actions',
       cell: ({ row }) => (
-        <TableActionsRow showAction={{ action: () => setDetailId(row.original.id) }} />
+        <div className="flex items-center gap-1 justify-end">
+          {hasCustomerCredit && row.original.totalDue > 0 && (
+            <button
+              type="button"
+              onClick={() => setPayCustomerId(row.original.id)}
+              className="px-2 py-1 rounded-lg text-[10px] font-semibold bg-green-600/20 text-green-400 border border-green-500/30 hover:bg-green-600/30"
+            >
+              Pay
+            </button>
+          )}
+          <TableActionsRow showAction={{ action: () => setDetailId(row.original.id) }} />
+        </div>
       ),
     },
-  ], [setDetailId])
+  ], [setDetailId, hasCustomerCredit])
 
   /* close segment dropdown on outside click */
   useEffect(() => {
@@ -530,6 +558,19 @@ export default function CustomersPage() {
     <div className="space-y-6">
       {showAddModal && <AddCustomerModal onClose={() => setShowAddModal(false)} onSaved={refetch} />}
       {detailId     && <CustomerDetailModal customerId={detailId} onClose={() => setDetailId(null)} />}
+      {payCustomerId && (() => {
+        const c = customers.find(x => x.id === payCustomerId)
+        if (!c || c.totalDue <= 0) return null
+        return (
+          <CreditPaymentModal
+            customerId={c.id}
+            customerName={c.name}
+            outstanding={c.totalDue}
+            onClose={() => setPayCustomerId(null)}
+            onSuccess={() => { setPayCustomerId(null); refetch() }}
+          />
+        )
+      })()}
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -549,7 +590,7 @@ export default function CustomersPage() {
           {showSegment && (
             <div className="absolute top-full right-0 mt-2 w-52 bg-[#0f1623] border border-white/10 rounded-xl shadow-2xl z-30 overflow-hidden">
               <p className="text-[10px] text-slate-500 uppercase tracking-wide px-3 pt-3 pb-1.5">Filter by segment</p>
-              {SEGMENTS.map(s => (
+              {SEGMENTS.filter(s => hasCustomerCredit || s.key !== 'outstanding').map(s => (
                 <button
                   key={s.key}
                   onClick={() => { setSegment(s.key); setShowSegment(false) }}
@@ -575,7 +616,7 @@ export default function CustomersPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: 'Total Customers',   value: customers.length.toString(),                                     icon: Users,       color: 'violet' },
-          { label: 'Total Outstanding', value: formatCurrency(totalDue),                                        icon: CreditCard,  color: 'red'    },
+          ...(hasCustomerCredit ? [{ label: 'Total Outstanding', value: formatCurrency(totalDue), icon: CreditCard, color: 'red' as const }] : []),
           { label: 'Total Purchases',   value: totalPurchases.toString(),                                       icon: ShoppingBag, color: 'blue'   },
           { label: 'VIP Members',       value: customers.filter(c => c.loyaltyPoints >= 500).length.toString(), icon: Star,        color: 'yellow' },
         ].map(({ label, value, icon: Icon, color }) => (

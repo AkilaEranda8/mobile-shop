@@ -147,6 +147,8 @@ export const tenantApi = {
   getInvoiceSettings: (id: string) => api.get(`/tenants/${id}/invoice-settings`),
   updateInvoiceSettings: (id: string, body: unknown) => api.patch(`/tenants/${id}/invoice-settings`, body),
   myFeatures: () => api.get<{ data: Record<string, boolean> }>('/tenants/my-features'),
+  updateMyFeatures: (features: Record<string, boolean>) =>
+    api.patch<{ data: Record<string, boolean> }>('/tenants/my-features', { features }),
 }
 
 export const servicesApi = {
