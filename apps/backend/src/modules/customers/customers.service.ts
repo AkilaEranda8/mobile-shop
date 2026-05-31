@@ -1,6 +1,8 @@
 import { prisma } from '../../config/database'
+import { PaymentMethod, Prisma } from '@prisma/client'
 import { AppError } from '../../middleware/error.middleware'
 import { getPagination } from '../../utils/pagination'
+import { generateInvoiceNumber } from '../../utils/counters'
 import { Request } from 'express'
 
 export const customersService = {
@@ -82,32 +84,131 @@ export const customersService = {
     })
   },
 
-  async creditPayment(tenantId: string, customerId: string, body: { amount: number; paymentMethod: string; branchId: string; performedBy: string }) {
+  async creditPayment(tenantId: string, customerId: string, body: { amount: number; paymentMethod: string; branchId?: string; performedBy: string }) {
     const c = await prisma.customer.findFirst({ where: { id: customerId, tenantId } })
     if (!c) throw new AppError('Customer not found', 404)
 
-    const { amount, paymentMethod, branchId, performedBy } = body
+    const { amount, paymentMethod, performedBy } = body
+    let branchId = body.branchId
+    if (!branchId) {
+      const branch = await prisma.branch.findFirst({ where: { tenantId }, select: { id: true } })
+      branchId = branch?.id
+    }
+    if (!branchId) throw new AppError('Branch is required for credit payment', 400)
+
     if (amount <= 0) throw new AppError('Amount must be greater than 0', 400)
-    if (amount > c.totalDue) throw new AppError('Payment amount cannot exceed outstanding balance', 400)
+    if (amount > c.totalDue + 0.001) throw new AppError('Payment amount cannot exceed outstanding balance', 400)
 
-    const newTotalDue = Math.max(0, c.totalDue - amount)
+    const method = paymentMethod as PaymentMethod
+    const round2 = (n: number) => Math.round(n * 100) / 100
 
-    await prisma.$transaction([
-      prisma.customer.update({ where: { id: customerId }, data: { totalDue: newTotalDue } }),
-      prisma.transaction.create({
+    return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const openSales = await tx.sale.findMany({
+        where: { tenantId, customerId, dueAmount: { gt: 0 } },
+        orderBy: { createdAt: 'asc' },
+      })
+
+      let remaining = round2(amount)
+      const allocations: { saleId: string; invoiceNumber: string; applied: number; status: string }[] = []
+
+      for (const sale of openSales) {
+        if (remaining <= 0) break
+        const apply = round2(Math.min(remaining, sale.dueAmount))
+        const newDue = round2(sale.dueAmount - apply)
+        const newPaid = round2(sale.paidAmount + apply)
+        const newStatus = newDue <= 0 ? 'PAID' : 'PARTIAL'
+
+        await tx.sale.update({
+          where: { id: sale.id },
+          data: {
+            paidAmount: newPaid,
+            dueAmount: newDue,
+            status: newStatus,
+            payments: {
+              create: {
+                method,
+                amount: apply,
+                reference: 'Outstanding settlement',
+              },
+            },
+          },
+        })
+
+        remaining = round2(remaining - apply)
+        allocations.push({
+          saleId: sale.id,
+          invoiceNumber: sale.invoiceNumber,
+          applied: apply,
+          status: newStatus,
+        })
+      }
+
+      let collectionInvoice: string | undefined
+      if (remaining > 0) {
+        const invoiceNumber = await generateInvoiceNumber(tenantId)
+        collectionInvoice = invoiceNumber
+        await tx.sale.create({
+          data: {
+            tenantId,
+            branchId,
+            invoiceNumber,
+            customerId,
+            customerName: c.name,
+            customerPhone: c.phone,
+            subtotal: remaining,
+            discount: 0,
+            tax: 0,
+            total: remaining,
+            paidAmount: remaining,
+            dueAmount: 0,
+            status: 'PAID',
+            cashierName: performedBy,
+            source: 'CREDIT_COLLECTION',
+            notes: 'Outstanding balance settlement',
+            items: {
+              create: [{
+                productName: 'Outstanding balance payment',
+                quantity: 1,
+                unitPrice: remaining,
+                total: remaining,
+              }],
+            },
+            payments: {
+              create: [{ method, amount: remaining, reference: 'Credit settlement' }],
+            },
+          },
+        })
+      }
+
+      const newTotalDue = round2(Math.max(0, c.totalDue - amount))
+      await tx.customer.update({ where: { id: customerId }, data: { totalDue: newTotalDue } })
+
+      const invoiceRefs = [
+        ...allocations.map(a => a.invoiceNumber),
+        ...(collectionInvoice ? [collectionInvoice] : []),
+      ]
+
+      await tx.transaction.create({
         data: {
           tenantId,
           branchId,
           type: 'INCOME',
           category: 'Customer Credit Payment',
           amount,
-          description: `Credit payment from ${c.name} (${c.phone})`,
-          paymentMethod: paymentMethod as any,
+          description: `Credit payment from ${c.name} (${c.phone})${invoiceRefs.length ? ` — ${invoiceRefs.join(', ')}` : ''}`,
+          paymentMethod: method,
+          reference: invoiceRefs.join(', ') || undefined,
           performedBy,
         },
-      }),
-    ])
+      })
 
-    return { customerId, amountPaid: amount, newOutstanding: newTotalDue }
+      return {
+        customerId,
+        amountPaid: amount,
+        newOutstanding: newTotalDue,
+        allocations,
+        collectionInvoice,
+      }
+    })
   },
 }

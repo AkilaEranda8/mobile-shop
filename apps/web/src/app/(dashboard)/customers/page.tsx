@@ -10,6 +10,7 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import { useCustomers, useFeatureFlag, useBranches } from '@/lib/hooks'
 import { customersApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
+import toast from 'react-hot-toast'
 import type { Customer } from '@/types'
 
 const repairStatusColors: Record<string, string> = {
@@ -47,12 +48,22 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
     if (amt > outstanding) { setError('Amount cannot exceed outstanding balance'); return }
     setLoading(true); setError('')
     try {
-      await customersApi.creditPayment(customerId, {
+      const res: any = await customersApi.creditPayment(customerId, {
         amount: amt,
         paymentMethod,
         branchId,
         performedBy: authStorage.getUser()?.name || 'Staff',
       })
+      const data = res?.data ?? res
+      const refs = [
+        ...(data?.allocations?.map((a: { invoiceNumber: string }) => a.invoiceNumber) ?? []),
+        ...(data?.collectionInvoice ? [data.collectionInvoice] : []),
+      ]
+      toast.success(
+        refs.length
+          ? `Payment recorded — updated: ${refs.join(', ')}`
+          : 'Payment recorded',
+      )
       onSuccess(); onClose()
     } catch (err: any) { setError(err.message || 'Payment failed') }
     finally { setLoading(false) }
