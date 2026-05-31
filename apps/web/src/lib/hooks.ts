@@ -7,7 +7,7 @@ import {
 } from './api'
 
 const FEATURES_CACHE_KEY = 'hx_tenant_features'
-const FEATURES_CACHE_TTL = 5 * 60 * 1000
+const FEATURES_CACHE_TTL = 30 * 1000
 const OPT_IN_FEATURES = ['DAILY_RELOAD', 'CUSTOMER_CREDIT']
 
 export function useTenantFeatures() {
@@ -22,28 +22,34 @@ export function useTenantFeatures() {
     return {}
   })
 
-  useEffect(() => {
-    tenantApi.myFeatures().then((res: any) => {
+  const loadFeatures = useCallback(() => {
+    return tenantApi.myFeatures().then((res: any) => {
       const data = res?.data ?? res
       if (data && typeof data === 'object') {
         setFeatures(data)
         try { localStorage.setItem(FEATURES_CACHE_KEY, JSON.stringify({ data, ts: Date.now() })) } catch {}
       }
-    }).catch(() => {})
+      return data
+    })
   }, [])
+
+  useEffect(() => {
+    loadFeatures().catch(() => {})
+  }, [loadFeatures])
+
+  useEffect(() => {
+    const onFocus = () => { loadFeatures().catch(() => {}) }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [loadFeatures])
 
   const hasFeature = (f: string) =>
     OPT_IN_FEATURES.includes(f) ? features[f] === true : features[f] !== false
 
   const refetchFeatures = useCallback(() => {
-    tenantApi.myFeatures().then((res: any) => {
-      const data = res?.data ?? res
-      if (data && typeof data === 'object') {
-        setFeatures(data)
-        try { localStorage.setItem(FEATURES_CACHE_KEY, JSON.stringify({ data, ts: Date.now() })) } catch {}
-      }
-    }).catch(() => {})
-  }, [])
+    try { localStorage.removeItem(FEATURES_CACHE_KEY) } catch {}
+    return loadFeatures().catch(() => {})
+  }, [loadFeatures])
 
   return { features, hasFeature, refetchFeatures }
 }

@@ -27,10 +27,14 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
   customerId: string; customerName: string; outstanding: number;
   onClose: () => void; onSuccess: () => void;
 }) {
-  const [amount, setAmount] = useState('')
+  const [amount, setAmount] = useState(outstanding > 0 ? String(outstanding) : '')
   const [paymentMethod, setPaymentMethod] = useState('CASH')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (outstanding > 0) setAmount(String(outstanding))
+  }, [outstanding])
 
   const { data: branchesData } = useBranches()
   const branches: any[] = Array.isArray(branchesData) ? branchesData : []
@@ -55,7 +59,7 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="rounded-2xl w-full max-w-md shadow-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
         <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center gap-2">
@@ -63,7 +67,7 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
               <DollarSign size={14} className="text-green-400" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Credit Payment</h3>
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Pay Outstanding</h3>
               <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{customerName}</p>
             </div>
           </div>
@@ -123,7 +127,6 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
   const [loading,   setLoading]   = useState(true)
   const [tab,       setTab]       = useState<'info' | 'history'>('info')
   const [showPaymentModal, setShowPaymentModal] = useState(false)
-  const hasCustomerCredit = useFeatureFlag('CUSTOMER_CREDIT')
 
   useEffect(() => {
     setLoading(true)
@@ -226,24 +229,36 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                   </div>
                   <div className="grid grid-cols-4 gap-2">
                     {[
-                      { icon: ShoppingBag, label: 'Purchases',   value: customer.totalPurchases,            color: 'text-green-500'  },
-                      { icon: Wrench,      label: 'Repairs',     value: customer.totalRepairs,               color: 'text-cyan-500'   },
-                      { icon: Star,        label: 'Points',      value: `${customer.loyaltyPoints} pts`,     color: 'text-yellow-500' },
-                      { icon: CreditCard,  label: 'Outstanding', value: formatCurrency(customer.totalDue),   color: 'text-red-500'    },
+                      { icon: ShoppingBag, label: 'Purchases',   value: customer.totalPurchases,            color: 'text-green-500',  clickable: false },
+                      { icon: Wrench,      label: 'Repairs',     value: customer.totalRepairs,               color: 'text-cyan-500',   clickable: false },
+                      { icon: Star,        label: 'Points',      value: `${customer.loyaltyPoints} pts`,     color: 'text-yellow-500', clickable: false },
+                      { icon: CreditCard,  label: 'Outstanding', value: formatCurrency(customer.totalDue),   color: 'text-red-500',    clickable: customer.totalDue > 0 },
                     ].map(s => (
-                      <div key={s.label} className="rounded-xl p-3 border text-center" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                      <button
+                        key={s.label}
+                        type="button"
+                        disabled={!s.clickable}
+                        onClick={() => s.clickable && setShowPaymentModal(true)}
+                        className={`rounded-xl p-3 border text-center transition-colors ${
+                          s.clickable ? 'cursor-pointer hover:border-green-500/50 hover:bg-green-500/5 ring-1 ring-transparent hover:ring-green-500/30' : 'cursor-default'
+                        }`}
+                        style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}
+                      >
                         <s.icon size={14} className={`${s.color} mx-auto mb-1`} />
                         <p className={`text-sm font-bold ${s.color}`}>{s.value}</p>
-                        <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{s.label}</p>
-                      </div>
+                        <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                          {s.label}{s.clickable ? ' · Tap to pay' : ''}
+                        </p>
+                      </button>
                     ))}
                   </div>
-                  {hasCustomerCredit && customer.totalDue > 0 && (
+                  {customer.totalDue > 0 && (
                     <button
+                      type="button"
                       onClick={() => setShowPaymentModal(true)}
                       className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-green-600 hover:bg-green-700 text-white transition-colors"
                     >
-                      <Wallet size={12} /> Pay Outstanding
+                      <Wallet size={12} /> Pay Outstanding ({formatCurrency(customer.totalDue)})
                     </button>
                   )}
                   {customer.notes && (
@@ -510,15 +525,15 @@ export default function CustomersPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Points" />,
       cell: ({ row }) => <span className="text-xs text-violet-400 font-semibold">{row.original.loyaltyPoints} pts</span>,
     },
-    ...(hasCustomerCredit ? [{
+    {
       accessorKey: 'totalDue',
-      header: ({ column }: { column: any }) => <DataTableColumnHeader column={column} title="Outstanding" />,
-      cell: ({ row }: { row: { original: Customer } }) => (
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Outstanding" />,
+      cell: ({ row }) => (
         <span className={`text-xs font-bold ${row.original.totalDue > 0 ? 'text-red-400' : 'text-slate-500'}`}>
           {formatCurrency(row.original.totalDue)}
         </span>
       ),
-    }] as ColumnDef<Customer>[] : []),
+    },
     {
       accessorKey: 'createdAt',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Joined" />,
@@ -528,7 +543,7 @@ export default function CustomersPage() {
       id: 'actions',
       cell: ({ row }) => (
         <div className="flex items-center gap-1 justify-end">
-          {hasCustomerCredit && row.original.totalDue > 0 && (
+          {row.original.totalDue > 0 && (
             <button
               type="button"
               onClick={() => setPayCustomerId(row.original.id)}
@@ -541,7 +556,7 @@ export default function CustomersPage() {
         </div>
       ),
     },
-  ], [setDetailId, hasCustomerCredit])
+  ], [setDetailId])
 
   /* close segment dropdown on outside click */
   useEffect(() => {

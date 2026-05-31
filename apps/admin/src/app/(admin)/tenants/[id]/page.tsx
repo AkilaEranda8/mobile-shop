@@ -68,6 +68,7 @@ export default function TenantDetailPage() {
   const [features, setFeatures]         = useState<Record<string, boolean>>({})
   const [featLoading, setFeatLoading]   = useState(false)
   const [featSaving, setFeatSaving]     = useState(false)
+  const [featMsg, setFeatMsg]           = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
   const [deleteInput, setDeleteInput] = useState('')
   const [editPlan, setEditPlan]       = useState<{ plan: string; mrr: string } | null>(null)
 
@@ -84,16 +85,56 @@ export default function TenantDetailPage() {
     fetchTenantSales(id).then(setSales).catch(() => {})
     fetchActivityLogs({ limit: 50 }).then(r => { setAuditLogs(r.data) }).catch(() => {})
     setFeatLoading(true)
-    fetchTenantFeatures(id).then(setFeatures).catch(() => {}).finally(() => setFeatLoading(false))
+    fetchTenantFeatures(id)
+      .then(data => setFeatures(data))
+      .catch(e => setFeatMsg({ type: 'err', text: e instanceof Error ? e.message : 'Failed to load features' }))
+      .finally(() => setFeatLoading(false))
   }, [id, loadTenant])
 
-  async function handleSaveFeatures() {
+  function buildFullFeatureMap(overrides: Record<string, boolean>) {
+    const map: Record<string, boolean> = {}
+    for (const f of FEATURE_DEFS) {
+      map[f.key] = f.key in overrides ? overrides[f.key] : !f.optIn
+    }
+    return map
+  }
+
+  async function persistFeatures(next: Record<string, boolean>, label?: string) {
     setFeatSaving(true)
+    setFeatMsg(null)
     try {
-      const updated = await updateTenantFeatures(id, features)
+      const payload = buildFullFeatureMap(next)
+      const updated = await updateTenantFeatures(id, payload)
       setFeatures(updated)
-    } catch {}
+      setFeatMsg({ type: 'ok', text: label ? `${label} saved` : 'Features saved' })
+      setTimeout(() => setFeatMsg(null), 2500)
+    } catch (e) {
+      setFeatMsg({ type: 'err', text: e instanceof Error ? e.message : 'Failed to save features' })
+    }
     setFeatSaving(false)
+  }
+
+  async function handleToggleFeature(key: string, enabled: boolean) {
+    const prev = features
+    const next = { ...features, [key]: enabled }
+    setFeatures(next)
+    const def = FEATURE_DEFS.find(f => f.key === key)
+    setFeatSaving(true)
+    setFeatMsg(null)
+    try {
+      const updated = await updateTenantFeatures(id, buildFullFeatureMap(next))
+      setFeatures(updated)
+      setFeatMsg({ type: 'ok', text: `${def?.label ?? key} saved` })
+      setTimeout(() => setFeatMsg(null), 2500)
+    } catch (e) {
+      setFeatures(prev)
+      setFeatMsg({ type: 'err', text: e instanceof Error ? e.message : 'Failed to save features' })
+    }
+    setFeatSaving(false)
+  }
+
+  async function handleSaveFeatures() {
+    await persistFeatures(features)
   }
 
   async function handleSuspend() {
@@ -292,9 +333,15 @@ export default function TenantDetailPage() {
               </div>
               <button onClick={handleSaveFeatures} disabled={featSaving || featLoading}
                 className="btn-primary text-xs disabled:opacity-50">
-                {featSaving ? <><RefreshCw size={12} className="animate-spin" /> Saving…</> : 'Save Changes'}
+                {featSaving ? <><RefreshCw size={12} className="animate-spin" /> Saving…</> : 'Save All'}
               </button>
             </div>
+            {featMsg && (
+              <p className={`text-xs mb-3 px-3 py-2 rounded-lg ${featMsg.type === 'ok' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                {featMsg.text}
+              </p>
+            )}
+            <p className="text-[10px] text-gray-400 mb-3">Each toggle saves immediately. Tenant shop may need a browser refresh to see changes.</p>
             {featLoading ? (
               <div className="flex items-center justify-center py-10 text-gray-400">
                 <RefreshCw size={18} className="animate-spin mr-2" />Loading features…
@@ -319,8 +366,10 @@ export default function TenantDetailPage() {
                         <p className="text-[10px] text-gray-500 mt-0.5 truncate">{f.desc}</p>
                       </div>
                       <button
-                        onClick={() => setFeatures(prev => ({ ...prev, [f.key]: !enabled }))}
-                        className={`relative w-10 h-5.5 rounded-full transition-colors flex-shrink-0 ${
+                        type="button"
+                        disabled={featSaving || featLoading}
+                        onClick={() => handleToggleFeature(f.key, !enabled)}
+                        className={`relative rounded-full transition-colors flex-shrink-0 disabled:opacity-50 ${
                           enabled ? 'bg-emerald-500' : 'bg-gray-300'
                         }`}
                         style={{ width: 40, height: 22 }}

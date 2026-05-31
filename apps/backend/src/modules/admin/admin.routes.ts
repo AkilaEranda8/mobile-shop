@@ -154,8 +154,9 @@ router.get('/tenants/:id/features', async (req: Request, res: Response, next: Ne
 router.put('/tenants/:id/features', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const features: Record<string, boolean> = req.body.features ?? {}
+    const entries = Object.entries(features).filter(([feature]) => ALL_FEATURES.includes(feature))
     await Promise.all(
-      Object.entries(features).map(([feature, enabled]) =>
+      entries.map(([feature, enabled]) =>
         prisma.tenantFeature.upsert({
           where: { tenantId_feature: { tenantId: req.params.id, feature } },
           create: { tenantId: req.params.id, feature, enabled },
