@@ -1,3 +1,5 @@
+import { prisma } from '../../config/database'
+
 export const RELOAD_PROVIDER_IDS = ['Dialog', 'Mobitel', 'Airtel', 'Hutch'] as const
 export type ReloadProviderId = (typeof RELOAD_PROVIDER_IDS)[number]
 
@@ -60,7 +62,6 @@ export function calcReloadCommission(
 }
 
 export async function fetchTenantReloadSettings(tenantId: string) {
-  const { prisma } = await import('../../config/database')
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
     select: { reloadSettings: true },
