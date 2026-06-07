@@ -157,9 +157,10 @@ export function HexaPosLayout({
           {[
             ['F1', 'Search'],
             ['F2', 'Customer'],
-            ['F3', 'Checkout / Pay'],
+            ['F3', 'Pay Now'],
             ['F4', 'Hold Sale'],
             ['F6', 'Held Carts'],
+            ['F9', 'Checkout'],
             ['F10', 'New Sale'],
             ['Esc', 'Back / Close'],
             ['1 / 2 / 3', 'Pay method'],

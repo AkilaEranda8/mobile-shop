@@ -1044,12 +1044,16 @@ function POSContent({ onClose }: { onClose: () => void }) {
       if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') return true
       return el.isContentEditable
     }
-    const goCheckout = () => {
+    const openCheckout = () => {
+      if (cart.length > 0 && !completedSale) {
+        setCartView('checkout')
+        setTimeout(() => payNowRef.current?.focus(), 80)
+      }
+    }
+    const payNow = () => {
       if (cart.length > 0 && !checkoutLoading && !completedSale) {
-        if (cartView === 'items') {
-          setCartView('checkout')
-          setTimeout(() => payNowRef.current?.focus(), 80)
-        } else void handleCheckout()
+        if (cartView === 'checkout') void handleCheckout()
+        else openCheckout()
       }
     }
     const handler = (e: KeyboardEvent) => {
@@ -1074,7 +1078,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       if (fnKey || (e.ctrlKey && e.key === 'Enter')) {
         if (e.key === 'F1') { e.preventDefault(); searchRef.current?.focus(); searchRef.current?.select() }
         if (e.key === 'F2') { e.preventDefault(); setShowCartCustDrop(true); setCustSearch('') }
-        if (e.key === 'F3') { e.preventDefault(); goCheckout() }
+        if (e.key === 'F3') { e.preventDefault(); payNow() }
         if (e.key === 'F4') { e.preventDefault(); handleHoldSales() }
         if (e.key === 'F5') {
           e.preventDefault()
@@ -1083,10 +1087,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
         if (e.key === 'F6') { e.preventDefault(); setShowHeldCarts(true) }
         if (e.key === 'F7') { e.preventDefault(); if (cart.length > 0) setShowDocPreview('QUOTE'); else toast.error('Cart is empty') }
         if (e.key === 'F8') { e.preventDefault(); if (cart.length > 0) setShowDocPreview('DRAFT'); else toast.error('Cart is empty') }
-        if (e.key === 'F9') { e.preventDefault(); goCheckout() }
+        if (e.key === 'F9') { e.preventDefault(); openCheckout() }
         if (e.key === 'F10') { e.preventDefault(); handleNewSale() }
         if (e.key === 'F12') { e.preventDefault(); setShowCalc(p => !p) }
-        if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); goCheckout() }
+        if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); payNow() }
         return
       }
 
@@ -1107,7 +1111,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
       if (cartView === 'items' && cart.length > 0 && (e.key === 'c' || e.key === 'C') && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault()
-        setCartView('checkout')
+        openCheckout()
       }
     }
     window.addEventListener('keydown', handler)
@@ -1678,6 +1682,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       <ChevronLeft size={14} /><span>Cart</span>
                     </button>
                     <span className="font-bold text-sm" style={{ color: POS_THEME.text }}>Checkout</span>
+                    <kbd className="px-1.5 py-0.5 rounded text-[9px] font-mono" style={{ background: POS_THEME.bg, color: POS_THEME.muted }}>F9</kbd>
                     <span className="pos-price text-sm font-bold">{formatCurrency(saleTotal)}</span>
                   </>
                 ) : (
@@ -1786,10 +1791,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     <span className="text-xs" style={{ color: POS_THEME.muted }}>{cart.length} item{cart.length !== 1 ? 's' : ''}</span>
                     <span className="pos-price text-xl font-extrabold">{formatCurrency(saleTotal)}</span>
                   </div>
-                  <button type="button" onClick={() => setCartView('checkout')}
+                  <button type="button" onClick={() => { setCartView('checkout'); setTimeout(() => payNowRef.current?.focus(), 80) }}
                     className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-bold text-sm transition-all hover:opacity-95"
                     style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: '0 4px 20px rgba(124,58,237,.4)' }}>
-                    Checkout <ChevronRight size={16} />
+                    Checkout
+                    <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold" style={{ background: 'rgba(0,0,0,0.25)' }}>F9</kbd>
+                    <ChevronRight size={16} />
                   </button>
                   <div className="grid grid-cols-3 gap-1.5">
                     <button type="button" onClick={handleHoldSales}
@@ -2069,7 +2076,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     className="w-full flex items-center justify-center gap-2 px-5 py-4 rounded-2xl text-white font-bold text-base transition-all disabled:opacity-60"
                     style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: checkoutLoading ? 'none' : '0 8px 28px rgba(124,58,237,.45)' }}>
                     {checkoutLoading ? <Loader2 size={18} className="animate-spin" /> : null}
-                    <span>{checkoutLoading ? 'Processing…' : `Pay Now (F3 / F9 / Enter)`}</span>
+                    <span>{checkoutLoading ? 'Processing…' : `Pay Now (F3 / Enter)`}</span>
                   </button>
               </div>
               ) : null}
