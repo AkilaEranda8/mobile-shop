@@ -441,8 +441,44 @@ html:not(.dark) [data-scheme="dark"] .bg-violet-500           { background-color
 html:not(.dark) [data-scheme="dark"] .bg-violet-400           { background-color: #a78bfa !important; }
 html:not(.dark) [data-scheme="dark"] .shadow-violet-500\/40   { box-shadow: 0 0 0 0 transparent !important; }
 
+/* ── POS overlay – mockup dark theme (immune to light-mode overrides) ── */
+html:not(.dark) [data-pos="dark"] {
+  background-color: #0B0E14 !important;
+  color: #ffffff !important;
+}
+html:not(.dark) [data-pos="dark"] .text-white,
+html:not(.dark) [data-pos="dark"] .text-white *:not(.pos-price)     { color: #ffffff !important; }
+html:not(.dark) [data-pos="dark"] .text-white\/50                   { color: rgba(255,255,255,0.50) !important; }
+html:not(.dark) [data-pos="dark"] .text-white\/60                   { color: rgba(255,255,255,0.60) !important; }
+html:not(.dark) [data-pos="dark"] .text-white\/70                   { color: rgba(255,255,255,0.70) !important; }
+html:not(.dark) [data-pos="dark"] .text-white\/80                   { color: rgba(255,255,255,0.80) !important; }
+html:not(.dark) [data-pos="dark"] .text-slate-200                    { color: #e2e8f0 !important; }
+html:not(.dark) [data-pos="dark"] .text-slate-400                    { color: #9CA3AF !important; }
+html:not(.dark) [data-pos="dark"] .text-slate-500                    { color: #9CA3AF !important; }
+html:not(.dark) [data-pos="dark"] .text-green-400                    { color: #10B981 !important; }
+html:not(.dark) [data-pos="dark"] .text-emerald-400                   { color: #10B981 !important; }
+html:not(.dark) [data-pos="dark"] .text-blue-400                     { color: #3B82F6 !important; }
+html:not(.dark) [data-pos="dark"] .text-red-400                      { color: #EF4444 !important; }
+html:not(.dark) [data-pos="dark"] .text-amber-300                    { color: #F59E0B !important; }
+html:not(.dark) [data-pos="dark"] .text-amber-400                    { color: #F59E0B !important; }
+html:not(.dark) [data-pos="dark"] .text-violet-400                   { color: #a78bfa !important; }
+html:not(.dark) [data-pos="dark"] .pos-price                         { color: #7C3AED !important; }
+html:not(.dark) [data-pos="dark"] .border-white\/5                   { border-color: rgba(255,255,255,0.05) !important; }
+html:not(.dark) [data-pos="dark"] .border-white\/10                  { border-color: rgba(255,255,255,0.10) !important; }
+html:not(.dark) [data-pos="dark"] .bg-white\/3                         { background-color: rgba(255,255,255,0.03) !important; }
+html:not(.dark) [data-pos="dark"] .bg-white\/5                         { background-color: rgba(255,255,255,0.05) !important; }
+html:not(.dark) [data-pos="dark"] .bg-white\/10                        { background-color: rgba(255,255,255,0.10) !important; }
+html:not(.dark) [data-pos="dark"] .hover\:bg-white\/5:hover           { background-color: rgba(255,255,255,0.05) !important; }
+html:not(.dark) [data-pos="dark"] .hover\:bg-white\/10:hover          { background-color: rgba(255,255,255,0.10) !important; }
+html:not(.dark) [data-pos="dark"] .bg-emerald-500\/10                 { background-color: rgba(16,185,129,0.10) !important; }
+html:not(.dark) [data-pos="dark"] .bg-violet-500\/10                  { background-color: rgba(124,58,237,0.10) !important; }
+html:not(.dark) [data-pos="dark"] .border-emerald-500\/20             { border-color: rgba(16,185,129,0.20) !important; }
+html:not(.dark) [data-pos="dark"] .border-violet-500\/20              { border-color: rgba(124,58,237,0.20) !important; }
+
 @layer utilities {
   .text-balance { text-wrap: balance; }
+
+  [data-pos="dark"] .pos-price { color: #7C3AED; }
 
   /* ── Brand gradient text ── */
   .brand-gradient-text {

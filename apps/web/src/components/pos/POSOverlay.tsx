@@ -5,11 +5,11 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   Search, Plus, Minus, CreditCard, Banknote, Smartphone, Receipt,
   ScanLine, X, Loader2, UserPlus, Edit2, Check, Download, Tag, Printer,
-  Trash2, ChevronRight, ChevronLeft, ChevronDown, Archive,
+  Heart, Trash2, ChevronRight, ChevronLeft, ChevronDown, Archive,
   FileText, FilePlus2, Calculator, SlidersHorizontal, Package, Tablet,
   Headphones, Wrench, PackageSearch, ShoppingBag, User, CheckCircle2, Shield,
   Menu, ShoppingCart, BarChart3, Bell, Wifi, Cloud, TrendingUp, MoreHorizontal,
-  Grid3X3, List as ListIcon, Printer as PrinterIcon, MessageCircle,
+  Grid3X3, List as ListIcon,
 } from 'lucide-react'
 import { HexaPosLayout, POS_THEME, categoryIcon } from './HexaPosLayout'
 import { useUIStore } from '@/stores/ui-store'
@@ -328,6 +328,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
   const [page, setPage]               = useState(1)
   const [perPage, setPerPage]         = useState(15)
+  const [favorites, setFavorites]                 = useState<Set<string>>(new Set())
   const [showScanInput, setShowScanInput]         = useState(false)
   const [showCustDrop, setShowCustDrop]           = useState(false)
   const [showCartCustDrop, setShowCartCustDrop]   = useState(false)
@@ -429,6 +430,19 @@ function POSContent({ onClose }: { onClose: () => void }) {
       setRecentSales((res?.data ?? res) as any[])
     } catch { setRecentSales([]) }
     finally { setRecentLoading(false) }
+  }
+
+  const openDrawer = () => {
+    try {
+      const ESC = '\x1B'
+      const drawerKick = ESC + 'p' + '\x00' + '\x19' + '\x19'
+      const win = window.open('', '_blank', 'width=1,height=1')
+      if (win) {
+        win.document.write(`<html><body><script>window.onload=function(){window.print();window.close()}<\/script><pre style="font-family:monospace">${drawerKick}</pre></body></html>`)
+        win.document.close()
+      }
+    } catch {}
+    toast.success('Cash drawer signal sent', { icon: '🗄️', duration: 2000 })
   }
 
   const { data: productsData, refetch: refetchProducts } = useProducts({ limit: '500' })
@@ -548,7 +562,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       return { gradient: 'linear-gradient(135deg, #5b1fa5 0%, #8b1fa5 100%)', iconColor: '#c084fc', Icon: Headphones }
     if (cat.includes('part') || cat.includes('battery') || cat.includes('screen') || cat.includes('display'))
       return { gradient: 'linear-gradient(135deg, #7c2d12 0%, #a16207 100%)', iconColor: '#fb923c', Icon: Wrench }
-    return { gradient: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', iconColor: '#64748b', Icon: Package }
+    return { gradient: 'linear-gradient(160deg, #1c2333 0%, #151921 100%)', iconColor: '#9CA3AF', Icon: Package }
   }
 
   const addToCart = (product: any, imei?: string) => {
@@ -1051,7 +1065,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
               <button key={id} onClick={() => setSelectedCategory(id)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all flex-shrink-0 whitespace-nowrap"
                 style={selectedCategory === id
-                  ? { background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', color: '#fff', boxShadow: '0 2px 10px rgba(124,58,237,.35)', border: 'none' }
+                  ? { background: POS_THEME.purple, color: '#fff', boxShadow: `0 2px 10px ${POS_THEME.purple}59`, border: 'none' }
                   : { background: POS_THEME.card, border: `1px solid ${POS_THEME.border}`, color: POS_THEME.muted }}>
                 <Icon size={11} />{name}
               </button>
@@ -1069,7 +1083,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           </div>
         )}
         productGrid={(
-          <div className={gridView ? 'grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3' : 'space-y-2'}>
+          <div className={gridView ? 'grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2' : 'space-y-1.5'}>
             {pagedProducts.length === 0 ? (
               <div className="col-span-full flex flex-col items-center justify-center h-40 opacity-30">
                 <PackageSearch size={32} className="mb-2" style={{ color: POS_THEME.muted }} />
@@ -1078,17 +1092,19 @@ function POSContent({ onClose }: { onClose: () => void }) {
             ) : pagedProducts.map((item: any) => {
                   const isService = selectedCategory === 'SERVICES'
                   const isLow  = !isService && item.stock > 0 && item.stock <= 4
+                  const isHot  = !isService && item.stock >= 25
                   const isOut  = !isService && item.stock === 0
                   const { gradient, iconColor, Icon: CardIcon } = isService ? { gradient: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, iconColor: '#c4b5fd', Icon: Wrench } : getProductCardStyle(item)
                   const initials = (item.name as string).split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()
+                  const isFav  = favorites.has(item.id)
                   return (
                     <div key={item.id}
-                      className={`relative flex flex-col rounded-2xl overflow-hidden border transition-all group cursor-pointer select-none ${isOut ? 'opacity-40 cursor-not-allowed' : 'hover:shadow-xl hover:shadow-black/30 hover:-translate-y-0.5'}`}
+                      className={`relative flex flex-col rounded-xl overflow-hidden border transition-all group cursor-pointer select-none ${isOut ? 'opacity-40 cursor-not-allowed' : 'hover:shadow-lg hover:shadow-black/25 hover:-translate-y-0.5'}`}
                       style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}
                       onClick={() => !isOut && addToCart(item)}>
 
                       {/* ── IMAGE ZONE ── */}
-                      <div className="relative overflow-hidden" style={{ paddingBottom: '72%' }}>
+                      <div className="relative overflow-hidden" style={{ paddingBottom: '52%' }}>
                         {/* Gradient bg (always rendered as fallback) */}
                         <div className="absolute inset-0" style={{ background: gradient }}>
                           {/* Shine */}
@@ -1103,49 +1119,60 @@ function POSContent({ onClose }: { onClose: () => void }) {
                           <img src={item.imageUrl} alt={item.name} className="absolute inset-0 w-full h-full object-cover" />
                         ) : (
                           /* Icon + initials centred fallback */
-                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 pointer-events-none">
-                            <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.18)', backdropFilter: 'blur(4px)' }}>
-                              <CardIcon size={22} style={{ color: iconColor }} />
+                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 pointer-events-none">
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.18)', backdropFilter: 'blur(4px)' }}>
+                              <CardIcon size={16} style={{ color: iconColor }} />
                             </div>
-                            <span className="text-[11px] font-extrabold tracking-widest" style={{ color: iconColor, opacity: 0.55 }}>{initials}</span>
+                            <span className="text-[9px] font-extrabold tracking-widest" style={{ color: iconColor, opacity: 0.55 }}>{initials}</span>
                           </div>
                         )}
 
                         {/* Hover "add" overlay */}
                         {!isOut && (
                           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: 'rgba(0,0,0,0.32)' }}>
-                            <div className="w-11 h-11 rounded-full flex items-center justify-center border-2 border-white/60" style={{ background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(6px)' }}>
-                              <Plus size={20} className="text-white" />
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center border-2 border-white/60" style={{ background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(6px)' }}>
+                              <Plus size={16} className="text-white" />
                             </div>
                           </div>
                         )}
 
-                        {isLow && (
-                          <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold tracking-wide border border-white/30 text-white" style={{ background: 'rgba(0,0,0,0.35)' }}>
-                            ⚠ LOW STOCK
+                        {isHot && !isLow && (
+                          <div className="absolute top-1 left-1 px-1.5 py-px rounded text-[8px] font-extrabold tracking-wide text-white" style={{ background: POS_THEME.red }}>
+                            HOT
                           </div>
                         )}
+                        {isLow && (
+                          <div className="absolute top-1 left-1 flex items-center gap-0.5 px-1.5 py-px rounded-full text-[8px] font-bold tracking-wide border border-white/30 text-white" style={{ background: 'rgba(0,0,0,0.35)' }}>
+                            ⚠ LOW
+                          </div>
+                        )}
+                        <button type="button" onClick={e => { e.stopPropagation(); setFavorites(prev => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n }) }}
+                          className={`absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center transition-all ${isFav ? 'opacity-100 text-red-400' : 'opacity-0 group-hover:opacity-100 text-white/70 hover:text-red-400'}`}
+                          style={{ background: 'rgba(0,0,0,0.35)' }}>
+                          <Heart size={10} fill={isFav ? 'currentColor' : 'none'} />
+                        </button>
 
                       </div>
 
                       {/* ── INFO ZONE ── */}
-                      <div className="flex flex-col p-2.5 gap-1">
-                        <p className="text-[11px] font-bold leading-snug line-clamp-2" style={{ color: POS_THEME.text }}>{item.name}</p>
-                        <p className="text-[9px] font-mono mt-0.5" style={{ color: POS_THEME.muted }}>{item.sku}</p>
-                        <div className="flex items-center justify-between mt-0.5">
-                          <div>
-                            <p className="text-sm font-extrabold text-white">{formatCurrency(isService ? item.price : item.sellingPrice)}</p>
+                      <div className="flex flex-col px-2 py-1.5 gap-0.5">
+                        <p className="text-[10px] font-bold leading-tight line-clamp-2" style={{ color: POS_THEME.text }}>{item.name}</p>
+                        <p className="text-[8px] font-mono truncate" style={{ color: POS_THEME.muted }}>{item.sku}</p>
+                        <div className="flex items-end justify-between gap-1">
+                          <div className="min-w-0">
+                            <p className="pos-price text-xs font-extrabold leading-none">{formatCurrency(isService ? item.price : item.sellingPrice)}</p>
                             {!isService && (
-                              <p className="text-[9px] font-semibold text-white">
-                                {isOut ? 'Out of stock' : isLow ? `Low Stock (${item.stock})` : `In Stock (${item.stock})`}
+                              <p className="text-[8px] font-semibold flex items-center gap-0.5 mt-0.5 truncate" style={{ color: isOut ? POS_THEME.muted : isLow ? POS_THEME.amber : POS_THEME.green }}>
+                                <span className="w-1 h-1 rounded-full inline-block shrink-0" style={{ background: isOut ? POS_THEME.muted : isLow ? POS_THEME.amber : POS_THEME.green }} />
+                                {isOut ? 'Out' : isLow ? `Low (${item.stock})` : `Stock ${item.stock}`}
                               </p>
                             )}
                           </div>
                           <button type="button" disabled={isOut}
                             onClick={e => { e.stopPropagation(); if (!isOut) addToCart(item) }}
-                            className="w-7 h-7 rounded-xl flex items-center justify-center text-white transition-all disabled:opacity-30 hover:scale-110 active:scale-95 flex-shrink-0"
-                            style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)', boxShadow: '0 2px 8px rgba(124,58,237,.4)' }}>
-                            <Plus size={13} />
+                            className="w-6 h-6 rounded-lg flex items-center justify-center text-white transition-all disabled:opacity-30 hover:scale-105 active:scale-95 flex-shrink-0"
+                            style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, boxShadow: `0 1px 6px ${POS_THEME.purple}66` }}>
+                            <Plus size={11} />
                           </button>
                         </div>
                       </div>
@@ -1166,7 +1193,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
                 const p = totalPages <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= totalPages - 2 ? totalPages - 4 + i : page - 2 + i
                 return (
                   <button key={p} onClick={() => setPage(p)}
-                    className={`w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center border transition-colors ${page === p ? 'bg-violet-500 border-violet-500 text-white' : 'border-white/10 text-white hover:bg-white/5'}`}>{p}</button>
+                    className={`w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center border transition-colors ${page === p ? 'text-white' : 'text-white hover:bg-white/5'}`}
+                    style={page === p ? { background: POS_THEME.purple, borderColor: POS_THEME.purple } : { borderColor: POS_THEME.border }}>{p}</button>
                 )
               })}
               {totalPages > 5 && page < totalPages - 2 && <>
@@ -1185,19 +1213,18 @@ function POSContent({ onClose }: { onClose: () => void }) {
           </div>
         )}
         bottomActions={(
-          <div className="flex flex-wrap gap-2 px-4 py-2.5 border-t shrink-0" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
+          <div className="flex flex-wrap gap-2 px-4 py-3 border-t shrink-0" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
             {[
-              { label: 'New Sale (F10)', onClick: handleNewSale, primary: true },
-              { label: 'Hold (F4)', onClick: holdCart },
-              { label: 'Recent Sales', onClick: () => { setShowRecentInvoices(true); fetchRecentSales() } },
-              { label: 'Calculator (F12)', onClick: () => setShowCalc(true) },
-              { label: 'Held Carts', onClick: () => setShowHeldCarts(true) },
+              { label: 'New Sale (F10)', onClick: handleNewSale, bg: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})` },
+              { label: 'Hold Sales (F4)', onClick: holdCart, bg: `linear-gradient(135deg, ${POS_THEME.blue}, ${POS_THEME.blueDark})` },
+              { label: 'Recent Sales', onClick: () => { setShowRecentInvoices(true); fetchRecentSales() }, bg: `linear-gradient(135deg, ${POS_THEME.teal}, ${POS_THEME.tealDark})` },
+              { label: 'Opening Cash', onClick: openDrawer, bg: `linear-gradient(135deg, ${POS_THEME.amber}, ${POS_THEME.amberDark})` },
+              { label: 'Cash In/Out', onClick: () => setShowCalc(true), bg: POS_THEME.card },
+              { label: 'More', onClick: () => setShowHeldCarts(true), bg: POS_THEME.card },
             ].map(btn => (
               <button key={btn.label} type="button" onClick={btn.onClick}
-                className="flex-1 min-w-[100px] h-9 rounded-xl text-[11px] font-semibold text-white border"
-                style={btn.primary
-                  ? { background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, borderColor: POS_THEME.purple }
-                  : { background: POS_THEME.card, borderColor: POS_THEME.border }}>
+                className="flex-1 min-w-[110px] h-10 rounded-xl text-xs font-bold text-white border"
+                style={{ background: btn.bg, borderColor: POS_THEME.border }}>
                 {btn.label}
               </button>
             ))}
@@ -1288,7 +1315,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                 </div>
                 <div className="flex items-center gap-1.5">
                   {cart.length > 0 && (
-                    <button type="button" onClick={() => setCart([])} className="text-xs font-semibold text-white hover:text-white/80">
+                    <button type="button" onClick={() => setCart([])} className="text-xs font-semibold hover:opacity-80" style={{ color: POS_THEME.red }}>
                       Clear Cart
                     </button>
                   )}
@@ -1343,7 +1370,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         onChange={e => { const v = parseInt(e.target.value); if (!isNaN(v) && v > 0) setQty(item.cartId, v) }}
                         onFocus={e => e.target.select()}
                         className="w-8 h-6 text-center text-xs font-bold rounded border focus:outline-none focus:border-violet-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
-                        style={{ color: POS_THEME.text, background: '#0c1220', borderColor: POS_THEME.border }}
+                        style={{ color: POS_THEME.text, background: POS_THEME.card, borderColor: POS_THEME.border }}
                       />
                       <button onClick={() => updateQty(item.cartId, 1)} className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 text-white flex items-center justify-center transition-colors"><Plus size={10} /></button>
                     </div>
@@ -1393,7 +1420,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     <span className="text-sm flex-1" style={{ color: POS_THEME.muted }}>Discount</span>
                     <input type="number" min="0" placeholder="0.00"
                       className="w-20 text-sm text-center py-1 h-8 rounded-lg border outline-none focus:border-violet-500/50 text-white placeholder:text-white/50"
-                      style={{ background: '#0c1220', borderColor: POS_THEME.border }}
+                      style={{ background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text }}
                       value={discountMode === '%' ? (discountPct || '') : (discountFlat || '')}
                       onChange={e => discountMode === '%' ? setDiscountPct(Math.min(100, Number(e.target.value))) : setDiscountFlat(Number(e.target.value))} />
                     <div className="flex rounded-lg border overflow-hidden text-[10px] font-bold flex-shrink-0" style={{ borderColor: POS_THEME.border }}>
@@ -1402,12 +1429,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     </div>
                   </div>
                   {discountAmount > 0 && (
-                    <div className="flex justify-between text-xs text-white">
+                    <div className="flex justify-between text-xs" style={{ color: POS_THEME.green }}>
                       <span>Saving</span><span>-{formatCurrency(discountAmount)}</span>
                     </div>
                   )}
                   {hasCustomerCredit && selectedCustomer && customerOutstanding > 0 && (
-                    <div className="rounded-xl border p-2.5" style={{ borderColor: includeOutstanding ? POS_THEME.purple : POS_THEME.border, background: includeOutstanding ? 'rgba(124,58,237,0.1)' : POS_THEME.card }}>
+                    <div className="rounded-xl border p-2.5" style={{ borderColor: includeOutstanding ? `${POS_THEME.red}66` : POS_THEME.border, background: includeOutstanding ? `${POS_THEME.red}10` : POS_THEME.card }}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
                           <CreditCard size={13} className="text-white" />
@@ -1416,7 +1443,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         </div>
                         <button onClick={() => setIncludeOutstanding(p => !p)}
                           className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
-                          style={{ background: includeOutstanding ? POS_THEME.purple : POS_THEME.border }}>
+                          style={{ background: includeOutstanding ? POS_THEME.red : POS_THEME.border }}>
                           <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left: includeOutstanding ? '18px' : '2px' }} />
                         </button>
                       </div>
@@ -1429,8 +1456,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     <div
                       className="rounded-xl border p-2.5 space-y-2"
                       style={{
-                        borderColor: saleDueAmount > 0 ? POS_THEME.purple : POS_THEME.border,
-                        background: POS_THEME.card,
+                        borderColor: saleDueAmount > 0 ? `${POS_THEME.amber}80` : POS_THEME.border,
+                        background: saleDueAmount > 0 ? `${POS_THEME.amber}0D` : POS_THEME.card,
                         opacity: creditMode ? 1 : 0.85,
                       }}
                     >
@@ -1448,7 +1475,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         onChange={e => setAmountPaying(e.target.value)}
                         placeholder="Amount customer pays now"
                         className="w-full px-3 py-2 rounded-lg text-sm font-bold border outline-none focus:border-violet-500/50 text-white placeholder:text-white/50"
-                        style={{ background: '#0c1220', borderColor: POS_THEME.border }}
+                        style={{ background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text }}
                       />
                       {creditMode && saleDueAmount > 0 && (
                         <div className="flex justify-between text-[11px]">
@@ -1480,7 +1507,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         style={{ color: POS_THEME.text }}
                       />
                     ) : (
-                      <span className="text-2xl font-extrabold text-white">{formatCurrency(saleTotal)}</span>
+                      <span className="pos-price text-2xl font-extrabold">{formatCurrency(saleTotal)}</span>
                     )}
                   </div>
                   {creditMode && collectAtCheckout !== saleTotal && (
@@ -1490,7 +1517,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     </div>
                   )}
                   {selectedCustomer && (
-                    <div className="rounded-xl border p-2.5" style={{ borderColor: addWarranty ? POS_THEME.purple : POS_THEME.border, background: POS_THEME.card, opacity: !selectedCustomer ? 0.5 : 1 }}>
+                    <div className="rounded-xl border p-2.5" style={{ borderColor: addWarranty ? `${POS_THEME.amber}66` : POS_THEME.border, background: addWarranty ? `${POS_THEME.amber}0D` : POS_THEME.card, opacity: !selectedCustomer ? 0.5 : 1 }}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
                           <Shield size={13} className="text-white" />
@@ -1499,7 +1526,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         </div>
                         <button type="button" onClick={() => setAddWarranty(p => !p)}
                           className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
-                          style={{ background: addWarranty ? POS_THEME.purple : POS_THEME.border }}>
+                          style={{ background: addWarranty ? POS_THEME.amber : POS_THEME.border }}>
                           <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left: addWarranty ? '18px' : '2px' }} />
                         </button>
                       </div>
@@ -1509,8 +1536,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
                             <button key={m} type="button" onClick={() => setWarrantyMonths(m)}
                               className="py-1.5 rounded-lg text-[10px] font-bold border transition-all text-white"
                               style={warrantyMonths === m
-                                ? { background: 'rgba(124,58,237,0.25)', borderColor: POS_THEME.purple }
-                                : { background: 'transparent', borderColor: POS_THEME.border }}>
+                                ? { background: `${POS_THEME.amber}25`, borderColor: `${POS_THEME.amber}80`, color: POS_THEME.amber }
+                                : { background: 'transparent', borderColor: POS_THEME.border, color: POS_THEME.text }}>
                               {m < 12 ? `${m} mo` : `${m/12} yr`}
                             </button>
                           ))}
@@ -1520,15 +1547,15 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   )}
                   <div className="grid grid-cols-3 gap-1.5">
                     {([
-                      { method: 'CASH' as const, label: 'Cash', Icon: Banknote },
-                      { method: 'CARD' as const, label: 'Card', Icon: CreditCard },
-                      { method: 'UPI'  as const, label: 'Bank Transfer', Icon: Banknote },
-                    ]).map(({ method, label, Icon: MI }) => (
+                      { method: 'CASH' as const, label: 'Cash', Icon: Banknote, active: { background: `${POS_THEME.green}26`, borderColor: `${POS_THEME.green}59`, color: POS_THEME.green } },
+                      { method: 'CARD' as const, label: 'Card', Icon: CreditCard, active: { background: `${POS_THEME.blue}26`, borderColor: `${POS_THEME.blue}59`, color: POS_THEME.blue } },
+                      { method: 'UPI'  as const, label: 'Bank Transfer', Icon: Banknote, active: { background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text } },
+                    ]).map(({ method, label, Icon: MI, active }) => (
                       <button key={method} type="button" onClick={() => setPaymentMethod(method)}
-                        className="flex flex-col items-center gap-1 py-2 rounded-xl text-[11px] font-semibold text-white border transition-all"
+                        className="flex flex-col items-center gap-1 py-2 rounded-xl text-[11px] font-semibold border transition-all"
                         style={paymentMethod === method
-                          ? { background: 'rgba(124,58,237,0.2)', borderColor: POS_THEME.purple }
-                          : { background: POS_THEME.card, borderColor: POS_THEME.border }}>
+                          ? { ...active, border: `1px solid ${active.borderColor}` }
+                          : { background: POS_THEME.card, border: `1px solid ${POS_THEME.border}`, color: POS_THEME.muted }}>
                         <MI size={14} />{label}
                       </button>
                     ))}
@@ -1540,18 +1567,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     {checkoutLoading ? <Loader2 size={18} className="animate-spin" /> : null}
                     <span>{checkoutLoading ? 'Processing…' : `Pay Now (F3)`}</span>
                   </button>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    <button type="button" onClick={() => cart.length > 0 ? setShowDocPreview('DRAFT') : toast.error('Add items to cart first')}
-                      className="flex flex-col items-center gap-0.5 py-2 rounded-xl border text-center text-[10px] text-white" style={{ borderColor: POS_THEME.border }}>
-                      <PrinterIcon size={12} /><span>Print (F6)</span>
-                    </button>
-                    <button type="button" onClick={shareWhatsApp} className="flex flex-col items-center gap-0.5 py-2 rounded-xl border text-center text-[10px] text-white" style={{ borderColor: POS_THEME.border }}>
-                      <MessageCircle size={12} /><span>WhatsApp (F7)</span>
-                    </button>
-                    <button type="button" onClick={holdCart} className="flex flex-col items-center gap-0.5 py-2 rounded-xl border text-center text-[10px] text-white" style={{ borderColor: POS_THEME.border }}>
-                      <Archive size={12} /><span>Hold (F4)</span>
-                    </button>
-                  </div>
                 </div>
               )}
             </>
@@ -1841,8 +1856,9 @@ export function POSOverlay() {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.15 }}
-        className="fixed inset-0 z-[100] flex flex-col overflow-hidden h-screen"
-        style={{ background: '#0a0e17' }}
+        data-pos="dark"
+        className="pos-shell fixed inset-0 z-[100] flex flex-col overflow-hidden h-screen"
+        style={{ background: '#0B0E14' }}
       >
         <POSContent onClose={closePos} />
       </motion.div>

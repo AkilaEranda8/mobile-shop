@@ -7,14 +7,25 @@ import {
 } from 'lucide-react'
 
 const C = {
-  bg: '#0a0e17',
-  panel: '#0f1520',
-  card: '#151c2c',
-  border: '#1e2a3f',
-  muted: '#ffffff',
-  text: '#ffffff',
-  purple: '#7c3aed',
-  purpleDark: '#5b21b6',
+  bg: '#0B0E14',
+  panel: '#151921',
+  card: '#151921',
+  cardHover: '#1a2030',
+  border: '#2a3344',
+  muted: '#9CA3AF',
+  text: '#FFFFFF',
+  purple: '#7C3AED',
+  purpleDark: '#6D28D9',
+  green: '#10B981',
+  greenDark: '#059669',
+  blue: '#3B82F6',
+  blueDark: '#2563EB',
+  amber: '#F59E0B',
+  amberDark: '#D97706',
+  red: '#EF4444',
+  redDark: '#DC2626',
+  teal: '#0D9488',
+  tealDark: '#047857',
 }
 
 export function categoryIcon(name: string) {
@@ -67,7 +78,7 @@ export function HexaPosLayout({
   mainOverlay,
 }: HexaPosLayoutProps) {
   return (
-    <div className="flex h-full w-full overflow-hidden text-white [&_button]:text-white [&_input]:text-white [&_select]:text-white" style={{ background: C.bg, color: '#ffffff', fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
+    <div data-pos="dark" className="pos-shell flex h-full w-full overflow-hidden [&_input]:text-white [&_select]:text-white" style={{ background: C.bg, color: C.text, fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {/* Header */}
         <div className="shrink-0 px-4 py-2.5 border-b" style={{ borderColor: C.border, background: C.panel }}>
@@ -82,8 +93,8 @@ export function HexaPosLayout({
               </div>
             </div>
             <button type="button" onClick={onClose} className="p-2 rounded-lg hover:bg-white/5 text-white" title="Close POS (Esc)"><X size={16} className="text-white" /></button>
-            <button type="button" onClick={onScanClick} className="h-9 px-4 rounded-xl text-xs font-bold text-white flex items-center gap-2 shrink-0" style={{ background: `linear-gradient(135deg, ${C.purple}, ${C.purpleDark})` }}>
-              <ScanLine size={14} /> Scan (F1)
+            <button type="button" onClick={onScanClick} className="h-9 px-3 rounded-xl text-xs font-semibold border shrink-0 flex items-center gap-1.5" style={{ borderColor: C.border, background: C.card, color: C.text }}>
+              <ScanLine size={14} style={{ color: C.muted }} /> Scan Barcode
             </button>
             {imeiSlot}
             <div className="flex-1 min-w-[200px] relative">
@@ -108,7 +119,7 @@ export function HexaPosLayout({
           {mainOverlay}
           <div className="flex-1 flex flex-col min-w-0 min-h-0" style={{ background: C.bg }}>
             {categoryBar}
-            <div className="flex-1 overflow-y-auto px-4 py-3">{productGrid}</div>
+            <div className="flex-1 overflow-y-auto px-3 py-2">{productGrid}</div>
             {pagination}
             {bottomActions}
           </div>
@@ -117,13 +128,20 @@ export function HexaPosLayout({
           </div>
         </div>
 
-        <footer className="shrink-0 flex flex-wrap items-center justify-end gap-3 px-4 py-1.5 border-t text-[10px] text-white/70" style={{ borderColor: C.border, background: C.panel }}>
-          <span>Cashier: {cashierName}</span>
-          <span>·</span>
-          <span>Sync: {syncTime}</span>
-          <span className="inline-flex items-center gap-1 text-white">
-            <span className="w-1.5 h-1.5 rounded-full bg-white/80" /> Online
-          </span>
+        <footer className="shrink-0 flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-t text-[11px]" style={{ borderColor: C.border, background: C.panel, color: C.muted }}>
+          <span style={{ color: C.muted }}>© Hexa-VIMS POS</span>
+          <div className="flex flex-wrap items-center gap-3">
+            <span>Terminal: T01</span>
+            <span>|</span>
+            <span>Cashier: {cashierName}</span>
+            <span>|</span>
+            <span>Session: 01</span>
+            <span>|</span>
+            <span>Last Sync: {syncTime}</span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: `${C.green}22`, color: C.green }}>
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: C.green }} /> Synced
+            </span>
+          </div>
         </footer>
       </div>
     </div>
