@@ -442,6 +442,14 @@ html:not(.dark) [data-scheme="dark"] .bg-violet-400           { background-color
 html:not(.dark) [data-scheme="dark"] .shadow-violet-500\/40   { box-shadow: 0 0 0 0 transparent !important; }
 
 /* ── POS overlay – mockup dark theme (immune to light-mode overrides) ── */
+[data-pos="dark"] {
+  --text-primary: #ffffff;
+  --text-secondary: #e2e8f0;
+  --text-muted: #9CA3AF;
+  --border-subtle: #2a3344;
+  --border-default: #2a3344;
+}
+
 html:not(.dark) [data-pos="dark"] {
   background-color: #0B0E14 !important;
   color: #ffffff !important;
