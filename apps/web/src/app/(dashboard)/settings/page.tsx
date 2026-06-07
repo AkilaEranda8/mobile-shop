@@ -302,7 +302,28 @@ export default function SettingsPage() {
               {canManageFeatures && (
                 <div className="pt-4 border-t border-white/5 space-y-3">
                   <h3 className="text-sm font-semibold text-white">Shop Features</h3>
-                  <p className="text-xs text-slate-500">When enabled, all staff can use customer credit at POS and settle outstanding on the Customers page.</p>
+                  <p className="text-xs text-slate-500">Enable optional modules for your shop. Admin can also control these from the platform panel.</p>
+                  <div className="flex items-center justify-between rounded-xl p-4 border border-white/10 bg-white/[0.02]">
+                    <div>
+                      <p className="text-sm font-medium text-white">Daily Reload (POS)</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">Sell mobile reloads from POS — scan number, pick amount</p>
+                    </div>
+                    <Toggle
+                      value={hasFeature('DAILY_RELOAD')}
+                      onChange={async (v) => {
+                        setFeatureSaving(true)
+                        try {
+                          await tenantApi.updateMyFeatures({ DAILY_RELOAD: v })
+                          refetchFeatures()
+                          toast.success(v ? 'Daily Reload enabled in POS' : 'Daily Reload disabled')
+                        } catch {
+                          toast.error('Failed to update feature')
+                        } finally {
+                          setFeatureSaving(false)
+                        }
+                      }}
+                    />
+                  </div>
                   <div className="flex items-center justify-between rounded-xl p-4 border border-white/10 bg-white/[0.02]">
                     <div>
                       <p className="text-sm font-medium text-white">Customer Credit</p>

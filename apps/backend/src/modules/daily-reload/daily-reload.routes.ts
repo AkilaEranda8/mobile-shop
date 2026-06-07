@@ -8,6 +8,17 @@ import { AppError } from '../../middleware/error.middleware'
 const router = Router()
 router.use(authenticate)
 
+async function requireDailyReloadFeature(req: Request, _res: Response, next: NextFunction) {
+  try {
+    const feat = await prisma.tenantFeature.findFirst({
+      where: { tenantId: req.tenantId!, feature: 'DAILY_RELOAD', enabled: true },
+    })
+    if (!feat) throw new AppError('Daily Reload is not enabled for this shop. Ask your admin to enable it.', 403)
+    next()
+  } catch (e) { next(e) }
+}
+router.use(requireDailyReloadFeature)
+
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
 
 function parseAmt(raw: unknown): number {

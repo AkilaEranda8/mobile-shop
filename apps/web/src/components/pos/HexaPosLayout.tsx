@@ -64,6 +64,7 @@ interface HexaPosLayoutProps {
   syncTime: string
   search: string
   onSearchChange: (v: string) => void
+  onSearchKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void
   searchRef?: React.RefObject<HTMLInputElement | null>
   onScanClick: () => void
   onBellClick?: () => void
@@ -92,6 +93,7 @@ export function HexaPosLayout({
   syncTime,
   search,
   onSearchChange,
+  onSearchKeyDown,
   searchRef,
   onScanClick,
   onBellClick,
@@ -197,6 +199,7 @@ export function HexaPosLayout({
                 ref={searchRef}
                 value={search}
                 onChange={e => onSearchChange(e.target.value)}
+                onKeyDown={onSearchKeyDown}
                 placeholder="Search products by name, SKU, IMEI..."
                 className="w-full h-9 pl-9 pr-12 rounded-xl text-sm outline-none border text-white placeholder:text-white/40"
                 style={{ background: C.card, borderColor: C.border }}

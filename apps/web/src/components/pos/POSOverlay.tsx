@@ -11,13 +11,14 @@ import {
   Headphones, Wrench, PackageSearch, ShoppingBag, User, CheckCircle2, Shield,
   Menu, ShoppingCart, BarChart3, Bell, Wifi, Cloud, TrendingUp, MoreHorizontal,
   Grid3X3, List as ListIcon, MessageCircle, Star, RefreshCw, RotateCcw,
-  LayoutGrid, Hash, Wallet, ShoppingBag as ShopBagIcon, Settings, Users,
+  LayoutGrid, Hash, Wallet, ShoppingBag as ShopBagIcon, Settings, Users, PhoneCall,
 } from 'lucide-react'
 import { HexaPosLayout, POS_THEME, categoryIcon, type PosNavItem } from './HexaPosLayout'
 import { PosReturnModal } from './PosReturnModal'
+import { PosReloadPanel, looksLikeReloadPhone, normalizeReloadPhone } from './PosReloadPanel'
 import { useUIStore } from '@/stores/ui-store'
 import { useProducts, useFeatureFlag } from '@/lib/hooks'
-import { salesApi, customersApi, productsApi, imeiApi, warrantyApi, servicesApi, financeApi } from '@/lib/api'
+import { salesApi, customersApi, productsApi, imeiApi, warrantyApi, servicesApi, financeApi, dailyReloadApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -36,6 +37,8 @@ interface CartItem {
   quantity: number
   imei?: string
   isService?: boolean
+  isReload?: boolean
+  reloadPhone?: string
   cost?: number
   serviceId?: string
 }
@@ -361,6 +364,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [cashFlowLoading, setCashFlowLoading]     = useState(false)
   const [showMoreMenu, setShowMoreMenu]           = useState(false)
   const [showReturnModal, setShowReturnModal]     = useState(false)
+  const [reloadScanPhone, setReloadScanPhone]       = useState('')
   const [showFilters, setShowFilters]             = useState(false)
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
   const [activeNavId, setActiveNavId]             = useState('products')
@@ -660,7 +664,31 @@ function POSContent({ onClose }: { onClose: () => void }) {
     return matchCat && matchSearch
   })
 
-  const displayItems = selectedCategory === 'SERVICES' ? filteredServices : filtered
+  const addReloadToCart = useCallback((phone: string, amount: number) => {
+    const normalized = normalizeReloadPhone(phone)
+    if (!/^0[0-9]{9}$/.test(normalized)) {
+      toast.error('Enter a valid 10-digit mobile number')
+      return
+    }
+    setCart(prev => [...prev, {
+      cartId: `reload-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      productId: null,
+      name: `Reload — ${normalized}`,
+      sku: 'RELOAD',
+      price: amount,
+      originalPrice: amount,
+      quantity: 1,
+      isReload: true,
+      reloadPhone: normalized,
+    }])
+    toast.success(`Reload ${formatCurrency(amount)} added for ${normalized}`, { icon: '📱' })
+    setReloadScanPhone('')
+    setSearch('')
+  }, [])
+
+  const displayItems = selectedCategory === 'SERVICES' ? filteredServices
+    : selectedCategory === 'RELOAD' ? []
+    : filtered
   const totalPages    = Math.max(1, Math.ceil(displayItems.length / perPage))
   const pagedProducts = displayItems.slice((page - 1) * perPage, page * perPage)
 
@@ -997,6 +1025,22 @@ function POSContent({ onClose }: { onClose: () => void }) {
         if (createdWarrantyCodes.length > 0)
           toast.success(`${createdWarrantyCodes.length} warranty${createdWarrantyCodes.length > 1 ? 's' : ''} created`, { icon: '🛡️' })
       }
+      const reloadItems = cart.filter(i => i.isReload && i.reloadPhone)
+      if (reloadItems.length > 0) {
+        const invoiceNo = res.data?.invoiceNumber ?? ''
+        for (const item of reloadItems) {
+          try {
+            await dailyReloadApi.create({
+              connectionNo: item.reloadPhone,
+              amount: item.price * item.quantity,
+              executedBy: user?.name || 'POS',
+              transactionId: invoiceNo || undefined,
+              status: 'Success',
+            })
+          } catch (e) { console.error('Reload record failed:', e) }
+        }
+        toast.success(`${reloadItems.length} reload record${reloadItems.length > 1 ? 's' : ''} saved`, { icon: '📱' })
+      }
       if (saleDueAmount > 0) {
         toast.success(`${formatCurrency(saleDueAmount)} added to customer credit`, { icon: '📋' })
         if (selectedCustomer?.id) {
@@ -1143,13 +1187,13 @@ function POSContent({ onClose }: { onClose: () => void }) {
     if (id === 'imei') { setShowScanInput(true); return }
     if (id === 'cash') { setCashFlowMode('IN'); setShowCashFlow(true); return }
     if (id === 'returns') { setShowReturnModal(true); return }
+    if (id === 'reload') { setSelectedCategory('RELOAD'); setActiveNavId('products'); return }
     const routes: Record<string, string> = {
       repairs: '/dashboard/repairs',
       purchase: '/purchase-invoice',
       inventory: '/dashboard/inventory',
       reports: '/dashboard/reports',
       expenses: '/dashboard/expenses',
-      reload: '/dashboard/daily-reload',
       settings: '/dashboard/settings',
     }
     if (routes[id]) {
@@ -1174,7 +1218,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       items.push({ id: 'cash', label: 'Cash In/Out', icon: Wallet })
     }
     items.push({ id: 'returns', label: 'Returns', icon: RotateCcw })
-    if (hasDailyReload) items.push({ id: 'reload', label: 'Daily Reload', icon: RefreshCw })
+    if (hasDailyReload) items.push({ id: 'reload', label: 'Reload', icon: PhoneCall })
     items.push({ id: 'settings', label: 'Settings', icon: Settings })
     return items
   }, [hasIMEI, hasRepairs, hasSuppliers, hasReports, hasFinance, hasDailyReload])
@@ -1287,6 +1331,15 @@ function POSContent({ onClose }: { onClose: () => void }) {
         syncTime={syncTime}
         search={search}
         onSearchChange={setSearch}
+        onSearchKeyDown={(e) => {
+          if (e.key === 'Enter' && hasDailyReload && looksLikeReloadPhone(search)) {
+            e.preventDefault()
+            setReloadScanPhone(normalizeReloadPhone(search))
+            setSelectedCategory('RELOAD')
+            setActiveNavId('products')
+            setSearch('')
+          }
+        }}
         searchRef={searchRef}
         onScanClick={() => setShowScanInput(true)}
         onBellClick={() => setShowHeldCarts(true)}
@@ -1333,6 +1386,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
             {[
               { id: 'ALL', name: 'All', icon: Package },
               ...(hasServices ? [{ id: 'SERVICES', name: 'Services', icon: Wrench }] : []),
+              ...(hasDailyReload ? [{ id: 'RELOAD', name: 'Reload', icon: PhoneCall }] : []),
               ...categories.map(c => ({ ...c, icon: getCategoryIcon(c.name) }))
             ].map(({ id, name, icon: Icon }) => (
               <button key={id} onClick={() => setSelectedCategory(id)}
@@ -1350,6 +1404,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
           </div>
         )}
         productGrid={(
+          selectedCategory === 'RELOAD' && hasDailyReload ? (
+            <PosReloadPanel onAdd={addReloadToCart} initialPhone={reloadScanPhone} />
+          ) : (
           <div className={gridView ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3' : 'space-y-1.5'}>
             {pagedProducts.length === 0 ? (
               <div className="col-span-full flex flex-col items-center justify-center h-40 opacity-30">
@@ -1454,8 +1511,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   )
                 })}
           </div>
+          )
         )}
-        pagination={(
+        pagination={selectedCategory === 'RELOAD' ? null : (
           <div className="flex items-center justify-between px-4 py-2.5 border-t shrink-0" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
             <span className="text-xs" style={{ color: POS_THEME.muted }}>Showing {(page - 1) * perPage + 1} to {Math.min(page * perPage, displayItems.length)} of {displayItems.length} items</span>
             <div className="flex items-center gap-1">
@@ -1492,6 +1550,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
               { label: 'New Sale (F10)', onClick: handleNewSale, bg: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})` },
               { label: 'Hold Sales (F4)', onClick: handleHoldSales, bg: `linear-gradient(135deg, ${POS_THEME.blue}, ${POS_THEME.blueDark})` },
               { label: 'Recent Sales', onClick: openRecentSales, bg: `linear-gradient(135deg, ${POS_THEME.teal}, ${POS_THEME.tealDark})` },
+              ...(hasDailyReload ? [{ label: 'Reload', onClick: () => { setSelectedCategory('RELOAD'); setActiveNavId('products') }, bg: `linear-gradient(135deg, ${POS_THEME.teal}, ${POS_THEME.tealDark})` }] : []),
               { label: 'Opening Cash', onClick: () => setShowOpeningCash(true), bg: `linear-gradient(135deg, ${POS_THEME.amber}, ${POS_THEME.amberDark})` },
               { label: 'Cash In/Out', onClick: () => { setCashFlowMode('IN'); setShowCashFlow(true) }, bg: POS_THEME.card },
               { label: heldCarts.length > 0 ? `More (${heldCarts.length})` : 'More', onClick: () => setShowMoreMenu(true), bg: POS_THEME.card },
@@ -1615,8 +1674,17 @@ function POSContent({ onClose }: { onClose: () => void }) {
                 ) : cart.map((item) => (
                   <div key={item.cartId} className="flex items-center gap-2 p-2.5 rounded-xl border" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
                     {(() => {
+                      if (item.isReload) {
+                        return (
+                          <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `linear-gradient(135deg, ${POS_THEME.teal}, ${POS_THEME.tealDark})` }}>
+                            <PhoneCall size={16} className="text-white" />
+                          </div>
+                        )
+                      }
                       const cartProduct = products.find((p: any) => p.id === item.productId)
-                      const { gradient, iconColor, Icon: TIcon } = getProductCardStyle(cartProduct ?? {})
+                      const { gradient, iconColor, Icon: TIcon } = item.isService
+                        ? { gradient: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, iconColor: '#c4b5fd', Icon: Wrench }
+                        : getProductCardStyle(cartProduct ?? {})
                       return (
                         <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden relative" style={{ background: gradient }}>
                           <div className="absolute inset-0 opacity-10" style={{ background: 'radial-gradient(circle at 70% 30%, rgba(255,255,255,0.4) 0%, transparent 60%)' }} />
@@ -1626,6 +1694,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     })()}
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold truncate" style={{ color: POS_THEME.text }}>{item.name}</p>
+                      {item.isReload && item.reloadPhone && (
+                        <p className="text-[10px] font-mono" style={{ color: POS_THEME.teal }}>{item.reloadPhone}</p>
+                      )}
                       {item.isService && (
                         <p className="text-[9px]" style={{ color: POS_THEME.muted }}>
                           Cost {formatCurrency((item.cost ?? 0) * item.quantity)}
