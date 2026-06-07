@@ -155,22 +155,25 @@ router.put('/tenants/:id/features', async (req: Request, res: Response, next: Ne
     const existingRows = await prisma.tenantFeature.findMany({ where: { tenantId: req.params.id } })
     const existingByFeature = new Map(existingRows.map((r) => [r.feature, r]))
 
-    for (const [feature, enabled] of entries) {
-      if (!enabled || !PRICED_FEATURES.includes(feature)) continue
+    const resolveFeaturePrice = (feature: string, enabled: boolean): number | null => {
+      if (!PRICED_FEATURES.includes(feature)) return null
+      if (!enabled) return null
       const p = prices[feature]
-      const hasRequestPrice = p != null && !Number.isNaN(Number(p)) && Number(p) >= 0
-      const hasStoredPrice = existingByFeature.get(feature)?.price != null
-      if (!hasRequestPrice && !hasStoredPrice) {
-        throw new AppError(`Price is required when enabling ${feature}`, 400)
+      if (p != null && !Number.isNaN(Number(p))) {
+        const n = Number(p)
+        if (n < 0) throw new AppError(`Invalid price for ${feature}`, 400)
+        return n
       }
+      const stored = existingByFeature.get(feature)?.price
+      if (stored != null) return Number(stored)
+      return 0
     }
 
     await Promise.all(
       entries.map(([feature, enabled]) => {
         const data: { enabled: boolean; price?: number | null } = { enabled }
         if (PRICED_FEATURES.includes(feature)) {
-          if (enabled && prices[feature] != null) data.price = Number(prices[feature])
-          if (!enabled) data.price = null
+          data.price = resolveFeaturePrice(feature, enabled)
         }
         return prisma.tenantFeature.upsert({
           where: { tenantId_feature: { tenantId: req.params.id, feature } },

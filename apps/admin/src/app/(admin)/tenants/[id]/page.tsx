@@ -105,6 +105,24 @@ export default function TenantDetailPage() {
     return map
   }
 
+  function enrichFeaturePrices(
+    featMap: Record<string, boolean>,
+    prices: Record<string, number | null>,
+  ): Record<string, number | null> {
+    const out = { ...prices }
+    for (const f of FEATURE_DEFS) {
+      if (!f.priced) continue
+      if (featMap[f.key]) {
+        if (out[f.key] == null || Number.isNaN(Number(out[f.key]))) {
+          out[f.key] = f.defaultPrice ?? 0
+        }
+      } else {
+        out[f.key] = null
+      }
+    }
+    return out
+  }
+
   async function persistFeatures(
     next: Record<string, boolean>,
     prices?: Record<string, number | null>,
@@ -114,7 +132,7 @@ export default function TenantDetailPage() {
     setFeatMsg(null)
     try {
       const payload = buildFullFeatureMap(next)
-      const pricePayload = { ...featurePrices, ...prices }
+      const pricePayload = enrichFeaturePrices(payload, { ...featurePrices, ...prices })
       const updated = await updateTenantFeatures(id, payload, pricePayload)
       setFeatures(updated.features)
       setFeaturePrices(updated.prices)
@@ -140,7 +158,8 @@ export default function TenantDetailPage() {
     setFeatSaving(true)
     setFeatMsg(null)
     try {
-      const updated = await updateTenantFeatures(id, buildFullFeatureMap(next), nextPrices)
+      const fullMap = buildFullFeatureMap(next)
+      const updated = await updateTenantFeatures(id, fullMap, enrichFeaturePrices(fullMap, nextPrices))
       setFeatures(updated.features)
       setFeaturePrices(updated.prices)
       setFeatMsg({ type: 'ok', text: `${def?.label ?? key} saved` })
