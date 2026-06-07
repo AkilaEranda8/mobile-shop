@@ -8,8 +8,10 @@ import {
   Heart, Trash2, ChevronRight, ChevronLeft, ChevronDown, Gift, Archive,
   FileText, FilePlus2, Calculator, SlidersHorizontal, Package, Tablet,
   Headphones, Wrench, PackageSearch, ShoppingBag, User, CheckCircle2, Shield,
-  Menu, ShoppingCart,
+  Menu, ShoppingCart, BarChart3, Bell, Wifi, Cloud, TrendingUp, MoreHorizontal,
+  Grid3X3, List as ListIcon, Printer as PrinterIcon, MessageCircle,
 } from 'lucide-react'
+import { HexaPosLayout, POS_THEME, categoryIcon, type PosNavId } from './HexaPosLayout'
 import { useUIStore } from '@/stores/ui-store'
 import { useProducts, useFeatureFlag } from '@/lib/hooks'
 import { salesApi, customersApi, productsApi, imeiApi, warrantyApi, servicesApi, analyticsApi } from '@/lib/api'
@@ -349,11 +351,20 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const hasCustomerCredit = useFeatureFlag('CUSTOMER_CREDIT')
   const [mobileView, setMobileView]               = useState<'products' | 'cart'>('products')
   const [isDesktop, setIsDesktop]                 = useState(false)
+  const [activeNav, setActiveNav]                 = useState<PosNavId>('products')
+  const [hideOutOfStock, setHideOutOfStock]       = useState(false)
+  const [now, setNow]                             = useState(() => new Date())
+  const [gridView, setGridView]                   = useState(true)
   useEffect(() => {
-    const check = () => setIsDesktop(window.innerWidth >= 768)
+    const check = () => setIsDesktop(window.innerWidth >= 1024)
     check()
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
+  }, [])
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(t)
   }, [])
   const [calcDisplay, setCalcDisplay]             = useState('0')
   const [calcPrev, setCalcPrev]                   = useState<string|null>(null)
@@ -502,11 +513,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
   useEffect(() => { setPage(1) }, [search, selectedCategory])
 
+  const lowStockCount = products.filter((p: any) => p.stock > 0 && p.stock <= 4).length
+
   const filtered = products.filter((p: any) => {
     const matchCat = selectedCategory === 'ALL' || p.categoryId === selectedCategory || p.categoryName === selectedCategory
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
       (p.sku ?? '').toLowerCase().includes(search.toLowerCase())
-    return matchCat && matchSearch
+    const matchStock = !hideOutOfStock || (p.stock ?? 0) > 0
+    return matchCat && matchSearch && matchStock
   })
 
   const filteredServices = services.filter((s: any) => {
@@ -888,8 +902,55 @@ function POSContent({ onClose }: { onClose: () => void }) {
     setSelectedCustomer(c)
   }, [refetchCustomers])
 
+  const storeName = invoiceSettings.shopName || shopName || 'Hexa Mobile Store'
+  const cashierName = currentUser?.name || 'Admin'
+  const syncTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+
+  const customerSlot = (
+    <div className="relative flex-shrink-0">
+      <button type="button" onClick={() => { setShowCustDrop(o => !o); setCustSearch('') }}
+        className="h-9 px-3 rounded-xl border flex items-center gap-2 text-xs font-medium"
+        style={{ background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text }}>
+        <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
+          style={{ background: selectedCustomer ? 'rgba(124,58,237,0.3)' : POS_THEME.bg, color: selectedCustomer ? '#c4b5fd' : POS_THEME.muted }}>
+          {selectedCustomer ? selectedCustomer.name[0]?.toUpperCase() : <User size={10} />}
+        </div>
+        <span className="max-w-[110px] truncate">{selectedCustomer ? selectedCustomer.name : 'Walk-in Customer'}</span>
+        <ChevronDown size={10} style={{ color: POS_THEME.muted }} />
+      </button>
+      {showCustDrop && (
+        <div className="absolute top-full mt-1.5 right-0 z-50 w-64 rounded-2xl shadow-2xl overflow-hidden border" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
+          <div className="p-2 border-b" style={{ borderColor: POS_THEME.border }}>
+            <input autoFocus className="w-full h-8 px-2 rounded-lg text-xs outline-none border" style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }} placeholder="Search customer…" value={custSearch} onChange={e => setCustSearch(e.target.value)} />
+          </div>
+          <div className="overflow-y-auto max-h-60">
+            <button type="button" onClick={() => { setSelectedCustomer(null); setShowCustDrop(false); setAddWarranty(false) }} className="w-full px-3 py-2 text-xs text-left border-b hover:bg-white/5" style={{ color: POS_THEME.muted, borderColor: POS_THEME.border }}>Walk-in Customer</button>
+            <button type="button" onClick={() => { setShowCustDrop(false); setShowRegister(true) }} className="w-full px-3 py-2 text-xs text-left border-b flex items-center gap-1 hover:bg-white/5 text-violet-400" style={{ borderColor: POS_THEME.border }}><Plus size={10} />New Customer</button>
+            {filteredCustomers.slice(0, 80).map((c: any) => (
+              <button key={c.id} type="button" onClick={() => { setSelectedCustomer(c); setShowCustDrop(false) }} className="w-full px-3 py-2 text-left border-b hover:bg-white/5" style={{ borderColor: POS_THEME.border }}>
+                <p className="text-xs font-semibold" style={{ color: POS_THEME.text }}>{c.name}</p>
+                <p className="text-[10px]" style={{ color: POS_THEME.muted }}>{c.phone}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
+  const imeiSlot = showScanInput ? (
+    <div className="relative shrink-0">
+      <input autoFocus type="text" placeholder="IMEI Search" className="h-9 w-36 pl-3 pr-8 rounded-xl text-sm outline-none border"
+        style={{ background: POS_THEME.card, borderColor: 'rgba(59,130,246,0.4)', color: POS_THEME.text }}
+        value={imeiScan} onChange={e => setImeiScan(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') { handleImeiScan(imeiScan); setShowScanInput(false) } if (e.key === 'Escape') { setShowScanInput(false); setImeiScan('') } }}
+        onBlur={() => { if (!imeiScan) setShowScanInput(false) }} />
+      {imeiScanning && <Loader2 size={11} className="absolute right-2 top-1/2 -translate-y-1/2 animate-spin text-blue-400" />}
+    </div>
+  ) : null
+
   return (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+    <>
       {/* Modals */}
       {showRegister && <RegisterCustomerModal onClose={() => setShowRegister(false)} onCreated={handleCustomerCreated} />}
       {showA4Invoice && completedSale && (() => {
@@ -912,106 +973,26 @@ function POSContent({ onClose }: { onClose: () => void }) {
         )
       })()}
 
-      {/* ══ TOP BAR ══ */}
-      <div className="flex flex-wrap items-center gap-2 px-3 md:px-4 py-2 flex-shrink-0" style={{ background: '#0f1f3a', borderBottom: '1px solid #1e3356' }}>
-        <button
-          onClick={onClose}
-          className="p-1.5 rounded-lg hover:bg-white/10 transition-colors shrink-0"
-          title="Exit POS (Esc)"
-        >
-          <Menu size={16} className="text-white/60" />
-        </button>
-        <div className="flex items-center gap-2 shrink-0 mr-1">
-          <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)' }}>
-            <ShoppingCart size={14} className="text-white" />
-          </div>
-          <div className="hidden sm:block">
-            <p className="text-white font-bold text-sm leading-none">POS Terminal</p>
-            <p className="text-[10px] leading-none text-white/50">
-              Today: {formatCurrency(todayStats.revenue)} · {todayStats.count} sale{todayStats.count !== 1 ? 's' : ''}
-            </p>
-          </div>
-        </div>
-        <div className="hidden lg:flex items-center gap-1.5 px-2.5 h-7 rounded-full text-[10px] font-semibold shrink-0" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981' }}>
-          <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
-          Live
-        </div>
-        <div className="relative w-full md:flex-1" style={{ minWidth: 0 }}>
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-muted)' }} />
-          <input ref={searchRef} type="text" placeholder="Search products, SKU, IMEI…"
-            className="w-full h-9 pl-10 pr-9 rounded-xl border text-sm outline-none"
-            style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
-            value={search} onChange={e => setSearch(e.target.value)} />
-          <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] px-1 py-0.5 rounded border pointer-events-none hidden md:block" style={{ color: 'var(--text-muted)', background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>F1</kbd>
-        </div>
-        {showScanInput ? (
-          <div className="relative flex-shrink-0">
-            <ScanLine size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" />
-            <input autoFocus type="text" placeholder="Scan IMEI…"
-              className="pl-8 w-40 h-9 rounded-xl border text-sm outline-none"
-              style={{ background: 'var(--bg-subtle)', borderColor: 'rgba(59,130,246,.4)', color: 'var(--text-primary)' }}
-              value={imeiScan} onChange={e => setImeiScan(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { handleImeiScan(imeiScan); setShowScanInput(false) } if (e.key === 'Escape') { setShowScanInput(false); setImeiScan('') } }}
-              onBlur={() => { if (!imeiScan) setShowScanInput(false) }} />
-            {imeiScanning && <Loader2 size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 animate-spin text-blue-400" />}
-          </div>
-        ) : (
-          <button onClick={() => setShowScanInput(true)}
-            className="h-9 px-3 rounded-xl border text-xs font-semibold flex items-center gap-1.5 flex-shrink-0"
-            style={{ background: 'rgba(59,130,246,.08)', borderColor: 'rgba(59,130,246,.25)', color: '#60a5fa' }}>
-            <ScanLine size={13} />Scan
-          </button>
-        )}
-        <div className="relative flex-shrink-0">
-          <button onClick={() => { setShowCustDrop(o => !o); setCustSearch('') }}
-            className="h-9 px-3 rounded-xl border flex items-center gap-1.5 text-xs font-medium"
-            style={{ background: selectedCustomer ? 'rgba(139,92,246,.1)' : 'var(--bg-subtle)', borderColor: selectedCustomer ? 'rgba(139,92,246,.35)' : 'var(--border-default)', color: 'var(--text-primary)' }}>
-            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-extrabold flex-shrink-0"
-              style={{ background: selectedCustomer ? 'rgba(139,92,246,.25)' : 'var(--bg-card)', color: selectedCustomer ? '#c4b5fd' : 'var(--text-muted)' }}>
-              {selectedCustomer ? selectedCustomer.name[0]?.toUpperCase() : <User size={9} />}
-            </div>
-            <span className="max-w-[90px] truncate">{selectedCustomer ? selectedCustomer.name : 'Walk-in'}</span>
-            <ChevronDown size={10} style={{ color: 'var(--text-muted)' }} />
-          </button>
-          {showCustDrop && (
-            <div className="absolute top-full mt-1.5 right-0 z-40 w-64 rounded-2xl shadow-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-              <div className="p-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                <input autoFocus className="input-field text-xs py-1.5 w-full" placeholder="Search customer…" value={custSearch} onChange={e => setCustSearch(e.target.value)} />
-              </div>
-              <div className="overflow-y-auto" style={{ maxHeight: 240 }}>
-                <button onClick={() => { setSelectedCustomer(null); setShowCustDrop(false); setAddWarranty(false) }} className="w-full px-3 py-2.5 text-xs text-left border-b transition-colors hover:bg-violet-500/5" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}>Walk-in Customer</button>
-                <button onClick={() => { setShowCustDrop(false); setShowRegister(true) }} className="w-full px-3 py-2 text-xs text-left border-b flex items-center gap-1.5 transition-colors hover:bg-violet-500/5" style={{ color: '#a78bfa', borderColor: 'var(--border-subtle)' }}><Plus size={10} />New Customer</button>
-                {custLoading ? <div className="flex items-center justify-center py-5 gap-2"><Loader2 size={13} className="animate-spin text-violet-400" /><span className="text-xs" style={{ color: 'var(--text-muted)' }}>Loading…</span></div>
-                  : filteredCustomers.length === 0 ? <div className="flex items-center justify-center py-4"><p className="text-xs" style={{ color: 'var(--text-muted)' }}>{custSearch ? 'No results' : 'No customers'}</p></div>
-                  : filteredCustomers.slice(0, 100).map((c: any) => (
-                    <button key={c.id} onClick={() => { setSelectedCustomer(c); setShowCustDrop(false) }} className="w-full px-3 py-2 text-left border-b transition-colors hover:bg-violet-500/5" style={{ borderColor: 'var(--border-subtle)' }}>
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-violet-500/15 text-violet-400 text-[9px] font-extrabold flex items-center justify-center flex-shrink-0">{c.name?.[0]?.toUpperCase()}</div>
-                        <div><p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{c.name}</p><p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{c.phone}</p></div>
-                      </div>
-                    </button>
-                  ))}
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="w-px h-5 flex-shrink-0" style={{ background: 'var(--border-subtle)' }} />
-        <button onClick={() => { setShowRecentInvoices(true); fetchRecentSales() }} className="h-9 w-9 rounded-xl border flex items-center justify-center flex-shrink-0 hover:bg-white/5 transition-colors" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }} title="Recent Invoices"><Receipt size={14} /></button>
-        <button onClick={() => setShowHeldCarts(true)} className="relative h-9 w-9 rounded-xl border flex items-center justify-center flex-shrink-0 hover:bg-white/5 transition-colors" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }} title="Held Carts">
-          <Archive size={14} />{heldCarts.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-white text-[8px] font-bold flex items-center justify-center">{heldCarts.length}</span>}
-        </button>
-        <button onClick={() => setShowCalc(p => !p)} className="h-9 w-9 rounded-xl border flex items-center justify-center flex-shrink-0 transition-all" style={{ background: showCalc ? 'rgba(139,92,246,.12)' : 'var(--bg-subtle)', borderColor: showCalc ? 'rgba(139,92,246,.35)' : 'var(--border-default)', color: showCalc ? '#a78bfa' : 'var(--text-muted)' }} title="Calculator (F12)"><Calculator size={14} /></button>
-      </div>
-
-      {/* ── MAIN AREA: Products + Cart ── */}
-      <div className="flex flex-1 min-h-0">
-
-        {/* ── Products Panel ── */}
-        <div className="flex-1 flex-col min-w-0 overflow-hidden"
-          style={{ display: isDesktop || mobileView === 'products' ? 'flex' : 'none' }}>
-
-          {/* ── Category Bar ── */}
-          <div className="flex items-center gap-1.5 px-4 py-2 border-b flex-shrink-0 overflow-x-auto scrollbar-none" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-base)' }}>
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+      <HexaPosLayout
+        shopName={storeName}
+        activeNav={activeNav}
+        onNavChange={id => { setActiveNav(id); if (id === 'customers') setShowCustDrop(true); if (id === 'sales') { setShowRecentInvoices(true); fetchRecentSales() } if (id === 'returns') onClose() }}
+        onClose={onClose}
+        todayRevenue={todayStats.revenue}
+        todayOrders={todayStats.count}
+        lowStockCount={lowStockCount}
+        cartCount={cart.length}
+        cashierName={cashierName}
+        syncTime={syncTime}
+        search={search}
+        onSearchChange={setSearch}
+        searchRef={searchRef}
+        onScanClick={() => setShowScanInput(true)}
+        imeiSlot={imeiSlot}
+        customerSlot={customerSlot}
+        categoryBar={(
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b shrink-0 overflow-x-auto scrollbar-none" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
             {[
               { id: 'ALL', name: 'All', icon: Package },
               ...(hasServices ? [{ id: 'SERVICES', name: 'Services', icon: Wrench }] : []),
@@ -1021,23 +1002,35 @@ function POSContent({ onClose }: { onClose: () => void }) {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all flex-shrink-0 whitespace-nowrap"
                 style={selectedCategory === id
                   ? { background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', color: '#fff', boxShadow: '0 2px 10px rgba(124,58,237,.35)', border: 'none' }
-                  : { background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
+                  : { background: POS_THEME.card, border: `1px solid ${POS_THEME.border}`, color: POS_THEME.muted }}>
                 <Icon size={11} />{name}
               </button>
             ))}
-            <span className="ml-auto text-[10px] flex-shrink-0" style={{ color: 'var(--text-muted)' }}>{displayItems.length} items</span>
+            <div className="ml-auto flex items-center gap-2 shrink-0">
+              <button type="button" onClick={() => setGridView(true)} className="p-1.5 rounded-lg border" style={{ borderColor: gridView ? POS_THEME.purple : POS_THEME.border, color: gridView ? '#c4b5fd' : POS_THEME.muted }}><Grid3X3 size={14} /></button>
+              <button type="button" onClick={() => setGridView(false)} className="p-1.5 rounded-lg border" style={{ borderColor: !gridView ? POS_THEME.purple : POS_THEME.border, color: !gridView ? '#c4b5fd' : POS_THEME.muted }}><ListIcon size={14} /></button>
+              <label className="flex items-center gap-2 text-[11px] ml-2" style={{ color: POS_THEME.muted }}>
+                Hide Out of Stock
+                <button type="button" onClick={() => setHideOutOfStock(v => !v)} className="relative w-9 h-5 rounded-full transition-all" style={{ background: hideOutOfStock ? POS_THEME.purple : POS_THEME.border }}>
+                  <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left: hideOutOfStock ? '18px' : '2px' }} />
+                </button>
+              </label>
+            </div>
           </div>
-
-          {/* Product Grid */}
-          <div className="flex-1 overflow-y-auto p-4 pb-20 md:pb-4">
+        )}
+        productGrid={activeNav !== 'products' ? (
+          <div className="flex flex-col items-center justify-center h-full opacity-40">
+            <PackageSearch size={40} className="mb-3" style={{ color: POS_THEME.muted }} />
+            <p className="text-sm font-semibold" style={{ color: POS_THEME.muted }}>{activeNav === 'customers' ? 'Use customer selector above' : 'Open in dashboard for full view'}</p>
+          </div>
+        ) : (
+          <div className={gridView ? 'grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3' : 'space-y-2'}>
             {pagedProducts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-40 opacity-30">
-                <PackageSearch size={32} className="text-slate-600 mb-2" />
-                <p className="text-sm text-slate-500">{selectedCategory === 'SERVICES' ? 'No services found' : products.length === 0 ? 'Loading products…' : 'No products found'}</p>
+              <div className="col-span-full flex flex-col items-center justify-center h-40 opacity-30">
+                <PackageSearch size={32} className="mb-2" style={{ color: POS_THEME.muted }} />
+                <p className="text-sm" style={{ color: POS_THEME.muted }}>{selectedCategory === 'SERVICES' ? 'No services found' : products.length === 0 ? 'Loading products…' : 'No products found'}</p>
               </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
-                {pagedProducts.map((item: any) => {
+            ) : pagedProducts.map((item: any) => {
                   const isService = selectedCategory === 'SERVICES'
                   const isLow  = !isService && item.stock > 0 && item.stock <= 4
                   const isHot  = !isService && item.stock >= 25
@@ -1048,7 +1041,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   return (
                     <div key={item.id}
                       className={`relative flex flex-col rounded-2xl overflow-hidden border transition-all group cursor-pointer select-none ${isOut ? 'opacity-40 cursor-not-allowed' : 'hover:shadow-xl hover:shadow-black/30 hover:-translate-y-0.5'}`}
-                      style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
+                      style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}
                       onClick={() => !isOut && addToCart(item)}>
 
                       {/* ── IMAGE ZONE ── */}
@@ -1086,8 +1079,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
                         {/* HOT / LOW STOCK badge */}
                         {isHot && !isLow && (
-                          <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold tracking-wide" style={{ background: 'linear-gradient(90deg,#f97316,#ef4444)', color: '#fff', boxShadow: '0 2px 8px rgba(239,68,68,.5)' }}>
-                            🔥 HOT
+                          <div className="absolute top-2 left-2 px-2 py-0.5 rounded text-[9px] font-extrabold tracking-wide bg-red-600 text-white">
+                            HOT
                           </div>
                         )}
                         {isLow && (
@@ -1106,14 +1099,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
                       {/* ── INFO ZONE ── */}
                       <div className="flex flex-col p-2.5 gap-1">
-                        <p className="text-[11px] font-bold leading-snug line-clamp-2" style={{ color: 'var(--text-primary)' }}>{item.name}</p>
+                        <p className="text-[11px] font-bold leading-snug line-clamp-2" style={{ color: POS_THEME.text }}>{item.name}</p>
+                        <p className="text-[9px] font-mono mt-0.5" style={{ color: POS_THEME.muted }}>{item.sku}</p>
                         <div className="flex items-center justify-between mt-0.5">
                           <div>
                             <p className="text-sm font-extrabold" style={{ color: '#a78bfa' }}>{formatCurrency(isService ? item.price : item.sellingPrice)}</p>
                             {!isService && (
-                              <p className={`text-[9px] font-semibold flex items-center gap-0.5 ${isOut ? 'text-slate-500' : isLow ? 'text-red-400' : 'text-emerald-400'}`}>
-                                <span className={`w-1 h-1 rounded-full inline-block ${isOut ? 'bg-slate-500' : isLow ? 'bg-red-400' : 'bg-emerald-400'}`} />
-                                {isOut ? 'Out of stock' : `Qty: ${item.stock}`}
+                              <p className={`text-[9px] font-semibold ${isOut ? 'text-slate-500' : isLow ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                {isOut ? 'Out of stock' : isLow ? `Low Stock (${item.stock})` : `In Stock (${item.stock})`}
                               </p>
                             )}
                           </div>
@@ -1128,13 +1121,11 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     </div>
                   )
                 })}
-              </div>
-            )}
           </div>
-
-          {/* Pagination */}
-          <div className="flex items-center justify-between px-4 py-2 border-t flex-shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
-            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Total {displayItems.length} items</span>
+        )}
+        pagination={(
+          <div className="flex items-center justify-between px-4 py-2.5 border-t shrink-0" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
+            <span className="text-xs" style={{ color: POS_THEME.muted }}>Showing {(page - 1) * perPage + 1} to {Math.min(page * perPage, displayItems.length)} of {displayItems.length} items</span>
             <div className="flex items-center gap-1">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
                 className="w-7 h-7 rounded-lg flex items-center justify-center border border-white/10 hover:bg-white/5 disabled:opacity-30 text-slate-400 transition-colors">
@@ -1157,16 +1148,29 @@ function POSContent({ onClose }: { onClose: () => void }) {
               </button>
             </div>
             <select value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(1) }}
-              className="input-field text-xs py-1 h-7 rounded-lg" style={{ width: 90 }}>
+              className="text-xs py-1 h-7 rounded-lg px-2 border outline-none" style={{ width: 90, background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text }}>
               {[15, 20, 30, 50].map(n => <option key={n} value={n}>{n} / page</option>)}
             </select>
           </div>
-        </div>
-
-        {/* ── Cart Panel ── */}
-        <div className="flex-col overflow-hidden"
-          style={{ display: isDesktop || mobileView === 'cart' ? 'flex' : 'none', width: isDesktop ? 360 : '100%', flexShrink: isDesktop ? 0 : 1, borderLeft: isDesktop ? '1px solid var(--border-subtle)' : 'none', borderColor: 'var(--border-subtle)', background: 'var(--bg-base)' }}>
-
+        )}
+        bottomActions={(
+          <div className="flex flex-wrap gap-2 px-4 py-3 border-t shrink-0" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
+            {[
+              { label: 'New Sale (F10)', onClick: handleNewSale, bg: 'linear-gradient(135deg,#7c3aed,#5b21b6)' },
+              { label: 'Hold Sales (F4)', onClick: holdCart, bg: 'linear-gradient(135deg,#2563eb,#1d4ed8)' },
+              { label: 'Recent Sales', onClick: () => { setShowRecentInvoices(true); fetchRecentSales() }, bg: 'linear-gradient(135deg,#059669,#047857)' },
+              { label: 'Opening Cash', onClick: openDrawer, bg: 'linear-gradient(135deg,#d97706,#b45309)' },
+              { label: 'Cash In/Out', onClick: () => setShowCalc(true), bg: 'linear-gradient(135deg,#0d9488,#0f766e)' },
+              { label: 'More', onClick: () => setShowHeldCarts(true), bg: POS_THEME.card },
+            ].map(btn => (
+              <button key={btn.label} type="button" onClick={btn.onClick} className="flex-1 min-w-[120px] h-10 rounded-xl text-xs font-bold text-white border" style={{ background: btn.bg, borderColor: POS_THEME.border }}>
+                {btn.label}
+              </button>
+            ))}
+          </div>
+        )}
+        cartPanel={(
+          <div className="flex flex-col h-full min-h-0">
           {completedSale ? (
             <div className="flex flex-col h-full">
               <div className="flex items-center justify-between p-4 border-b border-white/5">
@@ -1246,19 +1250,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     <ChevronLeft size={14} /><span>Products</span>
                   </button>
                   <ShoppingBag size={14} style={{ color: cart.length > 0 ? '#a78bfa' : 'var(--text-muted)' }} />
-                  <span className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Cart</span>
-                  {cart.length > 0 && <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-500/15 text-violet-400">{cart.length}</span>}
+                  <span className="font-bold text-sm" style={{ color: POS_THEME.text }}>Cart ({cart.length})</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  {selectedCustomer && (
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border" style={{ borderColor: 'rgba(139,92,246,.25)', background: 'rgba(139,92,246,.06)' }}>
-                      <div className="w-4 h-4 rounded-full bg-violet-500/20 text-violet-400 text-[8px] font-extrabold flex items-center justify-center">{selectedCustomer.name[0]?.toUpperCase()}</div>
-                      <span className="text-[10px] font-semibold text-violet-400 max-w-[80px] truncate">{selectedCustomer.name}</span>
-                    </div>
-                  )}
                   {cart.length > 0 && (
-                    <button onClick={() => setCart([])} className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors text-red-400 hover:bg-red-500/10 border-red-500/20">
-                      <Trash2 size={10} />Clear
+                    <button type="button" onClick={() => setCart([])} className="text-xs font-semibold text-red-400 hover:text-red-300">
+                      Clear Cart
                     </button>
                   )}
                 </div>
@@ -1468,7 +1465,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     {([
                       { method: 'CASH' as const, label: 'Cash',   Icon: Banknote,   active: { background: 'rgba(34,197,94,.15)',  borderColor: 'rgba(34,197,94,.35)',  color: '#4ade80' } },
                       { method: 'CARD' as const, label: 'Card',   Icon: CreditCard, active: { background: 'rgba(59,130,246,.15)', borderColor: 'rgba(59,130,246,.35)', color: '#60a5fa' } },
-                      { method: 'UPI'  as const, label: 'Online', Icon: Smartphone, active: { background: 'rgba(139,92,246,.15)', borderColor: 'rgba(139,92,246,.35)', color: '#a78bfa' } },
+                      { method: 'UPI'  as const, label: 'Bank Transfer', Icon: Banknote, active: { background: 'rgba(30,58,138,.25)', borderColor: 'rgba(59,130,246,.35)', color: '#93c5fd' } },
                     ]).map(({ method, label, Icon: MI, active }) => (
                       <button key={method} onClick={() => setPaymentMethod(method)}
                         className="flex flex-col items-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold transition-all"
@@ -1480,34 +1477,22 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     ))}
                   </div>
                   {checkoutError && <p className="text-xs text-red-400 text-center">{checkoutError}</p>}
-                  <button onClick={handleCheckout} disabled={checkoutLoading}
-                    className="w-full flex items-center justify-between px-5 py-3.5 rounded-2xl text-white font-bold text-sm transition-all disabled:opacity-60 active:scale-[.99]"
-                    style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: checkoutLoading ? 'none' : '0 6px 24px rgba(124,58,237,.45)' }}>
-                    <span>{checkoutLoading ? 'Processing…' : `Charge ${formatCurrency(collectAtCheckout)}`}</span>
-                    {checkoutLoading ? <Loader2 size={15} className="animate-spin" /> : <span className="text-violet-200 text-[11px] flex items-center gap-1">F9 <ChevronRight size={13} /></span>}
+                  <button type="button" onClick={handleCheckout} disabled={checkoutLoading}
+                    className="w-full flex items-center justify-center gap-2 px-5 py-4 rounded-2xl text-white font-bold text-base transition-all disabled:opacity-60"
+                    style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: checkoutLoading ? 'none' : '0 8px 28px rgba(124,58,237,.45)' }}>
+                    {checkoutLoading ? <Loader2 size={18} className="animate-spin" /> : null}
+                    <span>{checkoutLoading ? 'Processing…' : `Pay Now (F3)`}</span>
                   </button>
                   <div className="grid grid-cols-3 gap-1.5">
-                    <button onClick={holdCart}
-                      className="relative flex flex-col items-center gap-0.5 py-2 rounded-xl border text-center transition-colors hover:border-amber-500/30 hover:text-amber-400 hover:bg-amber-500/5"
-                      style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
-                      {heldCarts.length > 0 && <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-500 text-white text-[7px] font-bold flex items-center justify-center">{heldCarts.length}</span>}
-                      <Archive size={11} />
-                      <span className="text-[9px] leading-tight">Hold</span>
-                      <kbd className="text-[8px] opacity-40">F6</kbd>
+                    <button type="button" onClick={() => cart.length > 0 ? setShowDocPreview('DRAFT') : toast.error('Add items to cart first')}
+                      className="flex flex-col items-center gap-0.5 py-2 rounded-xl border text-center text-[10px]" style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
+                      <PrinterIcon size={12} /><span>Print (F6)</span>
                     </button>
-                    <button onClick={() => cart.length > 0 && setShowDocPreview('QUOTE')}
-                      className="flex flex-col items-center gap-0.5 py-2 rounded-xl border text-center transition-colors hover:border-blue-500/30 hover:text-blue-400 hover:bg-blue-500/5"
-                      style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
-                      <FileText size={12} />
-                      <span className="text-[9px] leading-tight">Save Quote</span>
-                      <kbd className="text-[9px] opacity-50">F7</kbd>
+                    <button type="button" onClick={() => toast('WhatsApp receipt — coming soon')} className="flex flex-col items-center gap-0.5 py-2 rounded-xl border text-center text-[10px]" style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
+                      <MessageCircle size={12} /><span>WhatsApp (F7)</span>
                     </button>
-                    <button onClick={() => cart.length > 0 && setShowDocPreview('DRAFT')}
-                      className="flex flex-col items-center gap-0.5 py-2 rounded-xl border text-center transition-colors hover:border-violet-500/30 hover:text-violet-400 hover:bg-violet-500/5"
-                      style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
-                      <FilePlus2 size={12} />
-                      <span className="text-[9px] leading-tight">Draft Invoice</span>
-                      <kbd className="text-[9px] opacity-50">F8</kbd>
+                    <button type="button" onClick={holdCart} className="flex flex-col items-center gap-0.5 py-2 rounded-xl border text-center text-[10px]" style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
+                      <Archive size={12} /><span>Hold (F4)</span>
                     </button>
                   </div>
                   {selectedCustomer && (
@@ -1528,7 +1513,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
               )}
             </>
           )}
-        </div>
+          </div>
+        )}
+      />
       </div>
 
       {/* ── Mobile Cart FAB ── */}
@@ -1771,7 +1758,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
-    </div>
+    </>
   )
 }
 
@@ -1811,8 +1798,8 @@ export function POSOverlay() {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.15 }}
-        className="fixed inset-0 z-[100] flex flex-col overflow-hidden"
-        style={{ background: '#0a0f1a' }}
+        className="fixed inset-0 z-[100] flex flex-col overflow-hidden h-screen"
+        style={{ background: '#0a0e17' }}
       >
         <POSContent onClose={closePos} />
       </motion.div>
