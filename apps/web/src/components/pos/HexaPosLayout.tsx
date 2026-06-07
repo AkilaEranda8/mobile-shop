@@ -237,8 +237,8 @@ export function HexaPosLayout({
           </div>
         </div>
 
-        <footer className="shrink-0 flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-t text-[11px]" style={{ borderColor: C.border, background: C.card, color: C.muted }}>
-          <span>© 2024 Hexa-VIMS POS System</span>
+        <footer className="shrink-0 flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 border-t text-xs" style={{ borderColor: C.border, background: C.card, color: C.muted }}>
+          <span className="font-medium">© 2026 Hexa-Mobile-Shop POS System</span>
           <div className="flex flex-wrap items-center gap-3">
             <span>Terminal: T01</span>
             <span>|</span>
@@ -247,7 +247,7 @@ export function HexaPosLayout({
             <span>Session: 01</span>
             <span>|</span>
             <span>Last Sync: {syncTime}</span>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: `${C.green}22`, color: C.green }}>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold" style={{ background: `${C.green}22`, color: C.green }}>
               <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: C.green }} /> Synced
             </span>
           </div>
