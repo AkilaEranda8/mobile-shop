@@ -4,7 +4,7 @@ import React from 'react'
 import {
   ShoppingCart, ShoppingBag, BarChart3, Users, ScanLine, Wrench,
   Package, FileText, Receipt, RotateCcw, Settings, Wifi, Bell,
-  ChevronDown, Menu, TrendingUp, Smartphone, Headphones, Tablet,
+  ChevronDown, Menu, Smartphone, Headphones, Tablet,
   Laptop, Watch, Grid3X3, List, SlidersHorizontal, MoreHorizontal,
   Archive, Banknote, Clock, Cloud,
 } from 'lucide-react'
@@ -61,9 +61,6 @@ interface HexaPosLayoutProps {
   activeNav: PosNavId
   onNavChange: (id: PosNavId) => void
   onClose: () => void
-  todayRevenue: number
-  todayOrders: number
-  lowStockCount: number
   cartCount: number
   cashierName: string
   syncTime: string
@@ -81,26 +78,11 @@ interface HexaPosLayoutProps {
   mainOverlay?: React.ReactNode
 }
 
-function StatCard({ label, value, trend, accent }: { label: string; value: string; trend?: string; accent?: string }) {
-  return (
-    <div className="flex-1 min-w-[140px] rounded-xl px-4 py-3 border" style={{ background: C.card, borderColor: C.border }}>
-      <p className="text-[11px] font-medium mb-1" style={{ color: C.muted }}>{label}</p>
-      <p className="text-lg font-bold leading-tight" style={{ color: accent || C.text }}>{value}</p>
-      {trend && (
-        <p className="text-[10px] font-semibold mt-1" style={{ color: trend.startsWith('+') ? '#10b981' : '#ef4444' }}>{trend}</p>
-      )}
-    </div>
-  )
-}
-
 export function HexaPosLayout({
   shopName,
   activeNav,
   onNavChange,
   onClose,
-  todayRevenue,
-  todayOrders,
-  lowStockCount,
   cartCount,
   cashierName,
   syncTime,
@@ -117,8 +99,6 @@ export function HexaPosLayout({
   cartPanel,
   mainOverlay,
 }: HexaPosLayoutProps) {
-  const fmt = (n: number) => `LKR ${n.toLocaleString('en-LK', { maximumFractionDigits: 0 })}`
-
   return (
     <div className="flex h-full w-full overflow-hidden" style={{ background: C.bg, color: C.text, fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
       {/* ── LEFT SIDEBAR ── */}
@@ -182,19 +162,8 @@ export function HexaPosLayout({
 
       {/* ── MAIN + CART ── */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
-        {/* Stats + header actions */}
-        <div className="shrink-0 px-4 pt-3 pb-2 border-b" style={{ borderColor: C.border, background: C.panel }}>
-          <div className="flex flex-wrap items-stretch gap-3 mb-3">
-            <StatCard label="Today's Sales" value={fmt(todayRevenue)} trend="+12.5%" />
-            <StatCard label="Profit" value={fmt(Math.round(todayRevenue * 0.14))} trend="+8.3%" accent="#a78bfa" />
-            <StatCard label="Orders" value={String(todayOrders)} trend="+5.7%" />
-            <div className="flex-1 min-w-[140px] rounded-xl px-4 py-3 border flex flex-col justify-center" style={{ background: C.card, borderColor: C.border }}>
-              <p className="text-[11px] font-medium mb-1" style={{ color: C.muted }}>Low Stock Items</p>
-              <p className="text-lg font-bold text-red-400">{lowStockCount}</p>
-              {lowStockCount > 0 && <button type="button" className="text-[10px] text-red-400/80 text-left mt-1 hover:underline">View all</button>}
-            </div>
-          </div>
-
+        {/* Header actions */}
+        <div className="shrink-0 px-4 py-2.5 border-b" style={{ borderColor: C.border, background: C.panel }}>
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" onClick={onClose} className="p-2 rounded-lg hover:bg-white/5 lg:hidden" title="Menu"><Menu size={16} style={{ color: C.muted }} /></button>
             <button type="button" onClick={onScanClick} className="h-9 px-4 rounded-xl text-xs font-bold text-white flex items-center gap-2 shrink-0" style={{ background: `linear-gradient(135deg, ${C.purple}, ${C.purpleDark})` }}>

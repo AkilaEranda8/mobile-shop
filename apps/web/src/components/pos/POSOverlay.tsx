@@ -513,7 +513,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
   useEffect(() => { setPage(1) }, [search, selectedCategory])
 
-  const lowStockCount = products.filter((p: any) => p.stock > 0 && p.stock <= 4).length
 
   const filtered = products.filter((p: any) => {
     const matchCat = selectedCategory === 'ALL' || p.categoryId === selectedCategory || p.categoryName === selectedCategory
@@ -979,9 +978,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
         activeNav={activeNav}
         onNavChange={id => { setActiveNav(id); if (id === 'customers') setShowCustDrop(true); if (id === 'sales') { setShowRecentInvoices(true); fetchRecentSales() } if (id === 'returns') onClose() }}
         onClose={onClose}
-        todayRevenue={todayStats.revenue}
-        todayOrders={todayStats.count}
-        lowStockCount={lowStockCount}
         cartCount={cart.length}
         cashierName={cashierName}
         syncTime={syncTime}
@@ -1170,7 +1166,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           </div>
         )}
         cartPanel={(
-          <div className="flex flex-col h-full min-h-0">
+          <div className="flex flex-col h-full min-h-0" style={{ background: POS_THEME.panel, color: POS_THEME.text }}>
           {completedSale ? (
             <div className="flex flex-col h-full">
               <div className="flex items-center justify-between p-4 border-b border-white/5">
@@ -1244,12 +1240,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
           ) : (
             <>
               {/* Cart Header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
+              <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => setMobileView('products')} className="md:hidden flex items-center gap-1 text-xs mr-1 px-2 py-1 rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'var(--text-muted)' }}>
+                  <button onClick={() => setMobileView('products')} className="md:hidden flex items-center gap-1 text-xs mr-1 px-2 py-1 rounded-lg hover:bg-white/5 transition-colors" style={{ color: POS_THEME.muted }}>
                     <ChevronLeft size={14} /><span>Products</span>
                   </button>
-                  <ShoppingBag size={14} style={{ color: cart.length > 0 ? '#a78bfa' : 'var(--text-muted)' }} />
+                  <ShoppingBag size={14} style={{ color: cart.length > 0 ? '#a78bfa' : POS_THEME.muted }} />
                   <span className="font-bold text-sm" style={{ color: POS_THEME.text }}>Cart ({cart.length})</span>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -1265,12 +1261,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
               <div className="flex-1 overflow-y-auto p-2.5 space-y-1.5 min-h-0">
                 {cart.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full opacity-20 select-none">
-                    <ShoppingBag size={44} className="mb-3" style={{ color: 'var(--text-muted)' }} />
-                    <p className="text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>Cart is empty</p>
-                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Click a product to add</p>
+                    <ShoppingBag size={44} className="mb-3" style={{ color: POS_THEME.muted }} />
+                    <p className="text-sm font-semibold" style={{ color: POS_THEME.muted }}>Cart is empty</p>
+                    <p className="text-xs mt-1" style={{ color: POS_THEME.muted }}>Click a product to add</p>
                   </div>
                 ) : cart.map((item) => (
-                  <div key={item.cartId} className="flex items-center gap-2 p-2.5 rounded-xl border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
+                  <div key={item.cartId} className="flex items-center gap-2 p-2.5 rounded-xl border" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
                     {(() => {
                       const cartProduct = products.find((p: any) => p.id === item.productId)
                       const { gradient, iconColor, Icon: TIcon } = getProductCardStyle(cartProduct ?? {})
@@ -1282,7 +1278,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       )
                     })()}
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{item.name}</p>
+                      <p className="text-xs font-semibold truncate" style={{ color: POS_THEME.text }}>{item.name}</p>
                       {item.imei && <p className="text-[10px] font-mono text-violet-400">IMEI: {item.imei}</p>}
                       {editPriceId === item.cartId ? (
                         <div className="flex items-center gap-1 mt-0.5">
@@ -1294,7 +1290,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         </div>
                       ) : (
                         <button onClick={() => { setEditPriceId(item.cartId); setEditPriceVal(String(item.price)) }}
-                          className="flex items-center gap-0.5 text-[10px] hover:text-violet-400 transition-colors" style={{ color: 'var(--text-muted)' }}>
+                          className="flex items-center gap-0.5 text-[10px] hover:text-violet-400 transition-colors" style={{ color: POS_THEME.muted }}>
                           {formatCurrency(item.price)} each {item.price !== item.originalPrice && <span className="text-green-400">✓</span>}
                           <Edit2 size={9} className="ml-0.5" />
                         </button>
@@ -1308,12 +1304,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         value={item.quantity}
                         onChange={e => { const v = parseInt(e.target.value); if (!isNaN(v) && v > 0) setQty(item.cartId, v) }}
                         onFocus={e => e.target.select()}
-                        className="w-8 h-6 text-center text-xs font-bold rounded border bg-white/5 border-white/10 focus:outline-none focus:border-violet-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
-                        style={{ color: 'var(--text-primary)' }}
+                        className="w-8 h-6 text-center text-xs font-bold rounded border focus:outline-none focus:border-violet-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                        style={{ color: POS_THEME.text, background: '#0c1220', borderColor: POS_THEME.border }}
                       />
                       <button onClick={() => updateQty(item.cartId, 1)} className="w-6 h-6 rounded-md bg-white/5 hover:bg-green-500/20 text-slate-400 hover:text-green-400 flex items-center justify-center transition-colors"><Plus size={10} /></button>
                     </div>
-                    <span className="text-xs font-bold w-16 text-right flex-shrink-0" style={{ color: 'var(--text-primary)' }}>{formatCurrency(item.price * item.quantity)}</span>
+                    <span className="text-xs font-bold w-16 text-right flex-shrink-0" style={{ color: POS_THEME.text }}>{formatCurrency(item.price * item.quantity)}</span>
                     <button onClick={() => setCart(prev => prev.filter(i => i.cartId !== item.cartId))}
                       className="w-5 h-5 rounded flex items-center justify-center text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"><X size={11} /></button>
                   </div>
@@ -1322,18 +1318,19 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
               {/* Cart Footer */}
               {cart.length > 0 && (
-                <div className="p-4 border-t flex-shrink-0 space-y-3" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <div className="flex justify-between text-sm" style={{ color: 'var(--text-secondary)' }}>
+                <div className="p-4 border-t flex-shrink-0 space-y-3" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
+                  <div className="flex justify-between text-sm" style={{ color: POS_THEME.muted }}>
                     <span>Subtotal ({cart.length} item{cart.length !== 1 ? 's' : ''})</span>
-                    <span style={{ color: 'var(--text-primary)' }}>{formatCurrency(subtotal)}</span>
+                    <span style={{ color: POS_THEME.text }}>{formatCurrency(subtotal)}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm flex-1" style={{ color: 'var(--text-secondary)' }}>Discount</span>
+                    <span className="text-sm flex-1" style={{ color: POS_THEME.muted }}>Discount</span>
                     <input type="number" min="0" placeholder="0.00"
-                      className="w-20 input-field text-sm text-center py-1 h-8"
+                      className="w-20 text-sm text-center py-1 h-8 rounded-lg border outline-none focus:border-violet-500/50"
+                      style={{ background: '#0c1220', borderColor: POS_THEME.border, color: POS_THEME.text }}
                       value={discountMode === '%' ? (discountPct || '') : (discountFlat || '')}
                       onChange={e => discountMode === '%' ? setDiscountPct(Math.min(100, Number(e.target.value))) : setDiscountFlat(Number(e.target.value))} />
-                    <div className="flex rounded-lg border overflow-hidden text-[10px] font-bold flex-shrink-0" style={{ borderColor: 'var(--border-default)' }}>
+                    <div className="flex rounded-lg border overflow-hidden text-[10px] font-bold flex-shrink-0" style={{ borderColor: POS_THEME.border }}>
                       <button onClick={() => setDiscountMode('%')} className={`px-2.5 py-1.5 transition-colors ${discountMode === '%' ? 'bg-violet-500/20 text-violet-300' : 'text-slate-500 hover:text-white'}`}>%</button>
                       <button onClick={() => setDiscountMode('flat')} className={`px-2.5 py-1.5 transition-colors ${discountMode === 'flat' ? 'bg-violet-500/20 text-violet-300' : 'text-slate-500 hover:text-white'}`}>Rs</button>
                     </div>
@@ -1344,16 +1341,16 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     </div>
                   )}
                   {hasCustomerCredit && selectedCustomer && customerOutstanding > 0 && (
-                    <div className="rounded-xl border p-2.5" style={{ borderColor: includeOutstanding ? 'rgba(239,68,68,.4)' : 'var(--border-subtle)', background: includeOutstanding ? 'rgba(239,68,68,.04)' : 'var(--bg-card)' }}>
+                    <div className="rounded-xl border p-2.5" style={{ borderColor: includeOutstanding ? 'rgba(239,68,68,.4)' : POS_THEME.border, background: includeOutstanding ? 'rgba(239,68,68,.06)' : POS_THEME.card }}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
                           <CreditCard size={13} className="text-red-400" />
-                          <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Pay old balance</span>
+                          <span className="text-xs font-semibold" style={{ color: POS_THEME.text }}>Pay old balance</span>
                           <span className="text-[10px] font-bold text-red-400">{formatCurrency(customerOutstanding)}</span>
                         </div>
                         <button onClick={() => setIncludeOutstanding(p => !p)}
                           className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
-                          style={{ background: includeOutstanding ? '#ef4444' : 'var(--border-default, #cbd5e1)' }}>
+                          style={{ background: includeOutstanding ? '#ef4444' : POS_THEME.border }}>
                           <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left: includeOutstanding ? '18px' : '2px' }} />
                         </button>
                       </div>
@@ -1366,14 +1363,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     <div
                       className="rounded-xl border p-2.5 space-y-2"
                       style={{
-                        borderColor: saleDueAmount > 0 ? 'rgba(245,158,11,.45)' : creditMode ? 'rgba(245,158,11,.25)' : 'var(--border-subtle)',
-                        background: saleDueAmount > 0 ? 'rgba(245,158,11,.06)' : 'var(--bg-card)',
+                        borderColor: saleDueAmount > 0 ? 'rgba(245,158,11,.45)' : creditMode ? 'rgba(245,158,11,.25)' : POS_THEME.border,
+                        background: saleDueAmount > 0 ? 'rgba(245,158,11,.06)' : POS_THEME.card,
                         opacity: creditMode ? 1 : 0.85,
                       }}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Paying now</span>
-                        <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Bill {formatCurrency(saleTotal)}</span>
+                        <span className="text-xs font-semibold" style={{ color: POS_THEME.text }}>Paying now</span>
+                        <span className="text-[10px]" style={{ color: POS_THEME.muted }}>Bill {formatCurrency(saleTotal)}</span>
                       </div>
                       <input
                         type="number"
@@ -1385,7 +1382,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         onChange={e => setAmountPaying(e.target.value)}
                         placeholder={creditMode ? 'Amount customer pays' : 'Select customer first'}
                         className="w-full px-3 py-2 rounded-lg text-sm font-bold border outline-none focus:border-amber-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+                        style={{ background: '#0c1220', borderColor: POS_THEME.border, color: POS_THEME.text }}
                       />
                       {!creditMode && (
                         <p className="text-[10px] text-amber-400 leading-snug">
@@ -1400,13 +1397,13 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       )}
                     </div>
                   )}
-                  <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: POS_THEME.border }}>
                     <div className="flex items-center gap-2">
-                      <span className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>Total</span>
+                      <span className="text-base font-bold" style={{ color: POS_THEME.text }}>Total</span>
                       {!creditMode && (
                         <button onClick={() => { setManualTotalMode(!manualTotalMode); if (!manualTotalMode) setManualTotal(String(calculatedTotal)) }}
                           className="text-[10px] px-2 py-0.5 rounded border transition-colors"
-                          style={{ borderColor: manualTotalMode ? 'rgba(139,92,246,.4)' : 'var(--border-subtle)', background: manualTotalMode ? 'rgba(139,92,246,.1)' : 'transparent', color: manualTotalMode ? '#a78bfa' : 'var(--text-muted)' }}>
+                          style={{ borderColor: manualTotalMode ? 'rgba(139,92,246,.4)' : POS_THEME.border, background: manualTotalMode ? 'rgba(139,92,246,.1)' : 'transparent', color: manualTotalMode ? '#a78bfa' : POS_THEME.muted }}>
                           {manualTotalMode ? 'Auto' : 'Edit'}
                         </button>
                       )}
@@ -1419,30 +1416,30 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         value={manualTotal}
                         onChange={e => setManualTotal(e.target.value)}
                         className="w-28 text-right text-2xl font-extrabold bg-transparent outline-none"
-                        style={{ color: 'var(--text-primary)' }}
+                        style={{ color: POS_THEME.text }}
                       />
                     ) : (
                       <span className="text-2xl font-extrabold" style={{ background: 'linear-gradient(135deg,#a78bfa,#7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{formatCurrency(saleTotal)}</span>
                     )}
                   </div>
                   {creditMode && collectAtCheckout !== saleTotal && (
-                    <div className="flex justify-between text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    <div className="flex justify-between text-xs" style={{ color: POS_THEME.muted }}>
                       <span>Collecting now</span>
-                      <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(collectAtCheckout)}</span>
+                      <span className="font-bold" style={{ color: POS_THEME.text }}>{formatCurrency(collectAtCheckout)}</span>
                     </div>
                   )}
                   {/* Warranty Section */}
-                  <div className="rounded-xl border p-2.5" style={{ borderColor: addWarranty ? 'rgba(245,158,11,.4)' : 'var(--border-subtle)', background: addWarranty ? 'rgba(245,158,11,.04)' : 'var(--bg-card)', opacity: !selectedCustomer ? 0.5 : 1 }}>
+                  <div className="rounded-xl border p-2.5" style={{ borderColor: addWarranty ? 'rgba(245,158,11,.4)' : POS_THEME.border, background: addWarranty ? 'rgba(245,158,11,.06)' : POS_THEME.card, opacity: !selectedCustomer ? 0.5 : 1 }}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
                         <Shield size={13} className="text-amber-400" />
-                        <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Add Warranty</span>
+                        <span className="text-xs font-semibold" style={{ color: POS_THEME.text }}>Add Warranty</span>
                         {addWarranty && selectedCustomer && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/15 text-amber-400">{warrantyMonths < 12 ? `${warrantyMonths}mo` : `${warrantyMonths/12}yr`}</span>}
                         {!selectedCustomer && <span className="text-[9px] text-slate-500">Select customer first</span>}
                       </div>
                       <button onClick={() => { if (selectedCustomer) setAddWarranty(p => !p) }}
                         className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
-                        style={{ background: addWarranty && selectedCustomer ? '#f59e0b' : 'var(--border-default, #cbd5e1)', cursor: !selectedCustomer ? 'not-allowed' : 'pointer' }}>
+                        style={{ background: addWarranty && selectedCustomer ? '#f59e0b' : POS_THEME.border, cursor: !selectedCustomer ? 'not-allowed' : 'pointer' }}>
                         <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left: addWarranty && selectedCustomer ? '18px' : '2px' }} />
                       </button>
                     </div>
@@ -1453,7 +1450,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                             className="py-1.5 rounded-lg text-[10px] font-bold border transition-all"
                             style={warrantyMonths === m
                               ? { background: 'rgba(245,158,11,.2)', borderColor: 'rgba(245,158,11,.45)', color: '#fbbf24' }
-                              : { background: 'transparent', borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
+                              : { background: 'transparent', borderColor: POS_THEME.border, color: POS_THEME.muted }}>
                             {m < 12 ? `${m} mo` : `${m/12} yr`}
                           </button>
                         ))}
@@ -1471,7 +1468,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         className="flex flex-col items-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold transition-all"
                         style={paymentMethod === method
                           ? { ...active, border: `1px solid ${active.borderColor}` }
-                          : { background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)', opacity: 0.6 }}>
+                          : { background: POS_THEME.card, border: `1px solid ${POS_THEME.border}`, color: POS_THEME.muted, opacity: 0.85 }}>
                         <MI size={15} />{label}
                       </button>
                     ))}
@@ -1496,14 +1493,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     </button>
                   </div>
                   {selectedCustomer && (
-                    <div className="flex items-center justify-between p-3 rounded-xl border transition-colors" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                    <div className="flex items-center justify-between p-3 rounded-xl border transition-colors" style={{ borderColor: POS_THEME.border, background: POS_THEME.card }}>
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-xl bg-violet-500/10 border border-violet-500/15 flex items-center justify-center flex-shrink-0">
                           <Gift size={14} className="text-violet-400" />
                         </div>
                         <div>
-                          <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Loyalty Points</p>
-                          <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Available Points: {(selectedCustomer as any).loyaltyPoints ?? 0}</p>
+                          <p className="text-xs font-semibold" style={{ color: POS_THEME.text }}>Loyalty Points</p>
+                          <p className="text-[10px]" style={{ color: POS_THEME.muted }}>Available Points: {(selectedCustomer as any).loyaltyPoints ?? 0}</p>
                         </div>
                       </div>
                       <ChevronRight size={13} className="text-slate-500 flex-shrink-0" />
