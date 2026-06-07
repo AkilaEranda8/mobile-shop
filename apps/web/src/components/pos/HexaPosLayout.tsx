@@ -3,8 +3,8 @@
 import React from 'react'
 import {
   ShoppingCart, ScanLine, Bell, X, Smartphone, Headphones, Tablet,
-  Laptop, Watch, Package, LayoutGrid, Receipt, Users, Hash, Wrench,
-  ShoppingBag, BarChart3, Wallet, RotateCcw, Settings,
+  Laptop, Watch, Package, LayoutGrid, Receipt, Users, Hash,
+  Wallet, RotateCcw, Settings, Phone,
   SlidersHorizontal, type LucideIcon,
 } from 'lucide-react'
 
@@ -45,14 +45,9 @@ const NAV_ITEMS = [
   { id: 'sales', label: 'Sales', icon: Receipt },
   { id: 'customers', label: 'Customers', icon: Users },
   { id: 'imei', label: 'IMEI / Serial', icon: Hash },
-  { id: 'repairs', label: 'Repairs', icon: Wrench },
-  { id: 'purchase', label: 'Purchase', icon: ShoppingBag },
-  { id: 'inventory', label: 'Inventory', icon: Package },
-  { id: 'reports', label: 'Reports', icon: BarChart3 },
-  { id: 'expenses', label: 'Expenses', icon: Wallet },
   { id: 'cash', label: 'Cash In/Out', icon: Wallet },
   { id: 'returns', label: 'Returns', icon: RotateCcw },
-  { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'reload', label: 'Reload', icon: Phone },
 ] as const
 
 export type PosNavItem = { id: string; label: string; icon: LucideIcon }
@@ -165,11 +160,7 @@ export function HexaPosLayout({
             ['F3', 'Pay Now'],
             ['F4', 'Hold Sale'],
             ['F6', 'Held Carts'],
-            ['F7', 'Quote'],
-            ['F8', 'Draft'],
-            ['F9', 'Checkout'],
             ['F10', 'New Sale'],
-            ['F12', 'Calculator'],
           ].map(([key, label]) => (
             <div key={key} className="flex items-center justify-between text-[10px] px-1" style={{ color: C.muted }}>
               <span>{label}</span>

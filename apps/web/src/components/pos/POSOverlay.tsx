@@ -9,9 +9,9 @@ import {
   Heart, Trash2, ChevronRight, ChevronLeft, ChevronDown, Archive,
   FileText, FilePlus2, Calculator, SlidersHorizontal, Package, Tablet,
   Headphones, Wrench, PackageSearch, ShoppingBag, User, CheckCircle2, Shield,
-  Menu, ShoppingCart, BarChart3, Bell, Wifi, Cloud, TrendingUp, MoreHorizontal,
+  Menu, ShoppingCart, Bell, Wifi, Cloud, TrendingUp, MoreHorizontal,
   Grid3X3, List as ListIcon, MessageCircle, Star, RefreshCw, RotateCcw,
-  LayoutGrid, Hash, Wallet, ShoppingBag as ShopBagIcon, Settings, Users, PhoneCall,
+  LayoutGrid, Hash, Wallet, Users, PhoneCall,
 } from 'lucide-react'
 import { HexaPosLayout, POS_THEME, categoryIcon, type PosNavItem } from './HexaPosLayout'
 import { PosReturnModal } from './PosReturnModal'
@@ -378,10 +378,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const hasRepairs = useFeatureFlag('REPAIRS')
   const hasIMEI = useFeatureFlag('IMEI')
   const hasFinance = useFeatureFlag('FINANCE')
-  const hasReports = useFeatureFlag('REPORTS')
   const hasWhatsApp = useFeatureFlag('WHATSAPP')
   const hasDailyReload = useFeatureFlag('DAILY_RELOAD')
-  const hasSuppliers = useFeatureFlag('SUPPLIERS')
   const hasServices = useFeatureFlag('SERVICES')
   const [mobileView, setMobileView]               = useState<'products' | 'cart'>('products')
   const [isDesktop, setIsDesktop]                 = useState(false)
@@ -1211,19 +1209,11 @@ function POSContent({ onClose }: { onClose: () => void }) {
       { id: 'customers', label: 'Customers', icon: Users },
     ]
     if (hasIMEI) items.push({ id: 'imei', label: 'IMEI / Serial', icon: Hash })
-    if (hasRepairs) items.push({ id: 'repairs', label: 'Repairs', icon: Wrench })
-    if (hasSuppliers) items.push({ id: 'purchase', label: 'Purchase', icon: ShopBagIcon })
-    items.push({ id: 'inventory', label: 'Inventory', icon: Package })
-    if (hasReports) items.push({ id: 'reports', label: 'Reports', icon: BarChart3 })
-    if (hasFinance) {
-      items.push({ id: 'expenses', label: 'Expenses', icon: Wallet })
-      items.push({ id: 'cash', label: 'Cash In/Out', icon: Wallet })
-    }
+    if (hasFinance) items.push({ id: 'cash', label: 'Cash In/Out', icon: Wallet })
     items.push({ id: 'returns', label: 'Returns', icon: RotateCcw })
     if (hasDailyReload) items.push({ id: 'reload', label: 'Reload', icon: PhoneCall })
-    items.push({ id: 'settings', label: 'Settings', icon: Settings })
     return items
-  }, [hasIMEI, hasRepairs, hasSuppliers, hasReports, hasFinance, hasDailyReload])
+  }, [hasIMEI, hasFinance, hasDailyReload])
 
   const sendWhatsAppInvoice = useCallback(async () => {
     if (!completedSale?.id) return
