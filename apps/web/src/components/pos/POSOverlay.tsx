@@ -9,12 +9,12 @@ import {
   FileText, FilePlus2, Calculator, SlidersHorizontal, Package, Tablet,
   Headphones, Wrench, PackageSearch, ShoppingBag, User, CheckCircle2, Shield,
   Menu, ShoppingCart, BarChart3, Bell, Wifi, Cloud, TrendingUp, MoreHorizontal,
-  Grid3X3, List as ListIcon,
+  Grid3X3, List as ListIcon, MessageCircle,
 } from 'lucide-react'
 import { HexaPosLayout, POS_THEME, categoryIcon } from './HexaPosLayout'
 import { useUIStore } from '@/stores/ui-store'
 import { useProducts, useFeatureFlag } from '@/lib/hooks'
-import { salesApi, customersApi, productsApi, imeiApi, warrantyApi, servicesApi, analyticsApi } from '@/lib/api'
+import { salesApi, customersApi, productsApi, imeiApi, warrantyApi, servicesApi, analyticsApi, financeApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -32,6 +32,8 @@ interface CartItem {
   quantity: number
   imei?: string
   isService?: boolean
+  cost?: number
+  serviceId?: string
 }
 
 /* ── Invoice Template ───────────────────────────────────────────────────── */
@@ -303,10 +305,11 @@ function RegisterCustomerModal({ onClose, onCreated }: { onClose: () => void; on
 /* ── Main POS Page ──────────────────────────────────────────────────────── */
 function POSContent({ onClose }: { onClose: () => void }) {
   const { pendingCustomer, clearPendingCustomer } = useUIStore()
-  const [todayStats, setTodayStats]             = useState({ revenue: 0, count: 0 })
+  const [todayStats, setTodayStats]             = useState({ revenue: 0, count: 0, customers: 0, lowStock: 0 })
   const [cart, setCart]                         = useState<CartItem[]>([])
   const [search, setSearch]                     = useState('')
-  const [paymentMethod, setPaymentMethod]       = useState<'CASH' | 'CARD' | 'UPI'>('UPI')
+  const [paymentMethod, setPaymentMethod]       = useState<'CASH' | 'CARD' | 'UPI'>('CASH')
+  const [customerPaid, setCustomerPaid]         = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null)
   const [discountPct, setDiscountPct]           = useState(0)
   const [discountFlat, setDiscountFlat]         = useState(0)
@@ -344,6 +347,15 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [addWarranty, setAddWarranty]             = useState(false)
   const [warrantyMonths, setWarrantyMonths]       = useState(12)
   const [showCalc, setShowCalc]                   = useState(false)
+  const [showOpeningCash, setShowOpeningCash]     = useState(false)
+  const [openingCashAmount, setOpeningCashAmount] = useState('')
+  const [openingCashLoading, setOpeningCashLoading] = useState(false)
+  const [showCashFlow, setShowCashFlow]           = useState(false)
+  const [cashFlowMode, setCashFlowMode]           = useState<'IN' | 'OUT'>('IN')
+  const [cashFlowAmount, setCashFlowAmount]       = useState('')
+  const [cashFlowNote, setCashFlowNote]           = useState('')
+  const [cashFlowLoading, setCashFlowLoading]     = useState(false)
+  const [showMoreMenu, setShowMoreMenu]           = useState(false)
   const [manualTotalMode, setManualTotalMode]     = useState(false)
   const [manualTotal, setManualTotal]             = useState('')
   const [customerOutstanding, setCustomerOutstanding] = useState(0)
@@ -401,13 +413,126 @@ function POSContent({ onClose }: { onClose: () => void }) {
     localStorage.setItem('pos_held_carts', JSON.stringify(list))
   }
 
+  const getBranchId = () => authStorage.getUser()?.branchIds?.[0] ?? ''
+
+  const recordCashTransaction = async (opts: { type: 'INCOME' | 'EXPENSE'; category: string; amount: number; description: string }) => {
+    const branchId = getBranchId()
+    if (!branchId) {
+      toast.error('No branch on your account — contact admin')
+      return false
+    }
+    await financeApi.create({
+      branchId,
+      type: opts.type,
+      category: opts.category,
+      amount: opts.amount,
+      description: opts.description,
+      paymentMethod: 'CASH',
+    })
+    return true
+  }
+
   const holdCart = () => {
-    if (cart.length === 0) return
+    if (cart.length === 0) {
+      toast.error('Cart is empty — add items first')
+      return false
+    }
     const id = `HC-${Date.now()}`
     const entry = { id, label: `Cart #${heldCarts.length + 1}`, time: new Date().toISOString(), items: cart, customer: selectedCustomer, discountPct, discountFlat, discountMode }
     saveHeldCarts([entry, ...heldCarts])
     setCart([]); setSelectedCustomer(null); setDiscountPct(0); setDiscountFlat(0)
     toast.success(`Cart held — ${entry.label}`, { icon: '📦' })
+    return true
+  }
+
+  const handleHoldSales = () => {
+    if (cart.length > 0) holdCart()
+    else { setShowHeldCarts(true); toast('Showing held carts', { icon: '📦' }) }
+  }
+
+  const openDrawer = () => {
+    try {
+      const ESC = '\x1B'
+      const drawerKick = ESC + 'p' + '\x00' + '\x19' + '\x19'
+      const win = window.open('', '_blank', 'width=1,height=1')
+      if (win) {
+        win.document.write(`<html><body><script>window.onload=function(){window.print();window.close()}<\/script><pre style="font-family:monospace">${drawerKick}</pre></body></html>`)
+        win.document.close()
+      }
+    } catch {}
+    toast.success('Cash drawer signal sent', { icon: '🗄️', duration: 2000 })
+  }
+
+  const submitOpeningCash = async () => {
+    const amount = parseFloat(openingCashAmount)
+    if (!amount || amount <= 0) { toast.error('Enter a valid opening cash amount'); return }
+    setOpeningCashLoading(true)
+    try {
+      const ok = await recordCashTransaction({
+        type: 'INCOME',
+        category: 'Opening Cash',
+        amount,
+        description: `POS opening cash — ${new Date().toLocaleDateString('en-GB')}`,
+      })
+      if (!ok) return
+      const key = `pos_opening_cash_${new Date().toISOString().slice(0, 10)}`
+      localStorage.setItem(key, String(amount))
+      openDrawer()
+      toast.success(`Opening cash recorded: ${formatCurrency(amount)}`, { icon: '💵' })
+      setShowOpeningCash(false)
+      setOpeningCashAmount('')
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Failed to record opening cash')
+    } finally { setOpeningCashLoading(false) }
+  }
+
+  const submitCashFlow = async () => {
+    const amount = parseFloat(cashFlowAmount)
+    if (!amount || amount <= 0) { toast.error('Enter a valid amount'); return }
+    const note = cashFlowNote.trim() || (cashFlowMode === 'IN' ? 'Cash added to drawer' : 'Cash removed from drawer')
+    setCashFlowLoading(true)
+    try {
+      const ok = await recordCashTransaction({
+        type: cashFlowMode === 'IN' ? 'INCOME' : 'EXPENSE',
+        category: cashFlowMode === 'IN' ? 'Cash In' : 'Cash Out',
+        amount,
+        description: `POS ${cashFlowMode === 'IN' ? 'cash in' : 'cash out'} — ${note}`,
+      })
+      if (!ok) return
+      if (cashFlowMode === 'OUT') openDrawer()
+      toast.success(cashFlowMode === 'IN' ? `Cash in: ${formatCurrency(amount)}` : `Cash out: ${formatCurrency(amount)}`, { icon: '💰' })
+      setShowCashFlow(false)
+      setCashFlowAmount('')
+      setCashFlowNote('')
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Failed to record cash movement')
+    } finally { setCashFlowLoading(false) }
+  }
+
+  const reprintSale = async (sale: any) => {
+    try {
+      let saleData = sale
+      if (!saleData?.items?.length) {
+        const res: any = await salesApi.getById(sale.id)
+        saleData = res?.data ?? res
+      }
+      printThermalReceipt({
+        invoiceNumber: saleData.invoiceNumber,
+        createdAt: saleData.createdAt,
+        customerName: saleData.customerName ?? 'Walk-in Customer',
+        customerPhone: saleData.customerPhone ?? '',
+        items: saleData.items ?? [],
+        subtotal: saleData.subtotal ?? saleData.total,
+        discountAmount: saleData.discount ?? 0,
+        total: saleData.total,
+        paymentMethod: saleData.payments?.[0]?.method,
+        cashReceived: undefined,
+        changeAmount: undefined,
+      }, invoiceSettings)
+      toast.success('Receipt sent to printer')
+    } catch {
+      toast.error('Could not print invoice')
+    }
   }
 
   const restoreHeldCart = (entry: typeof heldCarts[0]) => {
@@ -426,23 +551,19 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const fetchRecentSales = async () => {
     setRecentLoading(true)
     try {
-      const res: any = await salesApi.list({ limit: '30', sort: 'createdAt', order: 'desc' })
-      setRecentSales((res?.data ?? res) as any[])
-    } catch { setRecentSales([]) }
-    finally { setRecentLoading(false) }
+      const res: any = await salesApi.list({ limit: '30' })
+      const rows = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []
+      setRecentSales(rows)
+      if (rows.length === 0) toast('No recent sales found', { icon: '🧾' })
+    } catch (e: any) {
+      setRecentSales([])
+      toast.error(e?.message ?? 'Failed to load recent sales')
+    } finally { setRecentLoading(false) }
   }
 
-  const openDrawer = () => {
-    try {
-      const ESC = '\x1B'
-      const drawerKick = ESC + 'p' + '\x00' + '\x19' + '\x19'
-      const win = window.open('', '_blank', 'width=1,height=1')
-      if (win) {
-        win.document.write(`<html><body><script>window.onload=function(){window.print();window.close()}<\/script><pre style="font-family:monospace">${drawerKick}</pre></body></html>`)
-        win.document.close()
-      }
-    } catch {}
-    toast.success('Cash drawer signal sent', { icon: '🗄️', duration: 2000 })
+  const openRecentSales = () => {
+    setShowRecentInvoices(true)
+    fetchRecentSales()
   }
 
   const { data: productsData, refetch: refetchProducts } = useProducts({ limit: '500' })
@@ -466,7 +587,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const refreshTodayStats = useCallback(() => {
     analyticsApi.dashboard().then((r: any) => {
       const d = r?.data ?? r
-      setTodayStats({ revenue: d?.todayRevenue ?? 0, count: d?.todaySalesCount ?? 0 })
+      setTodayStats({
+        revenue: d?.todayRevenue ?? 0,
+        count: d?.todaySalesCount ?? 0,
+        customers: d?.totalCustomers ?? 0,
+        lowStock: d?.lowStockCount ?? 0,
+      })
     }).catch(() => {})
   }, [])
 
@@ -568,12 +694,28 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const addToCart = (product: any, imei?: string) => {
     const price = product.sellingPrice ?? product.price
     const isService = product.sellingPrice === undefined && product.price !== undefined
+    const cost = isService ? Number(product.cost ?? 0) : Number(product.buyingPrice ?? 0)
+    const serviceId = isService ? product.id : undefined
     setCart(prev => {
       if (!imei) {
-        const existing = prev.find(i => i.productId === (isService ? null : product.id) && i.name === product.name && !i.imei)
+        const existing = prev.find(i => i.isService
+          ? i.serviceId === serviceId && i.name === product.name
+          : i.productId === product.id && !i.imei)
         if (existing) return prev.map(i => i.cartId === existing.cartId ? { ...i, quantity: i.quantity + 1 } : i)
       }
-      return [...prev, { cartId: `${product.id}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`, productId: isService ? null : product.id, name: product.name, sku: product.sku ?? product.category ?? '', price, originalPrice: price, quantity: 1, imei, isService }]
+      return [...prev, {
+        cartId: `${product.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        productId: isService ? null : product.id,
+        serviceId,
+        name: product.name,
+        sku: product.sku ?? product.category ?? '',
+        price,
+        originalPrice: price,
+        cost,
+        quantity: 1,
+        imei,
+        isService,
+      }]
     })
   }
 
@@ -625,6 +767,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
   }
 
   const subtotal       = cart.reduce((s, i) => s + i.price * i.quantity, 0)
+  const serviceCostTotal = cart.filter(i => i.isService).reduce((s, i) => s + (i.cost ?? 0) * i.quantity, 0)
+  const serviceRevenue   = cart.filter(i => i.isService).reduce((s, i) => s + i.price * i.quantity, 0)
+  const serviceMargin    = serviceRevenue - serviceCostTotal
+  const hasServiceInCart = cart.some(i => i.isService)
   const discountAmount = discountMode === '%' ? (subtotal * discountPct) / 100 : Math.min(discountFlat, subtotal)
   const afterDiscount  = subtotal - discountAmount
   const tax            = 0
@@ -645,6 +791,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const saleDueAmount = creditMode && payNowForSale < saleTotal ? Math.max(0, saleTotal - payNowForSale) : 0
   const needsCustomerForPartial = hasCustomerCredit && payNowForSale < saleTotal && !selectedCustomer?.id
   const collectAtCheckout = payNowForSale + (settleOldOutstanding ? customerOutstanding : 0)
+  const cashReceivedAmount = !creditMode && paymentMethod === 'CASH'
+    ? (parseFloat(customerPaid) || collectAtCheckout)
+    : payNowForSale
+  const changeAmount = !creditMode && paymentMethod === 'CASH'
+    ? Math.max(0, cashReceivedAmount - collectAtCheckout)
+    : 0
 
   const currentUser = authStorage.getUser()
   const shopName = currentUser?.name?.split(' ')[0] + ' Shop' || 'Our Shop'
@@ -671,9 +823,13 @@ function POSContent({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     if (saleTotal !== prevSaleTotalRef.current) {
       setAmountPaying(saleTotal > 0 ? saleTotal.toFixed(2) : '')
+      if (!creditMode && paymentMethod === 'CASH') {
+        const amt = collectAtCheckout > 0 ? collectAtCheckout : saleTotal
+        setCustomerPaid(amt > 0 ? amt.toFixed(2) : '')
+      }
       prevSaleTotalRef.current = saleTotal
     }
-  }, [saleTotal])
+  }, [saleTotal, collectAtCheckout, creditMode, paymentMethod])
 
   const selectCustomer = useCallback(async (c: any | null) => {
     setShowCustDrop(false)
@@ -717,7 +873,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         e.preventDefault()
         if (cart.length > 0 && !checkoutLoading && !completedSale) handleCheckout()
       }
-      if (e.key === 'F4') { e.preventDefault(); holdCart() }
+      if (e.key === 'F4') { e.preventDefault(); handleHoldSales() }
       if (e.key === 'F5') {
         e.preventDefault()
         if (completedSale) printThermalReceipt({ invoiceNumber: completedSale.invoiceNumber, createdAt: completedSale.createdAt, customerName: completedSale.customerName, customerPhone: completedSale.customerPhone, items: completedSale.items ?? [], subtotal, discountAmount, total: completedSale.total ?? saleTotal, paymentMethod: completedSale.paymentMethod, cashReceived: completedSale.cashReceived, changeAmount: completedSale.changeAmount, warrantyNumbers: completedSale.warrantyNumbers, warrantyMonths: completedSale.warrantyMonths }, invoiceSettings)
@@ -752,6 +908,13 @@ function POSContent({ onClose }: { onClose: () => void }) {
     if (creditMode && payNowForSale < saleTotal && saleDueAmount <= 0) {
       setCheckoutError('Use "Paying now" for partial payment — do not use Edit total')
       return
+    }
+    if (!creditMode && paymentMethod === 'CASH') {
+      const paid = parseFloat(customerPaid) || 0
+      if (paid < collectAtCheckout) {
+        setCheckoutError('Customer paid amount is less than total')
+        return
+      }
     }
     setCheckoutLoading(true)
     setCheckoutError('')
@@ -850,6 +1013,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
         customerName:  selectedCustomer?.name || 'Walk-in Customer',
         customerPhone: selectedCustomer?.phone || '',
         cashierName:   user?.name || 'Staff',
+        paymentMethod,
+        cashReceived: cashReceivedAmount,
+        changeAmount,
         warrantyNumbers: createdWarrantyCodes,
         warrantyMonths:  addWarranty ? warrantyMonths : undefined,
       })
@@ -946,8 +1112,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
     setAddWarranty(false); setWarrantyMonths(12); setMobileView('products')
     setManualTotalMode(false); setManualTotal('')
     setCustomerOutstanding(0); setIncludeOutstanding(false)
-    setAmountPaying(''); prevSaleTotalRef.current = 0
+    setAmountPaying(''); setCustomerPaid(''); setPaymentMethod('CASH')
+    prevSaleTotalRef.current = 0
     setShowCustDrop(false); setShowCartCustDrop(false)
+    setShowRecentInvoices(false); setShowHeldCarts(false); setShowMoreMenu(false)
+    setShowOpeningCash(false); setShowCashFlow(false); setShowCalc(false)
+    toast.success('New sale started', { icon: '🛒', duration: 1500 })
   }
 
   const handleCustomerCreated = useCallback((c: any) => {
@@ -958,6 +1128,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const storeName = invoiceSettings.shopName || shopName || 'Hexa Mobile Store'
   const cashierName = currentUser?.name || 'Admin'
   const syncTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+
+  const handleNavAction = useCallback((id: string) => {
+    if (id === 'products') return
+    if (id === 'cash') { setCashFlowMode('IN'); setShowCashFlow(true); return }
+    onClose()
+  }, [onClose])
 
   const renderCustomerList = (autoFocus = false) => (
     <>
@@ -1053,6 +1229,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
         searchRef={searchRef}
         onScanClick={() => setShowScanInput(true)}
         onBellClick={() => setShowHeldCarts(true)}
+        onNavAction={handleNavAction}
+        heldBadgeCount={heldCarts.length}
+        stats={{
+          revenue: formatCurrency(todayStats.revenue),
+          orders: String(todayStats.count),
+          customers: String(todayStats.customers),
+          lowStock: String(todayStats.lowStock),
+        }}
         imeiSlot={imeiSlot}
         customerSlot={customerSlot}
         categoryBar={(
@@ -1083,7 +1267,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           </div>
         )}
         productGrid={(
-          <div className={gridView ? 'grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2' : 'space-y-1.5'}>
+          <div className={gridView ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3' : 'space-y-1.5'}>
             {pagedProducts.length === 0 ? (
               <div className="col-span-full flex flex-col items-center justify-center h-40 opacity-30">
                 <PackageSearch size={32} className="mb-2" style={{ color: POS_THEME.muted }} />
@@ -1104,7 +1288,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       onClick={() => !isOut && addToCart(item)}>
 
                       {/* ── IMAGE ZONE ── */}
-                      <div className="relative overflow-hidden" style={{ paddingBottom: '52%' }}>
+                      <div className="relative overflow-hidden" style={{ paddingBottom: '58%' }}>
                         {/* Gradient bg (always rendered as fallback) */}
                         <div className="absolute inset-0" style={{ background: gradient }}>
                           {/* Shine */}
@@ -1161,7 +1345,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         <div className="flex items-end justify-between gap-1">
                           <div className="min-w-0">
                             <p className="pos-price text-xs font-extrabold leading-none">{formatCurrency(isService ? item.price : item.sellingPrice)}</p>
-                            {!isService && (
+                            {isService ? (
+                              <p className="text-[8px] mt-0.5 truncate" style={{ color: POS_THEME.muted }}>
+                                Cost {formatCurrency(Number(item.cost ?? 0))}
+                                {(item.cost ?? 0) > 0 && item.price > (item.cost ?? 0) && (
+                                  <span style={{ color: POS_THEME.green }}> · +{formatCurrency(item.price - (item.cost ?? 0))}</span>
+                                )}
+                              </p>
+                            ) : (
                               <p className="text-[8px] font-semibold flex items-center gap-0.5 mt-0.5 truncate" style={{ color: isOut ? POS_THEME.muted : isLow ? POS_THEME.amber : POS_THEME.green }}>
                                 <span className="w-1 h-1 rounded-full inline-block shrink-0" style={{ background: isOut ? POS_THEME.muted : isLow ? POS_THEME.amber : POS_THEME.green }} />
                                 {isOut ? 'Out' : isLow ? `Low (${item.stock})` : `Stock ${item.stock}`}
@@ -1216,11 +1407,11 @@ function POSContent({ onClose }: { onClose: () => void }) {
           <div className="flex flex-wrap gap-2 px-4 py-3 border-t shrink-0" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
             {[
               { label: 'New Sale (F10)', onClick: handleNewSale, bg: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})` },
-              { label: 'Hold Sales (F4)', onClick: holdCart, bg: `linear-gradient(135deg, ${POS_THEME.blue}, ${POS_THEME.blueDark})` },
-              { label: 'Recent Sales', onClick: () => { setShowRecentInvoices(true); fetchRecentSales() }, bg: `linear-gradient(135deg, ${POS_THEME.teal}, ${POS_THEME.tealDark})` },
-              { label: 'Opening Cash', onClick: openDrawer, bg: `linear-gradient(135deg, ${POS_THEME.amber}, ${POS_THEME.amberDark})` },
-              { label: 'Cash In/Out', onClick: () => setShowCalc(true), bg: POS_THEME.card },
-              { label: 'More', onClick: () => setShowHeldCarts(true), bg: POS_THEME.card },
+              { label: 'Hold Sales (F4)', onClick: handleHoldSales, bg: `linear-gradient(135deg, ${POS_THEME.blue}, ${POS_THEME.blueDark})` },
+              { label: 'Recent Sales', onClick: openRecentSales, bg: `linear-gradient(135deg, ${POS_THEME.teal}, ${POS_THEME.tealDark})` },
+              { label: 'Opening Cash', onClick: () => setShowOpeningCash(true), bg: `linear-gradient(135deg, ${POS_THEME.amber}, ${POS_THEME.amberDark})` },
+              { label: 'Cash In/Out', onClick: () => { setCashFlowMode('IN'); setShowCashFlow(true) }, bg: POS_THEME.card },
+              { label: heldCarts.length > 0 ? `More (${heldCarts.length})` : 'More', onClick: () => setShowMoreMenu(true), bg: POS_THEME.card },
             ].map(btn => (
               <button key={btn.label} type="button" onClick={btn.onClick}
                 className="flex-1 min-w-[110px] h-10 rounded-xl text-xs font-bold text-white border"
@@ -1344,6 +1535,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     })()}
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold truncate" style={{ color: POS_THEME.text }}>{item.name}</p>
+                      {item.isService && (
+                        <p className="text-[9px]" style={{ color: POS_THEME.muted }}>
+                          Cost {formatCurrency((item.cost ?? 0) * item.quantity)}
+                          {(item.cost ?? 0) > 0 && <span style={{ color: POS_THEME.green }}> · Margin {formatCurrency((item.price - (item.cost ?? 0)) * item.quantity)}</span>}
+                        </p>
+                      )}
                       {item.imei && <p className="text-[10px] font-mono text-white/80">IMEI: {item.imei}</p>}
                       {editPriceId === item.cartId ? (
                         <div className="flex items-center gap-1 mt-0.5">
@@ -1416,6 +1613,18 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     <span>Subtotal ({cart.length} item{cart.length !== 1 ? 's' : ''})</span>
                     <span style={{ color: POS_THEME.text }}>{formatCurrency(subtotal)}</span>
                   </div>
+                  {hasServiceInCart && (
+                    <div className="rounded-lg border px-2.5 py-2 space-y-1 text-[11px]" style={{ borderColor: POS_THEME.border, background: POS_THEME.card }}>
+                      <div className="flex justify-between" style={{ color: POS_THEME.muted }}>
+                        <span>Service cost</span>
+                        <span>{formatCurrency(serviceCostTotal)}</span>
+                      </div>
+                      <div className="flex justify-between font-semibold" style={{ color: POS_THEME.green }}>
+                        <span>Service margin</span>
+                        <span>{formatCurrency(serviceMargin)}</span>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2">
                     <span className="text-sm flex-1" style={{ color: POS_THEME.muted }}>Discount</span>
                     <input type="number" min="0" placeholder="0.00"
@@ -1433,6 +1642,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       <span>Saving</span><span>-{formatCurrency(discountAmount)}</span>
                     </div>
                   )}
+                  <div className="flex justify-between text-sm" style={{ color: POS_THEME.muted }}>
+                    <span>Tax (NPT 3%)</span>
+                    <span style={{ color: POS_THEME.text }}>{formatCurrency(tax)}</span>
+                  </div>
                   {hasCustomerCredit && selectedCustomer && customerOutstanding > 0 && (
                     <div className="rounded-xl border p-2.5" style={{ borderColor: includeOutstanding ? `${POS_THEME.red}66` : POS_THEME.border, background: includeOutstanding ? `${POS_THEME.red}10` : POS_THEME.card }}>
                       <div className="flex items-center justify-between">
@@ -1551,7 +1764,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       { method: 'CARD' as const, label: 'Card', Icon: CreditCard, active: { background: `${POS_THEME.blue}26`, borderColor: `${POS_THEME.blue}59`, color: POS_THEME.blue } },
                       { method: 'UPI'  as const, label: 'Bank Transfer', Icon: Banknote, active: { background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text } },
                     ]).map(({ method, label, Icon: MI, active }) => (
-                      <button key={method} type="button" onClick={() => setPaymentMethod(method)}
+                      <button key={method} type="button" onClick={() => {
+                        setPaymentMethod(method)
+                        if (method === 'CASH' && !creditMode) {
+                          setCustomerPaid(collectAtCheckout > 0 ? collectAtCheckout.toFixed(2) : '')
+                        }
+                      }}
                         className="flex flex-col items-center gap-1 py-2 rounded-xl text-[11px] font-semibold border transition-all"
                         style={paymentMethod === method
                           ? { ...active, border: `1px solid ${active.borderColor}` }
@@ -1560,6 +1778,44 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       </button>
                     ))}
                   </div>
+                  {!creditMode && paymentMethod === 'CASH' && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold" style={{ color: POS_THEME.text }}>Customer Paid</span>
+                        <span className="text-[10px]" style={{ color: POS_THEME.muted }}>Due {formatCurrency(collectAtCheckout)}</span>
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={customerPaid}
+                        onChange={e => setCustomerPaid(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full px-3 py-2.5 rounded-xl text-sm font-bold border outline-none focus:border-violet-500/50 text-white placeholder:text-white/50"
+                        style={{ background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text }}
+                      />
+                      <div className="flex flex-wrap gap-1.5">
+                        {[5000, 10000, 20000, 50000].map(amt => (
+                          <button key={amt} type="button" onClick={() => setCustomerPaid(String(amt))}
+                            className="px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-colors hover:bg-white/5"
+                            style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
+                            {formatCurrency(amt)}
+                          </button>
+                        ))}
+                        <button type="button" onClick={() => setCustomerPaid(collectAtCheckout > 0 ? collectAtCheckout.toFixed(2) : '')}
+                          className="px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-colors hover:bg-white/5"
+                          style={{ borderColor: `${POS_THEME.purple}66`, color: POS_THEME.purple }}>
+                          Exact
+                        </button>
+                      </div>
+                      {changeAmount > 0 && (
+                        <div className="rounded-xl border px-3 py-2.5 flex items-center justify-between" style={{ background: `${POS_THEME.green}15`, borderColor: `${POS_THEME.green}40` }}>
+                          <span className="text-xs font-semibold" style={{ color: POS_THEME.green }}>Change Return</span>
+                          <span className="text-lg font-extrabold" style={{ color: POS_THEME.green }}>{formatCurrency(changeAmount)}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {checkoutError && <p className="text-xs text-white text-center">{checkoutError}</p>}
                   <button type="button" onClick={handleCheckout} disabled={checkoutLoading}
                     className="w-full flex items-center justify-center gap-2 px-5 py-4 rounded-2xl text-white font-bold text-base transition-all disabled:opacity-60"
@@ -1567,6 +1823,23 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     {checkoutLoading ? <Loader2 size={18} className="animate-spin" /> : null}
                     <span>{checkoutLoading ? 'Processing…' : `Pay Now (F3)`}</span>
                   </button>
+                  <div className="grid grid-cols-3 gap-1.5 pt-1">
+                    <button type="button" onClick={() => setShowDocPreview('DRAFT')}
+                      className="flex flex-col items-center gap-1 py-2 rounded-xl text-[10px] font-semibold border transition-colors hover:bg-white/5"
+                      style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
+                      <Printer size={13} />Print (F6)
+                    </button>
+                    <button type="button" onClick={shareWhatsApp}
+                      className="flex flex-col items-center gap-1 py-2 rounded-xl text-[10px] font-semibold border transition-colors hover:bg-white/5"
+                      style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
+                      <MessageCircle size={13} />WhatsApp (F7)
+                    </button>
+                    <button type="button" onClick={handleHoldSales}
+                      className="flex flex-col items-center gap-1 py-2 rounded-xl text-[10px] font-semibold border transition-colors hover:bg-white/5"
+                      style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
+                      <Archive size={13} />Hold (F4)
+                    </button>
+                  </div>
                 </div>
               )}
             </>
@@ -1596,7 +1869,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
       {/* ── Calculator ── */}
       {showCalc && (
-        <div className="fixed bottom-4 right-4 z-50 w-72 rounded-2xl shadow-2xl overflow-hidden border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
+        <div data-pos="dark" className="fixed bottom-4 right-4 z-[115] w-72 rounded-2xl shadow-2xl overflow-hidden border" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
           <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
             <div className="flex items-center gap-2">
               <Calculator size={13} className="text-violet-400" />
@@ -1643,10 +1916,106 @@ function POSContent({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
+      {/* ── Opening Cash ── */}
+      {showOpeningCash && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowOpeningCash(false)}>
+          <div data-pos="dark" className="w-full max-w-sm rounded-2xl shadow-2xl border overflow-hidden" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: POS_THEME.border }}>
+              <div className="flex items-center gap-2">
+                <Banknote size={15} style={{ color: POS_THEME.amber }} />
+                <h3 className="text-sm font-bold text-white">Opening Cash</h3>
+              </div>
+              <button type="button" onClick={() => setShowOpeningCash(false)} className="p-1.5 rounded-lg hover:bg-white/5 text-white/70"><X size={14} /></button>
+            </div>
+            <div className="p-5 space-y-3">
+              <p className="text-xs text-white/60">Enter float amount in drawer at shift start. Saved to Finance.</p>
+              <input autoFocus type="number" min="0" step="0.01" placeholder="e.g. 5000" value={openingCashAmount} onChange={e => setOpeningCashAmount(e.target.value)}
+                className="w-full h-10 px-3 rounded-xl text-sm font-bold border outline-none text-white placeholder:text-white/40"
+                style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }}
+                onKeyDown={e => { if (e.key === 'Enter') submitOpeningCash() }} />
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => setShowOpeningCash(false)} className="flex-1 h-10 rounded-xl text-sm font-semibold border text-white" style={{ borderColor: POS_THEME.border }}>Cancel</button>
+                <button type="button" onClick={submitOpeningCash} disabled={openingCashLoading}
+                  className="flex-1 h-10 rounded-xl text-sm font-bold text-white disabled:opacity-60"
+                  style={{ background: `linear-gradient(135deg, ${POS_THEME.amber}, ${POS_THEME.amberDark})` }}>
+                  {openingCashLoading ? <Loader2 size={14} className="animate-spin mx-auto" /> : 'Save & Open Drawer'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Cash In / Out ── */}
+      {showCashFlow && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowCashFlow(false)}>
+          <div data-pos="dark" className="w-full max-w-sm rounded-2xl shadow-2xl border overflow-hidden" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: POS_THEME.border }}>
+              <div className="flex items-center gap-2">
+                <Banknote size={15} style={{ color: POS_THEME.green }} />
+                <h3 className="text-sm font-bold text-white">Cash In / Out</h3>
+              </div>
+              <button type="button" onClick={() => setShowCashFlow(false)} className="p-1.5 rounded-lg hover:bg-white/5 text-white/70"><X size={14} /></button>
+            </div>
+            <div className="p-5 space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                {(['IN', 'OUT'] as const).map(mode => (
+                  <button key={mode} type="button" onClick={() => setCashFlowMode(mode)}
+                    className="h-9 rounded-xl text-xs font-bold border text-white"
+                    style={cashFlowMode === mode
+                      ? { background: mode === 'IN' ? `${POS_THEME.green}33` : `${POS_THEME.red}33`, borderColor: mode === 'IN' ? POS_THEME.green : POS_THEME.red }
+                      : { background: POS_THEME.bg, borderColor: POS_THEME.border }}>
+                    Cash {mode === 'IN' ? 'In' : 'Out'}
+                  </button>
+                ))}
+              </div>
+              <input type="number" min="0" step="0.01" placeholder="Amount (LKR)" value={cashFlowAmount} onChange={e => setCashFlowAmount(e.target.value)}
+                className="w-full h-10 px-3 rounded-xl text-sm font-bold border outline-none text-white placeholder:text-white/40"
+                style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }} />
+              <input type="text" placeholder="Note (optional)" value={cashFlowNote} onChange={e => setCashFlowNote(e.target.value)}
+                className="w-full h-10 px-3 rounded-xl text-sm border outline-none text-white placeholder:text-white/40"
+                style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }} />
+              <button type="button" onClick={submitCashFlow} disabled={cashFlowLoading}
+                className="w-full h-10 rounded-xl text-sm font-bold text-white disabled:opacity-60"
+                style={{ background: cashFlowMode === 'IN' ? `linear-gradient(135deg, ${POS_THEME.green}, ${POS_THEME.greenDark})` : `linear-gradient(135deg, ${POS_THEME.red}, ${POS_THEME.redDark})` }}>
+                {cashFlowLoading ? <Loader2 size={14} className="animate-spin mx-auto" /> : `Record Cash ${cashFlowMode === 'IN' ? 'In' : 'Out'}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── More Menu ── */}
+      {showMoreMenu && (
+        <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowMoreMenu(false)}>
+          <div data-pos="dark" className="w-full max-w-sm rounded-2xl shadow-2xl border overflow-hidden" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: POS_THEME.border }}>
+              <h3 className="text-sm font-bold text-white">More Actions</h3>
+              <button type="button" onClick={() => setShowMoreMenu(false)} className="p-1.5 rounded-lg hover:bg-white/5 text-white/70"><X size={14} /></button>
+            </div>
+            <div className="p-3 space-y-1.5">
+              {[
+                { label: `Held Carts (${heldCarts.length})`, icon: Archive, onClick: () => { setShowMoreMenu(false); setShowHeldCarts(true) } },
+                { label: 'Calculator (F12)', icon: Calculator, onClick: () => { setShowMoreMenu(false); setShowCalc(true) } },
+                { label: 'Open Cash Drawer', icon: Banknote, onClick: () => { setShowMoreMenu(false); openDrawer() } },
+                { label: 'Print Draft', icon: Printer, onClick: () => { setShowMoreMenu(false); cart.length > 0 ? setShowDocPreview('DRAFT') : toast.error('Cart is empty') } },
+                { label: 'WhatsApp Quote (F7)', icon: MessageCircle, onClick: () => { setShowMoreMenu(false); shareWhatsApp() } },
+              ].map(({ label, icon: Icon, onClick }) => (
+                <button key={label} type="button" onClick={onClick}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-sm font-semibold text-white hover:bg-white/5 border"
+                  style={{ borderColor: POS_THEME.border }}>
+                  <Icon size={15} style={{ color: POS_THEME.muted }} />{label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Held Carts Modal ── */}
       {showHeldCarts && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl shadow-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div data-pos="dark" className="w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
             <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="flex items-center gap-2">
                 <Archive size={15} className="text-amber-400" />
@@ -1769,9 +2138,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
       {/* ── Recent Invoices Slide-over ── */}
       {showRecentInvoices && (
-        <div className="fixed inset-0 z-50 flex">
+        <div className="fixed inset-0 z-[110] flex" data-pos="dark">
           <div className="flex-1 bg-black/50 backdrop-blur-sm" onClick={() => setShowRecentInvoices(false)} />
-          <div className="w-[480px] flex flex-col shadow-2xl" style={{ background: 'var(--bg-card)', borderLeft: '1px solid var(--border-default)' }}>
+          <div className="w-[480px] flex flex-col shadow-2xl" style={{ background: POS_THEME.card, borderLeft: `1px solid ${POS_THEME.border}` }}>
             <div className="flex items-center justify-between px-5 py-4 border-b flex-shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="flex items-center gap-2">
                 <Receipt size={15} className="text-violet-400" />
@@ -1803,10 +2172,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     <p className="text-sm font-bold text-violet-400">{formatCurrency(sale.total)}</p>
                     <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{(sale.items?.length ?? sale.itemCount ?? 0)} item(s)</p>
                   </div>
-                  <button onClick={() => {
-                    if (!sale.items) return
-                    printThermalReceipt({ invoiceNumber: sale.invoiceNumber, createdAt: sale.createdAt, customerName: sale.customerName ?? 'Walk-in Customer', customerPhone: sale.customerPhone ?? '', items: sale.items ?? [], subtotal: sale.subtotal ?? sale.total, discountAmount: sale.discount ?? 0, total: sale.total, paymentMethod: sale.payments?.[0]?.method, cashReceived: undefined, changeAmount: undefined }, invoiceSettings)
-                  }} title="Reprint" className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-violet-500/15 hover:text-violet-400 flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
+                  <button type="button" onClick={() => reprintSale(sale)} title="Reprint" className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-violet-500/15 hover:text-violet-400 flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
                     <Printer size={12} />
                   </button>
                 </div>

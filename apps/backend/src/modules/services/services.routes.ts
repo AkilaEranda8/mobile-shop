@@ -51,10 +51,17 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 router.post('/', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = (req as any).user.tenantId
-    const { name, description, price, category } = req.body
+    const { name, description, price, cost, category } = req.body
     if (!name || price === undefined) throw new AppError('name and price are required', 400)
     const service = await prisma.service.create({
-      data: { tenantId, name, description, price: Number(price), category: category || 'General' },
+      data: {
+        tenantId,
+        name,
+        description,
+        price: Number(price),
+        cost: cost !== undefined ? Number(cost) : 0,
+        category: category || 'General',
+      },
     })
     sendSuccess(res, service, 'Service created')
   } catch (e) { next(e) }
@@ -66,13 +73,14 @@ router.put('/:id', authorize('OWNER', 'MANAGER'), async (req: Request, res: Resp
     const tenantId = (req as any).user.tenantId
     const existing = await prisma.service.findFirst({ where: { id: req.params.id, tenantId } })
     if (!existing) throw new AppError('Service not found', 404)
-    const { name, description, price, category, isActive } = req.body
+    const { name, description, price, cost, category, isActive } = req.body
     const service = await prisma.service.update({
       where: { id: req.params.id },
       data: {
         ...(name !== undefined && { name }),
         ...(description !== undefined && { description }),
         ...(price !== undefined && { price: Number(price) }),
+        ...(cost !== undefined && { cost: Number(cost) }),
         ...(category !== undefined && { category }),
         ...(isActive !== undefined && { isActive }),
       },

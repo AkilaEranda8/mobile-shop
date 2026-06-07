@@ -15,6 +15,7 @@ interface Service {
   id: string
   name: string
   description: string | null
+  cost: number
   price: number
   category: string
   isActive: boolean
@@ -60,7 +61,7 @@ export default function ServicesPage() {
     if (!editing) return
     setSaving(true)
     try {
-      const body = { name: editing.name, description: editing.description, price: editing.price, category: editing.category, isActive: editing.isActive }
+      const body = { name: editing.name, description: editing.description, cost: editing.cost ?? 0, price: editing.price, category: editing.category, isActive: editing.isActive }
       if (editing.id.startsWith('new')) await servicesApi.create(body)
       else await servicesApi.update(editing.id, body)
       toast.success(editing.id.startsWith('new') ? 'Service created' : 'Service updated')
@@ -76,7 +77,7 @@ export default function ServicesPage() {
   }
 
   const openNew = () => {
-    setEditing({ id: 'new-' + Date.now(), name: '', description: '', price: 0, category: categories[0] || 'General', isActive: true, createdAt: '', updatedAt: '' })
+    setEditing({ id: 'new-' + Date.now(), name: '', description: '', cost: 0, price: 0, category: categories[0] || 'General', isActive: true, createdAt: '', updatedAt: '' })
     setShowModal(true)
   }
 
@@ -112,8 +113,13 @@ export default function ServicesPage() {
       },
     },
     {
+      accessorKey: 'cost',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Cost" />,
+      cell: ({ row: { original: s } }) => <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{formatCurrency(s.cost ?? 0)}</span>,
+    },
+    {
       accessorKey: 'price',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Price" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Sell Price" />,
       cell: ({ row: { original: s } }) => <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(s.price)}</span>,
     },
     {
@@ -236,12 +242,18 @@ export default function ServicesPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Price *</label>
+                  <label className="block text-xs font-medium mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Cost (LKR)</label>
+                  <input type="number" step="0.01" min="0" className="input-field w-full"
+                    placeholder="0.00"
+                    value={editing.cost ?? ''} onChange={e => setEditing({ ...editing, cost: parseFloat(e.target.value) || 0 })} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Sell Price *</label>
                   <input required type="number" step="0.01" min="0" className="input-field w-full"
                     placeholder="0.00"
                     value={editing.price || ''} onChange={e => setEditing({ ...editing, price: parseFloat(e.target.value) || 0 })} />
                 </div>
-                <div>
+                <div className="col-span-2">
                   <label className="block text-xs font-medium mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Category</label>
                   <input type="text" className="input-field w-full"
                     placeholder="General"

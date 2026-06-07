@@ -177,6 +177,7 @@ model Service {
   tenantId    String
   name        String
   description String?
+  cost        Float    @default(0)
   price       Float
   category    String   @default("General")
   isActive    Boolean  @default(true)
