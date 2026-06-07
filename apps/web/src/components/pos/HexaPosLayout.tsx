@@ -220,8 +220,9 @@ export function HexaPosLayout({
             </button>
             {customerSlot}
           </div>
-          {filtersPanel}
         </div>
+
+        {filtersPanel}
 
         <div className="flex flex-1 min-h-0 relative">
           {mainOverlay}
