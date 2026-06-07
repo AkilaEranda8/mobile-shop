@@ -11,7 +11,7 @@ import {
   Menu, ShoppingCart, BarChart3, Bell, Wifi, Cloud, TrendingUp, MoreHorizontal,
   Grid3X3, List as ListIcon, Printer as PrinterIcon, MessageCircle,
 } from 'lucide-react'
-import { HexaPosLayout, POS_THEME, categoryIcon, type PosNavId } from './HexaPosLayout'
+import { HexaPosLayout, POS_THEME, categoryIcon } from './HexaPosLayout'
 import { useUIStore } from '@/stores/ui-store'
 import { useProducts, useFeatureFlag } from '@/lib/hooks'
 import { salesApi, customersApi, productsApi, imeiApi, warrantyApi, servicesApi, analyticsApi } from '@/lib/api'
@@ -331,6 +331,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [favorites, setFavorites]     = useState<Set<string>>(new Set())
   const [showScanInput, setShowScanInput]         = useState(false)
   const [showCustDrop, setShowCustDrop]           = useState(false)
+  const [showCartCustDrop, setShowCartCustDrop]   = useState(false)
   const [custSearch, setCustSearch]               = useState('')
   const [showRecentInvoices, setShowRecentInvoices] = useState(false)
   const [recentSales, setRecentSales]             = useState<any[]>([])
@@ -351,7 +352,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const hasCustomerCredit = useFeatureFlag('CUSTOMER_CREDIT')
   const [mobileView, setMobileView]               = useState<'products' | 'cart'>('products')
   const [isDesktop, setIsDesktop]                 = useState(false)
-  const [activeNav, setActiveNav]                 = useState<PosNavId>('products')
   const [hideOutOfStock, setHideOutOfStock]       = useState(false)
   const [now, setNow]                             = useState(() => new Date())
   const [gridView, setGridView]                   = useState(true)
@@ -371,6 +371,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [calcOp, setCalcOp]                       = useState<string|null>(null)
   const [calcReset, setCalcReset]                 = useState(false)
   const searchRef                                 = useRef<HTMLInputElement>(null)
+  const payNowRef                                 = useRef<HTMLInputElement>(null)
+  const prevSaleTotalRef                          = useRef(0)
 
   const calcInput = (val: string) => {
     if (calcDisplay === '0' || calcReset) { setCalcDisplay(val); setCalcReset(false) }
@@ -410,12 +412,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
   const restoreHeldCart = (entry: typeof heldCarts[0]) => {
     setCart(entry.items)
-    setSelectedCustomer(entry.customer)
     setDiscountPct(entry.discountPct)
     setDiscountFlat(entry.discountFlat)
     setDiscountMode(entry.discountMode)
     saveHeldCarts(heldCarts.filter(h => h.id !== entry.id))
     setShowHeldCarts(false)
+    selectCustomer(entry.customer)
     toast.success(`${entry.label} restored`)
   }
 
@@ -635,12 +637,13 @@ function POSContent({ onClose }: { onClose: () => void }) {
     : (manualTotalMode && manualTotal ? Math.max(0, parseFloat(manualTotal) || 0) : saleTotal)
   const settleOldOutstanding = hasCustomerCredit && includeOutstanding && !!selectedCustomer && customerOutstanding > 0
   const payNowForSale = (() => {
-    if (!creditMode) return billTotal
+    if (!hasCustomerCredit) return billTotal
     const v = parseFloat(amountPaying)
-    if (isNaN(v)) return saleTotal
+    if (isNaN(v) || amountPaying.trim() === '') return saleTotal
     return Math.min(Math.max(0, v), saleTotal)
   })()
-  const saleDueAmount = creditMode ? Math.max(0, saleTotal - payNowForSale) : 0
+  const saleDueAmount = creditMode && payNowForSale < saleTotal ? Math.max(0, saleTotal - payNowForSale) : 0
+  const needsCustomerForPartial = hasCustomerCredit && payNowForSale < saleTotal && !selectedCustomer?.id
   const collectAtCheckout = payNowForSale + (settleOldOutstanding ? customerOutstanding : 0)
 
   const currentUser = authStorage.getUser()
@@ -666,18 +669,66 @@ function POSContent({ onClose }: { onClose: () => void }) {
   }, [creditMode])
 
   useEffect(() => {
-    setAmountPaying(saleTotal > 0 ? saleTotal.toFixed(2) : '')
-  }, [saleTotal, selectedCustomer?.id, hasCustomerCredit])
+    if (saleTotal !== prevSaleTotalRef.current) {
+      setAmountPaying(saleTotal > 0 ? saleTotal.toFixed(2) : '')
+      prevSaleTotalRef.current = saleTotal
+    }
+  }, [saleTotal])
 
+  const selectCustomer = useCallback(async (c: any | null) => {
+    setShowCustDrop(false)
+    setShowCartCustDrop(false)
+    if (!c) {
+      setSelectedCustomer(null)
+      setCustomerOutstanding(0)
+      setIncludeOutstanding(false)
+      setAddWarranty(false)
+      return
+    }
+    setSelectedCustomer(c)
+    try {
+      const res: any = await customersApi.getById(c.id)
+      const full = res?.data ?? res
+      setSelectedCustomer(full)
+      setCustomerOutstanding(full.totalDue ?? 0)
+    } catch {
+      setCustomerOutstanding(c.totalDue ?? 0)
+    }
+  }, [])
+
+  const shareWhatsApp = useCallback(() => {
+    const phone = (selectedCustomer?.phone ?? completedSale?.customerPhone ?? '').replace(/\D/g, '')
+    const total = completedSale?.total ?? saleTotal
+    const inv = completedSale?.invoiceNumber ?? 'Draft'
+    const text = encodeURIComponent(`Invoice: ${inv}\nTotal: ${formatCurrency(total)}\nThank you for your purchase!`)
+    if (!phone) {
+      toast.error('Select a customer with a phone number first')
+      setShowCartCustDrop(true)
+      return
+    }
+    window.open(`https://wa.me/${phone.startsWith('94') ? phone : '94' + phone.replace(/^0/, '')}?text=${text}`, '_blank')
+  }, [selectedCustomer, completedSale, saleTotal])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'F1') { e.preventDefault(); searchRef.current?.focus(); searchRef.current?.select() }
+      if (e.key === 'F2') { e.preventDefault(); setShowCartCustDrop(true); setCustSearch('') }
+      if (e.key === 'F3') {
+        e.preventDefault()
+        if (cart.length > 0 && !checkoutLoading && !completedSale) handleCheckout()
+      }
+      if (e.key === 'F4') { e.preventDefault(); holdCart() }
+      if (e.key === 'F5') {
+        e.preventDefault()
+        if (completedSale) printThermalReceipt({ invoiceNumber: completedSale.invoiceNumber, createdAt: completedSale.createdAt, customerName: completedSale.customerName, customerPhone: completedSale.customerPhone, items: completedSale.items ?? [], subtotal, discountAmount, total: completedSale.total ?? saleTotal, paymentMethod: completedSale.paymentMethod, cashReceived: completedSale.cashReceived, changeAmount: completedSale.changeAmount, warrantyNumbers: completedSale.warrantyNumbers, warrantyMonths: completedSale.warrantyMonths }, invoiceSettings)
+        else if (cart.length > 0) setShowDocPreview('DRAFT')
+      }
+      if (e.key === 'F6') { e.preventDefault(); if (cart.length > 0) setShowDocPreview('DRAFT'); else toast.error('Cart is empty') }
+      if (e.key === 'F7') { e.preventDefault(); shareWhatsApp() }
+      if (e.key === 'F8') { e.preventDefault(); if (cart.length > 0) setShowDocPreview('QUOTE') }
+      if (e.key === 'F10') { e.preventDefault(); handleNewSale() }
       if (e.key === 'F12') { e.preventDefault(); setShowCalc(p => !p) }
-      if (e.key === 'F6') { e.preventDefault(); setShowHeldCarts(true) }
-      if (e.key === 'F7') { e.preventDefault(); if (cart.length > 0) setShowDocPreview('QUOTE') }
-      if (e.key === 'F8') { e.preventDefault(); if (cart.length > 0) setShowDocPreview('DRAFT') }
-      if (e.key === 'F9' || (e.ctrlKey && e.key === 'Enter')) {
+      if (e.ctrlKey && e.key === 'Enter') {
         e.preventDefault()
         if (cart.length > 0 && !checkoutLoading && !completedSale) handleCheckout()
       }
@@ -685,7 +736,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cart, checkoutLoading, completedSale])
+  }, [cart, checkoutLoading, completedSale, shareWhatsApp])
 
   const handleCheckout = async () => {
     if (cart.length === 0) return
@@ -693,8 +744,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
       setCheckoutError('Please select a customer to add warranty')
       return
     }
-    if (creditMode && payNowForSale < saleTotal && !selectedCustomer?.id) {
-      setCheckoutError('Select a registered customer to record outstanding credit')
+    if (needsCustomerForPartial) {
+      setCheckoutError('Select a customer to save the remaining balance as credit')
+      setShowCartCustDrop(true)
       return
     }
     if (creditMode && payNowForSale < saleTotal && saleDueAmount <= 0) {
@@ -894,44 +946,62 @@ function POSContent({ onClose }: { onClose: () => void }) {
     setAddWarranty(false); setWarrantyMonths(12); setMobileView('products')
     setManualTotalMode(false); setManualTotal('')
     setCustomerOutstanding(0); setIncludeOutstanding(false)
+    setAmountPaying(''); prevSaleTotalRef.current = 0
+    setShowCustDrop(false); setShowCartCustDrop(false)
   }
 
   const handleCustomerCreated = useCallback((c: any) => {
     refetchCustomers?.()
-    setSelectedCustomer(c)
-  }, [refetchCustomers])
+    selectCustomer(c)
+  }, [refetchCustomers, selectCustomer])
 
   const storeName = invoiceSettings.shopName || shopName || 'Hexa Mobile Store'
   const cashierName = currentUser?.name || 'Admin'
   const syncTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
 
+  const renderCustomerList = (autoFocus = false) => (
+    <>
+      <div className="p-2 border-b" style={{ borderColor: POS_THEME.border }}>
+        <input
+          autoFocus={autoFocus}
+          className="w-full h-8 px-2 rounded-lg text-xs outline-none border text-white placeholder:text-white/50"
+          style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }}
+          placeholder="Search customer… (F2)"
+          value={custSearch}
+          onChange={e => setCustSearch(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Escape') { setShowCustDrop(false); setShowCartCustDrop(false) } }}
+        />
+      </div>
+      <div className="overflow-y-auto max-h-60">
+        <button type="button" onClick={() => selectCustomer(null)} className="w-full px-3 py-2 text-xs text-left border-b hover:bg-white/5 text-white" style={{ borderColor: POS_THEME.border }}>Walk-in Customer</button>
+        <button type="button" onClick={() => { setShowCustDrop(false); setShowCartCustDrop(false); setShowRegister(true) }} className="w-full px-3 py-2 text-xs text-left border-b flex items-center gap-1 hover:bg-white/5 text-white" style={{ borderColor: POS_THEME.border }}><Plus size={10} />New Customer</button>
+        {custLoading && <p className="px-3 py-2 text-[10px] text-white/60">Loading…</p>}
+        {filteredCustomers.slice(0, 80).map((c: any) => (
+          <button key={c.id} type="button" onClick={() => selectCustomer(c)} className="w-full px-3 py-2 text-left border-b hover:bg-white/5" style={{ borderColor: POS_THEME.border }}>
+            <p className="text-xs font-semibold text-white">{c.name}</p>
+            <p className="text-[10px] text-white/70">{c.phone}{(c.totalDue ?? 0) > 0 ? ` · Due ${formatCurrency(c.totalDue)}` : ''}</p>
+          </button>
+        ))}
+      </div>
+    </>
+  )
+
   const customerSlot = (
     <div className="relative flex-shrink-0">
-      <button type="button" onClick={() => { setShowCustDrop(o => !o); setCustSearch('') }}
+      <button type="button" onClick={() => { setShowCustDrop(o => !o); setShowCartCustDrop(false); setCustSearch('') }}
         className="h-9 px-3 rounded-xl border flex items-center gap-2 text-xs font-medium"
-        style={{ background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text }}>
+        style={{ background: POS_THEME.card, borderColor: POS_THEME.border, color: '#ffffff' }}
+        title="Select customer (F2)">
         <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
-          style={{ background: selectedCustomer ? 'rgba(124,58,237,0.3)' : POS_THEME.bg, color: selectedCustomer ? '#c4b5fd' : POS_THEME.muted }}>
+          style={{ background: selectedCustomer ? 'rgba(124,58,237,0.3)' : POS_THEME.bg, color: '#ffffff' }}>
           {selectedCustomer ? selectedCustomer.name[0]?.toUpperCase() : <User size={10} />}
         </div>
         <span className="max-w-[110px] truncate">{selectedCustomer ? selectedCustomer.name : 'Walk-in Customer'}</span>
-        <ChevronDown size={10} style={{ color: POS_THEME.muted }} />
+        <ChevronDown size={10} className="text-white/70" />
       </button>
       {showCustDrop && (
-        <div className="absolute top-full mt-1.5 right-0 z-50 w-64 rounded-2xl shadow-2xl overflow-hidden border" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
-          <div className="p-2 border-b" style={{ borderColor: POS_THEME.border }}>
-            <input autoFocus className="w-full h-8 px-2 rounded-lg text-xs outline-none border" style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }} placeholder="Search customer…" value={custSearch} onChange={e => setCustSearch(e.target.value)} />
-          </div>
-          <div className="overflow-y-auto max-h-60">
-            <button type="button" onClick={() => { setSelectedCustomer(null); setShowCustDrop(false); setAddWarranty(false) }} className="w-full px-3 py-2 text-xs text-left border-b hover:bg-white/5" style={{ color: POS_THEME.muted, borderColor: POS_THEME.border }}>Walk-in Customer</button>
-            <button type="button" onClick={() => { setShowCustDrop(false); setShowRegister(true) }} className="w-full px-3 py-2 text-xs text-left border-b flex items-center gap-1 hover:bg-white/5 text-violet-400" style={{ borderColor: POS_THEME.border }}><Plus size={10} />New Customer</button>
-            {filteredCustomers.slice(0, 80).map((c: any) => (
-              <button key={c.id} type="button" onClick={() => { setSelectedCustomer(c); setShowCustDrop(false) }} className="w-full px-3 py-2 text-left border-b hover:bg-white/5" style={{ borderColor: POS_THEME.border }}>
-                <p className="text-xs font-semibold" style={{ color: POS_THEME.text }}>{c.name}</p>
-                <p className="text-[10px]" style={{ color: POS_THEME.muted }}>{c.phone}</p>
-              </button>
-            ))}
-          </div>
+        <div className="absolute top-full mt-1.5 right-0 z-[60] w-64 rounded-2xl shadow-2xl overflow-hidden border" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
+          {renderCustomerList(true)}
         </div>
       )}
     </div>
@@ -975,16 +1045,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
       <HexaPosLayout
         shopName={storeName}
-        activeNav={activeNav}
-        onNavChange={id => { setActiveNav(id); if (id === 'customers') setShowCustDrop(true); if (id === 'sales') { setShowRecentInvoices(true); fetchRecentSales() } if (id === 'returns') onClose() }}
         onClose={onClose}
-        cartCount={cart.length}
         cashierName={cashierName}
         syncTime={syncTime}
         search={search}
         onSearchChange={setSearch}
         searchRef={searchRef}
         onScanClick={() => setShowScanInput(true)}
+        onBellClick={() => setShowHeldCarts(true)}
         imeiSlot={imeiSlot}
         customerSlot={customerSlot}
         categoryBar={(
@@ -1003,8 +1071,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
               </button>
             ))}
             <div className="ml-auto flex items-center gap-2 shrink-0">
-              <button type="button" onClick={() => setGridView(true)} className="p-1.5 rounded-lg border" style={{ borderColor: gridView ? POS_THEME.purple : POS_THEME.border, color: gridView ? '#c4b5fd' : POS_THEME.muted }}><Grid3X3 size={14} /></button>
-              <button type="button" onClick={() => setGridView(false)} className="p-1.5 rounded-lg border" style={{ borderColor: !gridView ? POS_THEME.purple : POS_THEME.border, color: !gridView ? '#c4b5fd' : POS_THEME.muted }}><ListIcon size={14} /></button>
+              <button type="button" onClick={() => setGridView(true)} className="p-1.5 rounded-lg border text-white" style={{ borderColor: gridView ? POS_THEME.purple : POS_THEME.border }}><Grid3X3 size={14} /></button>
+              <button type="button" onClick={() => setGridView(false)} className="p-1.5 rounded-lg border text-white" style={{ borderColor: !gridView ? POS_THEME.purple : POS_THEME.border }}><ListIcon size={14} /></button>
               <label className="flex items-center gap-2 text-[11px] ml-2" style={{ color: POS_THEME.muted }}>
                 Hide Out of Stock
                 <button type="button" onClick={() => setHideOutOfStock(v => !v)} className="relative w-9 h-5 rounded-full transition-all" style={{ background: hideOutOfStock ? POS_THEME.purple : POS_THEME.border }}>
@@ -1014,12 +1082,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
             </div>
           </div>
         )}
-        productGrid={activeNav !== 'products' ? (
-          <div className="flex flex-col items-center justify-center h-full opacity-40">
-            <PackageSearch size={40} className="mb-3" style={{ color: POS_THEME.muted }} />
-            <p className="text-sm font-semibold" style={{ color: POS_THEME.muted }}>{activeNav === 'customers' ? 'Use customer selector above' : 'Open in dashboard for full view'}</p>
-          </div>
-        ) : (
+        productGrid={(
           <div className={gridView ? 'grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3' : 'space-y-2'}>
             {pagedProducts.length === 0 ? (
               <div className="col-span-full flex flex-col items-center justify-center h-40 opacity-30">
@@ -1080,7 +1143,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                           </div>
                         )}
                         {isLow && (
-                          <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold tracking-wide border border-red-400/40" style={{ background: 'rgba(239,68,68,0.2)', color: '#f87171' }}>
+                          <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold tracking-wide border border-white/30 text-white" style={{ background: 'rgba(0,0,0,0.35)' }}>
                             ⚠ LOW STOCK
                           </div>
                         )}
@@ -1099,9 +1162,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         <p className="text-[9px] font-mono mt-0.5" style={{ color: POS_THEME.muted }}>{item.sku}</p>
                         <div className="flex items-center justify-between mt-0.5">
                           <div>
-                            <p className="text-sm font-extrabold" style={{ color: '#a78bfa' }}>{formatCurrency(isService ? item.price : item.sellingPrice)}</p>
+                            <p className="text-sm font-extrabold text-white">{formatCurrency(isService ? item.price : item.sellingPrice)}</p>
                             {!isService && (
-                              <p className={`text-[9px] font-semibold ${isOut ? 'text-slate-500' : isLow ? 'text-amber-400' : 'text-emerald-400'}`}>
+                              <p className="text-[9px] font-semibold text-white">
                                 {isOut ? 'Out of stock' : isLow ? `Low Stock (${item.stock})` : `In Stock (${item.stock})`}
                               </p>
                             )}
@@ -1124,22 +1187,22 @@ function POSContent({ onClose }: { onClose: () => void }) {
             <span className="text-xs" style={{ color: POS_THEME.muted }}>Showing {(page - 1) * perPage + 1} to {Math.min(page * perPage, displayItems.length)} of {displayItems.length} items</span>
             <div className="flex items-center gap-1">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                className="w-7 h-7 rounded-lg flex items-center justify-center border border-white/10 hover:bg-white/5 disabled:opacity-30 text-slate-400 transition-colors">
+                className="w-7 h-7 rounded-lg flex items-center justify-center border border-white/10 hover:bg-white/5 disabled:opacity-30 text-white transition-colors">
                 <ChevronLeft size={12} />
               </button>
               {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
                 const p = totalPages <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= totalPages - 2 ? totalPages - 4 + i : page - 2 + i
                 return (
                   <button key={p} onClick={() => setPage(p)}
-                    className={`w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center border transition-colors ${page === p ? 'bg-violet-500 border-violet-500 text-white' : 'border-white/10 text-slate-400 hover:bg-white/5'}`}>{p}</button>
+                    className={`w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center border transition-colors ${page === p ? 'bg-violet-500 border-violet-500 text-white' : 'border-white/10 text-white hover:bg-white/5'}`}>{p}</button>
                 )
               })}
               {totalPages > 5 && page < totalPages - 2 && <>
-                <span className="text-slate-600 text-xs px-0.5">…</span>
-                <button onClick={() => setPage(totalPages)} className="w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center border border-white/10 text-slate-400 hover:bg-white/5 transition-colors">{totalPages}</button>
+                <span className="text-white text-xs px-0.5">…</span>
+                <button onClick={() => setPage(totalPages)} className="w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center border border-white/10 text-white hover:bg-white/5 transition-colors">{totalPages}</button>
               </>}
               <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                className="w-7 h-7 rounded-lg flex items-center justify-center border border-white/10 hover:bg-white/5 disabled:opacity-30 text-slate-400 transition-colors">
+                className="w-7 h-7 rounded-lg flex items-center justify-center border border-white/10 hover:bg-white/5 disabled:opacity-30 text-white transition-colors">
                 <ChevronRight size={12} />
               </button>
             </div>
@@ -1159,7 +1222,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
               { label: 'Cash In/Out', onClick: () => setShowCalc(true), bg: 'linear-gradient(135deg,#0d9488,#0f766e)' },
               { label: 'More', onClick: () => setShowHeldCarts(true), bg: POS_THEME.card },
             ].map(btn => (
-              <button key={btn.label} type="button" onClick={btn.onClick} className="flex-1 min-w-[120px] h-10 rounded-xl text-xs font-bold text-white border" style={{ background: btn.bg, borderColor: POS_THEME.border }}>
+              <button key={btn.label} type="button" onClick={btn.onClick} className="flex-1 min-w-[120px] h-10 rounded-xl text-xs font-bold text-white border !text-white" style={{ background: btn.bg, borderColor: POS_THEME.border, color: '#ffffff' }}>
                 {btn.label}
               </button>
             ))}
@@ -1245,12 +1308,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   <button onClick={() => setMobileView('products')} className="md:hidden flex items-center gap-1 text-xs mr-1 px-2 py-1 rounded-lg hover:bg-white/5 transition-colors" style={{ color: POS_THEME.muted }}>
                     <ChevronLeft size={14} /><span>Products</span>
                   </button>
-                  <ShoppingBag size={14} style={{ color: cart.length > 0 ? '#a78bfa' : POS_THEME.muted }} />
+                  <ShoppingBag size={14} className="text-white" />
                   <span className="font-bold text-sm" style={{ color: POS_THEME.text }}>Cart ({cart.length})</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   {cart.length > 0 && (
-                    <button type="button" onClick={() => setCart([])} className="text-xs font-semibold text-red-400 hover:text-red-300">
+                    <button type="button" onClick={() => setCart([])} className="text-xs font-semibold text-white hover:text-white/80">
                       Clear Cart
                     </button>
                   )}
@@ -1279,25 +1342,25 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     })()}
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold truncate" style={{ color: POS_THEME.text }}>{item.name}</p>
-                      {item.imei && <p className="text-[10px] font-mono text-violet-400">IMEI: {item.imei}</p>}
+                      {item.imei && <p className="text-[10px] font-mono text-white/80">IMEI: {item.imei}</p>}
                       {editPriceId === item.cartId ? (
                         <div className="flex items-center gap-1 mt-0.5">
                           <input autoFocus type="number" min="0" className="w-20 bg-white/5 border border-violet-500/40 rounded px-1.5 py-0.5 text-xs text-white"
                             value={editPriceVal} onChange={e => setEditPriceVal(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') saveEditPrice(item.cartId); if (e.key === 'Escape') setEditPriceId(null) }} />
-                          <button onClick={() => saveEditPrice(item.cartId)} className="text-green-400"><Check size={11} /></button>
-                          <button onClick={() => setEditPriceId(null)} className="text-slate-500"><X size={11} /></button>
+                          <button onClick={() => saveEditPrice(item.cartId)} className="text-white"><Check size={11} /></button>
+                          <button onClick={() => setEditPriceId(null)} className="text-white/70"><X size={11} /></button>
                         </div>
                       ) : (
                         <button onClick={() => { setEditPriceId(item.cartId); setEditPriceVal(String(item.price)) }}
                           className="flex items-center gap-0.5 text-[10px] hover:text-violet-400 transition-colors" style={{ color: POS_THEME.muted }}>
-                          {formatCurrency(item.price)} each {item.price !== item.originalPrice && <span className="text-green-400">✓</span>}
+                          {formatCurrency(item.price)} each {item.price !== item.originalPrice && <span className="text-white">✓</span>}
                           <Edit2 size={9} className="ml-0.5" />
                         </button>
                       )}
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      <button onClick={() => updateQty(item.cartId, -1)} className="w-6 h-6 rounded-md bg-white/5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 flex items-center justify-center transition-colors"><Minus size={10} /></button>
+                      <button onClick={() => updateQty(item.cartId, -1)} className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 text-white flex items-center justify-center transition-colors"><Minus size={10} /></button>
                       <input
                         type="number"
                         min="1"
@@ -1307,11 +1370,11 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         className="w-8 h-6 text-center text-xs font-bold rounded border focus:outline-none focus:border-violet-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
                         style={{ color: POS_THEME.text, background: '#0c1220', borderColor: POS_THEME.border }}
                       />
-                      <button onClick={() => updateQty(item.cartId, 1)} className="w-6 h-6 rounded-md bg-white/5 hover:bg-green-500/20 text-slate-400 hover:text-green-400 flex items-center justify-center transition-colors"><Plus size={10} /></button>
+                      <button onClick={() => updateQty(item.cartId, 1)} className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 text-white flex items-center justify-center transition-colors"><Plus size={10} /></button>
                     </div>
                     <span className="text-xs font-bold w-16 text-right flex-shrink-0" style={{ color: POS_THEME.text }}>{formatCurrency(item.price * item.quantity)}</span>
                     <button onClick={() => setCart(prev => prev.filter(i => i.cartId !== item.cartId))}
-                      className="w-5 h-5 rounded flex items-center justify-center text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"><X size={11} /></button>
+                      className="w-5 h-5 rounded flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"><X size={11} /></button>
                   </div>
                 ))}
               </div>
@@ -1319,6 +1382,34 @@ function POSContent({ onClose }: { onClose: () => void }) {
               {/* Cart Footer */}
               {cart.length > 0 && (
                 <div className="p-4 border-t flex-shrink-0 space-y-3" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
+                  {/* Customer — change anytime during checkout */}
+                  <div className="relative rounded-xl border p-2.5" style={{ borderColor: needsCustomerForPartial ? 'rgba(245,158,11,.5)' : POS_THEME.border, background: POS_THEME.card }}>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(124,58,237,0.25)' }}>
+                          <User size={14} className="text-white" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] text-white/60">Customer</p>
+                          <p className="text-xs font-bold truncate text-white">{selectedCustomer ? selectedCustomer.name : 'Walk-in Customer'}</p>
+                          {selectedCustomer?.phone && <p className="text-[10px] text-white/60 truncate">{selectedCustomer.phone}</p>}
+                        </div>
+                      </div>
+                      <button type="button" onClick={() => { setShowCartCustDrop(o => !o); setShowCustDrop(false); setCustSearch('') }}
+                        className="shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-bold border text-white hover:bg-white/5"
+                        style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
+                        Change
+                      </button>
+                    </div>
+                    {showCartCustDrop && (
+                      <div className="absolute left-2 right-2 top-full mt-1 z-[60] rounded-2xl shadow-2xl overflow-hidden border" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
+                        {renderCustomerList(true)}
+                      </div>
+                    )}
+                    {needsCustomerForPartial && (
+                      <p className="text-[10px] text-amber-300 mt-2">Partial amount entered — select a customer to continue</p>
+                    )}
+                  </div>
                   <div className="flex justify-between text-sm" style={{ color: POS_THEME.muted }}>
                     <span>Subtotal ({cart.length} item{cart.length !== 1 ? 's' : ''})</span>
                     <span style={{ color: POS_THEME.text }}>{formatCurrency(subtotal)}</span>
@@ -1326,17 +1417,17 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   <div className="flex items-center gap-2">
                     <span className="text-sm flex-1" style={{ color: POS_THEME.muted }}>Discount</span>
                     <input type="number" min="0" placeholder="0.00"
-                      className="w-20 text-sm text-center py-1 h-8 rounded-lg border outline-none focus:border-violet-500/50"
-                      style={{ background: '#0c1220', borderColor: POS_THEME.border, color: POS_THEME.text }}
+                      className="w-20 text-sm text-center py-1 h-8 rounded-lg border outline-none focus:border-violet-500/50 text-white placeholder:text-white/50"
+                      style={{ background: '#0c1220', borderColor: POS_THEME.border }}
                       value={discountMode === '%' ? (discountPct || '') : (discountFlat || '')}
                       onChange={e => discountMode === '%' ? setDiscountPct(Math.min(100, Number(e.target.value))) : setDiscountFlat(Number(e.target.value))} />
                     <div className="flex rounded-lg border overflow-hidden text-[10px] font-bold flex-shrink-0" style={{ borderColor: POS_THEME.border }}>
-                      <button onClick={() => setDiscountMode('%')} className={`px-2.5 py-1.5 transition-colors ${discountMode === '%' ? 'bg-violet-500/20 text-violet-300' : 'text-slate-500 hover:text-white'}`}>%</button>
-                      <button onClick={() => setDiscountMode('flat')} className={`px-2.5 py-1.5 transition-colors ${discountMode === 'flat' ? 'bg-violet-500/20 text-violet-300' : 'text-slate-500 hover:text-white'}`}>Rs</button>
+                      <button onClick={() => setDiscountMode('%')} className={`px-2.5 py-1.5 transition-colors text-white ${discountMode === '%' ? 'bg-violet-500/20' : 'hover:bg-white/5'}`}>%</button>
+                      <button onClick={() => setDiscountMode('flat')} className={`px-2.5 py-1.5 transition-colors text-white ${discountMode === 'flat' ? 'bg-violet-500/20' : 'hover:bg-white/5'}`}>Rs</button>
                     </div>
                   </div>
                   {discountAmount > 0 && (
-                    <div className="flex justify-between text-xs text-green-400">
+                    <div className="flex justify-between text-xs text-white">
                       <span>Saving</span><span>-{formatCurrency(discountAmount)}</span>
                     </div>
                   )}
@@ -1344,9 +1435,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     <div className="rounded-xl border p-2.5" style={{ borderColor: includeOutstanding ? 'rgba(239,68,68,.4)' : POS_THEME.border, background: includeOutstanding ? 'rgba(239,68,68,.06)' : POS_THEME.card }}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
-                          <CreditCard size={13} className="text-red-400" />
-                          <span className="text-xs font-semibold" style={{ color: POS_THEME.text }}>Pay old balance</span>
-                          <span className="text-[10px] font-bold text-red-400">{formatCurrency(customerOutstanding)}</span>
+                          <CreditCard size={13} className="text-white" />
+                          <span className="text-xs font-semibold text-white">Pay old balance</span>
+                          <span className="text-[10px] font-bold text-white">{formatCurrency(customerOutstanding)}</span>
                         </div>
                         <button onClick={() => setIncludeOutstanding(p => !p)}
                           className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
@@ -1355,7 +1446,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         </button>
                       </div>
                       {includeOutstanding && (
-                        <div className="mt-2 text-[10px] text-red-400">Collect with this checkout</div>
+                        <div className="mt-2 text-[10px] text-white">Collect with this checkout</div>
                       )}
                     </div>
                   )}
@@ -1373,26 +1464,24 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         <span className="text-[10px]" style={{ color: POS_THEME.muted }}>Bill {formatCurrency(saleTotal)}</span>
                       </div>
                       <input
+                        ref={payNowRef}
                         type="number"
                         min="0"
                         max={saleTotal}
                         step="0.01"
                         value={amountPaying}
-                        disabled={!creditMode}
                         onChange={e => setAmountPaying(e.target.value)}
-                        placeholder={creditMode ? 'Amount customer pays' : 'Select customer first'}
-                        className="w-full px-3 py-2 rounded-lg text-sm font-bold border outline-none focus:border-amber-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        style={{ background: '#0c1220', borderColor: POS_THEME.border, color: POS_THEME.text }}
+                        placeholder="Amount customer pays now"
+                        className="w-full px-3 py-2 rounded-lg text-sm font-bold border outline-none focus:border-violet-500/50 text-white placeholder:text-white/50"
+                        style={{ background: '#0c1220', borderColor: POS_THEME.border }}
                       />
-                      {!creditMode && (
-                        <p className="text-[10px] text-amber-400 leading-snug">
-                          Top-right eke <strong>Walk-in</strong> badala registered customer ekak select karanna — eken pasu me field active wenawa.
-                        </p>
-                      )}
+                      <p className="text-[10px] text-white/60 leading-snug">
+                        Full payment: enter bill total. Partial payment: enter amount and select customer above for credit balance.
+                      </p>
                       {creditMode && saleDueAmount > 0 && (
                         <div className="flex justify-between text-[11px]">
-                          <span className="text-amber-400">Added to customer credit</span>
-                          <span className="font-bold text-amber-400">{formatCurrency(saleDueAmount)}</span>
+                          <span className="text-white">Added to customer credit</span>
+                          <span className="font-bold text-white">{formatCurrency(saleDueAmount)}</span>
                         </div>
                       )}
                     </div>
@@ -1403,7 +1492,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       {!creditMode && (
                         <button onClick={() => { setManualTotalMode(!manualTotalMode); if (!manualTotalMode) setManualTotal(String(calculatedTotal)) }}
                           className="text-[10px] px-2 py-0.5 rounded border transition-colors"
-                          style={{ borderColor: manualTotalMode ? 'rgba(139,92,246,.4)' : POS_THEME.border, background: manualTotalMode ? 'rgba(139,92,246,.1)' : 'transparent', color: manualTotalMode ? '#a78bfa' : POS_THEME.muted }}>
+                          style={{ borderColor: manualTotalMode ? 'rgba(139,92,246,.4)' : POS_THEME.border, background: manualTotalMode ? 'rgba(139,92,246,.1)' : 'transparent', color: '#ffffff' }}>
                           {manualTotalMode ? 'Auto' : 'Edit'}
                         </button>
                       )}
@@ -1419,7 +1508,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         style={{ color: POS_THEME.text }}
                       />
                     ) : (
-                      <span className="text-2xl font-extrabold" style={{ background: 'linear-gradient(135deg,#a78bfa,#7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{formatCurrency(saleTotal)}</span>
+                      <span className="text-2xl font-extrabold text-white">{formatCurrency(saleTotal)}</span>
                     )}
                   </div>
                   {creditMode && collectAtCheckout !== saleTotal && (
@@ -1432,10 +1521,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   <div className="rounded-xl border p-2.5" style={{ borderColor: addWarranty ? 'rgba(245,158,11,.4)' : POS_THEME.border, background: addWarranty ? 'rgba(245,158,11,.06)' : POS_THEME.card, opacity: !selectedCustomer ? 0.5 : 1 }}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
-                        <Shield size={13} className="text-amber-400" />
-                        <span className="text-xs font-semibold" style={{ color: POS_THEME.text }}>Add Warranty</span>
-                        {addWarranty && selectedCustomer && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/15 text-amber-400">{warrantyMonths < 12 ? `${warrantyMonths}mo` : `${warrantyMonths/12}yr`}</span>}
-                        {!selectedCustomer && <span className="text-[9px] text-slate-500">Select customer first</span>}
+                        <Shield size={13} className="text-white" />
+                        <span className="text-xs font-semibold text-white">Add Warranty</span>
+                        {addWarranty && selectedCustomer && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-white/10 text-white">{warrantyMonths < 12 ? `${warrantyMonths}mo` : `${warrantyMonths/12}yr`}</span>}
+                        {!selectedCustomer && <span className="text-[9px] text-white/60">Select customer first</span>}
                       </div>
                       <button onClick={() => { if (selectedCustomer) setAddWarranty(p => !p) }}
                         className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
@@ -1449,8 +1538,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
                           <button key={m} onClick={() => setWarrantyMonths(m)}
                             className="py-1.5 rounded-lg text-[10px] font-bold border transition-all"
                             style={warrantyMonths === m
-                              ? { background: 'rgba(245,158,11,.2)', borderColor: 'rgba(245,158,11,.45)', color: '#fbbf24' }
-                              : { background: 'transparent', borderColor: POS_THEME.border, color: POS_THEME.muted }}>
+                              ? { background: 'rgba(255,255,255,.12)', borderColor: 'rgba(255,255,255,.25)', color: '#ffffff' }
+                              : { background: 'transparent', borderColor: POS_THEME.border, color: '#ffffff' }}>
                             {m < 12 ? `${m} mo` : `${m/12} yr`}
                           </button>
                         ))}
@@ -1460,20 +1549,20 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   {/* Payment method */}
                   <div className="grid grid-cols-3 gap-1.5">
                     {([
-                      { method: 'CASH' as const, label: 'Cash',   Icon: Banknote,   active: { background: 'rgba(34,197,94,.15)',  borderColor: 'rgba(34,197,94,.35)',  color: '#4ade80' } },
-                      { method: 'CARD' as const, label: 'Card',   Icon: CreditCard, active: { background: 'rgba(59,130,246,.15)', borderColor: 'rgba(59,130,246,.35)', color: '#60a5fa' } },
-                      { method: 'UPI'  as const, label: 'Bank Transfer', Icon: Banknote, active: { background: 'rgba(30,58,138,.25)', borderColor: 'rgba(59,130,246,.35)', color: '#93c5fd' } },
+                      { method: 'CASH' as const, label: 'Cash',   Icon: Banknote,   active: { background: 'rgba(34,197,94,.15)',  borderColor: 'rgba(34,197,94,.35)',  color: '#ffffff' } },
+                      { method: 'CARD' as const, label: 'Card',   Icon: CreditCard, active: { background: 'rgba(59,130,246,.15)', borderColor: 'rgba(59,130,246,.35)', color: '#ffffff' } },
+                      { method: 'UPI'  as const, label: 'Bank Transfer', Icon: Banknote, active: { background: 'rgba(30,58,138,.25)', borderColor: 'rgba(59,130,246,.35)', color: '#ffffff' } },
                     ]).map(({ method, label, Icon: MI, active }) => (
                       <button key={method} onClick={() => setPaymentMethod(method)}
-                        className="flex flex-col items-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold transition-all"
+                        className="flex flex-col items-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold transition-all text-white"
                         style={paymentMethod === method
                           ? { ...active, border: `1px solid ${active.borderColor}` }
-                          : { background: POS_THEME.card, border: `1px solid ${POS_THEME.border}`, color: POS_THEME.muted, opacity: 0.85 }}>
+                          : { background: POS_THEME.card, border: `1px solid ${POS_THEME.border}`, color: '#ffffff', opacity: 0.85 }}>
                         <MI size={15} />{label}
                       </button>
                     ))}
                   </div>
-                  {checkoutError && <p className="text-xs text-red-400 text-center">{checkoutError}</p>}
+                  {checkoutError && <p className="text-xs text-white text-center">{checkoutError}</p>}
                   <button type="button" onClick={handleCheckout} disabled={checkoutLoading}
                     className="w-full flex items-center justify-center gap-2 px-5 py-4 rounded-2xl text-white font-bold text-base transition-all disabled:opacity-60"
                     style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: checkoutLoading ? 'none' : '0 8px 28px rgba(124,58,237,.45)' }}>
@@ -1482,13 +1571,13 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   </button>
                   <div className="grid grid-cols-3 gap-1.5">
                     <button type="button" onClick={() => cart.length > 0 ? setShowDocPreview('DRAFT') : toast.error('Add items to cart first')}
-                      className="flex flex-col items-center gap-0.5 py-2 rounded-xl border text-center text-[10px]" style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
+                      className="flex flex-col items-center gap-0.5 py-2 rounded-xl border text-center text-[10px] text-white" style={{ borderColor: POS_THEME.border }}>
                       <PrinterIcon size={12} /><span>Print (F6)</span>
                     </button>
-                    <button type="button" onClick={() => toast('WhatsApp receipt — coming soon')} className="flex flex-col items-center gap-0.5 py-2 rounded-xl border text-center text-[10px]" style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
+                    <button type="button" onClick={shareWhatsApp} className="flex flex-col items-center gap-0.5 py-2 rounded-xl border text-center text-[10px] text-white" style={{ borderColor: POS_THEME.border }}>
                       <MessageCircle size={12} /><span>WhatsApp (F7)</span>
                     </button>
-                    <button type="button" onClick={holdCart} className="flex flex-col items-center gap-0.5 py-2 rounded-xl border text-center text-[10px]" style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
+                    <button type="button" onClick={holdCart} className="flex flex-col items-center gap-0.5 py-2 rounded-xl border text-center text-[10px] text-white" style={{ borderColor: POS_THEME.border }}>
                       <Archive size={12} /><span>Hold (F4)</span>
                     </button>
                   </div>
@@ -1496,14 +1585,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     <div className="flex items-center justify-between p-3 rounded-xl border transition-colors" style={{ borderColor: POS_THEME.border, background: POS_THEME.card }}>
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-xl bg-violet-500/10 border border-violet-500/15 flex items-center justify-center flex-shrink-0">
-                          <Gift size={14} className="text-violet-400" />
+                          <Gift size={14} className="text-white" />
                         </div>
                         <div>
                           <p className="text-xs font-semibold" style={{ color: POS_THEME.text }}>Loyalty Points</p>
                           <p className="text-[10px]" style={{ color: POS_THEME.muted }}>Available Points: {(selectedCustomer as any).loyaltyPoints ?? 0}</p>
                         </div>
                       </div>
-                      <ChevronRight size={13} className="text-slate-500 flex-shrink-0" />
+                      <ChevronRight size={13} className="text-white/70 flex-shrink-0" />
                     </div>
                   )}
                 </div>
