@@ -28,7 +28,7 @@ export function OpenPosButton({
       ? 'btn-primary'
       : variant === 'secondary'
         ? 'btn-secondary'
-        : 'flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90 shadow-sm'
+        : 'btn-accent flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90 shadow-sm'
 
   const style =
     variant === 'ghost'

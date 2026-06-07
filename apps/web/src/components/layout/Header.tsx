@@ -94,7 +94,7 @@ export default function Header({ onMenuToggle, sidebarOpen }: HeaderProps) {
           <button
             onClick={() => openPos()}
             title="Open POS (F2)"
-            className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90 shadow-sm"
+            className="btn-accent flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90 shadow-sm"
             style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)' }}
           >
             <ShoppingCart size={14} />
