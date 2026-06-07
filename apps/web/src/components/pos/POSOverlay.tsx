@@ -814,10 +814,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const saleDueAmount = creditMode && payNowForSale < saleTotal ? Math.max(0, saleTotal - payNowForSale) : 0
   const needsCustomerForPartial = hasCustomerCredit && payNowForSale < saleTotal && !selectedCustomer?.id
   const collectAtCheckout = payNowForSale + (settleOldOutstanding ? customerOutstanding : 0)
-  const cashReceivedAmount = !creditMode && paymentMethod === 'CASH'
+  const cashReceivedAmount = paymentMethod === 'CASH'
     ? (parseFloat(customerPaid) || collectAtCheckout)
     : payNowForSale
-  const changeAmount = !creditMode && paymentMethod === 'CASH'
+  const changeAmount = paymentMethod === 'CASH'
     ? Math.max(0, cashReceivedAmount - collectAtCheckout)
     : 0
 
@@ -846,13 +846,15 @@ function POSContent({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     if (saleTotal !== prevSaleTotalRef.current) {
       setAmountPaying(saleTotal > 0 ? saleTotal.toFixed(2) : '')
-      if (!creditMode && paymentMethod === 'CASH') {
-        const amt = collectAtCheckout > 0 ? collectAtCheckout : saleTotal
-        setCustomerPaid(amt > 0 ? amt.toFixed(2) : '')
-      }
       prevSaleTotalRef.current = saleTotal
     }
-  }, [saleTotal, collectAtCheckout, creditMode, paymentMethod])
+  }, [saleTotal])
+
+  useEffect(() => {
+    if (paymentMethod !== 'CASH') return
+    const amt = collectAtCheckout > 0 ? collectAtCheckout : saleTotal
+    setCustomerPaid(amt > 0 ? amt.toFixed(2) : '')
+  }, [paymentMethod, collectAtCheckout, saleTotal])
 
   const selectCustomer = useCallback(async (c: any | null) => {
     setShowCustDrop(false)
@@ -888,47 +890,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
     window.open(`https://wa.me/${phone.startsWith('94') ? phone : '94' + phone.replace(/^0/, '')}?text=${text}`, '_blank')
   }, [selectedCustomer, completedSale, saleTotal])
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'F1') { e.preventDefault(); searchRef.current?.focus(); searchRef.current?.select() }
-      if (e.key === 'F2') { e.preventDefault(); setShowCartCustDrop(true); setCustSearch('') }
-      if (e.key === 'F3') {
-        e.preventDefault()
-        if (cart.length > 0 && !checkoutLoading && !completedSale) {
-          if (cartView === 'items') setCartView('checkout')
-          else handleCheckout()
-        }
-      }
-      if (e.key === 'F4') { e.preventDefault(); handleHoldSales() }
-      if (e.key === 'F5') {
-        e.preventDefault()
-        if (completedSale) printThermalReceipt({ invoiceNumber: completedSale.invoiceNumber, createdAt: completedSale.createdAt, customerName: completedSale.customerName, customerPhone: completedSale.customerPhone, items: completedSale.items ?? [], subtotal, discountAmount, total: completedSale.total ?? saleTotal, paymentMethod: completedSale.paymentMethod, cashReceived: completedSale.cashReceived, changeAmount: completedSale.changeAmount, warrantyNumbers: completedSale.warrantyNumbers, warrantyMonths: completedSale.warrantyMonths }, invoiceSettings)
-      }
-      if (e.key === 'F6') { e.preventDefault(); setShowHeldCarts(true) }
-      if (e.key === 'F7') { e.preventDefault(); if (cart.length > 0) setShowDocPreview('QUOTE'); else toast.error('Cart is empty') }
-      if (e.key === 'F8') { e.preventDefault(); if (cart.length > 0) setShowDocPreview('DRAFT'); else toast.error('Cart is empty') }
-      if (e.key === 'F9') {
-        e.preventDefault()
-        if (cart.length > 0 && !checkoutLoading && !completedSale) {
-          if (cartView === 'items') setCartView('checkout')
-          else handleCheckout()
-        }
-      }
-      if (e.key === 'F10') { e.preventDefault(); handleNewSale() }
-      if (e.key === 'F12') { e.preventDefault(); setShowCalc(p => !p) }
-      if (e.ctrlKey && e.key === 'Enter') {
-        e.preventDefault()
-        if (cart.length > 0 && !checkoutLoading && !completedSale) {
-          if (cartView === 'items') setCartView('checkout')
-          else handleCheckout()
-        }
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cart, checkoutLoading, completedSale, shareWhatsApp])
-
   const handleCheckout = async () => {
     if (cart.length === 0) return
     if (addWarranty && !selectedCustomer) {
@@ -944,15 +905,16 @@ function POSContent({ onClose }: { onClose: () => void }) {
       setCheckoutError('Use "Paying now" for partial payment — do not use Edit total')
       return
     }
-    if (!creditMode && paymentMethod === 'CASH') {
+    if (paymentMethod === 'CASH') {
       const paid = parseFloat(customerPaid) || 0
-      if (paid < collectAtCheckout) {
+      if (paid + 0.001 < collectAtCheckout) {
         setCheckoutError('Customer paid amount is less than total')
         return
       }
     }
     setCheckoutLoading(true)
     setCheckoutError('')
+    const settledOutstanding = settleOldOutstanding ? customerOutstanding : 0
     try {
       const user = authStorage.getUser()
       const payments: { method: string; amount: number }[] = []
@@ -984,16 +946,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
       })
       // ── Settle previous outstanding (separate from this sale) ──
       if (settleOldOutstanding && selectedCustomer && customerOutstanding > 0) {
-        try {
-          await customersApi.creditPayment(selectedCustomer.id, {
-            amount: customerOutstanding,
-            paymentMethod,
-            branchId: user?.branchIds?.[0] || '',
-            performedBy: user?.name || 'system',
-          })
-        } catch (e) {
-          console.error('Failed to apply credit payment:', e)
-        }
+        await customersApi.creditPayment(selectedCustomer.id, {
+          amount: customerOutstanding,
+          paymentMethod,
+          branchId: user?.branchIds?.[0] || '',
+          performedBy: user?.name || 'system',
+        })
       }
       // ── Create warranties if user opted in ──
       const createdWarrantyCodes: string[] = []
@@ -1043,12 +1001,15 @@ function POSContent({ onClose }: { onClose: () => void }) {
       }
       if (saleDueAmount > 0) {
         toast.success(`${formatCurrency(saleDueAmount)} added to customer credit`, { icon: '📋' })
-        if (selectedCustomer?.id) {
-          setSelectedCustomer({
-            ...selectedCustomer,
-            totalDue: (selectedCustomer.totalDue ?? 0) + saleDueAmount,
-          })
-        }
+      }
+      if (settledOutstanding > 0) {
+        toast.success(`Old balance ${formatCurrency(settledOutstanding)} settled`, { icon: '✓' })
+      }
+      if (selectedCustomer?.id) {
+        let newDue = selectedCustomer.totalDue ?? 0
+        if (settledOutstanding > 0) newDue = Math.max(0, newDue - settledOutstanding)
+        if (saleDueAmount > 0) newDue += saleDueAmount
+        setSelectedCustomer({ ...selectedCustomer, totalDue: newDue })
       }
       refetchProducts()
       window.dispatchEvent(new CustomEvent('pos:sale-complete'))
@@ -1075,6 +1036,84 @@ function POSContent({ onClose }: { onClose: () => void }) {
       setCheckoutLoading(false)
     }
   }
+
+  useEffect(() => {
+    const isTyping = () => {
+      const el = document.activeElement as HTMLElement | null
+      if (!el) return false
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') return true
+      return el.isContentEditable
+    }
+    const goCheckout = () => {
+      if (cart.length > 0 && !checkoutLoading && !completedSale) {
+        if (cartView === 'items') {
+          setCartView('checkout')
+          setTimeout(() => payNowRef.current?.focus(), 80)
+        } else void handleCheckout()
+      }
+    }
+    const handler = (e: KeyboardEvent) => {
+      const fnKey = /^F([1-9]|1[0-2])$/.test(e.key)
+
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        if (showRecentInvoices) setShowRecentInvoices(false)
+        else if (showHeldCarts) setShowHeldCarts(false)
+        else if (showCalc) setShowCalc(false)
+        else if (showReturnModal) setShowReturnModal(false)
+        else if (showDocPreview) setShowDocPreview(null)
+        else if (showMoreMenu) setShowMoreMenu(false)
+        else if (showFilters) setShowFilters(false)
+        else if (showOpeningCash) setShowOpeningCash(false)
+        else if (showCashFlow) setShowCashFlow(false)
+        else if (showCartCustDrop || showCustDrop) { setShowCartCustDrop(false); setShowCustDrop(false) }
+        else if (cartView === 'checkout' && !completedSale) setCartView('items')
+        return
+      }
+
+      if (fnKey || (e.ctrlKey && e.key === 'Enter')) {
+        if (e.key === 'F1') { e.preventDefault(); searchRef.current?.focus(); searchRef.current?.select() }
+        if (e.key === 'F2') { e.preventDefault(); setShowCartCustDrop(true); setCustSearch('') }
+        if (e.key === 'F3') { e.preventDefault(); goCheckout() }
+        if (e.key === 'F4') { e.preventDefault(); handleHoldSales() }
+        if (e.key === 'F5') {
+          e.preventDefault()
+          if (completedSale) printThermalReceipt({ invoiceNumber: completedSale.invoiceNumber, createdAt: completedSale.createdAt, customerName: completedSale.customerName, customerPhone: completedSale.customerPhone, items: completedSale.items ?? [], subtotal, discountAmount, total: completedSale.total ?? saleTotal, paymentMethod: completedSale.paymentMethod, cashReceived: completedSale.cashReceived, changeAmount: completedSale.changeAmount, warrantyNumbers: completedSale.warrantyNumbers, warrantyMonths: completedSale.warrantyMonths }, invoiceSettings)
+        }
+        if (e.key === 'F6') { e.preventDefault(); setShowHeldCarts(true) }
+        if (e.key === 'F7') { e.preventDefault(); if (cart.length > 0) setShowDocPreview('QUOTE'); else toast.error('Cart is empty') }
+        if (e.key === 'F8') { e.preventDefault(); if (cart.length > 0) setShowDocPreview('DRAFT'); else toast.error('Cart is empty') }
+        if (e.key === 'F9') { e.preventDefault(); goCheckout() }
+        if (e.key === 'F10') { e.preventDefault(); handleNewSale() }
+        if (e.key === 'F12') { e.preventDefault(); setShowCalc(p => !p) }
+        if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); goCheckout() }
+        return
+      }
+
+      if (isTyping()) return
+
+      if (cartView === 'checkout' && !completedSale && cart.length > 0) {
+        if (e.key === '1') { e.preventDefault(); setPaymentMethod('CASH') }
+        if (e.key === '2') { e.preventDefault(); setPaymentMethod('CARD') }
+        if (e.key === '3') { e.preventDefault(); setPaymentMethod('UPI') }
+        if (e.key === 'Enter') { e.preventDefault(); void handleCheckout() }
+        if (e.key === 'o' || e.key === 'O') {
+          if (selectedCustomer && customerOutstanding > 0) {
+            e.preventDefault()
+            setIncludeOutstanding(p => !p)
+          }
+        }
+      }
+
+      if (cartView === 'items' && cart.length > 0 && (e.key === 'c' || e.key === 'C') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault()
+        setCartView('checkout')
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart, cartView, checkoutLoading, completedSale, selectedCustomer, customerOutstanding, subtotal, discountAmount, saleTotal, invoiceSettings])
 
   const buildA4Data = (): InvoiceData | null => {
     if (!completedSale) return null
@@ -1852,6 +1891,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         </div>
                         <button onClick={() => setIncludeOutstanding(p => !p)}
                           className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
+                          title="Keyboard: O"
                           style={{ background: includeOutstanding ? POS_THEME.red : POS_THEME.border }}>
                           <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left: includeOutstanding ? '18px' : '2px' }} />
                         </button>
@@ -1861,13 +1901,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       )}
                     </div>
                   )}
-                  {hasCustomerCredit && saleTotal > 0 && (
+                  {hasCustomerCredit && selectedCustomer && saleTotal > 0 && (
                     <div
                       className="rounded-xl border p-2.5 space-y-2"
                       style={{
                         borderColor: saleDueAmount > 0 ? `${POS_THEME.amber}80` : POS_THEME.border,
                         background: saleDueAmount > 0 ? `${POS_THEME.amber}0D` : POS_THEME.card,
-                        opacity: creditMode ? 1 : 0.85,
                       }}
                     >
                       <div className="flex items-center justify-between">
@@ -1919,7 +1958,13 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       <span className="pos-price text-2xl font-extrabold">{formatCurrency(saleTotal)}</span>
                     )}
                   </div>
-                  {creditMode && collectAtCheckout !== saleTotal && (
+                  {includeOutstanding && customerOutstanding > 0 && (
+                    <div className="flex justify-between text-xs">
+                      <span style={{ color: POS_THEME.muted }}>Total collecting (bill + old balance)</span>
+                      <span className="font-bold" style={{ color: POS_THEME.text }}>{formatCurrency(collectAtCheckout)}</span>
+                    </div>
+                  )}
+                  {!includeOutstanding && creditMode && collectAtCheckout !== saleTotal && (
                     <div className="flex justify-between text-xs" style={{ color: POS_THEME.muted }}>
                       <span>Collecting now</span>
                       <span className="font-bold" style={{ color: POS_THEME.text }}>{formatCurrency(collectAtCheckout)}</span>
@@ -1962,11 +2007,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     ]).map(({ method, label, Icon: MI, active }) => (
                       <button key={method} type="button" onClick={() => {
                         setPaymentMethod(method)
-                        if (method === 'CASH' && !creditMode) {
+                        if (method === 'CASH') {
                           setCustomerPaid(collectAtCheckout > 0 ? collectAtCheckout.toFixed(2) : '')
                         }
                       }}
                         className="flex flex-col items-center gap-1 py-2 rounded-xl text-[11px] font-semibold border transition-all"
+                        title={method === 'CASH' ? 'Key: 1' : method === 'CARD' ? 'Key: 2' : 'Key: 3'}
                         style={paymentMethod === method
                           ? { ...active, border: `1px solid ${active.borderColor}` }
                           : { background: POS_THEME.card, border: `1px solid ${POS_THEME.border}`, color: POS_THEME.muted }}>
@@ -1974,7 +2020,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       </button>
                     ))}
                   </div>
-                  {!creditMode && paymentMethod === 'CASH' && (
+                  {!selectedCustomer && paymentMethod === 'CASH' && (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-semibold" style={{ color: POS_THEME.text }}>Customer Paid</span>
@@ -2012,12 +2058,18 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       )}
                     </div>
                   )}
+                  {selectedCustomer && paymentMethod === 'CASH' && changeAmount > 0 && (
+                    <div className="rounded-xl border px-3 py-2.5 flex items-center justify-between" style={{ background: `${POS_THEME.green}15`, borderColor: `${POS_THEME.green}40` }}>
+                      <span className="text-xs font-semibold" style={{ color: POS_THEME.green }}>Change Return</span>
+                      <span className="text-lg font-extrabold" style={{ color: POS_THEME.green }}>{formatCurrency(changeAmount)}</span>
+                    </div>
+                  )}
                   {checkoutError && <p className="text-xs text-white text-center">{checkoutError}</p>}
                   <button type="button" onClick={handleCheckout} disabled={checkoutLoading}
                     className="w-full flex items-center justify-center gap-2 px-5 py-4 rounded-2xl text-white font-bold text-base transition-all disabled:opacity-60"
                     style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: checkoutLoading ? 'none' : '0 8px 28px rgba(124,58,237,.45)' }}>
                     {checkoutLoading ? <Loader2 size={18} className="animate-spin" /> : null}
-                    <span>{checkoutLoading ? 'Processing…' : `Pay Now (F3 / F9)`}</span>
+                    <span>{checkoutLoading ? 'Processing…' : `Pay Now (F3 / F9 / Enter)`}</span>
                   </button>
               </div>
               ) : null}

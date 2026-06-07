@@ -157,10 +157,14 @@ export function HexaPosLayout({
           {[
             ['F1', 'Search'],
             ['F2', 'Customer'],
-            ['F3', 'Pay Now'],
+            ['F3', 'Checkout / Pay'],
             ['F4', 'Hold Sale'],
             ['F6', 'Held Carts'],
             ['F10', 'New Sale'],
+            ['Esc', 'Back / Close'],
+            ['1 / 2 / 3', 'Pay method'],
+            ['O', 'Old balance'],
+            ['Enter', 'Pay now'],
           ].map(([key, label]) => (
             <div key={key} className="flex items-center justify-between text-[10px] px-1" style={{ color: C.muted }}>
               <span>{label}</span>
