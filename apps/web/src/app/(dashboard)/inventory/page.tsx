@@ -397,10 +397,13 @@ function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
 }
 
 function EditProductModal({ product, onClose, onSaved }: { product: Product; onClose: () => void; onSaved: () => void }) {
+  const { data: cats, refetch: refetchCats } = useCategories()
+  const categories: Category[] = (cats ?? []) as Category[]
+  const [showAddCat, setShowAddCat] = useState(false)
   const [form, setForm] = useState({
     name: product.name, sku: product.sku,
-    categoryName: (product as any).categoryName ?? '',
-    brandName: (product as any).brandName ?? '',
+    categoryName: product.categoryName ?? '',
+    brandName: product.brandName ?? '',
     buyingPrice: String(product.buyingPrice), sellingPrice: String(product.sellingPrice),
     stock: String(product.stock), minStock: String(product.minStock),
     imageUrl: product.imageUrl ?? '',
@@ -448,9 +451,20 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
             </div>
             <div className="col-span-2">
               <label className="block text-xs text-slate-400 mb-1.5">Category</label>
-              <select className="input-field" value={form.categoryName} onChange={f('categoryName')}>
-                {['Smartphones','Accessories','Tablets','Batteries','Screens','Chargers','Other'].map(c => <option key={c}>{c}</option>)}
-              </select>
+              <div className="flex gap-2">
+                <select className="input-field flex-1" value={form.categoryName} onChange={f('categoryName')}>
+                  {form.categoryName && !categories.some(c => c.name === form.categoryName) && (
+                    <option value={form.categoryName}>{form.categoryName}</option>
+                  )}
+                  {categories.map(c => <option key={c.id} value={c.name}>{c.icon ? `${c.icon} ` : ''}{c.name}</option>)}
+                </select>
+                <button type="button" onClick={() => setShowAddCat(true)}
+                  className="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors hover:bg-violet-500/10 hover:text-violet-500"
+                  style={{ border: '1px solid var(--border-default)', color: 'var(--text-muted)' }}
+                  title="Add new category">
+                  <Plus size={15} />
+                </button>
+              </div>
             </div>
             <div>
               <label className="block text-xs text-slate-400 mb-1.5">Buying Price (LKR)</label>
@@ -478,6 +492,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
           </div>
         </form>
       </div>
+      {showAddCat && <AddCategoryModal onClose={() => setShowAddCat(false)} onSaved={cat => { refetchCats(); setForm(p => ({ ...p, categoryName: cat.name })) }} />}
     </div>
   )
 }
