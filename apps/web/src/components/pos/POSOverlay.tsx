@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState, useRef, useCallback, useEffect } from 'react'
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Search, Plus, Minus, CreditCard, Banknote, Smartphone, Receipt,
@@ -9,9 +10,11 @@ import {
   FileText, FilePlus2, Calculator, SlidersHorizontal, Package, Tablet,
   Headphones, Wrench, PackageSearch, ShoppingBag, User, CheckCircle2, Shield,
   Menu, ShoppingCart, BarChart3, Bell, Wifi, Cloud, TrendingUp, MoreHorizontal,
-  Grid3X3, List as ListIcon, MessageCircle,
+  Grid3X3, List as ListIcon, MessageCircle, Star, RefreshCw, RotateCcw,
+  LayoutGrid, Hash, Wallet, ShoppingBag as ShopBagIcon, Settings, Users,
 } from 'lucide-react'
-import { HexaPosLayout, POS_THEME, categoryIcon } from './HexaPosLayout'
+import { HexaPosLayout, POS_THEME, categoryIcon, type PosNavItem } from './HexaPosLayout'
+import { PosReturnModal } from './PosReturnModal'
 import { useUIStore } from '@/stores/ui-store'
 import { useProducts, useFeatureFlag } from '@/lib/hooks'
 import { salesApi, customersApi, productsApi, imeiApi, warrantyApi, servicesApi, financeApi } from '@/lib/api'
@@ -21,6 +24,7 @@ import toast from 'react-hot-toast'
 import { getInvoiceSettings, fetchInvoiceSettings, type InvoiceSettings } from '@/lib/invoiceSettings'
 import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrint'
 import { printThermalReceipt } from '@/components/invoice/ThermalReceipt'
+import { whatsappApi } from '@/lib/whatsapp-api'
 
 interface CartItem {
   cartId: string
@@ -304,6 +308,7 @@ function RegisterCustomerModal({ onClose, onCreated }: { onClose: () => void; on
 
 /* ── Main POS Page ──────────────────────────────────────────────────────── */
 function POSContent({ onClose }: { onClose: () => void }) {
+  const router = useRouter()
   const { pendingCustomer, clearPendingCustomer } = useUIStore()
   const [cart, setCart]                         = useState<CartItem[]>([])
   const [search, setSearch]                     = useState('')
@@ -355,12 +360,25 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [cashFlowNote, setCashFlowNote]           = useState('')
   const [cashFlowLoading, setCashFlowLoading]     = useState(false)
   const [showMoreMenu, setShowMoreMenu]           = useState(false)
+  const [showReturnModal, setShowReturnModal]     = useState(false)
+  const [showFilters, setShowFilters]             = useState(false)
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
+  const [activeNavId, setActiveNavId]             = useState('products')
+  const [waSending, setWaSending]                 = useState(false)
   const [manualTotalMode, setManualTotalMode]     = useState(false)
   const [manualTotal, setManualTotal]             = useState('')
   const [customerOutstanding, setCustomerOutstanding] = useState(0)
   const [includeOutstanding, setIncludeOutstanding] = useState(false)
   const [amountPaying, setAmountPaying] = useState('')
   const hasCustomerCredit = useFeatureFlag('CUSTOMER_CREDIT')
+  const hasRepairs = useFeatureFlag('REPAIRS')
+  const hasIMEI = useFeatureFlag('IMEI')
+  const hasFinance = useFeatureFlag('FINANCE')
+  const hasReports = useFeatureFlag('REPORTS')
+  const hasWhatsApp = useFeatureFlag('WHATSAPP')
+  const hasDailyReload = useFeatureFlag('DAILY_RELOAD')
+  const hasSuppliers = useFeatureFlag('SUPPLIERS')
+  const hasServices = useFeatureFlag('SERVICES')
   const [mobileView, setMobileView]               = useState<'products' | 'cart'>('products')
   const [isDesktop, setIsDesktop]                 = useState(false)
   const [hideOutOfStock, setHideOutOfStock]       = useState(false)
@@ -616,7 +634,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
     }).catch(() => {})
   }, [])
 
-  const hasServices = useFeatureFlag('SERVICES')
   useEffect(() => {
     if (hasServices) {
       servicesApi.list({ active: 'true' }).then((res: any) => {
@@ -633,7 +650,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
       (p.sku ?? '').toLowerCase().includes(search.toLowerCase())
     const matchStock = !hideOutOfStock || (p.stock ?? 0) > 0
-    return matchCat && matchSearch && matchStock
+    const matchFav = !showFavoritesOnly || favorites.has(p.id)
+    return matchCat && matchSearch && matchStock && matchFav
   })
 
   const filteredServices = services.filter((s: any) => {
@@ -863,11 +881,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
       if (e.key === 'F5') {
         e.preventDefault()
         if (completedSale) printThermalReceipt({ invoiceNumber: completedSale.invoiceNumber, createdAt: completedSale.createdAt, customerName: completedSale.customerName, customerPhone: completedSale.customerPhone, items: completedSale.items ?? [], subtotal, discountAmount, total: completedSale.total ?? saleTotal, paymentMethod: completedSale.paymentMethod, cashReceived: completedSale.cashReceived, changeAmount: completedSale.changeAmount, warrantyNumbers: completedSale.warrantyNumbers, warrantyMonths: completedSale.warrantyMonths }, invoiceSettings)
-        else if (cart.length > 0) setShowDocPreview('DRAFT')
       }
-      if (e.key === 'F6') { e.preventDefault(); if (cart.length > 0) setShowDocPreview('DRAFT'); else toast.error('Cart is empty') }
-      if (e.key === 'F7') { e.preventDefault(); shareWhatsApp() }
-      if (e.key === 'F8') { e.preventDefault(); if (cart.length > 0) setShowDocPreview('QUOTE') }
+      if (e.key === 'F6') { e.preventDefault(); setShowHeldCarts(true) }
+      if (e.key === 'F7') { e.preventDefault(); if (cart.length > 0) setShowDocPreview('QUOTE'); else toast.error('Cart is empty') }
+      if (e.key === 'F8') { e.preventDefault(); if (cart.length > 0) setShowDocPreview('DRAFT'); else toast.error('Cart is empty') }
+      if (e.key === 'F9') {
+        e.preventDefault()
+        if (cart.length > 0 && !checkoutLoading && !completedSale) handleCheckout()
+      }
       if (e.key === 'F10') { e.preventDefault(); handleNewSale() }
       if (e.key === 'F12') { e.preventDefault(); setShowCalc(p => !p) }
       if (e.ctrlKey && e.key === 'Enter') {
@@ -1101,7 +1122,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
     prevSaleTotalRef.current = 0
     setShowCustDrop(false); setShowCartCustDrop(false)
     setShowRecentInvoices(false); setShowHeldCarts(false); setShowMoreMenu(false)
-    setShowOpeningCash(false); setShowCashFlow(false); setShowCalc(false)
+    setShowOpeningCash(false); setShowCashFlow(false); setShowCalc(false); setShowReturnModal(false); setShowFilters(false); setActiveNavId('products')
     toast.success('New sale started', { icon: '🛒', duration: 1500 })
   }
 
@@ -1115,10 +1136,65 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const syncTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
 
   const handleNavAction = useCallback((id: string) => {
+    setActiveNavId(id)
     if (id === 'products') return
+    if (id === 'sales') { openRecentSales(); return }
+    if (id === 'customers') { setShowCartCustDrop(true); setCustSearch(''); return }
+    if (id === 'imei') { setShowScanInput(true); return }
     if (id === 'cash') { setCashFlowMode('IN'); setShowCashFlow(true); return }
-    onClose()
-  }, [onClose])
+    if (id === 'returns') { setShowReturnModal(true); return }
+    const routes: Record<string, string> = {
+      repairs: '/dashboard/repairs',
+      purchase: '/purchase-invoice',
+      inventory: '/dashboard/inventory',
+      reports: '/dashboard/reports',
+      expenses: '/dashboard/expenses',
+      reload: '/dashboard/daily-reload',
+      settings: '/dashboard/settings',
+    }
+    if (routes[id]) {
+      onClose()
+      router.push(routes[id])
+    }
+  }, [onClose, router, openRecentSales])
+
+  const posNavItems = useMemo((): PosNavItem[] => {
+    const items: PosNavItem[] = [
+      { id: 'products', label: 'Products', icon: LayoutGrid },
+      { id: 'sales', label: 'Sales', icon: Receipt },
+      { id: 'customers', label: 'Customers', icon: Users },
+    ]
+    if (hasIMEI) items.push({ id: 'imei', label: 'IMEI / Serial', icon: Hash })
+    if (hasRepairs) items.push({ id: 'repairs', label: 'Repairs', icon: Wrench })
+    if (hasSuppliers) items.push({ id: 'purchase', label: 'Purchase', icon: ShopBagIcon })
+    items.push({ id: 'inventory', label: 'Inventory', icon: Package })
+    if (hasReports) items.push({ id: 'reports', label: 'Reports', icon: BarChart3 })
+    if (hasFinance) {
+      items.push({ id: 'expenses', label: 'Expenses', icon: Wallet })
+      items.push({ id: 'cash', label: 'Cash In/Out', icon: Wallet })
+    }
+    items.push({ id: 'returns', label: 'Returns', icon: RotateCcw })
+    if (hasDailyReload) items.push({ id: 'reload', label: 'Daily Reload', icon: RefreshCw })
+    items.push({ id: 'settings', label: 'Settings', icon: Settings })
+    return items
+  }, [hasIMEI, hasRepairs, hasSuppliers, hasReports, hasFinance, hasDailyReload])
+
+  const sendWhatsAppInvoice = useCallback(async () => {
+    if (!completedSale?.id) return
+    const phone = (completedSale.customerPhone ?? selectedCustomer?.phone ?? '').replace(/\D/g, '')
+    if (!phone) { toast.error('Customer phone required for WhatsApp invoice'); return }
+    const formatted = phone.startsWith('94') ? `+${phone}` : phone.startsWith('0') ? `+94${phone.slice(1)}` : `+94${phone}`
+    setWaSending(true)
+    try {
+      await whatsappApi.sendInvoice(completedSale.id, formatted)
+      toast.success('Invoice sent via WhatsApp')
+    } catch (e: any) {
+      toast.error(e.message || 'WhatsApp send failed — try manual share')
+      shareWhatsApp()
+    } finally {
+      setWaSending(false)
+    }
+  }, [completedSale, selectedCustomer, shareWhatsApp])
 
   const renderCustomerList = (autoFocus = false) => (
     <>
@@ -1215,7 +1291,41 @@ function POSContent({ onClose }: { onClose: () => void }) {
         onScanClick={() => setShowScanInput(true)}
         onBellClick={() => setShowHeldCarts(true)}
         onNavAction={handleNavAction}
+        navItems={posNavItems}
+        activeNavId={activeNavId}
         heldBadgeCount={heldCarts.length}
+        onFiltersClick={() => setShowFilters(v => !v)}
+        filtersActive={showFilters || hideOutOfStock || showFavoritesOnly}
+        filtersPanel={showFilters ? (
+          <div className="px-3 pb-2 flex flex-wrap items-center gap-4 border-b" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
+            <label className="flex items-center gap-2 text-[11px]" style={{ color: POS_THEME.muted }}>
+              Hide Out of Stock
+              <button type="button" onClick={() => setHideOutOfStock(v => !v)} className="relative w-9 h-5 rounded-full transition-all" style={{ background: hideOutOfStock ? POS_THEME.purple : POS_THEME.border }}>
+                <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left: hideOutOfStock ? '18px' : '2px' }} />
+              </button>
+            </label>
+            <label className="flex items-center gap-2 text-[11px]" style={{ color: POS_THEME.muted }}>
+              Favorites only
+              <button type="button" onClick={() => setShowFavoritesOnly(v => !v)} className="relative w-9 h-5 rounded-full transition-all" style={{ background: showFavoritesOnly ? POS_THEME.purple : POS_THEME.border }}>
+                <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left: showFavoritesOnly ? '18px' : '2px' }} />
+              </button>
+            </label>
+          </div>
+        ) : null}
+        toolbarActions={(
+          <>
+            <button type="button" onClick={openRecentSales} title="Recent Sales"
+              className="h-9 w-9 rounded-xl border flex items-center justify-center shrink-0 hover:bg-white/5"
+              style={{ borderColor: POS_THEME.border, background: POS_THEME.card }}>
+              <Receipt size={15} className="text-white" />
+            </button>
+            <button type="button" onClick={() => setShowCalc(true)} title="Calculator (F12)"
+              className="h-9 w-9 rounded-xl border flex items-center justify-center shrink-0 hover:bg-white/5"
+              style={{ borderColor: POS_THEME.border, background: POS_THEME.card }}>
+              <Calculator size={15} className="text-white" />
+            </button>
+          </>
+        )}
         imeiSlot={imeiSlot}
         customerSlot={customerSlot}
         categoryBar={(
@@ -1236,12 +1346,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
             <div className="ml-auto flex items-center gap-2 shrink-0">
               <button type="button" onClick={() => setGridView(true)} className="p-1.5 rounded-lg border text-white" style={{ borderColor: gridView ? POS_THEME.purple : POS_THEME.border }}><Grid3X3 size={14} /></button>
               <button type="button" onClick={() => setGridView(false)} className="p-1.5 rounded-lg border text-white" style={{ borderColor: !gridView ? POS_THEME.purple : POS_THEME.border }}><ListIcon size={14} /></button>
-              <label className="flex items-center gap-2 text-[11px] ml-2" style={{ color: POS_THEME.muted }}>
-                Hide Out of Stock
-                <button type="button" onClick={() => setHideOutOfStock(v => !v)} className="relative w-9 h-5 rounded-full transition-all" style={{ background: hideOutOfStock ? POS_THEME.purple : POS_THEME.border }}>
-                  <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left: hideOutOfStock ? '18px' : '2px' }} />
-                </button>
-              </label>
             </div>
           </div>
         )}
@@ -1468,7 +1572,15 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   {downloading ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
                   {downloading ? 'Generating PDF…' : 'Download Invoice PDF'}
                 </button>
-                <button onClick={handleNewSale} className="w-full py-3 rounded-2xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[.99]" style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: '0 4px 20px rgba(124,58,237,.4)' }}>+ New Sale</button>
+                {hasWhatsApp && (
+                  <button type="button" onClick={sendWhatsAppInvoice} disabled={waSending}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-semibold rounded-xl border transition-colors disabled:opacity-50"
+                    style={{ borderColor: `${POS_THEME.green}40`, background: `${POS_THEME.green}10`, color: POS_THEME.green }}>
+                    {waSending ? <Loader2 size={13} className="animate-spin" /> : <MessageCircle size={13} />}
+                    {waSending ? 'Sending…' : 'Send WhatsApp Invoice'}
+                  </button>
+                )}
+                <button onClick={handleNewSale} className="w-full py-3 rounded-2xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[.99]" style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: '0 4px 20px rgba(124,58,237,.4)' }}>+ New Sale (F10)</button>
               </div>
               {completedSale && (() => { const d = buildA4Data(); return d ? <div style={{ position: 'fixed', left: '-9999px', top: 0, width: 794, pointerEvents: 'none' }}><InvoicePrint ref={a4Ref} data={d} hideControls /></div> : null })()}
             </div>
@@ -1587,6 +1699,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     {needsCustomerForPartial && (
                       <p className="text-[10px] text-amber-300 mt-2">Partial amount entered — select a customer to continue</p>
                     )}
+                    {selectedCustomer && (selectedCustomer.loyaltyPoints ?? 0) > 0 && (
+                      <div className="mt-2 flex items-center gap-1.5 px-2 py-1.5 rounded-lg" style={{ background: `${POS_THEME.amber}15`, border: `1px solid ${POS_THEME.amber}33` }}>
+                        <Star size={11} style={{ color: POS_THEME.amber }} />
+                        <span className="text-[10px] font-bold text-white">{selectedCustomer.loyaltyPoints} loyalty points</span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex justify-between text-sm" style={{ color: POS_THEME.muted }}>
                     <span>Subtotal ({cart.length} item{cart.length !== 1 ? 's' : ''})</span>
@@ -1621,10 +1739,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       <span>Saving</span><span>-{formatCurrency(discountAmount)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-sm" style={{ color: POS_THEME.muted }}>
-                    <span>Tax (NPT 3%)</span>
-                    <span style={{ color: POS_THEME.text }}>{formatCurrency(tax)}</span>
-                  </div>
                   {hasCustomerCredit && selectedCustomer && customerOutstanding > 0 && (
                     <div className="rounded-xl border p-2.5" style={{ borderColor: includeOutstanding ? `${POS_THEME.red}66` : POS_THEME.border, background: includeOutstanding ? `${POS_THEME.red}10` : POS_THEME.card }}>
                       <div className="flex items-center justify-between">
@@ -1800,8 +1914,25 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     className="w-full flex items-center justify-center gap-2 px-5 py-4 rounded-2xl text-white font-bold text-base transition-all disabled:opacity-60"
                     style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: checkoutLoading ? 'none' : '0 8px 28px rgba(124,58,237,.45)' }}>
                     {checkoutLoading ? <Loader2 size={18} className="animate-spin" /> : null}
-                    <span>{checkoutLoading ? 'Processing…' : `Pay Now (F3)`}</span>
+                    <span>{checkoutLoading ? 'Processing…' : `Pay Now (F3 / F9)`}</span>
                   </button>
+                  <div className="grid grid-cols-3 gap-1.5 pt-1">
+                    <button type="button" onClick={handleHoldSales}
+                      className="flex flex-col items-center gap-1 py-2 rounded-xl text-[10px] font-semibold border transition-colors hover:bg-white/5"
+                      style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
+                      <Archive size={13} />Hold (F4)
+                    </button>
+                    <button type="button" onClick={() => cart.length > 0 ? setShowDocPreview('QUOTE') : toast.error('Cart is empty')}
+                      className="flex flex-col items-center gap-1 py-2 rounded-xl text-[10px] font-semibold border transition-colors hover:bg-white/5"
+                      style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
+                      <FileText size={13} />Quote (F7)
+                    </button>
+                    <button type="button" onClick={() => cart.length > 0 ? setShowDocPreview('DRAFT') : toast.error('Cart is empty')}
+                      className="flex flex-col items-center gap-1 py-2 rounded-xl text-[10px] font-semibold border transition-colors hover:bg-white/5"
+                      style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
+                      <FilePlus2 size={13} />Draft (F8)
+                    </button>
+                  </div>
                 </div>
               )}
             </>
@@ -1961,7 +2092,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
                 { label: 'Calculator (F12)', icon: Calculator, onClick: () => { setShowMoreMenu(false); setShowCalc(true) } },
                 { label: 'Open Cash Drawer', icon: Banknote, onClick: () => { setShowMoreMenu(false); openDrawer() } },
                 { label: 'Print Draft', icon: Printer, onClick: () => { setShowMoreMenu(false); cart.length > 0 ? setShowDocPreview('DRAFT') : toast.error('Cart is empty') } },
-                { label: 'WhatsApp Quote (F7)', icon: MessageCircle, onClick: () => { setShowMoreMenu(false); shareWhatsApp() } },
+                { label: 'Save Quote (F7)', icon: FileText, onClick: () => { setShowMoreMenu(false); cart.length > 0 ? setShowDocPreview('QUOTE') : toast.error('Cart is empty') } },
+                { label: 'Draft Invoice (F8)', icon: FilePlus2, onClick: () => { setShowMoreMenu(false); cart.length > 0 ? setShowDocPreview('DRAFT') : toast.error('Cart is empty') } },
+                { label: 'WhatsApp Share', icon: MessageCircle, onClick: () => { setShowMoreMenu(false); shareWhatsApp() } },
               ].map(({ label, icon: Icon, onClick }) => (
                 <button key={label} type="button" onClick={onClick}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-sm font-semibold text-white hover:bg-white/5 border"
@@ -1972,6 +2105,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
             </div>
           </div>
         </div>
+      )}
+
+      {showReturnModal && (
+        <PosReturnModal onClose={() => setShowReturnModal(false)} onDone={() => { refetchProducts(); setActiveNavId('products') }} />
       )}
 
       {/* ── Held Carts Modal ── */}

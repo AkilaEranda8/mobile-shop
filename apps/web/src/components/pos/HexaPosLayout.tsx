@@ -5,7 +5,7 @@ import {
   ShoppingCart, ScanLine, Bell, X, Smartphone, Headphones, Tablet,
   Laptop, Watch, Package, LayoutGrid, Receipt, Users, Hash, Wrench,
   ShoppingBag, BarChart3, Wallet, RotateCcw, Settings,
-  SlidersHorizontal, Grid3X3, List as ListIcon, ChevronDown,
+  SlidersHorizontal, type LucideIcon,
 } from 'lucide-react'
 
 const C = {
@@ -55,6 +55,8 @@ const NAV_ITEMS = [
   { id: 'settings', label: 'Settings', icon: Settings },
 ] as const
 
+export type PosNavItem = { id: string; label: string; icon: LucideIcon }
+
 interface HexaPosLayoutProps {
   shopName: string
   onClose: () => void
@@ -66,7 +68,13 @@ interface HexaPosLayoutProps {
   onScanClick: () => void
   onBellClick?: () => void
   onNavAction?: (id: string) => void
+  navItems?: PosNavItem[]
+  activeNavId?: string
   heldBadgeCount?: number
+  onFiltersClick?: () => void
+  filtersActive?: boolean
+  filtersPanel?: React.ReactNode
+  toolbarActions?: React.ReactNode
   imeiSlot?: React.ReactNode
   customerSlot: React.ReactNode
   categoryBar: React.ReactNode
@@ -88,7 +96,13 @@ export function HexaPosLayout({
   onScanClick,
   onBellClick,
   onNavAction,
+  navItems,
+  activeNavId = 'products',
   heldBadgeCount = 0,
+  onFiltersClick,
+  filtersActive = false,
+  filtersPanel,
+  toolbarActions,
   imeiSlot,
   customerSlot,
   categoryBar,
@@ -98,6 +112,8 @@ export function HexaPosLayout({
   cartPanel,
   mainOverlay,
 }: HexaPosLayoutProps) {
+  const sidebarItems: PosNavItem[] = navItems ?? NAV_ITEMS.map(({ id, label, icon }) => ({ id, label, icon }))
+
   return (
     <div
       data-pos="dark"
@@ -120,8 +136,8 @@ export function HexaPosLayout({
         </div>
 
         <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
-          {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
-            const active = id === 'products'
+          {sidebarItems.map(({ id, label, icon: Icon }) => {
+            const active = id === activeNavId
             return (
               <button
                 key={id}
@@ -146,7 +162,12 @@ export function HexaPosLayout({
             ['F2', 'Customer'],
             ['F3', 'Pay Now'],
             ['F4', 'Hold Sale'],
+            ['F6', 'Held Carts'],
+            ['F7', 'Quote'],
+            ['F8', 'Draft'],
+            ['F9', 'Checkout'],
             ['F10', 'New Sale'],
+            ['F12', 'Calculator'],
           ].map(([key, label]) => (
             <div key={key} className="flex items-center justify-between text-[10px] px-1" style={{ color: C.muted }}>
               <span>{label}</span>
@@ -182,9 +203,16 @@ export function HexaPosLayout({
               />
               <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] px-1.5 py-0.5 rounded font-mono hidden sm:inline" style={{ background: C.bg, color: C.muted }}>F1</kbd>
             </div>
-            <button type="button" className="h-9 px-3 rounded-xl text-xs font-semibold border shrink-0 flex items-center gap-1.5" style={{ borderColor: C.border, background: C.card, color: C.muted }}>
+            <button type="button" onClick={onFiltersClick}
+              className="h-9 px-3 rounded-xl text-xs font-semibold border shrink-0 flex items-center gap-1.5 transition-colors"
+              style={{
+                borderColor: filtersActive ? C.purple : C.border,
+                background: filtersActive ? `${C.purple}22` : C.card,
+                color: filtersActive ? C.text : C.muted,
+              }}>
               <SlidersHorizontal size={14} /> Filters
             </button>
+            {toolbarActions}
             <button type="button" onClick={onBellClick} className="relative h-9 w-9 rounded-xl border flex items-center justify-center shrink-0 hover:bg-white/5" style={{ borderColor: C.border, background: C.card }}>
               <Bell size={15} className="text-white" />
               {heldBadgeCount > 0 && (
@@ -198,6 +226,7 @@ export function HexaPosLayout({
             </button>
             {customerSlot}
           </div>
+          {filtersPanel}
         </div>
 
         <div className="flex flex-1 min-h-0 relative">
