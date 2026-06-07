@@ -444,10 +444,11 @@ html:not(.dark) [data-scheme="dark"] .shadow-violet-500\/40   { box-shadow: 0 0 
 /* ── POS overlay – mockup dark theme (immune to light-mode overrides) ── */
 [data-pos="dark"] {
   --text-primary: #ffffff;
-  --text-secondary: #e2e8f0;
-  --text-muted: #9CA3AF;
+  --text-secondary: rgba(255, 255, 255, 0.85);
+  --text-muted: rgba(255, 255, 255, 0.68);
   --border-subtle: #2a3344;
   --border-default: #2a3344;
+  color: #ffffff;
 }
 
 html:not(.dark) [data-pos="dark"] {
@@ -460,9 +461,21 @@ html:not(.dark) [data-pos="dark"] .text-white\/50                   { color: rgb
 html:not(.dark) [data-pos="dark"] .text-white\/60                   { color: rgba(255,255,255,0.60) !important; }
 html:not(.dark) [data-pos="dark"] .text-white\/70                   { color: rgba(255,255,255,0.70) !important; }
 html:not(.dark) [data-pos="dark"] .text-white\/80                   { color: rgba(255,255,255,0.80) !important; }
-html:not(.dark) [data-pos="dark"] .text-slate-200                    { color: #e2e8f0 !important; }
-html:not(.dark) [data-pos="dark"] .text-slate-400                    { color: #9CA3AF !important; }
-html:not(.dark) [data-pos="dark"] .text-slate-500                    { color: #9CA3AF !important; }
+html:not(.dark) [data-pos="dark"] .text-slate-200                    { color: #ffffff !important; }
+html:not(.dark) [data-pos="dark"] .text-slate-400                    { color: rgba(255,255,255,0.78) !important; }
+html:not(.dark) [data-pos="dark"] .text-slate-500                    { color: rgba(255,255,255,0.72) !important; }
+html:not(.dark) [data-pos="dark"] .text-slate-600                    { color: rgba(255,255,255,0.72) !important; }
+html:not(.dark) [data-pos="dark"] .text-gray-400                     { color: rgba(255,255,255,0.75) !important; }
+html:not(.dark) [data-pos="dark"] .text-gray-500                     { color: rgba(255,255,255,0.72) !important; }
+html:not(.dark) [data-pos="dark"] .text-gray-600                     { color: rgba(255,255,255,0.72) !important; }
+html:not(.dark) [data-pos="dark"] .text-gray-800                     { color: rgba(255,255,255,0.88) !important; }
+/* Quote/Draft print preview — keep dark text on white paper */
+html:not(.dark) [data-pos="dark"] .bg-white .text-gray-400          { color: #9ca3af !important; }
+html:not(.dark) [data-pos="dark"] .bg-white .text-gray-500          { color: #6b7280 !important; }
+html:not(.dark) [data-pos="dark"] .bg-white .text-gray-600          { color: #4b5563 !important; }
+html:not(.dark) [data-pos="dark"] .bg-white .text-gray-800          { color: #1f2937 !important; }
+html:not(.dark) [data-pos="dark"] .bg-gray-50 .text-gray-500        { color: #6b7280 !important; }
+html:not(.dark) [data-pos="dark"] .bg-gray-50 .text-gray-800        { color: #1f2937 !important; }
 html:not(.dark) [data-pos="dark"] .text-green-400                    { color: #10B981 !important; }
 html:not(.dark) [data-pos="dark"] .text-emerald-400                   { color: #10B981 !important; }
 html:not(.dark) [data-pos="dark"] .text-blue-400                     { color: #3B82F6 !important; }
