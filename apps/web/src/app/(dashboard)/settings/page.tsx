@@ -306,7 +306,7 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between rounded-xl p-4 border border-white/10 bg-white/[0.02]">
                     <div>
                       <p className="text-sm font-medium text-white">Daily Reload (POS)</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">Sell mobile reloads from POS — scan number, pick amount</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">Sell Dialog/Mobitel/Airtel/Hutch reloads from POS</p>
                     </div>
                     <Toggle
                       value={hasFeature('DAILY_RELOAD')}

@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import { HexaPosLayout, POS_THEME, categoryIcon, type PosNavItem } from './HexaPosLayout'
 import { PosReturnModal } from './PosReturnModal'
-import { PosReloadPanel, looksLikeReloadPhone, normalizeReloadPhone } from './PosReloadPanel'
+import { PosReloadPanel, type ReloadProvider } from './PosReloadPanel'
 import { useUIStore } from '@/stores/ui-store'
 import { useProducts, useFeatureFlag } from '@/lib/hooks'
 import { salesApi, customersApi, productsApi, imeiApi, warrantyApi, servicesApi, financeApi, dailyReloadApi } from '@/lib/api'
@@ -38,7 +38,7 @@ interface CartItem {
   imei?: string
   isService?: boolean
   isReload?: boolean
-  reloadPhone?: string
+  reloadProvider?: string
   cost?: number
   serviceId?: string
 }
@@ -364,7 +364,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [cashFlowLoading, setCashFlowLoading]     = useState(false)
   const [showMoreMenu, setShowMoreMenu]           = useState(false)
   const [showReturnModal, setShowReturnModal]     = useState(false)
-  const [reloadScanPhone, setReloadScanPhone]       = useState('')
   const [showFilters, setShowFilters]             = useState(false)
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
   const [activeNavId, setActiveNavId]             = useState('products')
@@ -664,26 +663,19 @@ function POSContent({ onClose }: { onClose: () => void }) {
     return matchCat && matchSearch
   })
 
-  const addReloadToCart = useCallback((phone: string, amount: number) => {
-    const normalized = normalizeReloadPhone(phone)
-    if (!/^0[0-9]{9}$/.test(normalized)) {
-      toast.error('Enter a valid 10-digit mobile number')
-      return
-    }
+  const addReloadToCart = useCallback((provider: ReloadProvider, amount: number) => {
     setCart(prev => [...prev, {
       cartId: `reload-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       productId: null,
-      name: `Reload — ${normalized}`,
-      sku: 'RELOAD',
+      name: `${provider} Reload`,
+      sku: `RELOAD-${provider.toUpperCase()}`,
       price: amount,
       originalPrice: amount,
       quantity: 1,
       isReload: true,
-      reloadPhone: normalized,
+      reloadProvider: provider,
     }])
-    toast.success(`Reload ${formatCurrency(amount)} added for ${normalized}`, { icon: '📱' })
-    setReloadScanPhone('')
-    setSearch('')
+    toast.success(`${provider} reload ${formatCurrency(amount)} added to cart`, { icon: '📱' })
   }, [])
 
   const displayItems = selectedCategory === 'SERVICES' ? filteredServices
@@ -1025,13 +1017,13 @@ function POSContent({ onClose }: { onClose: () => void }) {
         if (createdWarrantyCodes.length > 0)
           toast.success(`${createdWarrantyCodes.length} warranty${createdWarrantyCodes.length > 1 ? 's' : ''} created`, { icon: '🛡️' })
       }
-      const reloadItems = cart.filter(i => i.isReload && i.reloadPhone)
+      const reloadItems = cart.filter(i => i.isReload && i.reloadProvider)
       if (reloadItems.length > 0) {
         const invoiceNo = res.data?.invoiceNumber ?? ''
         for (const item of reloadItems) {
           try {
             await dailyReloadApi.create({
-              connectionNo: item.reloadPhone,
+              connectionNo: item.reloadProvider!,
               amount: item.price * item.quantity,
               executedBy: user?.name || 'POS',
               transactionId: invoiceNo || undefined,
@@ -1331,15 +1323,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
         syncTime={syncTime}
         search={search}
         onSearchChange={setSearch}
-        onSearchKeyDown={(e) => {
-          if (e.key === 'Enter' && hasDailyReload && looksLikeReloadPhone(search)) {
-            e.preventDefault()
-            setReloadScanPhone(normalizeReloadPhone(search))
-            setSelectedCategory('RELOAD')
-            setActiveNavId('products')
-            setSearch('')
-          }
-        }}
         searchRef={searchRef}
         onScanClick={() => setShowScanInput(true)}
         onBellClick={() => setShowHeldCarts(true)}
@@ -1405,7 +1388,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         )}
         productGrid={(
           selectedCategory === 'RELOAD' && hasDailyReload ? (
-            <PosReloadPanel onAdd={addReloadToCart} initialPhone={reloadScanPhone} />
+            <PosReloadPanel onAdd={addReloadToCart} />
           ) : (
           <div className={gridView ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3' : 'space-y-1.5'}>
             {pagedProducts.length === 0 ? (
@@ -1694,8 +1677,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     })()}
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold truncate" style={{ color: POS_THEME.text }}>{item.name}</p>
-                      {item.isReload && item.reloadPhone && (
-                        <p className="text-[10px] font-mono" style={{ color: POS_THEME.teal }}>{item.reloadPhone}</p>
+                      {item.isReload && item.reloadProvider && (
+                        <p className="text-[10px] font-semibold" style={{ color: POS_THEME.teal }}>{item.reloadProvider}</p>
                       )}
                       {item.isService && (
                         <p className="text-[9px]" style={{ color: POS_THEME.muted }}>
