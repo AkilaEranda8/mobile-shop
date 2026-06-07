@@ -4,7 +4,7 @@ import React from 'react'
 import {
   ShoppingCart, ScanLine, Bell, X, Smartphone, Headphones, Tablet,
   Laptop, Watch, Package, LayoutGrid, Receipt, Users, Hash, Wrench,
-  ShoppingBag, BarChart3, Wallet, RotateCcw, Settings, TrendingUp,
+  ShoppingBag, BarChart3, Wallet, RotateCcw, Settings,
   SlidersHorizontal, Grid3X3, List as ListIcon, ChevronDown,
 } from 'lucide-react'
 
@@ -67,7 +67,6 @@ interface HexaPosLayoutProps {
   onBellClick?: () => void
   onNavAction?: (id: string) => void
   heldBadgeCount?: number
-  stats?: { revenue: string; orders: string; customers: string; lowStock: string }
   imeiSlot?: React.ReactNode
   customerSlot: React.ReactNode
   categoryBar: React.ReactNode
@@ -90,7 +89,6 @@ export function HexaPosLayout({
   onBellClick,
   onNavAction,
   heldBadgeCount = 0,
-  stats,
   imeiSlot,
   customerSlot,
   categoryBar,
@@ -164,29 +162,6 @@ export function HexaPosLayout({
 
       {/* ── Main column ── */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
-        {/* Stats row */}
-        {stats && (
-          <div className="shrink-0 grid grid-cols-2 xl:grid-cols-4 gap-2 px-3 py-2 border-b" style={{ borderColor: C.border, background: C.bg }}>
-            {[
-              { label: "Today's Sales", value: stats.revenue, sub: 'today', subColor: C.green, icon: TrendingUp },
-              { label: 'Orders', value: stats.orders, sub: 'today', subColor: C.muted, icon: Receipt },
-              { label: 'Customers', value: stats.customers, sub: 'registered', subColor: C.muted, icon: Users },
-              { label: 'Low Stock', value: stats.lowStock, sub: 'items', subColor: C.amber, icon: Package },
-            ].map(({ label, value, sub, subColor, icon: Icon }) => (
-              <div key={label} className="rounded-xl border px-3 py-2.5 flex items-center justify-between" style={{ background: C.card, borderColor: C.border }}>
-                <div>
-                  <p className="text-[10px] font-medium" style={{ color: C.muted }}>{label}</p>
-                  <p className="text-lg font-bold leading-tight mt-0.5">{value}</p>
-                  <p className="text-[9px] mt-0.5" style={{ color: subColor }}>{sub}</p>
-                </div>
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${C.purple}18` }}>
-                  <Icon size={14} style={{ color: C.purple }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
         {/* Top toolbar */}
         <div className="shrink-0 px-3 py-2 border-b" style={{ borderColor: C.border, background: C.panel }}>
           <div className="flex flex-wrap items-center gap-2">

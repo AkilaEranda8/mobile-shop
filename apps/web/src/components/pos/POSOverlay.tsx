@@ -14,7 +14,7 @@ import {
 import { HexaPosLayout, POS_THEME, categoryIcon } from './HexaPosLayout'
 import { useUIStore } from '@/stores/ui-store'
 import { useProducts, useFeatureFlag } from '@/lib/hooks'
-import { salesApi, customersApi, productsApi, imeiApi, warrantyApi, servicesApi, analyticsApi, financeApi } from '@/lib/api'
+import { salesApi, customersApi, productsApi, imeiApi, warrantyApi, servicesApi, financeApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -305,7 +305,6 @@ function RegisterCustomerModal({ onClose, onCreated }: { onClose: () => void; on
 /* ── Main POS Page ──────────────────────────────────────────────────────── */
 function POSContent({ onClose }: { onClose: () => void }) {
   const { pendingCustomer, clearPendingCustomer } = useUIStore()
-  const [todayStats, setTodayStats]             = useState({ revenue: 0, count: 0, customers: 0, lowStock: 0 })
   const [cart, setCart]                         = useState<CartItem[]>([])
   const [search, setSearch]                     = useState('')
   const [paymentMethod, setPaymentMethod]       = useState<'CASH' | 'CARD' | 'UPI'>('CASH')
@@ -584,22 +583,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
   useEffect(() => { refetchCustomers() }, [refetchCustomers])
 
-  const refreshTodayStats = useCallback(() => {
-    analyticsApi.dashboard().then((r: any) => {
-      const d = r?.data ?? r
-      setTodayStats({
-        revenue: d?.todayRevenue ?? 0,
-        count: d?.todaySalesCount ?? 0,
-        customers: d?.totalCustomers ?? 0,
-        lowStock: d?.lowStockCount ?? 0,
-      })
-    }).catch(() => {})
-  }, [])
-
   useEffect(() => {
-    refreshTodayStats()
     refetchProducts()
-  }, [refreshTodayStats, refetchProducts])
+  }, [refetchProducts])
 
   useEffect(() => {
     if (!pendingCustomer) return
@@ -999,7 +985,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
           })
         }
       }
-      refreshTodayStats()
       refetchProducts()
       window.dispatchEvent(new CustomEvent('pos:sale-complete'))
       setMobileView('cart')
@@ -1231,12 +1216,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
         onBellClick={() => setShowHeldCarts(true)}
         onNavAction={handleNavAction}
         heldBadgeCount={heldCarts.length}
-        stats={{
-          revenue: formatCurrency(todayStats.revenue),
-          orders: String(todayStats.count),
-          customers: String(todayStats.customers),
-          lowStock: String(todayStats.lowStock),
-        }}
         imeiSlot={imeiSlot}
         customerSlot={customerSlot}
         categoryBar={(
@@ -1823,23 +1802,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     {checkoutLoading ? <Loader2 size={18} className="animate-spin" /> : null}
                     <span>{checkoutLoading ? 'Processing…' : `Pay Now (F3)`}</span>
                   </button>
-                  <div className="grid grid-cols-3 gap-1.5 pt-1">
-                    <button type="button" onClick={() => setShowDocPreview('DRAFT')}
-                      className="flex flex-col items-center gap-1 py-2 rounded-xl text-[10px] font-semibold border transition-colors hover:bg-white/5"
-                      style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
-                      <Printer size={13} />Print (F6)
-                    </button>
-                    <button type="button" onClick={shareWhatsApp}
-                      className="flex flex-col items-center gap-1 py-2 rounded-xl text-[10px] font-semibold border transition-colors hover:bg-white/5"
-                      style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
-                      <MessageCircle size={13} />WhatsApp (F7)
-                    </button>
-                    <button type="button" onClick={handleHoldSales}
-                      className="flex flex-col items-center gap-1 py-2 rounded-xl text-[10px] font-semibold border transition-colors hover:bg-white/5"
-                      style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
-                      <Archive size={13} />Hold (F4)
-                    </button>
-                  </div>
                 </div>
               )}
             </>
