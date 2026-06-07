@@ -163,6 +163,7 @@ model TenantFeature {
   tenantId  String
   feature   String
   enabled   Boolean  @default(true)
+  price     Float?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

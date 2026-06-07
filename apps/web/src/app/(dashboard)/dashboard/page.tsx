@@ -1,12 +1,13 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import {
   ShoppingCart, TrendingUp, Package, Wrench, AlertTriangle,
   Users, ArrowUpRight, ArrowRight, Receipt, Activity,
   BarChart2, DollarSign, ChevronRight, TrendingDown, Star
 } from 'lucide-react'
 import Link from 'next/link'
+import { usePos } from '@/lib/use-pos'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell
@@ -82,12 +83,25 @@ function HealthRing({ score }: { score: number }) {
    MAIN DASHBOARD
    ═════════════════════════════════════════════════════════════════════ */
 export default function DashboardPage() {
+  const { openPos } = usePos()
+
   /* ── Data ── */
-  const { data: rawRevenue }     = useRevenue({ days: '30' })
+  const { data: rawRevenue, refetch: refetchRevenue }     = useRevenue({ days: '30' })
   const { data: repairsData }    = useRepairs()
-  const { data: txData }         = useTransactions()
-  const { data: stats }          = useAnalyticsDashboard()
-  const { data: rawTopProducts } = useTopProducts()
+  const { data: txData, refetch: refetchTx }         = useTransactions()
+  const { data: stats, refetch: refetchDashboard } = useAnalyticsDashboard()
+  const { data: rawTopProducts, refetch: refetchTopProducts } = useTopProducts()
+
+  useEffect(() => {
+    const onSale = () => {
+      refetchDashboard()
+      refetchRevenue()
+      refetchTopProducts()
+      refetchTx()
+    }
+    window.addEventListener('pos:sale-complete', onSale)
+    return () => window.removeEventListener('pos:sale-complete', onSale)
+  }, [refetchDashboard, refetchRevenue, refetchTopProducts, refetchTx])
 
   const s            = stats as any
   const revenueArr   = Array.isArray(rawRevenue) ? rawRevenue as any[] : []
@@ -331,7 +345,7 @@ export default function DashboardPage() {
             <div className="py-10 text-center">
               <BarChart2 size={32} className="text-gray-200 mx-auto mb-2"/>
               <p className="text-sm text-gray-400">No sales data yet</p>
-              <Link href="/dashboard/pos" className="text-xs text-violet-600 mt-1 inline-flex items-center gap-1">Open POS <ArrowRight size={10}/></Link>
+              <button type="button" onClick={() => openPos()} className="text-xs text-violet-600 mt-1 inline-flex items-center gap-1">Open POS <ArrowRight size={10}/></button>
             </div>
           )}
         </div>
@@ -418,24 +432,38 @@ export default function DashboardPage() {
       {/* ── Quick Actions bar ── */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
         {[
-          { href: '/dashboard/pos',       icon: ShoppingCart, label: 'New Sale',     sub: 'Create Invoice', iconBg: '#ede9fe', iconColor: '#7c3aed' },
+          { href: '/dashboard/pos',       icon: ShoppingCart, label: 'New Sale',     sub: 'Create Invoice', iconBg: '#ede9fe', iconColor: '#7c3aed', openPos: true },
           { href: '/dashboard/customers', icon: Users,        label: 'Add Customer', sub: 'Register New',   iconBg: '#dbeafe', iconColor: '#2563eb' },
           { href: '/dashboard/inventory', icon: Package,      label: 'Add Product',  sub: 'New Item',       iconBg: '#dcfce7', iconColor: '#16a34a' },
           { href: '/dashboard/repairs',   icon: Wrench,       label: 'New Repair',   sub: 'Create Ticket',  iconBg: '#ffedd5', iconColor: '#ea580c' },
           { href: '/dashboard/finance',   icon: DollarSign,   label: 'Expenses',     sub: 'Add Expense',    iconBg: '#ffe4e6', iconColor: '#e11d48' },
           { href: '/dashboard/finance',   icon: BarChart2,    label: 'Reports',      sub: 'View Reports',   iconBg: '#cffafe', iconColor: '#0891b2' },
-        ].map(a => (
-          <Link key={`${a.href}-${a.label}`} href={a.href}
-            className={`${CARD} p-4 flex flex-col items-center gap-2 text-center hover:shadow-md hover:border-violet-200 dark:hover:border-violet-500/30 transition-all active:scale-95`}>
-            <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: a.iconBg }}>
-              <a.icon size={19} style={{ color: a.iconColor }}/>
-            </div>
-            <div>
-              <p className="text-xs font-bold text-gray-800 dark:text-slate-200">{a.label}</p>
-              <p className="text-[10px] text-gray-400">{a.sub}</p>
-            </div>
-          </Link>
-        ))}
+        ].map(a => {
+          const cardClass = `${CARD} p-4 flex flex-col items-center gap-2 text-center hover:shadow-md hover:border-violet-200 dark:hover:border-violet-500/30 transition-all active:scale-95`
+          const cardInner = (
+            <>
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: a.iconBg }}>
+                <a.icon size={19} style={{ color: a.iconColor }}/>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-gray-800 dark:text-slate-200">{a.label}</p>
+                <p className="text-[10px] text-gray-400">{a.sub}</p>
+              </div>
+            </>
+          )
+          if ('openPos' in a && a.openPos) {
+            return (
+              <button key={`${a.href}-${a.label}`} type="button" onClick={() => openPos()} className={cardClass}>
+                {cardInner}
+              </button>
+            )
+          }
+          return (
+            <Link key={`${a.href}-${a.label}`} href={a.href} className={cardClass}>
+              {cardInner}
+            </Link>
+          )
+        })}
       </div>
 
     </div>

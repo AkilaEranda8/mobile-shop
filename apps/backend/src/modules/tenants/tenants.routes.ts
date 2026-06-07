@@ -3,33 +3,17 @@ import { tenantsController } from './tenants.controller'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
 import { prisma } from '../../config/database'
 import { sendSuccess } from '../../utils/response'
+import { OPT_IN_FEATURES, buildFeatureMap, buildPriceMap } from './tenant-features'
 
 const router = Router()
 router.use(authenticate)
-
-const ALL_FEATURES = [
-  'POS', 'REPAIRS', 'WARRANTY', 'WHATSAPP', 'ANALYTICS', 'REPORTS',
-  'FINANCE', 'DELIVERY', 'EXCHANGES', 'STAFF', 'SUPPLIERS', 'IMEI', 'SERVICES',
-  'DAILY_RELOAD', 'CUSTOMER_CREDIT',
-]
-
-// Features that are opt-in (default false — enable per tenant in admin or settings)
-const OPT_IN_FEATURES = ['DAILY_RELOAD', 'CUSTOMER_CREDIT']
-
-function buildFeatureMap(rows: { feature: string; enabled: boolean }[]) {
-  const map: Record<string, boolean> = {}
-  for (const f of ALL_FEATURES) map[f] = !OPT_IN_FEATURES.includes(f)
-  for (const f of OPT_IN_FEATURES) map[f] = false
-  for (const r of rows) map[r.feature] = r.enabled
-  return map
-}
 
 router.get('/my-features', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = (req as any).user?.tenantId
     if (!tenantId) return res.status(401).json({ success: false, message: 'Unauthorized' })
     const rows = await prisma.tenantFeature.findMany({ where: { tenantId } })
-    sendSuccess(res, buildFeatureMap(rows))
+    sendSuccess(res, { features: buildFeatureMap(rows), prices: buildPriceMap(rows) })
   } catch (e) { next(e) }
 })
 
@@ -49,7 +33,7 @@ router.patch('/my-features', authorize('OWNER', 'MANAGER'), async (req: Request,
       ),
     )
     const rows = await prisma.tenantFeature.findMany({ where: { tenantId } })
-    sendSuccess(res, buildFeatureMap(rows), 'Features updated')
+    sendSuccess(res, { features: buildFeatureMap(rows), prices: buildPriceMap(rows) }, 'Features updated')
   } catch (e) { next(e) }
 })
 

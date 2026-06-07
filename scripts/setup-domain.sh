@@ -44,12 +44,22 @@ for domain in "${DOMAINS[@]}"; do
     certbot certonly --nginx -d "$domain" --email "$EMAIL" --agree-tos --non-interactive --quiet
 done
 
-# 5. Swap to final config (with SSL)
+# 5. Wildcard cert for tenant subdomains (*.app.hexalyte.com)
+# Requires DNS API credentials — skip if cert already exists from migration.
+if [ ! -f /etc/letsencrypt/live/app.hexalyte.com-0001/fullchain.pem ]; then
+  echo "--- Obtaining wildcard cert for *.app.hexalyte.com (DNS challenge) ---"
+  certbot certonly --manual --preferred-challenges dns \
+    -d '*.app.hexalyte.com' -d app.hexalyte.com \
+    --email "$EMAIL" --agree-tos --non-interactive \
+    --cert-name app.hexalyte.com-0001 || echo "WARN: wildcard cert skipped — add manually or copy from backup"
+fi
+
+# 6. Swap to final config (with SSL + tenant subdomains)
 echo "--- Activating SSL config ---"
 rm -f /etc/nginx/sites-enabled/hexalyte-temp
 nginx -t && systemctl reload nginx
 
-# 6. Auto-renew cron
+# 7. Auto-renew cron
 echo "--- Setting up auto-renew ---"
 (crontab -l 2>/dev/null; echo "0 3 * * * certbot renew --quiet && systemctl reload nginx") | crontab -
 

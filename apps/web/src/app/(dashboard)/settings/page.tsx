@@ -45,7 +45,7 @@ const planColors: Record<string, string> = {
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('shop')
   const currentUser = authStorage.getUser()
-  const { hasFeature, refetchFeatures } = useTenantFeatures()
+  const { hasFeature, featurePrices, refetchFeatures } = useTenantFeatures()
   const [featureSaving, setFeatureSaving] = useState(false)
   const canManageFeatures = currentUser?.role === 'OWNER' || currentUser?.role === 'MANAGER'
 
@@ -279,6 +279,26 @@ export default function SettingsPage() {
                   <input type="email" className="input-field" value={shopForm.ownerEmail} onChange={e => setShopForm(p => ({ ...p, ownerEmail: e.target.value }))} />
                 </div>
               </div>
+              {(featurePrices.POS != null || featurePrices.SERVICES != null) && (
+                <div className="pt-4 border-t border-white/5 space-y-2">
+                  <h3 className="text-sm font-semibold text-white">Plan Add-ons</h3>
+                  <p className="text-xs text-slate-500">Monthly prices set by platform admin for your shop.</p>
+                  <div className="grid sm:grid-cols-2 gap-2">
+                    {featurePrices.POS != null && hasFeature('POS') && (
+                      <div className="rounded-xl p-3 border border-violet-500/20 bg-violet-500/5">
+                        <p className="text-xs font-medium text-violet-300">POS Terminal</p>
+                        <p className="text-sm font-bold text-white mt-0.5">Rs.{featurePrices.POS.toLocaleString('en-LK')}/mo</p>
+                      </div>
+                    )}
+                    {featurePrices.SERVICES != null && hasFeature('SERVICES') && (
+                      <div className="rounded-xl p-3 border border-cyan-500/20 bg-cyan-500/5">
+                        <p className="text-xs font-medium text-cyan-300">Services Module</p>
+                        <p className="text-sm font-bold text-white mt-0.5">Rs.{featurePrices.SERVICES.toLocaleString('en-LK')}/mo</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               {canManageFeatures && (
                 <div className="pt-4 border-t border-white/5 space-y-3">
                   <h3 className="text-sm font-semibold text-white">Shop Features</h3>

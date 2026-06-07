@@ -11,6 +11,7 @@ import { useProducts, useCategories } from '@/lib/hooks'
 import { productsApi, uploadApi } from '@/lib/api'
 import type { Product, Category } from '@/types'
 import toast from 'react-hot-toast'
+import { OpenPosButton } from '@/components/pos/OpenPosButton'
 
 /* ── CSV Export ─────────────────────────────────────────────────────── */
 function exportProductsCSV(products: Product[]) {
@@ -610,6 +611,12 @@ export default function InventoryPage() {
 
   const lowStockCount = products.filter(p => p.stock < p.minStock).length
 
+  useEffect(() => {
+    const onSale = () => { refetch() }
+    window.addEventListener('pos:sale-complete', onSale)
+    return () => window.removeEventListener('pos:sale-complete', onSale)
+  }, [refetch])
+
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Delete "${name}"?`)) return
     await productsApi.delete(id)
@@ -706,7 +713,8 @@ export default function InventoryPage() {
           <h1 className="page-title">Inventory</h1>
           <p className="page-subtitle">{products.length} products · {lowStockCount} low stock alerts</p>
         </div>
-        <div className="flex gap-2 sm:ml-auto">
+        <div className="flex flex-wrap gap-2 sm:ml-auto">
+          <OpenPosButton label="Sell in POS" variant="secondary" />
           <button onClick={() => setShowImport(true)} className="btn-secondary text-sm flex items-center gap-2">
             <Upload size={14} />Import
           </button>

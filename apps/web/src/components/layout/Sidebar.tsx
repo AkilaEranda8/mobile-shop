@@ -14,6 +14,7 @@ import { authStorage } from '@/lib/auth'
 import { authApi, tenantApi } from '@/lib/api'
 import { getInvoiceSettings } from '@/lib/invoiceSettings'
 import { useTenantFeatures } from '@/lib/hooks'
+import { usePos } from '@/lib/use-pos'
 
 const navItems = [
   {
@@ -25,7 +26,7 @@ const navItems = [
   {
     label: 'Sales',
     items: [
-      { href: '/dashboard/pos',       icon: ShoppingCart, label: 'Point of Sale',  badge: 'POS', feature: 'POS' },
+      { href: '/dashboard/pos',       icon: ShoppingCart, label: 'Point of Sale',  badge: 'POS', feature: 'POS', openPos: true },
       { href: '/dashboard/sales',     icon: Receipt,      label: 'Sales History',               feature: 'POS' },
       { href: '/dashboard/returns',   icon: RotateCcw,    label: 'Returns',                     feature: 'POS' },
       { href: '/dashboard/customers', icon: Users,        label: 'Customers' },
@@ -117,6 +118,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const [plan, setPlan]         = useState('')
   const [logo, setLogo]         = useState('')
   const { hasFeature }          = useTenantFeatures()
+  const { openPos, posOpen }    = usePos()
 
   useEffect(() => {
     const inv = getInvoiceSettings()
@@ -196,18 +198,9 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
             {collapsed && <div className="my-1 h-px bg-white/5 mx-2" />}
             <div className="space-y-0.5">
               {visibleItems.map((item) => {
-                const active = isActive(item.href)
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      'sidebar-item group',
-                      active && 'sidebar-item-active',
-                      collapsed && 'justify-center px-2'
-                    )}
-                    title={collapsed ? item.label : undefined}
-                  >
+                const active = ('openPos' in item && item.openPos) ? posOpen : isActive(item.href)
+                const inner = (
+                  <>
                     <item.icon size={17} className={cn('flex-shrink-0 transition-colors', active ? 'text-violet-400' : 'text-slate-500 group-hover:text-slate-300')} />
                     {!collapsed && (
                       <>
@@ -224,6 +217,37 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                         )}
                       </>
                     )}
+                  </>
+                )
+                if ('openPos' in item && item.openPos) {
+                  return (
+                    <button
+                      key={item.href}
+                      type="button"
+                      onClick={() => openPos()}
+                      className={cn(
+                        'sidebar-item group w-full text-left',
+                        active && 'sidebar-item-active',
+                        collapsed && 'justify-center px-2'
+                      )}
+                      title={collapsed ? item.label : undefined}
+                    >
+                      {inner}
+                    </button>
+                  )
+                }
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      'sidebar-item group',
+                      active && 'sidebar-item-active',
+                      collapsed && 'justify-center px-2'
+                    )}
+                    title={collapsed ? item.label : undefined}
+                  >
+                    {inner}
                   </Link>
                 )
               })}

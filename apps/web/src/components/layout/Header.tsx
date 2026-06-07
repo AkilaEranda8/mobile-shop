@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Bell, Search, Menu, X, ChevronDown, Settings, LogOut, User, Sun, Moon, AlertTriangle, Wrench, ShoppingBag, TrendingUp } from 'lucide-react'
+import { Bell, Search, Menu, X, ChevronDown, Settings, LogOut, User, Sun, Moon, AlertTriangle, Wrench, ShoppingBag, ShoppingCart, TrendingUp } from 'lucide-react'
+import { usePos } from '@/lib/use-pos'
 import { useTheme } from 'next-themes'
 import { useRouter } from 'next/navigation'
 import { authStorage } from '@/lib/auth'
@@ -20,6 +21,7 @@ export default function Header({ onMenuToggle, sidebarOpen }: HeaderProps) {
   const [searchOpen, setSearchOpen] = useState(false)
   const { theme, setTheme } = useTheme()
   const router = useRouter()
+  const { openPos, hasPos } = usePos()
   const user = authStorage.getUser()
 
   const { data: dashData } = useAnalyticsDashboard()
@@ -86,6 +88,20 @@ export default function Header({ onMenuToggle, sidebarOpen }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-2 ml-auto">
+
+        {/* POS Terminal */}
+        {hasPos && (
+          <button
+            onClick={() => openPos()}
+            title="Open POS (F2)"
+            className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90 shadow-sm"
+            style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)' }}
+          >
+            <ShoppingCart size={14} />
+            <span className="hidden sm:inline">POS Terminal</span>
+            <kbd className="hidden md:inline text-[9px] opacity-60 font-mono ml-0.5">F2</kbd>
+          </button>
+        )}
 
         {/* Theme toggle */}
         <div className="flex items-center rounded-xl border p-0.5 gap-0.5"

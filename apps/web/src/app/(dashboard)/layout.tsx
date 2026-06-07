@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
+import { POSOverlay } from '@/components/pos/POSOverlay'
+import { PosGlobalShortcuts } from '@/components/pos/PosGlobalShortcuts'
 import { authStorage } from '@/lib/auth'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -52,6 +54,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </main>
       </div>
+
+      <PosGlobalShortcuts />
+      <POSOverlay />
     </div>
   )
 }

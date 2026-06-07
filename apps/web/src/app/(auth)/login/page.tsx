@@ -31,6 +31,7 @@ export default function LoginPage() {
     try {
       const res = await authApi.login(form.email, form.password)
       authStorage.save(res.data.accessToken, res.data.refreshToken, res.data.user)
+      try { localStorage.removeItem('hx_tenant_features') } catch { /* noop */ }
       window.location.href = '/dashboard'
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Invalid email or password')

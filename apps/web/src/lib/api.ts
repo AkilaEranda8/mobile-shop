@@ -146,9 +146,9 @@ export const tenantApi = {
   update: (id: string, body: unknown) => api.put(`/tenants/${id}`, body),
   getInvoiceSettings: (id: string) => api.get(`/tenants/${id}/invoice-settings`),
   updateInvoiceSettings: (id: string, body: unknown) => api.patch(`/tenants/${id}/invoice-settings`, body),
-  myFeatures: () => api.get<{ data: Record<string, boolean> }>('/tenants/my-features'),
+  myFeatures: () => api.get<{ data: { features: Record<string, boolean>; prices: Record<string, number | null> } }>('/tenants/my-features'),
   updateMyFeatures: (features: Record<string, boolean>) =>
-    api.patch<{ data: Record<string, boolean> }>('/tenants/my-features', { features }),
+    api.patch<{ data: { features: Record<string, boolean>; prices: Record<string, number | null> } }>('/tenants/my-features', { features }),
 }
 
 export const servicesApi = {

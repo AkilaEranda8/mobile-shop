@@ -31,7 +31,7 @@ function fmtDateTime(s: string) {
 const TABS = ['Overview', 'Features', 'Users', 'Sales', 'Audit Log', 'Danger Zone']
 
 const FEATURE_DEFS = [
-  { key: 'POS',          label: 'Point of Sale',     desc: 'POS billing & invoicing',             optIn: false },
+  { key: 'POS',          label: 'Point of Sale',     desc: 'POS billing & invoicing',             optIn: false, priced: true, defaultPrice: 0 },
   { key: 'REPAIRS',      label: 'Repair Jobs',        desc: 'Repair ticket management',             optIn: false },
   { key: 'WARRANTY',     label: 'Warranty',           desc: 'Warranty card management',             optIn: false },
   { key: 'WHATSAPP',     label: 'WhatsApp',           desc: 'WhatsApp messaging integration',       optIn: false },
@@ -43,7 +43,7 @@ const FEATURE_DEFS = [
   { key: 'STAFF',        label: 'Staff Management',   desc: 'User roles & staff access',            optIn: false },
   { key: 'SUPPLIERS',    label: 'Suppliers & PO',     desc: 'Supplier & purchase order management', optIn: false },
   { key: 'IMEI',         label: 'IMEI Tracker',       desc: 'IMEI registration & lookup',           optIn: false },
-  { key: 'SERVICES',       label: 'Services',           desc: 'Billable services catalogue',          optIn: false },
+  { key: 'SERVICES',       label: 'Services',           desc: 'Billable services catalogue (server)', optIn: false, priced: true, defaultPrice: 0 },
   { key: 'DAILY_RELOAD',   label: 'Daily Reload',       desc: 'Mobile top-up reload management',      optIn: true  },
   { key: 'CUSTOMER_CREDIT', label: 'Customer Credit',    desc: 'Customer credit payments & outstanding', optIn: true  },
 ]
@@ -66,9 +66,12 @@ export default function TenantDetailPage() {
   const [showSuspend, setShowSuspend]   = useState(false)
   const [showDelete, setShowDelete]     = useState(false)
   const [features, setFeatures]         = useState<Record<string, boolean>>({})
+  const [featurePrices, setFeaturePrices] = useState<Record<string, number | null>>({})
   const [featLoading, setFeatLoading]   = useState(false)
   const [featSaving, setFeatSaving]     = useState(false)
   const [featMsg, setFeatMsg]           = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+  const [priceModal, setPriceModal]     = useState<{ key: string; label: string; value: string; mode: 'enable' | 'edit' } | null>(null)
+  const [priceModalErr, setPriceModalErr] = useState('')
   const [deleteInput, setDeleteInput] = useState('')
   const [editPlan, setEditPlan]       = useState<{ plan: string; mrr: string } | null>(null)
 
@@ -86,7 +89,10 @@ export default function TenantDetailPage() {
     fetchActivityLogs({ limit: 50 }).then(r => { setAuditLogs(r.data) }).catch(() => {})
     setFeatLoading(true)
     fetchTenantFeatures(id)
-      .then(data => setFeatures(data))
+      .then(data => {
+        setFeatures(data.features ?? {})
+        setFeaturePrices(data.prices ?? {})
+      })
       .catch(e => setFeatMsg({ type: 'err', text: e instanceof Error ? e.message : 'Failed to load features' }))
       .finally(() => setFeatLoading(false))
   }, [id, loadTenant])
@@ -99,13 +105,19 @@ export default function TenantDetailPage() {
     return map
   }
 
-  async function persistFeatures(next: Record<string, boolean>, label?: string) {
+  async function persistFeatures(
+    next: Record<string, boolean>,
+    prices?: Record<string, number | null>,
+    label?: string,
+  ) {
     setFeatSaving(true)
     setFeatMsg(null)
     try {
       const payload = buildFullFeatureMap(next)
-      const updated = await updateTenantFeatures(id, payload)
-      setFeatures(updated)
+      const pricePayload = { ...featurePrices, ...prices }
+      const updated = await updateTenantFeatures(id, payload, pricePayload)
+      setFeatures(updated.features)
+      setFeaturePrices(updated.prices)
       setFeatMsg({ type: 'ok', text: label ? `${label} saved` : 'Features saved' })
       setTimeout(() => setFeatMsg(null), 2500)
     } catch (e) {
@@ -114,23 +126,71 @@ export default function TenantDetailPage() {
     setFeatSaving(false)
   }
 
-  async function handleToggleFeature(key: string, enabled: boolean) {
-    const prev = features
+  async function saveFeatureToggle(key: string, enabled: boolean, price?: number) {
+    const prevFeatures = features
+    const prevPrices = featurePrices
     const next = { ...features, [key]: enabled }
+    const nextPrices = { ...featurePrices }
+    if (enabled && price != null) nextPrices[key] = price
+    if (!enabled) nextPrices[key] = null
+
     setFeatures(next)
+    setFeaturePrices(nextPrices)
     const def = FEATURE_DEFS.find(f => f.key === key)
     setFeatSaving(true)
     setFeatMsg(null)
     try {
-      const updated = await updateTenantFeatures(id, buildFullFeatureMap(next))
-      setFeatures(updated)
+      const updated = await updateTenantFeatures(id, buildFullFeatureMap(next), nextPrices)
+      setFeatures(updated.features)
+      setFeaturePrices(updated.prices)
       setFeatMsg({ type: 'ok', text: `${def?.label ?? key} saved` })
       setTimeout(() => setFeatMsg(null), 2500)
     } catch (e) {
-      setFeatures(prev)
+      setFeatures(prevFeatures)
+      setFeaturePrices(prevPrices)
       setFeatMsg({ type: 'err', text: e instanceof Error ? e.message : 'Failed to save features' })
     }
     setFeatSaving(false)
+  }
+
+  function handleToggleFeature(key: string, enabled: boolean) {
+    const def = FEATURE_DEFS.find(f => f.key === key)
+    if (enabled && def?.priced) {
+      const existing = featurePrices[key]
+      setPriceModalErr('')
+      setPriceModal({
+        key,
+        label: def.label,
+        value: existing != null ? String(existing) : String(def.defaultPrice ?? 0),
+        mode: 'enable',
+      })
+      return
+    }
+    void saveFeatureToggle(key, enabled)
+  }
+
+  function confirmPriceModal() {
+    if (!priceModal) return
+    const num = parseFloat(priceModal.value)
+    if (Number.isNaN(num) || num < 0) {
+      setPriceModalErr('Enter a valid price (0 or more)')
+      return
+    }
+    const { key } = priceModal
+    setPriceModal(null)
+    void saveFeatureToggle(key, true, num)
+  }
+
+  function openEditPrice(key: string) {
+    const def = FEATURE_DEFS.find(f => f.key === key)
+    if (!def?.priced) return
+    setPriceModalErr('')
+    setPriceModal({
+      key,
+      label: def.label,
+      value: featurePrices[key] != null ? String(featurePrices[key]) : String(def.defaultPrice ?? 0),
+      mode: 'edit',
+    })
   }
 
   async function handleSaveFeatures() {
@@ -329,7 +389,7 @@ export default function TenantDetailPage() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-sm font-bold text-gray-900">Feature Flags</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Toggle features on/off for this tenant. Opt-in features are disabled by default.</p>
+                <p className="text-xs text-gray-500 mt-0.5">Toggle features per tenant. POS &amp; Services require a monthly add-on price when enabled.</p>
               </div>
               <button onClick={handleSaveFeatures} disabled={featSaving || featLoading}
                 className="btn-primary text-xs disabled:opacity-50">
@@ -350,20 +410,37 @@ export default function TenantDetailPage() {
               <div className="grid sm:grid-cols-2 gap-3">
                 {FEATURE_DEFS.map(f => {
                   const enabled = f.key in features ? features[f.key] : !f.optIn
+                  const price = featurePrices[f.key]
+                  const needsPrice = enabled && 'priced' in f && f.priced && price == null
                   return (
                     <div key={f.key}
                       className={`flex items-center justify-between p-3.5 rounded-xl border transition-colors ${
-                        enabled ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200'
+                        needsPrice ? 'bg-amber-50 border-amber-200' : enabled ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200'
                       }`}
                     >
                       <div className="flex-1 min-w-0 mr-3">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-xs font-semibold text-gray-800">{f.label}</p>
                           {f.optIn && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-600 font-semibold">OPT-IN</span>
                           )}
+                          {'priced' in f && f.priced && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold">PRICED</span>
+                          )}
                         </div>
                         <p className="text-[10px] text-gray-500 mt-0.5 truncate">{f.desc}</p>
+                        {needsPrice && (
+                          <p className="text-[10px] font-semibold text-amber-700 mt-1">Price required — toggle off/on to set price</p>
+                        )}
+                        {enabled && 'priced' in f && f.priced && price != null && (
+                          <button
+                            type="button"
+                            onClick={() => openEditPrice(f.key)}
+                            className="text-[10px] font-semibold text-emerald-700 mt-1 hover:underline"
+                          >
+                            Rs.{price.toLocaleString('en-LK')}/mo — edit price
+                          </button>
+                        )}
                       </div>
                       <button
                         type="button"
@@ -384,6 +461,39 @@ export default function TenantDetailPage() {
               </div>
             )}
           </div>
+
+          {priceModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+              <div className="card p-5 w-full max-w-sm shadow-xl">
+                <h4 className="text-sm font-bold text-gray-900 mb-1">
+                  {priceModal.mode === 'edit' ? 'Update feature price' : 'Set feature price'}
+                </h4>
+                <p className="text-xs text-gray-500 mb-4">
+                  {priceModal.mode === 'edit'
+                    ? <>Update the monthly add-on price for <strong>{priceModal.label}</strong>.</>
+                    : <>Enter the monthly add-on price for <strong>{priceModal.label}</strong>. Required when enabling this feature for this tenant.</>}
+                </p>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">Monthly price (LKR)</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  autoFocus
+                  className="input-field w-full mb-1"
+                  value={priceModal.value}
+                  onChange={e => { setPriceModal(p => p ? { ...p, value: e.target.value } : p); setPriceModalErr('') }}
+                  onKeyDown={e => { if (e.key === 'Enter') confirmPriceModal() }}
+                />
+                {priceModalErr && <p className="text-xs text-red-600 mb-2">{priceModalErr}</p>}
+                <div className="flex gap-2 mt-4">
+                  <button type="button" className="btn-secondary flex-1 text-sm" onClick={() => setPriceModal(null)}>Cancel</button>
+                  <button type="button" className="btn-primary flex-1 text-sm" onClick={confirmPriceModal} disabled={featSaving}>
+                    {featSaving ? 'Saving…' : priceModal.mode === 'edit' ? 'Save Price' : 'Save & Enable'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

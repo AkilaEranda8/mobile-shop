@@ -5,31 +5,49 @@ import {
   warrantyApi, suppliersApi, financeApi, analyticsApi,
   imeiApi, usersApi, branchesApi, tenantApi, dailyReloadApi,
 } from './api'
+import { isFeatureEnabled, clearFeaturesCache, PRICED_FEATURES } from './tenant-features'
 
 const FEATURES_CACHE_KEY = 'hx_tenant_features'
-const FEATURES_CACHE_TTL = 30 * 1000
-const OPT_IN_FEATURES = ['DAILY_RELOAD', 'CUSTOMER_CREDIT']
+const FEATURES_CACHE_TTL = 5 * 1000
+
+type FeaturesCache = {
+  features: Record<string, boolean>
+  prices: Record<string, number | null>
+}
+
+function readCache(): FeaturesCache | null {
+  try {
+    const cached = localStorage.getItem(FEATURES_CACHE_KEY)
+    if (!cached) return null
+    const { data, ts } = JSON.parse(cached)
+    if (Date.now() - ts >= FEATURES_CACHE_TTL) return null
+    if (data?.features) return data as FeaturesCache
+    return { features: data as Record<string, boolean>, prices: {} }
+  } catch {
+    return null
+  }
+}
 
 export function useTenantFeatures() {
-  const [features, setFeatures] = useState<Record<string, boolean>>(() => {
-    try {
-      const cached = localStorage.getItem(FEATURES_CACHE_KEY)
-      if (cached) {
-        const { data, ts } = JSON.parse(cached)
-        if (Date.now() - ts < FEATURES_CACHE_TTL) return data
-      }
-    } catch {}
-    return {}
-  })
+  const [features, setFeatures] = useState<Record<string, boolean>>(() => readCache()?.features ?? {})
+  const [featurePrices, setFeaturePrices] = useState<Record<string, number | null>>(() => readCache()?.prices ?? {})
 
   const loadFeatures = useCallback(() => {
     return tenantApi.myFeatures().then((res: any) => {
-      const data = res?.data ?? res
-      if (data && typeof data === 'object') {
-        setFeatures(data)
-        try { localStorage.setItem(FEATURES_CACHE_KEY, JSON.stringify({ data, ts: Date.now() })) } catch {}
+      const raw = res?.data ?? res
+      const feat = raw?.features && typeof raw.features === 'object' ? raw.features : raw
+      const prices = raw?.prices && typeof raw.prices === 'object' ? raw.prices : {}
+      if (feat && typeof feat === 'object') {
+        setFeatures(feat)
+        setFeaturePrices(prices)
+        try {
+          localStorage.setItem(FEATURES_CACHE_KEY, JSON.stringify({
+            data: { features: feat, prices },
+            ts: Date.now(),
+          }))
+        } catch { /* noop */ }
       }
-      return data
+      return feat
     })
   }, [])
 
@@ -38,20 +56,27 @@ export function useTenantFeatures() {
   }, [loadFeatures])
 
   useEffect(() => {
-    const onFocus = () => { loadFeatures().catch(() => {}) }
-    window.addEventListener('focus', onFocus)
-    return () => window.removeEventListener('focus', onFocus)
+    const refresh = () => { loadFeatures().catch(() => {}) }
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') refresh()
+    })
+    return () => {
+      window.removeEventListener('focus', refresh)
+    }
   }, [loadFeatures])
 
-  const hasFeature = (f: string) =>
-    OPT_IN_FEATURES.includes(f) ? features[f] === true : features[f] !== false
+  const hasFeature = useCallback(
+    (f: string) => isFeatureEnabled(features, f),
+    [features],
+  )
 
   const refetchFeatures = useCallback(() => {
-    try { localStorage.removeItem(FEATURES_CACHE_KEY) } catch {}
+    clearFeaturesCache()
     return loadFeatures().catch(() => {})
   }, [loadFeatures])
 
-  return { features, hasFeature, refetchFeatures }
+  return { features, featurePrices, hasFeature, refetchFeatures }
 }
 
 export function useFeatureFlag(feature: string): boolean {
@@ -218,24 +243,10 @@ export function useInventorySummary() {
   )
 }
 
-export function useDeliverySummary(params?: Record<string, string>) {
-  return useApi<unknown>(
-    () => analyticsApi.deliverySummary(params) as Promise<{ data: unknown }>,
-    [JSON.stringify(params)],
-  )
-}
-
-export function useImeiRecords(params?: Record<string, string>) {
-  return useApi<{ data: unknown[]; meta: any }>(
-    () => wrapPaginated(imeiApi.list.bind(null, params)),
-    [JSON.stringify(params)],
-  )
-}
-
-export function useUsers(params?: Record<string, string>) {
-  return useApi<{ data: unknown[]; meta: any }>(
-    () => wrapPaginated(usersApi.list.bind(null, params)),
-    [JSON.stringify(params)],
+export function useBranches() {
+  return useApi<unknown[]>(
+    () => branchesApi.list() as Promise<{ data: unknown[] }>,
+    [],
   )
 }
 
@@ -246,9 +257,27 @@ export function useCategories() {
   )
 }
 
-export function useBranches() {
-  return useApi<unknown[]>(
-    () => branchesApi.list() as Promise<{ data: unknown[] }>,
-    [],
+export function useUsers(params?: Record<string, string>) {
+  const p = { ...ALL, ...params }
+  return useApi<{ data: unknown[]; meta: any }>(
+    () => wrapPaginated(usersApi.list.bind(null, p)),
+    [JSON.stringify(p)],
   )
 }
+
+export function useImeiRecords(params?: Record<string, string>) {
+  const p = { ...ALL, ...params }
+  return useApi<{ data: unknown[]; meta: any }>(
+    () => wrapPaginated(imeiApi.list.bind(null, p)),
+    [JSON.stringify(p)],
+  )
+}
+
+export function useDeliverySummary(params?: Record<string, string>) {
+  return useApi<unknown>(
+    () => analyticsApi.deliverySummary(params) as Promise<{ data: unknown }>,
+    [JSON.stringify(params)],
+  )
+}
+
+export { PRICED_FEATURES, clearFeaturesCache }

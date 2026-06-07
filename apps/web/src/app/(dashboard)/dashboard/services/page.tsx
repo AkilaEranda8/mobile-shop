@@ -9,6 +9,7 @@ import { TableActionsRow } from '@/components/table/table-actions-row'
 import { servicesApi } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
+import { OpenPosButton } from '@/components/pos/OpenPosButton'
 
 interface Service {
   id: string
@@ -146,9 +147,12 @@ export default function ServicesPage() {
           <h1 className="page-title">Services</h1>
           <p className="page-subtitle">Manage billable services available in POS</p>
         </div>
-        <button onClick={openNew} className="btn-primary flex items-center gap-2 sm:ml-auto">
-          <Plus size={14} />Add Service
-        </button>
+        <div className="flex gap-2 sm:ml-auto">
+          <OpenPosButton label="Open POS" variant="secondary" />
+          <button onClick={openNew} className="btn-primary flex items-center gap-2">
+            <Plus size={14} />Add Service
+          </button>
+        </div>
       </div>
 
       {/* ── KPI Cards ── */}

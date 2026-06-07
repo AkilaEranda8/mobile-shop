@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   TrendingUp, TrendingDown, Download, Plus, ArrowUpRight, ArrowDownRight,
   Loader2, Wallet, Receipt, BarChart2, Calendar, X
@@ -106,6 +106,12 @@ export default function FinancePage() {
   const transactions: AppTransaction[] = (txData?.data ?? []) as AppTransaction[]
   const revenueArr: any[]  = Array.isArray(rawRevenue) ? rawRevenue : []
   const summary            = summaryData as any
+
+  useEffect(() => {
+    const onSale = () => { refetchTx(); refetchSummary() }
+    window.addEventListener('pos:sale-complete', onSale)
+    return () => window.removeEventListener('pos:sale-complete', onSale)
+  }, [refetchTx, refetchSummary])
 
   const salesRevenue = summary?.salesRevenue  ?? 0
   const otherIncome  = summary?.otherIncome   ?? 0

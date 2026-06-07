@@ -16,6 +16,7 @@ import { authStorage } from '@/lib/auth'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { getInvoiceSettings, type InvoiceSettings } from '@/lib/invoiceSettings'
+import { OpenPosButton } from '@/components/pos/OpenPosButton'
 
 const statusColors: Record<string, string> = {
   PAID:           'bg-green-500/10  border-green-500/20  text-green-400',
@@ -368,6 +369,12 @@ export default function SalesPage() {
 
   useEffect(() => { load() }, [load])
 
+  useEffect(() => {
+    const onSale = () => { load() }
+    window.addEventListener('pos:sale-complete', onSale)
+    return () => window.removeEventListener('pos:sale-complete', onSale)
+  }, [load])
+
   const totalRevenue  = sales.reduce((s, r) => s + (r.total ?? 0), 0)
   const paidCount     = sales.filter(r => r.status === 'PAID').length
   const partialCount  = sales.filter(r => r.status === 'PARTIAL').length
@@ -464,7 +471,10 @@ export default function SalesPage() {
           <h1 className="page-title">Sales</h1>
           <p className="page-subtitle">View and manage all sales transactions</p>
         </div>
-        <div className="sm:ml-auto"><TableDensityToggle value={density} onChange={setDensity} /></div>
+        <div className="flex items-center gap-2 sm:ml-auto">
+          <OpenPosButton label="New Sale" />
+          <TableDensityToggle value={density} onChange={setDensity} />
+        </div>
       </div>
 
       {/* Stats */}

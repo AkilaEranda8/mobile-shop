@@ -4,6 +4,12 @@ import { sendSuccess, sendError } from '../../utils/response'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
 import { AppError } from '../../middleware/error.middleware'
 import { authService } from '../auth/auth.service'
+import {
+  ALL_FEATURES,
+  PRICED_FEATURES,
+  buildFeatureMap,
+  buildPriceMap,
+} from '../tenants/tenant-features'
 
 const router = Router()
 router.use(authenticate)
@@ -134,42 +140,47 @@ router.patch('/tenants/:id', async (req: Request, res: Response, next: NextFunct
 })
 
 // ── Tenant Feature Flags ──────────────────────────────────────────────────────
-const ALL_FEATURES = [
-  'POS', 'REPAIRS', 'WARRANTY', 'WHATSAPP', 'ANALYTICS', 'REPORTS',
-  'FINANCE', 'DELIVERY', 'EXCHANGES', 'STAFF', 'SUPPLIERS', 'IMEI', 'SERVICES', 'DAILY_RELOAD', 'CUSTOMER_CREDIT',
-]
-const OPT_IN_FEATURES = ['DAILY_RELOAD', 'CUSTOMER_CREDIT']
-
 router.get('/tenants/:id/features', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const rows = await prisma.tenantFeature.findMany({ where: { tenantId: req.params.id } })
-    const map: Record<string, boolean> = {}
-    for (const f of ALL_FEATURES) map[f] = !OPT_IN_FEATURES.includes(f)
-    for (const f of OPT_IN_FEATURES) map[f] = false
-    for (const r of rows) map[r.feature] = r.enabled
-    sendSuccess(res, map)
+    sendSuccess(res, { features: buildFeatureMap(rows), prices: buildPriceMap(rows) })
   } catch (e) { next(e) }
 })
 
 router.put('/tenants/:id/features', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const features: Record<string, boolean> = req.body.features ?? {}
+    const prices: Record<string, number | null | undefined> = req.body.prices ?? {}
     const entries = Object.entries(features).filter(([feature]) => ALL_FEATURES.includes(feature))
+    const existingRows = await prisma.tenantFeature.findMany({ where: { tenantId: req.params.id } })
+    const existingByFeature = new Map(existingRows.map((r) => [r.feature, r]))
+
+    for (const [feature, enabled] of entries) {
+      if (!enabled || !PRICED_FEATURES.includes(feature)) continue
+      const p = prices[feature]
+      const hasRequestPrice = p != null && !Number.isNaN(Number(p)) && Number(p) >= 0
+      const hasStoredPrice = existingByFeature.get(feature)?.price != null
+      if (!hasRequestPrice && !hasStoredPrice) {
+        throw new AppError(`Price is required when enabling ${feature}`, 400)
+      }
+    }
+
     await Promise.all(
-      entries.map(([feature, enabled]) =>
-        prisma.tenantFeature.upsert({
+      entries.map(([feature, enabled]) => {
+        const data: { enabled: boolean; price?: number | null } = { enabled }
+        if (PRICED_FEATURES.includes(feature)) {
+          if (enabled && prices[feature] != null) data.price = Number(prices[feature])
+          if (!enabled) data.price = null
+        }
+        return prisma.tenantFeature.upsert({
           where: { tenantId_feature: { tenantId: req.params.id, feature } },
-          create: { tenantId: req.params.id, feature, enabled },
-          update: { enabled },
+          create: { tenantId: req.params.id, feature, enabled, price: data.price ?? null },
+          update: data,
         })
-      )
+      })
     )
     const rows = await prisma.tenantFeature.findMany({ where: { tenantId: req.params.id } })
-    const map: Record<string, boolean> = {}
-    for (const f of ALL_FEATURES) map[f] = !OPT_IN_FEATURES.includes(f)
-    for (const f of OPT_IN_FEATURES) map[f] = false
-    for (const r of rows) map[r.feature] = r.enabled
-    sendSuccess(res, map, 'Features updated')
+    sendSuccess(res, { features: buildFeatureMap(rows), prices: buildPriceMap(rows) }, 'Features updated')
   } catch (e) { next(e) }
 })
 

@@ -138,13 +138,22 @@ export async function deleteTenant(id: string) {
   return req<null>(ADMIN_BASE, `/tenants/${id}`, { method: 'DELETE' })
 }
 
-export async function fetchTenantFeatures(id: string) {
-  return req<Record<string, boolean>>(ADMIN_BASE, `/tenants/${id}/features`)
+export type TenantFeaturesPayload = {
+  features: Record<string, boolean>
+  prices: Record<string, number | null>
 }
 
-export async function updateTenantFeatures(id: string, features: Record<string, boolean>) {
-  return req<Record<string, boolean>>(ADMIN_BASE, `/tenants/${id}/features`, {
-    method: 'PUT', body: JSON.stringify({ features }),
+export async function fetchTenantFeatures(id: string) {
+  return req<TenantFeaturesPayload>(ADMIN_BASE, `/tenants/${id}/features`)
+}
+
+export async function updateTenantFeatures(
+  id: string,
+  features: Record<string, boolean>,
+  prices?: Record<string, number | null>,
+) {
+  return req<TenantFeaturesPayload>(ADMIN_BASE, `/tenants/${id}/features`, {
+    method: 'PUT', body: JSON.stringify({ features, prices }),
   })
 }
 

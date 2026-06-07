@@ -12,6 +12,8 @@ import { customersApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import toast from 'react-hot-toast'
 import type { Customer } from '@/types'
+import { OpenPosButton } from '@/components/pos/OpenPosButton'
+import { usePos } from '@/lib/use-pos'
 
 const repairStatusColors: Record<string, string> = {
   RECEIVED:      'text-blue-400   bg-blue-500/10   border-blue-500/20',
@@ -134,6 +136,7 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
 
 /* ── Customer Detail Modal ───────────────────────────────────────────── */
 function CustomerDetailModal({ customerId, onClose }: { customerId: string; onClose: () => void }) {
+  const { openPos } = usePos()
   const [customer,  setCustomer]  = useState<any>(null)
   const [loading,   setLoading]   = useState(true)
   const [tab,       setTab]       = useState<'info' | 'history'>('info')
@@ -263,6 +266,22 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                       </button>
                     ))}
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      openPos({
+                        id: customer.id,
+                        name: customer.name,
+                        phone: customer.phone,
+                        totalDue: customer.totalDue,
+                      })
+                      onClose()
+                    }}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold text-white transition-colors"
+                    style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)' }}
+                  >
+                    <ShoppingBag size={12} /> New Sale for {customer.name?.split(' ')[0]}
+                  </button>
                   {customer.totalDue > 0 && (
                     <button
                       type="button"
@@ -485,6 +504,12 @@ export default function CustomersPage() {
   const { data: customersData, loading, refetch } = useCustomers()
   const customers: Customer[] = (customersData?.data ?? []) as Customer[]
 
+  useEffect(() => {
+    const onSale = () => { refetch() }
+    window.addEventListener('pos:sale-complete', onSale)
+    return () => window.removeEventListener('pos:sale-complete', onSale)
+  }, [refetch])
+
   const activeSeg = SEGMENTS.find(s => s.key === segment) ?? SEGMENTS[0]
   const segmentFiltered = customers.filter(activeSeg.filter)
 
@@ -605,6 +630,7 @@ export default function CustomersPage() {
           <p className="page-subtitle">{customers.length} registered · <span className="text-violet-400">{activeSeg.label}</span></p>
         </div>
         <div className="flex gap-2 sm:ml-auto items-center relative" ref={segmentRef}>
+          <OpenPosButton label="POS Terminal" variant="secondary" />
           <button
             onClick={() => setShowSegment(v => !v)}
             className={`btn-secondary text-sm flex items-center gap-2 ${showSegment ? 'border-violet-500/40 text-violet-300' : ''}`}

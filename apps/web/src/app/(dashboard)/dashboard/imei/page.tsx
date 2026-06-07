@@ -425,6 +425,12 @@ export default function IMEIPage() {
   const records: any[] = (data?.data ?? []) as any[]
   const total = (data as any)?.meta?.total ?? records.length
 
+  useEffect(() => {
+    const onSale = () => { refetch() }
+    window.addEventListener('pos:sale-complete', onSale)
+    return () => window.removeEventListener('pos:sale-complete', onSale)
+  }, [refetch])
+
   const counts = {
     total,
     inStock:    records.filter((d: any) => d.status === 'IN_STOCK').length,

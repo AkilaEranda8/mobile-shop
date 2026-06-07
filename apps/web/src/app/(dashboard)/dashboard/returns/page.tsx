@@ -14,6 +14,7 @@ import { TableActionsRow } from '@/components/table/table-actions-row'
 import { salesApi } from '@/lib/api'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import toast from 'react-hot-toast'
+import { OpenPosButton } from '@/components/pos/OpenPosButton'
 
 const RETURN_REASONS = [
   'Defective / Damaged',
@@ -452,11 +453,14 @@ export default function ReturnsPage() {
           <h1 className="page-title">Returns</h1>
           <p className="page-subtitle">Track all product returns and refunds</p>
         </div>
-        <button onClick={() => setShowNewReturn(true)}
-          className="btn-primary text-sm flex items-center gap-2">
-          <RotateCcw size={14} />
-          New Return
-        </button>
+        <div className="flex items-center gap-2">
+          <OpenPosButton label="New Sale" variant="secondary" />
+          <button onClick={() => setShowNewReturn(true)}
+            className="btn-primary text-sm flex items-center gap-2">
+            <RotateCcw size={14} />
+            New Return
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
