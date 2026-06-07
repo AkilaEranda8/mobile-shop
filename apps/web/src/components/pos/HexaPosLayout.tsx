@@ -97,9 +97,6 @@ export function HexaPosLayout({
                 style={{ background: C.card, borderColor: C.border }}
               />
             </div>
-            <button type="button" onClick={onScanClick} className="h-9 px-3 rounded-xl text-xs font-semibold border shrink-0 text-white" style={{ borderColor: C.border, background: C.card }}>
-              Scan Barcode
-            </button>
             <button type="button" onClick={onBellClick} className="relative h-9 w-9 rounded-xl border flex items-center justify-center shrink-0 text-white hover:bg-white/5" style={{ borderColor: C.border, background: C.card }} title="Held carts">
               <Bell size={15} className="text-white" />
             </button>
@@ -120,20 +117,13 @@ export function HexaPosLayout({
           </div>
         </div>
 
-        <footer className="shrink-0 flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-t text-[11px] text-white" style={{ borderColor: C.border, background: C.panel }}>
-          <span>© 2024 Hexa-VIMS POS System</span>
-          <div className="flex flex-wrap items-center gap-3">
-            <span>Terminal: T01</span>
-            <span>|</span>
-            <span>Cashier: {cashierName}</span>
-            <span>|</span>
-            <span>Session: 01</span>
-            <span>|</span>
-            <span>Last Sync: {syncTime}</span>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: 'rgba(255,255,255,0.1)' }}>
-              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> Synced
-            </span>
-          </div>
+        <footer className="shrink-0 flex flex-wrap items-center justify-end gap-3 px-4 py-1.5 border-t text-[10px] text-white/70" style={{ borderColor: C.border, background: C.panel }}>
+          <span>Cashier: {cashierName}</span>
+          <span>·</span>
+          <span>Sync: {syncTime}</span>
+          <span className="inline-flex items-center gap-1 text-white">
+            <span className="w-1.5 h-1.5 rounded-full bg-white/80" /> Online
+          </span>
         </footer>
       </div>
     </div>

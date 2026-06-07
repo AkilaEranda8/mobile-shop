@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   Search, Plus, Minus, CreditCard, Banknote, Smartphone, Receipt,
   ScanLine, X, Loader2, UserPlus, Edit2, Check, Download, Tag, Printer,
-  Heart, Trash2, ChevronRight, ChevronLeft, ChevronDown, Gift, Archive,
+  Trash2, ChevronRight, ChevronLeft, ChevronDown, Archive,
   FileText, FilePlus2, Calculator, SlidersHorizontal, Package, Tablet,
   Headphones, Wrench, PackageSearch, ShoppingBag, User, CheckCircle2, Shield,
   Menu, ShoppingCart, BarChart3, Bell, Wifi, Cloud, TrendingUp, MoreHorizontal,
@@ -328,7 +328,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
   const [page, setPage]               = useState(1)
   const [perPage, setPerPage]         = useState(15)
-  const [favorites, setFavorites]     = useState<Set<string>>(new Set())
   const [showScanInput, setShowScanInput]         = useState(false)
   const [showCustDrop, setShowCustDrop]           = useState(false)
   const [showCartCustDrop, setShowCartCustDrop]   = useState(false)
@@ -430,19 +429,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
       setRecentSales((res?.data ?? res) as any[])
     } catch { setRecentSales([]) }
     finally { setRecentLoading(false) }
-  }
-
-  const openDrawer = () => {
-    try {
-      const ESC = '\x1B'
-      const drawerKick = ESC + 'p' + '\x00' + '\x19' + '\x19'
-      const win = window.open('', '_blank', 'width=1,height=1')
-      if (win) {
-        win.document.write(`<html><body><script>window.onload=function(){window.print();window.close()}<\/script><pre style="font-family:monospace">${drawerKick}</pre></body></html>`)
-        win.document.close()
-      }
-    } catch {}
-    toast.success('Cash drawer signal sent', { icon: '🗄️', duration: 2000 })
   }
 
   const { data: productsData, refetch: refetchProducts } = useProducts({ limit: '500' })
@@ -1092,11 +1078,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
             ) : pagedProducts.map((item: any) => {
                   const isService = selectedCategory === 'SERVICES'
                   const isLow  = !isService && item.stock > 0 && item.stock <= 4
-                  const isHot  = !isService && item.stock >= 25
                   const isOut  = !isService && item.stock === 0
-                  const { gradient, iconColor, Icon: CardIcon } = isService ? { gradient: 'linear-gradient(135deg, #059669 0%, #047857 100%)', iconColor: '#34d399', Icon: Wrench } : getProductCardStyle(item)
+                  const { gradient, iconColor, Icon: CardIcon } = isService ? { gradient: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, iconColor: '#c4b5fd', Icon: Wrench } : getProductCardStyle(item)
                   const initials = (item.name as string).split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()
-                  const isFav  = favorites.has(item.id)
                   return (
                     <div key={item.id}
                       className={`relative flex flex-col rounded-2xl overflow-hidden border transition-all group cursor-pointer select-none ${isOut ? 'opacity-40 cursor-not-allowed' : 'hover:shadow-xl hover:shadow-black/30 hover:-translate-y-0.5'}`}
@@ -1136,23 +1120,11 @@ function POSContent({ onClose }: { onClose: () => void }) {
                           </div>
                         )}
 
-                        {/* HOT / LOW STOCK badge */}
-                        {isHot && !isLow && (
-                          <div className="absolute top-2 left-2 px-2 py-0.5 rounded text-[9px] font-extrabold tracking-wide bg-red-600 text-white">
-                            HOT
-                          </div>
-                        )}
                         {isLow && (
                           <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold tracking-wide border border-white/30 text-white" style={{ background: 'rgba(0,0,0,0.35)' }}>
                             ⚠ LOW STOCK
                           </div>
                         )}
-
-                        {/* Favourite button */}
-                        <button type="button" onClick={e => { e.stopPropagation(); setFavorites(prev => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n }) }}
-                          className={`absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-all ${isFav ? 'opacity-100 bg-red-500/30 text-red-400' : 'opacity-0 group-hover:opacity-100 bg-black/30 text-white/70 hover:text-red-400'}`}>
-                          <Heart size={12} fill={isFav ? 'currentColor' : 'none'} />
-                        </button>
 
                       </div>
 
@@ -1213,16 +1185,19 @@ function POSContent({ onClose }: { onClose: () => void }) {
           </div>
         )}
         bottomActions={(
-          <div className="flex flex-wrap gap-2 px-4 py-3 border-t shrink-0" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
+          <div className="flex flex-wrap gap-2 px-4 py-2.5 border-t shrink-0" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
             {[
-              { label: 'New Sale (F10)', onClick: handleNewSale, bg: 'linear-gradient(135deg,#7c3aed,#5b21b6)' },
-              { label: 'Hold Sales (F4)', onClick: holdCart, bg: 'linear-gradient(135deg,#2563eb,#1d4ed8)' },
-              { label: 'Recent Sales', onClick: () => { setShowRecentInvoices(true); fetchRecentSales() }, bg: 'linear-gradient(135deg,#059669,#047857)' },
-              { label: 'Opening Cash', onClick: openDrawer, bg: 'linear-gradient(135deg,#d97706,#b45309)' },
-              { label: 'Cash In/Out', onClick: () => setShowCalc(true), bg: 'linear-gradient(135deg,#0d9488,#0f766e)' },
-              { label: 'More', onClick: () => setShowHeldCarts(true), bg: POS_THEME.card },
+              { label: 'New Sale (F10)', onClick: handleNewSale, primary: true },
+              { label: 'Hold (F4)', onClick: holdCart },
+              { label: 'Recent Sales', onClick: () => { setShowRecentInvoices(true); fetchRecentSales() } },
+              { label: 'Calculator (F12)', onClick: () => setShowCalc(true) },
+              { label: 'Held Carts', onClick: () => setShowHeldCarts(true) },
             ].map(btn => (
-              <button key={btn.label} type="button" onClick={btn.onClick} className="flex-1 min-w-[120px] h-10 rounded-xl text-xs font-bold text-white border !text-white" style={{ background: btn.bg, borderColor: POS_THEME.border, color: '#ffffff' }}>
+              <button key={btn.label} type="button" onClick={btn.onClick}
+                className="flex-1 min-w-[100px] h-9 rounded-xl text-[11px] font-semibold text-white border"
+                style={btn.primary
+                  ? { background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, borderColor: POS_THEME.purple }
+                  : { background: POS_THEME.card, borderColor: POS_THEME.border }}>
                 {btn.label}
               </button>
             ))}
@@ -1432,7 +1407,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     </div>
                   )}
                   {hasCustomerCredit && selectedCustomer && customerOutstanding > 0 && (
-                    <div className="rounded-xl border p-2.5" style={{ borderColor: includeOutstanding ? 'rgba(239,68,68,.4)' : POS_THEME.border, background: includeOutstanding ? 'rgba(239,68,68,.06)' : POS_THEME.card }}>
+                    <div className="rounded-xl border p-2.5" style={{ borderColor: includeOutstanding ? POS_THEME.purple : POS_THEME.border, background: includeOutstanding ? 'rgba(124,58,237,0.1)' : POS_THEME.card }}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
                           <CreditCard size={13} className="text-white" />
@@ -1441,7 +1416,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         </div>
                         <button onClick={() => setIncludeOutstanding(p => !p)}
                           className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
-                          style={{ background: includeOutstanding ? '#ef4444' : POS_THEME.border }}>
+                          style={{ background: includeOutstanding ? POS_THEME.purple : POS_THEME.border }}>
                           <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left: includeOutstanding ? '18px' : '2px' }} />
                         </button>
                       </div>
@@ -1454,8 +1429,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     <div
                       className="rounded-xl border p-2.5 space-y-2"
                       style={{
-                        borderColor: saleDueAmount > 0 ? 'rgba(245,158,11,.45)' : creditMode ? 'rgba(245,158,11,.25)' : POS_THEME.border,
-                        background: saleDueAmount > 0 ? 'rgba(245,158,11,.06)' : POS_THEME.card,
+                        borderColor: saleDueAmount > 0 ? POS_THEME.purple : POS_THEME.border,
+                        background: POS_THEME.card,
                         opacity: creditMode ? 1 : 0.85,
                       }}
                     >
@@ -1475,9 +1450,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         className="w-full px-3 py-2 rounded-lg text-sm font-bold border outline-none focus:border-violet-500/50 text-white placeholder:text-white/50"
                         style={{ background: '#0c1220', borderColor: POS_THEME.border }}
                       />
-                      <p className="text-[10px] text-white/60 leading-snug">
-                        Full payment: enter bill total. Partial payment: enter amount and select customer above for credit balance.
-                      </p>
                       {creditMode && saleDueAmount > 0 && (
                         <div className="flex justify-between text-[11px]">
                           <span className="text-white">Added to customer credit</span>
@@ -1517,48 +1489,47 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       <span className="font-bold" style={{ color: POS_THEME.text }}>{formatCurrency(collectAtCheckout)}</span>
                     </div>
                   )}
-                  {/* Warranty Section */}
-                  <div className="rounded-xl border p-2.5" style={{ borderColor: addWarranty ? 'rgba(245,158,11,.4)' : POS_THEME.border, background: addWarranty ? 'rgba(245,158,11,.06)' : POS_THEME.card, opacity: !selectedCustomer ? 0.5 : 1 }}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <Shield size={13} className="text-white" />
-                        <span className="text-xs font-semibold text-white">Add Warranty</span>
-                        {addWarranty && selectedCustomer && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-white/10 text-white">{warrantyMonths < 12 ? `${warrantyMonths}mo` : `${warrantyMonths/12}yr`}</span>}
-                        {!selectedCustomer && <span className="text-[9px] text-white/60">Select customer first</span>}
+                  {selectedCustomer && (
+                    <div className="rounded-xl border p-2.5" style={{ borderColor: addWarranty ? POS_THEME.purple : POS_THEME.border, background: POS_THEME.card, opacity: !selectedCustomer ? 0.5 : 1 }}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <Shield size={13} className="text-white" />
+                          <span className="text-xs font-semibold text-white">Warranty</span>
+                          {addWarranty && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-white/10 text-white">{warrantyMonths < 12 ? `${warrantyMonths}mo` : `${warrantyMonths/12}yr`}</span>}
+                        </div>
+                        <button type="button" onClick={() => setAddWarranty(p => !p)}
+                          className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
+                          style={{ background: addWarranty ? POS_THEME.purple : POS_THEME.border }}>
+                          <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left: addWarranty ? '18px' : '2px' }} />
+                        </button>
                       </div>
-                      <button onClick={() => { if (selectedCustomer) setAddWarranty(p => !p) }}
-                        className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
-                        style={{ background: addWarranty && selectedCustomer ? '#f59e0b' : POS_THEME.border, cursor: !selectedCustomer ? 'not-allowed' : 'pointer' }}>
-                        <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left: addWarranty && selectedCustomer ? '18px' : '2px' }} />
-                      </button>
+                      {addWarranty && (
+                        <div className="grid grid-cols-4 gap-1 mt-2">
+                          {[3, 6, 12, 24].map(m => (
+                            <button key={m} type="button" onClick={() => setWarrantyMonths(m)}
+                              className="py-1.5 rounded-lg text-[10px] font-bold border transition-all text-white"
+                              style={warrantyMonths === m
+                                ? { background: 'rgba(124,58,237,0.25)', borderColor: POS_THEME.purple }
+                                : { background: 'transparent', borderColor: POS_THEME.border }}>
+                              {m < 12 ? `${m} mo` : `${m/12} yr`}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    {addWarranty && selectedCustomer && (
-                      <div className="grid grid-cols-4 gap-1 mt-2">
-                        {[3, 6, 12, 24].map(m => (
-                          <button key={m} onClick={() => setWarrantyMonths(m)}
-                            className="py-1.5 rounded-lg text-[10px] font-bold border transition-all"
-                            style={warrantyMonths === m
-                              ? { background: 'rgba(255,255,255,.12)', borderColor: 'rgba(255,255,255,.25)', color: '#ffffff' }
-                              : { background: 'transparent', borderColor: POS_THEME.border, color: '#ffffff' }}>
-                            {m < 12 ? `${m} mo` : `${m/12} yr`}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  {/* Payment method */}
+                  )}
                   <div className="grid grid-cols-3 gap-1.5">
                     {([
-                      { method: 'CASH' as const, label: 'Cash',   Icon: Banknote,   active: { background: 'rgba(34,197,94,.15)',  borderColor: 'rgba(34,197,94,.35)',  color: '#ffffff' } },
-                      { method: 'CARD' as const, label: 'Card',   Icon: CreditCard, active: { background: 'rgba(59,130,246,.15)', borderColor: 'rgba(59,130,246,.35)', color: '#ffffff' } },
-                      { method: 'UPI'  as const, label: 'Bank Transfer', Icon: Banknote, active: { background: 'rgba(30,58,138,.25)', borderColor: 'rgba(59,130,246,.35)', color: '#ffffff' } },
-                    ]).map(({ method, label, Icon: MI, active }) => (
-                      <button key={method} onClick={() => setPaymentMethod(method)}
-                        className="flex flex-col items-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold transition-all text-white"
+                      { method: 'CASH' as const, label: 'Cash', Icon: Banknote },
+                      { method: 'CARD' as const, label: 'Card', Icon: CreditCard },
+                      { method: 'UPI'  as const, label: 'Bank Transfer', Icon: Banknote },
+                    ]).map(({ method, label, Icon: MI }) => (
+                      <button key={method} type="button" onClick={() => setPaymentMethod(method)}
+                        className="flex flex-col items-center gap-1 py-2 rounded-xl text-[11px] font-semibold text-white border transition-all"
                         style={paymentMethod === method
-                          ? { ...active, border: `1px solid ${active.borderColor}` }
-                          : { background: POS_THEME.card, border: `1px solid ${POS_THEME.border}`, color: '#ffffff', opacity: 0.85 }}>
-                        <MI size={15} />{label}
+                          ? { background: 'rgba(124,58,237,0.2)', borderColor: POS_THEME.purple }
+                          : { background: POS_THEME.card, borderColor: POS_THEME.border }}>
+                        <MI size={14} />{label}
                       </button>
                     ))}
                   </div>
@@ -1581,20 +1552,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       <Archive size={12} /><span>Hold (F4)</span>
                     </button>
                   </div>
-                  {selectedCustomer && (
-                    <div className="flex items-center justify-between p-3 rounded-xl border transition-colors" style={{ borderColor: POS_THEME.border, background: POS_THEME.card }}>
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-violet-500/10 border border-violet-500/15 flex items-center justify-center flex-shrink-0">
-                          <Gift size={14} className="text-white" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold" style={{ color: POS_THEME.text }}>Loyalty Points</p>
-                          <p className="text-[10px]" style={{ color: POS_THEME.muted }}>Available Points: {(selectedCustomer as any).loyaltyPoints ?? 0}</p>
-                        </div>
-                      </div>
-                      <ChevronRight size={13} className="text-white/70 flex-shrink-0" />
-                    </div>
-                  )}
                 </div>
               )}
             </>
