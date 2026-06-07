@@ -14,7 +14,7 @@ const C = {
   card: '#161B22',
   cardHover: '#1c2333',
   border: '#2a3344',
-  muted: 'rgba(255,255,255,0.72)',
+  muted: '#9CA3AF',
   text: '#FFFFFF',
   purple: '#7C3AED',
   purpleDark: '#6D28D9',
@@ -207,7 +207,7 @@ export function HexaPosLayout({
               style={{
                 borderColor: filtersActive ? C.purple : C.border,
                 background: filtersActive ? `${C.purple}22` : C.card,
-                color: filtersActive ? C.text : 'rgba(255,255,255,0.72)',
+                color: filtersActive ? C.text : C.muted,
               }}>
               <SlidersHorizontal size={14} /> Filters
             </button>

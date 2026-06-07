@@ -129,6 +129,7 @@ model Tenant {
   ownerName           String
   mrr                 Float            @default(0)
   invoiceSettings     Json?
+  reloadSettings      Json?
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
 
@@ -994,6 +995,7 @@ model DailyReload {
   id            String   @id @default(cuid())
   tenantId      String
   connectionNo  String
+  provider      String?
   transactionId String?
   executedBy    String?
   reloadDate    DateTime @default(now())

@@ -1052,6 +1052,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           try {
             await dailyReloadApi.create({
               connectionNo: item.reloadProvider!,
+              provider: item.reloadProvider!,
               amount: item.price * item.quantity,
               executedBy: user?.name || 'POS',
               transactionId: invoiceNo || undefined,
@@ -1448,7 +1449,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         filtersActive={showFilters || hideOutOfStock || showFavoritesOnly}
         filtersPanel={showFilters ? (
           <div className="shrink-0 w-full px-4 py-2.5 flex flex-wrap items-center gap-x-8 gap-y-2 border-b" style={{ borderColor: POS_THEME.border, background: POS_THEME.card }}>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-white/60">Filters</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">Filters</span>
             <label className="flex items-center gap-2.5 text-[11px] font-medium text-white cursor-pointer">
               Hide Out of Stock
               <button type="button" onClick={() => setHideOutOfStock(v => !v)} className="relative w-9 h-5 rounded-full transition-all" style={{ background: hideOutOfStock ? POS_THEME.purple : POS_THEME.border }}>

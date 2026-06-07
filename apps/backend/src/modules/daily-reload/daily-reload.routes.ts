@@ -4,6 +4,12 @@ import { prisma } from '../../config/database'
 import { sendSuccess } from '../../utils/response'
 import { authenticate } from '../../middleware/auth.middleware'
 import { AppError } from '../../middleware/error.middleware'
+import {
+  calcReloadCommission,
+  fetchTenantReloadSettings,
+  getCommissionRate,
+  resolveReloadProvider,
+} from './reload-settings.util'
 
 const router = Router()
 router.use(authenticate)
@@ -32,6 +38,19 @@ function buildDateFilter(date?: string) {
   return { reloadDate: { gte: start, lte: end } }
 }
 
+function enrichReload(reload: any, settings: Awaited<ReturnType<typeof fetchTenantReloadSettings>>) {
+  const commissionRate = getCommissionRate(settings, reload.connectionNo, reload.provider)
+  const commission = calcReloadCommission(reload.amount, settings, reload.connectionNo, reload.provider)
+  const provider = resolveReloadProvider(reload.connectionNo, reload.provider)
+  return { ...reload, provider: provider ?? reload.provider ?? null, commissionRate, commission }
+}
+
+function sumCommission(reloads: any[], settings: Awaited<ReturnType<typeof fetchTenantReloadSettings>>) {
+  return Math.round(
+    reloads.reduce((s, r) => s + calcReloadCommission(r.amount, settings, r.connectionNo, r.provider), 0) * 100,
+  ) / 100
+}
+
 // ── List reloads ──────────────────────────────────────────────────────────────
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -41,17 +60,20 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     const where = { tenantId, ...buildDateFilter(date) }
 
     res.setHeader('Cache-Control', 'no-store')
+    const settings = await fetchTenantReloadSettings(tenantId)
     const [reloads, total, agg] = await Promise.all([
       prisma.dailyReload.findMany({ where, orderBy: { reloadDate: 'desc' }, skip, take: parseInt(limit) }),
       prisma.dailyReload.count({ where }),
       prisma.dailyReload.aggregate({ where, _sum: { amount: true }, _count: true }),
     ])
 
+    const enriched = reloads.map(r => enrichReload(r, settings))
     const totalAmount = agg._sum.amount ?? 0
     sendSuccess(res, {
-      data: reloads, total,
+      data: enriched, total,
       totalAmount,
-      commission: Math.round(totalAmount * 0.03 * 100) / 100,
+      commission: sumCommission(reloads, settings),
+      settings,
       page: parseInt(page), limit: parseInt(limit),
     })
   } catch (e) { next(e) }
@@ -61,13 +83,15 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
-    const { connectionNo, transactionId, executedBy, reloadDate, status, amount } = req.body
+    const { connectionNo, provider, transactionId, executedBy, reloadDate, status, amount } = req.body
     if (!connectionNo || amount === undefined) throw new AppError('connectionNo and amount are required', 400)
 
+    const resolvedProvider = resolveReloadProvider(String(connectionNo), provider ? String(provider) : null)
     const reload = await prisma.dailyReload.create({
       data: {
         tenantId,
         connectionNo: String(connectionNo),
+        provider: resolvedProvider ?? (provider ? String(provider) : undefined),
         transactionId: transactionId ? String(transactionId) : undefined,
         executedBy:    executedBy    ? String(executedBy)    : undefined,
         reloadDate:    reloadDate    ? new Date(reloadDate)  : new Date(),
@@ -87,15 +111,20 @@ router.post('/bulk', async (req: Request, res: Response, next: NextFunction) => 
     if (!Array.isArray(rows) || rows.length === 0) throw new AppError('rows array is required', 400)
 
     const data = rows
-      .map((r: any) => ({
-        tenantId,
-        connectionNo:  String(r.connectionNo  || '').trim(),
-        transactionId: r.transactionId ? String(r.transactionId).trim() : undefined,
-        executedBy:    r.executedBy    ? String(r.executedBy).trim()    : undefined,
-        reloadDate:    new Date(),
-        status:        r.status        ? String(r.status)               : 'Success',
-        amount:        parseFloat(String(r.amount || '0').replace(/[^0-9.]/g, '')),
-      }))
+      .map((r: any) => {
+        const connectionNo = String(r.connectionNo || '').trim()
+        const provider = resolveReloadProvider(connectionNo, r.provider ? String(r.provider) : null)
+        return {
+          tenantId,
+          connectionNo,
+          provider: provider ?? (r.provider ? String(r.provider).trim() : undefined),
+          transactionId: r.transactionId ? String(r.transactionId).trim() : undefined,
+          executedBy:    r.executedBy    ? String(r.executedBy).trim()    : undefined,
+          reloadDate:    new Date(),
+          status:        r.status        ? String(r.status)               : 'Success',
+          amount:        parseFloat(String(r.amount || '0').replace(/[^0-9.]/g, '')),
+        }
+      })
       .filter(r => r.connectionNo && !isNaN(r.amount) && r.amount > 0)
 
     if (data.length === 0) throw new AppError('No valid rows found in the file', 400)
@@ -121,15 +150,20 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
 
     // Skip row 0 (header). Columns: A=connNo B=txId C=agent D=date E=time F=status G=amount
     const data = matrix.slice(1)
-      .map((r: any[]) => ({
-        tenantId,
-        connectionNo:  String(r[0] ?? '').trim(),
-        transactionId: r[1] != null && r[1] !== '' ? String(r[1]).trim() : undefined,
-        executedBy:    r[2] != null && r[2] !== '' ? String(r[2]).trim() : undefined,
-        reloadDate:    new Date(),
-        status:        r[5] != null && r[5] !== '' ? String(r[5]).trim() : 'Success',
-        amount:        parseAmt(r[6]),
-      }))
+      .map((r: any[]) => {
+        const connectionNo = String(r[0] ?? '').trim()
+        const provider = resolveReloadProvider(connectionNo, null)
+        return {
+          tenantId,
+          connectionNo,
+          provider: provider ?? undefined,
+          transactionId: r[1] != null && r[1] !== '' ? String(r[1]).trim() : undefined,
+          executedBy:    r[2] != null && r[2] !== '' ? String(r[2]).trim() : undefined,
+          reloadDate:    new Date(),
+          status:        r[5] != null && r[5] !== '' ? String(r[5]).trim() : 'Success',
+          amount:        parseAmt(r[6]),
+        }
+      })
       .filter(r => r.connectionNo && r.amount > 0)
 
     if (data.length === 0) throw new AppError('No valid rows found. Ensure Connection No (col A) and Amount (col G) are filled.', 400)
@@ -149,10 +183,12 @@ router.get('/report', async (req: Request, res: Response, next: NextFunction) =>
     if (to)   where.reloadDate = { ...(where.reloadDate ?? {}), lte: new Date(to   + 'T23:59:59.999Z') }
 
     res.setHeader('Cache-Control', 'no-store')
+    const settings = await fetchTenantReloadSettings(tenantId)
     const reloads = await prisma.dailyReload.findMany({ where, orderBy: { reloadDate: 'asc' } })
 
     const totalAmount  = reloads.reduce((s: number, r: any) => s + Number(r.amount), 0)
     const successCount = reloads.filter((r: any) => r.status === 'Success').length
+    const totalCommission = sumCommission(reloads, settings)
 
     const byDate: Record<string, { date: string; count: number; totalAmount: number; commission: number; successCount: number }> = {}
     for (const r of reloads) {
@@ -160,17 +196,22 @@ router.get('/report', async (req: Request, res: Response, next: NextFunction) =>
       if (!byDate[d]) byDate[d] = { date: d, count: 0, totalAmount: 0, commission: 0, successCount: 0 }
       byDate[d].count++
       byDate[d].totalAmount += Number(r.amount)
+      byDate[d].commission += calcReloadCommission(r.amount, settings, r.connectionNo, r.provider)
       if (r.status === 'Success') byDate[d].successCount++
     }
-    for (const d of Object.values(byDate)) d.commission = Math.round(d.totalAmount * 0.03 * 100) / 100
+    for (const d of Object.values(byDate)) {
+      d.totalAmount = Math.round(d.totalAmount * 100) / 100
+      d.commission = Math.round(d.commission * 100) / 100
+    }
 
     sendSuccess(res, {
       totalCount:     reloads.length,
       totalAmount:    Math.round(totalAmount * 100) / 100,
-      commission:     Math.round(totalAmount * 0.03 * 100) / 100,
+      commission:     totalCommission,
       successCount,
       failCount:      reloads.length - successCount,
       dailyBreakdown: Object.values(byDate),
+      settings,
     })
   } catch (e) { next(e) }
 })

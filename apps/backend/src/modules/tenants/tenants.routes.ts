@@ -42,5 +42,7 @@ router.get('/:id', authorize('PLATFORM_ADMIN', 'OWNER'), tenantsController.getBy
 router.put('/:id', authorize('PLATFORM_ADMIN', 'OWNER'), tenantsController.update)
 router.get('/:id/invoice-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'), tenantsController.getInvoiceSettings)
 router.patch('/:id/invoice-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER'), tenantsController.updateInvoiceSettings)
+router.get('/:id/reload-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'), tenantsController.getReloadSettings)
+router.patch('/:id/reload-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER'), tenantsController.updateReloadSettings)
 
 export default router

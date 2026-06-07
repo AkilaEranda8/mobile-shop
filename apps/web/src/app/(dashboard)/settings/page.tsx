@@ -9,6 +9,13 @@ import { authApi, usersApi, tenantApi, uploadApi, deviceCatalogApi, plansApi } f
 import { authStorage } from '@/lib/auth'
 import { useTenantFeatures } from '@/lib/hooks'
 import { type InvoiceSettings, getInvoiceSettings, fetchInvoiceSettings, pushInvoiceSettings } from '@/lib/invoiceSettings'
+import {
+  type ReloadSettings,
+  DEFAULT_RELOAD_SETTINGS,
+  RELOAD_PROVIDER_IDS,
+  fetchReloadSettings,
+  pushReloadSettings,
+} from '@/lib/reloadSettings'
 import { ImageIcon, Trash2 as TrashIcon } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -60,6 +67,8 @@ export default function SettingsPage() {
   const [tenant, setTenant]       = useState<any>(null)
   const [shopForm, setShopForm]   = useState({ name: '', ownerName: '', ownerEmail: '' })
   const [shopSaving, setShopSaving] = useState(false)
+  const [reloadSettings, setReloadSettings] = useState<ReloadSettings>(DEFAULT_RELOAD_SETTINGS)
+  const [reloadSaving, setReloadSaving] = useState(false)
 
   useEffect(() => {
     if (!currentUser?.tenantId) return
@@ -69,6 +78,27 @@ export default function SettingsPage() {
       setShopForm({ name: t.name ?? '', ownerName: t.ownerName ?? '', ownerEmail: t.ownerEmail ?? '' })
     }).catch(() => {})
   }, [currentUser?.tenantId])
+
+  useEffect(() => {
+    if (!currentUser?.tenantId || !hasFeature('DAILY_RELOAD')) return
+    fetchReloadSettings(currentUser.tenantId)
+      .then(setReloadSettings)
+      .catch(() => {})
+  }, [currentUser?.tenantId, hasFeature('DAILY_RELOAD')])
+
+  const saveReloadSettings = async () => {
+    if (!tenant) return
+    setReloadSaving(true)
+    try {
+      const saved = await pushReloadSettings(tenant.id, reloadSettings)
+      setReloadSettings(saved)
+      toast.success('Reload commission rates saved')
+    } catch {
+      toast.error('Failed to save commission rates')
+    } finally {
+      setReloadSaving(false)
+    }
+  }
 
   const saveShop = async () => {
     if (!tenant) return
@@ -324,6 +354,66 @@ export default function SettingsPage() {
                       }}
                     />
                   </div>
+                  {hasFeature('DAILY_RELOAD') && (
+                    <div className="rounded-xl p-4 border border-teal-500/20 bg-teal-500/5 space-y-4">
+                      <div>
+                        <p className="text-sm font-semibold text-white">Reload Commission Rates</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Set commission % per network provider. Used in POS, daily reload reports, and profit calculations.
+                        </p>
+                      </div>
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        {RELOAD_PROVIDER_IDS.map(id => (
+                          <label key={id} className="block">
+                            <span className="text-xs font-medium text-slate-400">{id}</span>
+                            <div className="mt-1 flex items-center gap-2">
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.1"
+                                value={reloadSettings.commissions[id] ?? 0}
+                                onChange={e => setReloadSettings(prev => ({
+                                  ...prev,
+                                  commissions: { ...prev.commissions, [id]: parseFloat(e.target.value) || 0 },
+                                }))}
+                                disabled={!canManageFeatures}
+                                className="flex-1 h-9 px-3 rounded-lg text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-teal-500/50"
+                              />
+                              <span className="text-xs text-slate-500">%</span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                      <label className="block">
+                        <span className="text-xs font-medium text-slate-400">Default (Excel imports / unknown provider)</span>
+                        <div className="mt-1 flex items-center gap-2 max-w-xs">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            value={reloadSettings.defaultCommission}
+                            onChange={e => setReloadSettings(prev => ({
+                              ...prev,
+                              defaultCommission: parseFloat(e.target.value) || 0,
+                            }))}
+                            disabled={!canManageFeatures}
+                            className="flex-1 h-9 px-3 rounded-lg text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-teal-500/50"
+                          />
+                          <span className="text-xs text-slate-500">%</span>
+                        </div>
+                      </label>
+                      {canManageFeatures && (
+                        <button
+                          onClick={saveReloadSettings}
+                          disabled={reloadSaving}
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-teal-600 hover:bg-teal-500 disabled:opacity-50"
+                        >
+                          {reloadSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                          Save Commission Rates
+                        </button>
+                      )}
+                    </div>
+                  )}
                   <div className="flex items-center justify-between rounded-xl p-4 border border-white/10 bg-white/[0.02]">
                     <div>
                       <p className="text-sm font-medium text-white">Customer Credit</p>

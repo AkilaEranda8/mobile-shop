@@ -1,5 +1,6 @@
 import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
+import { normalizeReloadSettings } from '../daily-reload/reload-settings.util'
 
 export const tenantsService = {
   async list() {
@@ -29,6 +30,22 @@ export const tenantsService = {
       select: { invoiceSettings: true },
     })
     return t.invoiceSettings
+  },
+
+  async getReloadSettings(tenantId: string) {
+    const t = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { reloadSettings: true } })
+    if (!t) throw new AppError('Tenant not found', 404)
+    return normalizeReloadSettings(t.reloadSettings)
+  },
+
+  async updateReloadSettings(tenantId: string, settings: Record<string, unknown>) {
+    const normalized = normalizeReloadSettings(settings)
+    const t = await prisma.tenant.update({
+      where: { id: tenantId },
+      data: { reloadSettings: normalized as any },
+      select: { reloadSettings: true },
+    })
+    return normalizeReloadSettings(t.reloadSettings)
   },
 
   // Branch CRUD

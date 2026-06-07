@@ -125,7 +125,7 @@ function DailyReloadTab({ fromDate, toDate }: { fromDate: string; toDate: string
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard label="Total Reloads"       value={String(totalCount)}           icon={PhoneCall}    color="violet" />
         <StatCard label="Total Amount"        value={formatCurrency(totalAmount)}  icon={DollarSign}   color="blue"   />
-        <StatCard label="Commission (Profit)" value={formatCurrency(commission)}   icon={TrendingUp}   color="green"  sub="3% of total" />
+        <StatCard label="Commission (Profit)" value={formatCurrency(commission)}   icon={TrendingUp}   color="green"  sub="Per provider rates" />
         <StatCard label="Success Rate"        value={`${successRate}%`}            icon={CheckCircle}  color="green"  sub={`${failCount} failed`} />
       </div>
 
@@ -157,7 +157,7 @@ function DailyReloadTab({ fromDate, toDate }: { fromDate: string; toDate: string
           <table className="w-full text-sm">
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                {['Date','Reloads','Total Amount','Commission (3%)','Success','Failed'].map((h, i) => (
+                {['Date','Reloads','Total Amount','Commission','Success','Failed'].map((h, i) => (
                   <th key={h} className={`text-[11px] font-semibold uppercase tracking-wide px-3 py-2 ${i === 0 ? 'text-left' : 'text-right'}`} style={{ color: 'var(--text-muted)' }}>{h}</th>
                 ))}
               </tr>

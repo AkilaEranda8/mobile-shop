@@ -13,11 +13,14 @@ import { useFeatureFlag } from '@/lib/hooks'
 interface Reload {
   id: string
   connectionNo: string
+  provider?: string | null
   transactionId?: string
   executedBy?: string
   reloadDate: string
   status: string
   amount: number
+  commission?: number
+  commissionRate?: number
 }
 
 interface Summary {
@@ -168,10 +171,13 @@ export default function DailyReloadPage() {
     },
     {
       id: 'commission',
-      accessorFn: (r) => r.amount * 0.03,
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Commission (3%)" />,
+      accessorFn: (r) => r.commission ?? 0,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Commission" />,
       cell: ({ row: { original: r } }) => (
-        <span className="font-semibold text-sm text-emerald-400">Rs {(r.amount * 0.03).toFixed(2)}</span>
+        <span className="font-semibold text-sm text-emerald-400">
+          Rs {(r.commission ?? 0).toFixed(2)}
+          {r.commissionRate != null && <span className="text-[10px] ml-1 opacity-70">({r.commissionRate}%)</span>}
+        </span>
       ),
     },
     {
@@ -192,9 +198,9 @@ export default function DailyReloadPage() {
   /* ── Export CSV ──────────────────────────────────────────────────────────── */
   const handleExport = () => {
     try {
-      const header = 'Connection No,Transaction ID,Executed By,Date & Time,Status,Amount (Rs),Commission (3%)'
+      const header = 'Connection No,Transaction ID,Executed By,Date & Time,Status,Amount (Rs),Commission'
       const rows   = summary.data.map(r =>
-        [r.connectionNo, r.transactionId ?? '', r.executedBy ?? '', fmtDate(r.reloadDate), r.status, r.amount, (r.amount * 0.03).toFixed(2)].join(',')
+        [r.connectionNo, r.transactionId ?? '', r.executedBy ?? '', fmtDate(r.reloadDate), r.status, r.amount, (r.commission ?? 0).toFixed(2)].join(',')
       )
       rows.push(`,,,,Total,${summary.totalAmount},${summary.commission}`)
       const blob = new Blob([[header, ...rows].join('\n')], { type: 'text/csv' })
@@ -262,7 +268,7 @@ export default function DailyReloadPage() {
         {[
           { icon: PhoneCall,     label: 'Total Reloads',  value: summary.total.toString(),      color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' },
           { icon: TrendingUp,    label: 'Total Amount',   value: formatAmt(summary.totalAmount), color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
-          { icon: TrendingUp,    label: '3% Commission',  value: formatAmt(summary.commission),  color: '#10b981', bg: 'rgba(16,185,129,0.1)' },
+          { icon: TrendingUp,    label: 'Commission',  value: formatAmt(summary.commission),  color: '#10b981', bg: 'rgba(16,185,129,0.1)' },
           { icon: CheckCircle2,  label: 'Success',        value: `${successCount} / ${summary.total}`, color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
         ].map(({ icon: Icon, label, value, color, bg }) => (
           <div key={label} className="card rounded-2xl p-4 flex items-center gap-3">
@@ -414,7 +420,7 @@ export default function DailyReloadPage() {
               <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{formatAmt(summary.totalAmount)}</p>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-wide font-medium" style={{ color: 'var(--text-muted)' }}>3% Commission Earned</p>
+              <p className="text-[10px] uppercase tracking-wide font-medium" style={{ color: 'var(--text-muted)' }}>Commission Earned</p>
               <p className="text-lg font-bold text-emerald-400">{formatAmt(summary.commission)}</p>
             </div>
             <div>

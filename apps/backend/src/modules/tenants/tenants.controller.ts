@@ -27,4 +27,10 @@ export const tenantsController = {
   async updateInvoiceSettings(req: Request, res: Response, next: NextFunction) {
     try { sendSuccess(res, await tenantsService.updateInvoiceSettings(req.params.id, req.body)) } catch (e) { next(e) }
   },
+  async getReloadSettings(req: Request, res: Response, next: NextFunction) {
+    try { sendSuccess(res, await tenantsService.getReloadSettings(req.params.id)) } catch (e) { next(e) }
+  },
+  async updateReloadSettings(req: Request, res: Response, next: NextFunction) {
+    try { sendSuccess(res, await tenantsService.updateReloadSettings(req.params.id, req.body)) } catch (e) { next(e) }
+  },
 }
