@@ -368,6 +368,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
   const [activeNavId, setActiveNavId]             = useState('products')
   const [waSending, setWaSending]                 = useState(false)
+  const [cartView, setCartView]                       = useState<'items' | 'checkout'>('items')
   const [manualTotalMode, setManualTotalMode]     = useState(false)
   const [manualTotal, setManualTotal]             = useState('')
   const [customerOutstanding, setCustomerOutstanding] = useState(0)
@@ -895,7 +896,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
       if (e.key === 'F2') { e.preventDefault(); setShowCartCustDrop(true); setCustSearch('') }
       if (e.key === 'F3') {
         e.preventDefault()
-        if (cart.length > 0 && !checkoutLoading && !completedSale) handleCheckout()
+        if (cart.length > 0 && !checkoutLoading && !completedSale) {
+          if (cartView === 'items') setCartView('checkout')
+          else handleCheckout()
+        }
       }
       if (e.key === 'F4') { e.preventDefault(); handleHoldSales() }
       if (e.key === 'F5') {
@@ -907,13 +911,19 @@ function POSContent({ onClose }: { onClose: () => void }) {
       if (e.key === 'F8') { e.preventDefault(); if (cart.length > 0) setShowDocPreview('DRAFT'); else toast.error('Cart is empty') }
       if (e.key === 'F9') {
         e.preventDefault()
-        if (cart.length > 0 && !checkoutLoading && !completedSale) handleCheckout()
+        if (cart.length > 0 && !checkoutLoading && !completedSale) {
+          if (cartView === 'items') setCartView('checkout')
+          else handleCheckout()
+        }
       }
       if (e.key === 'F10') { e.preventDefault(); handleNewSale() }
       if (e.key === 'F12') { e.preventDefault(); setShowCalc(p => !p) }
       if (e.ctrlKey && e.key === 'Enter') {
         e.preventDefault()
-        if (cart.length > 0 && !checkoutLoading && !completedSale) handleCheckout()
+        if (cart.length > 0 && !checkoutLoading && !completedSale) {
+          if (cartView === 'items') setCartView('checkout')
+          else handleCheckout()
+        }
       }
     }
     window.addEventListener('keydown', handler)
@@ -1158,7 +1168,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
     prevSaleTotalRef.current = 0
     setShowCustDrop(false); setShowCartCustDrop(false)
     setShowRecentInvoices(false); setShowHeldCarts(false); setShowMoreMenu(false)
-    setShowOpeningCash(false); setShowCashFlow(false); setShowCalc(false); setShowReturnModal(false); setShowFilters(false); setActiveNavId('products')
+    setShowOpeningCash(false); setShowCashFlow(false); setShowCalc(false); setShowReturnModal(false); setShowFilters(false); setActiveNavId('products'); setCartView('items')
     toast.success('New sale started', { icon: '🛒', duration: 1500 })
   }
 
@@ -1628,25 +1638,41 @@ function POSContent({ onClose }: { onClose: () => void }) {
             </div>
           ) : (
             <>
-              {/* Cart Header */}
+              {/* Panel header */}
               <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => setMobileView('products')} className="md:hidden flex items-center gap-1 text-xs mr-1 px-2 py-1 rounded-lg hover:bg-white/5 transition-colors" style={{ color: POS_THEME.muted }}>
-                    <ChevronLeft size={14} /><span>Products</span>
-                  </button>
-                  <ShoppingBag size={14} className="text-white" />
-                  <span className="font-bold text-sm" style={{ color: POS_THEME.text }}>Cart ({cart.length})</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  {cart.length > 0 && (
-                    <button type="button" onClick={() => setCart([])} className="text-xs font-semibold hover:opacity-80" style={{ color: POS_THEME.red }}>
-                      Clear Cart
+                {cartView === 'checkout' ? (
+                  <>
+                    <button type="button" onClick={() => setCartView('items')}
+                      className="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg hover:bg-white/5 transition-colors"
+                      style={{ color: POS_THEME.muted }}>
+                      <ChevronLeft size={14} /><span>Cart</span>
                     </button>
-                  )}
-                </div>
+                    <span className="font-bold text-sm" style={{ color: POS_THEME.text }}>Checkout</span>
+                    <span className="pos-price text-sm font-bold">{formatCurrency(saleTotal)}</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setMobileView('products')} className="md:hidden flex items-center gap-1 text-xs mr-1 px-2 py-1 rounded-lg hover:bg-white/5 transition-colors" style={{ color: POS_THEME.muted }}>
+                        <ChevronLeft size={14} /><span>Products</span>
+                      </button>
+                      <ShoppingBag size={14} className="text-white" />
+                      <span className="font-bold text-sm" style={{ color: POS_THEME.text }}>Cart ({cart.length})</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {cart.length > 0 && (
+                        <button type="button" onClick={() => { setCart([]); setCartView('items') }} className="text-xs font-semibold hover:opacity-80" style={{ color: POS_THEME.red }}>
+                          Clear Cart
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
 
-              {/* Cart Items */}
+              {cartView === 'items' ? (
+                <>
+              {/* Cart Items — full height scroll */}
               <div className="flex-1 overflow-y-auto p-2.5 space-y-1.5 min-h-0">
                 {cart.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full opacity-20 select-none">
@@ -1723,9 +1749,41 @@ function POSContent({ onClose }: { onClose: () => void }) {
                 ))}
               </div>
 
-              {/* Cart Footer */}
+              {/* Cart summary — compact, items stay visible above */}
               {cart.length > 0 && (
-                <div className="p-4 border-t flex-shrink-0 space-y-3" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
+                <div className="p-3 border-t flex-shrink-0 space-y-2" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs" style={{ color: POS_THEME.muted }}>{cart.length} item{cart.length !== 1 ? 's' : ''}</span>
+                    <span className="pos-price text-xl font-extrabold">{formatCurrency(saleTotal)}</span>
+                  </div>
+                  <button type="button" onClick={() => setCartView('checkout')}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-bold text-sm transition-all hover:opacity-95"
+                    style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: '0 4px 20px rgba(124,58,237,.4)' }}>
+                    Checkout <ChevronRight size={16} />
+                  </button>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <button type="button" onClick={handleHoldSales}
+                      className="flex flex-col items-center gap-0.5 py-1.5 rounded-lg text-[10px] font-semibold border transition-colors hover:bg-white/5"
+                      style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
+                      <Archive size={12} />Hold
+                    </button>
+                    <button type="button" onClick={() => setShowDocPreview('QUOTE')}
+                      className="flex flex-col items-center gap-0.5 py-1.5 rounded-lg text-[10px] font-semibold border transition-colors hover:bg-white/5"
+                      style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
+                      <FileText size={12} />Quote
+                    </button>
+                    <button type="button" onClick={() => setShowDocPreview('DRAFT')}
+                      className="flex flex-col items-center gap-0.5 py-1.5 rounded-lg text-[10px] font-semibold border transition-colors hover:bg-white/5"
+                      style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
+                      <FilePlus2 size={12} />Draft
+                    </button>
+                  </div>
+                </div>
+              )}
+                </>
+              ) : cart.length > 0 ? (
+              /* Checkout — separate view, cart items on previous screen */
+              <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-0">
                   {/* Customer — change anytime during checkout */}
                   <div className="relative rounded-xl border p-2.5" style={{ borderColor: needsCustomerForPartial ? 'rgba(245,158,11,.5)' : POS_THEME.border, background: POS_THEME.card }}>
                     <div className="flex items-center justify-between gap-2">
@@ -1970,25 +2028,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     {checkoutLoading ? <Loader2 size={18} className="animate-spin" /> : null}
                     <span>{checkoutLoading ? 'Processing…' : `Pay Now (F3 / F9)`}</span>
                   </button>
-                  <div className="grid grid-cols-3 gap-1.5 pt-1">
-                    <button type="button" onClick={handleHoldSales}
-                      className="flex flex-col items-center gap-1 py-2 rounded-xl text-[10px] font-semibold border transition-colors hover:bg-white/5"
-                      style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
-                      <Archive size={13} />Hold (F4)
-                    </button>
-                    <button type="button" onClick={() => cart.length > 0 ? setShowDocPreview('QUOTE') : toast.error('Cart is empty')}
-                      className="flex flex-col items-center gap-1 py-2 rounded-xl text-[10px] font-semibold border transition-colors hover:bg-white/5"
-                      style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
-                      <FileText size={13} />Quote (F7)
-                    </button>
-                    <button type="button" onClick={() => cart.length > 0 ? setShowDocPreview('DRAFT') : toast.error('Cart is empty')}
-                      className="flex flex-col items-center gap-1 py-2 rounded-xl text-[10px] font-semibold border transition-colors hover:bg-white/5"
-                      style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
-                      <FilePlus2 size={13} />Draft (F8)
-                    </button>
-                  </div>
-                </div>
-              )}
+              </div>
+              ) : null}
             </>
           )}
           </div>
