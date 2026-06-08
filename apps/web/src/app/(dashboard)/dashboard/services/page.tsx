@@ -9,6 +9,7 @@ import { TableActionsRow } from '@/components/table/table-actions-row'
 import { servicesApi } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
+import { Switch } from '@/components/ui/Switch'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
 
 interface Service {
@@ -262,10 +263,11 @@ export default function ServicesPage() {
               </div>
 
               <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                <div onClick={() => setEditing({ ...editing, isActive: !editing.isActive })}
-                  className={`w-9 h-5 rounded-full flex items-center transition-colors flex-shrink-0 ${editing.isActive ? 'bg-violet-600' : 'bg-slate-600'}`}>
-                  <div className={`w-3.5 h-3.5 rounded-full bg-white shadow transition-transform mx-0.5 ${editing.isActive ? 'translate-x-4' : 'translate-x-0'}`} />
-                </div>
+                <Switch
+                  checked={editing.isActive}
+                  onChange={v => setEditing({ ...editing, isActive: v })}
+                  variant="emerald"
+                />
                 <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Active — visible in POS</span>
               </label>
 

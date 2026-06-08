@@ -2,6 +2,7 @@
 
 import type { InvoiceSettings } from '@/lib/invoiceSettings'
 import ThermalReceipt, { SAMPLE_THERMAL_SALE } from '@/components/invoice/ThermalReceipt'
+import { Switch } from '@/components/ui/Switch'
 import { Printer } from 'lucide-react'
 
 const LAYOUT_TOGGLES: { key: keyof InvoiceSettings; label: string }[] = [
@@ -24,13 +25,6 @@ interface Props {
   onChange: (patch: Partial<InvoiceSettings>) => void
   showPreview?: boolean
 }
-
-const Toggle = ({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) => (
-  <button type="button" onClick={() => onChange(!value)}
-    className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${value ? 'bg-violet-600' : 'bg-white/10'}`}>
-    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${value ? 'translate-x-4' : 'translate-x-0.5'}`} />
-  </button>
-)
 
 export function ThermalReceiptPreview({ settings }: { settings: InvoiceSettings }) {
   return (
@@ -105,10 +99,10 @@ export default function ThermalReceiptCustomizer({ settings, onChange, showPrevi
           <label className="block text-xs text-slate-400 mb-2">Show on receipt</label>
           <div className="grid sm:grid-cols-2 gap-x-4 gap-y-2">
             {LAYOUT_TOGGLES.map(({ key, label }) => (
-              <div key={key} className="flex items-center justify-between gap-3 py-1.5">
-                <span className="text-xs text-slate-300">{label}</span>
-                <Toggle
-                  value={Boolean(settings[key])}
+              <div key={key} className="flex items-center justify-between gap-3 py-1.5 min-w-0">
+                <span className="text-xs text-slate-300 truncate">{label}</span>
+                <Switch
+                  checked={Boolean(settings[key])}
                   onChange={v => onChange({ [key]: v } as Partial<InvoiceSettings>)}
                 />
               </div>

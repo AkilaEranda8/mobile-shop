@@ -11,18 +11,9 @@ import {
   fetchAdminUsers, createAdminUser, deleteAdminUser,
   type PlatformConfigMap, type AdminUserRow,
 } from '@/lib/api'
+import { Switch } from '@/components/ui/Switch'
 
 const TABS = ['Platform', 'Admins', 'Email', 'SMS', 'Security']
-
-function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
-  return (
-    <label className="relative inline-flex items-center cursor-pointer" onClick={onChange}>
-      <div className={`w-9 h-5 rounded-full transition-colors relative ${checked ? 'bg-gray-900' : 'bg-gray-200'}`}>
-        <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${checked ? 'left-4' : 'left-0.5'}`} />
-      </div>
-    </label>
-  )
-}
 
 function SaveFeedback({ show }: { show: boolean }) {
   if (!show) return null
@@ -109,9 +100,8 @@ function PlatformTab({ cfg, onChange, onSave, saving }: {
           {features.map(([key, label]) => (
             <div key={key} className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0">
               <span className="text-sm text-gray-700">{label}</span>
-              <Toggle checked={cfg[key] === 'true'} onChange={async () => {
-                const next = cfg[key] === 'true' ? 'false' : 'true'
-                onChange(key, next)
+              <Switch checked={cfg[key] === 'true'} onChange={async (next) => {
+                onChange(key, next ? 'true' : 'false')
                 await onSave([key])
               }} />
             </div>
@@ -414,8 +404,8 @@ function SecurityTab({ cfg, onChange, onSave, saving }: {
             <p className="text-sm font-medium text-gray-800">Enforce 2FA for All Admins</p>
             <p className="text-xs text-gray-400">Admins without 2FA will be locked out</p>
           </div>
-          <Toggle checked={cfg['security.enforce2FA'] === 'true'}
-            onChange={() => onChange('security.enforce2FA', cfg['security.enforce2FA'] === 'true' ? 'false' : 'true')} />
+          <Switch checked={cfg['security.enforce2FA'] === 'true'}
+            onChange={next => onChange('security.enforce2FA', next ? 'true' : 'false')} />
         </div>
         <div className="flex items-center gap-3">
           <button disabled={saving} onClick={async () => { await onSave(KEYS); setSaved(true); setTimeout(() => setSaved(false), 2000) }}

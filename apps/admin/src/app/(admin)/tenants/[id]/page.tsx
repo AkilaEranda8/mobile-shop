@@ -14,6 +14,7 @@ import {
   fetchTenantFeatures, updateTenantFeatures,
   type TenantRow, type TenantSale,
 } from '@/lib/api'
+import { Switch } from '@/components/ui/Switch'
 
 const STATUS_BADGE: Record<string, string> = {
   ACTIVE: 'badge-green', TRIAL: 'badge-blue', SUSPENDED: 'badge-yellow', CANCELLED: 'badge-gray',
@@ -462,19 +463,12 @@ export default function TenantDetailPage() {
                           </button>
                         )}
                       </div>
-                      <button
-                        type="button"
+                      <Switch
+                        checked={enabled}
                         disabled={featSaving || featLoading}
-                        onClick={() => handleToggleFeature(f.key, !enabled)}
-                        className={`relative rounded-full transition-colors flex-shrink-0 disabled:opacity-50 ${
-                          enabled ? 'bg-emerald-500' : 'bg-gray-300'
-                        }`}
-                        style={{ width: 40, height: 22 }}
-                      >
-                        <span className={`absolute top-0.5 w-[18px] h-[18px] bg-white rounded-full shadow transition-all ${
-                          enabled ? 'left-[19px]' : 'left-[2px]'
-                        }`} />
-                      </button>
+                        onChange={v => handleToggleFeature(f.key, v)}
+                        variant="emerald"
+                      />
                     </div>
                   )
                 })}

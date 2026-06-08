@@ -26,6 +26,7 @@ import { getInvoiceSettings, fetchInvoiceSettings, shopContextFromTenant, type I
 import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrint'
 import { printThermalReceipt } from '@/components/invoice/ThermalReceipt'
 import { whatsappApi } from '@/lib/whatsapp-api'
+import { Switch } from '@/components/ui/Switch'
 
 interface CartItem {
   cartId: string
@@ -1466,15 +1467,19 @@ function POSContent({ onClose }: { onClose: () => void }) {
             <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">Filters</span>
             <label className="flex items-center gap-2.5 text-[11px] font-medium text-white cursor-pointer">
               Hide Out of Stock
-              <button type="button" onClick={() => setHideOutOfStock(v => !v)} className="relative w-9 h-5 rounded-full transition-all" style={{ background: hideOutOfStock ? POS_THEME.purple : POS_THEME.border }}>
-                <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left: hideOutOfStock ? '18px' : '2px' }} />
-              </button>
+              <Switch
+                checked={hideOutOfStock}
+                onChange={setHideOutOfStock}
+                trackStyle={{ background: hideOutOfStock ? POS_THEME.purple : POS_THEME.border }}
+              />
             </label>
             <label className="flex items-center gap-2.5 text-[11px] font-medium text-white cursor-pointer">
               Favorites only
-              <button type="button" onClick={() => setShowFavoritesOnly(v => !v)} className="relative w-9 h-5 rounded-full transition-all" style={{ background: showFavoritesOnly ? POS_THEME.purple : POS_THEME.border }}>
-                <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left: showFavoritesOnly ? '18px' : '2px' }} />
-              </button>
+              <Switch
+                checked={showFavoritesOnly}
+                onChange={setShowFavoritesOnly}
+                trackStyle={{ background: showFavoritesOnly ? POS_THEME.purple : POS_THEME.border }}
+              />
             </label>
           </div>
         ) : null}
@@ -2008,12 +2013,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
                           <span className="text-xs font-semibold text-white">Pay old balance</span>
                           <span className="text-[10px] font-bold text-white">{formatCurrency(customerOutstanding)}</span>
                         </div>
-                        <button onClick={() => setIncludeOutstanding(p => !p)}
-                          className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
+                        <Switch
+                          checked={includeOutstanding}
+                          onChange={setIncludeOutstanding}
                           title="Keyboard: O"
-                          style={{ background: includeOutstanding ? POS_THEME.red : POS_THEME.border }}>
-                          <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left: includeOutstanding ? '18px' : '2px' }} />
-                        </button>
+                          trackStyle={{ background: includeOutstanding ? POS_THEME.red : POS_THEME.border }}
+                        />
                       </div>
                       {includeOutstanding && (
                         <div className="mt-2 space-y-2">
@@ -2132,11 +2137,11 @@ function POSContent({ onClose }: { onClose: () => void }) {
                           <span className="text-xs font-semibold text-white">Warranty</span>
                           {addWarranty && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-white/10 text-white">{warrantyMonths < 12 ? `${warrantyMonths}mo` : `${warrantyMonths/12}yr`}</span>}
                         </div>
-                        <button type="button" onClick={() => setAddWarranty(p => !p)}
-                          className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
-                          style={{ background: addWarranty ? POS_THEME.amber : POS_THEME.border }}>
-                          <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left: addWarranty ? '18px' : '2px' }} />
-                        </button>
+                        <Switch
+                          checked={addWarranty}
+                          onChange={setAddWarranty}
+                          trackStyle={{ background: addWarranty ? POS_THEME.amber : POS_THEME.border }}
+                        />
                       </div>
                       {addWarranty && (
                         <div className="grid grid-cols-4 gap-1 mt-2">

@@ -10,6 +10,7 @@ import { authStorage } from '@/lib/auth'
 import { useTenantFeatures } from '@/lib/hooks'
 import { type InvoiceSettings, getInvoiceSettings, fetchInvoiceCustomizeSettings, pushInvoiceSettings } from '@/lib/invoiceSettings'
 import ThermalReceiptCustomizer, { ThermalReceiptPreview } from '@/components/invoice/ThermalReceiptCustomizer'
+import { Switch } from '@/components/ui/Switch'
 import {
   type ReloadSettings,
   DEFAULT_RELOAD_SETTINGS,
@@ -33,12 +34,6 @@ const tabs = [
 ]
 
 
-const Toggle = ({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) => (
-  <button onClick={() => onChange(!value)}
-    className={`relative w-10 h-5 rounded-full transition-colors ${value ? 'bg-violet-600' : 'bg-white/10'}`}>
-    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${value ? 'translate-x-5' : 'translate-x-0.5'}`} />
-  </button>
-)
 
 const NOTIF_KEY = 'hx_notif_prefs'
 const APPEARANCE_KEY = 'hx_appearance'
@@ -380,8 +375,8 @@ export default function SettingsPage() {
                       <p className="text-sm font-medium text-white">Daily Reload (POS)</p>
                       <p className="text-[11px] text-slate-500 mt-0.5">Sell Dialog/Mobitel/Airtel/Hutch reloads from POS</p>
                     </div>
-                    <Toggle
-                      value={hasFeature('DAILY_RELOAD')}
+                    <Switch
+                      checked={hasFeature('DAILY_RELOAD')}
                       onChange={async (v) => {
                         setFeatureSaving(true)
                         try {
@@ -461,8 +456,8 @@ export default function SettingsPage() {
                       <p className="text-sm font-medium text-white">Daily Closing</p>
                       <p className="text-[11px] text-slate-500 mt-0.5">End-of-day summary, cash reconciliation & day lock</p>
                     </div>
-                    <Toggle
-                      value={hasFeature('DAILY_CLOSING')}
+                    <Switch
+                      checked={hasFeature('DAILY_CLOSING')}
                       onChange={async (v) => {
                         setFeatureSaving(true)
                         try {
@@ -482,8 +477,8 @@ export default function SettingsPage() {
                       <p className="text-sm font-medium text-white">Customer Credit</p>
                       <p className="text-[11px] text-slate-500 mt-0.5">Partial payments, outstanding balance & pay later</p>
                     </div>
-                    <Toggle
-                      value={hasFeature('CUSTOMER_CREDIT')}
+                    <Switch
+                      checked={hasFeature('CUSTOMER_CREDIT')}
                       onChange={async (v) => {
                         setFeatureSaving(true)
                         try {
@@ -767,7 +762,7 @@ export default function SettingsPage() {
                     <p className="text-sm text-slate-200">{item.label}</p>
                     <p className="text-xs text-slate-500">{item.desc}</p>
                   </div>
-                  <Toggle value={notif[item.key] ?? false} onChange={v => setNotif(p => ({ ...p, [item.key]: v }))} />
+                  <Switch checked={notif[item.key] ?? false} onChange={v => setNotif(p => ({ ...p, [item.key]: v }))} />
                 </div>
               ))}
             </div>
@@ -848,7 +843,7 @@ export default function SettingsPage() {
                       <p className="text-sm text-slate-200">{label}</p>
                       <p className="text-xs text-slate-500">{desc}</p>
                     </div>
-                    <Toggle value={appearance[key] ?? false} onChange={v => setAppearance(p => ({ ...p, [key]: v }))} />
+                    <Switch checked={appearance[key] ?? false} onChange={v => setAppearance(p => ({ ...p, [key]: v }))} />
                   </div>
                 ))}
               </div>

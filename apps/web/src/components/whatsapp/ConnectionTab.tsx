@@ -12,22 +12,12 @@ import {
   whatsappApi, saveLocalWAConfig, clearLocalWAData,
   type WAStatus, type WAStatusInfo, type WAConfig,
 } from '@/lib/whatsapp-api'
+import { Switch } from '@/components/ui/Switch'
 
 const STATUS_CFG: Record<WAStatus, { label: string; color: string; bg: string; dot: string; Icon: any }> = {
   connected:     { label: 'Connected',     color: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/20',   dot: 'bg-green-400',  Icon: CheckCircle2   },
   disconnected:  { label: 'Disconnected',  color: 'text-slate-400',  bg: 'bg-slate-500/10 border-slate-500/20',  dot: 'bg-slate-400',  Icon: WifiOff        },
   token_expired: { label: 'Token Expired', color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/20',dot: 'bg-yellow-400', Icon: AlertTriangle   },
-}
-
-function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      onClick={() => onChange(!value)}
-      className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${value ? 'bg-green-500' : 'bg-white/10'}`}
-    >
-      <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${value ? 'translate-x-6' : 'translate-x-1'}`} />
-    </button>
-  )
 }
 
 function WAIllustration({ status }: { status: WAStatus }) {
@@ -199,7 +189,7 @@ export default function ConnectionTab({ status, config, onStatusChange, onConfig
           <span className="text-xs text-slate-500 hidden sm:block">
             {status?.lastChecked ? `Checked ${new Date(status.lastChecked).toLocaleTimeString()}` : 'Not checked'}
           </span>
-          <Toggle value={enabled} onChange={handleToggle} />
+          <Switch checked={enabled} onChange={handleToggle} variant="green" />
         </div>
       </motion.div>
 

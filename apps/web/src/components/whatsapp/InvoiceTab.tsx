@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { Save, Loader2, FileText, Send, CheckSquare, Phone, Info } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { whatsappApi, saveLocalWAConfig, type WAConfig } from '@/lib/whatsapp-api'
+import { Switch } from '@/components/ui/Switch'
 
 const DEFAULT_TEMPLATE = `Hello {{customer_name}},
 
@@ -30,15 +31,6 @@ const VARIABLES = [
   { key: '{{currency}}',       desc: 'Currency code'        },
   { key: '{{date}}',           desc: 'Invoice date'         },
 ]
-
-function Toggle({ value, onChange, disabled }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
-  return (
-    <button onClick={() => !disabled && onChange(!value)}
-      className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${value ? 'bg-green-500' : 'bg-white/10'} ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}>
-      <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${value ? 'translate-x-6' : 'translate-x-1'}`} />
-    </button>
-  )
-}
 
 interface Props {
   config: Partial<WAConfig>
@@ -135,10 +127,11 @@ export default function InvoiceTab({ config, onConfigChange }: Props) {
                   <p className="text-xs text-slate-500 mt-0.5 truncate">{desc}</p>
                 </div>
               </div>
-              <Toggle
-                value={form[key] as boolean}
+              <Switch
+                checked={form[key] as boolean}
                 onChange={v => setToggle(key, v)}
                 disabled={key !== 'autoSendInvoice' && !form.autoSendInvoice}
+                variant="green"
               />
             </div>
           ))}

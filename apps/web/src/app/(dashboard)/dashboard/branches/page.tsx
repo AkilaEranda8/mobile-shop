@@ -5,6 +5,7 @@ import { Building2, Plus, Edit, MapPin, Phone, Mail, Star, X, Loader2, Save, Che
 import { branchesApi, tenantApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import toast from 'react-hot-toast'
+import { Switch } from '@/components/ui/Switch'
 
 /* ── Plan limits ─────────────────────────────────────────────────── */
 const PLAN_BRANCH_LIMIT: Record<string, number> = {
@@ -114,11 +115,10 @@ function BranchModal({
             </div>
             <div className="col-span-2">
               <label className="flex items-center gap-3 cursor-pointer">
-                <div
-                  onClick={() => setForm(p => ({ ...p, isHeadquarters: !p.isHeadquarters }))}
-                  className={`w-10 h-5 rounded-full transition-all relative cursor-pointer ${form.isHeadquarters ? 'bg-violet-500' : 'bg-white/10'}`}>
-                  <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${form.isHeadquarters ? 'left-5' : 'left-0.5'}`} />
-                </div>
+                <Switch
+                  checked={form.isHeadquarters}
+                  onChange={v => setForm(p => ({ ...p, isHeadquarters: v }))}
+                />
                 <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Mark as Headquarters</span>
               </label>
             </div>
