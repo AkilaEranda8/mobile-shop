@@ -9,6 +9,7 @@ import { authApi, usersApi, tenantApi, uploadApi, deviceCatalogApi, plansApi, br
 import { authStorage } from '@/lib/auth'
 import { useTenantFeatures } from '@/lib/hooks'
 import { type InvoiceSettings, getInvoiceSettings, fetchInvoiceCustomizeSettings, pushInvoiceSettings } from '@/lib/invoiceSettings'
+import ThermalReceiptCustomizer, { ThermalReceiptPreview } from '@/components/invoice/ThermalReceiptCustomizer'
 import {
   type ReloadSettings,
   DEFAULT_RELOAD_SETTINGS,
@@ -531,7 +532,7 @@ export default function SettingsPage() {
               <div className="card p-5 flex items-center justify-between">
                 <div>
                   <h2 className="text-base font-semibold text-white flex items-center gap-2"><FileText size={15} className="text-violet-400" /> Invoice Customize</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Business name, phone, address &amp; logo — used on POS thermal receipts and A4 bills</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Company details, thermal layout, and live receipt preview</p>
                 </div>
                 <button onClick={saveInvoice} disabled={invoiceSaving || invoiceLoading} className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
                   {invoiceSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Save All
@@ -544,11 +545,16 @@ export default function SettingsPage() {
                 </div>
               )}
 
+              {!invoiceLoading && (
+              <div className="grid lg:grid-cols-[1fr_320px] gap-5 items-start">
+              <div className="order-1 lg:order-2 min-w-0 self-start lg:sticky lg:top-4">
+                <ThermalReceiptPreview settings={invoiceForm} />
+              </div>
+              <div className="order-2 lg:order-1 space-y-5 min-w-0">
+
               {/* ── 1. Company Info ── */}
               <div className="card p-5 space-y-4">
                 <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Company Info</p>
-
-                {/* Logo upload */}
                 <div>
                   <label className="block text-xs text-slate-400 mb-2">Company Logo</label>
                   <div className="flex items-center gap-4">
@@ -692,39 +698,7 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* ── Thermal Print Settings ── */}
-              <div className="rounded-xl p-4 space-y-4" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-                <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Thermal Printer Paper Size</h3>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  {/* POS */}
-                  <div>
-                    <label className="block text-xs text-slate-400 mb-2">POS Sales Receipt</label>
-                    <div className="flex gap-2">
-                      {(['58mm', '80mm'] as const).map(w => (
-                        <button key={w} onClick={() => setInv({ thermalWidthPOS: w })}
-                          className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${invoiceForm.thermalWidthPOS === w ? 'bg-violet-600 border-violet-500 text-white' : 'bg-white/5 border-white/10 text-slate-400 hover:border-violet-500/40'}`}>
-                          {w}
-                          <span className="block text-[10px] font-normal opacity-70">{w === '58mm' ? '~32 chars/line' : '~48 chars/line'}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {/* Repair */}
-                  <div>
-                    <label className="block text-xs text-slate-400 mb-2">Repair Job Receipt</label>
-                    <div className="flex gap-2">
-                      {(['58mm', '80mm'] as const).map(w => (
-                        <button key={w} onClick={() => setInv({ thermalWidthRepair: w })}
-                          className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${invoiceForm.thermalWidthRepair === w ? 'bg-violet-600 border-violet-500 text-white' : 'bg-white/5 border-white/10 text-slate-400 hover:border-violet-500/40'}`}>
-                          {w}
-                          <span className="block text-[10px] font-normal opacity-70">{w === '58mm' ? '~32 chars/line' : '~48 chars/line'}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <p className="text-[11px] text-slate-500">Full Invoice &amp; Reports always use <strong className="text-slate-400">A4 PDF</strong></p>
-              </div>
+              <ThermalReceiptCustomizer settings={invoiceForm} onChange={setInv} showPreview={false} />
 
               {/* Save button bottom */}
               <div className="flex justify-end">
@@ -732,10 +706,12 @@ export default function SettingsPage() {
                   {invoiceSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={14} />} Save Invoice Settings
                 </button>
               </div>
+              </div>
+              </div>
+              )}
+
             </div>
           )}
-
-          {/* ── PROFILE ── */}
           {activeTab === 'profile' && (
             <div className="card p-6 space-y-5">
               <div className="flex items-center justify-between border-b border-white/5 pb-3">

@@ -43,6 +43,31 @@ function thermalBodyWidth(paper: '58mm' | '80mm') {
   return paper === '58mm' ? '200px' : '288px'
 }
 
+function thermalFontScale(size: InvoiceSettings['thermalFontSize']) {
+  if (size === 'sm') return { base: 11, title: 14, total: 14, small: 10 }
+  if (size === 'lg') return { base: 15, title: 18, total: 18, small: 12 }
+  return { base: 13, title: 16, total: 16, small: 11 }
+}
+
+export const SAMPLE_THERMAL_SALE: ThermalSale = {
+  invoiceNumber: 'INV-2026-0042',
+  createdAt: new Date().toISOString(),
+  customerName: 'Kamal Perera',
+  customerPhone: '077 123 4567',
+  items: [
+    { productName: 'Samsung Galaxy A15', quantity: 1, unitPrice: 45990, total: 45990, sku: 'SAM-A15-BLK', imei: '356789012345678' },
+    { productName: 'Screen Guard', quantity: 2, unitPrice: 500, total: 1000, sku: 'ACC-SG-01' },
+  ],
+  subtotal: 46990,
+  discountAmount: 1990,
+  total: 45000,
+  paymentMethod: 'cash',
+  cashReceived: 50000,
+  changeAmount: 5000,
+  warrantyNumbers: ['WR-2026-001'],
+  warrantyMonths: 12,
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
@@ -50,6 +75,21 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
     const currency = settings.currency || 'LKR'
     const f = (n: number) => fmt(n, currency)
     const paper = settings.thermalWidthPOS || '58mm'
+    const fs = thermalFontScale(settings.thermalFontSize || 'md')
+    const show = {
+      logo: settings.thermalShowLogo !== false,
+      slogan: settings.thermalShowSlogan !== false,
+      address: settings.thermalShowAddress !== false,
+      phone: settings.thermalShowPhone !== false,
+      email: settings.thermalShowEmail !== false,
+      customer: settings.thermalShowCustomer !== false,
+      sku: settings.thermalShowSku !== false,
+      imei: settings.thermalShowImei !== false,
+      payment: settings.thermalShowPayment !== false,
+      bank: settings.thermalShowBank !== false,
+      website: settings.thermalShowWebsite !== false,
+      warranty: settings.thermalShowWarranty !== false,
+    }
 
     const date = sale.createdAt ? new Date(sale.createdAt) : new Date()
     const dateStr = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -67,7 +107,7 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
         ref={ref}
         style={{
           fontFamily: "'Courier New', Courier, monospace",
-          fontSize: '13px',
+          fontSize: `${fs.base}px`,
           lineHeight: '1.45',
           width: thermalBodyWidth(paper),
           maxWidth: '100%',
@@ -78,26 +118,26 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
           wordBreak: 'break-word',
         }}
       >
-        {settings.logo && (
+        {show.logo && settings.logo && (
           <div style={{ textAlign: 'center', marginBottom: 6 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={settings.logo} alt="logo" style={{ maxHeight: 44, maxWidth: '90%', objectFit: 'contain' }} />
           </div>
         )}
-        <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 16 }}>
+        <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: fs.title }}>
           {settings.shopName || 'My Shop'}
         </div>
-        {settings.slogan && (
-          <div style={{ textAlign: 'center', fontSize: 11 }}>{settings.slogan}</div>
+        {show.slogan && settings.slogan && (
+          <div style={{ textAlign: 'center', fontSize: fs.small }}>{settings.slogan}</div>
         )}
-        {settings.address && (
-          <div style={{ textAlign: 'center', fontSize: 11, wordBreak: 'break-word' }}>{settings.address}</div>
+        {show.address && settings.address && (
+          <div style={{ textAlign: 'center', fontSize: fs.small, wordBreak: 'break-word' }}>{settings.address}</div>
         )}
-        {settings.phone && (
-          <div style={{ textAlign: 'center', fontSize: 11 }}>Tel: {settings.phone}</div>
+        {show.phone && settings.phone && (
+          <div style={{ textAlign: 'center', fontSize: fs.small }}>Tel: {settings.phone}</div>
         )}
-        {settings.email && (
-          <div style={{ textAlign: 'center', fontSize: 11, wordBreak: 'break-all' }}>{settings.email}</div>
+        {show.email && settings.email && (
+          <div style={{ textAlign: 'center', fontSize: fs.small, wordBreak: 'break-all' }}>{settings.email}</div>
         )}
 
         <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }} />
@@ -106,8 +146,8 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
           row('Receipt:', sale.invoiceNumber),
           row('Date:', dateStr),
           row('Time:', timeStr),
-          ...(sale.customerName && sale.customerName !== 'Walk-in Customer' ? [row('Customer:', sale.customerName)] : []),
-          ...(sale.customerPhone ? [row('Phone:', sale.customerPhone)] : []),
+          ...(show.customer && sale.customerName && sale.customerName !== 'Walk-in Customer' ? [row('Customer:', sale.customerName)] : []),
+          ...(show.customer && sale.customerPhone ? [row('Phone:', sale.customerPhone)] : []),
         ].map(({ left, right }, i) => (
           <div key={i} style={rowStyle}>
             <span style={{ flexShrink: 0 }}>{left}</span>
@@ -120,10 +160,10 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
         {sale.items.map((item, i) => (
           <div key={i} style={{ marginBottom: 6 }}>
             <div style={{ fontWeight: 'bold' }}>{item.productName}</div>
-            {item.sku && <div style={{ fontSize: 11, color: '#333' }}>SKU: {item.sku}</div>}
-            {item.imei && <div style={{ fontSize: 11, color: '#333' }}>IMEI: {item.imei}</div>}
+            {show.sku && item.sku && <div style={{ fontSize: fs.small, color: '#333' }}>SKU: {item.sku}</div>}
+            {show.imei && item.imei && <div style={{ fontSize: fs.small, color: '#333' }}>IMEI: {item.imei}</div>}
             <div style={{ ...rowStyle, marginTop: 2 }}>
-              <span style={{ fontSize: 11 }}>{item.quantity} x {f(item.unitPrice)}</span>
+              <span style={{ fontSize: fs.small }}>{item.quantity} x {f(item.unitPrice)}</span>
               <span style={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>{f(item.total)}</span>
             </div>
           </div>
@@ -136,37 +176,55 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
           <div style={rowStyle}><span>Discount:</span><span style={{ whiteSpace: 'nowrap' }}>-{f(sale.discountAmount)}</span></div>
         )}
         <div style={{ borderTop: '1px solid #000', margin: '4px 0' }} />
-        <div style={{ ...rowStyle, fontWeight: 'bold', fontSize: 16 }}>
+        <div style={{ ...rowStyle, fontWeight: 'bold', fontSize: fs.total }}>
           <span>TOTAL:</span>
           <span style={{ whiteSpace: 'nowrap' }}>{f(sale.total)}</span>
         </div>
         <div style={{ borderTop: '1px solid #000', margin: '4px 0' }} />
 
-        {sale.paymentMethod && (
+        {show.payment && sale.paymentMethod && (
           <div style={rowStyle}><span>Payment:</span><span>{sale.paymentMethod.toUpperCase()}</span></div>
         )}
-        {sale.cashReceived != null && sale.cashReceived > 0 && (
+        {show.payment && sale.cashReceived != null && sale.cashReceived > 0 && (
           <div style={rowStyle}><span>Cash:</span><span style={{ whiteSpace: 'nowrap' }}>{f(sale.cashReceived)}</span></div>
         )}
-        {sale.changeAmount != null && sale.changeAmount > 0 && (
+        {show.payment && sale.changeAmount != null && sale.changeAmount > 0 && (
           <div style={{ ...rowStyle, fontWeight: 'bold' }}><span>Change:</span><span style={{ whiteSpace: 'nowrap' }}>{f(sale.changeAmount)}</span></div>
         )}
 
-        {(settings.bankName || settings.accNumber) && (
+        {show.warranty && sale.warrantyNumbers && sale.warrantyNumbers.length > 0 && (
           <>
             <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }} />
-            {settings.bankName && <div style={{ fontSize: 11, wordBreak: 'break-word' }}>Bank: {settings.bankName}</div>}
-            {settings.accNumber && <div style={{ fontSize: 11, wordBreak: 'break-all' }}>Acc: {settings.accNumber}</div>}
+            <div style={{ textAlign: 'center', fontWeight: 'bold' }}>WARRANTY</div>
+            {sale.warrantyNumbers.map((w, i) => (
+              <div key={i} style={rowStyle}>
+                <span>Warranty{sale.warrantyNumbers!.length > 1 ? ` ${i + 1}` : ''}:</span>
+                <span style={{ fontWeight: 'bold', wordBreak: 'break-all' }}>{w}</span>
+              </div>
+            ))}
+            {sale.warrantyMonths ? (
+              <div style={{ textAlign: 'center', fontSize: fs.small }}>
+                Valid for {sale.warrantyMonths} month{sale.warrantyMonths !== 1 ? 's' : ''}
+              </div>
+            ) : null}
+          </>
+        )}
+
+        {show.bank && (settings.bankName || settings.accNumber) && (
+          <>
+            <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }} />
+            {settings.bankName && <div style={{ fontSize: fs.small, wordBreak: 'break-word' }}>Bank: {settings.bankName}</div>}
+            {settings.accNumber && <div style={{ fontSize: fs.small, wordBreak: 'break-all' }}>Acc: {settings.accNumber}</div>}
           </>
         )}
 
         <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }} />
 
-        <div style={{ textAlign: 'center', fontSize: 12 }}>
+        <div style={{ textAlign: 'center', fontSize: fs.base }}>
           {settings.footerNote || 'Thank you for your business!'}
         </div>
-        {settings.website && (
-          <div style={{ textAlign: 'center', fontSize: 11, wordBreak: 'break-all' }}>{settings.website}</div>
+        {show.website && settings.website && (
+          <div style={{ textAlign: 'center', fontSize: fs.small, wordBreak: 'break-all' }}>{settings.website}</div>
         )}
       </div>
     )
@@ -187,6 +245,21 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
   settings = mergeReceiptSettings(settings, ctx)
   const currency = settings.currency || 'LKR'
   const f = (n: number) => esc(currency + ' ' + fmtAmt(n))
+  const fs = thermalFontScale(settings.thermalFontSize || 'md')
+  const show = {
+    logo: settings.thermalShowLogo !== false,
+    slogan: settings.thermalShowSlogan !== false,
+    address: settings.thermalShowAddress !== false,
+    phone: settings.thermalShowPhone !== false,
+    email: settings.thermalShowEmail !== false,
+    customer: settings.thermalShowCustomer !== false,
+    sku: settings.thermalShowSku !== false,
+    imei: settings.thermalShowImei !== false,
+    payment: settings.thermalShowPayment !== false,
+    bank: settings.thermalShowBank !== false,
+    website: settings.thermalShowWebsite !== false,
+    warranty: settings.thermalShowWarranty !== false,
+  }
 
   const date = sale.createdAt ? new Date(sale.createdAt) : new Date()
   const dateStr = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -198,8 +271,8 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
   const itemBlocks = sale.items.map(item => `
     <div class="item">
       <div class="item-name">${esc(item.productName)}</div>
-      ${item.sku ? `<div class="item-meta">SKU: ${esc(item.sku)}</div>` : ''}
-      ${item.imei ? `<div class="item-meta">IMEI: ${esc(item.imei)}</div>` : ''}
+      ${show.sku && item.sku ? `<div class="item-meta">SKU: ${esc(item.sku)}</div>` : ''}
+      ${show.imei && item.imei ? `<div class="item-meta">IMEI: ${esc(item.imei)}</div>` : ''}
       <div class="row item-line">
         <span class="item-meta">${item.quantity} x ${f(item.unitPrice)}</span>
         <span class="bold nowrap">${f(item.total)}</span>
@@ -220,7 +293,7 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
     }
     body {
       font-family: 'Courier New', Courier, monospace;
-      font-size: 13px;
+      font-size: ${fs.base}px;
       line-height: 1.45;
       max-width: ${bodyWidth};
       margin: 0 auto;
@@ -232,8 +305,9 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
     }
     .center { text-align: center; }
     .bold   { font-weight: bold; }
-    .small  { font-size: 11px; }
-    .large  { font-size: 16px; }
+    .small  { font-size: ${fs.small}px; }
+    .large  { font-size: ${fs.title}px; }
+    .total  { font-size: ${fs.total}px; }
     .wrap   { word-break: break-word; overflow-wrap: anywhere; }
     .email  { word-break: break-all; overflow-wrap: anywhere; }
     .nowrap { white-space: nowrap; }
@@ -253,20 +327,20 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
   </style>
 </head>
 <body>
-  ${settings.logo ? `<div class="center" style="margin-bottom:6px"><img src="${esc(settings.logo)}" style="max-height:44px;max-width:90%;object-fit:contain"/></div>` : ''}
+  ${show.logo && settings.logo ? `<div class="center" style="margin-bottom:6px"><img src="${esc(settings.logo)}" style="max-height:44px;max-width:90%;object-fit:contain"/></div>` : ''}
   <div class="center bold large wrap">${esc(settings.shopName || 'My Shop')}</div>
-  ${settings.slogan ? `<div class="center small wrap">${esc(settings.slogan)}</div>` : ''}
-  ${settings.address ? `<div class="center small wrap">${esc(settings.address)}</div>` : ''}
-  ${settings.phone   ? `<div class="center small">Tel: ${esc(settings.phone)}</div>` : ''}
-  ${settings.email   ? `<div class="center small email">${esc(settings.email)}</div>` : ''}
+  ${show.slogan && settings.slogan ? `<div class="center small wrap">${esc(settings.slogan)}</div>` : ''}
+  ${show.address && settings.address ? `<div class="center small wrap">${esc(settings.address)}</div>` : ''}
+  ${show.phone && settings.phone   ? `<div class="center small">Tel: ${esc(settings.phone)}</div>` : ''}
+  ${show.email && settings.email   ? `<div class="center small email">${esc(settings.email)}</div>` : ''}
 
   <div class="dash"></div>
 
   <div class="row"><span>Receipt:</span><span>${esc(sale.invoiceNumber)}</span></div>
   <div class="row"><span>Date:</span><span class="nowrap">${esc(dateStr)}</span></div>
   <div class="row"><span>Time:</span><span class="nowrap">${esc(timeStr)}</span></div>
-  ${(sale.customerName && sale.customerName !== 'Walk-in Customer') ? `<div class="row"><span>Customer:</span><span class="wrap">${esc(sale.customerName)}</span></div>` : ''}
-  ${sale.customerPhone ? `<div class="row"><span>Phone:</span><span>${esc(sale.customerPhone)}</span></div>` : ''}
+  ${(show.customer && sale.customerName && sale.customerName !== 'Walk-in Customer') ? `<div class="row"><span>Customer:</span><span class="wrap">${esc(sale.customerName)}</span></div>` : ''}
+  ${(show.customer && sale.customerPhone) ? `<div class="row"><span>Phone:</span><span>${esc(sale.customerPhone)}</span></div>` : ''}
 
   <div class="dash"></div>
 
@@ -277,21 +351,21 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
   <div class="row"><span>Subtotal:</span><span class="nowrap">${f(sale.subtotal)}</span></div>
   ${sale.discountAmount > 0 ? `<div class="row"><span>Discount:</span><span class="nowrap">-${f(sale.discountAmount)}</span></div>` : ''}
   <div class="solid"></div>
-  <div class="row bold large"><span>TOTAL:</span><span class="nowrap">${f(sale.total)}</span></div>
+  <div class="row bold total"><span>TOTAL:</span><span class="nowrap">${f(sale.total)}</span></div>
   <div class="solid"></div>
 
-  ${sale.paymentMethod ? `<div class="row"><span>Payment:</span><span>${esc(sale.paymentMethod.toUpperCase())}</span></div>` : ''}
-  ${(sale.cashReceived != null && sale.cashReceived > 0) ? `<div class="row"><span>Cash:</span><span class="nowrap">${f(sale.cashReceived)}</span></div>` : ''}
-  ${(sale.changeAmount != null && sale.changeAmount > 0) ? `<div class="row bold"><span>Change:</span><span class="nowrap">${f(sale.changeAmount)}</span></div>` : ''}
+  ${show.payment && sale.paymentMethod ? `<div class="row"><span>Payment:</span><span>${esc(sale.paymentMethod.toUpperCase())}</span></div>` : ''}
+  ${show.payment && (sale.cashReceived != null && sale.cashReceived > 0) ? `<div class="row"><span>Cash:</span><span class="nowrap">${f(sale.cashReceived)}</span></div>` : ''}
+  ${show.payment && (sale.changeAmount != null && sale.changeAmount > 0) ? `<div class="row bold"><span>Change:</span><span class="nowrap">${f(sale.changeAmount)}</span></div>` : ''}
 
-  ${(sale.warrantyNumbers && sale.warrantyNumbers.length > 0) ? `
+  ${show.warranty && (sale.warrantyNumbers && sale.warrantyNumbers.length > 0) ? `
   <div class="dash"></div>
   <div class="center bold">WARRANTY</div>
   ${(sale.warrantyNumbers ?? []).map((w, i) => `<div class="row"><span>Warranty ${(sale.warrantyNumbers ?? []).length > 1 ? i+1 : ''}:</span><span class="bold wrap">${esc(w)}</span></div>`).join('')}
   ${sale.warrantyMonths ? `<div class="center small">Valid for ${sale.warrantyMonths} month${sale.warrantyMonths !== 1 ? 's' : ''}</div>` : ''}
   ` : ''}
 
-  ${(settings.bankName || settings.accNumber) ? `
+  ${show.bank && (settings.bankName || settings.accNumber) ? `
   <div class="dash"></div>
   ${settings.bankName ? `<div class="small wrap">Bank: ${esc(settings.bankName)}</div>` : ''}
   ${settings.accNumber ? `<div class="small email">Acc: ${esc(settings.accNumber)}</div>` : ''}
@@ -299,7 +373,7 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
 
   <div class="dash"></div>
   <div class="center">${esc(settings.footerNote || 'Thank you for your business!')}</div>
-  ${settings.website ? `<div class="center small email">${esc(settings.website)}</div>` : ''}
+  ${show.website && settings.website ? `<div class="center small email">${esc(settings.website)}</div>` : ''}
 </body>
 </html>`
 

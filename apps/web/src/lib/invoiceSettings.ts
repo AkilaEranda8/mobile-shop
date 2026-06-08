@@ -22,6 +22,19 @@ export interface InvoiceSettings {
   bankDetails:      string
   thermalWidthPOS:    '58mm' | '80mm'
   thermalWidthRepair: '58mm' | '80mm'
+  thermalShowLogo:      boolean
+  thermalShowSlogan:    boolean
+  thermalShowAddress:   boolean
+  thermalShowPhone:     boolean
+  thermalShowEmail:     boolean
+  thermalShowCustomer:  boolean
+  thermalShowSku:       boolean
+  thermalShowImei:      boolean
+  thermalShowPayment:   boolean
+  thermalShowBank:      boolean
+  thermalShowWebsite:   boolean
+  thermalShowWarranty:  boolean
+  thermalFontSize:      'sm' | 'md' | 'lg'
 }
 
 export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
@@ -50,6 +63,19 @@ export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   bankDetails:       '',
   thermalWidthPOS:    '58mm',
   thermalWidthRepair: '80mm',
+  thermalShowLogo:      true,
+  thermalShowSlogan:    true,
+  thermalShowAddress:   true,
+  thermalShowPhone:     true,
+  thermalShowEmail:     true,
+  thermalShowCustomer:  true,
+  thermalShowSku:       true,
+  thermalShowImei:      true,
+  thermalShowPayment:   true,
+  thermalShowBank:      true,
+  thermalShowWebsite:   true,
+  thermalShowWarranty:  true,
+  thermalFontSize:      'md',
 }
 
 export interface ShopContext {
