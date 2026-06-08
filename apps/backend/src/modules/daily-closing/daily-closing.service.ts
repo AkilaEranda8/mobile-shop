@@ -268,16 +268,72 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
     commission: Math.round(reloadBreakdown[id].commission * 100) / 100,
   }))
 
+  const productTotals: Record<string, { name: string; qty: number; revenue: number }> = {}
+  const brandTotals: Record<string, number> = {}
+  for (const sale of sales) {
+    for (const item of sale.items) {
+      if (isReloadItem(item)) continue
+      const key = item.productId ?? item.productName
+      if (!productTotals[key]) productTotals[key] = { name: item.productName, qty: 0, revenue: 0 }
+      productTotals[key].qty += item.quantity
+      productTotals[key].revenue += Number(item.total)
+      if (item.product && isMobileProduct(item.product)) {
+        const brand = (item.product as { brandName?: string | null }).brandName ?? 'Other'
+        brandTotals[brand] = (brandTotals[brand] ?? 0) + Number(item.total)
+      }
+    }
+  }
+  const topProduct = Object.values(productTotals).sort((a, b) => b.qty - a.qty)[0]
+  const topBrand = Object.entries(brandTotals).sort((a, b) => b[1] - a[1])[0]
+
+  const prevKey = previousBusinessDate(dateKey)
+  const { start: prevStart, end: prevEnd } = parseDateRange(prevKey)
+  const prevSalesAgg = await prisma.sale.aggregate({
+    where: { tenantId, branchId, status: { not: 'RETURNED' }, createdAt: { gte: prevStart, lte: prevEnd } },
+    _sum: { total: true },
+  })
+  const prevSalesTotal = Number(prevSalesAgg._sum.total ?? 0)
+
   const insights: string[] = []
   if (salesCount > 0) insights.push(`${salesCount} sale${salesCount > 1 ? 's' : ''} recorded today`)
+  if (prevSalesTotal > 0 && totalSales > 0) {
+    const pct = ((totalSales - prevSalesTotal) / prevSalesTotal) * 100
+    insights.push(
+      `Sales ${pct >= 0 ? 'up' : 'down'} ${Math.abs(pct).toFixed(1)}% vs yesterday (${Math.round(prevSalesTotal)} → ${Math.round(totalSales)})`,
+    )
+  }
+  if (topProduct) insights.push(`Top selling product: ${topProduct.name} (${topProduct.qty} units)`)
+  if (topBrand) insights.push(`Top mobile brand: ${topBrand[0]} (Rs ${topBrand[1].toFixed(2)})`)
   if (mobileSales > accessorySales && mobileSales > 0) {
-    insights.push('Mobile sales are the top product category today')
+    insights.push('Mobile category leads today\'s product revenue')
   } else if (accessorySales > 0) {
-    insights.push('Accessory sales lead today\'s revenue')
+    insights.push('Accessory category leads today\'s product revenue')
   }
   if (reloadCommission > 0) insights.push(`Reload commission earned: Rs ${reloadCommission.toFixed(2)}`)
+  if (newCustomers > 0) insights.push(`${newCustomers} new customer${newCustomers > 1 ? 's' : ''} registered today`)
+  if (repairsCompleted > 0) insights.push(`${repairsCompleted} repair job${repairsCompleted > 1 ? 's' : ''} delivered today`)
   if (expenseBreakdown[0]) {
     insights.push(`Highest expense: ${expenseBreakdown[0].category} (Rs ${expenseBreakdown[0].amount.toFixed(2)})`)
+    if (totalExpenses > 0 && expenseBreakdown[0].amount / totalExpenses > 0.4) {
+      insights.push(
+        `Expense anomaly: ${expenseBreakdown[0].category} is ${((expenseBreakdown[0].amount / totalExpenses) * 100).toFixed(0)}% of total expenses`,
+      )
+    }
+  }
+
+  const charts = {
+    salesMix: [
+      { name: 'Mobile', value: Math.round(mobileSales * 100) / 100 },
+      { name: 'Accessories', value: Math.round(accessorySales * 100) / 100 },
+      { name: 'Services', value: Math.round(serviceIncome * 100) / 100 },
+      { name: 'Reload', value: Math.round(reloadSales * 100) / 100 },
+    ].filter(x => x.value > 0),
+    expenses: expenseBreakdown.slice(0, 8).map(e => ({ name: e.category, value: e.amount })),
+    reloadCommission: reloadBreakdownArr.filter(r => r.amount > 0).map(r => ({
+      name: r.provider,
+      amount: r.amount,
+      commission: r.commission,
+    })),
   }
 
   return {
@@ -348,6 +404,7 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
     customers: { newCustomers },
     repairs: { repairsCompleted },
     insights,
+    charts,
     cashCount: existingClosing?.cashCount ?? null,
     notes: existingClosing?.notes ?? '',
     closedAt: existingClosing?.closedAt ?? null,

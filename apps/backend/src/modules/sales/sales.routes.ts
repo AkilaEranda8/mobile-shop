@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { Request, Response, NextFunction } from 'express'
 import { salesService } from './sales.service'
+import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 import { sendSuccess, sendPaginated } from '../../utils/response'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
 import { prisma } from '../../config/database'
@@ -51,6 +52,7 @@ router.post('/:id/returns', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req
     })
     if (!sale) throw new AppError('Sale not found', 404)
     if (sale.status === 'RETURNED') throw new AppError('This order has already been fully returned', 400)
+    await assertBusinessDayOpenIfEnabled(req.tenantId!, sale.branchId)
 
     const { items, reason, refundMethod, notes } = req.body
     if (!items?.length) throw new AppError('No items provided for return', 400)

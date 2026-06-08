@@ -14,6 +14,9 @@ import { businessToday } from '@/lib/business-date'
 import { useFeatureFlag, useBranches, useDailyClosingPreview } from '@/lib/hooks'
 import { dailyClosingApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
+import { DailyClosingCharts } from '@/components/daily-closing/DailyClosingCharts'
+import { DailyClosingHistory } from '@/components/daily-closing/DailyClosingHistory'
+import { exportDailyClosingExcel, buildPdfLines } from '@/lib/daily-closing-export'
 
 const STEPS = [
   { id: 1, title: 'Sales',     icon: ShoppingCart },
@@ -171,6 +174,16 @@ export default function DailyClosingPage() {
     }
   }, [date])
 
+  const exportExcel = useCallback(() => {
+    if (!d) return
+    try {
+      exportDailyClosingExcel(d, date, d.branchName ?? branchId)
+      toast.success('Excel downloaded')
+    } catch {
+      toast.error('Excel export failed')
+    }
+  }, [d, date, branchId])
+
   const saveCashCount = async () => {
     if (!branchId) return
     setSaving(true)
@@ -310,7 +323,12 @@ export default function DailyClosingPage() {
           <button onClick={exportPdf}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors"
             style={{ background: 'rgba(16,185,129,0.12)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}>
-            <Download size={13} /> Export PDF
+            <Download size={13} /> PDF
+          </button>
+          <button onClick={exportExcel}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors"
+            style={{ background: 'rgba(59,130,246,0.12)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.3)' }}>
+            <Download size={13} /> Excel
           </button>
         </div>
       </div>
@@ -351,13 +369,58 @@ export default function DailyClosingPage() {
             <div className="card rounded-2xl p-4 border-violet-500/20" style={{ background: 'rgba(109,40,217,0.04)' }}>
               <div className="flex items-center gap-2 mb-2">
                 <Sparkles size={14} className="text-violet-500" />
-                <span className="text-xs font-bold text-violet-600 dark:text-violet-400">Today&apos;s Insights</span>
+                <span className="text-xs font-bold text-violet-600 dark:text-violet-400">AI Insights</span>
               </div>
               <ul className="text-xs space-y-1" style={{ color: 'var(--text-secondary)' }}>
                 {d.insights.map((ins: string, i: number) => <li key={i}>• {ins}</li>)}
               </ul>
             </div>
           )}
+
+          {/* ── Business summary sections ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="card rounded-2xl p-4">
+              <SectionTitle title="Reload Summary" sub="Per network · from Daily Reload module" />
+              <div className="space-y-2">
+                {(d?.reload?.breakdown ?? []).map((r: any) => (
+                  <div key={r.provider} className="flex items-center justify-between text-sm">
+                    <span style={{ color: 'var(--text-primary)' }}>{r.provider}</span>
+                    <span>
+                      <span className="font-bold text-emerald-600">{formatCurrency(r.commission)}</span>
+                      <span className="text-[10px] ml-1" style={{ color: 'var(--text-muted)' }}>/ {formatCurrency(r.amount)}</span>
+                    </span>
+                  </div>
+                ))}
+                <div className="pt-2 border-t flex justify-between font-semibold text-sm" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Total Commission</span>
+                  <span className="text-emerald-600">{formatCurrency(d?.reload?.totalCommission ?? 0)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="card rounded-2xl p-4">
+              <SectionTitle title="IMEI Summary" sub="From IMEI &amp; Warranty modules" />
+              <div className="grid grid-cols-2 gap-2">
+                <MetricCard label="Mobiles Sold" value={String(d?.imei?.mobilesSold ?? 0)} />
+                <MetricCard label="IMEIs Registered" value={String(d?.imei?.imeisRegistered ?? 0)} />
+                <MetricCard label="Sold Today" value={String(d?.imei?.imeisSoldToday ?? 0)} tone="green" />
+                <MetricCard label="Pending IMEIs" value={String(d?.imei?.pendingImeis ?? 0)} tone="amber" />
+                <MetricCard label="Warranty Active" value={String(d?.imei?.warrantiesActivated ?? 0)} tone="green" />
+              </div>
+            </div>
+
+            <div className="card rounded-2xl p-4">
+              <SectionTitle title="Operations" sub="Customers &amp; repairs today" />
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <MetricCard label="New Customers" value={String(d?.customers?.newCustomers ?? 0)} tone="green" />
+                <MetricCard label="Repairs Done" value={String(d?.repairs?.repairsCompleted ?? 0)} />
+                <MetricCard label="Cash In Hand" value={formatCurrency(cashTotal || d?.cash?.actualCash || 0)} tone="green" />
+                <MetricCard label="Cash In Bank" value={formatCurrency(d?.cash?.cashInBank ?? 0)} />
+              </div>
+            </div>
+          </div>
+
+          <DailyClosingCharts data={d} />
 
           {/* ── Main card with wizard tabs ── */}
           <div className="card rounded-2xl overflow-hidden">
@@ -626,6 +689,8 @@ export default function DailyClosingPage() {
               </div>
             </div>
           )}
+
+          <DailyClosingHistory branchId={branchId} onSelectDate={setDate} />
         </>
       )}
 
@@ -634,11 +699,15 @@ export default function DailyClosingPage() {
         <div ref={printRef} className="w-[800px] p-8 bg-white text-black text-sm">
           <h1 className="text-xl font-bold mb-1">Daily Closing Report</h1>
           <p className="text-gray-600 mb-4">{date} · {d?.branchName ?? branchId}</p>
-          <p><strong>Total Sales:</strong> {formatCurrency(d?.sales?.totalSales ?? 0)}</p>
-          <p><strong>Net Profit:</strong> {formatCurrency(d?.profit?.netProfit ?? 0)}</p>
-          <p><strong>Expected Cash:</strong> {formatCurrency(expectedCash)}</p>
-          <p><strong>Actual Cash:</strong> {formatCurrency(cashTotal)}</p>
-          <p><strong>Variance:</strong> {formatCurrency(variance)}</p>
+          {buildPdfLines(d, expectedCash, cashTotal, variance).map(([label, val]) => (
+            <p key={label}><strong>{label}:</strong> {val}</p>
+          ))}
+          {(d?.insights ?? []).length > 0 && (
+            <>
+              <p className="font-bold mt-4 mb-1">Insights</p>
+              {d.insights.map((ins: string, i: number) => <p key={i}>• {ins}</p>)}
+            </>
+          )}
         </div>
       </div>
     </div>
