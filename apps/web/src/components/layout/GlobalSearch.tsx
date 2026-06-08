@@ -40,29 +40,31 @@ export default function GlobalSearch() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
-  const [results, setResults] = useState<Result[]>([])
+  const [results, setResults] = useState<Result[]>(QUICK_PAGES)
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const rootRef = useRef<HTMLDivElement>(null)
+
+  const openSearch = useCallback(() => {
+    setQuery('')
+    setResults(QUICK_PAGES)
+    setOpen(true)
+  }, [])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
-        setOpen(true)
+        openSearch()
       }
       if (e.key === 'Escape') setOpen(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [openSearch])
 
   useEffect(() => {
-    if (!open) {
-      setQuery('')
-      setResults(QUICK_PAGES)
-      return
-    }
+    if (!open) return
     const t = setTimeout(() => inputRef.current?.focus(), 30)
     return () => clearTimeout(t)
   }, [open])
@@ -72,8 +74,11 @@ export default function GlobalSearch() {
     const onPointerDown = (e: MouseEvent) => {
       if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
     }
-    document.addEventListener('mousedown', onPointerDown)
-    return () => document.removeEventListener('mousedown', onPointerDown)
+    const t = setTimeout(() => document.addEventListener('mousedown', onPointerDown), 0)
+    return () => {
+      clearTimeout(t)
+      document.removeEventListener('mousedown', onPointerDown)
+    }
   }, [open])
 
   const runSearch = useCallback(async (q: string) => {
@@ -185,11 +190,11 @@ export default function GlobalSearch() {
   }, {})
 
   return (
-    <div ref={rootRef} className="relative w-full max-w-xs">
+    <div ref={rootRef} className="relative w-full max-w-xs z-[200]">
       {!open ? (
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={openSearch}
           className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-all w-full border"
           style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}
         >
@@ -215,7 +220,10 @@ export default function GlobalSearch() {
               className="input-field pl-9 py-2 text-sm w-full"
               onKeyDown={e => {
                 if (e.key === 'Escape') setOpen(false)
-                if (e.key === 'Enter' && results[0]?.href && results[0].href !== '#') pick(results[0])
+                if (e.key === 'Enter') {
+                  const first = results.find(r => r.href !== '#')
+                  if (first) pick(first)
+                }
               }}
             />
             {loading && (
@@ -224,33 +232,40 @@ export default function GlobalSearch() {
           </div>
 
           <div
-            className="absolute left-0 right-0 top-full mt-2 rounded-2xl border shadow-2xl overflow-hidden z-[100]"
+            className="absolute left-0 right-0 top-full mt-2 rounded-2xl border shadow-2xl overflow-hidden z-[200]"
             style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
           >
             <div className="max-h-[50vh] overflow-y-auto p-2">
-              {Object.entries(grouped).map(([group, items]) => (
-                <div key={group} className="mb-2">
-                  <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">{group}</p>
-                  {items.map(item => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      disabled={item.href === '#'}
-                      onClick={() => pick(item)}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors hover:bg-white/5 disabled:opacity-60"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
-                        <item.icon size={15} className="text-violet-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{item.label}</p>
-                        {item.sub && <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{item.sub}</p>}
-                      </div>
-                      {item.href !== '#' && <ArrowRight size={14} className="text-slate-500 flex-shrink-0" />}
-                    </button>
-                  ))}
-                </div>
-              ))}
+              {Object.keys(grouped).length === 0 ? (
+                <p className="px-3 py-4 text-xs text-center" style={{ color: 'var(--text-muted)' }}>
+                  Type to search…
+                </p>
+              ) : (
+                Object.entries(grouped).map(([group, items]) => (
+                  <div key={group} className="mb-2">
+                    <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">{group}</p>
+                    {items.map(item => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        disabled={item.href === '#'}
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => pick(item)}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors hover:bg-white/5 disabled:opacity-60"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
+                          <item.icon size={15} className="text-violet-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{item.label}</p>
+                          {item.sub && <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{item.sub}</p>}
+                        </div>
+                        {item.href !== '#' && <ArrowRight size={14} className="text-slate-500 flex-shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </>

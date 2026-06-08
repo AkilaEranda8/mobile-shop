@@ -68,7 +68,7 @@ export default function Header({ onMenuToggle, sidebarOpen }: HeaderProps) {
       </button>
 
       {/* Search */}
-      <div className="flex-1 max-w-md">
+      <div className="flex-1 max-w-md relative z-[200] overflow-visible">
         <GlobalSearch />
       </div>
 
