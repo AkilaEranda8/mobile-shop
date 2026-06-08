@@ -524,6 +524,7 @@ model RepairTicket {
   customerPhone       String
   deviceBrand         String
   deviceModel         String
+  deviceColor         String?
   imei                String?
   accessories         String?
   reportedIssue       String

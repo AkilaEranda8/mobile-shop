@@ -50,6 +50,7 @@ export const repairsService = {
         customerPhone:       body.customerPhone  || '',
         deviceBrand:         body.deviceBrand    || '',
         deviceModel:         body.deviceModel    || '',
+        deviceColor:         body.deviceColor    || undefined,
         imei:                body.imei           || undefined,
         accessories:         body.accessories    || undefined,
         reportedIssue:       body.reportedIssue  || '',
