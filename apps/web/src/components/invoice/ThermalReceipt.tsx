@@ -119,9 +119,9 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
         }}
       >
         {show.logo && settings.logo && (
-          <div style={{ textAlign: 'center', marginBottom: 6 }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={settings.logo} alt="logo" style={{ maxHeight: 44, maxWidth: '90%', objectFit: 'contain' }} />
+            <img src={settings.logo} alt="logo" style={{ display: 'block', maxHeight: 44, maxWidth: '90%', objectFit: 'contain' }} />
           </div>
         )}
         <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: fs.title }}>
@@ -327,7 +327,7 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
   </style>
 </head>
 <body>
-  ${show.logo && settings.logo ? `<div class="center" style="margin-bottom:6px"><img src="${esc(settings.logo)}" style="max-height:44px;max-width:90%;object-fit:contain"/></div>` : ''}
+  ${show.logo && settings.logo ? `<div style="margin-bottom:6px;display:flex;justify-content:center"><img src="${esc(settings.logo)}" style="display:block;max-height:44px;max-width:90%;object-fit:contain"/></div>` : ''}
   <div class="center bold large wrap">${esc(settings.shopName || 'My Shop')}</div>
   ${show.slogan && settings.slogan ? `<div class="center small wrap">${esc(settings.slogan)}</div>` : ''}
   ${show.address && settings.address ? `<div class="center small wrap">${esc(settings.address)}</div>` : ''}
