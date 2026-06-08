@@ -64,6 +64,7 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
   const dateKey = normalizeBusinessDate(dateStr)
   const { start, end } = parseDateRange(dateKey)
   const branchFilter = { tenantId, branchId }
+  const imeiWhere = { branchId }
   const saleWhere = {
     tenantId,
     branchId,
@@ -101,12 +102,12 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
       where: { ...branchFilter, status: 'DELIVERED', completedAt: { gte: start, lte: end } },
     }),
     prisma.imeiRecord.count({
-      where: { ...branchFilter, status: 'SOLD', updatedAt: { gte: start, lte: end } },
+      where: { ...imeiWhere, status: 'SOLD', updatedAt: { gte: start, lte: end } },
     }),
     prisma.imeiRecord.count({
-      where: { ...branchFilter, createdAt: { gte: start, lte: end } },
+      where: { ...imeiWhere, createdAt: { gte: start, lte: end } },
     }),
-    prisma.imeiRecord.count({ where: { ...branchFilter, status: 'IN_STOCK' } }),
+    prisma.imeiRecord.count({ where: { ...imeiWhere, status: 'IN_STOCK' } }),
     prisma.warranty.count({ where: { tenantId, startDate: { gte: start, lte: end } } }),
     prisma.dailyClosing.findUnique({
       where: { tenantId_branchId_date: { tenantId, branchId, date: businessDateDb(dateKey) } },
