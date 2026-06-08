@@ -41,21 +41,24 @@ export const tenantsService = {
       ? [branch.address, branch.city, branch.state].filter(Boolean).join(', ')
       : ''
 
-    const pick = (key: string, ...fallbacks: (string | null | undefined)[]) => {
-      const v = stored[key]
-      if (typeof v === 'string' && v.trim()) return v.trim()
-      for (const fb of fallbacks) {
-        if (typeof fb === 'string' && fb.trim()) return fb.trim()
+    const pickShopFirst = (...values: (string | null | undefined)[]) => {
+      for (const v of values) {
+        if (typeof v === 'string' && v.trim()) return v.trim()
       }
       return ''
     }
 
+    const storedShopName = typeof stored.shopName === 'string' ? stored.shopName.trim() : ''
+    const storedEmail = typeof stored.email === 'string' ? stored.email.trim() : ''
+    const storedPhone = typeof stored.phone === 'string' ? stored.phone.trim() : ''
+    const storedAddress = typeof stored.address === 'string' ? stored.address.trim() : ''
+
     return {
       ...stored,
-      shopName: pick('shopName', t.name, branch?.name),
-      email: pick('email', branch?.email ?? undefined, t.ownerEmail),
-      phone: pick('phone', branch?.phone),
-      address: pick('address', branchLine || undefined),
+      shopName: pickShopFirst(t.name, branch?.name, storedShopName),
+      email: pickShopFirst(t.ownerEmail, branch?.email ?? undefined, storedEmail),
+      phone: pickShopFirst(branch?.phone, storedPhone),
+      address: pickShopFirst(branchLine || undefined, storedAddress),
     }
   },
 

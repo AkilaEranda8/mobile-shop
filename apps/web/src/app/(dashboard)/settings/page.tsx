@@ -5,10 +5,10 @@ import {
   Save, Building2, User, Bell, Shield, Palette, CreditCard, Users,
   Loader2, Eye, EyeOff, Trash2, Plus, X, CheckCircle, Check, FileText, Smartphone, ChevronRight,
 } from 'lucide-react'
-import { authApi, usersApi, tenantApi, uploadApi, deviceCatalogApi, plansApi } from '@/lib/api'
+import { authApi, usersApi, tenantApi, uploadApi, deviceCatalogApi, plansApi, branchesApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { useTenantFeatures } from '@/lib/hooks'
-import { type InvoiceSettings, getInvoiceSettings, fetchInvoiceSettings, pushInvoiceSettings, mergeReceiptSettings } from '@/lib/invoiceSettings'
+import { type InvoiceSettings, getInvoiceSettings, fetchInvoiceCustomizeSettings, pushInvoiceSettings } from '@/lib/invoiceSettings'
 import {
   type ReloadSettings,
   DEFAULT_RELOAD_SETTINGS,
@@ -65,7 +65,8 @@ export default function SettingsPage() {
 
   /* ── Shop Info ── */
   const [tenant, setTenant]       = useState<any>(null)
-  const [shopForm, setShopForm]   = useState({ name: '', ownerName: '', ownerEmail: '' })
+  const [shopForm, setShopForm]   = useState({ name: '', ownerName: '', ownerEmail: '', phone: '', address: '', city: '' })
+  const [shopBranchId, setShopBranchId] = useState('')
   const [shopSaving, setShopSaving] = useState(false)
   const [reloadSettings, setReloadSettings] = useState<ReloadSettings>(DEFAULT_RELOAD_SETTINGS)
   const [reloadSaving, setReloadSaving] = useState(false)
@@ -75,9 +76,22 @@ export default function SettingsPage() {
     tenantApi.get(currentUser.tenantId).then((r: any) => {
       const t = r?.data ?? r
       setTenant(t)
-      setShopForm({ name: t.name ?? '', ownerName: t.ownerName ?? '', ownerEmail: t.ownerEmail ?? '' })
+      const userBranchId = currentUser.branchIds?.[0]
+      const branch =
+        (userBranchId ? t.branches?.find((b: any) => b.id === userBranchId) : undefined)
+        ?? t.branches?.find((b: any) => b.isHeadquarters)
+        ?? t.branches?.[0]
+      if (branch?.id) setShopBranchId(branch.id)
+      setShopForm({
+        name: t.name ?? '',
+        ownerName: t.ownerName ?? '',
+        ownerEmail: t.ownerEmail ?? '',
+        phone: branch?.phone ?? '',
+        address: branch?.address ?? '',
+        city: branch?.city ?? '',
+      })
     }).catch(() => {})
-  }, [currentUser?.tenantId])
+  }, [currentUser?.tenantId, currentUser?.branchIds])
 
   useEffect(() => {
     if (!currentUser?.tenantId || !hasFeature('DAILY_RELOAD')) return
@@ -104,19 +118,19 @@ export default function SettingsPage() {
     if (!tenant) return
     setShopSaving(true)
     try {
-      await tenantApi.update(tenant.id, shopForm)
-      const inv = getInvoiceSettings()
-      const synced = mergeReceiptSettings(
-        {
-          ...inv,
-          shopName: shopForm.name || inv.shopName,
-          email: inv.email || shopForm.ownerEmail || '',
-        },
-        { tenantName: shopForm.name, tenantEmail: shopForm.ownerEmail },
-      )
-      await pushInvoiceSettings(tenant.id, synced)
-      setInvoiceForm(synced)
-      toast.success('Shop info saved')
+      await tenantApi.update(tenant.id, {
+        name: shopForm.name,
+        ownerName: shopForm.ownerName,
+        ownerEmail: shopForm.ownerEmail,
+      })
+      if (shopBranchId) {
+        await branchesApi.update(shopBranchId, {
+          phone: shopForm.phone,
+          address: shopForm.address,
+          city: shopForm.city,
+        })
+      }
+      toast.success('Shop info saved — thermal receipts will use these details')
     } catch { toast.error('Save failed') }
     finally { setShopSaving(false) }
   }
@@ -227,7 +241,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (!currentUser?.tenantId) return
     setInvoiceLoading(true)
-    fetchInvoiceSettings(currentUser.tenantId)
+    fetchInvoiceCustomizeSettings(currentUser.tenantId)
       .then(s => setInvoiceForm(s))
       .catch(() => {})
       .finally(() => setInvoiceLoading(false))
@@ -301,7 +315,10 @@ export default function SettingsPage() {
           {activeTab === 'shop' && (
             <div className="card p-6 space-y-5">
               <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                <h2 className="text-base font-semibold text-white">Shop Information</h2>
+                <div>
+                  <h2 className="text-base font-semibold text-white">Shop Information</h2>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Used on POS thermal receipts (name, phone, address)</p>
+                </div>
                 <button onClick={saveShop} disabled={shopSaving} className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
                   {shopSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}Save
                 </button>
@@ -310,6 +327,18 @@ export default function SettingsPage() {
                 <div>
                   <label className="block text-xs text-slate-400 mb-1.5">Shop / Business Name</label>
                   <input className="input-field" value={shopForm.name} onChange={e => setShopForm(p => ({ ...p, name: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1.5">Phone</label>
+                  <input className="input-field" placeholder="+94 77 123 4567" value={shopForm.phone} onChange={e => setShopForm(p => ({ ...p, phone: e.target.value }))} />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs text-slate-400 mb-1.5">Address</label>
+                  <input className="input-field" placeholder="123 Main St, Colombo" value={shopForm.address} onChange={e => setShopForm(p => ({ ...p, address: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1.5">City</label>
+                  <input className="input-field" placeholder="Colombo" value={shopForm.city} onChange={e => setShopForm(p => ({ ...p, city: e.target.value }))} />
                 </div>
                 <div>
                   <label className="block text-xs text-slate-400 mb-1.5">Owner Name</label>
@@ -501,7 +530,7 @@ export default function SettingsPage() {
               <div className="card p-5 flex items-center justify-between">
                 <div>
                   <h2 className="text-base font-semibold text-white flex items-center gap-2"><FileText size={15} className="text-violet-400" /> Invoice Customize</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Saved per tenant in database — shared across all users &amp; devices</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Logo, bank details &amp; A4 invoice options — thermal header uses Shop Information first</p>
                 </div>
                 <button onClick={saveInvoice} disabled={invoiceSaving || invoiceLoading} className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
                   {invoiceSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Save All

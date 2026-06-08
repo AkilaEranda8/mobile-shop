@@ -18,11 +18,11 @@ import { PosReturnModal } from './PosReturnModal'
 import { PosReloadPanel, type ReloadProvider } from './PosReloadPanel'
 import { useUIStore } from '@/stores/ui-store'
 import { useProducts, useFeatureFlag } from '@/lib/hooks'
-import { salesApi, customersApi, productsApi, imeiApi, warrantyApi, servicesApi, financeApi, dailyReloadApi } from '@/lib/api'
+import { salesApi, customersApi, productsApi, imeiApi, warrantyApi, servicesApi, financeApi, dailyReloadApi, tenantApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
-import { getInvoiceSettings, fetchInvoiceSettings, type InvoiceSettings } from '@/lib/invoiceSettings'
+import { getInvoiceSettings, fetchInvoiceSettings, shopContextFromTenant, type InvoiceSettings, type ShopContext } from '@/lib/invoiceSettings'
 import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrint'
 import { printThermalReceipt } from '@/components/invoice/ThermalReceipt'
 import { whatsappApi } from '@/lib/whatsapp-api'
@@ -548,7 +548,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         paymentMethod: saleData.payments?.[0]?.method,
         cashReceived: undefined,
         changeAmount: undefined,
-      }, invoiceSettings)
+      }, invoiceSettings, thermalShopCtx)
       toast.success('Receipt sent to printer')
     } catch {
       toast.error('Could not print invoice')
@@ -832,11 +832,19 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const currentUser = authStorage.getUser()
   const shopName = currentUser?.name?.split(' ')[0] + ' Shop' || 'Our Shop'
   const [invoiceSettings, setInvoiceSettings] = useState<InvoiceSettings>(() => getInvoiceSettings())
+  const [thermalShopCtx, setThermalShopCtx] = useState<ShopContext | undefined>(undefined)
 
   useEffect(() => {
     if (!currentUser?.tenantId) return
     const branchId = currentUser.branchIds?.[0]
-    fetchInvoiceSettings(currentUser.tenantId, branchId).then(s => setInvoiceSettings(s)).catch(() => {})
+    Promise.all([
+      fetchInvoiceSettings(currentUser.tenantId, branchId),
+      tenantApi.get(currentUser.tenantId).catch(() => null),
+    ]).then(([settings, tenantRes]) => {
+      setInvoiceSettings(settings)
+      const tenant = (tenantRes as any)?.data ?? tenantRes
+      setThermalShopCtx(shopContextFromTenant(tenant, branchId))
+    }).catch(() => {})
   }, [currentUser?.tenantId, currentUser?.branchIds?.[0]])
 
   useEffect(() => {
@@ -1155,7 +1163,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         if (e.key === 'F4') { e.preventDefault(); handleHoldSales() }
         if (e.key === 'F5') {
           e.preventDefault()
-          if (completedSale) printThermalReceipt({ invoiceNumber: completedSale.invoiceNumber, createdAt: completedSale.createdAt, customerName: completedSale.customerName, customerPhone: completedSale.customerPhone, items: completedSale.items ?? [], subtotal, discountAmount, total: completedSale.total ?? saleTotal, paymentMethod: completedSale.paymentMethod, cashReceived: completedSale.cashReceived, changeAmount: completedSale.changeAmount, warrantyNumbers: completedSale.warrantyNumbers, warrantyMonths: completedSale.warrantyMonths }, invoiceSettings)
+          if (completedSale) printThermalReceipt({ invoiceNumber: completedSale.invoiceNumber, createdAt: completedSale.createdAt, customerName: completedSale.customerName, customerPhone: completedSale.customerPhone, items: completedSale.items ?? [], subtotal, discountAmount, total: completedSale.total ?? saleTotal, paymentMethod: completedSale.paymentMethod, cashReceived: completedSale.cashReceived, changeAmount: completedSale.changeAmount, warrantyNumbers: completedSale.warrantyNumbers, warrantyMonths: completedSale.warrantyMonths }, invoiceSettings, thermalShopCtx)
         }
         if (e.key === 'F6') { e.preventDefault(); setShowHeldCarts(true) }
         if (e.key === 'F7') { e.preventDefault(); if (cart.length > 0) setShowDocPreview('QUOTE'); else toast.error('Cart is empty') }
@@ -1723,7 +1731,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   <button onClick={() => setShowA4Invoice(true)} className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold rounded-xl bg-white/5 text-slate-200 hover:bg-white/10 border border-white/10 transition-colors">
                     <Receipt size={12} /> A4 Invoice
                   </button>
-                  <button onClick={() => printThermalReceipt({ invoiceNumber: completedSale.invoiceNumber, createdAt: completedSale.createdAt, customerName: completedSale.customerName, customerPhone: completedSale.customerPhone, items: completedSale.items ?? [], subtotal, discountAmount, total: completedSale.total ?? saleTotal, paymentMethod: completedSale.paymentMethod, cashReceived: completedSale.cashReceived, changeAmount: completedSale.changeAmount, warrantyNumbers: completedSale.warrantyNumbers, warrantyMonths: completedSale.warrantyMonths }, invoiceSettings)} className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors">
+                  <button onClick={() => printThermalReceipt({ invoiceNumber: completedSale.invoiceNumber, createdAt: completedSale.createdAt, customerName: completedSale.customerName, customerPhone: completedSale.customerPhone, items: completedSale.items ?? [], subtotal, discountAmount, total: completedSale.total ?? saleTotal, paymentMethod: completedSale.paymentMethod, cashReceived: completedSale.cashReceived, changeAmount: completedSale.changeAmount, warrantyNumbers: completedSale.warrantyNumbers, warrantyMonths: completedSale.warrantyMonths }, invoiceSettings, thermalShopCtx)} className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors">
                     <Printer size={12} /> Thermal Print
                   </button>
                 </div>

@@ -78,7 +78,22 @@ export function mergeReceiptSettings(
   }
 }
 
-function shopContextFromTenant(tenant: any, branchId?: string): ShopContext | undefined {
+/** Thermal receipts: Shop Information (tenant + branch) first, Invoice Customize as fallback */
+export function resolveThermalSettings(
+  settings: InvoiceSettings,
+  ctx?: ShopContext,
+): InvoiceSettings {
+  const branchLine = [ctx?.branchAddress, ctx?.branchCity, ctx?.branchState].filter(Boolean).join(', ')
+  return {
+    ...settings,
+    shopName: ctx?.tenantName?.trim() || ctx?.branchName?.trim() || settings.shopName?.trim() || '',
+    email: ctx?.tenantEmail?.trim() || ctx?.branchEmail?.trim() || settings.email?.trim() || '',
+    phone: ctx?.branchPhone?.trim() || settings.phone?.trim() || '',
+    address: branchLine || settings.address?.trim() || '',
+  }
+}
+
+export function shopContextFromTenant(tenant: any, branchId?: string): ShopContext | undefined {
   if (!tenant) return undefined
   const branches: any[] = tenant.branches ?? []
   const branch =
@@ -121,9 +136,21 @@ export async function fetchInvoiceSettings(tenantId: string, branchId?: string):
     const data = (invRes as any)?.data ?? invRes
     const tenant = (tenantRes as any)?.data ?? tenantRes
     const ctx = shopContextFromTenant(tenant, branchId)
-    const merged = mergeReceiptSettings({ ...DEFAULT_INVOICE_SETTINGS, ...data }, ctx)
-    saveInvoiceSettings(merged)
-    return merged
+    const base = { ...DEFAULT_INVOICE_SETTINGS, ...data }
+    saveInvoiceSettings(base)
+    return resolveThermalSettings(base, ctx)
+  } catch {
+    return getInvoiceSettings()
+  }
+}
+
+/** Raw invoice customize values (Invoice tab) without shop/branch overlay */
+export async function fetchInvoiceCustomizeSettings(tenantId: string): Promise<InvoiceSettings> {
+  try {
+    const { tenantApi } = await import('./api')
+    const res: any = await tenantApi.getInvoiceSettings(tenantId)
+    const data = res?.data ?? res
+    return { ...DEFAULT_INVOICE_SETTINGS, ...data }
   } catch {
     return getInvoiceSettings()
   }
