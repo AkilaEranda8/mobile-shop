@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Bell, Search, Menu, X, ChevronDown, Settings, LogOut, User, Sun, Moon, AlertTriangle, Wrench, ShoppingBag, ShoppingCart, TrendingUp } from 'lucide-react'
+import { Bell, Menu, X, ChevronDown, Settings, LogOut, User, Sun, Moon, AlertTriangle, Wrench, ShoppingBag, ShoppingCart, TrendingUp } from 'lucide-react'
 import { usePos } from '@/lib/use-pos'
 import { useTheme } from 'next-themes'
 import { useRouter } from 'next/navigation'
@@ -9,6 +9,7 @@ import { authStorage } from '@/lib/auth'
 import { authApi } from '@/lib/api'
 import { useAnalyticsDashboard } from '@/lib/hooks'
 import { formatCurrency } from '@/lib/utils'
+import GlobalSearch from '@/components/layout/GlobalSearch'
 
 interface HeaderProps {
   onMenuToggle: () => void
@@ -18,7 +19,6 @@ interface HeaderProps {
 export default function Header({ onMenuToggle, sidebarOpen }: HeaderProps) {
   const [notifOpen, setNotifOpen] = useState(false)
   const [userOpen, setUserOpen]   = useState(false)
-  const [searchOpen, setSearchOpen] = useState(false)
   const { theme, setTheme } = useTheme()
   const router = useRouter()
   const { openPos, hasPos } = usePos()
@@ -69,22 +69,7 @@ export default function Header({ onMenuToggle, sidebarOpen }: HeaderProps) {
 
       {/* Search */}
       <div className="flex-1 max-w-md">
-        {searchOpen ? (
-          <div className="relative">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input autoFocus type="text" placeholder="Search products, customers, repairs..."
-              className="input-field pl-9 py-2 text-sm" onBlur={() => setSearchOpen(false)} />
-          </div>
-        ) : (
-          <button onClick={() => setSearchOpen(true)}
-            className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-all w-full max-w-xs border"
-            style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
-            <Search size={14} />
-            <span>Search...</span>
-            <kbd className="ml-auto text-[10px] border rounded px-1.5 py-0.5"
-              style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-muted)' }}>⌘K</kbd>
-          </button>
-        )}
+        <GlobalSearch />
       </div>
 
       <div className="flex items-center gap-2 ml-auto">

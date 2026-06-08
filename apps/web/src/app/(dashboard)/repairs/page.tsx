@@ -2000,6 +2000,11 @@ export default function RepairsPage() {
   const [search, setSearch]         = useState('')
 
   useEffect(() => {
+    const q = searchParams.get('q')
+    if (q) setSearch(q)
+  }, [searchParams])
+
+  useEffect(() => {
     if (searchParams.get('fromWarranty') === '1') {
       setPrefillData({
         customerName:    searchParams.get('customerName')    || undefined,

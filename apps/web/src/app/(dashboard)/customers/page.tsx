@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Plus, Star, Phone, Mail, MapPin, Eye, Loader2, SlidersHorizontal, X, ShoppingBag, Wrench, CreditCard, Calendar, ChevronRight, Users, User, Hash, MessageSquare, ArrowRight, CheckCircle2, UserPlus, DollarSign, Building2, Wallet } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
@@ -493,6 +494,7 @@ function AddCustomerModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
 
 /* ── Main Page ───────────────────────────────────────────────────────── */
 export default function CustomersPage() {
+  const searchParams = useSearchParams()
   const [showAddModal, setShowAddModal] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
   const [payCustomerId, setPayCustomerId] = useState<string | null>(null)
@@ -509,6 +511,11 @@ export default function CustomersPage() {
     window.addEventListener('pos:sale-complete', onSale)
     return () => window.removeEventListener('pos:sale-complete', onSale)
   }, [refetch])
+
+  useEffect(() => {
+    const id = searchParams.get('customerId')
+    if (id) setDetailId(id)
+  }, [searchParams])
 
   const activeSeg = SEGMENTS.find(s => s.key === segment) ?? SEGMENTS[0]
   const segmentFiltered = customers.filter(activeSeg.filter)

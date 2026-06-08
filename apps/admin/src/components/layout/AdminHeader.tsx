@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Bell, Menu, ChevronDown, LogOut, User, Settings } from 'lucide-react'
+import { Bell, Menu, ChevronDown, LogOut, User, Settings } from 'lucide-react'
 import Link from 'next/link'
+import AdminGlobalSearch from '@/components/layout/AdminGlobalSearch'
 
 interface Props {
   title: string
@@ -41,15 +42,7 @@ export default function AdminHeader({ title, breadcrumbs, onMenuClick, onLogout 
         )}
       </div>
 
-      {/* Global search */}
-      <div className="hidden md:flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 w-64">
-        <Search size={14} className="text-gray-400 flex-shrink-0" />
-        <input
-          type="text"
-          placeholder="Search tenants, logs..."
-          className="bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none flex-1"
-        />
-      </div>
+      <AdminGlobalSearch />
 
       {/* Notifications */}
       <Link href="/notifications" className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">

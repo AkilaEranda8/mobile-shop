@@ -68,6 +68,15 @@ export default function TenantsPage() {
     fetchStats().then(setStats).catch(() => {})
   }, [])
 
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('search')
+    if (!q) return
+    setSearch(q)
+    setPage(1)
+    load({ search: q, page: 1 })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   function handleSearch(v: string) {
     setSearch(v); setPage(1)
     if (debounceRef.current) clearTimeout(debounceRef.current)
