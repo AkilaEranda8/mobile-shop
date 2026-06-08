@@ -50,6 +50,13 @@ function isMobileProduct(product: { trackImei?: boolean; category?: { name?: str
   return /mobile|phone|smartphone|handset/.test(cat)
 }
 
+async function isDailyReloadEnabled(tenantId: string): Promise<boolean> {
+  const feat = await prisma.tenantFeature.findFirst({
+    where: { tenantId, feature: 'DAILY_RELOAD', enabled: true },
+  })
+  return !!feat
+}
+
 async function getOpeningCash(tenantId: string, branchId: string, dateStr: string): Promise<number> {
   const prevStr = previousBusinessDate(dateStr)
   const prevClosing = await prisma.dailyClosing.findUnique({
@@ -62,6 +69,7 @@ async function getOpeningCash(tenantId: string, branchId: string, dateStr: strin
 
 export async function buildDailyClosingPreview(tenantId: string, branchId: string, dateStr: string) {
   const dateKey = normalizeBusinessDate(dateStr)
+  const dailyReloadEnabled = await isDailyReloadEnabled(tenantId)
   const { start, end } = parseDateRange(dateKey)
   const branchFilter = { tenantId, branchId }
   const imeiWhere = { branchId }
@@ -96,7 +104,7 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
       },
     }),
     prisma.transaction.findMany({ where: txWhere, orderBy: { createdAt: 'asc' } }),
-    fetchTenantReloadSettings(tenantId),
+    dailyReloadEnabled ? fetchTenantReloadSettings(tenantId) : Promise.resolve(null),
     prisma.customer.count({ where: { tenantId, createdAt: { gte: start, lte: end } } }),
     prisma.repairTicket.count({
       where: { ...branchFilter, status: 'DELIVERED', completedAt: { gte: start, lte: end } },
@@ -125,16 +133,18 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
   ])
 
   const branchInvoiceNos = sales.map(s => s.invoiceNumber)
-  const reloads = await prisma.dailyReload.findMany({
-    where: {
-      tenantId,
-      reloadDate: { gte: start, lte: end },
-      OR: [
-        { transactionId: { in: branchInvoiceNos.length ? branchInvoiceNos : ['__none__'] } },
-        { connectionNo: { in: [...RELOAD_PROVIDER_IDS] } },
-      ],
-    },
-  })
+  const reloads = dailyReloadEnabled
+    ? await prisma.dailyReload.findMany({
+        where: {
+          tenantId,
+          reloadDate: { gte: start, lte: end },
+          OR: [
+            { transactionId: { in: branchInvoiceNos.length ? branchInvoiceNos : ['__none__'] } },
+            { connectionNo: { in: [...RELOAD_PROVIDER_IDS] } },
+          ],
+        },
+      })
+    : []
 
   let mobileSales = 0
   let accessorySales = 0
@@ -157,7 +167,7 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
     for (const item of sale.items) {
       const total = Number(item.total)
       if (isReloadItem(item)) {
-        reloadSalesFromPos += total
+        if (dailyReloadEnabled) reloadSalesFromPos += total
         continue
       }
       if (!item.productId) {
@@ -222,7 +232,7 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
     const amt = Number(r.amount)
     reloadSalesFromRecords += amt
     const provider = resolveReloadProvider(r.connectionNo, r.provider) ?? 'Other'
-    const commission = calcReloadCommission(amt, reloadSettings, r.connectionNo, r.provider)
+    const commission = calcReloadCommission(amt, reloadSettings!, r.connectionNo, r.provider)
     reloadCommission += commission
     if (RELOAD_PROVIDER_IDS.includes(provider as typeof RELOAD_PROVIDER_IDS[number])) {
       reloadBreakdown[provider].amount += amt
@@ -232,7 +242,10 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
   }
 
   // Reload: DailyReload table is source of truth (matches POS + import module). Avoid double-count with cart reload lines.
-  const reloadSales = reloadSalesFromRecords > 0 ? reloadSalesFromRecords : reloadSalesFromPos
+  const reloadSales = dailyReloadEnabled
+    ? (reloadSalesFromRecords > 0 ? reloadSalesFromRecords : reloadSalesFromPos)
+    : 0
+  if (!dailyReloadEnabled) reloadCommission = 0
   const totalSales = mobileSales + accessorySales + serviceIncome + reloadSales
   const salesCount = sales.length
   const posSalesTotal = sales.reduce((s, sale) => s + Number(sale.total), 0)
@@ -309,7 +322,9 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
   } else if (accessorySales > 0) {
     insights.push('Accessory category leads today\'s product revenue')
   }
-  if (reloadCommission > 0) insights.push(`Reload commission earned: Rs ${reloadCommission.toFixed(2)}`)
+  if (dailyReloadEnabled && reloadCommission > 0) {
+    insights.push(`Reload commission earned: Rs ${reloadCommission.toFixed(2)}`)
+  }
   if (newCustomers > 0) insights.push(`${newCustomers} new customer${newCustomers > 1 ? 's' : ''} registered today`)
   if (repairsCompleted > 0) insights.push(`${repairsCompleted} repair job${repairsCompleted > 1 ? 's' : ''} delivered today`)
   if (expenseBreakdown[0]) {
@@ -321,19 +336,24 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
     }
   }
 
+  const salesMixEntries = [
+    { name: 'Mobile', value: Math.round(mobileSales * 100) / 100 },
+    { name: 'Accessories', value: Math.round(accessorySales * 100) / 100 },
+    { name: 'Services', value: Math.round(serviceIncome * 100) / 100 },
+  ]
+  if (dailyReloadEnabled) {
+    salesMixEntries.push({ name: 'Reload', value: Math.round(reloadSales * 100) / 100 })
+  }
   const charts = {
-    salesMix: [
-      { name: 'Mobile', value: Math.round(mobileSales * 100) / 100 },
-      { name: 'Accessories', value: Math.round(accessorySales * 100) / 100 },
-      { name: 'Services', value: Math.round(serviceIncome * 100) / 100 },
-      { name: 'Reload', value: Math.round(reloadSales * 100) / 100 },
-    ].filter(x => x.value > 0),
+    salesMix: salesMixEntries.filter(x => x.value > 0),
     expenses: expenseBreakdown.slice(0, 8).map(e => ({ name: e.category, value: e.amount })),
-    reloadCommission: reloadBreakdownArr.filter(r => r.amount > 0).map(r => ({
-      name: r.provider,
-      amount: r.amount,
-      commission: r.commission,
-    })),
+    reloadCommission: dailyReloadEnabled
+      ? reloadBreakdownArr.filter(r => r.amount > 0).map(r => ({
+          name: r.provider,
+          amount: r.amount,
+          commission: r.commission,
+        }))
+      : [],
   }
 
   return {
@@ -351,8 +371,11 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
       reloadRecords: reloads.length,
       repairJobsCompleted: repairsCompleted,
       returnsProcessed: saleReturns.length,
-      linkedModules: ['POS Sales', 'Finance', 'Daily Reload', 'Repairs', 'IMEI', 'Warranty', 'Customers'],
+      linkedModules: dailyReloadEnabled
+        ? ['POS Sales', 'Finance', 'Daily Reload', 'Repairs', 'IMEI', 'Warranty', 'Customers']
+        : ['POS Sales', 'Finance', 'Repairs', 'IMEI', 'Warranty', 'Customers'],
     },
+    features: { dailyReload: dailyReloadEnabled },
     sales: {
       totalSales: Math.round(totalSales * 100) / 100,
       mobileSales: Math.round(mobileSales * 100) / 100,

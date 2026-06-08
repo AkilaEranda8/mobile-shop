@@ -1,7 +1,13 @@
 import * as XLSX from 'xlsx'
 import { formatCurrency } from '@/lib/utils'
 
-export function exportDailyClosingExcel(data: any, date: string, branchName: string) {
+export function exportDailyClosingExcel(
+  data: any,
+  date: string,
+  branchName: string,
+  options?: { showReload?: boolean },
+) {
+  const showReload = options?.showReload ?? data?.features?.dailyReload === true
   const wb = XLSX.utils.book_new()
 
   const summaryRows = [
@@ -16,14 +22,14 @@ export function exportDailyClosingExcel(data: any, date: string, branchName: str
     ['Service Income', data?.sales?.serviceIncome ?? 0],
     ['Repair Income', data?.sales?.repairIncome ?? 0],
     ['Bill Payment Income', data?.sales?.billPaymentIncome ?? 0],
-    ['Reload Sales', data?.sales?.reloadSales ?? 0],
+    ...(showReload ? [['Reload Sales', data?.sales?.reloadSales ?? 0]] : []),
     ['Other Income', data?.sales?.otherIncome ?? 0],
     [],
     ['Profit Summary'],
     ['Gross Sales', data?.profit?.grossSales ?? 0],
     ['COGS', data?.profit?.cogs ?? 0],
     ['Gross Profit', data?.profit?.grossProfit ?? 0],
-    ['Reload Commission', data?.profit?.reloadCommission ?? 0],
+    ...(showReload ? [['Reload Commission', data?.profit?.reloadCommission ?? 0]] : []),
     ['Net Profit', data?.profit?.netProfit ?? 0],
     [],
     ['Cash Summary'],
@@ -39,11 +45,13 @@ export function exportDailyClosingExcel(data: any, date: string, branchName: str
   const expenseRows = [['Category', 'Amount'], ...(data?.expenses?.breakdown ?? []).map((r: any) => [r.category, r.amount])]
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(expenseRows), 'Expenses')
 
-  const reloadRows = [
-    ['Provider', 'Amount', 'Commission', 'Count'],
-    ...(data?.reload?.breakdown ?? []).map((r: any) => [r.provider, r.amount, r.commission, r.count]),
-  ]
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(reloadRows), 'Reload')
+  if (showReload) {
+    const reloadRows = [
+      ['Provider', 'Amount', 'Commission', 'Count'],
+      ...(data?.reload?.breakdown ?? []).map((r: any) => [r.provider, r.amount, r.commission, r.count]),
+    ]
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(reloadRows), 'Reload')
+  }
 
   const imeiRows = [
     ['Metric', 'Value'],
@@ -66,15 +74,24 @@ export function exportDailyClosingExcel(data: any, date: string, branchName: str
   XLSX.writeFile(wb, `DailyClosing_${date}.xlsx`)
 }
 
-export function buildPdfLines(data: any, expectedCash: number, actualCash: number, variance: number) {
+export function buildPdfLines(
+  data: any,
+  expectedCash: number,
+  actualCash: number,
+  variance: number,
+  options?: { showReload?: boolean },
+) {
+  const showReload = options?.showReload ?? data?.features?.dailyReload === true
   return [
     ['Total Sales', formatCurrency(data?.sales?.totalSales ?? 0)],
     ['Mobile / Accessory', `${formatCurrency(data?.sales?.mobileSales ?? 0)} / ${formatCurrency(data?.sales?.accessorySales ?? 0)}`],
-    ['Repair / Reload', `${formatCurrency(data?.sales?.repairIncome ?? 0)} / ${formatCurrency(data?.sales?.reloadSales ?? 0)}`],
+    ...(showReload
+      ? [['Repair / Reload', `${formatCurrency(data?.sales?.repairIncome ?? 0)} / ${formatCurrency(data?.sales?.reloadSales ?? 0)}`]]
+      : [['Repair Income', formatCurrency(data?.sales?.repairIncome ?? 0)]]),
     ['Gross Profit', formatCurrency(data?.profit?.grossProfit ?? 0)],
     ['Net Profit', formatCurrency(data?.profit?.netProfit ?? 0)],
     ['Total Expenses', formatCurrency(data?.expenses?.totalExpenses ?? 0)],
-    ['Reload Commission', formatCurrency(data?.profit?.reloadCommission ?? 0)],
+    ...(showReload ? [['Reload Commission', formatCurrency(data?.profit?.reloadCommission ?? 0)]] : []),
     ['Expected Cash', formatCurrency(expectedCash)],
     ['Actual Cash', formatCurrency(actualCash)],
     ['Difference', formatCurrency(variance)],

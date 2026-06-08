@@ -86,6 +86,7 @@ function SectionTitle({ title, sub }: { title: string; sub?: string }) {
 
 export default function DailyClosingPage() {
   const hasAccess = useFeatureFlag('DAILY_CLOSING')
+  const hasDailyReload = useFeatureFlag('DAILY_RELOAD')
   const user = authStorage.getUser()
   const role = user?.role ?? 'CASHIER'
   const canClose = role === 'OWNER' || role === 'MANAGER'
@@ -105,6 +106,19 @@ export default function DailyClosingPage() {
 
   const { data: raw, loading, refetch, error } = useDailyClosingPreview(branchId, date, hasAccess && !!branchId)
   const d = raw as any
+
+  const showReload = useMemo(() => {
+    if (d?.features && typeof d.features.dailyReload === 'boolean') {
+      return d.features.dailyReload
+    }
+    return hasDailyReload
+  }, [d?.features?.dailyReload, hasDailyReload])
+
+  const visibleInsights = useMemo(() => {
+    const list: string[] = d?.insights ?? []
+    if (showReload) return list
+    return list.filter(ins => !/reload/i.test(ins))
+  }, [d?.insights, showReload])
 
   useEffect(() => {
     const userBranch = user?.branchIds?.[0]
@@ -177,12 +191,12 @@ export default function DailyClosingPage() {
   const exportExcel = useCallback(() => {
     if (!d) return
     try {
-      exportDailyClosingExcel(d, date, d.branchName ?? branchId)
+      exportDailyClosingExcel(d, date, d.branchName ?? branchId, { showReload })
       toast.success('Excel downloaded')
     } catch {
       toast.error('Excel export failed')
     }
-  }, [d, date, branchId])
+  }, [d, date, branchId, showReload])
 
   const saveCashCount = async () => {
     if (!branchId) return
@@ -274,7 +288,7 @@ export default function DailyClosingPage() {
             )}
           </div>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-            {d?.branchName ? `${d.branchName} · ` : ''}End-of-day summary from POS, Finance, Reload &amp; Repairs
+            {d?.branchName ? `${d.branchName} · ` : ''}End-of-day summary from POS, Finance{showReload ? ', Reload' : ''} &amp; Repairs
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -355,7 +369,8 @@ export default function DailyClosingPage() {
             <KpiCard icon={ShoppingCart} label="Total Sales" value={formatCurrency(d?.sales?.totalSales ?? 0)}
               sub={`${d?.sales?.salesCount ?? 0} orders`} color="#8b5cf6" bg="rgba(139,92,246,0.1)" />
             <KpiCard icon={TrendingUp} label="Net Profit" value={formatCurrency(d?.profit?.netProfit ?? 0)}
-              sub={`Commission ${formatCurrency(d?.profit?.reloadCommission ?? 0)}`} color="#10b981" bg="rgba(16,185,129,0.1)" />
+              sub={showReload ? `Commission ${formatCurrency(d?.profit?.reloadCommission ?? 0)}` : 'After expenses & COGS'}
+              color="#10b981" bg="rgba(16,185,129,0.1)" />
             <KpiCard icon={Wallet} label="Expected Cash" value={formatCurrency(expectedCash)}
               sub="Opening + cash in − out" color="#3b82f6" bg="rgba(59,130,246,0.1)" />
             <KpiCard icon={variance === 0 ? CheckCircle2 : AlertTriangle} label="Cash Difference" value={formatCurrency(variance)}
@@ -365,20 +380,21 @@ export default function DailyClosingPage() {
           </div>
 
           {/* ── Insights ── */}
-          {(d?.insights?.length ?? 0) > 0 && (
+          {(visibleInsights.length > 0) && (
             <div className="card rounded-2xl p-4 border-violet-500/20" style={{ background: 'rgba(109,40,217,0.04)' }}>
               <div className="flex items-center gap-2 mb-2">
                 <Sparkles size={14} className="text-violet-500" />
                 <span className="text-xs font-bold text-violet-600 dark:text-violet-400">AI Insights</span>
               </div>
               <ul className="text-xs space-y-1" style={{ color: 'var(--text-secondary)' }}>
-                {d.insights.map((ins: string, i: number) => <li key={i}>• {ins}</li>)}
+                {visibleInsights.map((ins: string, i: number) => <li key={i}>• {ins}</li>)}
               </ul>
             </div>
           )}
 
           {/* ── Business summary sections ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className={`grid grid-cols-1 gap-4 ${showReload ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
+            {showReload && (
             <div className="card rounded-2xl p-4">
               <SectionTitle title="Reload Summary" sub="Per network · from Daily Reload module" />
               <div className="space-y-2">
@@ -397,6 +413,7 @@ export default function DailyClosingPage() {
                 </div>
               </div>
             </div>
+            )}
 
             <div className="card rounded-2xl p-4">
               <SectionTitle title="IMEI Summary" sub="From IMEI &amp; Warranty modules" />
@@ -420,7 +437,7 @@ export default function DailyClosingPage() {
             </div>
           </div>
 
-          <DailyClosingCharts data={d} />
+          <DailyClosingCharts data={d} showReload={showReload} />
 
           {/* ── Main card with wizard tabs ── */}
           <div className="card rounded-2xl overflow-hidden">
@@ -459,7 +476,9 @@ export default function DailyClosingPage() {
                     <MetricCard label="Service Income" value={formatCurrency(d?.sales?.serviceIncome ?? 0)} />
                     <MetricCard label="Repair Income" value={formatCurrency(d?.sales?.repairIncome ?? 0)} />
                     <MetricCard label="Bill Payments" value={formatCurrency(d?.sales?.billPaymentIncome ?? 0)} />
-                    <MetricCard label="Reload Sales" value={formatCurrency(d?.sales?.reloadSales ?? 0)} />
+                    {showReload && (
+                      <MetricCard label="Reload Sales" value={formatCurrency(d?.sales?.reloadSales ?? 0)} />
+                    )}
                     <MetricCard label="Other Income" value={formatCurrency(d?.sales?.otherIncome ?? 0)} />
                     {(d?.sales?.creditPayments ?? 0) > 0 && (
                       <MetricCard label="Credit Payments" value={formatCurrency(d?.sales?.creditPayments ?? 0)} tone="green" />
@@ -575,30 +594,39 @@ export default function DailyClosingPage() {
               {/* Step 4: Profit */}
               {step === 4 && (
                 <>
-                  <SectionTitle title="Profit Summary" sub="Gross profit, COGS, reload commission &amp; net profit" />
+                  <SectionTitle
+                    title="Profit Summary"
+                    sub={showReload ? 'Gross profit, COGS, reload commission & net profit' : 'Gross profit, COGS & net profit'}
+                  />
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <MetricCard label="Gross Sales" value={formatCurrency(d?.profit?.grossSales ?? 0)} />
                     <MetricCard label="Cost of Goods" value={formatCurrency(d?.profit?.cogs ?? 0)} tone="amber" />
                     <MetricCard label="Gross Profit" value={formatCurrency(d?.profit?.grossProfit ?? 0)} tone="green" />
-                    <MetricCard label="Reload Commission" value={formatCurrency(d?.profit?.reloadCommission ?? 0)} tone="green" />
+                    {showReload && (
+                      <MetricCard label="Reload Commission" value={formatCurrency(d?.profit?.reloadCommission ?? 0)} tone="green" />
+                    )}
                     <MetricCard label="Total Expenses" value={formatCurrency(d?.expenses?.totalExpenses ?? 0)} tone="red" />
                     <MetricCard label="Net Profit" value={formatCurrency(d?.profit?.netProfit ?? 0)}
                       tone={(d?.profit?.netProfit ?? 0) >= 0 ? 'green' : 'red'} />
                   </div>
 
-                  <SectionTitle title="Reload by Network" />
-                  <div className="grid sm:grid-cols-2 gap-2">
-                    {(d?.reload?.breakdown ?? []).map((r: any) => (
-                      <div key={r.provider} className="flex items-center justify-between rounded-xl px-3 py-2.5 border"
-                        style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                        <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{r.provider}</span>
-                        <span className="text-sm">
-                          <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(r.commission)}</span>
-                          <span className="text-[10px] ml-1" style={{ color: 'var(--text-muted)' }}>/ {formatCurrency(r.amount)}</span>
-                        </span>
+                  {showReload && (
+                    <>
+                      <SectionTitle title="Reload by Network" />
+                      <div className="grid sm:grid-cols-2 gap-2">
+                        {(d?.reload?.breakdown ?? []).map((r: any) => (
+                          <div key={r.provider} className="flex items-center justify-between rounded-xl px-3 py-2.5 border"
+                            style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{r.provider}</span>
+                            <span className="text-sm">
+                              <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(r.commission)}</span>
+                              <span className="text-[10px] ml-1" style={{ color: 'var(--text-muted)' }}>/ {formatCurrency(r.amount)}</span>
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    </>
+                  )}
 
                   <SectionTitle title="IMEI &amp; Warranty" />
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -665,18 +693,20 @@ export default function DailyClosingPage() {
           {d?.dataSources && (
             <div className="card rounded-2xl p-5">
               <SectionTitle title="Linked System Modules" sub="Data pulled automatically — no manual re-entry" />
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              <div className={`grid grid-cols-2 gap-3 mb-4 ${showReload ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
                 <KpiCard icon={ShoppingCart} label="POS Orders" value={String(d.dataSources.salesOrders ?? 0)}
                   sub={formatCurrency(d.dataSources.posSalesTotal ?? 0)} color="#8b5cf6" bg="rgba(139,92,246,0.1)" />
                 <KpiCard icon={BarChart3} label="Finance Tx" value={String(d.dataSources.financeTransactions ?? 0)} color="#3b82f6" bg="rgba(59,130,246,0.1)" />
-                <KpiCard icon={PhoneCall} label="Reloads" value={String(d.dataSources.reloadRecords ?? 0)} color="#10b981" bg="rgba(16,185,129,0.1)" />
+                {showReload && (
+                  <KpiCard icon={PhoneCall} label="Reloads" value={String(d.dataSources.reloadRecords ?? 0)} color="#10b981" bg="rgba(16,185,129,0.1)" />
+                )}
                 <KpiCard icon={RotateCcw} label="Returns" value={String(d.dataSources.returnsProcessed ?? 0)} color="#f59e0b" bg="rgba(245,158,11,0.1)" />
               </div>
               <div className="flex flex-wrap gap-2">
                 {[
                   { href: '/dashboard/sales', label: 'Sales', icon: ShoppingCart },
                   { href: '/dashboard/finance', label: 'Finance', icon: DollarSign },
-                  { href: '/dashboard/daily-reload', label: 'Reload', icon: PhoneCall },
+                  ...(showReload ? [{ href: '/dashboard/daily-reload', label: 'Reload', icon: PhoneCall }] : []),
                   { href: '/dashboard/repairs', label: 'Repairs', icon: Wrench },
                   { href: '/dashboard/imei', label: 'IMEI', icon: Smartphone },
                 ].map(link => (
@@ -699,13 +729,13 @@ export default function DailyClosingPage() {
         <div ref={printRef} className="w-[800px] p-8 bg-white text-black text-sm">
           <h1 className="text-xl font-bold mb-1">Daily Closing Report</h1>
           <p className="text-gray-600 mb-4">{date} · {d?.branchName ?? branchId}</p>
-          {buildPdfLines(d, expectedCash, cashTotal, variance).map(([label, val]) => (
+          {buildPdfLines(d, expectedCash, cashTotal, variance, { showReload }).map(([label, val]) => (
             <p key={label}><strong>{label}:</strong> {val}</p>
           ))}
-          {(d?.insights ?? []).length > 0 && (
+          {visibleInsights.length > 0 && (
             <>
               <p className="font-bold mt-4 mb-1">Insights</p>
-              {d.insights.map((ins: string, i: number) => <p key={i}>• {ins}</p>)}
+              {visibleInsights.map((ins: string, i: number) => <p key={i}>• {ins}</p>)}
             </>
           )}
         </div>

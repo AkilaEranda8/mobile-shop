@@ -5,10 +5,10 @@ import { formatCurrency } from '@/lib/utils'
 
 const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#84cc16']
 
-export function DailyClosingCharts({ data }: { data: any }) {
+export function DailyClosingCharts({ data, showReload = true }: { data: any; showReload?: boolean }) {
   const salesMix = data?.charts?.salesMix ?? []
   const expenses = data?.charts?.expenses ?? []
-  const reload = data?.charts?.reloadCommission ?? []
+  const reload = showReload ? (data?.charts?.reloadCommission ?? []) : []
 
   if (!salesMix.length && !expenses.length && !reload.length) return null
 
