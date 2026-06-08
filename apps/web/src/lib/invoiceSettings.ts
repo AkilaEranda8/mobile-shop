@@ -63,7 +63,7 @@ export interface ShopContext {
   branchEmail?: string
 }
 
-/** Fill receipt header fields from tenant / branch when invoice settings are blank */
+/** Invoice Customize first; tenant/branch only when invoice fields are blank */
 export function mergeReceiptSettings(
   settings: InvoiceSettings,
   ctx?: ShopContext,
@@ -75,21 +75,6 @@ export function mergeReceiptSettings(
     email: settings.email?.trim() || ctx?.branchEmail?.trim() || ctx?.tenantEmail?.trim() || '',
     phone: settings.phone?.trim() || ctx?.branchPhone?.trim() || '',
     address: settings.address?.trim() || branchLine || '',
-  }
-}
-
-/** Thermal receipts: Shop Information (tenant + branch) first, Invoice Customize as fallback */
-export function resolveThermalSettings(
-  settings: InvoiceSettings,
-  ctx?: ShopContext,
-): InvoiceSettings {
-  const branchLine = [ctx?.branchAddress, ctx?.branchCity, ctx?.branchState].filter(Boolean).join(', ')
-  return {
-    ...settings,
-    shopName: ctx?.tenantName?.trim() || ctx?.branchName?.trim() || settings.shopName?.trim() || '',
-    email: ctx?.tenantEmail?.trim() || ctx?.branchEmail?.trim() || settings.email?.trim() || '',
-    phone: ctx?.branchPhone?.trim() || settings.phone?.trim() || '',
-    address: branchLine || settings.address?.trim() || '',
   }
 }
 
@@ -137,8 +122,9 @@ export async function fetchInvoiceSettings(tenantId: string, branchId?: string):
     const tenant = (tenantRes as any)?.data ?? tenantRes
     const ctx = shopContextFromTenant(tenant, branchId)
     const base = { ...DEFAULT_INVOICE_SETTINGS, ...data }
-    saveInvoiceSettings(base)
-    return resolveThermalSettings(base, ctx)
+    const merged = mergeReceiptSettings(base, ctx)
+    saveInvoiceSettings(merged)
+    return merged
   } catch {
     return getInvoiceSettings()
   }

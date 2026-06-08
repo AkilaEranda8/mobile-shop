@@ -2,7 +2,7 @@
 
 import React, { forwardRef } from 'react'
 import type { InvoiceSettings, ShopContext } from '@/lib/invoiceSettings'
-import { resolveThermalSettings } from '@/lib/invoiceSettings'
+import { mergeReceiptSettings } from '@/lib/invoiceSettings'
 
 export interface ThermalSale {
   invoiceNumber: string
@@ -184,7 +184,7 @@ function esc(s: string) {
 }
 
 export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings, ctx?: ShopContext) {
-  settings = resolveThermalSettings(settings, ctx)
+  settings = mergeReceiptSettings(settings, ctx)
   const currency = settings.currency || 'LKR'
   const f = (n: number) => esc(currency + ' ' + fmtAmt(n))
 

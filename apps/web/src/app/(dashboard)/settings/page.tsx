@@ -252,7 +252,8 @@ export default function SettingsPage() {
     setInvoiceSaving(true)
     try {
       await pushInvoiceSettings(currentUser.tenantId, invoiceForm)
-      toast.success('Invoice settings saved')
+      window.dispatchEvent(new CustomEvent('invoice-settings-updated'))
+      toast.success('Invoice settings saved — receipts will use these details')
     } catch { toast.error('Save failed') }
     finally { setInvoiceSaving(false) }
   }
@@ -317,7 +318,7 @@ export default function SettingsPage() {
               <div className="flex items-center justify-between border-b border-white/5 pb-3">
                 <div>
                   <h2 className="text-base font-semibold text-white">Shop Information</h2>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Used on POS thermal receipts (name, phone, address)</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Account &amp; branch profile — receipt header uses Invoice Customize</p>
                 </div>
                 <button onClick={saveShop} disabled={shopSaving} className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
                   {shopSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}Save
@@ -530,7 +531,7 @@ export default function SettingsPage() {
               <div className="card p-5 flex items-center justify-between">
                 <div>
                   <h2 className="text-base font-semibold text-white flex items-center gap-2"><FileText size={15} className="text-violet-400" /> Invoice Customize</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Logo, bank details &amp; A4 invoice options — thermal header uses Shop Information first</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Business name, phone, address &amp; logo — used on POS thermal receipts and A4 bills</p>
                 </div>
                 <button onClick={saveInvoice} disabled={invoiceSaving || invoiceLoading} className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
                   {invoiceSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Save All

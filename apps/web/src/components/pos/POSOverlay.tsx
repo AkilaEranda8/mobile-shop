@@ -837,14 +837,19 @@ function POSContent({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     if (!currentUser?.tenantId) return
     const branchId = currentUser.branchIds?.[0]
-    Promise.all([
-      fetchInvoiceSettings(currentUser.tenantId, branchId),
-      tenantApi.get(currentUser.tenantId).catch(() => null),
-    ]).then(([settings, tenantRes]) => {
-      setInvoiceSettings(settings)
-      const tenant = (tenantRes as any)?.data ?? tenantRes
-      setThermalShopCtx(shopContextFromTenant(tenant, branchId))
-    }).catch(() => {})
+    const load = () => {
+      Promise.all([
+        fetchInvoiceSettings(currentUser.tenantId, branchId),
+        tenantApi.get(currentUser.tenantId).catch(() => null),
+      ]).then(([settings, tenantRes]) => {
+        setInvoiceSettings(settings)
+        const tenant = (tenantRes as any)?.data ?? tenantRes
+        setThermalShopCtx(shopContextFromTenant(tenant, branchId))
+      }).catch(() => {})
+    }
+    load()
+    window.addEventListener('invoice-settings-updated', load)
+    return () => window.removeEventListener('invoice-settings-updated', load)
   }, [currentUser?.tenantId, currentUser?.branchIds?.[0]])
 
   useEffect(() => {

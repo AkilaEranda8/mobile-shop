@@ -17,49 +17,13 @@ export const tenantsService = {
     return prisma.tenant.update({ where: { id }, data: body as any, include: { branches: true } })
   },
 
-  async getInvoiceSettings(tenantId: string, branchId?: string) {
+  async getInvoiceSettings(tenantId: string, _branchId?: string) {
     const t = await prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: {
-        name: true,
-        ownerEmail: true,
-        invoiceSettings: true,
-        branches: {
-          where: { isActive: true },
-          orderBy: [{ isHeadquarters: 'desc' }, { createdAt: 'asc' }],
-        },
-      },
+      select: { invoiceSettings: true },
     })
     if (!t) throw new AppError('Tenant not found', 404)
-
-    const stored = (t.invoiceSettings ?? {}) as Record<string, unknown>
-    const branch =
-      (branchId ? t.branches.find(b => b.id === branchId) : undefined)
-      ?? t.branches.find(b => b.isHeadquarters)
-      ?? t.branches[0]
-    const branchLine = branch
-      ? [branch.address, branch.city, branch.state].filter(Boolean).join(', ')
-      : ''
-
-    const pickShopFirst = (...values: (string | null | undefined)[]) => {
-      for (const v of values) {
-        if (typeof v === 'string' && v.trim()) return v.trim()
-      }
-      return ''
-    }
-
-    const storedShopName = typeof stored.shopName === 'string' ? stored.shopName.trim() : ''
-    const storedEmail = typeof stored.email === 'string' ? stored.email.trim() : ''
-    const storedPhone = typeof stored.phone === 'string' ? stored.phone.trim() : ''
-    const storedAddress = typeof stored.address === 'string' ? stored.address.trim() : ''
-
-    return {
-      ...stored,
-      shopName: pickShopFirst(t.name, branch?.name, storedShopName),
-      email: pickShopFirst(t.ownerEmail, branch?.email ?? undefined, storedEmail),
-      phone: pickShopFirst(branch?.phone, storedPhone),
-      address: pickShopFirst(branchLine || undefined, storedAddress),
-    }
+    return (t.invoiceSettings ?? {}) as Record<string, unknown>
   },
 
   async updateInvoiceSettings(tenantId: string, settings: Record<string, unknown>) {
