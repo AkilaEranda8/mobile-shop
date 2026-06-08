@@ -1,4 +1,4 @@
-import express from 'express'
+import express, { type Request } from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import morgan from 'morgan'
@@ -76,9 +76,15 @@ app.use(limiter)
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 30,
   standardHeaders: true,
   legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  keyGenerator: (req: Request) => {
+    const email = typeof req.body?.email === 'string' ? req.body.email.toLowerCase().trim() : ''
+    const ip = req.ip || req.socket.remoteAddress || 'unknown'
+    return email ? `${email}:${ip}` : ip
+  },
   message: { success: false, message: 'Too many login attempts. Please try again in 15 minutes.' },
 })
 
