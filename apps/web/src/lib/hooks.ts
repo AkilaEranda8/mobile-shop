@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   productsApi, customersApi, salesApi, repairsApi,
   warrantyApi, suppliersApi, financeApi, analyticsApi,
-  imeiApi, usersApi, branchesApi, tenantApi, dailyReloadApi,
+  imeiApi, usersApi, branchesApi, tenantApi, dailyReloadApi, dailyClosingApi,
 } from './api'
 import { isFeatureEnabled, clearFeaturesCache, PRICED_FEATURES } from './tenant-features'
 
@@ -102,6 +102,16 @@ export function useDailyReloadReport(params?: Record<string, string>) {
   return useApi<unknown>(
     () => dailyReloadApi.getReport(params) as Promise<{ data: unknown }>,
     [JSON.stringify(params)],
+  )
+}
+
+export function useDailyClosingPreview(branchId: string, date: string, enabled = true) {
+  return useApi<unknown>(
+    () => {
+      if (!branchId || !enabled) return Promise.resolve({ data: null as unknown })
+      return dailyClosingApi.preview({ branchId, date }) as Promise<{ data: unknown }>
+    },
+    [branchId, date, enabled],
   )
 }
 

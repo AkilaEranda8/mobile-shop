@@ -1,4 +1,4 @@
-export const OPT_IN_FEATURES = ['DAILY_RELOAD', 'CUSTOMER_CREDIT'] as const
+export const OPT_IN_FEATURES = ['DAILY_RELOAD', 'CUSTOMER_CREDIT', 'DAILY_CLOSING'] as const
 export const PRICED_FEATURES = ['POS', 'SERVICES'] as const
 
 export function isFeatureEnabled(

@@ -4,6 +4,7 @@ import { AppError } from '../../middleware/error.middleware'
 import { getPagination } from '../../utils/pagination'
 import { generateInvoiceNumber } from '../../utils/counters'
 import { Request } from 'express'
+import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 
 export const salesService = {
   async list(tenantId: string, req: Request) {
@@ -30,6 +31,7 @@ export const salesService = {
     if (dueAmount > 0 && !body.customerId) {
       throw new AppError('Customer is required when recording credit / partial payment', 400)
     }
+    if (body.branchId) await assertBusinessDayOpenIfEnabled(tenantId, body.branchId)
     const invoiceNumber = await generateInvoiceNumber(tenantId)
     const sale = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const s = await tx.sale.create({

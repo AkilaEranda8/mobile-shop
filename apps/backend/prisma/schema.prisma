@@ -157,6 +157,7 @@ model Tenant {
   features        TenantFeature[]
   services        Service[]
   dailyReloads    DailyReload[]
+  dailyClosings   DailyClosing[]
 }
 
 model TenantFeature {
@@ -211,6 +212,7 @@ model Branch {
   transactions   Transaction[]
   stockMovements StockMovement[]
   dailySummaries DailySummary[]
+  dailyClosings  DailyClosing[]
   imeiRecords    ImeiRecord[]
   exchanges      DeviceExchange[]
 }
@@ -1007,6 +1009,106 @@ model DailyReload {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, reloadDate])
+}
+
+// ─────────────── Daily Closing ───────────────
+
+enum DailyClosingStatus {
+  DRAFT
+  CLOSED
+}
+
+model DailyClosing {
+  id                  String             @id @default(cuid())
+  tenantId            String
+  branchId            String
+  date                DateTime           @db.Date
+  status              DailyClosingStatus @default(DRAFT)
+
+  totalSales          Float @default(0)
+  mobileSales         Float @default(0)
+  accessorySales      Float @default(0)
+  serviceIncome       Float @default(0)
+  repairIncome        Float @default(0)
+  billPaymentIncome   Float @default(0)
+  reloadSales         Float @default(0)
+  otherIncome         Float @default(0)
+
+  grossSales          Float @default(0)
+  cogs                Float @default(0)
+  grossProfit         Float @default(0)
+  reloadCommission    Float @default(0)
+  netProfit           Float @default(0)
+  totalExpenses       Float @default(0)
+
+  openingCash         Float @default(0)
+  cashSales           Float @default(0)
+  bankDeposits        Float @default(0)
+  qrPayments          Float @default(0)
+  cardPayments        Float @default(0)
+  expectedCash        Float @default(0)
+  actualCash          Float @default(0)
+  cashVariance        Float @default(0)
+  cashInBank          Float @default(0)
+  closingBalance      Float @default(0)
+
+  mobilesSold         Int @default(0)
+  imeisRegistered     Int @default(0)
+  pendingImeis        Int @default(0)
+  warrantiesActivated Int @default(0)
+  salesCount          Int @default(0)
+  newCustomers        Int @default(0)
+  repairsCompleted    Int @default(0)
+
+  summaryJson         Json?
+  expenseBreakdown    Json?
+  reloadBreakdown     Json?
+  insightsJson        Json?
+  notes               String?
+
+  closedBy            String?
+  closedByName        String?
+  closedAt            DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  tenant    Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch    Branch                  @relation(fields: [branchId], references: [id])
+  cashCount DailyClosingCashCount?
+  reports   DailyClosingReport[]
+
+  @@unique([tenantId, branchId, date])
+  @@index([tenantId, date])
+}
+
+model DailyClosingCashCount {
+  id        String @id @default(cuid())
+  closingId String @unique
+  d5000     Int    @default(0)
+  d2000     Int    @default(0)
+  d1000     Int    @default(0)
+  d500      Int    @default(0)
+  d100      Int    @default(0)
+  d50       Int    @default(0)
+  d20       Int    @default(0)
+  d10       Int    @default(0)
+  coins     Float  @default(0)
+  total     Float  @default(0)
+
+  closing DailyClosing @relation(fields: [closingId], references: [id], onDelete: Cascade)
+}
+
+model DailyClosingReport {
+  id          String   @id @default(cuid())
+  closingId   String
+  reportType  String
+  format      String   @default("PDF")
+  generatedBy String?
+  generatedAt DateTime @default(now())
+
+  closing DailyClosing @relation(fields: [closingId], references: [id], onDelete: Cascade)
+
+  @@index([closingId])
 }
 
 // ─────────────── Platform Announcements ───────────────

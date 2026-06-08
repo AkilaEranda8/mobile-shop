@@ -10,7 +10,9 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line
 } from 'recharts'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { useTransactions, useRevenue, useFinanceSummary } from '@/lib/hooks'
+import { useTransactions, useRevenue, useFinanceSummary, useFeatureFlag } from '@/lib/hooks'
+import Link from 'next/link'
+import { Lock } from 'lucide-react'
 import { financeApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import type { Transaction as AppTransaction } from '@/types'
@@ -102,6 +104,7 @@ export default function FinancePage() {
   const { data: txData,      loading: txLoading, refetch: refetchTx }     = useTransactions()
   const { data: rawRevenue }                                                = useRevenue({ days: '60' })
   const { data: summaryData, refetch: refetchSummary }                     = useFinanceSummary()
+  const hasDailyClosing = useFeatureFlag('DAILY_CLOSING')
 
   const transactions: AppTransaction[] = (txData?.data ?? []) as AppTransaction[]
   const revenueArr: any[]  = Array.isArray(rawRevenue) ? rawRevenue : []
@@ -180,6 +183,21 @@ export default function FinancePage() {
           </button>
         </div>
       </div>
+
+      {hasDailyClosing && (
+        <Link href="/dashboard/daily-closing" className="card p-4 flex items-center justify-between border-violet-500/20 bg-violet-500/5 hover:bg-violet-500/10 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-violet-500/15 flex items-center justify-center">
+              <Lock size={18} className="text-violet-400" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Daily Closing</p>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>End-of-day summary uses this Finance data automatically</p>
+            </div>
+          </div>
+          <span className="text-xs font-semibold text-violet-400">Open →</span>
+        </Link>
+      )}
 
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

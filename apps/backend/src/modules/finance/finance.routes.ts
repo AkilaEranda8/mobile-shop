@@ -3,6 +3,7 @@ import { prisma } from '../../config/database'
 import { sendSuccess, sendPaginated } from '../../utils/response'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
 import { getPagination } from '../../utils/pagination'
+import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 
 const router = Router()
 router.use(authenticate)
@@ -27,7 +28,10 @@ router.get('/transactions', async (req: Request, res: Response, next: NextFuncti
 })
 
 router.post('/transactions', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req: Request, res: Response, next: NextFunction) => {
-  try { sendSuccess(res, await prisma.transaction.create({ data: { ...req.body, tenantId: req.tenantId!, performedBy: req.user!.email } }), 'Transaction recorded', 201) } catch (e) { next(e) }
+  try {
+    await assertBusinessDayOpenIfEnabled(req.tenantId!, req.body.branchId)
+    sendSuccess(res, await prisma.transaction.create({ data: { ...req.body, tenantId: req.tenantId!, performedBy: req.user!.email } }), 'Transaction recorded', 201)
+  } catch (e) { next(e) }
 })
 
 router.get('/summary', async (req: Request, res: Response, next: NextFunction) => {

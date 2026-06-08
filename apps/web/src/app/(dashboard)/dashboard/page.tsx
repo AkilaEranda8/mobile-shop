@@ -4,7 +4,7 @@ import { useMemo, useEffect } from 'react'
 import {
   ShoppingCart, TrendingUp, Package, Wrench, AlertTriangle,
   Users, ArrowUpRight, ArrowRight, Receipt, Activity,
-  BarChart2, DollarSign, ChevronRight, TrendingDown, Star
+  BarChart2, DollarSign, ChevronRight, TrendingDown, Star, Lock
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePos } from '@/lib/use-pos'
@@ -14,7 +14,7 @@ import {
 } from 'recharts'
 import {
   useRevenue, useRepairs, useTransactions,
-  useAnalyticsDashboard, useTopProducts
+  useAnalyticsDashboard, useTopProducts, useFeatureFlag
 } from '@/lib/hooks'
 import type { RepairTicket, Transaction as AppTransaction } from '@/types'
 import { formatCurrency, formatRelativeTime } from '@/lib/utils'
@@ -91,6 +91,7 @@ export default function DashboardPage() {
   const { data: txData, refetch: refetchTx }         = useTransactions()
   const { data: stats, refetch: refetchDashboard } = useAnalyticsDashboard()
   const { data: rawTopProducts, refetch: refetchTopProducts } = useTopProducts()
+  const hasDailyClosing = useFeatureFlag('DAILY_CLOSING')
 
   useEffect(() => {
     const onSale = () => {
@@ -438,6 +439,7 @@ export default function DashboardPage() {
           { href: '/dashboard/repairs',   icon: Wrench,       label: 'New Repair',   sub: 'Create Ticket',  iconBg: '#ffedd5', iconColor: '#ea580c' },
           { href: '/dashboard/finance',   icon: DollarSign,   label: 'Expenses',     sub: 'Add Expense',    iconBg: '#ffe4e6', iconColor: '#e11d48' },
           { href: '/dashboard/finance',   icon: BarChart2,    label: 'Reports',      sub: 'View Reports',   iconBg: '#cffafe', iconColor: '#0891b2' },
+          ...(hasDailyClosing ? [{ href: '/dashboard/daily-closing', icon: Lock, label: 'Daily Closing', sub: 'Close Day', iconBg: '#f3e8ff', iconColor: '#7c3aed' }] : []),
         ].map(a => {
           const cardClass = `${CARD} p-4 flex flex-col items-center gap-2 text-center hover:shadow-md hover:border-violet-200 dark:hover:border-violet-500/30 transition-all active:scale-95`
           const cardInner = (

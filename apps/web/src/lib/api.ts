@@ -265,6 +265,17 @@ export const financeApi = {
     api.get(`/finance/daily-summaries${params ? '?' + new URLSearchParams(params) : ''}`),
 }
 
+export const dailyClosingApi = {
+  preview: (params: Record<string, string>) =>
+    api.get(`/daily-closing/preview?${new URLSearchParams(params)}`),
+  list: (params?: Record<string, string>) =>
+    api.get(`/daily-closing${params ? '?' + new URLSearchParams(params) : ''}`),
+  saveDraft: (body: unknown) => api.post('/daily-closing/draft', body),
+  saveCashCount: (body: unknown) => api.post('/daily-closing/cash-count', body),
+  close: (body: unknown) => api.post('/daily-closing/close', body),
+  reopen: (body: unknown) => api.post('/daily-closing/reopen', body),
+}
+
 export const imeiApi = {
   list: (params?: Record<string, string>) =>
     api.get(`/imei${params ? '?' + new URLSearchParams(params) : ''}`),

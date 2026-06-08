@@ -416,6 +416,27 @@ export default function SettingsPage() {
                   )}
                   <div className="flex items-center justify-between rounded-xl p-4 border border-white/10 bg-white/[0.02]">
                     <div>
+                      <p className="text-sm font-medium text-white">Daily Closing</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">End-of-day summary, cash reconciliation & day lock</p>
+                    </div>
+                    <Toggle
+                      value={hasFeature('DAILY_CLOSING')}
+                      onChange={async (v) => {
+                        setFeatureSaving(true)
+                        try {
+                          await tenantApi.updateMyFeatures({ DAILY_CLOSING: v })
+                          refetchFeatures()
+                          toast.success(v ? 'Daily Closing enabled' : 'Daily Closing disabled')
+                        } catch {
+                          toast.error('Failed to update feature')
+                        } finally {
+                          setFeatureSaving(false)
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl p-4 border border-white/10 bg-white/[0.02]">
+                    <div>
                       <p className="text-sm font-medium text-white">Customer Credit</p>
                       <p className="text-[11px] text-slate-500 mt-0.5">Partial payments, outstanding balance & pay later</p>
                     </div>

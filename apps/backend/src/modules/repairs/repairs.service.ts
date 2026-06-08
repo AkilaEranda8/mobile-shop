@@ -3,6 +3,7 @@ import { AppError } from '../../middleware/error.middleware'
 import { getPagination } from '../../utils/pagination'
 import { generateTicketNumber, generateInvoiceNumber } from '../../utils/counters'
 import { Request } from 'express'
+import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 
 export const repairsService = {
   async list(tenantId: string, req: Request) {
@@ -150,6 +151,7 @@ export const repairsService = {
   async collectPayment(tenantId: string, id: string, body: { discount?: number; paymentMethod: string; cashierName?: string }) {
     const r = await prisma.repairTicket.findFirst({ where: { id, tenantId }, include: { spareParts: true } })
     if (!r) throw new AppError('Repair ticket not found', 404)
+    await assertBusinessDayOpenIfEnabled(tenantId, r.branchId)
 
     const partsTotal  = r.spareParts.reduce((s: number, p: any) => s + p.total, 0)
     const subtotal    = (r.estimatedCost || 0) + partsTotal
