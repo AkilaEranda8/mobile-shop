@@ -92,7 +92,7 @@ export default function DailyClosingPage() {
   const { data: branchesRaw } = useBranches()
   const branches = (branchesRaw as any[]) ?? []
   const [branchId, setBranchId] = useState('')
-  const [date, setDate] = useState(businessToday)
+  const [date, setDate] = useState(businessToday())
   const [step, setStep] = useState(cashOnly ? 3 : 1)
   const [cashCount, setCashCount] = useState(emptyCash())
   const [openingCash, setOpeningCash] = useState<number | ''>('')
@@ -100,7 +100,7 @@ export default function DailyClosingPage() {
   const [saving, setSaving] = useState(false)
   const printRef = useRef<HTMLDivElement>(null)
 
-  const { data: raw, loading, refetch } = useDailyClosingPreview(branchId, date, hasAccess && !!branchId)
+  const { data: raw, loading, refetch, error } = useDailyClosingPreview(branchId, date, hasAccess && !!branchId)
   const d = raw as any
 
   useEffect(() => {
@@ -314,6 +314,16 @@ export default function DailyClosingPage() {
           </button>
         </div>
       </div>
+
+      {error && !loading && (
+        <div className="card rounded-2xl p-4 flex items-center gap-3 border-red-500/25" style={{ background: 'rgba(239,68,68,0.06)' }}>
+          <AlertTriangle size={18} className="text-red-500 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-red-600 dark:text-red-400">Could not load closing data</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{error}</p>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="card rounded-2xl p-16 flex flex-col items-center justify-center gap-3">

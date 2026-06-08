@@ -9,6 +9,12 @@ export function businessDateFromInstant(at: Date = new Date()): string {
   return at.toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' })
 }
 
+/** Accept YYYY-MM-DD or fall back to today's Colombo business date */
+export function normalizeBusinessDate(dateStr?: string | null): string {
+  if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr
+  return businessDateFromInstant()
+}
+
 export function businessDateDb(dateStr: string) {
   return new Date(`${dateStr}T00:00:00+05:30`)
 }

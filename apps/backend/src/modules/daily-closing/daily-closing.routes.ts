@@ -9,6 +9,11 @@ import {
   closeBusinessDay,
   reopenBusinessDay,
 } from './daily-closing.service'
+import { normalizeBusinessDate } from '../../utils/date-range'
+
+function resolveBusinessDate(input?: string): string {
+  return normalizeBusinessDate(input)
+}
 
 const router = Router()
 router.use(authenticate)
@@ -28,7 +33,7 @@ router.get('/preview', async (req: Request, res: Response, next: NextFunction) =
   try {
     const tenantId = req.tenantId!
     const branchId = req.query.branchId as string
-    const date = (req.query.date as string) || new Date().toISOString().slice(0, 10)
+    const date = resolveBusinessDate(req.query.date as string | undefined)
     if (!branchId) throw new AppError('branchId is required', 400)
     sendSuccess(res, await buildDailyClosingPreview(tenantId, branchId, date))
   } catch (e) { next(e) }

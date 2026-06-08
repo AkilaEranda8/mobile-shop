@@ -1,6 +1,6 @@
 import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
-import { businessDayRange, businessDateDb, previousBusinessDate, businessDateFromInstant } from '../../utils/date-range'
+import { businessDayRange, businessDateDb, previousBusinessDate, businessDateFromInstant, normalizeBusinessDate } from '../../utils/date-range'
 import {
   calcReloadCommission,
   fetchTenantReloadSettings,
@@ -61,9 +61,15 @@ async function getOpeningCash(tenantId: string, branchId: string, dateStr: strin
 }
 
 export async function buildDailyClosingPreview(tenantId: string, branchId: string, dateStr: string) {
-  const { start, end } = parseDateRange(dateStr)
+  const dateKey = normalizeBusinessDate(dateStr)
+  const { start, end } = parseDateRange(dateKey)
   const branchFilter = { tenantId, branchId }
-  const saleWhere = { ...branchFilter, status: { not: 'RETURNED' as const }, createdAt: { gte: start, lte: end } }
+  const saleWhere = {
+    tenantId,
+    branchId,
+    status: { not: 'RETURNED' as const },
+    createdAt: { gte: start, lte: end },
+  }
   const txWhere = { ...branchFilter, createdAt: { gte: start, lte: end } }
 
   const [
@@ -103,10 +109,10 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
     prisma.imeiRecord.count({ where: { ...branchFilter, status: 'IN_STOCK' } }),
     prisma.warranty.count({ where: { tenantId, startDate: { gte: start, lte: end } } }),
     prisma.dailyClosing.findUnique({
-      where: { tenantId_branchId_date: { tenantId, branchId, date: businessDateDb(dateStr) } },
+      where: { tenantId_branchId_date: { tenantId, branchId, date: businessDateDb(dateKey) } },
       include: { cashCount: true },
     }),
-    getOpeningCash(tenantId, branchId, dateStr),
+    getOpeningCash(tenantId, branchId, dateKey),
     prisma.branch.findFirst({ where: { id: branchId, tenantId }, select: { id: true, name: true } }),
     prisma.saleReturn.findMany({
       where: {
@@ -274,7 +280,7 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
   }
 
   return {
-    date: dateStr,
+    date: dateKey,
     branchId,
     branchName: branch?.name ?? '',
     status: existingClosing?.status ?? 'OPEN',
