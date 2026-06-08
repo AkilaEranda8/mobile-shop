@@ -22,7 +22,10 @@ export const tenantsController = {
     try { sendSuccess(res, await tenantsService.updateBranch(req.tenantId!, req.params.id, req.body)) } catch (e) { next(e) }
   },
   async getInvoiceSettings(req: Request, res: Response, next: NextFunction) {
-    try { sendSuccess(res, await tenantsService.getInvoiceSettings(req.params.id)) } catch (e) { next(e) }
+    try {
+      const branchId = req.query.branchId as string | undefined
+      sendSuccess(res, await tenantsService.getInvoiceSettings(req.params.id, branchId))
+    } catch (e) { next(e) }
   },
   async updateInvoiceSettings(req: Request, res: Response, next: NextFunction) {
     try { sendSuccess(res, await tenantsService.updateInvoiceSettings(req.params.id, req.body)) } catch (e) { next(e) }

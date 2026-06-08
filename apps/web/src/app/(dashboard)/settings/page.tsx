@@ -8,7 +8,7 @@ import {
 import { authApi, usersApi, tenantApi, uploadApi, deviceCatalogApi, plansApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { useTenantFeatures } from '@/lib/hooks'
-import { type InvoiceSettings, getInvoiceSettings, fetchInvoiceSettings, pushInvoiceSettings } from '@/lib/invoiceSettings'
+import { type InvoiceSettings, getInvoiceSettings, fetchInvoiceSettings, pushInvoiceSettings, mergeReceiptSettings } from '@/lib/invoiceSettings'
 import {
   type ReloadSettings,
   DEFAULT_RELOAD_SETTINGS,
@@ -105,6 +105,17 @@ export default function SettingsPage() {
     setShopSaving(true)
     try {
       await tenantApi.update(tenant.id, shopForm)
+      const inv = getInvoiceSettings()
+      const synced = mergeReceiptSettings(
+        {
+          ...inv,
+          shopName: shopForm.name || inv.shopName,
+          email: inv.email || shopForm.ownerEmail || '',
+        },
+        { tenantName: shopForm.name, tenantEmail: shopForm.ownerEmail },
+      )
+      await pushInvoiceSettings(tenant.id, synced)
+      setInvoiceForm(synced)
       toast.success('Shop info saved')
     } catch { toast.error('Save failed') }
     finally { setShopSaving(false) }

@@ -52,10 +52,56 @@ export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   thermalWidthRepair: '80mm',
 }
 
-export function getInvoiceSettings(): InvoiceSettings {
+export interface ShopContext {
+  tenantName?: string
+  tenantEmail?: string
+  branchName?: string
+  branchAddress?: string
+  branchCity?: string
+  branchState?: string
+  branchPhone?: string
+  branchEmail?: string
+}
+
+/** Fill receipt header fields from tenant / branch when invoice settings are blank */
+export function mergeReceiptSettings(
+  settings: InvoiceSettings,
+  ctx?: ShopContext,
+): InvoiceSettings {
+  const branchLine = [ctx?.branchAddress, ctx?.branchCity, ctx?.branchState].filter(Boolean).join(', ')
+  return {
+    ...settings,
+    shopName: settings.shopName?.trim() || ctx?.tenantName?.trim() || ctx?.branchName?.trim() || '',
+    email: settings.email?.trim() || ctx?.branchEmail?.trim() || ctx?.tenantEmail?.trim() || '',
+    phone: settings.phone?.trim() || ctx?.branchPhone?.trim() || '',
+    address: settings.address?.trim() || branchLine || '',
+  }
+}
+
+function shopContextFromTenant(tenant: any, branchId?: string): ShopContext | undefined {
+  if (!tenant) return undefined
+  const branches: any[] = tenant.branches ?? []
+  const branch =
+    (branchId ? branches.find(b => b.id === branchId) : undefined)
+    ?? branches.find(b => b.isHeadquarters)
+    ?? branches[0]
+  return {
+    tenantName: tenant.name,
+    tenantEmail: tenant.ownerEmail,
+    branchName: branch?.name,
+    branchAddress: branch?.address,
+    branchCity: branch?.city,
+    branchState: branch?.state,
+    branchPhone: branch?.phone,
+    branchEmail: branch?.email,
+  }
+}
+
+export function getInvoiceSettings(ctx?: ShopContext): InvoiceSettings {
   if (typeof window === 'undefined') return DEFAULT_INVOICE_SETTINGS
   try {
-    return { ...DEFAULT_INVOICE_SETTINGS, ...JSON.parse(localStorage.getItem(INVOICE_SETTINGS_KEY) ?? '{}') }
+    const stored = { ...DEFAULT_INVOICE_SETTINGS, ...JSON.parse(localStorage.getItem(INVOICE_SETTINGS_KEY) ?? '{}') }
+    return ctx ? mergeReceiptSettings(stored, ctx) : stored
   } catch {
     return DEFAULT_INVOICE_SETTINGS
   }
@@ -65,12 +111,17 @@ export function saveInvoiceSettings(s: InvoiceSettings) {
   localStorage.setItem(INVOICE_SETTINGS_KEY, JSON.stringify(s))
 }
 
-export async function fetchInvoiceSettings(tenantId: string): Promise<InvoiceSettings> {
+export async function fetchInvoiceSettings(tenantId: string, branchId?: string): Promise<InvoiceSettings> {
   try {
     const { tenantApi } = await import('./api')
-    const res: any = await tenantApi.getInvoiceSettings(tenantId)
-    const data = res?.data ?? res
-    const merged = { ...DEFAULT_INVOICE_SETTINGS, ...data }
+    const [invRes, tenantRes] = await Promise.all([
+      tenantApi.getInvoiceSettings(tenantId, branchId),
+      tenantApi.get(tenantId).catch(() => null),
+    ])
+    const data = (invRes as any)?.data ?? invRes
+    const tenant = (tenantRes as any)?.data ?? tenantRes
+    const ctx = shopContextFromTenant(tenant, branchId)
+    const merged = mergeReceiptSettings({ ...DEFAULT_INVOICE_SETTINGS, ...data }, ctx)
     saveInvoiceSettings(merged)
     return merged
   } catch {

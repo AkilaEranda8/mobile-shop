@@ -17,10 +17,46 @@ export const tenantsService = {
     return prisma.tenant.update({ where: { id }, data: body as any, include: { branches: true } })
   },
 
-  async getInvoiceSettings(tenantId: string) {
-    const t = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { invoiceSettings: true } })
+  async getInvoiceSettings(tenantId: string, branchId?: string) {
+    const t = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        name: true,
+        ownerEmail: true,
+        invoiceSettings: true,
+        branches: {
+          where: { isActive: true },
+          orderBy: [{ isHeadquarters: 'desc' }, { createdAt: 'asc' }],
+        },
+      },
+    })
     if (!t) throw new AppError('Tenant not found', 404)
-    return (t.invoiceSettings ?? {}) as Record<string, unknown>
+
+    const stored = (t.invoiceSettings ?? {}) as Record<string, unknown>
+    const branch =
+      (branchId ? t.branches.find(b => b.id === branchId) : undefined)
+      ?? t.branches.find(b => b.isHeadquarters)
+      ?? t.branches[0]
+    const branchLine = branch
+      ? [branch.address, branch.city, branch.state].filter(Boolean).join(', ')
+      : ''
+
+    const pick = (key: string, ...fallbacks: (string | null | undefined)[]) => {
+      const v = stored[key]
+      if (typeof v === 'string' && v.trim()) return v.trim()
+      for (const fb of fallbacks) {
+        if (typeof fb === 'string' && fb.trim()) return fb.trim()
+      }
+      return ''
+    }
+
+    return {
+      ...stored,
+      shopName: pick('shopName', t.name, branch?.name),
+      email: pick('email', branch?.email ?? undefined, t.ownerEmail),
+      phone: pick('phone', branch?.phone),
+      address: pick('address', branchLine || undefined),
+    }
   },
 
   async updateInvoiceSettings(tenantId: string, settings: Record<string, unknown>) {

@@ -1,7 +1,8 @@
 'use client'
 
 import React, { forwardRef } from 'react'
-import type { InvoiceSettings } from '@/lib/invoiceSettings'
+import type { InvoiceSettings, ShopContext } from '@/lib/invoiceSettings'
+import { mergeReceiptSettings } from '@/lib/invoiceSettings'
 
 export interface ThermalSale {
   invoiceNumber: string
@@ -84,7 +85,7 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
           </div>
         )}
         <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 16 }}>
-          {settings.shopName || 'SHOP NAME'}
+          {settings.shopName || 'My Shop'}
         </div>
         {settings.slogan && (
           <div style={{ textAlign: 'center', fontSize: 11 }}>{settings.slogan}</div>
@@ -182,7 +183,8 @@ function esc(s: string) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings) {
+export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings, ctx?: ShopContext) {
+  settings = mergeReceiptSettings(settings, ctx)
   const currency = settings.currency || 'LKR'
   const f = (n: number) => esc(currency + ' ' + fmtAmt(n))
 
@@ -252,7 +254,7 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
 </head>
 <body>
   ${settings.logo ? `<div class="center" style="margin-bottom:6px"><img src="${esc(settings.logo)}" style="max-height:44px;max-width:90%;object-fit:contain"/></div>` : ''}
-  <div class="center bold large wrap">${esc(settings.shopName || 'SHOP NAME')}</div>
+  <div class="center bold large wrap">${esc(settings.shopName || 'My Shop')}</div>
   ${settings.slogan ? `<div class="center small wrap">${esc(settings.slogan)}</div>` : ''}
   ${settings.address ? `<div class="center small wrap">${esc(settings.address)}</div>` : ''}
   ${settings.phone   ? `<div class="center small">Tel: ${esc(settings.phone)}</div>` : ''}

@@ -835,8 +835,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     if (!currentUser?.tenantId) return
-    fetchInvoiceSettings(currentUser.tenantId).then(s => setInvoiceSettings(s)).catch(() => {})
-  }, [currentUser?.tenantId])
+    const branchId = currentUser.branchIds?.[0]
+    fetchInvoiceSettings(currentUser.tenantId, branchId).then(s => setInvoiceSettings(s)).catch(() => {})
+  }, [currentUser?.tenantId, currentUser?.branchIds?.[0]])
 
   useEffect(() => {
     if (!selectedCustomer?.id) {
