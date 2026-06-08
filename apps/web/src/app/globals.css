@@ -28,9 +28,28 @@
     --tc-ring: 221.2 83.2% 53.3%;
     --tc-radius: 0.5rem;
 
-    --popover:            0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --border:             214.3 31.8% 91.4%;
+    /* shadcn aliases used by react-table-craft */
+    --background: var(--tc-background);
+    --foreground: var(--tc-foreground);
+    --card: var(--tc-card);
+    --card-foreground: var(--tc-card-foreground);
+    --popover: var(--tc-popover);
+    --popover-foreground: var(--tc-popover-foreground);
+    --primary: var(--tc-primary);
+    --primary-foreground: var(--tc-primary-foreground);
+    --secondary: var(--tc-secondary);
+    --secondary-foreground: var(--tc-secondary-foreground);
+    --muted: var(--tc-muted);
+    --muted-foreground: var(--tc-muted-foreground);
+    --accent: var(--tc-accent);
+    --accent-foreground: var(--tc-accent-foreground);
+    --destructive: var(--tc-destructive);
+    --destructive-foreground: var(--tc-destructive-foreground);
+    --border: var(--tc-border);
+    --input: var(--tc-input);
+    --ring: var(--tc-ring);
+    --radius: var(--tc-radius);
+
     --bg-primary:    #ffffff;
     --bg-surface:    #ffffff;
     --bg-card:       #ffffff;
@@ -73,9 +92,26 @@
     --tc-input: 217.2 32.6% 17.5%;
     --tc-ring: 224.3 76.3% 48%;
 
-    --popover:            222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --border:             217.2 32.6% 17.5%;
+    --background: var(--tc-background);
+    --foreground: var(--tc-foreground);
+    --card: var(--tc-card);
+    --card-foreground: var(--tc-card-foreground);
+    --popover: var(--tc-popover);
+    --popover-foreground: var(--tc-popover-foreground);
+    --primary: var(--tc-primary);
+    --primary-foreground: var(--tc-primary-foreground);
+    --secondary: var(--tc-secondary);
+    --secondary-foreground: var(--tc-secondary-foreground);
+    --muted: var(--tc-muted);
+    --muted-foreground: var(--tc-muted-foreground);
+    --accent: var(--tc-accent);
+    --accent-foreground: var(--tc-accent-foreground);
+    --destructive: var(--tc-destructive);
+    --destructive-foreground: var(--tc-destructive-foreground);
+    --border: var(--tc-border);
+    --input: var(--tc-input);
+    --ring: var(--tc-ring);
+
     --bg-primary:    #080c14;
     --bg-surface:    #0a0f1a;
     --bg-card:       #0f1623;

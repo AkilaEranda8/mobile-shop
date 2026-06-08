@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Search, Package, Users, Wrench, Receipt, Loader2, ArrowRight,
-  LayoutDashboard, Settings, BarChart3, X,
+  LayoutDashboard, Settings, BarChart3,
 } from 'lucide-react'
 import { productsApi, customersApi, repairsApi, salesApi } from '@/lib/api'
 
@@ -43,6 +43,7 @@ export default function GlobalSearch() {
   const [results, setResults] = useState<Result[]>([])
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -57,11 +58,22 @@ export default function GlobalSearch() {
   }, [])
 
   useEffect(() => {
-    if (!open) return
-    setQuery('')
-    setResults(QUICK_PAGES)
+    if (!open) {
+      setQuery('')
+      setResults(QUICK_PAGES)
+      return
+    }
     const t = setTimeout(() => inputRef.current?.focus(), 30)
     return () => clearTimeout(t)
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    return () => document.removeEventListener('mousedown', onPointerDown)
   }, [open])
 
   const runSearch = useCallback(async (q: string) => {
@@ -173,46 +185,48 @@ export default function GlobalSearch() {
   }, {})
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-all w-full max-w-xs border"
-        style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}
-      >
-        <Search size={14} />
-        <span>Search products, customers, repairs…</span>
-        <kbd className="ml-auto text-[10px] border rounded px-1.5 py-0.5 hidden sm:inline"
-          style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-muted)' }}>
-          ⌘K
-        </kbd>
-      </button>
+    <div ref={rootRef} className="relative w-full max-w-xs">
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-all w-full border"
+          style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}
+        >
+          <Search size={14} />
+          <span>Search...</span>
+          <kbd
+            className="ml-auto text-[10px] border rounded px-1.5 py-0.5 hidden sm:inline"
+            style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-muted)' }}
+          >
+            ⌘K
+          </kbd>
+        </button>
+      ) : (
+        <>
+          <div className="relative">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Search products, customers, repairs..."
+              className="input-field pl-9 py-2 text-sm w-full"
+              onKeyDown={e => {
+                if (e.key === 'Escape') setOpen(false)
+                if (e.key === 'Enter' && results[0]?.href && results[0].href !== '#') pick(results[0])
+              }}
+            />
+            {loading && (
+              <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-violet-400" />
+            )}
+          </div>
 
-      {open && (
-        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[12vh] px-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
-          <div className="relative w-full max-w-xl rounded-2xl border shadow-2xl overflow-hidden"
-            style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
-            <div className="flex items-center gap-2 px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-              <Search size={16} style={{ color: 'var(--text-muted)' }} />
-              <input
-                ref={inputRef}
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-                placeholder="Search products, customers, repairs, sales…"
-                className="flex-1 bg-transparent text-sm outline-none"
-                style={{ color: 'var(--text-primary)' }}
-                onKeyDown={e => {
-                  if (e.key === 'Escape') setOpen(false)
-                  if (e.key === 'Enter' && results[0]?.href && results[0].href !== '#') pick(results[0])
-                }}
-              />
-              {loading && <Loader2 size={16} className="animate-spin text-violet-400" />}
-              <button type="button" onClick={() => setOpen(false)} className="p-1 rounded-lg hover:bg-white/5" style={{ color: 'var(--text-muted)' }}>
-                <X size={16} />
-              </button>
-            </div>
-
+          <div
+            className="absolute left-0 right-0 top-full mt-2 rounded-2xl border shadow-2xl overflow-hidden z-[100]"
+            style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
+          >
             <div className="max-h-[50vh] overflow-y-auto p-2">
               {Object.entries(grouped).map(([group, items]) => (
                 <div key={group} className="mb-2">
@@ -239,8 +253,8 @@ export default function GlobalSearch() {
               ))}
             </div>
           </div>
-        </div>
+        </>
       )}
-    </>
+    </div>
   )
 }
