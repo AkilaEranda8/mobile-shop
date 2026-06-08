@@ -405,7 +405,15 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [calcReset, setCalcReset]                 = useState(false)
   const searchRef                                 = useRef<HTMLInputElement>(null)
   const payNowRef                                 = useRef<HTMLInputElement>(null)
+  const outstandingPayRef                         = useRef<HTMLInputElement>(null)
   const prevSaleTotalRef                          = useRef(0)
+  const handleCheckoutRef                         = useRef<() => Promise<void>>(async () => {})
+  const checkoutKeyboardRef                       = useRef({
+    outstandingPaying: 0,
+    canOpenCheckout: false,
+    customerOutstanding: 0,
+    includeOutstanding: false,
+  })
 
   const calcInput = (val: string) => {
     if (calcDisplay === '0' || calcReset) { setCalcDisplay(val); setCalcReset(false) }
@@ -1123,6 +1131,21 @@ function POSContent({ onClose }: { onClose: () => void }) {
     }
   }
 
+  handleCheckoutRef.current = handleCheckout
+  checkoutKeyboardRef.current = {
+    outstandingPaying,
+    canOpenCheckout,
+    customerOutstanding,
+    includeOutstanding,
+  }
+
+  const submitCheckoutFromInput = (e: React.KeyboardEvent) => {
+    if (e.key !== 'Enter' || e.shiftKey) return
+    e.preventDefault()
+    e.stopPropagation()
+    void handleCheckout()
+  }
+
   useEffect(() => {
     const isTyping = () => {
       const el = document.activeElement as HTMLElement | null
@@ -1131,15 +1154,20 @@ function POSContent({ onClose }: { onClose: () => void }) {
       return el.isContentEditable
     }
     const openCheckout = () => {
-      if (canOpenCheckout && !completedSale) {
-        if (cart.length === 0 && customerOutstanding > 0) setIncludeOutstanding(true)
+      const ck = checkoutKeyboardRef.current
+      if (ck.canOpenCheckout && !completedSale) {
+        if (cart.length === 0 && ck.customerOutstanding > 0) setIncludeOutstanding(true)
         setCartView('checkout')
-        setTimeout(() => payNowRef.current?.focus(), 80)
+        setTimeout(() => {
+          if (cart.length > 0) payNowRef.current?.focus()
+          else if (ck.customerOutstanding > 0) outstandingPayRef.current?.focus()
+        }, 80)
       }
     }
     const payNow = () => {
-      if ((cart.length > 0 || outstandingPaying > 0) && !checkoutLoading && !completedSale) {
-        if (cartView === 'checkout') void handleCheckout()
+      const ck = checkoutKeyboardRef.current
+      if ((cart.length > 0 || ck.outstandingPaying > 0) && !checkoutLoading && !completedSale) {
+        if (cartView === 'checkout') void handleCheckoutRef.current()
         else openCheckout()
       }
     }
@@ -1183,11 +1211,15 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
       if (isTyping()) return
 
-      if (cartView === 'checkout' && !completedSale && cart.length > 0) {
+      const ck = checkoutKeyboardRef.current
+      if (cartView === 'checkout' && !completedSale && (cart.length > 0 || ck.outstandingPaying > 0)) {
         if (e.key === '1') { e.preventDefault(); setPaymentMethod('CASH') }
         if (e.key === '2') { e.preventDefault(); setPaymentMethod('CARD') }
         if (e.key === '3') { e.preventDefault(); setPaymentMethod('UPI') }
-        if (e.key === 'Enter') { e.preventDefault(); void handleCheckout() }
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          void handleCheckoutRef.current()
+        }
         if (e.key === 'o' || e.key === 'O') {
           if (selectedCustomer && customerOutstanding > 0) {
             e.preventDefault()
@@ -2030,12 +2062,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
                             </button>
                           </div>
                           <input
+                            ref={outstandingPayRef}
                             type="number"
                             min="0"
                             max={customerOutstanding}
                             step="0.01"
                             value={outstandingPayAmount}
                             onChange={e => setOutstandingPayAmount(e.target.value)}
+                            onKeyDown={submitCheckoutFromInput}
                             className="w-full px-3 py-2 rounded-lg text-sm font-bold border outline-none focus:border-violet-500/50 text-white placeholder:text-white/50"
                             style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}
                           />
@@ -2068,6 +2102,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         step="0.01"
                         value={amountPaying}
                         onChange={e => setAmountPaying(e.target.value)}
+                        onKeyDown={submitCheckoutFromInput}
                         placeholder="Amount customer pays now"
                         className="w-full px-3 py-2 rounded-lg text-sm font-bold border outline-none focus:border-violet-500/50 text-white placeholder:text-white/50"
                         style={{ background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text }}
@@ -2191,6 +2226,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         step="0.01"
                         value={customerPaid}
                         onChange={e => setCustomerPaid(e.target.value)}
+                        onKeyDown={submitCheckoutFromInput}
                         placeholder="0.00"
                         className="w-full px-3 py-2.5 rounded-xl text-sm font-bold border outline-none focus:border-violet-500/50 text-white placeholder:text-white/50"
                         style={{ background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text }}
