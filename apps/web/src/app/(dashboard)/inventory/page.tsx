@@ -195,6 +195,8 @@ function AddCategoryModal({ onClose, onSaved, onChanged }: { onClose: () => void
   const [loading, setLoading] = useState(false)
   const [error, setError]   = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<Category | null>(null)
+  const [reassignToId, setReassignToId] = useState('')
   const { data: catsData, refetch } = useCategories()
   const categories: Category[] = (catsData ?? []) as Category[]
 
@@ -212,15 +214,31 @@ function AddCategoryModal({ onClose, onSaved, onChanged }: { onClose: () => void
     finally { setLoading(false) }
   }
 
-  const handleDelete = async (cat: Category) => {
-    if (!confirm(`Delete category "${cat.name}"? This cannot be undone.`)) return
+  const doDelete = async (cat: Category, moveToId?: string) => {
     setDeletingId(cat.id)
     try {
-      await productsApi.deleteCategory(cat.id)
+      await productsApi.deleteCategory(cat.id, moveToId)
       toast.success(`Category "${cat.name}" deleted`)
+      setPendingDelete(null); setReassignToId('')
       refetch(); onChanged?.()
     } catch (err: any) { toast.error(err.message || 'Failed to delete category') }
     finally { setDeletingId(null) }
+  }
+
+  const handleDeleteClick = (cat: Category) => {
+    const count = cat.productCount ?? 0
+    if (count > 0) {
+      const others = categories.filter(c => c.id !== cat.id)
+      if (others.length === 0) {
+        toast.error('Create another category first — products must be moved before deleting.')
+        return
+      }
+      setPendingDelete(cat)
+      setReassignToId(others[0].id)
+      return
+    }
+    if (!confirm(`Delete category "${cat.name}"? This cannot be undone.`)) return
+    doDelete(cat)
   }
 
   return (
@@ -237,19 +255,57 @@ function AddCategoryModal({ onClose, onSaved, onChanged }: { onClose: () => void
         {categories.length > 0 && (
           <div className="px-5 pt-4">
             <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">Existing ({categories.length})</p>
-            <div className="max-h-44 overflow-y-auto space-y-1 pr-1">
+            <div className="max-h-52 overflow-y-auto space-y-1 pr-1">
               {categories.map(cat => (
-                <div key={cat.id} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-white/3 border border-white/5">
-                  <span className="text-sm text-slate-200 truncate flex items-center gap-2">
-                    {cat.icon && <span>{cat.icon}</span>}{cat.name}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(cat)}
-                    disabled={deletingId === cat.id}
-                    className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50 flex-shrink-0">
-                    {deletingId === cat.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                  </button>
+                <div key={cat.id} className="rounded-lg bg-white/3 border border-white/5 overflow-hidden">
+                  <div className="flex items-center justify-between gap-2 px-3 py-2">
+                    <span className="text-sm text-slate-200 truncate flex items-center gap-2 min-w-0">
+                      {cat.icon && <span>{cat.icon}</span>}
+                      <span className="truncate">{cat.name}</span>
+                      {(cat.productCount ?? 0) > 0 && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-300 flex-shrink-0">
+                          {cat.productCount} product{(cat.productCount ?? 0) > 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteClick(cat)}
+                      disabled={deletingId === cat.id}
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50 flex-shrink-0">
+                      {deletingId === cat.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                    </button>
+                  </div>
+                  {pendingDelete?.id === cat.id && (
+                    <div className="px-3 pb-3 pt-1 border-t border-white/5 space-y-2">
+                      <p className="text-[11px] text-amber-300">
+                        Move {cat.productCount} product{(cat.productCount ?? 0) > 1 ? 's' : ''} to another category before deleting.
+                      </p>
+                      <select
+                        className="input-field text-sm w-full"
+                        value={reassignToId}
+                        onChange={e => setReassignToId(e.target.value)}>
+                        {categories.filter(c => c.id !== cat.id).map(c => (
+                          <option key={c.id} value={c.id}>{c.icon ? `${c.icon} ` : ''}{c.name}</option>
+                        ))}
+                      </select>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => { setPendingDelete(null); setReassignToId('') }}
+                          className="btn-secondary flex-1 text-xs py-1.5">
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!reassignToId || deletingId === cat.id}
+                          onClick={() => doDelete(cat, reassignToId)}
+                          className="flex-1 text-xs py-1.5 rounded-lg font-semibold bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
+                          Move & Delete
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

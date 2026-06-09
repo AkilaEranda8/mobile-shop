@@ -25,7 +25,11 @@ export const productsController = {
     try { sendSuccess(res, await productsService.createCategory(req.tenantId!, req.body), 'Category created', 201) } catch (e) { next(e) }
   },
   async deleteCategory(req: Request, res: Response, next: NextFunction) {
-    try { await productsService.deleteCategory(req.tenantId!, req.params.id); sendSuccess(res, null, 'Category deleted') } catch (e) { next(e) }
+    try {
+      const reassignToId = req.query.reassignToId as string | undefined
+      await productsService.deleteCategory(req.tenantId!, req.params.id, reassignToId)
+      sendSuccess(res, null, 'Category deleted')
+    } catch (e) { next(e) }
   },
   async getBrands(req: Request, res: Response, next: NextFunction) {
     try { sendSuccess(res, await productsService.getBrands(req.tenantId!)) } catch (e) { next(e) }

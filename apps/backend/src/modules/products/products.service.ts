@@ -101,7 +101,12 @@ export const productsService = {
   },
 
   async getCategories(tenantId: string) {
-    return prisma.category.findMany({ where: { tenantId }, orderBy: { name: 'asc' } })
+    const rows = await prisma.category.findMany({
+      where: { tenantId },
+      orderBy: { name: 'asc' },
+      include: { _count: { select: { products: true } } },
+    })
+    return rows.map(({ _count, ...cat }) => ({ ...cat, productCount: _count.products }))
   },
 
   async createCategory(tenantId: string, body: { name: string; icon?: string }) {
@@ -109,12 +114,21 @@ export const productsService = {
     return prisma.category.create({ data: { tenantId, name: body.name, slug, icon: body.icon } })
   },
 
-  async deleteCategory(tenantId: string, id: string) {
+  async deleteCategory(tenantId: string, id: string, reassignToId?: string) {
     const cat = await prisma.category.findFirst({ where: { id, tenantId } })
     if (!cat) throw new AppError('Category not found', 404)
-    const inUse = await prisma.product.count({ where: { tenantId, categoryId: id, isActive: true } })
+    const inUse = await prisma.product.count({ where: { tenantId, categoryId: id } })
     if (inUse > 0) {
-      throw new AppError(`Cannot delete — ${inUse} product${inUse > 1 ? 's' : ''} still use this category. Reassign them first.`, 400)
+      if (!reassignToId) {
+        throw new AppError(
+          `Cannot delete — ${inUse} product${inUse > 1 ? 's' : ''} still use this category. Choose another category to move them to.`,
+          400,
+        )
+      }
+      if (reassignToId === id) throw new AppError('Cannot move products to the same category', 400)
+      const target = await prisma.category.findFirst({ where: { id: reassignToId, tenantId } })
+      if (!target) throw new AppError('Target category not found', 404)
+      await prisma.product.updateMany({ where: { tenantId, categoryId: id }, data: { categoryId: reassignToId } })
     }
     await prisma.category.delete({ where: { id } })
   },
