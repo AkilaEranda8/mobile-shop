@@ -70,13 +70,30 @@ function PlatformTab({ cfg, onChange, onSave, saving }: {
       </div>
 
       <div className="card p-5">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
             <h3 className="section-title !mb-0">Maintenance Mode</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Blocks tenant logins and shows a banner to all logged-in users</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {cfg['maintenance.enabled'] === 'true'
+                ? 'Active — tenant logins blocked and users see a maintenance banner'
+                : 'Off — shops can log in normally'}
+            </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            {cfg['maintenance.enabled'] === 'true' && (
+              <button
+                disabled={saving}
+                onClick={async () => {
+                  onChange('maintenance.enabled', 'false')
+                  await onSave(['maintenance.enabled'])
+                  setMainSaved(true); setTimeout(() => setMainSaved(false), 2000)
+                }}
+                className="flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
+                Disable Maintenance
+              </button>
+            )}
             <button
+              disabled={saving}
               onClick={async () => {
                 const next = cfg['maintenance.enabled'] === 'true' ? 'false' : 'true'
                 onChange('maintenance.enabled', next)
@@ -85,7 +102,7 @@ function PlatformTab({ cfg, onChange, onSave, saving }: {
               }}
               className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${cfg['maintenance.enabled'] === 'true' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
               {cfg['maintenance.enabled'] === 'true' ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-              {cfg['maintenance.enabled'] === 'true' ? 'ACTIVE' : 'Off'}
+              {cfg['maintenance.enabled'] === 'true' ? 'ACTIVE' : 'Turn On'}
             </button>
             <SaveFeedback show={mainSaved} />
           </div>

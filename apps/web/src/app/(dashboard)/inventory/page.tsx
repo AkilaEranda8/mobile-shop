@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useMemo, useEffect } from 'react'
-import { Plus, Package, AlertTriangle, Download, Upload, QrCode, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, ImageOff } from 'lucide-react'
+import { Plus, Package, AlertTriangle, Download, Upload, QrCode, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, ImageOff, Filter, RotateCcw } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -619,12 +619,37 @@ export default function InventoryPage() {
   const [showAddCat, setShowAddCat]   = useState(false)
   const [editProduct, setEditProduct] = useState<Product | null>(null)
   const [viewProduct, setViewProduct] = useState<Product | null>(null)
+  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [brandFilter, setBrandFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'in' | 'low' | 'out'>('all')
   const { data: productsData, loading, refetch } = useProducts()
   const { data: catsData, refetch: refetchCats } = useCategories()
   const allCategories: Category[] = (catsData ?? []) as Category[]
   const products: Product[] = (productsData?.data ?? []) as Product[]
 
-  const lowStockCount = products.filter(p => p.stock < p.minStock).length
+  const brands = useMemo(
+    () => [...new Set(products.map(p => p.brandName).filter(Boolean))].sort() as string[],
+    [products],
+  )
+
+  const filteredProducts = useMemo(() => products.filter(p => {
+    if (categoryFilter !== 'all' && p.categoryName !== categoryFilter) return false
+    if (brandFilter !== 'all' && p.brandName !== brandFilter) return false
+    if (statusFilter === 'out' && p.stock !== 0) return false
+    if (statusFilter === 'low' && !(p.stock > 0 && p.stock < p.minStock)) return false
+    if (statusFilter === 'in' && !(p.stock >= p.minStock)) return false
+    return true
+  }), [products, categoryFilter, brandFilter, statusFilter])
+
+  const hasActiveFilters = categoryFilter !== 'all' || brandFilter !== 'all' || statusFilter !== 'all'
+
+  const clearFilters = () => {
+    setCategoryFilter('all')
+    setBrandFilter('all')
+    setStatusFilter('all')
+  }
+
+  const lowStockCount = filteredProducts.filter(p => p.stock < p.minStock && p.stock > 0).length
 
   useEffect(() => {
     const onSale = () => { refetch() }
@@ -726,14 +751,18 @@ export default function InventoryPage() {
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
           <h1 className="page-title">Inventory</h1>
-          <p className="page-subtitle">{products.length} products · {lowStockCount} low stock alerts</p>
+          <p className="page-subtitle">
+            {hasActiveFilters
+              ? `${filteredProducts.length} of ${products.length} products shown`
+              : `${products.length} products · ${products.filter(p => p.stock < p.minStock).length} low stock alerts`}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2 sm:ml-auto">
           <OpenPosButton label="Sell in POS" variant="secondary" />
           <button onClick={() => setShowImport(true)} className="btn-secondary text-sm flex items-center gap-2">
             <Upload size={14} />Import
           </button>
-          <button onClick={() => exportProductsCSV(products)} disabled={products.length === 0} className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40">
+          <button onClick={() => exportProductsCSV(filteredProducts)} disabled={filteredProducts.length === 0} className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40">
             <Download size={14} />Export
           </button>
           <button onClick={() => setShowAddModal(true)} className="btn-primary text-sm flex items-center gap-2">
@@ -745,13 +774,55 @@ export default function InventoryPage() {
         </div>
       </div>
 
+      {/* Filters */}
+      <div className="card p-4">
+        <div className="flex flex-col lg:flex-row lg:items-end gap-3">
+          <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+            <Filter size={15} className="text-violet-500" />
+            Filters
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
+            <label className="block">
+              <span className="text-[11px] font-medium mb-1 block" style={{ color: 'var(--text-muted)' }}>Category</span>
+              <select className="input-field h-9 text-sm w-full" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
+                <option value="all">All categories</option>
+                {allCategories.map(c => (
+                  <option key={c.id} value={c.name}>{c.icon ? `${c.icon} ` : ''}{c.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-[11px] font-medium mb-1 block" style={{ color: 'var(--text-muted)' }}>Brand</span>
+              <select className="input-field h-9 text-sm w-full" value={brandFilter} onChange={e => setBrandFilter(e.target.value)}>
+                <option value="all">All brands</option>
+                {brands.map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-[11px] font-medium mb-1 block" style={{ color: 'var(--text-muted)' }}>Stock status</span>
+              <select className="input-field h-9 text-sm w-full" value={statusFilter} onChange={e => setStatusFilter(e.target.value as typeof statusFilter)}>
+                <option value="all">All statuses</option>
+                <option value="in">In stock</option>
+                <option value="low">Low stock</option>
+                <option value="out">Out of stock</option>
+              </select>
+            </label>
+          </div>
+          {hasActiveFilters && (
+            <button type="button" onClick={clearFilters} className="btn-secondary text-sm flex items-center gap-1.5 h-9 px-3">
+              <RotateCcw size={13} />Clear
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total SKUs',       value: products.length,                                                         icon: Package,       color: 'violet' },
-          { label: 'Stock Value',      value: formatCurrency(products.reduce((s, p) => s + p.buyingPrice * p.stock, 0)), icon: TrendingUp,    color: 'green'  },
+          { label: 'Total SKUs',       value: filteredProducts.length,                                                         icon: Package,       color: 'violet' },
+          { label: 'Stock Value',      value: formatCurrency(filteredProducts.reduce((s, p) => s + p.buyingPrice * p.stock, 0)), icon: TrendingUp,    color: 'green'  },
           { label: 'Low Stock',        value: lowStockCount,                                                            icon: AlertTriangle, color: 'yellow' },
-          { label: 'Out of Stock',     value: products.filter(p => p.stock === 0).length,                               icon: AlertCircle,   color: 'red'    },
+          { label: 'Out of Stock',     value: filteredProducts.filter(p => p.stock === 0).length,                               icon: AlertCircle,   color: 'red'    },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="card p-4 flex items-center gap-3">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20`}>
@@ -767,30 +838,17 @@ export default function InventoryPage() {
 
       {/* Table */}
       <ClientSideTable
-        data={products}
+        data={filteredProducts}
         columns={columns}
         isLoading={loading}
-        pageCount={Math.ceil((products.length || 1) / 20)}
+        pageCount={Math.ceil((filteredProducts.length || 1) / 20)}
         searchableColumns={[
           { id: 'name', title: 'Name' },
           { id: 'sku',  title: 'SKU'  },
+          { id: 'categoryName', title: 'Category' },
+          { id: 'brandName', title: 'Brand' },
         ]}
-        filterableColumns={[
-          {
-            id: 'categoryName',
-            title: 'Category',
-            options: allCategories.map(c => ({ label: `${c.icon ? c.icon + ' ' : ''}${c.name}`, value: c.name })),
-          },
-          {
-            id: 'stockStatus' as any,
-            title: 'Stock Status',
-            options: [
-              { label: 'In Stock',     value: 'In Stock'     },
-              { label: 'Low Stock',    value: 'Low Stock'    },
-              { label: 'Out of Stock', value: 'Out of Stock' },
-            ],
-          },
-        ]}
+        showFilter={false}
       />
     </div>
   )
