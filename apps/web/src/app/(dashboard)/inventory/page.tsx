@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useMemo, useEffect } from 'react'
-import { Plus, Package, AlertTriangle, Download, Upload, QrCode, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, ImageOff, Filter, RotateCcw } from 'lucide-react'
+import { Plus, Package, AlertTriangle, Download, Upload, QrCode, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, ImageOff, RotateCcw } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -774,46 +774,88 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="card p-4">
-        <div className="flex flex-col lg:flex-row lg:items-end gap-3">
-          <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-            <Filter size={15} className="text-violet-500" />
-            Filters
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
-            <label className="block">
-              <span className="text-[11px] font-medium mb-1 block" style={{ color: 'var(--text-muted)' }}>Category</span>
-              <select className="input-field h-9 text-sm w-full" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
-                <option value="all">All categories</option>
-                {allCategories.map(c => (
-                  <option key={c.id} value={c.name}>{c.icon ? `${c.icon} ` : ''}{c.name}</option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-[11px] font-medium mb-1 block" style={{ color: 'var(--text-muted)' }}>Brand</span>
-              <select className="input-field h-9 text-sm w-full" value={brandFilter} onChange={e => setBrandFilter(e.target.value)}>
-                <option value="all">All brands</option>
-                {brands.map(b => <option key={b} value={b}>{b}</option>)}
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-[11px] font-medium mb-1 block" style={{ color: 'var(--text-muted)' }}>Stock status</span>
-              <select className="input-field h-9 text-sm w-full" value={statusFilter} onChange={e => setStatusFilter(e.target.value as typeof statusFilter)}>
-                <option value="all">All statuses</option>
-                <option value="in">In stock</option>
-                <option value="low">Low stock</option>
-                <option value="out">Out of stock</option>
-              </select>
-            </label>
-          </div>
-          {hasActiveFilters && (
-            <button type="button" onClick={clearFilters} className="btn-secondary text-sm flex items-center gap-1.5 h-9 px-3">
-              <RotateCcw size={13} />Clear
+      {/* Filter toolbar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div
+          className="flex items-center gap-2 px-3 py-2 rounded-xl min-w-[170px]"
+          style={{
+            background: 'var(--bg-subtle)',
+            border: categoryFilter !== 'all' ? '1px solid rgba(109,40,217,0.35)' : '1px solid var(--border-subtle)',
+          }}>
+          <Layers size={13} style={{ color: categoryFilter !== 'all' ? '#8b5cf6' : 'var(--text-muted)' }} />
+          <select
+            value={categoryFilter}
+            onChange={e => setCategoryFilter(e.target.value)}
+            className="bg-transparent text-xs outline-none cursor-pointer font-medium flex-1 min-w-0 truncate"
+            style={{ color: categoryFilter !== 'all' ? '#8b5cf6' : 'var(--text-primary)' }}>
+            <option value="all">All categories</option>
+            {allCategories.map(c => (
+              <option key={c.id} value={c.name}>{c.icon ? `${c.icon} ` : ''}{c.name}</option>
+            ))}
+          </select>
+          {categoryFilter !== 'all' && (
+            <button type="button" onClick={() => setCategoryFilter('all')} className="hover:text-red-400 transition-colors" style={{ color: 'var(--text-muted)' }}>
+              <X size={11} />
             </button>
           )}
         </div>
+
+        <div
+          className="flex items-center gap-2 px-3 py-2 rounded-xl min-w-[170px]"
+          style={{
+            background: 'var(--bg-subtle)',
+            border: brandFilter !== 'all' ? '1px solid rgba(109,40,217,0.35)' : '1px solid var(--border-subtle)',
+          }}>
+          <Tag size={13} style={{ color: brandFilter !== 'all' ? '#8b5cf6' : 'var(--text-muted)' }} />
+          <select
+            value={brandFilter}
+            onChange={e => setBrandFilter(e.target.value)}
+            className="bg-transparent text-xs outline-none cursor-pointer font-medium flex-1 min-w-0 truncate"
+            style={{ color: brandFilter !== 'all' ? '#8b5cf6' : 'var(--text-primary)' }}>
+            <option value="all">All brands</option>
+            {brands.map(b => <option key={b} value={b}>{b}</option>)}
+          </select>
+          {brandFilter !== 'all' && (
+            <button type="button" onClick={() => setBrandFilter('all')} className="hover:text-red-400 transition-colors" style={{ color: 'var(--text-muted)' }}>
+              <X size={11} />
+            </button>
+          )}
+        </div>
+
+        <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
+          {([
+            { id: 'all' as const, label: 'All stock' },
+            { id: 'in' as const, label: 'In stock' },
+            { id: 'low' as const, label: 'Low' },
+            { id: 'out' as const, label: 'Out' },
+          ]).map(opt => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setStatusFilter(opt.id)}
+              className="px-3 py-1.5 text-xs rounded-lg font-medium whitespace-nowrap transition-colors"
+              style={statusFilter === opt.id
+                ? { background: '#6d28d9', color: '#fff' }
+                : { color: 'var(--text-muted)' }}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        {hasActiveFilters && (
+          <>
+            <span className="text-[11px] px-2.5 py-1.5 rounded-lg font-medium" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>
+              {filteredProducts.length} of {products.length}
+            </span>
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] rounded-lg font-medium transition-colors hover:text-red-400"
+              style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>
+              <RotateCcw size={11} />Reset
+            </button>
+          </>
+        )}
       </div>
 
       {/* Stats */}
