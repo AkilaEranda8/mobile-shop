@@ -1629,31 +1629,31 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       </div>
 
                       {/* ── INFO ZONE ── */}
-                      <div className="flex flex-col px-2 py-1.5 gap-0.5">
-                        <p className="text-[10px] font-bold leading-tight line-clamp-2" style={{ color: POS_THEME.text }}>{item.name}</p>
-                        <p className="text-[8px] font-mono truncate" style={{ color: POS_THEME.muted }}>{item.sku}</p>
-                        <div className="flex items-end justify-between gap-1">
+                      <div className="flex flex-col px-2.5 py-2 gap-1">
+                        <p className="text-[13px] font-bold leading-snug line-clamp-2" style={{ color: POS_THEME.text }}>{item.name}</p>
+                        <p className="text-[11px] font-mono truncate" style={{ color: POS_THEME.muted }}>{item.sku}</p>
+                        <div className="flex items-end justify-between gap-1.5">
                           <div className="min-w-0">
-                            <p className="pos-price text-xs font-extrabold leading-none">{formatCurrency(isService ? item.price : item.sellingPrice)}</p>
+                            <p className="pos-price text-sm font-extrabold leading-none tracking-tight">{formatCurrency(isService ? item.price : item.sellingPrice)}</p>
                             {isService ? (
-                              <p className="text-[8px] mt-0.5 truncate" style={{ color: POS_THEME.muted }}>
+                              <p className="text-[11px] mt-0.5 truncate" style={{ color: POS_THEME.muted }}>
                                 Cost {formatCurrency(Number(item.cost ?? 0))}
                                 {(item.cost ?? 0) > 0 && item.price > (item.cost ?? 0) && (
                                   <span style={{ color: POS_THEME.green }}> · +{formatCurrency(item.price - (item.cost ?? 0))}</span>
                                 )}
                               </p>
                             ) : (
-                              <p className="text-[8px] font-semibold flex items-center gap-0.5 mt-0.5 truncate" style={{ color: isOut ? POS_THEME.muted : isLow ? POS_THEME.amber : POS_THEME.green }}>
-                                <span className="w-1 h-1 rounded-full inline-block shrink-0" style={{ background: isOut ? POS_THEME.muted : isLow ? POS_THEME.amber : POS_THEME.green }} />
-                                {isOut ? 'Out' : isLow ? `Low (${item.stock})` : `Stock ${item.stock}`}
+                              <p className="text-[11px] font-semibold flex items-center gap-1 mt-0.5 truncate" style={{ color: isOut ? POS_THEME.muted : isLow ? POS_THEME.amber : POS_THEME.green }}>
+                                <span className="w-1.5 h-1.5 rounded-full inline-block shrink-0" style={{ background: isOut ? POS_THEME.muted : isLow ? POS_THEME.amber : POS_THEME.green }} />
+                                {isOut ? 'Out of stock' : isLow ? `Low stock (${item.stock})` : `In stock (${item.stock})`}
                               </p>
                             )}
                           </div>
                           <button type="button" disabled={isOut}
                             onClick={e => { e.stopPropagation(); if (!isOut) addToCart(item) }}
-                            className="w-6 h-6 rounded-lg flex items-center justify-center text-white transition-all disabled:opacity-30 hover:scale-105 active:scale-95 flex-shrink-0"
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-white transition-all disabled:opacity-30 hover:scale-105 active:scale-95 flex-shrink-0"
                             style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, boxShadow: `0 1px 6px ${POS_THEME.purple}66` }}>
-                            <Plus size={11} />
+                            <Plus size={13} />
                           </button>
                         </div>
                       </div>

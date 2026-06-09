@@ -210,29 +210,29 @@ function AddCategoryModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl">
-        <div className="flex items-center justify-between p-5 border-b border-white/5">
+      <div className="card rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center gap-2">
             <Tag size={15} className="text-violet-400" />
-            <h3 className="text-sm font-semibold text-white">Add Category</h3>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Add Category</h3>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={15} /></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg transition-colors hover:opacity-80" style={{ color: 'var(--text-muted)' }}><X size={15} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
-            <label className="block text-xs text-slate-400 mb-1.5">Category Name *</label>
+            <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Category Name *</label>
             <input autoFocus required className="input-field" placeholder="e.g. Smartphones" value={name} onChange={e => setName(e.target.value)} />
           </div>
           <div>
-            <label className="block text-xs text-slate-400 mb-1.5">Icon (optional)</label>
+            <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Icon (optional)</label>
             <input className="input-field text-sm" placeholder="Paste an emoji e.g. 📱" value={icon} onChange={e => setIcon(e.target.value)} maxLength={4} />
           </div>
           {icon && (
-            <div className="flex items-center gap-3 p-3 bg-white/3 rounded-xl border border-white/5">
+            <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
               <span className="text-2xl">{icon}</span>
               <div>
-                <p className="text-xs font-semibold text-white">{name || 'Category name'}</p>
-                <p className="text-[10px] text-slate-500">Preview</p>
+                <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{name || 'Category name'}</p>
+                <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Preview</p>
               </div>
             </div>
           )}
@@ -286,30 +286,30 @@ function ManageCategoriesModal({ onClose, onChanged }: { onClose: () => void; on
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl">
-        <div className="flex items-center justify-between p-5 border-b border-white/5">
+      <div className="card rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center gap-2">
             <Layers size={15} className="text-violet-400" />
-            <h3 className="text-sm font-semibold text-white">Manage Categories</h3>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Manage Categories</h3>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={15} /></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg transition-colors hover:opacity-80" style={{ color: 'var(--text-muted)' }}><X size={15} /></button>
         </div>
 
         <div className="p-5">
           {categories.length === 0 ? (
-            <p className="text-sm text-slate-500 text-center py-6">No categories yet. Use Add Category to create one.</p>
+            <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>No categories yet. Use Add Category to create one.</p>
           ) : (
             <>
-              <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">{categories.length} categor{categories.length === 1 ? 'y' : 'ies'}</p>
+              <p className="text-[11px] uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>{categories.length} categor{categories.length === 1 ? 'y' : 'ies'}</p>
               <div className="max-h-72 overflow-y-auto space-y-1 pr-1">
                 {categories.map(cat => (
-                  <div key={cat.id} className="rounded-lg bg-white/3 border border-white/5 overflow-hidden">
+                  <div key={cat.id} className="rounded-lg overflow-hidden" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
                     <div className="flex items-center justify-between gap-2 px-3 py-2">
-                      <span className="text-sm text-slate-200 truncate flex items-center gap-2 min-w-0">
+                      <span className="text-sm truncate flex items-center gap-2 min-w-0" style={{ color: 'var(--text-primary)' }}>
                         {cat.icon && <span>{cat.icon}</span>}
                         <span className="truncate">{cat.name}</span>
                         {(cat.productCount ?? 0) > 0 && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-300 flex-shrink-0">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-400 flex-shrink-0 font-medium">
                             {cat.productCount} product{(cat.productCount ?? 0) > 1 ? 's' : ''}
                           </span>
                         )}
@@ -318,13 +318,14 @@ function ManageCategoriesModal({ onClose, onChanged }: { onClose: () => void; on
                         type="button"
                         onClick={() => handleDeleteClick(cat)}
                         disabled={deletingId === cat.id}
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50 flex-shrink-0">
+                        className="p-1.5 rounded-lg hover:text-red-500 hover:bg-red-500/10 transition-colors disabled:opacity-50 flex-shrink-0"
+                        style={{ color: 'var(--text-muted)' }}>
                         {deletingId === cat.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
                       </button>
                     </div>
                     {pendingDelete?.id === cat.id && (
-                      <div className="px-3 pb-3 pt-1 border-t border-white/5 space-y-2">
-                        <p className="text-[11px] text-amber-300">
+                      <div className="px-3 pb-3 pt-1 space-y-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                        <p className="text-[11px] text-amber-400 font-medium">
                           Move {cat.productCount} product{(cat.productCount ?? 0) > 1 ? 's' : ''} to another category before deleting.
                         </p>
                         <select
