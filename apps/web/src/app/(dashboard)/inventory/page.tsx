@@ -189,16 +189,11 @@ function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
 }
 
 /* ── Add Category Modal ─────────────────────────────────────────────── */
-function AddCategoryModal({ onClose, onSaved, onChanged }: { onClose: () => void; onSaved: (cat: Category) => void; onChanged?: () => void }) {
+function AddCategoryModal({ onClose, onSaved }: { onClose: () => void; onSaved: (cat: Category) => void }) {
   const [name, setName] = useState('')
   const [icon, setIcon] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError]   = useState('')
-  const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [pendingDelete, setPendingDelete] = useState<Category | null>(null)
-  const [reassignToId, setReassignToId] = useState('')
-  const { data: catsData, refetch } = useCategories()
-  const categories: Category[] = (catsData ?? []) as Category[]
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -207,12 +202,60 @@ function AddCategoryModal({ onClose, onSaved, onChanged }: { onClose: () => void
     try {
       const res: any = await productsApi.createCategory({ name: name.trim(), icon: icon || undefined })
       toast.success(`Category "${name}" created`)
-      setName(''); setIcon('')
-      refetch(); onChanged?.()
       onSaved(res.data ?? res)
+      onClose()
     } catch (err: any) { setError(err.message || 'Failed to create category') }
     finally { setLoading(false) }
   }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl">
+        <div className="flex items-center justify-between p-5 border-b border-white/5">
+          <div className="flex items-center gap-2">
+            <Tag size={15} className="text-violet-400" />
+            <h3 className="text-sm font-semibold text-white">Add Category</h3>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={15} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div>
+            <label className="block text-xs text-slate-400 mb-1.5">Category Name *</label>
+            <input autoFocus required className="input-field" placeholder="e.g. Smartphones" value={name} onChange={e => setName(e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-xs text-slate-400 mb-1.5">Icon (optional)</label>
+            <input className="input-field text-sm" placeholder="Paste an emoji e.g. 📱" value={icon} onChange={e => setIcon(e.target.value)} maxLength={4} />
+          </div>
+          {icon && (
+            <div className="flex items-center gap-3 p-3 bg-white/3 rounded-xl border border-white/5">
+              <span className="text-2xl">{icon}</span>
+              <div>
+                <p className="text-xs font-semibold text-white">{name || 'Category name'}</p>
+                <p className="text-[10px] text-slate-500">Preview</p>
+              </div>
+            </div>
+          )}
+          {error && <p className="text-xs text-red-400">{error}</p>}
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
+            <button type="submit" disabled={loading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}Add Category
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+/* ── Manage Categories Modal ────────────────────────────────────────── */
+function ManageCategoriesModal({ onClose, onChanged }: { onClose: () => void; onChanged?: () => void }) {
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<Category | null>(null)
+  const [reassignToId, setReassignToId] = useState('')
+  const { data: catsData, refetch } = useCategories()
+  const categories: Category[] = (catsData ?? []) as Category[]
 
   const doDelete = async (cat: Category, moveToId?: string) => {
     setDeletingId(cat.id)
@@ -246,98 +289,76 @@ function AddCategoryModal({ onClose, onSaved, onChanged }: { onClose: () => void
       <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl">
         <div className="flex items-center justify-between p-5 border-b border-white/5">
           <div className="flex items-center gap-2">
-            <Tag size={15} className="text-violet-400" />
+            <Layers size={15} className="text-violet-400" />
             <h3 className="text-sm font-semibold text-white">Manage Categories</h3>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={15} /></button>
         </div>
 
-        {categories.length > 0 && (
-          <div className="px-5 pt-4">
-            <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">Existing ({categories.length})</p>
-            <div className="max-h-52 overflow-y-auto space-y-1 pr-1">
-              {categories.map(cat => (
-                <div key={cat.id} className="rounded-lg bg-white/3 border border-white/5 overflow-hidden">
-                  <div className="flex items-center justify-between gap-2 px-3 py-2">
-                    <span className="text-sm text-slate-200 truncate flex items-center gap-2 min-w-0">
-                      {cat.icon && <span>{cat.icon}</span>}
-                      <span className="truncate">{cat.name}</span>
-                      {(cat.productCount ?? 0) > 0 && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-300 flex-shrink-0">
-                          {cat.productCount} product{(cat.productCount ?? 0) > 1 ? 's' : ''}
-                        </span>
-                      )}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteClick(cat)}
-                      disabled={deletingId === cat.id}
-                      className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50 flex-shrink-0">
-                      {deletingId === cat.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                    </button>
-                  </div>
-                  {pendingDelete?.id === cat.id && (
-                    <div className="px-3 pb-3 pt-1 border-t border-white/5 space-y-2">
-                      <p className="text-[11px] text-amber-300">
-                        Move {cat.productCount} product{(cat.productCount ?? 0) > 1 ? 's' : ''} to another category before deleting.
-                      </p>
-                      <select
-                        className="input-field text-sm w-full"
-                        value={reassignToId}
-                        onChange={e => setReassignToId(e.target.value)}>
-                        {categories.filter(c => c.id !== cat.id).map(c => (
-                          <option key={c.id} value={c.id}>{c.icon ? `${c.icon} ` : ''}{c.name}</option>
-                        ))}
-                      </select>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => { setPendingDelete(null); setReassignToId('') }}
-                          className="btn-secondary flex-1 text-xs py-1.5">
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          disabled={!reassignToId || deletingId === cat.id}
-                          onClick={() => doDelete(cat, reassignToId)}
-                          className="flex-1 text-xs py-1.5 rounded-lg font-semibold bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
-                          Move & Delete
-                        </button>
-                      </div>
+        <div className="p-5">
+          {categories.length === 0 ? (
+            <p className="text-sm text-slate-500 text-center py-6">No categories yet. Use Add Category to create one.</p>
+          ) : (
+            <>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">{categories.length} categor{categories.length === 1 ? 'y' : 'ies'}</p>
+              <div className="max-h-72 overflow-y-auto space-y-1 pr-1">
+                {categories.map(cat => (
+                  <div key={cat.id} className="rounded-lg bg-white/3 border border-white/5 overflow-hidden">
+                    <div className="flex items-center justify-between gap-2 px-3 py-2">
+                      <span className="text-sm text-slate-200 truncate flex items-center gap-2 min-w-0">
+                        {cat.icon && <span>{cat.icon}</span>}
+                        <span className="truncate">{cat.name}</span>
+                        {(cat.productCount ?? 0) > 0 && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-300 flex-shrink-0">
+                            {cat.productCount} product{(cat.productCount ?? 0) > 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteClick(cat)}
+                        disabled={deletingId === cat.id}
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50 flex-shrink-0">
+                        {deletingId === cat.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                      </button>
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div>
-            <label className="block text-xs text-slate-400 mb-1.5">Category Name *</label>
-            <input autoFocus required className="input-field" placeholder="e.g. Smartphones" value={name} onChange={e => setName(e.target.value)} />
-          </div>
-          <div>
-            <label className="block text-xs text-slate-400 mb-1.5">Icon (optional)</label>
-            <input className="input-field text-sm" placeholder="Paste an emoji e.g. 📱" value={icon} onChange={e => setIcon(e.target.value)} maxLength={4} />
-          </div>
-          {icon && (
-            <div className="flex items-center gap-3 p-3 bg-white/3 rounded-xl border border-white/5">
-              <span className="text-2xl">{icon}</span>
-              <div>
-                <p className="text-xs font-semibold text-white">{name || 'Category name'}</p>
-                <p className="text-[10px] text-slate-500">Preview</p>
+                    {pendingDelete?.id === cat.id && (
+                      <div className="px-3 pb-3 pt-1 border-t border-white/5 space-y-2">
+                        <p className="text-[11px] text-amber-300">
+                          Move {cat.productCount} product{(cat.productCount ?? 0) > 1 ? 's' : ''} to another category before deleting.
+                        </p>
+                        <select
+                          className="input-field text-sm w-full"
+                          value={reassignToId}
+                          onChange={e => setReassignToId(e.target.value)}>
+                          {categories.filter(c => c.id !== cat.id).map(c => (
+                            <option key={c.id} value={c.id}>{c.icon ? `${c.icon} ` : ''}{c.name}</option>
+                          ))}
+                        </select>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => { setPendingDelete(null); setReassignToId('') }}
+                            className="btn-secondary flex-1 text-xs py-1.5">
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            disabled={!reassignToId || deletingId === cat.id}
+                            onClick={() => doDelete(cat, reassignToId)}
+                            className="flex-1 text-xs py-1.5 rounded-lg font-semibold bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
+                            Move & Delete
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-            </div>
+            </>
           )}
-          {error && <p className="text-xs text-red-400">{error}</p>}
-          <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Close</button>
-            <button type="submit" disabled={loading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
-              {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}Add Category
-            </button>
-          </div>
-        </form>
+          <button type="button" onClick={onClose} className="btn-secondary w-full text-sm mt-4">Close</button>
+        </div>
       </div>
     </div>
   )
@@ -486,7 +507,7 @@ function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
           </div>
         </form>
       </div>
-      {showAddCat && <AddCategoryModal onClose={() => setShowAddCat(false)} onChanged={refetchCats} onSaved={cat => { refetchCats(); setForm(p => ({ ...p, categoryName: cat.name })); setShowAddCat(false) }} />}
+      {showAddCat && <AddCategoryModal onClose={() => setShowAddCat(false)} onSaved={cat => { refetchCats(); setForm(p => ({ ...p, categoryName: cat.name })) }} />}
     </div>
   )
 }
@@ -587,7 +608,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
           </div>
         </form>
       </div>
-      {showAddCat && <AddCategoryModal onClose={() => setShowAddCat(false)} onChanged={refetchCats} onSaved={cat => { refetchCats(); setForm(p => ({ ...p, categoryName: cat.name })); setShowAddCat(false) }} />}
+      {showAddCat && <AddCategoryModal onClose={() => setShowAddCat(false)} onSaved={cat => { refetchCats(); setForm(p => ({ ...p, categoryName: cat.name })) }} />}
     </div>
   )
 }
@@ -712,6 +733,7 @@ export default function InventoryPage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showImport, setShowImport]   = useState(false)
   const [showAddCat, setShowAddCat]   = useState(false)
+  const [showManageCat, setShowManageCat] = useState(false)
   const [editProduct, setEditProduct] = useState<Product | null>(null)
   const [viewProduct, setViewProduct] = useState<Product | null>(null)
   const [categoryFilter, setCategoryFilter] = useState('all')
@@ -852,7 +874,8 @@ export default function InventoryPage() {
     <div className="space-y-6">
       {showAddModal && <AddProductModal onClose={() => setShowAddModal(false)} onSaved={refetch} />}
       {showImport  && <ImportModal onClose={() => setShowImport(false)} onSaved={refetch} />}
-      {showAddCat  && <AddCategoryModal onClose={() => setShowAddCat(false)} onChanged={() => refetchCats()} onSaved={() => refetchCats()} />}
+      {showAddCat    && <AddCategoryModal onClose={() => setShowAddCat(false)} onSaved={() => refetchCats()} />}
+      {showManageCat && <ManageCategoriesModal onClose={() => setShowManageCat(false)} onChanged={() => { refetchCats(); refetch() }} />}
       {editProduct && <EditProductModal product={editProduct} onClose={() => setEditProduct(null)} onSaved={refetch} />}
       {viewProduct && <ProductDetailModal product={viewProduct} onClose={() => setViewProduct(null)} onEdit={() => { setEditProduct(viewProduct); setViewProduct(null) }} />}
       {/* Header */}
@@ -875,6 +898,9 @@ export default function InventoryPage() {
           </button>
           <button onClick={() => setShowAddModal(true)} className="btn-primary text-sm flex items-center gap-2">
             <Plus size={14} />Add Product
+          </button>
+          <button onClick={() => setShowManageCat(true)} className="btn-secondary text-sm flex items-center gap-2">
+            <Layers size={14} />Manage Categories
           </button>
           <button onClick={() => setShowAddCat(true)} className="btn-secondary text-sm flex items-center gap-2">
             <Tag size={14} />Add Category
