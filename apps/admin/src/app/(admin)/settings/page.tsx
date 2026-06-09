@@ -27,7 +27,7 @@ function SaveFeedback({ show }: { show: boolean }) {
 /* ── Platform tab ──────────────────────────────────────────────────────────── */
 function PlatformTab({ cfg, onChange, onSave, saving }: {
   cfg: PlatformConfigMap; onChange: (k: string, v: string) => void
-  onSave: (keys: string[]) => Promise<void>; saving: boolean
+  onSave: (keys: string[], overrides?: PlatformConfigMap) => Promise<void>; saving: boolean
 }) {
   const [saved, setSaved] = useState(false)
   const [mainSaved, setMainSaved] = useState(false)
@@ -85,7 +85,7 @@ function PlatformTab({ cfg, onChange, onSave, saving }: {
                 disabled={saving}
                 onClick={async () => {
                   onChange('maintenance.enabled', 'false')
-                  await onSave(['maintenance.enabled'])
+                  await onSave(['maintenance.enabled'], { 'maintenance.enabled': 'false' })
                   setMainSaved(true); setTimeout(() => setMainSaved(false), 2000)
                 }}
                 className="flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
@@ -97,7 +97,10 @@ function PlatformTab({ cfg, onChange, onSave, saving }: {
               onClick={async () => {
                 const next = cfg['maintenance.enabled'] === 'true' ? 'false' : 'true'
                 onChange('maintenance.enabled', next)
-                await onSave(['maintenance.enabled', 'maintenance.message'])
+                await onSave(
+                  ['maintenance.enabled', 'maintenance.message'],
+                  { 'maintenance.enabled': next, 'maintenance.message': cfg['maintenance.message'] ?? '' },
+                )
                 setMainSaved(true); setTimeout(() => setMainSaved(false), 2000)
               }}
               className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${cfg['maintenance.enabled'] === 'true' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
@@ -129,8 +132,9 @@ function PlatformTab({ cfg, onChange, onSave, saving }: {
             <div key={key} className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0">
               <span className="text-sm text-gray-700">{label}</span>
               <Switch checked={cfg[key] === 'true'} onChange={async (next) => {
-                onChange(key, next ? 'true' : 'false')
-                await onSave([key])
+                const value = next ? 'true' : 'false'
+                onChange(key, value)
+                await onSave([key], { [key]: value })
               }} />
             </div>
           ))}
@@ -462,12 +466,13 @@ export default function SettingsPage() {
     setCfg(prev => ({ ...prev, [key]: value }))
   }
 
-  const handleSave = async (keys: string[]) => {
+  const handleSave = async (keys: string[], overrides?: PlatformConfigMap) => {
     setSaving(true)
     try {
       const patch: PlatformConfigMap = {}
-      keys.forEach(k => { patch[k] = cfg[k] ?? '' })
+      keys.forEach(k => { patch[k] = overrides?.[k] ?? cfg[k] ?? '' })
       await savePlatformConfig(patch)
+      setCfg(prev => ({ ...prev, ...patch }))
     } catch (e) { alert(e instanceof Error ? e.message : 'Save failed') } finally { setSaving(false) }
   }
 
