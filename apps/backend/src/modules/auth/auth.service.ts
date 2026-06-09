@@ -7,6 +7,7 @@ import { AppError } from '../../middleware/error.middleware'
 import { env } from '../../config/env'
 import { createOrGetGroup, createKcUser } from '../../utils/keycloakAdmin'
 import { sendMail } from '../../utils/mailer'
+import { getMaintenanceStatus } from '../../utils/platform-config'
 
 export const authService = {
   async login(email: string, password: string, tenantSlug?: string) {
@@ -22,6 +23,10 @@ export const authService = {
     })
     if (!user || !(await bcrypt.compare(password, user.password))) {
       throw new AppError('Invalid email or password', 401)
+    }
+    const maintenance = await getMaintenanceStatus()
+    if (maintenance.enabled && user.role !== 'PLATFORM_ADMIN') {
+      throw new AppError(maintenance.message, 503)
     }
     const payload = { userId: user.id, tenantId: user.tenantId, role: user.role, email: user.email }
     const accessToken = signAccessToken(payload)

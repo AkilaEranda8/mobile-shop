@@ -73,14 +73,14 @@ function PlatformTab({ cfg, onChange, onSave, saving }: {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="section-title !mb-0">Maintenance Mode</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Blocks all tenant logins with a maintenance message</p>
+            <p className="text-xs text-gray-400 mt-0.5">Blocks tenant logins and shows a banner to all logged-in users</p>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={async () => {
                 const next = cfg['maintenance.enabled'] === 'true' ? 'false' : 'true'
                 onChange('maintenance.enabled', next)
-                await onSave(['maintenance.enabled'])
+                await onSave(['maintenance.enabled', 'maintenance.message'])
                 setMainSaved(true); setTimeout(() => setMainSaved(false), 2000)
               }}
               className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${cfg['maintenance.enabled'] === 'true' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
@@ -89,6 +89,17 @@ function PlatformTab({ cfg, onChange, onSave, saving }: {
             </button>
             <SaveFeedback show={mainSaved} />
           </div>
+        </div>
+        <div className="mt-4 max-w-xl">
+          <label className="block text-xs font-medium text-gray-700 mb-1">User notification message</label>
+          <textarea
+            className="input resize-none text-sm"
+            rows={3}
+            value={cfg['maintenance.message'] ?? ''}
+            placeholder="Hexalyte is currently in maintenance mode..."
+            onChange={e => onChange('maintenance.message', e.target.value)}
+          />
+          <p className="text-[10px] text-gray-400 mt-1">Shown on login page, dashboard banner, and bell notifications when maintenance is ON.</p>
         </div>
       </div>
 

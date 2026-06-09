@@ -30,6 +30,7 @@ import deliveryRoutes from './modules/delivery/delivery.routes'
 import deviceCatalogRoutes from './modules/device-catalog/device-catalog.routes'
 import uploadRoutes from './modules/upload/upload.routes'
 import exchangesRoutes from './modules/exchanges/exchanges.routes'
+import platformRoutes from './modules/platform/platform.routes'
 import servicesRoutes from './modules/services/services.routes'
 import dailyReloadRoutes from './modules/daily-reload/daily-reload.routes'
 import dailyClosingRoutes from './modules/daily-closing/daily-closing.routes'
@@ -159,6 +160,7 @@ app.use(`${API}/delivery`, deliveryRoutes)
 app.use(`${API}/device-catalog`, deviceCatalogRoutes)
 app.use(`${API}/upload`, uploadRoutes)
 app.use(`${API}/exchanges`, exchangesRoutes)
+app.use(`${API}/platform`, platformRoutes)
 app.use('/admin/v1', adminRoutes)
 
 app.use(notFound)

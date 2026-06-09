@@ -8,12 +8,16 @@ import { POSOverlay } from '@/components/pos/POSOverlay'
 import { PosGlobalShortcuts } from '@/components/pos/PosGlobalShortcuts'
 import { HexTableProvider } from '@/components/table/hex-table-provider'
 import { authStorage } from '@/lib/auth'
+import { usePlatformStatus } from '@/lib/hooks'
+import { MaintenanceBanner } from '@/components/layout/MaintenanceBanner'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [checked, setChecked] = useState(false)
+  const platformStatus = usePlatformStatus()
+  const maintenance = platformStatus?.maintenance
 
   useEffect(() => {
     if (!authStorage.isLoggedIn()) {
@@ -50,7 +54,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Header
           onMenuToggle={() => setMobileSidebarOpen(!mobileSidebarOpen)}
           sidebarOpen={mobileSidebarOpen}
+          maintenance={maintenance}
         />
+        {maintenance?.enabled && <MaintenanceBanner message={maintenance.message} />}
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           <HexTableProvider>{children}</HexTableProvider>
         </main>

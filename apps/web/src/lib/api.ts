@@ -338,3 +338,15 @@ export const analyticsApi = {
   categoryProducts: (params?: Record<string, string>) =>
     api.get(`/analytics/category-products${params ? '?' + new URLSearchParams(params) : ''}`),
 }
+
+export type PlatformStatus = {
+  maintenance: { enabled: boolean; message: string }
+  announcements: Array<{ id: string; title: string; body: string; type: string; sentAt: string | null }>
+}
+
+export async function fetchPlatformStatus(): Promise<PlatformStatus> {
+  const res = await fetch(`${BASE_URL}/platform/status`)
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.message || 'Failed to load platform status')
+  return (json.data ?? json) as PlatformStatus
+}

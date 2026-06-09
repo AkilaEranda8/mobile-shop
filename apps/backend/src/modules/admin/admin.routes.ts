@@ -10,6 +10,7 @@ import {
   buildFeatureMap,
   buildPriceMap,
 } from '../tenants/tenant-features'
+import { DEFAULT_MAINTENANCE_MESSAGE, getMaintenanceStatus, syncMaintenanceAnnouncement } from '../../utils/platform-config'
 
 const router = Router()
 router.use(authenticate)
@@ -858,6 +859,7 @@ const CONFIG_DEFAULTS: Record<string, string> = {
   'security.ipWhitelist':       '',
   'security.enforce2FA':        'true',
   'maintenance.enabled':        'false',
+  'maintenance.message':        'Hexalyte is currently in maintenance mode. New logins are disabled and some features may be unavailable.',
 }
 
 router.get('/settings/config', async (_req: Request, res: Response, next: NextFunction) => {
@@ -872,11 +874,18 @@ router.get('/settings/config', async (_req: Request, res: Response, next: NextFu
 router.put('/settings/config', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const updates = req.body as Record<string, string>
+    const prevMaintenance = await getMaintenanceStatus()
     await Promise.all(
       Object.entries(updates).map(([key, value]) =>
         prisma.platformConfig.upsert({ where: { key }, update: { value }, create: { key, value } })
       )
     )
+    if (updates['maintenance.enabled'] === 'true' && !prevMaintenance.enabled) {
+      const message = updates['maintenance.message']?.trim()
+        || prevMaintenance.message
+        || DEFAULT_MAINTENANCE_MESSAGE
+      await syncMaintenanceAnnouncement(true, message)
+    }
     sendSuccess(res, null, 'Config saved')
   } catch (e) { next(e) }
 })

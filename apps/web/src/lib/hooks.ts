@@ -4,6 +4,7 @@ import {
   productsApi, customersApi, salesApi, repairsApi,
   warrantyApi, suppliersApi, financeApi, analyticsApi,
   imeiApi, usersApi, branchesApi, tenantApi, dailyReloadApi, dailyClosingApi,
+  fetchPlatformStatus, type PlatformStatus,
 } from './api'
 import { isFeatureEnabled, clearFeaturesCache, PRICED_FEATURES } from './tenant-features'
 
@@ -82,6 +83,27 @@ export function useTenantFeatures() {
 export function useFeatureFlag(feature: string): boolean {
   const { hasFeature } = useTenantFeatures()
   return hasFeature(feature)
+}
+
+export function usePlatformStatus(pollMs = 60_000) {
+  const [status, setStatus] = useState<PlatformStatus | null>(null)
+
+  const load = useCallback(() => fetchPlatformStatus().then(setStatus).catch(() => {}), [])
+
+  useEffect(() => {
+    load()
+    const id = window.setInterval(load, pollMs)
+    const onFocus = () => { if (document.visibilityState === 'visible') load() }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onFocus)
+    return () => {
+      window.clearInterval(id)
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onFocus)
+    }
+  }, [load, pollMs])
+
+  return status
 }
 
 export function useCategoryProducts(params?: Record<string, string>) {

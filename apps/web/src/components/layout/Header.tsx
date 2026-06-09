@@ -14,9 +14,10 @@ import GlobalSearch from '@/components/layout/GlobalSearch'
 interface HeaderProps {
   onMenuToggle: () => void
   sidebarOpen: boolean
+  maintenance?: { enabled: boolean; message: string } | null
 }
 
-export default function Header({ onMenuToggle, sidebarOpen }: HeaderProps) {
+export default function Header({ onMenuToggle, sidebarOpen, maintenance }: HeaderProps) {
   const [notifOpen, setNotifOpen] = useState(false)
   const [userOpen, setUserOpen]   = useState(false)
   const { theme, setTheme } = useTheme()
@@ -32,7 +33,16 @@ export default function Header({ onMenuToggle, sidebarOpen }: HeaderProps) {
 
   /* build live notifications from real dashboard data */
   const notifications = useMemo(() => {
-    const list: { id: number; type: string; icon: any; message: string; unread: boolean }[] = []
+    const list: { id: number | string; type: string; icon: any; message: string; unread: boolean }[] = []
+    if (maintenance?.enabled) {
+      list.push({
+        id: 'maintenance',
+        type: 'warning',
+        icon: AlertTriangle,
+        message: maintenance.message || 'The system is currently in maintenance mode.',
+        unread: true,
+      })
+    }
     if (dash?.lowStockCount > 0)
       list.push({ id: 1, type: 'warning', icon: AlertTriangle, message: `${dash.lowStockCount} product${dash.lowStockCount > 1 ? 's are' : ' is'} running low on stock`, unread: true })
     if (dash?.activeRepairs > 0)
@@ -42,7 +52,7 @@ export default function Header({ onMenuToggle, sidebarOpen }: HeaderProps) {
     if (dash?.totalCustomers > 0)
       list.push({ id: 4, type: 'success', icon: TrendingUp, message: `${dash.totalCustomers} total customers registered`, unread: false })
     return list
-  }, [dash])
+  }, [dash, maintenance])
 
   const unreadCount = notifications.filter(n => n.unread).length
 

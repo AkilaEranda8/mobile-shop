@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
-  Eye, EyeOff, ArrowRight, AlertCircle, ShoppingCart,
+  Eye, EyeOff, ArrowRight, AlertCircle, AlertTriangle, ShoppingCart,
   Wrench, BarChart3, Shield, Users, Package,
 } from 'lucide-react'
-import { authApi } from '@/lib/api'
+import { authApi, fetchPlatformStatus } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 
 const features = [
@@ -22,7 +22,14 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading]           = useState(false)
   const [error, setError]               = useState('')
+  const [maintenance, setMaintenance]   = useState<{ enabled: boolean; message: string } | null>(null)
   const [form, setForm]                 = useState({ email: '', password: '' })
+
+  useEffect(() => {
+    fetchPlatformStatus()
+      .then(s => setMaintenance(s.maintenance))
+      .catch(() => {})
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -107,6 +114,16 @@ export default function LoginPage() {
             <p className="text-sm mt-1" style={{ color: '#64748b' }}>Sign in to your dashboard</p>
           </div>
 
+          {maintenance?.enabled && (
+            <div className="mb-5 flex items-start gap-2.5 px-3.5 py-3 rounded-xl bg-red-500/10 border border-red-500/25 text-red-300 text-sm">
+              <AlertTriangle size={16} className="flex-shrink-0 mt-0.5 text-red-400" />
+              <div>
+                <p className="font-semibold text-red-400">Maintenance mode is active</p>
+                <p className="text-xs mt-1 text-red-200/80">{maintenance.message}</p>
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
               <div className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl bg-red-500/8 border border-red-500/20 text-red-400 text-sm">
@@ -164,7 +181,7 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || maintenance?.enabled}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-60"
               style={{ background: 'linear-gradient(135deg, #7c3aed, #0e7490)', boxShadow: '0 4px 20px rgba(124,58,237,0.3)' }}
             >
