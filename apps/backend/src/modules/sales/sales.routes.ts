@@ -145,15 +145,29 @@ router.post('/:id/returns', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req
         }
       }
 
-      // Update sale status + deduct returned amount from total
+      // Split the refund across what the customer already paid vs still owed, so a
+      // partially-paid (credit) sale doesn't end up with negative paidAmount or a
+      // stale dueAmount/customer balance.
+      const refundFromPaid = Math.min(refundAmount, sale.paidAmount)
+      const refundFromDue  = Math.max(0, refundAmount - refundFromPaid)
+
       await tx.sale.update({
         where: { id: sale.id },
         data: {
           status:     newSaleStatus,
           total:      { decrement: refundAmount },
-          paidAmount: { decrement: refundAmount },
+          paidAmount: { decrement: refundFromPaid },
+          ...(refundFromDue > 0 && { dueAmount: { decrement: refundFromDue } }),
         },
       })
+
+      // Reduce the customer's outstanding balance by the credit portion of the refund.
+      if (refundFromDue > 0 && sale.customerId) {
+        await tx.customer.update({
+          where: { id: sale.customerId },
+          data:  { totalDue: { decrement: refundFromDue } },
+        }).catch(() => {})
+      }
 
       // Adjust original INCOME transaction to reflect the refund
       const origIncomeTx = await tx.transaction.findFirst({

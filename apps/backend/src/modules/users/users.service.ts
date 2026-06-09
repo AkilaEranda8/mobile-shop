@@ -5,6 +5,10 @@ import { getPagination } from '../../utils/pagination'
 import { Request } from 'express'
 import { createOrGetGroup, createKcUser, updateKcUser, deleteKcUser } from '../../utils/keycloakAdmin'
 
+// Roles a tenant admin (OWNER/MANAGER) is permitted to assign. PLATFORM_ADMIN is
+// intentionally excluded so tenant users can never escalate to platform access.
+const ASSIGNABLE_ROLES = ['OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN']
+
 export const usersService = {
   async list(tenantId: string, req: Request) {
     const { skip, limit, page, search } = getPagination(req)
@@ -22,6 +26,7 @@ export const usersService = {
   },
 
   async create(tenantId: string, body: { email: string; name: string; role: string; password: string; branchIds?: string[] }) {
+    if (!ASSIGNABLE_ROLES.includes(body.role)) throw new AppError('Invalid role', 400)
     const existing = await prisma.user.findFirst({ where: { tenantId, email: body.email } })
     if (existing) throw new AppError('Email already in use', 409)
     const password = await bcrypt.hash(body.password, 12)
@@ -66,6 +71,7 @@ export const usersService = {
   },
 
   async update(tenantId: string, id: string, body: Partial<{ name: string; role: string; isActive: boolean; branchIds: string[] }>) {
+    if (body.role !== undefined && !ASSIGNABLE_ROLES.includes(body.role)) throw new AppError('Invalid role', 400)
     const user = await prisma.user.findFirst({ where: { id, tenantId } })
     if (!user) throw new AppError('User not found', 404)
     const { branchIds, ...rest } = body
@@ -78,7 +84,8 @@ export const usersService = {
     try {
       await updateKcUser(id, { name: rest.name, role: rest.role, isActive: rest.isActive })
     } catch (e) { console.warn('[KC] user update sync failed:', (e as Error).message) }
-    return updated
+    const { password: _pw, ...safe } = updated as any
+    return safe
   },
 
   async remove(tenantId: string, id: string) {

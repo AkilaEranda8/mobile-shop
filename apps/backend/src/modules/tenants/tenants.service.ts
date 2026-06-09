@@ -13,8 +13,13 @@ export const tenantsService = {
     return t
   },
 
-  async update(id: string, body: Partial<{ name: string; plan: string; status: string }>) {
-    return prisma.tenant.update({ where: { id }, data: body as any, include: { branches: true } })
+  async update(id: string, body: Partial<{ name: string; plan: string; status: string }> & Record<string, unknown>) {
+    // Defensive allowlist — never trust arbitrary client fields onto the tenant row.
+    const data: Record<string, unknown> = {}
+    if (body.name   !== undefined) data.name   = body.name
+    if (body.plan   !== undefined) data.plan   = body.plan
+    if (body.status !== undefined) data.status = body.status
+    return prisma.tenant.update({ where: { id }, data: data as any, include: { branches: true } })
   },
 
   async getInvoiceSettings(tenantId: string, _branchId?: string) {

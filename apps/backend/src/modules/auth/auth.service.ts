@@ -147,7 +147,8 @@ export const authService = {
       include: { branches: { select: { branchId: true } } },
     })
     if (!user) throw new AppError('User not found', 404)
-    return user
+    const { password: _pw, ...safe } = user as any
+    return safe
   },
 
   async changePassword(userId: string, currentPassword: string, newPassword: string) {

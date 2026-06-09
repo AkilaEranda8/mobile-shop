@@ -76,8 +76,16 @@ export const productsService = {
     if (trackImei      !== undefined) data.trackImei      = Boolean(trackImei)
     if (warrantyMonths !== undefined) data.warrantyMonths = Number(warrantyMonths)
     if (imageUrl       !== undefined) data.imageUrl       = imageUrl
-    if (stock          !== undefined) data.stock          = Number(stock)
-    if (minStock       !== undefined) data.minStock       = Number(minStock)
+    if (stock          !== undefined) {
+      const n = Number(stock)
+      if (Number.isNaN(n) || n < 0) throw new AppError('Stock cannot be negative', 400)
+      data.stock = n
+    }
+    if (minStock       !== undefined) {
+      const n = Number(minStock)
+      if (Number.isNaN(n) || n < 0) throw new AppError('Minimum stock cannot be negative', 400)
+      data.minStock = n
+    }
     if (isActive       !== undefined) data.isActive       = Boolean(isActive)
     return prisma.product.update({ where: { id }, data })
   },

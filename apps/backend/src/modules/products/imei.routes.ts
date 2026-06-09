@@ -149,6 +149,8 @@ router.post('/', authorize('OWNER', 'MANAGER'), async (req: Request, res: Respon
 router.patch('/:id/status', authorize('OWNER', 'MANAGER', 'TECHNICIAN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { status } = req.body
+    const existing = await prisma.imeiRecord.findFirst({ where: { id: req.params.id, product: { tenantId: req.tenantId! } } })
+    if (!existing) throw new AppError('IMEI record not found', 404)
     const record = await prisma.imeiRecord.update({ where: { id: req.params.id }, data: { status } })
     sendSuccess(res, record, 'Status updated')
   } catch (e) { next(e) }

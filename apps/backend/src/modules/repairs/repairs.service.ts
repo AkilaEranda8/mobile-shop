@@ -152,6 +152,7 @@ export const repairsService = {
   async collectPayment(tenantId: string, id: string, body: { discount?: number; paymentMethod: string; cashierName?: string }) {
     const r = await prisma.repairTicket.findFirst({ where: { id, tenantId }, include: { spareParts: true } })
     if (!r) throw new AppError('Repair ticket not found', 404)
+    if (r.status === 'DELIVERED') throw new AppError('Payment has already been collected for this ticket', 400)
     await assertBusinessDayOpenIfEnabled(tenantId, r.branchId)
 
     const partsTotal  = r.spareParts.reduce((s: number, p: any) => s + p.total, 0)
@@ -191,21 +192,27 @@ export const repairsService = {
       for (const p of r.spareParts) {
         if (p.productId) {
           const prod = await tx.product.findUnique({ where: { id: p.productId }, select: { stock: true, name: true } })
-          if (prod && prod.stock < p.quantity) {
-            throw new AppError(`Insufficient stock for "${prod.name}". Available: ${prod.stock}, Required: ${p.quantity}`, 400)
+          if (prod) {
+            // Atomic conditional decrement prevents overselling under concurrent writes.
+            const dec = await tx.product.updateMany({
+              where: { id: p.productId, stock: { gte: p.quantity } },
+              data:  { stock: { decrement: p.quantity } },
+            })
+            if (dec.count === 0) {
+              throw new AppError(`Insufficient stock for "${prod.name}". Available: ${prod.stock}, Required: ${p.quantity}`, 400)
+            }
+            await tx.stockMovement.create({
+              data: {
+                productId:   p.productId,
+                branchId:    r.branchId,
+                type:        'REPAIR_USE',
+                quantity:    -p.quantity,
+                reference:   r.ticketNumber,
+                note:        `Spare part used in repair ${r.ticketNumber}`,
+                performedBy: cashierName,
+              },
+            })
           }
-          await tx.product.update({ where: { id: p.productId }, data: { stock: { decrement: p.quantity } } })
-          await tx.stockMovement.create({
-            data: {
-              productId:   p.productId,
-              branchId:    r.branchId,
-              type:        'REPAIR_USE',
-              quantity:    -p.quantity,
-              reference:   r.ticketNumber,
-              note:        `Spare part used in repair ${r.ticketNumber}`,
-              performedBy: cashierName,
-            },
-          })
         }
       }
     })
