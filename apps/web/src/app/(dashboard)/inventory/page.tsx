@@ -189,11 +189,14 @@ function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
 }
 
 /* ── Add Category Modal ─────────────────────────────────────────────── */
-function AddCategoryModal({ onClose, onSaved }: { onClose: () => void; onSaved: (cat: Category) => void }) {
+function AddCategoryModal({ onClose, onSaved, onChanged }: { onClose: () => void; onSaved: (cat: Category) => void; onChanged?: () => void }) {
   const [name, setName] = useState('')
   const [icon, setIcon] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError]   = useState('')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const { data: catsData, refetch } = useCategories()
+  const categories: Category[] = (catsData ?? []) as Category[]
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -202,10 +205,22 @@ function AddCategoryModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     try {
       const res: any = await productsApi.createCategory({ name: name.trim(), icon: icon || undefined })
       toast.success(`Category "${name}" created`)
+      setName(''); setIcon('')
+      refetch(); onChanged?.()
       onSaved(res.data ?? res)
-      onClose()
     } catch (err: any) { setError(err.message || 'Failed to create category') }
     finally { setLoading(false) }
+  }
+
+  const handleDelete = async (cat: Category) => {
+    if (!confirm(`Delete category "${cat.name}"? This cannot be undone.`)) return
+    setDeletingId(cat.id)
+    try {
+      await productsApi.deleteCategory(cat.id)
+      toast.success(`Category "${cat.name}" deleted`)
+      refetch(); onChanged?.()
+    } catch (err: any) { toast.error(err.message || 'Failed to delete category') }
+    finally { setDeletingId(null) }
   }
 
   return (
@@ -214,10 +229,33 @@ function AddCategoryModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
         <div className="flex items-center justify-between p-5 border-b border-white/5">
           <div className="flex items-center gap-2">
             <Tag size={15} className="text-violet-400" />
-            <h3 className="text-sm font-semibold text-white">Add Category</h3>
+            <h3 className="text-sm font-semibold text-white">Manage Categories</h3>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={15} /></button>
         </div>
+
+        {categories.length > 0 && (
+          <div className="px-5 pt-4">
+            <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">Existing ({categories.length})</p>
+            <div className="max-h-44 overflow-y-auto space-y-1 pr-1">
+              {categories.map(cat => (
+                <div key={cat.id} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-white/3 border border-white/5">
+                  <span className="text-sm text-slate-200 truncate flex items-center gap-2">
+                    {cat.icon && <span>{cat.icon}</span>}{cat.name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(cat)}
+                    disabled={deletingId === cat.id}
+                    className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50 flex-shrink-0">
+                    {deletingId === cat.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
             <label className="block text-xs text-slate-400 mb-1.5">Category Name *</label>
@@ -238,7 +276,7 @@ function AddCategoryModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
           )}
           {error && <p className="text-xs text-red-400">{error}</p>}
           <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Close</button>
             <button type="submit" disabled={loading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
               {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}Add Category
             </button>
@@ -392,7 +430,7 @@ function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
           </div>
         </form>
       </div>
-      {showAddCat && <AddCategoryModal onClose={() => setShowAddCat(false)} onSaved={cat => { refetchCats(); setForm(p => ({ ...p, categoryName: cat.name })) }} />}
+      {showAddCat && <AddCategoryModal onClose={() => setShowAddCat(false)} onChanged={refetchCats} onSaved={cat => { refetchCats(); setForm(p => ({ ...p, categoryName: cat.name })); setShowAddCat(false) }} />}
     </div>
   )
 }
@@ -493,7 +531,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
           </div>
         </form>
       </div>
-      {showAddCat && <AddCategoryModal onClose={() => setShowAddCat(false)} onSaved={cat => { refetchCats(); setForm(p => ({ ...p, categoryName: cat.name })) }} />}
+      {showAddCat && <AddCategoryModal onClose={() => setShowAddCat(false)} onChanged={refetchCats} onSaved={cat => { refetchCats(); setForm(p => ({ ...p, categoryName: cat.name })); setShowAddCat(false) }} />}
     </div>
   )
 }
@@ -758,7 +796,7 @@ export default function InventoryPage() {
     <div className="space-y-6">
       {showAddModal && <AddProductModal onClose={() => setShowAddModal(false)} onSaved={refetch} />}
       {showImport  && <ImportModal onClose={() => setShowImport(false)} onSaved={refetch} />}
-      {showAddCat  && <AddCategoryModal onClose={() => setShowAddCat(false)} onSaved={() => refetchCats()} />}
+      {showAddCat  && <AddCategoryModal onClose={() => setShowAddCat(false)} onChanged={() => refetchCats()} onSaved={() => refetchCats()} />}
       {editProduct && <EditProductModal product={editProduct} onClose={() => setEditProduct(null)} onSaved={refetch} />}
       {viewProduct && <ProductDetailModal product={viewProduct} onClose={() => setViewProduct(null)} onEdit={() => { setEditProduct(viewProduct); setViewProduct(null) }} />}
       {/* Header */}

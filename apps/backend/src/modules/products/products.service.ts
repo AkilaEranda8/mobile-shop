@@ -109,6 +109,16 @@ export const productsService = {
     return prisma.category.create({ data: { tenantId, name: body.name, slug, icon: body.icon } })
   },
 
+  async deleteCategory(tenantId: string, id: string) {
+    const cat = await prisma.category.findFirst({ where: { id, tenantId } })
+    if (!cat) throw new AppError('Category not found', 404)
+    const inUse = await prisma.product.count({ where: { tenantId, categoryId: id, isActive: true } })
+    if (inUse > 0) {
+      throw new AppError(`Cannot delete — ${inUse} product${inUse > 1 ? 's' : ''} still use this category. Reassign them first.`, 400)
+    }
+    await prisma.category.delete({ where: { id } })
+  },
+
   async getBrands(tenantId: string) {
     return prisma.brand.findMany({ where: { tenantId }, orderBy: { name: 'asc' } })
   },

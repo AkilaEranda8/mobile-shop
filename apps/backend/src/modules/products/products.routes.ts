@@ -7,6 +7,7 @@ router.use(authenticate)
 
 router.get('/categories', productsController.getCategories)
 router.post('/categories', authorize('OWNER', 'MANAGER'), productsController.createCategory)
+router.delete('/categories/:id', authorize('OWNER', 'MANAGER'), productsController.deleteCategory)
 router.get('/brands', productsController.getBrands)
 router.post('/brands', authorize('OWNER', 'MANAGER'), productsController.createBrand)
 

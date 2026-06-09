@@ -173,6 +173,7 @@ export const productsApi = {
   delete: (id: string) => api.delete(`/products/${id}`),
   categories: () => api.get('/products/categories'),
   createCategory: (body: { name: string; icon?: string }) => api.post('/products/categories', body),
+  deleteCategory: (id: string) => api.delete(`/products/categories/${id}`),
   brands: () => api.get('/products/brands'),
 }
 
