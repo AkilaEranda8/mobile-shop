@@ -146,6 +146,12 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
       })
     : []
 
+  // Repair payments create their own POS Sale AND a Finance "Repairs" transaction.
+  // Aggregate repair revenue/cash from the Finance transaction only (below) and keep
+  // these repair-source sales out of the POS buckets to avoid double-counting.
+  const posSales = sales.filter(s => (s as any).source !== 'REPAIR')
+  const repairSales = sales.filter(s => (s as any).source === 'REPAIR')
+
   let mobileSales = 0
   let accessorySales = 0
   let serviceIncome = 0
@@ -156,7 +162,7 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
   let qrPayments = 0
   let bankFromSales = 0
 
-  for (const sale of sales) {
+  for (const sale of posSales) {
     for (const p of sale.payments) {
       const amt = Number(p.amount)
       if (p.method === 'CASH') cashSales += amt
@@ -196,16 +202,23 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
     const cat = tx.category ?? 'Other'
     if (tx.type === 'INCOME') {
       if (cat === 'Sales') continue
-      if (cat === 'Repairs') repairIncome += amt
-      else if (/bill\s*pay/i.test(cat)) billPaymentIncome += amt
+      if (cat === 'Repairs') {
+        // Repairs are the single source of repair revenue; route their payment to the
+        // matching bucket so card/QR/bank repair income isn't lost from reconciliation.
+        repairIncome += amt
+        if (tx.paymentMethod === 'CASH') cashSales += amt
+        else if (tx.paymentMethod === 'CARD') cardPayments += amt
+        else if (tx.paymentMethod === 'UPI' || tx.paymentMethod === 'WALLET') qrPayments += amt
+        else if (tx.paymentMethod === 'BANK_TRANSFER') bankFromSales += amt
+      }
+      else if (/bill\s*pay/i.test(cat)) {
+        billPaymentIncome += amt
+        if (tx.paymentMethod === 'CASH') cashSales += amt
+      }
       else if (cat === 'Customer Credit Payment') {
         creditPayments += amt
         if (tx.paymentMethod === 'CASH') cashSales += amt
       } else otherIncome += amt
-      if (tx.paymentMethod === 'CASH' && cat !== 'Customer Credit Payment') {
-        // repair/bill/other cash income into drawer
-        if (cat === 'Repairs' || /bill\s*pay/i.test(cat)) cashSales += amt
-      }
     } else if (tx.type === 'EXPENSE') {
       if (cat === 'Refund') continue
       totalExpenses += amt
@@ -247,8 +260,8 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
     : 0
   if (!dailyReloadEnabled) reloadCommission = 0
   const totalSales = mobileSales + accessorySales + serviceIncome + reloadSales
-  const salesCount = sales.length
-  const posSalesTotal = sales.reduce((s, sale) => s + Number(sale.total), 0)
+  const salesCount = posSales.length
+  const posSalesTotal = posSales.reduce((s, sale) => s + Number(sale.total), 0)
 
   const cogsRaw = await prisma.$queryRaw<Array<{ cogs: number }>>`
     SELECT COALESCE(SUM(si.quantity::float * p."buyingPrice"), 0)::float AS cogs
@@ -261,10 +274,21 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
       AND  s."createdAt" <= ${end}
       AND  s.status != 'RETURNED'
   `
-  const cogs = Number(cogsRaw[0]?.cogs ?? 0)
+  const totalCogsAll = Number(cogsRaw[0]?.cogs ?? 0)
+  // Repair spare-part cost is part of repair income, not POS product sales — split it
+  // out so POS gross profit and repair margin are each reported correctly.
+  let repairPartsCogs = 0
+  for (const sale of repairSales) {
+    for (const item of sale.items) {
+      if (item.productId && item.product) {
+        repairPartsCogs += item.quantity * Number((item.product as any).buyingPrice ?? 0)
+      }
+    }
+  }
+  const cogs = Math.max(0, totalCogsAll - repairPartsCogs)
   const grossSales = totalSales + repairIncome + billPaymentIncome + otherIncome + creditPayments
   const grossProfit = totalSales - cogs - refundsTotal
-  const netProfit = grossSales + reloadCommission - cogs - totalExpenses - refundsTotal
+  const netProfit = grossSales + reloadCommission - cogs - repairPartsCogs - totalExpenses - refundsTotal
 
   const openingCash = existingClosing?.openingCash ?? openingCashFromPrev
   const expectedCash = openingCash + cashSales - totalExpenses - bankDeposits - cashRefunds
@@ -283,7 +307,7 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
 
   const productTotals: Record<string, { name: string; qty: number; revenue: number }> = {}
   const brandTotals: Record<string, number> = {}
-  for (const sale of sales) {
+  for (const sale of posSales) {
     for (const item of sale.items) {
       if (isReloadItem(item)) continue
       const key = item.productId ?? item.productName

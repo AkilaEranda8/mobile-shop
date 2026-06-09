@@ -4,6 +4,7 @@ import { prisma } from '../../config/database'
 import { sendSuccess } from '../../utils/response'
 import { authenticate } from '../../middleware/auth.middleware'
 import { AppError } from '../../middleware/error.middleware'
+import { businessDayRange } from '../../utils/date-range'
 import {
   calcReloadCommission,
   fetchTenantReloadSettings,
@@ -32,9 +33,9 @@ function parseAmt(raw: unknown): number {
 }
 
 function buildDateFilter(date?: string) {
-  if (!date) return {}
-  const start = new Date(date); start.setHours(0, 0, 0, 0)
-  const end   = new Date(date); end.setHours(23, 59, 59, 999)
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return {}
+  // Align the day window to the Sri Lanka business day (matches Daily Closing).
+  const { start, end } = businessDayRange(date)
   return { reloadDate: { gte: start, lte: end } }
 }
 
@@ -56,13 +57,15 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
     const { date, page = '1', limit = '200' } = req.query as Record<string, string>
-    const skip = (parseInt(page) - 1) * parseInt(limit)
+    const pageNum  = Math.max(1, parseInt(page, 10) || 1)
+    const limitNum = Math.min(500, Math.max(1, parseInt(limit, 10) || 200))
+    const skip = (pageNum - 1) * limitNum
     const where = { tenantId, ...buildDateFilter(date) }
 
     res.setHeader('Cache-Control', 'no-store')
     const settings = await fetchTenantReloadSettings(tenantId)
     const [reloads, total, agg] = await Promise.all([
-      prisma.dailyReload.findMany({ where, orderBy: { reloadDate: 'desc' }, skip, take: parseInt(limit) }),
+      prisma.dailyReload.findMany({ where, orderBy: { reloadDate: 'desc' }, skip, take: limitNum }),
       prisma.dailyReload.count({ where }),
       prisma.dailyReload.aggregate({ where, _sum: { amount: true }, _count: true }),
     ])
@@ -74,7 +77,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
       totalAmount,
       commission: sumCommission(reloads, settings),
       settings,
-      page: parseInt(page), limit: parseInt(limit),
+      page: pageNum, limit: limitNum,
     })
   } catch (e) { next(e) }
 })

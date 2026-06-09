@@ -3,6 +3,7 @@ import { prisma } from '../../config/database'
 import { Prisma } from '@prisma/client'
 import { sendSuccess } from '../../utils/response'
 import { authenticate } from '../../middleware/auth.middleware'
+import { businessDayRange, businessDateFromInstant } from '../../utils/date-range'
 
 const router = Router()
 router.use(authenticate)
@@ -12,8 +13,7 @@ router.get('/dashboard', async (req: Request, res: Response, next: NextFunction)
     const tenantId = req.tenantId!
     const branchId = req.query.branchId as string | undefined
     const branchFilter = branchId ? { branchId } : {}
-    const today = new Date(); today.setHours(0, 0, 0, 0)
-    const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999)
+    const { start: today, end: todayEnd } = businessDayRange(businessDateFromInstant())
     const in30Days = new Date(); in30Days.setDate(in30Days.getDate() + 30)
 
     const [todaySales, activeRepairs, totalCustomers, lowStockProducts, posRevenue, otherRevenue, expiringWarranties, readyForPickup, totalSalesCount] = await Promise.all([
@@ -73,7 +73,7 @@ router.get('/revenue', async (req: Request, res: Response, next: NextFunction) =
 
     // 1. POS sales revenue per day (exclude returned orders)
     const salesRaw: Array<{ date: Date; total: number }> = await prisma.$queryRaw`
-      SELECT DATE_TRUNC('day', "createdAt" AT TIME ZONE 'UTC') AS date,
+      SELECT DATE_TRUNC('day', "createdAt" AT TIME ZONE 'Asia/Colombo') AS date,
              COALESCE(SUM(total), 0)::float                    AS total
       FROM   "Sale"
       WHERE  "tenantId" = ${tenantId}
@@ -87,7 +87,7 @@ router.get('/revenue', async (req: Request, res: Response, next: NextFunction) =
 
     // 2. COGS per day (exclude returned orders)
     const cogsRaw: Array<{ date: Date; cogs: number }> = await prisma.$queryRaw`
-      SELECT DATE_TRUNC('day', s."createdAt" AT TIME ZONE 'UTC') AS date,
+      SELECT DATE_TRUNC('day', s."createdAt" AT TIME ZONE 'Asia/Colombo') AS date,
              COALESCE(SUM(si.quantity::float * p."buyingPrice"), 0)::float AS cogs
       FROM   "SaleItem" si
       JOIN   "Sale"    s ON s.id = si."saleId"
@@ -103,7 +103,7 @@ router.get('/revenue', async (req: Request, res: Response, next: NextFunction) =
 
     // 3. Operating expenses per day (exclude Refund category)
     const expensesRaw: Array<{ date: Date; total: number }> = await prisma.$queryRaw`
-      SELECT DATE_TRUNC('day', "createdAt" AT TIME ZONE 'UTC') AS date,
+      SELECT DATE_TRUNC('day', "createdAt" AT TIME ZONE 'Asia/Colombo') AS date,
              COALESCE(SUM(amount), 0)::float                   AS total
       FROM   "Transaction"
       WHERE  "tenantId" = ${tenantId}
@@ -119,7 +119,7 @@ router.get('/revenue', async (req: Request, res: Response, next: NextFunction) =
     // 4. Other income per day (Transaction.INCOME) — exclude category='Sales' to avoid
     //    double-counting POS sales already captured in salesRaw above
     const incomeRaw: Array<{ date: Date; total: number }> = await prisma.$queryRaw`
-      SELECT DATE_TRUNC('day', "createdAt" AT TIME ZONE 'UTC') AS date,
+      SELECT DATE_TRUNC('day', "createdAt" AT TIME ZONE 'Asia/Colombo') AS date,
              COALESCE(SUM(amount), 0)::float                   AS total
       FROM   "Transaction"
       WHERE  "tenantId" = ${tenantId}
