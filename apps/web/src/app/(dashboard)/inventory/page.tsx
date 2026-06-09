@@ -12,6 +12,7 @@ import { productsApi, uploadApi } from '@/lib/api'
 import type { Product, Category } from '@/types'
 import toast from 'react-hot-toast'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
+import { FilterDropdown } from '@/components/ui/filter-dropdown'
 
 /* ── CSV Export ─────────────────────────────────────────────────────── */
 function exportProductsCSV(products: Product[]) {
@@ -649,6 +650,19 @@ export default function InventoryPage() {
     setStatusFilter('all')
   }
 
+  const categoryOptions = useMemo(
+    () => [
+      { value: 'all', label: 'All categories' },
+      ...allCategories.map(c => ({ value: c.name, label: `${c.icon ? `${c.icon} ` : ''}${c.name}` })),
+    ],
+    [allCategories],
+  )
+
+  const brandOptions = useMemo(
+    () => [{ value: 'all', label: 'All brands' }, ...brands.map(b => ({ value: b, label: b }))],
+    [brands],
+  )
+
   const lowStockCount = filteredProducts.filter(p => p.stock < p.minStock && p.stock > 0).length
 
   useEffect(() => {
@@ -776,51 +790,25 @@ export default function InventoryPage() {
 
       {/* Filter toolbar */}
       <div className="flex flex-wrap items-center gap-2">
-        <div
-          className="flex items-center gap-2 px-3 py-2 rounded-xl min-w-[170px]"
-          style={{
-            background: 'var(--bg-subtle)',
-            border: categoryFilter !== 'all' ? '1px solid rgba(109,40,217,0.35)' : '1px solid var(--border-subtle)',
-          }}>
-          <Layers size={13} style={{ color: categoryFilter !== 'all' ? '#8b5cf6' : 'var(--text-muted)' }} />
-          <select
-            value={categoryFilter}
-            onChange={e => setCategoryFilter(e.target.value)}
-            className="bg-transparent text-xs outline-none cursor-pointer font-medium flex-1 min-w-0 truncate"
-            style={{ color: categoryFilter !== 'all' ? '#8b5cf6' : 'var(--text-primary)' }}>
-            <option value="all">All categories</option>
-            {allCategories.map(c => (
-              <option key={c.id} value={c.name}>{c.icon ? `${c.icon} ` : ''}{c.name}</option>
-            ))}
-          </select>
-          {categoryFilter !== 'all' && (
-            <button type="button" onClick={() => setCategoryFilter('all')} className="hover:text-red-400 transition-colors" style={{ color: 'var(--text-muted)' }}>
-              <X size={11} />
-            </button>
-          )}
-        </div>
+        <FilterDropdown
+          value={categoryFilter}
+          onChange={setCategoryFilter}
+          options={categoryOptions}
+          icon={Layers}
+          placeholder="All categories"
+          active={categoryFilter !== 'all'}
+          onClear={() => setCategoryFilter('all')}
+        />
 
-        <div
-          className="flex items-center gap-2 px-3 py-2 rounded-xl min-w-[170px]"
-          style={{
-            background: 'var(--bg-subtle)',
-            border: brandFilter !== 'all' ? '1px solid rgba(109,40,217,0.35)' : '1px solid var(--border-subtle)',
-          }}>
-          <Tag size={13} style={{ color: brandFilter !== 'all' ? '#8b5cf6' : 'var(--text-muted)' }} />
-          <select
-            value={brandFilter}
-            onChange={e => setBrandFilter(e.target.value)}
-            className="bg-transparent text-xs outline-none cursor-pointer font-medium flex-1 min-w-0 truncate"
-            style={{ color: brandFilter !== 'all' ? '#8b5cf6' : 'var(--text-primary)' }}>
-            <option value="all">All brands</option>
-            {brands.map(b => <option key={b} value={b}>{b}</option>)}
-          </select>
-          {brandFilter !== 'all' && (
-            <button type="button" onClick={() => setBrandFilter('all')} className="hover:text-red-400 transition-colors" style={{ color: 'var(--text-muted)' }}>
-              <X size={11} />
-            </button>
-          )}
-        </div>
+        <FilterDropdown
+          value={brandFilter}
+          onChange={setBrandFilter}
+          options={brandOptions}
+          icon={Tag}
+          placeholder="All brands"
+          active={brandFilter !== 'all'}
+          onClear={() => setBrandFilter('all')}
+        />
 
         <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
           {([

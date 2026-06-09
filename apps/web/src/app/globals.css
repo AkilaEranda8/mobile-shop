@@ -257,6 +257,15 @@
   .pos-product-card {
     @apply card card-hover p-4 flex flex-col gap-2 select-none;
   }
+
+  .dark select {
+    color-scheme: dark;
+  }
+
+  .dark select option {
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+  }
 }
 
 /* ── Light mode: polished component overrides ──────────────────────── */
