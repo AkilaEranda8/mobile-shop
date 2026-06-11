@@ -8,6 +8,7 @@ import path from 'path'
 import fs from 'fs'
 
 import { env } from './config/env'
+import { logPlatformActivity } from './utils/activity-log'
 import { prisma } from './config/database'
 import { errorHandler, notFound } from './middleware/error.middleware'
 
@@ -72,8 +73,20 @@ app.use('/uploads', (_req, res, next) => {
   next()
 }, express.static(uploadsDir))
 
-function rateLimitJsonHandler(message: string) {
-  return (_req: Request, res: Response) => {
+function rateLimitJsonHandler(message: string, logAsLoginAttempt = false) {
+  return (req: Request, res: Response) => {
+    if (logAsLoginAttempt) {
+      const email = typeof req.body?.email === 'string' ? req.body.email.toLowerCase().trim() : ''
+      logPlatformActivity({
+        eventType: 'LOGIN_RATE_LIMITED',
+        severity: 'WARN',
+        actorType: 'SYSTEM',
+        actor: email || 'unknown',
+        target: email || '—',
+        details: message,
+        ip: req.ip || req.socket.remoteAddress || '—',
+      }).catch(() => {})
+    }
     res.status(429).json({ success: false, message })
   }
 }
@@ -98,7 +111,7 @@ const authLimiter = rateLimit({
     const ip = req.ip || req.socket.remoteAddress || 'unknown'
     return email ? `${email}:${ip}` : ip
   },
-  handler: rateLimitJsonHandler('Too many login attempts. Please try again in 15 minutes.'),
+  handler: rateLimitJsonHandler('Too many login attempts. Please try again in 15 minutes.', true),
 })
 
 const API = `/${env.API_PREFIX}`

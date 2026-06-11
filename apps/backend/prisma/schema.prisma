@@ -1112,6 +1112,24 @@ model DailyClosingReport {
   @@index([closingId])
 }
 
+// ─────────────── Platform Activity Logs ───────────────
+model PlatformActivityLog {
+  id        String   @id @default(cuid())
+  eventType String
+  severity  String   @default("INFO")
+  actorType String
+  actor     String
+  target    String   @default("—")
+  details   String
+  ip        String   @default("—")
+  tenantId  String?
+  userId    String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([eventType])
+}
+
 // ─────────────── Platform Announcements ───────────────
 model PlatformAnnouncement {
   id          String    @id @default(cuid())

@@ -411,8 +411,9 @@ router.get('/activity-logs', async (req: Request, res: Response, next: NextFunct
     const TAKE = 100
 
     // ── pull raw records in parallel ──────────────────────────────
-    const [tenants, users, sales, repairs, repairHistory, warrantyClaims, purchaseOrders] =
+    const [platformLogs, tenants, users, sales, repairs, repairHistory, warrantyClaims, purchaseOrders] =
       await Promise.all([
+        prisma.platformActivityLog.findMany({ orderBy: { createdAt: 'desc' }, take: TAKE }),
         prisma.tenant.findMany({ select: { id: true, name: true, plan: true, status: true, createdAt: true, ownerEmail: true }, orderBy: { createdAt: 'desc' }, take: TAKE }),
         prisma.user.findMany({ select: { id: true, name: true, email: true, role: true, createdAt: true, tenant: { select: { name: true } } }, orderBy: { createdAt: 'desc' }, take: TAKE }),
         prisma.sale.findMany({ select: { id: true, invoiceNumber: true, total: true, cashierName: true, createdAt: true, tenant: { select: { name: true } } }, orderBy: { createdAt: 'desc' }, take: TAKE }),
@@ -425,6 +426,20 @@ router.get('/activity-logs', async (req: Request, res: Response, next: NextFunct
     // ── normalize to common log shape ──────────────────────────────
     type RawLog = { id: string; timestamp: string; eventType: string; severity: string; actorType: string; actor: string; target: string; details: string; ip: string }
     const logs: RawLog[] = []
+
+    for (const l of platformLogs) {
+      logs.push({
+        id: `pl-${l.id}`,
+        timestamp: l.createdAt.toISOString(),
+        eventType: l.eventType,
+        severity: l.severity,
+        actorType: l.actorType,
+        actor: l.actor,
+        target: l.target,
+        details: l.details,
+        ip: l.ip,
+      })
+    }
 
     for (const t of tenants) {
       const isSuspended = t.status === 'SUSPENDED'

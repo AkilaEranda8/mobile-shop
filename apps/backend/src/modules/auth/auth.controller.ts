@@ -1,9 +1,57 @@
 import { Request, Response, NextFunction } from 'express'
 import { authService } from './auth.service'
 import { sendSuccess } from '../../utils/response'
+import { AppError } from '../../middleware/error.middleware'
+import { getClientIp, logPlatformActivity } from '../../utils/activity-log'
+
+async function logLoginAttempt(
+  req: Request,
+  email: string,
+  success: boolean,
+  result?: { user: { id: string; email: string; name: string; role: string; tenantId: string } },
+  error?: unknown,
+) {
+  const ip = getClientIp(req)
+  if (success && result) {
+    const isAdmin = result.user.role === 'PLATFORM_ADMIN'
+    await logPlatformActivity({
+      eventType: isAdmin ? 'ADMIN_LOGIN' : 'TENANT_LOGIN',
+      severity: 'INFO',
+      actorType: isAdmin ? 'ADMIN' : 'TENANT',
+      actor: result.user.email,
+      target: result.user.name,
+      details: `Successful login · role ${result.user.role}`,
+      ip,
+      tenantId: result.user.tenantId,
+      userId: result.user.id,
+    })
+    return
+  }
+
+  let eventType = 'LOGIN_FAILED'
+  let severity = 'WARN'
+  let details = 'Invalid email or password'
+  if (error instanceof AppError) {
+    details = error.message
+    if (error.statusCode === 503) {
+      eventType = 'LOGIN_BLOCKED'
+      severity = 'ERROR'
+    }
+  }
+  await logPlatformActivity({
+    eventType,
+    severity,
+    actorType: 'TENANT',
+    actor: email,
+    target: '—',
+    details,
+    ip,
+  })
+}
 
 export const authController = {
   async login(req: Request, res: Response, next: NextFunction) {
+    const email = String(req.body?.email ?? '').trim().toLowerCase() || 'unknown'
     try {
       let tenantSlug = String(req.header('x-tenant-id') ?? '').trim()
       if (!tenantSlug) {
@@ -12,8 +60,12 @@ export const authController = {
         if (m) tenantSlug = m[1]
       }
       const result = await authService.login(req.body.email, req.body.password, tenantSlug || undefined)
+      await logLoginAttempt(req, email, true, result)
       sendSuccess(res, result, 'Login successful')
-    } catch (e) { next(e) }
+    } catch (e) {
+      await logLoginAttempt(req, email, false, undefined, e)
+      next(e)
+    }
   },
 
   async register(req: Request, res: Response, next: NextFunction) {
@@ -33,7 +85,20 @@ export const authController = {
   async logout(req: Request, res: Response, next: NextFunction) {
     try {
       const token = req.headers.authorization!.slice(7)
-      await authService.logout(token, req.user!.userId)
+      const user = req.user!
+      await authService.logout(token, user.userId)
+      const isAdmin = user.role === 'PLATFORM_ADMIN'
+      await logPlatformActivity({
+        eventType: 'LOGOUT',
+        severity: 'INFO',
+        actorType: isAdmin ? 'ADMIN' : 'TENANT',
+        actor: user.email,
+        target: user.email,
+        details: `User logged out · role ${user.role}`,
+        ip: getClientIp(req),
+        tenantId: user.tenantId,
+        userId: user.userId,
+      })
       sendSuccess(res, null, 'Logged out')
     } catch (e) { next(e) }
   },

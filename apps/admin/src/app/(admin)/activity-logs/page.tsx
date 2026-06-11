@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Download, Search, RefreshCw, ChevronDown, ChevronRight,
   Info, AlertTriangle, XCircle, AlertCircle,
-  ShoppingCart, Wrench, Users, Building2, Shield, Package,
+  ShoppingCart, Wrench, Users, Building2, Shield, Package, LogIn, LogOut, Ban,
 } from 'lucide-react'
 import {
   fetchActivityLogs,
@@ -50,10 +50,18 @@ const EVENT_ICON: Record<string, React.ReactNode> = {
   REPAIR_STATUS_CHANGED: <Wrench size={13} className="text-sky-500" />,
   WARRANTY_CLAIM:        <Shield size={13} className="text-orange-500" />,
   PURCHASE_ORDER:        <Package size={13} className="text-pink-500" />,
+  TENANT_LOGIN:          <LogIn size={13} className="text-emerald-500" />,
+  ADMIN_LOGIN:           <Shield size={13} className="text-violet-500" />,
+  LOGIN_FAILED:          <Ban size={13} className="text-amber-500" />,
+  LOGIN_BLOCKED:         <Ban size={13} className="text-red-500" />,
+  LOGIN_RATE_LIMITED:    <AlertTriangle size={13} className="text-orange-500" />,
+  LOGOUT:                <LogOut size={13} className="text-gray-500" />,
 }
 
 const EVENT_TYPES = [
-  'ALL', 'NEW_TENANT', 'TENANT_SUSPENDED', 'USER_CREATED',
+  'ALL', 'TENANT_LOGIN', 'ADMIN_LOGIN', 'LOGIN_FAILED', 'LOGIN_BLOCKED',
+  'LOGIN_RATE_LIMITED', 'LOGOUT',
+  'NEW_TENANT', 'TENANT_SUSPENDED', 'USER_CREATED',
   'SALE_CREATED', 'REPAIR_OPENED', 'REPAIR_STATUS_CHANGED',
   'WARRANTY_CLAIM', 'PURCHASE_ORDER',
 ]
