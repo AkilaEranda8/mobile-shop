@@ -2,6 +2,26 @@ import { authStorage } from './auth'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
 
+async function parseResponseBody(res: Response): Promise<{ json: Record<string, unknown>; text: string }> {
+  const text = await res.text()
+  if (!text) return { json: {}, text: '' }
+  try {
+    return { json: JSON.parse(text) as Record<string, unknown>, text }
+  } catch {
+    return { json: {}, text }
+  }
+}
+
+function responseErrorMessage(
+  json: Record<string, unknown>,
+  text: string,
+  fallback = 'Request failed',
+): string {
+  if (typeof json.message === 'string' && json.message) return json.message
+  if (text) return text
+  return fallback
+}
+
 async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = authStorage.getRefreshToken()
   if (!refreshToken) return null
@@ -12,10 +32,11 @@ async function refreshAccessToken(): Promise<string | null> {
       body: JSON.stringify({ refreshToken }),
     })
     if (!res.ok) { authStorage.clear(); return null }
-    const data = await res.json()
+    const { json: data } = await parseResponseBody(res)
     const user = authStorage.getUser()!
-    authStorage.save(data.data.accessToken, data.data.refreshToken, user)
-    return data.data.accessToken
+    const payload = data.data as { accessToken: string; refreshToken: string }
+    authStorage.save(payload.accessToken, payload.refreshToken, user)
+    return payload.accessToken
   } catch {
     authStorage.clear()
     return null
@@ -44,13 +65,13 @@ async function request<T = unknown>(
     throw new Error('Session expired')
   }
 
-  const json = await res.json()
+  const { json, text } = await parseResponseBody(res)
   if (!res.ok) {
-    const err: any = new Error(json.message || 'Request failed')
+    const err: any = new Error(responseErrorMessage(json, text))
     err.status = res.status
     throw err
   }
-  return json
+  return json as T
 }
 
 export const api = {
@@ -109,9 +130,9 @@ export const uploadApi = {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: form,
     })
-    const json = await res.json()
-    if (!res.ok) throw new Error(json.message || 'Upload failed')
-    return json.data
+    const { json, text } = await parseResponseBody(res)
+    if (!res.ok) throw new Error(responseErrorMessage(json, text, 'Upload failed'))
+    return json.data as { url: string }
   },
   repairPhoto: async (file: File): Promise<{ url: string }> => {
     const token = authStorage.getAccessToken()
@@ -122,9 +143,9 @@ export const uploadApi = {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: form,
     })
-    const json = await res.json()
-    if (!res.ok) throw new Error(json.message || 'Upload failed')
-    return json.data
+    const { json, text } = await parseResponseBody(res)
+    if (!res.ok) throw new Error(responseErrorMessage(json, text, 'Upload failed'))
+    return json.data as { url: string }
   },
   productImage: async (file: File): Promise<{ url: string }> => {
     const token = authStorage.getAccessToken()
@@ -135,9 +156,9 @@ export const uploadApi = {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: form,
     })
-    const json = await res.json()
-    if (!res.ok) throw new Error(json.message || 'Upload failed')
-    return json.data
+    const { json, text } = await parseResponseBody(res)
+    if (!res.ok) throw new Error(responseErrorMessage(json, text, 'Upload failed'))
+    return json.data as { url: string }
   },
 }
 
@@ -319,9 +340,9 @@ export const dailyReloadApi = {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: form,
     })
-    const json = await res.json()
-    if (!res.ok) throw new Error(json?.message ?? 'Upload failed')
-    return json.data
+    const { json, text } = await parseResponseBody(res)
+    if (!res.ok) throw new Error(responseErrorMessage(json, text, 'Upload failed'))
+    return json.data as { imported: number }
   },
 }
 
@@ -348,7 +369,7 @@ export type PlatformStatus = {
 
 export async function fetchPlatformStatus(): Promise<PlatformStatus> {
   const res = await fetch(`${BASE_URL}/platform/status`)
-  const json = await res.json()
-  if (!res.ok) throw new Error(json.message || 'Failed to load platform status')
+  const { json, text } = await parseResponseBody(res)
+  if (!res.ok) throw new Error(responseErrorMessage(json, text, 'Failed to load platform status'))
   return (json.data ?? json) as PlatformStatus
 }

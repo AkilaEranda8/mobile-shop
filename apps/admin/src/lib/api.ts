@@ -21,6 +21,26 @@ export const adminAuth = {
 }
 
 // ─── Base fetch ───────────────────────────────────────────────────────────────
+async function parseResponseBody(res: Response): Promise<{ json: Record<string, unknown>; text: string }> {
+  const text = await res.text()
+  if (!text) return { json: {}, text: '' }
+  try {
+    return { json: JSON.parse(text) as Record<string, unknown>, text }
+  } catch {
+    return { json: {}, text }
+  }
+}
+
+function responseErrorMessage(
+  json: Record<string, unknown>,
+  text: string,
+  fallback = 'Request failed',
+): string {
+  if (typeof json.message === 'string' && json.message) return json.message
+  if (text) return text
+  return fallback
+}
+
 async function req<T>(
   base: string,
   path: string,
@@ -43,9 +63,9 @@ async function req<T>(
     throw new Error('Session expired. Please log in again.')
   }
 
-  const json = await res.json()
-  if (!res.ok) throw new Error(json.message || 'Request failed')
-  return json.data ?? json
+  const { json, text } = await parseResponseBody(res)
+  if (!res.ok) throw new Error(responseErrorMessage(json, text))
+  return (json.data ?? json) as T
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────

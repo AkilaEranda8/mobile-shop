@@ -1,4 +1,4 @@
-import express, { type Request } from 'express'
+import express, { type Request, type Response } from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import morgan from 'morgan'
@@ -72,7 +72,19 @@ app.use('/uploads', (_req, res, next) => {
   next()
 }, express.static(uploadsDir))
 
-const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 500, standardHeaders: true, legacyHeaders: false })
+function rateLimitJsonHandler(message: string) {
+  return (_req: Request, res: Response) => {
+    res.status(429).json({ success: false, message })
+  }
+}
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 500,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: rateLimitJsonHandler('Too many requests. Please try again in 15 minutes.'),
+})
 app.use(limiter)
 
 const authLimiter = rateLimit({
@@ -86,7 +98,7 @@ const authLimiter = rateLimit({
     const ip = req.ip || req.socket.remoteAddress || 'unknown'
     return email ? `${email}:${ip}` : ip
   },
-  message: { success: false, message: 'Too many login attempts. Please try again in 15 minutes.' },
+  handler: rateLimitJsonHandler('Too many login attempts. Please try again in 15 minutes.'),
 })
 
 const API = `/${env.API_PREFIX}`
