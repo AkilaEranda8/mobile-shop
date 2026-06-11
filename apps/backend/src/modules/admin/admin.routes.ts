@@ -19,6 +19,7 @@ import {
   resetGlobalRateLimitForIp,
 } from '../../config/rate-limit'
 import { getClientIp, logPlatformActivity } from '../../utils/activity-log'
+import { clearTenantTrialData } from '../../utils/clear-tenant-data'
 
 const router = Router()
 router.use(authenticate)
@@ -118,6 +119,35 @@ router.patch('/tenants/:id/status', async (req: Request, res: Response, next: Ne
     }
     const tenant = await prisma.tenant.update({ where: { id: req.params.id }, data: { status } })
     sendSuccess(res, tenant, `Tenant ${status.toLowerCase()}`)
+  } catch (e) { next(e) }
+})
+
+router.post('/tenants/:id/clear-trial-data', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenant = await prisma.tenant.findUnique({ where: { id: req.params.id } })
+    if (!tenant) throw new AppError('Tenant not found', 404)
+
+    const confirmName = String(req.body?.confirmName ?? '').trim()
+    if (!confirmName || confirmName !== tenant.name) {
+      throw new AppError('Type the exact shop name to confirm', 400)
+    }
+
+    const counts = await clearTenantTrialData(req.params.id)
+    const totalDeleted = Object.values(counts).reduce((sum, n) => sum + n, 0)
+
+    await logPlatformActivity({
+      eventType: 'TRIAL_DATA_CLEARED',
+      severity: 'WARN',
+      actorType: 'ADMIN',
+      actor: req.user?.email ?? 'admin',
+      target: tenant.name,
+      details: `Trial data cleared · ${totalDeleted} records removed`,
+      ip: getClientIp(req),
+      tenantId: tenant.id,
+      userId: req.user?.userId,
+    })
+
+    sendSuccess(res, { counts, totalDeleted }, 'Trial data cleared. Users, branches and settings kept.')
   } catch (e) { next(e) }
 })
 

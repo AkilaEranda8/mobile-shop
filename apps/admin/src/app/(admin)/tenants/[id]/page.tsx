@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import {
   fetchTenant, fetchTenantSales, fetchActivityLogs,
-  updateTenantStatus, updateTenant, deleteTenant,
+  updateTenantStatus, updateTenant, deleteTenant, clearTenantTrialData,
   fetchTenantFeatures, updateTenantFeatures,
   type TenantRow, type TenantSale,
 } from '@/lib/api'
@@ -67,6 +67,8 @@ export default function TenantDetailPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [showSuspend, setShowSuspend]   = useState(false)
   const [showDelete, setShowDelete]     = useState(false)
+  const [showClearTrial, setShowClearTrial] = useState(false)
+  const [clearTrialInput, setClearTrialInput] = useState('')
   const [features, setFeatures]         = useState<Record<string, boolean>>({})
   const [featurePrices, setFeaturePrices] = useState<Record<string, number | null>>({})
   const [featLoading, setFeatLoading]   = useState(false)
@@ -75,7 +77,7 @@ export default function TenantDetailPage() {
   const [priceModal, setPriceModal]     = useState<{ key: string; label: string; value: string; mode: 'enable' | 'edit' } | null>(null)
   const [priceModalErr, setPriceModalErr] = useState('')
   const [deleteInput, setDeleteInput] = useState('')
-  const [editPlan, setEditPlan]       = useState<{ plan: string; mrr: string } | null>(null)
+  const [editPlan, setEditPlan]       = useState<{ plan: string; mrr: string; clearTrialData: boolean } | null>(null)
 
   const loadTenant = useCallback(() => {
     setLoading(true)
@@ -248,6 +250,22 @@ export default function TenantDetailPage() {
     setActionLoading(false)
   }
 
+  async function handleClearTrialData() {
+    if (!tenant || clearTrialInput !== tenant.name) return
+    setActionLoading(true)
+    try {
+      const res = await clearTenantTrialData(tenant.id, tenant.name)
+      setShowClearTrial(false)
+      setClearTrialInput('')
+      alert(`Trial data cleared. ${res.totalDeleted.toLocaleString()} records removed. Users can sign in again with a fresh shop.`)
+      loadTenant()
+      fetchTenantSales(id).then(setSales).catch(() => {})
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to clear trial data')
+    }
+    setActionLoading(false)
+  }
+
   async function handleSavePlan() {
     if (!tenant || !editPlan) return
     setActionLoading(true)
@@ -259,8 +277,14 @@ export default function TenantDetailPage() {
         status: 'ACTIVE',
         subscriptionEndsAt: subEnd.toISOString(),
       })
+      if (editPlan.clearTrialData) {
+        await clearTenantTrialData(tenant.id, tenant.name)
+      }
       setEditPlan(null); loadTenant()
-    } catch {}
+      if (editPlan.clearTrialData) fetchTenantSales(id).then(setSales).catch(() => {})
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to update plan')
+    }
     setActionLoading(false)
   }
 
@@ -364,7 +388,11 @@ export default function TenantDetailPage() {
           <div className="card p-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="section-title !mb-0">Subscription</h3>
-              <button onClick={() => setEditPlan({ plan: tenant.plan, mrr: String(tenant.mrr ?? '') })}
+              <button onClick={() => setEditPlan({
+                plan: tenant.plan,
+                mrr: String(tenant.mrr ?? ''),
+                clearTrialData: tenant.status === 'TRIAL',
+              })}
                 className="text-xs text-blue-600 hover:underline">Edit</button>
             </div>
             <dl className="space-y-2.5">
@@ -646,6 +674,18 @@ export default function TenantDetailPage() {
                 </button>
               )}
             </div>
+            <div className="flex items-center justify-between p-4 bg-violet-50 border border-violet-200 rounded-xl">
+              <div>
+                <p className="text-sm font-semibold text-gray-800">Clear trial data</p>
+                <p className="text-xs text-gray-500">
+                  Removes sales, repairs, customers, products and other trial test data. Keeps users, branches, features and settings.
+                </p>
+              </div>
+              <button onClick={() => setShowClearTrial(true)} disabled={actionLoading}
+                className="btn-secondary text-violet-700 border-violet-300 hover:bg-violet-100 text-xs">
+                <RefreshCw size={13} />Clear data
+              </button>
+            </div>
             <div className="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-xl">
               <div>
                 <p className="text-sm font-semibold text-gray-800">Delete Tenant</p>
@@ -676,6 +716,20 @@ export default function TenantDetailPage() {
                 <input className="input" type="number" value={editPlan.mrr}
                   onChange={e => setEditPlan({ ...editPlan, mrr: e.target.value })} />
               </div>
+              <label className="flex items-start gap-2 p-3 rounded-lg bg-violet-50 border border-violet-200 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={editPlan.clearTrialData}
+                  onChange={e => setEditPlan({ ...editPlan, clearTrialData: e.target.checked })}
+                />
+                <span className="text-xs text-gray-700">
+                  <span className="font-semibold">Clear trial test data</span>
+                  <span className="block text-gray-500 mt-0.5">
+                    Wipe demo sales, stock, customers etc. when moving this tenant to a paid plan.
+                  </span>
+                </span>
+              </label>
             </div>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setEditPlan(null)} className="btn-secondary">Cancel</button>
@@ -697,6 +751,27 @@ export default function TenantDetailPage() {
               <button onClick={() => setShowSuspend(false)} className="btn-secondary">Cancel</button>
               <button onClick={handleSuspend} disabled={actionLoading} className="btn-danger">
                 {actionLoading ? 'Suspending…' : 'Suspend'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clear trial data modal */}
+      {showClearTrial && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            <h3 className="text-sm font-bold text-gray-900 mb-2">Clear trial data for {tenant.name}?</h3>
+            <p className="text-sm text-gray-600 mb-3">
+              Sales, repairs, inventory, customers and finance records will be deleted. Users and branches stay. Type the shop name to confirm:
+            </p>
+            <input className="input mb-4" placeholder={tenant.name}
+              value={clearTrialInput} onChange={e => setClearTrialInput(e.target.value)} />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => { setShowClearTrial(false); setClearTrialInput('') }} className="btn-secondary">Cancel</button>
+              <button disabled={clearTrialInput !== tenant.name || actionLoading}
+                className="btn-primary disabled:opacity-40" onClick={handleClearTrialData}>
+                {actionLoading ? 'Clearing…' : 'Clear trial data'}
               </button>
             </div>
           </div>

@@ -158,6 +158,14 @@ export async function deleteTenant(id: string) {
   return req<null>(ADMIN_BASE, `/tenants/${id}`, { method: 'DELETE' })
 }
 
+export async function clearTenantTrialData(id: string, confirmName: string) {
+  return req<{ counts: Record<string, number>; totalDeleted: number }>(
+    ADMIN_BASE,
+    `/tenants/${id}/clear-trial-data`,
+    { method: 'POST', body: JSON.stringify({ confirmName }) },
+  )
+}
+
 export type TenantFeaturesPayload = {
   features: Record<string, boolean>
   prices: Record<string, number | null>
