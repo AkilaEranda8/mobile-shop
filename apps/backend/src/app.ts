@@ -1,14 +1,13 @@
-import express, { type Request, type Response } from 'express'
+import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import morgan from 'morgan'
 import compression from 'compression'
-import rateLimit from 'express-rate-limit'
 import path from 'path'
 import fs from 'fs'
 
 import { env } from './config/env'
-import { logPlatformActivity } from './utils/activity-log'
+import { authLimiter, globalLimiter } from './config/rate-limit'
 import { prisma } from './config/database'
 import { errorHandler, notFound } from './middleware/error.middleware'
 
@@ -73,46 +72,7 @@ app.use('/uploads', (_req, res, next) => {
   next()
 }, express.static(uploadsDir))
 
-function rateLimitJsonHandler(message: string, logAsLoginAttempt = false) {
-  return (req: Request, res: Response) => {
-    if (logAsLoginAttempt) {
-      const email = typeof req.body?.email === 'string' ? req.body.email.toLowerCase().trim() : ''
-      logPlatformActivity({
-        eventType: 'LOGIN_RATE_LIMITED',
-        severity: 'WARN',
-        actorType: 'SYSTEM',
-        actor: email || 'unknown',
-        target: email || '—',
-        details: message,
-        ip: req.ip || req.socket.remoteAddress || '—',
-      }).catch(() => {})
-    }
-    res.status(429).json({ success: false, message })
-  }
-}
-
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 500,
-  standardHeaders: true,
-  legacyHeaders: false,
-  handler: rateLimitJsonHandler('Too many requests. Please try again in 15 minutes.'),
-})
-app.use(limiter)
-
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: true,
-  keyGenerator: (req: Request) => {
-    const email = typeof req.body?.email === 'string' ? req.body.email.toLowerCase().trim() : ''
-    const ip = req.ip || req.socket.remoteAddress || 'unknown'
-    return email ? `${email}:${ip}` : ip
-  },
-  handler: rateLimitJsonHandler('Too many login attempts. Please try again in 15 minutes.', true),
-})
+app.use(globalLimiter)
 
 const API = `/${env.API_PREFIX}`
 

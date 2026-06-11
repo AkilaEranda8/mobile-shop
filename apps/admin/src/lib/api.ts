@@ -275,6 +275,25 @@ export async function fetchTenantDebug(tenantId: string): Promise<TenantDebug> {
   return req<TenantDebug>(ADMIN_BASE, `/support/tenant-debug/${tenantId}`)
 }
 
+export interface ResetLoginRateLimitResult {
+  email?: string
+  keysCleared?: number
+  keys?: string[]
+  scope?: string
+}
+
+export async function resetLoginRateLimit(data: {
+  email?: string
+  ip?: string
+  resetAll?: boolean
+}): Promise<ResetLoginRateLimitResult> {
+  return req<ResetLoginRateLimitResult>(
+    ADMIN_BASE,
+    '/support/reset-login-rate-limit',
+    { method: 'POST', body: JSON.stringify(data) },
+  )
+}
+
 // ─── Announcements ────────────────────────────────────────────────────────────
 export interface AnnouncementRow {
   id: string; title: string; body: string

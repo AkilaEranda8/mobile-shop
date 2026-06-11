@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import {
   fetchTenants, fetchSupportNotes, createSupportNote, deleteSupportNote,
-  impersonateTenant, fetchTenantDebug,
+  impersonateTenant, fetchTenantDebug, resetLoginRateLimit,
   type TenantRow, type SupportNote, type TenantDebug,
 } from '@/lib/api'
 
@@ -22,7 +22,7 @@ function fmtDate(s: string) {
   return new Date(s).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-const TABS = ['Impersonation', 'Debug Tools', 'Support Notes']
+const TABS = ['Impersonation', 'Login Limits', 'Debug Tools', 'Support Notes']
 
 /* ── Tenant picker ─────────────────────────────────────────────────────────── */
 function TenantPicker({
@@ -408,6 +408,119 @@ function SupportNotesTab({ tenants }: { tenants: TenantRow[] }) {
   )
 }
 
+/* ── Login rate limit reset ─────────────────────────────────────────────────── */
+function LoginLimitsTab({ tenants }: { tenants: TenantRow[] }) {
+  const [email, setEmail] = useState('')
+  const [ip, setIp] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+
+  const pickOwnerEmail = (tenantId: string) => {
+    const t = tenants.find(x => x.id === tenantId)
+    if (t?.ownerEmail) setEmail(t.ownerEmail)
+  }
+
+  const handleReset = async (resetAll = false) => {
+    setLoading(true)
+    setMessage(null)
+    try {
+      const res = await resetLoginRateLimit(
+        resetAll
+          ? { resetAll: true }
+          : { email: email.trim(), ip: ip.trim() || undefined },
+      )
+      if (res.scope === 'all') {
+        setMessage({ type: 'ok', text: 'All login rate limits cleared. Users can sign in again.' })
+      } else {
+        setMessage({
+          type: 'ok',
+          text: `Rate limit cleared for ${res.email}. ${res.keysCleared ?? 0} block(s) removed — user can try login now.`,
+        })
+      }
+    } catch (e) {
+      setMessage({ type: 'err', text: e instanceof Error ? e.message : 'Reset failed' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="grid md:grid-cols-2 gap-4">
+      <TenantPicker tenants={tenants} selectedId={null} onSelect={pickOwnerEmail} />
+
+      <div className="card p-5 space-y-4">
+        <div className="flex items-start gap-2">
+          <AlertTriangle size={16} className="text-amber-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="section-title">Clear login rate limit</h3>
+            <p className="text-xs text-gray-500 mt-1">
+              When users see &quot;Too many login attempts&quot;, clear their block here so they can sign in without waiting 15 minutes.
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1.5">User email</label>
+          <input
+            className="input w-full text-sm"
+            type="email"
+            placeholder="owner@shop.com"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1.5">IP address (optional)</label>
+          <input
+            className="input w-full text-sm"
+            placeholder="Leave empty to clear all IPs for this email"
+            value={ip}
+            onChange={e => setIp(e.target.value)}
+          />
+        </div>
+
+        {message && (
+          <div className={`text-sm px-3 py-2 rounded-lg border ${
+            message.type === 'ok'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : 'bg-red-50 border-red-200 text-red-700'
+          }`}>
+            {message.text}
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row gap-2">
+          <button
+            type="button"
+            disabled={loading || !email.trim()}
+            onClick={() => handleReset(false)}
+            className="btn-primary flex-1 justify-center text-sm"
+          >
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+            Clear for this email
+          </button>
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => {
+              if (!confirm('Clear ALL login rate limits for every user?')) return
+              handleReset(true)
+            }}
+            className="btn-secondary flex-1 justify-center text-sm"
+          >
+            Clear all limits
+          </button>
+        </div>
+
+        <p className="text-[10px] text-gray-400">
+          Action is logged in Activity Logs as <code className="text-gray-500">RATE_LIMIT_RESET</code>.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 /* ── Page ──────────────────────────────────────────────────────────────────── */
 export default function SupportToolsPage() {
   const [tab, setTab]         = useState('Impersonation')
@@ -442,6 +555,7 @@ export default function SupportToolsPage() {
       ) : (
         <>
           {tab === 'Impersonation' && <ImpersonationTab tenants={tenants} />}
+          {tab === 'Login Limits'  && <LoginLimitsTab tenants={tenants} />}
           {tab === 'Debug Tools'   && <DebugToolsTab tenants={tenants} />}
           {tab === 'Support Notes' && <SupportNotesTab tenants={tenants} />}
         </>

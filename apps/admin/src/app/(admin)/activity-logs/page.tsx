@@ -56,11 +56,12 @@ const EVENT_ICON: Record<string, React.ReactNode> = {
   LOGIN_BLOCKED:         <Ban size={13} className="text-red-500" />,
   LOGIN_RATE_LIMITED:    <AlertTriangle size={13} className="text-orange-500" />,
   LOGOUT:                <LogOut size={13} className="text-gray-500" />,
+  RATE_LIMIT_RESET:      <RefreshCw size={13} className="text-cyan-500" />,
 }
 
 const EVENT_TYPES = [
   'ALL', 'TENANT_LOGIN', 'ADMIN_LOGIN', 'LOGIN_FAILED', 'LOGIN_BLOCKED',
-  'LOGIN_RATE_LIMITED', 'LOGOUT',
+  'LOGIN_RATE_LIMITED', 'LOGOUT', 'RATE_LIMIT_RESET',
   'NEW_TENANT', 'TENANT_SUSPENDED', 'USER_CREATED',
   'SALE_CREATED', 'REPAIR_OPENED', 'REPAIR_STATUS_CHANGED',
   'WARRANTY_CLAIM', 'PURCHASE_ORDER',

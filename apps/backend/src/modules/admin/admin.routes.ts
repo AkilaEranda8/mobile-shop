@@ -11,6 +11,14 @@ import {
   buildPriceMap,
 } from '../tenants/tenant-features'
 import { DEFAULT_MAINTENANCE_MESSAGE, getMaintenanceStatus, syncMaintenanceAnnouncement } from '../../utils/platform-config'
+import {
+  authRateLimitKey,
+  resetAllAuthRateLimits,
+  resetAllGlobalRateLimits,
+  resetAuthRateLimitKeys,
+  resetGlobalRateLimitForIp,
+} from '../../config/rate-limit'
+import { getClientIp, logPlatformActivity } from '../../utils/activity-log'
 
 const router = Router()
 router.use(authenticate)
@@ -743,6 +751,81 @@ router.delete('/support/notes/:id', async (req: Request, res: Response, next: Ne
   try {
     await prisma.supportNote.delete({ where: { id: req.params.id } })
     sendSuccess(res, null, 'Deleted')
+  } catch (e) { next(e) }
+})
+
+router.post('/support/reset-login-rate-limit', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email, ip, resetAll } = req.body as { email?: string; ip?: string; resetAll?: boolean }
+    const adminEmail = req.user?.email ?? 'admin'
+
+    if (resetAll) {
+      await resetAllAuthRateLimits()
+      await resetAllGlobalRateLimits()
+      await logPlatformActivity({
+        eventType: 'RATE_LIMIT_RESET',
+        severity: 'INFO',
+        actorType: 'ADMIN',
+        actor: adminEmail,
+        target: 'all users',
+        details: 'Admin cleared all login and API rate limits',
+        ip: getClientIp(req),
+        userId: req.user?.userId,
+      })
+      sendSuccess(res, { scope: 'all' }, 'All rate limits cleared')
+      return
+    }
+
+    const normalizedEmail = String(email ?? '').trim().toLowerCase()
+    if (!normalizedEmail) throw new AppError('email is required (or set resetAll: true)', 400)
+
+    const keys = new Set<string>()
+    if (ip) {
+      keys.add(authRateLimitKey(normalizedEmail, ip.trim()))
+    } else {
+      const recentLogs = await prisma.platformActivityLog.findMany({
+        where: {
+          actor: normalizedEmail,
+          eventType: { in: ['LOGIN_FAILED', 'LOGIN_RATE_LIMITED', 'LOGIN_BLOCKED', 'TENANT_LOGIN'] },
+          ip: { not: '—' },
+        },
+        select: { ip: true },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      })
+      for (const row of recentLogs) {
+        if (row.ip) keys.add(authRateLimitKey(normalizedEmail, row.ip))
+      }
+      keys.add(authRateLimitKey(normalizedEmail, 'unknown'))
+    }
+
+    const cleared = await resetAuthRateLimitKeys([...keys])
+    const ipsToClear = ip ? [ip.trim()] : [...new Set(
+      (await prisma.platformActivityLog.findMany({
+        where: { actor: normalizedEmail, ip: { not: '—' } },
+        select: { ip: true },
+        distinct: ['ip'],
+        take: 20,
+      })).map(r => r.ip).filter(Boolean),
+    )]
+    for (const addr of ipsToClear) await resetGlobalRateLimitForIp(addr)
+
+    await logPlatformActivity({
+      eventType: 'RATE_LIMIT_RESET',
+      severity: 'INFO',
+      actorType: 'ADMIN',
+      actor: adminEmail,
+      target: normalizedEmail,
+      details: `Admin cleared login rate limit · ${cleared.length} auth key(s)`,
+      ip: getClientIp(req),
+      userId: req.user?.userId,
+    })
+
+    sendSuccess(res, {
+      email: normalizedEmail,
+      keysCleared: cleared.length,
+      keys: cleared,
+    }, 'Login rate limit cleared — user can try again now')
   } catch (e) { next(e) }
 })
 
