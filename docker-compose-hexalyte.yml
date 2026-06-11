@@ -76,6 +76,8 @@ services:
         NEXT_PUBLIC_ADMIN_API_URL: https://api.shop.hexalyte.com/admin/v1
     container_name: hexalyte_admin
     restart: unless-stopped
+    ports:
+      - 127.0.0.1:3002:3002
     environment:
       NEXT_PUBLIC_API_URL: https://api.shop.hexalyte.com/api/v1
       NEXT_PUBLIC_ADMIN_API_URL: https://api.shop.hexalyte.com/admin/v1
