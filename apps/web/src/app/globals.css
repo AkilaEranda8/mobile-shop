@@ -341,7 +341,9 @@ html:not(.dark) [class*="bg-orange-"] .text-white,
 html:not(.dark) [class*="bg-yellow-"][class*="text-white"],
 html:not(.dark) [class*="bg-yellow-"] .text-white,
 html:not(.dark) [class*="bg-indigo-"][class*="text-white"],
-html:not(.dark) [class*="bg-indigo-"] .text-white { color: #ffffff !important; }
+html:not(.dark) [class*="bg-indigo-"] .text-white,
+html:not(.dark) button[style*="linear-gradient"][style*="6d28d9"],
+html:not(.dark) button[style*="linear-gradient"][style*="6d28d9"] * { color: #ffffff !important; }
 
 /* Borders */
 html:not(.dark) .border-white\/5  { border-color: rgba(0,0,0,0.07); }

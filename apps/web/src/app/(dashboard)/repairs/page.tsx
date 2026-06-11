@@ -1289,8 +1289,8 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                     </button>
                   ) : nextStatus ? (
                     <button onClick={handleNext} disabled={changingStatus}
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50"
-                      style={{ background: 'linear-gradient(135deg,#6d28d9,#7c3aed)' }}>
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
+                      style={{ background: 'linear-gradient(135deg,#6d28d9,#7c3aed)', color: '#ffffff' }}>
                       {changingStatus ? <Loader2 size={14} className="animate-spin" /> : <ArrowRight size={14} />}
                       Move to {statusLabels[nextStatus]}
                     </button>
