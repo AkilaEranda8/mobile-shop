@@ -54,6 +54,8 @@ export const authService = {
     password: string
     shopName: string
     plan?: string
+    phone?: string
+    city?: string
   }) {
     const existing = await prisma.user.findFirst({ where: { email: data.ownerEmail } })
     if (existing) throw new AppError('Email already in use', 409)
@@ -78,9 +80,9 @@ export const authService = {
           create: {
             name: data.shopName,
             address: '',
-            city: '',
+            city: data.city?.trim() || '',
             state: '',
-            phone: '',
+            phone: data.phone?.trim() || '',
             isHeadquarters: true,
             isActive: true,
           },
@@ -124,7 +126,28 @@ export const authService = {
       console.log(`[KC] User created for tenant ${slug}`)
     } catch (e) { console.warn('[KC] registerTenant sync failed (non-fatal):', (e as Error).message) }
 
-    return { accessToken, refreshToken, tenant, user, subdomain }
+    return {
+      accessToken,
+      refreshToken,
+      tenant: {
+        id: tenant.id,
+        name: tenant.name,
+        slug: tenant.slug,
+        plan: tenant.plan,
+        status: tenant.status,
+        trialEndsAt: tenant.trialEndsAt,
+      },
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        tenantId: tenant.id,
+        branchIds: [branch.id],
+        avatar: user.avatar,
+      },
+      subdomain,
+    }
   },
 
   async refresh(refreshTokenStr: string) {

@@ -111,6 +111,25 @@ export const authApi = {
       '/auth/login', { email, password }
     ),
 
+  register: (body: {
+    ownerName: string
+    ownerEmail: string
+    password: string
+    shopName: string
+    plan?: 'STARTER' | 'PRO' | 'ENTERPRISE'
+    phone?: string
+    city?: string
+  }) =>
+    api.post<{
+      data: {
+        accessToken: string
+        refreshToken: string
+        user: import('./auth').AuthUser
+        tenant: { id: string; name: string; slug: string; plan: string; status: string; trialEndsAt: string }
+        subdomain: string
+      }
+    }>('/auth/register', body),
+
   logout: () => api.post('/auth/logout', {}),
 
   me: () => api.get<{ data: import('./auth').AuthUser }>('/auth/me'),

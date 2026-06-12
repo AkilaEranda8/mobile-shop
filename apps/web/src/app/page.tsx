@@ -87,6 +87,7 @@ const plans = [
     ],
     cta: 'Start Free Trial',
     ctaStyle: 'btn-secondary',
+    href: '/register?plan=starter',
   },
   {
     name: 'Pro',
@@ -110,6 +111,7 @@ const plans = [
     ],
     cta: 'Start Free Trial',
     ctaStyle: 'btn-primary',
+    href: '/register?plan=pro',
   },
   {
     name: 'Enterprise',
@@ -132,6 +134,7 @@ const plans = [
     ],
     cta: 'Contact Sales',
     ctaStyle: 'btn-secondary',
+    href: 'mailto:info@hexalyte.com?subject=Hexalyte%20Enterprise%20Plan',
   },
 ]
 
@@ -418,9 +421,15 @@ export default function LandingPage() {
                   ))}
                 </ul>
 
-                <Link href="/register" className={`${plan.ctaStyle} text-center text-sm`}>
-                  {plan.cta}
-                </Link>
+                {plan.href.startsWith('mailto:') ? (
+                  <a href={plan.href} className={`${plan.ctaStyle} text-center text-sm`}>
+                    {plan.cta}
+                  </a>
+                ) : (
+                  <Link href={plan.href} className={`${plan.ctaStyle} text-center text-sm`}>
+                    {plan.cta}
+                  </Link>
+                )}
               </div>
             ))}
           </div>

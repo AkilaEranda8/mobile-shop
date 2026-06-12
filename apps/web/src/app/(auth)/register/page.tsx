@@ -1,34 +1,68 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
-import { Eye, EyeOff, ArrowRight, CheckCircle } from 'lucide-react'
+import { Suspense, useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Eye, EyeOff, ArrowRight, CheckCircle, AlertCircle } from 'lucide-react'
+import { authApi } from '@/lib/api'
+import { authStorage } from '@/lib/auth'
 
 const plans = [
-  { id: 'starter', name: 'Starter', price: 'Rs. 2,999/mo', desc: '1 branch, 3 users' },
-  { id: 'pro', name: 'Pro', price: 'Rs. 4,999/mo', desc: '5 branches, 15 users', popular: true },
-  { id: 'enterprise', name: 'Enterprise', price: 'Custom', desc: 'Unlimited everything' },
+  { id: 'starter', apiPlan: 'STARTER' as const, name: 'Starter', price: 'Rs. 2,999/mo', desc: '1 branch, 3 users' },
+  { id: 'pro', apiPlan: 'PRO' as const, name: 'Pro', price: 'Rs. 4,999/mo', desc: '5 branches, 15 users', popular: true },
+  { id: 'enterprise', apiPlan: 'ENTERPRISE' as const, name: 'Enterprise', price: 'Custom', desc: 'Unlimited everything' },
 ]
 
-export default function RegisterPage() {
+const PLAN_FROM_QUERY: Record<string, string> = {
+  starter: 'starter',
+  pro: 'pro',
+  enterprise: 'enterprise',
+}
+
+function RegisterForm() {
+  const searchParams = useSearchParams()
   const [step, setStep] = useState(1)
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [selectedPlan, setSelectedPlan] = useState('pro')
   const [form, setForm] = useState({
     shopName: '', ownerName: '', email: '', phone: '', password: '', city: '',
   })
 
+  useEffect(() => {
+    const q = searchParams.get('plan')?.toLowerCase()
+    if (q && PLAN_FROM_QUERY[q]) setSelectedPlan(PLAN_FROM_QUERY[q])
+  }, [searchParams])
+
   const handleNext = (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
     setStep(2)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    await new Promise(r => setTimeout(r, 1500))
-    window.location.href = '/dashboard'
+    setError('')
+    const planDef = plans.find(p => p.id === selectedPlan) ?? plans[1]
+    try {
+      const res = await authApi.register({
+        ownerName: form.ownerName.trim(),
+        ownerEmail: form.email.trim().toLowerCase(),
+        password: form.password,
+        shopName: form.shopName.trim(),
+        plan: planDef.apiPlan,
+        phone: form.phone.trim(),
+        city: form.city.trim(),
+      })
+      authStorage.save(res.data.accessToken, res.data.refreshToken, res.data.user)
+      try { localStorage.removeItem('hx_tenant_features') } catch { /* noop */ }
+      window.location.href = '/dashboard'
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Registration failed. Please try again.')
+      setLoading(false)
+    }
   }
 
   return (
@@ -39,11 +73,13 @@ export default function RegisterPage() {
 
       <div className="w-full max-w-md relative">
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-xl flex items-center justify-center">
-              <span className="text-white font-black">H</span>
-            </div>
-            <span className="text-2xl font-bold text-white">Hexalyte</span>
+          <Link href="/" className="inline-flex items-center justify-center mb-6">
+            <img
+              src="/logo.png"
+              alt="Hexalyte Innovation"
+              className="h-16 w-auto object-contain"
+              style={{ mixBlendMode: 'screen' }}
+            />
           </Link>
           <h1 className="text-2xl font-bold text-white">
             {step === 1 ? 'Start your free trial' : 'Choose a plan'}
@@ -51,7 +87,6 @@ export default function RegisterPage() {
           <p className="text-slate-400 text-sm mt-1">14 days free, no credit card required</p>
         </div>
 
-        {/* Step indicator */}
         <div className="flex items-center gap-2 mb-6 justify-center">
           {[1, 2].map((s) => (
             <div key={s} className="flex items-center gap-2">
@@ -64,6 +99,13 @@ export default function RegisterPage() {
         </div>
 
         <div className="bg-[#0f1623] border border-white/5 rounded-2xl p-6">
+          {error && (
+            <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-4 text-sm text-red-300">
+              <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
+
           {step === 1 ? (
             <form onSubmit={handleNext} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
@@ -107,7 +149,7 @@ export default function RegisterPage() {
                 <label className="block text-sm text-slate-400 mb-1.5">Phone Number</label>
                 <input
                   type="tel"
-                  placeholder="+91 98765 43210"
+                  placeholder="+94 77 123 4567"
                   className="input-field"
                   value={form.phone}
                   onChange={e => setForm({ ...form, phone: e.target.value })}
@@ -119,7 +161,7 @@ export default function RegisterPage() {
                 <label className="block text-sm text-slate-400 mb-1.5">City</label>
                 <input
                   type="text"
-                  placeholder="Chennai"
+                  placeholder="Colombo"
                   className="input-field"
                   value={form.city}
                   onChange={e => setForm({ ...form, city: e.target.value })}
@@ -181,12 +223,12 @@ export default function RegisterPage() {
 
               <div className="bg-violet-500/10 border border-violet-500/20 rounded-xl p-3">
                 <p className="text-xs text-violet-300 text-center">
-                  🎉 14-day free trial on all plans. No credit card needed.
+                  14-day free trial on all plans. No credit card needed.
                 </p>
               </div>
 
               <div className="flex gap-3">
-                <button type="button" onClick={() => setStep(1)} className="btn-secondary flex-1">
+                <button type="button" onClick={() => setStep(1)} className="btn-secondary flex-1" disabled={loading}>
                   Back
                 </button>
                 <button type="submit" disabled={loading} className="btn-primary flex-1 flex items-center justify-center gap-2">
@@ -205,5 +247,17 @@ export default function RegisterPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#080c14] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
+      </div>
+    }>
+      <RegisterForm />
+    </Suspense>
   )
 }

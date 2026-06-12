@@ -11,6 +11,8 @@ export const registerTenantSchema = z.object({
   password: z.string().min(8),
   shopName: z.string().min(2),
   plan: z.enum(['STARTER', 'PRO', 'ENTERPRISE']).optional(),
+  phone: z.string().min(5).optional(),
+  city: z.string().min(2).optional(),
 })
 
 export const refreshSchema = z.object({
