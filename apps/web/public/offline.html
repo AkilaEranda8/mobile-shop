@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#7c3aed" />
+  <title>Hexalyte — Offline</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: #080c14;
+      color: #e2e8f0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    }
+    .card {
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+      background: #0f1623;
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 20px;
+      padding: 32px 24px;
+    }
+    .logo { height: 72px; width: auto; margin-bottom: 20px; filter: brightness(1.1); }
+    h1 { font-size: 1.35rem; font-weight: 800; margin-bottom: 8px; }
+    p { color: #94a3b8; font-size: 0.9rem; line-height: 1.55; margin-bottom: 16px; }
+    .tips {
+      text-align: left;
+      background: rgba(124,58,237,.08);
+      border: 1px solid rgba(124,58,237,.25);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 20px;
+      font-size: 0.82rem;
+      color: #c4b5fd;
+    }
+    .tips li { margin: 6px 0; }
+    button {
+      width: 100%;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #7c3aed, #06b6d4);
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    button:active { transform: scale(0.98); }
+    .muted { margin-top: 14px; font-size: 0.75rem; color: #64748b; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <img src="/logo.png" alt="Hexalyte" class="logo" />
+    <h1>You are offline</h1>
+    <p>No internet connection. Hexalyte can still work if you opened the app before going offline.</p>
+    <ul class="tips">
+      <li>Open POS while online once — then billing works offline.</li>
+      <li>Sales sync automatically when data returns.</li>
+      <li>Refresh this page after reconnecting.</li>
+    </ul>
+    <button type="button" onclick="location.reload()">Try again</button>
+    <p class="muted">Hexalyte Innovation (Pvt) Ltd</p>
+  </div>
+</body>
+</html>

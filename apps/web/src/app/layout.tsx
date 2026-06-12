@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
+import { ServiceWorkerRegister } from '@/components/offline/ServiceWorkerRegister'
 
 export const metadata: Metadata = {
   title: {
@@ -23,6 +24,7 @@ export const metadata: Metadata = {
   icons: {
     icon: '/favicon.ico',
   },
+  manifest: '/manifest.webmanifest',
 }
 
 export const viewport: Viewport = {
@@ -40,6 +42,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen antialiased" suppressHydrationWarning>
         <ThemeProvider>
+          <ServiceWorkerRegister />
           {children}
         </ThemeProvider>
       </body>

@@ -1,0 +1,17 @@
+{
+  "name": "Hexalyte",
+  "short_name": "Hexalyte",
+  "description": "Mobile shop POS, repairs, and inventory",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#080c14",
+  "theme_color": "#7c3aed",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
