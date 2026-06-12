@@ -53,11 +53,13 @@ export const authController = {
   async login(req: Request, res: Response, next: NextFunction) {
     const email = String(req.body?.email ?? '').trim().toLowerCase() || 'unknown'
     try {
-      let tenantSlug = String(req.header('x-tenant-id') ?? '').trim()
+      let tenantSlug = String(req.header('x-tenant-id') ?? req.header('x-tenant-slug') ?? '').trim()
       if (!tenantSlug) {
-        const host = String(req.headers.host ?? '')
-        const m = host.match(/^shop\.([^.]+)\.api\.hexalyte\.com$/)
-        if (m) tenantSlug = m[1]
+        const host = String(req.headers.host ?? '').toLowerCase()
+        const appMatch = host.match(/^([a-z0-9-]+)\.app\.hexalyte\.com$/)
+        if (appMatch && appMatch[1] !== 'app') tenantSlug = appMatch[1]
+        const shopMatch = host.match(/^shop\.([^.]+)\.api\.hexalyte\.com$/)
+        if (shopMatch) tenantSlug = shopMatch[1]
       }
       const result = await authService.login(req.body.email, req.body.password, tenantSlug || undefined)
       await logLoginAttempt(req, email, true, result)

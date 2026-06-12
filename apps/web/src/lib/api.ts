@@ -1,6 +1,18 @@
 import { authStorage } from './auth'
+import { getTenantSlugFromHost } from './tenant-context'
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
+function resolveApiBaseUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
+  if (typeof window === 'undefined') return configured
+  const slug = getTenantSlugFromHost()
+  if (!slug) return configured
+  // Tenant shop URLs load API via same host (/api → nginx → backend).
+  return `${window.location.origin}/api/v1`
+}
+
+function getApiBaseUrl(): string {
+  return resolveApiBaseUrl()
+}
 
 async function parseResponseBody(res: Response): Promise<{ json: Record<string, unknown>; text: string }> {
   const text = await res.text()
@@ -26,7 +38,7 @@ async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = authStorage.getRefreshToken()
   if (!refreshToken) return null
   try {
-    const res = await fetch(`${BASE_URL}/auth/refresh`, {
+    const res = await fetch(`${getApiBaseUrl()}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken }),
@@ -54,8 +66,10 @@ async function request<T = unknown>(
     ...(options.headers as Record<string, string>),
   }
   if (token) headers['Authorization'] = `Bearer ${token}`
+  const tenantSlug = getTenantSlugFromHost()
+  if (tenantSlug) headers['x-tenant-id'] = tenantSlug
 
-  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers })
+  const res = await fetch(`${getApiBaseUrl()}${path}`, { ...options, headers })
 
   if (res.status === 401 && retry) {
     const newToken = await refreshAccessToken()
@@ -125,7 +139,7 @@ export const uploadApi = {
     const token = authStorage.getAccessToken()
     const form = new FormData()
     form.append('logo', file)
-    const res = await fetch(`${BASE_URL}/upload/logo`, {
+    const res = await fetch(`${getApiBaseUrl()}/upload/logo`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: form,
@@ -138,7 +152,7 @@ export const uploadApi = {
     const token = authStorage.getAccessToken()
     const form = new FormData()
     form.append('photo', file)
-    const res = await fetch(`${BASE_URL}/upload/repair-photo`, {
+    const res = await fetch(`${getApiBaseUrl()}/upload/repair-photo`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: form,
@@ -151,7 +165,7 @@ export const uploadApi = {
     const token = authStorage.getAccessToken()
     const form = new FormData()
     form.append('image', file)
-    const res = await fetch(`${BASE_URL}/upload/product-image`, {
+    const res = await fetch(`${getApiBaseUrl()}/upload/product-image`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: form,
@@ -332,10 +346,9 @@ export const dailyReloadApi = {
   uploadFile: async (file: File): Promise<{ imported: number }> => {
     const { authStorage } = await import('@/lib/auth')
     const token = authStorage.getAccessToken()
-    const base = process.env.NEXT_PUBLIC_API_URL ?? ''
     const form = new FormData()
     form.append('file', file)
-    const res = await fetch(`${base}/daily-reloads/upload`, {
+    const res = await fetch(`${getApiBaseUrl()}/daily-reloads/upload`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: form,
@@ -368,7 +381,7 @@ export type PlatformStatus = {
 }
 
 export async function fetchPlatformStatus(): Promise<PlatformStatus> {
-  const res = await fetch(`${BASE_URL}/platform/status`)
+  const res = await fetch(`${getApiBaseUrl()}/platform/status`)
   const { json, text } = await parseResponseBody(res)
   if (!res.ok) throw new Error(responseErrorMessage(json, text, 'Failed to load platform status'))
   return (json.data ?? json) as PlatformStatus
