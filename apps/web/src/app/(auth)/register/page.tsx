@@ -5,8 +5,8 @@ import { useState } from 'react'
 import { Eye, EyeOff, ArrowRight, CheckCircle } from 'lucide-react'
 
 const plans = [
-  { id: 'starter', name: 'Starter', price: '₹999/mo', desc: '1 branch, 3 users' },
-  { id: 'pro', name: 'Pro', price: '₹2,499/mo', desc: '5 branches, 15 users', popular: true },
+  { id: 'starter', name: 'Starter', price: 'Rs. 2,999/mo', desc: '1 branch, 3 users' },
+  { id: 'pro', name: 'Pro', price: 'Rs. 4,999/mo', desc: '5 branches, 15 users', popular: true },
   { id: 'enterprise', name: 'Enterprise', price: 'Custom', desc: 'Unlimited everything' },
 ]
 

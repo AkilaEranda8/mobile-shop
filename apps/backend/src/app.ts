@@ -85,12 +85,12 @@ const PLANS = [
     features: ['1 Branch', '2 Users', 'POS & Sales', 'Basic Reports', 'Repairs'],
   },
   {
-    key: 'STARTER', label: 'Starter', price: '$19', period: '/month',
+    key: 'STARTER', label: 'Starter', price: 'Rs. 2,999', period: '/month',
     color: '#3b82f6', bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.25)',
     features: ['1 Branch', '5 Users', 'POS & Sales', 'Full Reports', 'Repairs', 'Warranty'],
   },
   {
-    key: 'PRO', label: 'Pro', price: '$49', period: '/month', popular: true,
+    key: 'PRO', label: 'Pro', price: 'Rs. 4,999', period: '/month', popular: true,
     color: '#8b5cf6', bg: 'rgba(139,92,246,0.08)', border: 'rgba(139,92,246,0.30)',
     features: ['3 Branches', '15 Users', 'Everything in Starter', 'P&L Reports', 'Cash Flow', 'Branch Filtering', 'CSV Exports'],
   },

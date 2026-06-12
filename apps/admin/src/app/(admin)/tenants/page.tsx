@@ -411,8 +411,8 @@ function OnboardModal({ onClose, onCreated }: { onClose: () => void; onCreated?:
           <div className="space-y-3">
             <h3 className="text-sm font-semibold text-gray-900">Select Plan</h3>
             {[
-              { id: 'STARTER', label: 'Starter', price: 'Rs.1,199/mo', desc: '3 users, 1 branch, basic POS + repairs' },
-              { id: 'PRO', label: 'Pro', price: 'Rs.4,799/mo', desc: '10 users, 3 branches, analytics, warranties' },
+              { id: 'STARTER', label: 'Starter', price: 'Rs.2,999/mo', desc: '3 users, 1 branch, basic POS + repairs' },
+              { id: 'PRO', label: 'Pro', price: 'Rs.4,999/mo', desc: '10 users, 3 branches, analytics, warranties' },
               { id: 'ENTERPRISE', label: 'Enterprise', price: 'Rs.14,399/mo', desc: 'Unlimited users, API access, white-label' },
             ].map(p => (
               <label key={p.id} className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${form.plan === p.id ? 'border-gray-900 bg-gray-50' : 'border-gray-200 hover:border-gray-300'}`}>

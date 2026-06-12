@@ -918,7 +918,7 @@ export default function SettingsPage() {
                     {
                       key: 'STARTER',
                       label: 'Starter',
-                      price: '$19',
+                      price: 'Rs. 2,999',
                       period: '/month',
                       color: '#3b82f6',
                       bg: 'rgba(59,130,246,0.08)',
@@ -928,7 +928,7 @@ export default function SettingsPage() {
                     {
                       key: 'PRO',
                       label: 'Pro',
-                      price: '$49',
+                      price: 'Rs. 4,999',
                       period: '/month',
                       color: '#8b5cf6',
                       bg: 'rgba(139,92,246,0.08)',

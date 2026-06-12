@@ -63,7 +63,6 @@ const navItems = [
     items: [
       { href: '/dashboard/reports',          icon: FileText, label: 'Reports',          badge: 'NEW', feature: 'REPORTS' },
       { href: '/dashboard/category-report',  icon: BarChart3, label: 'Category Report', badge: 'NEW', feature: 'REPORTS' },
-      { href: '/dashboard/invoice',          icon: Receipt,  label: 'Invoice',          badge: 'NEW', feature: 'REPORTS' },
     ],
   },
   {

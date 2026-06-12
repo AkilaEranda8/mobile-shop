@@ -21,7 +21,7 @@ import { LOGO_BASE64 } from '@/lib/logo-base64'
 const PLAN_BADGE: Record<string, string> = {
   STARTER: 'badge-gray', PRO: 'badge-blue', ENTERPRISE: 'badge-purple', TRIAL: 'badge-yellow',
 }
-const DEFAULT_MRR: Record<string, number> = { STARTER: 1199, PRO: 4799, ENTERPRISE: 14399 }
+const DEFAULT_MRR: Record<string, number> = { STARTER: 2999, PRO: 4999, ENTERPRISE: 14399 }
 const DEFAULT_FEATURES: Record<string, string[]> = {
   STARTER:    ['3 users', '1 branch', 'POS & Repairs', 'Basic reports'],
   PRO:        ['10 users', '3 branches', 'Analytics', 'Warranty', 'Delivery'],
