@@ -23,6 +23,9 @@ import { authStorage } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { getInvoiceSettings, fetchInvoiceSettings, shopContextFromTenant, type InvoiceSettings, type ShopContext } from '@/lib/invoiceSettings'
+import { cacheProductsForOffline, cacheCategoriesForOffline, getCachedProducts, getCachedCategories } from '@/lib/offline/products-cache'
+import { buildOfflineInvoiceNumber, queueOfflineSale } from '@/lib/offline/queue-sale'
+import { isBrowserOnline, isNetworkError } from '@/lib/offline/sync'
 import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrint'
 import { printThermalReceipt } from '@/components/invoice/ThermalReceipt'
 import { whatsappApi } from '@/lib/whatsapp-api'
@@ -598,8 +601,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const { data: productsData, refetch: refetchProducts } = useProducts({ limit: '500' })
   const [customers, setCustomers]     = useState<any[]>([])
   const [custLoading, setCustLoading] = useState(false)
+  const [cachedProducts, setCachedProducts] = useState<any[]>([])
 
-  const products: any[] = (productsData as any)?.data ?? []
+  const liveProducts: any[] = (productsData as any)?.data ?? []
+  const products: any[] = liveProducts.length > 0 ? liveProducts : cachedProducts
 
   const refetchCustomers = useCallback(async () => {
     setCustLoading(true)
@@ -615,7 +620,20 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     refetchProducts()
+    getCachedProducts().then((rows) => {
+      if (Array.isArray(rows)) setCachedProducts(rows as any[])
+    }).catch(() => {})
+    getCachedCategories().then((cats) => {
+      if (cats.length > 0) setCategories(cats)
+    }).catch(() => {})
   }, [refetchProducts])
+
+  useEffect(() => {
+    if (liveProducts.length > 0 && isBrowserOnline()) {
+      cacheProductsForOffline(liveProducts).catch(() => {})
+      setCachedProducts(liveProducts)
+    }
+  }, [liveProducts])
 
   useEffect(() => {
     if (!pendingCustomer) return
@@ -643,6 +661,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
     productsApi.categories().then((res: any) => {
       const cats = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []
       setCategories(cats)
+      if (cats.length > 0) cacheCategoriesForOffline(cats).catch(() => {})
     }).catch(() => {})
   }, [])
 
@@ -986,6 +1005,21 @@ function POSContent({ onClose }: { onClose: () => void }) {
         return
       }
     }
+    const offlineNow = !isBrowserOnline()
+    if (offlineNow) {
+      if (settleOldOutstanding && outstandingPaying > 0) {
+        setCheckoutError('Cannot settle outstanding balance while offline')
+        return
+      }
+      if (addWarranty) {
+        setCheckoutError('Warranty registration requires an internet connection')
+        return
+      }
+      if (cart.some(i => i.isReload)) {
+        setCheckoutError('Reload sales require an internet connection')
+        return
+      }
+    }
     setCheckoutLoading(true)
     setCheckoutError('')
     const settledOutstanding = outstandingPaying
@@ -993,7 +1027,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       const user = authStorage.getUser()
 
       // Settle old balance first so a failed payment does not leave a new sale unpaid
-      if (settleOldOutstanding && selectedCustomer && settledOutstanding > 0) {
+      if (!offlineNow && settleOldOutstanding && selectedCustomer && settledOutstanding > 0) {
         await customersApi.creditPayment(selectedCustomer.id, {
           amount: settledOutstanding,
           paymentMethod,
@@ -1015,7 +1049,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       if (payNowForSale > 0) payments.push({ method: paymentMethod, amount: payNowForSale })
       if (saleDueAmount > 0) payments.push({ method: 'CREDIT', amount: saleDueAmount })
 
-      const res: any = await salesApi.create({
+      const salePayload = {
         branchId:      user?.branchIds?.[0],
         customerId:    selectedCustomer?.id || undefined,
         customerName:  selectedCustomer?.name || 'Walk-in Customer',
@@ -1037,7 +1071,54 @@ function POSContent({ onClose }: { onClose: () => void }) {
           imei:        i.imei,
         })),
         payments,
-      })
+      }
+
+      const finishOfflineSale = async (invoiceNumber: string, localId: string) => {
+        toast.success('Sale saved offline — will sync when connected', { icon: '📴' })
+        setMobileView('cart')
+        setCompletedSale({
+          id: localId,
+          invoiceNumber,
+          offline: true,
+          total: saleTotal,
+          items: cart.map(i => ({ productName: i.name, sku: i.sku, imei: i.imei, quantity: i.quantity, unitPrice: i.price, total: i.price * i.quantity })),
+          payments,
+          paidAmount: payNowForSale,
+          dueAmount: saleDueAmount,
+          customerName: selectedCustomer?.name || 'Walk-in Customer',
+          customerPhone: selectedCustomer?.phone || '',
+          cashierName: user?.name || 'Staff',
+          paymentMethod,
+          cashReceived: cashReceivedAmount,
+          changeAmount,
+        })
+        setCart([])
+        setDiscountPct(0)
+        setDiscountFlat(0)
+        setCustomerPaid('')
+        setCheckoutError('')
+        setCartView('items')
+      }
+
+      if (offlineNow) {
+        const invoiceNumber = buildOfflineInvoiceNumber()
+        const { id } = await queueOfflineSale(salePayload, invoiceNumber)
+        await finishOfflineSale(invoiceNumber, id)
+        return
+      }
+
+      let res: any
+      try {
+        res = await salesApi.create(salePayload)
+      } catch (createErr) {
+        if (isNetworkError(createErr)) {
+          const invoiceNumber = buildOfflineInvoiceNumber()
+          const { id } = await queueOfflineSale(salePayload, invoiceNumber)
+          await finishOfflineSale(invoiceNumber, id)
+          return
+        }
+        throw createErr
+      }
       // ── Create warranties if user opted in ──
       const createdWarrantyCodes: string[] = []
       if (addWarranty && cart.length > 0) {
@@ -1725,6 +1806,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   <div>
                     <p className="text-xs font-bold text-white">Sale Complete</p>
                     <p className="text-[10px] text-slate-500 font-mono">{completedSale.invoiceNumber}</p>
+                    {completedSale.offline && (
+                      <p className="text-[10px] text-amber-400">Offline — pending sync</p>
+                    )}
                   </div>
                 </div>
                 <span className="text-sm font-bold text-white">{formatCurrency(completedSale.total ?? saleTotal)}</span>

@@ -10,6 +10,7 @@ import { HexTableProvider } from '@/components/table/hex-table-provider'
 import { authStorage } from '@/lib/auth'
 import { usePlatformStatus } from '@/lib/hooks'
 import { MaintenanceBanner } from '@/components/layout/MaintenanceBanner'
+import { OfflineBanner } from '@/components/layout/OfflineBanner'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -56,6 +57,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           sidebarOpen={mobileSidebarOpen}
           maintenance={maintenance}
         />
+        <OfflineBanner />
         {maintenance?.enabled && <MaintenanceBanner message={maintenance.message} />}
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           <HexTableProvider>{children}</HexTableProvider>
