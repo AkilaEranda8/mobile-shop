@@ -13,54 +13,54 @@ const COMPANY = {
   email: 'info@hexalyte.com',
   phone: '+94 70 3130100',
   website: 'www.hexalyte.com',
-  tagline: 'ශ්‍රී ලංකාවේ මොබයිල් කඩ සාප්පු සඳහා සම්පූර්ණ SaaS වේදිකාව',
+  tagline: 'The complete SaaS platform for mobile shops in Sri Lanka',
 }
 
 const features = [
   {
     icon: Zap,
-    title: 'වේගවත් POS',
-    description: 'බාර්කෝඩ් ස්කෑන්, IMEI ඇතුළත් කිරීම, බෙදීම් ගෙවීම් සහ තාප + PDF රිසිට් — අන්තර්ජාලය නොමැතිවද ක්‍රියා කරයි.',
+    title: 'Lightning POS',
+    description: 'Offline-ready billing with barcode scanning, IMEI entry, split payments, and instant thermal + PDF receipts.',
     color: 'from-yellow-500/20 to-orange-500/10',
     border: 'border-yellow-500/20',
     iconColor: 'text-yellow-400',
   },
   {
     icon: Wrench,
-    title: 'අලුත්වැඩියා කළමනාකරණය',
-    description: 'තාක්ෂණිකයා පැවරීම, කොටස් අඩු කිරීම සහ පොදු අනුගමන පෝර්ටල් සමඟ සම්පූර්ණ අලුත්වැඩියා ක්‍රමවේදය.',
+    title: 'Repair Management',
+    description: 'End-to-end repair workflow with technician assignment, spare part deduction, and a public tracking portal.',
     color: 'from-blue-500/20 to-cyan-500/10',
     border: 'border-blue-500/20',
     iconColor: 'text-blue-400',
   },
   {
     icon: Smartphone,
-    title: 'IMEI අනුගමනය',
-    description: 'මිලදී ගැනීමේ සිට විකිණීම සහ වarranty දක්වා IMEI මගින් සෑම උපාංගයම අනුගමනය කරයි.',
+    title: 'IMEI Tracking',
+    description: 'Every device tracked by IMEI from purchase to sale to warranty. Full audit trail throughout its lifecycle.',
     color: 'from-violet-500/20 to-purple-500/10',
     border: 'border-violet-500/20',
     iconColor: 'text-violet-400',
   },
   {
     icon: Shield,
-    title: 'වarranty කළමනාකරණය',
-    description: 'QR සත්‍යාපනය සහිත වarranty සහතික, කල් ඉකුත් ඇතිකිරීම් සහ වarranty ඉල්ලීම් ක්‍රමවේදය.',
+    title: 'Warranty Management',
+    description: 'Auto-generated warranty certificates with QR verification. Expiry reminders and claim workflow built-in.',
     color: 'from-green-500/20 to-emerald-500/10',
     border: 'border-green-500/20',
     iconColor: 'text-green-400',
   },
   {
     icon: Building2,
-    title: 'බහු ශාඛා',
-    description: 'එක් ඩෑෂ්බෝඩ් එකෙන් අසීමිත ශාඛා කළමනාකරණය. ගබඩා මාරුව, ශාඛා අවසර සහ ඒකාබද්ධ වාර්තා.',
+    title: 'Multi-Branch',
+    description: 'Manage unlimited branches from one dashboard. Stock transfers, branch-level permissions, consolidated reports.',
     color: 'from-pink-500/20 to-rose-500/10',
     border: 'border-pink-500/20',
     iconColor: 'text-pink-400',
   },
   {
     icon: BarChart3,
-    title: 'විශ්ලේෂණ සහ වාර්තා',
-    description: 'ආදායම් ප්‍රස්ථාර, ජනප්‍රිය නිෂ්පාදන, තාක්ෂණික KPI සහ ශාඛා සංසන්ධන — සජීවීව.',
+    title: 'Analytics & Reports',
+    description: 'Revenue charts, top products, technician KPIs, and branch comparisons — all in real-time.',
     color: 'from-cyan-500/20 to-sky-500/10',
     border: 'border-cyan-500/20',
     iconColor: 'text-cyan-400',
@@ -71,98 +71,98 @@ const plans = [
   {
     name: 'Starter',
     price: 'Rs. 2,999',
-    period: '/මාසය',
-    description: 'එක් ශාඛාවක් සහිත කඩ සාප්පු සඳහා',
+    period: '/month',
+    description: 'For single-branch shops just getting started',
     color: 'border-white/10',
     badge: null,
     features: [
-      '1 ශාඛාව',
-      '3 පරිශීලකයන් දක්වා',
-      '500 නිෂ්පාදන',
-      'POS සහ බිල්පත්',
-      'මූලික ගබඩා කළමනාකරණය',
-      'ගනුදෙනුකරු කළමනාකරණය',
-      'SMS දැනුම්දීම්',
-      'ඊමේල් සහාය',
+      '1 Branch',
+      'Up to 3 Users',
+      '500 Products',
+      'POS & Billing',
+      'Basic Inventory',
+      'Customer Management',
+      'SMS Notifications',
+      'Email Support',
     ],
-    cta: 'නොමිලේ ආරම්භ කරන්න',
+    cta: 'Start Free Trial',
     ctaStyle: 'btn-secondary',
   },
   {
     name: 'Pro',
     price: 'Rs. 4,999',
-    period: '/මාසය',
-    description: 'බහු ශාඛා සහිත වර්ධනය වන කඩ සාප්පු සඳහා',
+    period: '/month',
+    description: 'For growing shops with multiple branches',
     color: 'border-violet-500/50',
-    badge: 'වඩාත් ජනප්‍රිය',
+    badge: 'Most Popular',
     features: [
-      '5 ශාඛා',
-      '15 පරිශීලකයන් දක්වා',
-      '5,000 නිෂ්පාදන',
-      'Starter හි සියල්ල',
-      'අලුත්වැඩියා කළමනාකරණය',
-      'වarranty කළමනාකරණය',
-      'සැපයුම්කරු සහ PO මොඩියුල',
-      'විස්තරාත්මක විශ්ලේෂණ',
+      '5 Branches',
+      'Up to 15 Users',
+      '5,000 Products',
+      'Everything in Starter',
+      'Repair Management',
+      'Warranty Management',
+      'Supplier & PO Module',
+      'Advanced Analytics',
       'Offline POS (Electron)',
-      'WhatsApp සම්බන්ධතාව',
-      'විශේෂ සහාය',
+      'WhatsApp Integration',
+      'Priority Support',
     ],
-    cta: 'නොමිලේ ආරම්භ කරන්න',
+    cta: 'Start Free Trial',
     ctaStyle: 'btn-primary',
   },
   {
     name: 'Enterprise',
-    price: 'අභිරුචි',
+    price: 'Custom',
     period: '',
-    description: 'විශාල වෙළධ භාණ්ඩ සාප්පු සහ franchise සඳහා',
+    description: 'For large retail chains and franchises',
     color: 'border-cyan-500/30',
     badge: null,
     features: [
-      'අසීමිත ශාඛා',
-      'අසීමිත පරිශීලකයන්',
-      'අසීමිත නිෂ්පාදන',
-      'Pro හි සියල්ල',
+      'Unlimited Branches',
+      'Unlimited Users',
+      'Unlimited Products',
+      'Everything in Pro',
       'White Label',
-      'API ප්‍රවේශය',
-      'විශේෂ ගිණුම් කළමනාකරු',
-      'අභිරුචි සම්බන්ධතා',
-      'SLA සහතිකය',
-      'On-premise විකල්පය',
+      'API Access',
+      'Dedicated Account Manager',
+      'Custom Integrations',
+      'SLA Guarantee',
+      'On-premise option',
     ],
-    cta: 'අප අමතන්න',
+    cta: 'Contact Sales',
     ctaStyle: 'btn-secondary',
   },
 ]
 
 const stats = [
-  { value: '500+', label: 'ක්‍රියාත්මක කඩ සාප්පු', icon: Building2 },
-  { value: '50,000+', label: 'අලුත්වැඩියා අනුගමනය', icon: Wrench },
-  { value: 'LKR 2B+', label: 'සැකසූ ආදායම', icon: TrendingUp },
+  { value: '500+', label: 'Active Shops', icon: Building2 },
+  { value: '50,000+', label: 'Repairs Tracked', icon: Wrench },
+  { value: 'LKR 2B+', label: 'Revenue Processed', icon: TrendingUp },
   { value: '99.9%', label: 'Uptime SLA', icon: Zap },
 ]
 
 const testimonials = [
   {
-    name: 'නිමල් පෙරේරා',
-    shop: 'නිමල් මොබයිල්ස්, කොළඹ',
-    avatar: 'න',
+    name: 'Nimal Perera',
+    shop: 'Nimal Mobiles, Colombo',
+    avatar: 'N',
     rating: 5,
-    text: 'Hexalyte අපගේ 3 ශාඛා ක්‍රියාකාරිත්වය සම්පූර්ණයෙන් වෙනස් කළා. IMEI අනුගමනය සහ අලුත්වැඩියා කළමනාකරණය දිනපතා වැඩකාරයන් රැඳවීම.',
+    text: 'Hexalyte transformed our 3-branch operation. IMEI tracking and repair management alone save us hours every day.',
   },
   {
-    name: 'සුනිල් ජයසිංහ',
-    shop: 'Smart Phone Hub, ගාල්ල',
-    avatar: 'ස',
+    name: 'Sunil Jayasinghe',
+    shop: 'Smart Phone Hub, Galle',
+    avatar: 'S',
     rating: 5,
-    text: 'POS ඉතා වේගවත්. බිල්පත් කාලය 60% අඩු වුණා. ගනුදෙනුකරුවන් WhatsApp රිසිට් විශේෂාංගයට ආසාවෙන් සිටිනවා!',
+    text: 'The POS is incredibly fast. Our billing time dropped by 60%. Customers love the WhatsApp invoice feature!',
   },
   {
-    name: 'කමල් සිල්වා',
-    shop: 'Galaxy Mobile World, කැන්ඩි',
-    avatar: 'ක',
+    name: 'Kamal Silva',
+    shop: 'Galaxy Mobile World, Kandy',
+    avatar: 'K',
     rating: 5,
-    text: 'අපගේ 5 ශාඛා සාප්පු සඳහා හොඳම ආයෝජනය. වarranty කළමනාකරණය අපට වාසික තරඟකාරීත්වය ලබා දෙනවා.',
+    text: 'Best investment for our 5-branch chain. Warranty management gives us a real competitive edge.',
   },
 ]
 
@@ -198,18 +198,18 @@ export default function LandingPage() {
             </Link>
 
             <div className="hidden md:flex items-center gap-8">
-              <a href="#features" className="text-sm text-slate-400 hover:text-white transition-colors">විශේෂාංග</a>
-              <a href="#pricing" className="text-sm text-slate-400 hover:text-white transition-colors">මිල ගණන්</a>
-              <a href="#testimonials" className="text-sm text-slate-400 hover:text-white transition-colors">අදහස්</a>
-              <a href="#company" className="text-sm text-slate-400 hover:text-white transition-colors">අප ගැන</a>
+              <a href="#features" className="text-sm text-slate-400 hover:text-white transition-colors">Features</a>
+              <a href="#pricing" className="text-sm text-slate-400 hover:text-white transition-colors">Pricing</a>
+              <a href="#testimonials" className="text-sm text-slate-400 hover:text-white transition-colors">Reviews</a>
+              <a href="#company" className="text-sm text-slate-400 hover:text-white transition-colors">About</a>
             </div>
 
             <div className="hidden md:flex items-center gap-3">
               <Link href="/login" className="text-sm text-slate-400 hover:text-white px-4 py-2 transition-colors">
-                පිවිසෙන්න
+                Sign in
               </Link>
               <Link href="/register" className="btn-primary text-sm py-2 px-5">
-                නොමිලේ ආරම්භ කරන්න
+                Start Free Trial
               </Link>
             </div>
 
@@ -224,13 +224,13 @@ export default function LandingPage() {
             <div className="flex justify-center pb-3 border-b border-white/5">
               <Logo className="h-12" />
             </div>
-            <a href="#features" className="block text-slate-400 hover:text-white py-2 text-sm" onClick={() => setMobileMenuOpen(false)}>විශේෂාංග</a>
-            <a href="#pricing" className="block text-slate-400 hover:text-white py-2 text-sm" onClick={() => setMobileMenuOpen(false)}>මිල ගණන්</a>
-            <a href="#testimonials" className="block text-slate-400 hover:text-white py-2 text-sm" onClick={() => setMobileMenuOpen(false)}>අදහස්</a>
-            <a href="#company" className="block text-slate-400 hover:text-white py-2 text-sm" onClick={() => setMobileMenuOpen(false)}>අප ගැන</a>
+            <a href="#features" className="block text-slate-400 hover:text-white py-2 text-sm" onClick={() => setMobileMenuOpen(false)}>Features</a>
+            <a href="#pricing" className="block text-slate-400 hover:text-white py-2 text-sm" onClick={() => setMobileMenuOpen(false)}>Pricing</a>
+            <a href="#testimonials" className="block text-slate-400 hover:text-white py-2 text-sm" onClick={() => setMobileMenuOpen(false)}>Reviews</a>
+            <a href="#company" className="block text-slate-400 hover:text-white py-2 text-sm" onClick={() => setMobileMenuOpen(false)}>About</a>
             <div className="pt-2 flex flex-col gap-2">
-              <Link href="/login" className="btn-secondary text-sm text-center">පිවිසෙන්න</Link>
-              <Link href="/register" className="btn-primary text-sm text-center">නොමිලේ ආරම්භ කරන්න</Link>
+              <Link href="/login" className="btn-secondary text-sm text-center">Sign in</Link>
+              <Link href="/register" className="btn-primary text-sm text-center">Start Free Trial</Link>
             </div>
           </div>
         )}
@@ -245,28 +245,28 @@ export default function LandingPage() {
 
           <div className="inline-flex items-center gap-2 bg-violet-500/10 border border-violet-500/20 rounded-full px-4 py-1.5 text-sm text-violet-300 mb-8">
             <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-            <span>Flutter මොබයිල් යෙදුම + Electron POS දැන් ලබා ගත හැක</span>
+            <span>Now with Flutter mobile app + Electron desktop POS</span>
           </div>
 
           <h1 className="text-4xl sm:text-5xl md:text-7xl font-black text-white leading-tight mb-6">
-            නවීන මොබයිල් කඩ සාප්පු සඳහා{' '}
+            The Complete Platform for{' '}
             <span className="bg-gradient-to-r from-violet-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
-              සම්පූර්ණ වේදිකාව
+              Modern Mobile Shops
             </span>
           </h1>
 
           <p className="text-lg sm:text-xl text-slate-400 max-w-3xl mx-auto mb-10 leading-relaxed">
-            ගබඩා, අලුත්වැඩියා, බිල්පත්, වarranty සහ ගනුදෙනුකරු කළමනාකරණය එක් ප්‍රබල වේදිකාවකින්.
-            තනි කඩ සාප්පු සහ බහු ශාඛා වෙළධ භාණ්ඩ සාප්පු සඳහා නිර්මාණය කර ඇත.
+            Manage inventory, repairs, billing, warranty, and customers in one powerful platform.
+            Built for single shops and multi-branch retail chains across Sri Lanka.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
             <Link href="/register" className="btn-primary text-base px-8 py-3.5 flex items-center gap-2 group w-full sm:w-auto justify-center">
-              14 දින නොමිලේ ආරම්භ කරන්න
+              Start 14-Day Free Trial
               <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
             </Link>
             <Link href="/dashboard" className="btn-secondary text-base px-8 py-3.5 flex items-center gap-2 w-full sm:w-auto justify-center">
-              Live Demo බලන්න
+              View Live Demo
               <ChevronRight size={18} />
             </Link>
           </div>
@@ -283,10 +283,10 @@ export default function LandingPage() {
             </div>
             <div className="p-4 sm:p-6 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
               {[
-                { label: 'අදගේ ආදායම', value: 'LKR 142,000', change: '+12.4%', up: true },
-                { label: 'සක්‍රිය අලුත්වැඩියා', value: '12', change: 'ඊයේට -3', up: false },
-                { label: 'සම්පූර්ණ ගනුදෙනුකරු', value: '1,842', change: 'අද +8', up: true },
-                { label: 'බැඳි ණය', value: 'LKR 68,500', change: '5 ගනුදෙනුකරු', up: false },
+                { label: "Today's Revenue", value: 'LKR 142,000', change: '+12.4%', up: true },
+                { label: 'Active Repairs', value: '12', change: '-3 from yesterday', up: false },
+                { label: 'Total Customers', value: '1,842', change: '+8 today', up: true },
+                { label: 'Pending Dues', value: 'LKR 68,500', change: '5 customers', up: false },
               ].map((stat) => (
                 <div key={stat.label} className="bg-white/3 border border-white/5 rounded-xl p-3 sm:p-4">
                   <p className="text-xs text-slate-500 mb-2">{stat.label}</p>
@@ -298,8 +298,8 @@ export default function LandingPage() {
             <div className="px-4 sm:px-6 pb-6">
               <div className="bg-white/3 border border-white/5 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm font-medium text-slate-300">ආදායම — අවසන් 7 දින</span>
-                  <span className="text-xs text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">↑ 18.2% පසුගිය සතියට</span>
+                  <span className="text-sm font-medium text-slate-300">Revenue — Last 7 days</span>
+                  <span className="text-xs text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">↑ 18.2% vs last week</span>
                 </div>
                 <div className="flex items-end gap-1.5 h-24">
                   {[65, 85, 45, 90, 72, 95, 58].map((h, i) => (
@@ -312,7 +312,7 @@ export default function LandingPage() {
                   ))}
                 </div>
                 <div className="flex justify-between mt-2">
-                  {['සඳු', 'බදා', 'බ්‍රහ', 'සිකු', 'සෙන', 'සට', 'ඉරි'].map((d) => (
+                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
                     <span key={d} className="text-xs text-slate-600 flex-1 text-center">{d}</span>
                   ))}
                 </div>
@@ -339,12 +339,12 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white mb-4">
-              ඔබේ කඩ සාප්පුට අවශ්‍ය සියල්ල,{' '}
-              <span className="gradient-text">අනවශ්‍ය දේ නැත</span>
+              Everything your shop needs,{' '}
+              <span className="gradient-text">nothing it doesn&apos;t</span>
             </h2>
             <p className="text-lg text-slate-400 max-w-2xl mx-auto">
-              මොබයිල් වෙළධ භාණ්ඩ කර්මාන්තය සඳහා නිර්මාණය කළ 10 සම්බන්ධිත මොඩියුල.
-              IMEI අනුගමනයේ සිට වarranty කළමනාකරණය දක්වා.
+              10 integrated modules built specifically for the mobile retail industry.
+              From IMEI tracking to warranty management.
             </p>
           </div>
 
@@ -366,14 +366,14 @@ export default function LandingPage() {
           {/* Additional capabilities */}
           <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { icon: QrCode, text: 'QR බිල්පත් සහ වarranty' },
+              { icon: QrCode, text: 'QR Invoice & Warranty' },
               { icon: Wifi, text: 'Offline-First POS' },
-              { icon: Bell, text: 'SMS සහ WhatsApp දැනුම්දීම්' },
-              { icon: CreditCard, text: 'බෙදීම් ගෙවීම්' },
-              { icon: Package, text: 'සැපයුම්කරු සහ PO' },
+              { icon: Bell, text: 'SMS & WhatsApp Alerts' },
+              { icon: CreditCard, text: 'Split Payments' },
+              { icon: Package, text: 'Supplier & PO Management' },
               { icon: Users, text: 'Role-Based Access' },
-              { icon: Globe, text: 'පොදු අලුත්වැඩියා පෝර්ටල්' },
-              { icon: TrendingUp, text: 'ශාඛා සංසන්ධන විශ්ලේෂණ' },
+              { icon: Globe, text: 'Public Repair Portal' },
+              { icon: TrendingUp, text: 'Branch Comparison Analytics' },
             ].map((item) => (
               <div key={item.text} className="flex items-center gap-3 bg-white/3 border border-white/5 rounded-xl px-4 py-3">
                 <item.icon size={16} className="text-violet-400 flex-shrink-0" />
@@ -388,8 +388,8 @@ export default function LandingPage() {
       <section id="pricing" className="py-24 px-4 bg-white/2">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">සරල, පැහැදිලි මිල ගණන් (LKR)</h2>
-            <p className="text-slate-400">14 දින නොමිලේ ආරම්භ කරන්න. ක්‍රෙඩිට් කාඩ් අවශ්‍ය නොවේ.</p>
+            <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">Simple, transparent pricing (LKR)</h2>
+            <p className="text-slate-400">Start with a 14-day free trial. No credit card required.</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
@@ -431,7 +431,7 @@ export default function LandingPage() {
       <section id="testimonials" className="py-24 px-4">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">ශ්‍රී ලංකාවේ කඩ සාප්පු හිමිකරුවන්ගේ අදහස්</h2>
+            <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">Loved by shop owners across Sri Lanka</h2>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
@@ -475,7 +475,7 @@ export default function LandingPage() {
               >
                 <Mail size={18} className="text-violet-400 flex-shrink-0" />
                 <div>
-                  <p className="text-xs text-slate-500">ඊමේල්</p>
+                  <p className="text-xs text-slate-500">Email</p>
                   <p className="text-sm text-white">{COMPANY.email}</p>
                 </div>
               </a>
@@ -485,7 +485,7 @@ export default function LandingPage() {
               >
                 <Phone size={18} className="text-violet-400 flex-shrink-0" />
                 <div>
-                  <p className="text-xs text-slate-500">දුරකථන</p>
+                  <p className="text-xs text-slate-500">Phone</p>
                   <p className="text-sm text-white">{COMPANY.phone}</p>
                 </div>
               </a>
@@ -497,7 +497,7 @@ export default function LandingPage() {
               >
                 <Globe size={18} className="text-violet-400 flex-shrink-0" />
                 <div>
-                  <p className="text-xs text-slate-500">වෙබ් අඩවිය</p>
+                  <p className="text-xs text-slate-500">Website</p>
                   <p className="text-sm text-white">{COMPANY.website}</p>
                 </div>
               </a>
@@ -511,21 +511,21 @@ export default function LandingPage() {
         <div className="max-w-3xl mx-auto text-center">
           <div className="bg-gradient-to-br from-violet-600/20 to-cyan-600/10 border border-violet-500/20 rounded-3xl p-8 sm:p-12">
             <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">
-              ඔබේ මොබයිල් කඩ සාප්පුව නවීන කරන්න
+              Ready to transform your mobile shop?
             </h2>
             <p className="text-slate-400 mb-8">
-              Hexalyte මත දැනටමත් ක්‍රියාත්මක 500+ කඩ සාප්පු සමඟ එක්වන්න. අද 14 දින නොමිලේ ආරම්භ කරන්න.
+              Join 500+ shops already running on Hexalyte. Start your 14-day free trial today.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/register" className="btn-primary text-base px-10 py-3.5 flex items-center justify-center gap-2">
-                නොමිලේ ආරම්භ කරන්න
+                Start Free Trial
                 <ArrowRight size={18} />
               </Link>
               <Link href="/login" className="btn-secondary text-base px-10 py-3.5">
-                පිවිසෙන්න
+                Sign in
               </Link>
             </div>
-            <p className="text-xs text-slate-600 mt-6">ක්‍රෙඩිට් කාඩ් අවශ්‍ය නොවේ • ඕනෑම වේලාවක අවලංගු කරන්න • 14 දින නොමිලේ</p>
+            <p className="text-xs text-slate-600 mt-6">No credit card required • Cancel anytime • 14-day free trial</p>
           </div>
         </div>
       </section>
@@ -547,9 +547,9 @@ export default function LandingPage() {
               </div>
             </div>
             {[
-              { title: 'නිෂ්පාදන', links: ['විශේෂාංග', 'මිල ගණන්', 'Changelog', 'Roadmap'] },
-              { title: 'සමාගම', links: ['අප ගැන', 'Blog', 'Careers', 'අමතන්න'] },
-              { title: 'නීතිමය', links: ['Privacy', 'Terms', 'Security', 'Compliance'] },
+              { title: 'Product', links: ['Features', 'Pricing', 'Changelog', 'Roadmap'] },
+              { title: 'Company', links: ['About', 'Blog', 'Careers', 'Contact'] },
+              { title: 'Legal', links: ['Privacy', 'Terms', 'Security', 'Compliance'] },
             ].map((col) => (
               <div key={col.title}>
                 <h4 className="text-sm font-semibold text-slate-300 mb-4">{col.title}</h4>
@@ -565,7 +565,7 @@ export default function LandingPage() {
           </div>
           <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-sm text-slate-600">© {new Date().getFullYear()} {COMPANY.name}. All rights reserved.</p>
-            <p className="text-sm text-slate-600">ශ්‍රී ලංකාවේ නිර්මාණය කර ඇත ❤️</p>
+            <p className="text-sm text-slate-600">Made with ❤️ in Sri Lanka</p>
           </div>
         </div>
       </footer>
