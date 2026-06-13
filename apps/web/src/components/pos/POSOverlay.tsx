@@ -249,7 +249,7 @@ function RegisterCustomerInline({ onBack, onCreated }: { onBack: () => void; onC
   const [form, setForm] = useState({ name: '', phone: '', email: '' })
   const [loading, setLoading] = useState(false)
 
-  const inputCls = 'w-full h-8 px-2 rounded-lg text-xs outline-none border text-white placeholder:text-white/50'
+  const inputCls = 'w-full h-11 px-3 rounded-xl text-sm outline-none border text-white placeholder:text-white/50'
   const inputStyle = { background: POS_THEME.bg, borderColor: POS_THEME.border }
 
   const submit = async () => {
@@ -277,36 +277,36 @@ function RegisterCustomerInline({ onBack, onCreated }: { onBack: () => void; onC
   }
 
   return (
-    <div className="p-2 space-y-2">
-      <div className="flex items-center gap-1.5 pb-2 border-b" style={{ borderColor: POS_THEME.border }}>
-        <button type="button" onClick={onBack} className="p-1 rounded-lg hover:bg-white/5 text-white/70" title="Back">
-          <ChevronLeft size={14} />
+    <div className="p-4 space-y-3">
+      <div className="flex items-center gap-2 pb-3 border-b" style={{ borderColor: POS_THEME.border }}>
+        <button type="button" onClick={onBack} className="p-1.5 rounded-lg hover:bg-white/5 text-white/70" title="Back">
+          <ChevronLeft size={18} />
         </button>
-        <UserPlus size={12} className="text-violet-400" />
-        <span className="text-xs font-bold text-white">New Customer</span>
+        <UserPlus size={16} className="text-violet-400" />
+        <span className="text-sm font-bold text-white">New Customer</span>
       </div>
       <div>
-        <label className="text-[10px] text-white/60 mb-1 block">Full Name *</label>
+        <label className="text-xs font-medium text-white/70 mb-1.5 block">Full Name *</label>
         <input className={inputCls} style={inputStyle} placeholder="Customer name" autoFocus
           value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
           onKeyDown={e => { if (e.key === 'Enter') submit() }} />
       </div>
       <div>
-        <label className="text-[10px] text-white/60 mb-1 block">Phone *</label>
+        <label className="text-xs font-medium text-white/70 mb-1.5 block">Phone *</label>
         <input className={inputCls} style={inputStyle} placeholder="Phone number"
           value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))}
           onKeyDown={e => { if (e.key === 'Enter') submit() }} />
       </div>
       <div>
-        <label className="text-[10px] text-white/60 mb-1 block">Email (optional)</label>
+        <label className="text-xs font-medium text-white/70 mb-1.5 block">Email (optional)</label>
         <input className={inputCls} style={inputStyle} placeholder="email@example.com" type="email"
           value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
           onKeyDown={e => { if (e.key === 'Enter') submit() }} />
       </div>
       <button type="button" onClick={submit} disabled={loading}
-        className="w-full h-8 rounded-lg text-xs font-bold text-white disabled:opacity-50 flex items-center justify-center"
+        className="w-full h-11 rounded-xl text-sm font-bold text-white disabled:opacity-50 flex items-center justify-center mt-1"
         style={{ background: POS_THEME.purple }}>
-        {loading ? <Loader2 size={13} className="animate-spin" /> : 'Save Customer'}
+        {loading ? <Loader2 size={16} className="animate-spin" /> : 'Save Customer'}
       </button>
     </div>
   )
@@ -1533,7 +1533,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         <ChevronDown size={10} className="text-white/70" />
       </button>
       {showCustDrop && (
-        <div className="absolute top-full mt-1.5 right-0 z-[60] w-64 rounded-2xl shadow-2xl overflow-hidden border" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
+        <div className={`absolute top-full mt-1.5 right-0 z-[60] rounded-2xl shadow-2xl overflow-hidden border ${showRegister ? 'w-96' : 'w-64'}`} style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
           {renderCustomerList(true)}
         </div>
       )}
@@ -2090,7 +2090,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       </button>
                     </div>
                     {showCartCustDrop && (
-                      <div className="absolute left-2 right-2 top-full mt-1 z-[60] rounded-2xl shadow-2xl overflow-hidden border" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
+                      <div className={`absolute left-0 right-0 top-full mt-1 z-[60] rounded-2xl shadow-2xl overflow-hidden border ${showRegister ? 'min-w-[320px]' : ''}`} style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
                         {renderCustomerList(true)}
                       </div>
                     )}
