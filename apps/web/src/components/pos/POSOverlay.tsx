@@ -244,10 +244,13 @@ function InvoiceTemplate({ sale, shopName, settings }: { sale: any; shopName: st
   )
 }
 
-/* ── Register Customer Modal ─────────────────────────────────────────────── */
-function RegisterCustomerModal({ onClose, onCreated }: { onClose: () => void; onCreated: (c: any) => void }) {
+/* ── Register Customer (inline in customer dropdown) ─────────────────────── */
+function RegisterCustomerInline({ onBack, onCreated }: { onBack: () => void; onCreated: (c: any) => void }) {
   const [form, setForm] = useState({ name: '', phone: '', email: '' })
   const [loading, setLoading] = useState(false)
+
+  const inputCls = 'w-full h-8 px-2 rounded-lg text-xs outline-none border text-white placeholder:text-white/50'
+  const inputStyle = { background: POS_THEME.bg, borderColor: POS_THEME.border }
 
   const submit = async () => {
     if (!form.name || !form.phone) return toast.error('Name and phone required')
@@ -256,7 +259,6 @@ function RegisterCustomerModal({ onClose, onCreated }: { onClose: () => void; on
       const res: any = await customersApi.create(form)
       toast.success('Customer registered')
       onCreated(res?.data)
-      onClose()
     } catch (e: any) {
       if (e?.status === 409 || e?.message?.toLowerCase().includes('already')) {
         try {
@@ -265,7 +267,6 @@ function RegisterCustomerModal({ onClose, onCreated }: { onClose: () => void; on
           if (existing) {
             toast.success(`Existing customer selected: ${existing.name}`)
             onCreated(existing)
-            onClose()
             return
           }
         } catch { /* fall through */ }
@@ -276,39 +277,37 @@ function RegisterCustomerModal({ onClose, onCreated }: { onClose: () => void; on
   }
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" data-modal="dark">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl">
-        <div className="flex items-center justify-between p-5 border-b border-white/5">
-          <div className="flex items-center gap-2">
-            <UserPlus size={15} className="text-violet-400" />
-            <h3 className="text-sm font-bold text-white">Register Customer</h3>
-          </div>
-          <button onClick={onClose} className="p-1.5 text-slate-500 hover:text-white hover:bg-white/5 rounded-lg"><X size={15} /></button>
-        </div>
-        <div className="p-5 space-y-3">
-          <div>
-            <label className="text-xs text-slate-400 mb-1 block">Full Name *</label>
-            <input className="input-field w-full" placeholder="Customer name"
-              value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} autoFocus />
-          </div>
-          <div>
-            <label className="text-xs text-slate-400 mb-1 block">Phone *</label>
-            <input className="input-field w-full" placeholder="Phone number"
-              value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} />
-          </div>
-          <div>
-            <label className="text-xs text-slate-400 mb-1 block">Email (optional)</label>
-            <input className="input-field w-full" placeholder="email@example.com" type="email"
-              value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} />
-          </div>
-          <div className="flex gap-2 pt-1">
-            <button onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
-            <button onClick={submit} disabled={loading} className="btn-primary flex-1 text-sm disabled:opacity-50">
-              {loading ? <Loader2 size={13} className="animate-spin mx-auto" /> : 'Register'}
-            </button>
-          </div>
-        </div>
+    <div className="p-2 space-y-2">
+      <div className="flex items-center gap-1.5 pb-2 border-b" style={{ borderColor: POS_THEME.border }}>
+        <button type="button" onClick={onBack} className="p-1 rounded-lg hover:bg-white/5 text-white/70" title="Back">
+          <ChevronLeft size={14} />
+        </button>
+        <UserPlus size={12} className="text-violet-400" />
+        <span className="text-xs font-bold text-white">New Customer</span>
       </div>
+      <div>
+        <label className="text-[10px] text-white/60 mb-1 block">Full Name *</label>
+        <input className={inputCls} style={inputStyle} placeholder="Customer name" autoFocus
+          value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+          onKeyDown={e => { if (e.key === 'Enter') submit() }} />
+      </div>
+      <div>
+        <label className="text-[10px] text-white/60 mb-1 block">Phone *</label>
+        <input className={inputCls} style={inputStyle} placeholder="Phone number"
+          value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))}
+          onKeyDown={e => { if (e.key === 'Enter') submit() }} />
+      </div>
+      <div>
+        <label className="text-[10px] text-white/60 mb-1 block">Email (optional)</label>
+        <input className={inputCls} style={inputStyle} placeholder="email@example.com" type="email"
+          value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
+          onKeyDown={e => { if (e.key === 'Enter') submit() }} />
+      </div>
+      <button type="button" onClick={submit} disabled={loading}
+        className="w-full h-8 rounded-lg text-xs font-bold text-white disabled:opacity-50 flex items-center justify-center"
+        style={{ background: POS_THEME.purple }}>
+        {loading ? <Loader2 size={13} className="animate-spin" /> : 'Save Customer'}
+      </button>
     </div>
   )
 }
@@ -1266,7 +1265,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
         else if (showFilters) setShowFilters(false)
         else if (showOpeningCash) setShowOpeningCash(false)
         else if (showCashFlow) setShowCashFlow(false)
-        else if (showCartCustDrop || showCustDrop) { setShowCartCustDrop(false); setShowCustDrop(false) }
+        else if (showRegister && (showCartCustDrop || showCustDrop)) setShowRegister(false)
+        else if (showCartCustDrop || showCustDrop) { setShowCartCustDrop(false); setShowCustDrop(false); setShowRegister(false) }
         else if (cartView === 'checkout' && !completedSale) setCartView('items')
         return
       }
@@ -1475,7 +1475,23 @@ function POSContent({ onClose }: { onClose: () => void }) {
     }
   }, [completedSale, selectedCustomer, shareWhatsApp])
 
-  const renderCustomerList = (autoFocus = false) => (
+  const finishCustomerRegister = useCallback((c: any) => {
+    handleCustomerCreated(c)
+    setShowRegister(false)
+    setShowCustDrop(false)
+    setShowCartCustDrop(false)
+  }, [handleCustomerCreated])
+
+  const renderCustomerList = (autoFocus = false) => {
+    if (showRegister) {
+      return (
+        <RegisterCustomerInline
+          onBack={() => setShowRegister(false)}
+          onCreated={finishCustomerRegister}
+        />
+      )
+    }
+    return (
     <>
       <div className="p-2 border-b" style={{ borderColor: POS_THEME.border }}>
         <input
@@ -1485,12 +1501,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
           placeholder="Search customer… (F2)"
           value={custSearch}
           onChange={e => setCustSearch(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Escape') { setShowCustDrop(false); setShowCartCustDrop(false) } }}
+          onKeyDown={e => { if (e.key === 'Escape') { setShowRegister(false); setShowCustDrop(false); setShowCartCustDrop(false) } }}
         />
       </div>
       <div className="overflow-y-auto max-h-60">
         <button type="button" onClick={() => selectCustomer(null)} className="w-full px-3 py-2 text-xs text-left border-b hover:bg-white/5 text-white" style={{ borderColor: POS_THEME.border }}>Walk-in Customer</button>
-        <button type="button" onClick={() => { setShowCustDrop(false); setShowCartCustDrop(false); setShowRegister(true) }} className="w-full px-3 py-2 text-xs text-left border-b flex items-center gap-1 hover:bg-white/5 text-white" style={{ borderColor: POS_THEME.border }}><Plus size={10} />New Customer</button>
+        <button type="button" onClick={() => setShowRegister(true)} className="w-full px-3 py-2 text-xs text-left border-b flex items-center gap-1 hover:bg-white/5 text-white" style={{ borderColor: POS_THEME.border }}><Plus size={10} />New Customer</button>
         {custLoading && <p className="px-3 py-2 text-[10px] text-white/60">Loading…</p>}
         {filteredCustomers.slice(0, 80).map((c: any) => (
           <button key={c.id} type="button" onClick={() => selectCustomer(c)} className="w-full px-3 py-2 text-left border-b hover:bg-white/5" style={{ borderColor: POS_THEME.border }}>
@@ -1500,11 +1516,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
         ))}
       </div>
     </>
-  )
+    )
+  }
 
   const customerSlot = (
     <div className="relative flex-shrink-0">
-      <button type="button" onClick={() => { setShowCustDrop(o => !o); setShowCartCustDrop(false); setCustSearch('') }}
+      <button type="button" onClick={() => { setShowCustDrop(o => !o); setShowCartCustDrop(false); setCustSearch(''); setShowRegister(false) }}
         className="h-9 px-3 rounded-xl border flex items-center gap-2 text-xs font-medium"
         style={{ background: POS_THEME.card, borderColor: POS_THEME.border, color: '#ffffff' }}
         title="Select customer (F2)">
@@ -1537,7 +1554,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
   return (
     <>
       {/* Modals */}
-      {showRegister && <RegisterCustomerModal onClose={() => setShowRegister(false)} onCreated={handleCustomerCreated} />}
       {showA4Invoice && completedSale && (() => {
         const a4Data = buildA4Data()
         if (!a4Data) return null
@@ -2067,7 +2083,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                           )}
                         </div>
                       </div>
-                      <button type="button" onClick={() => { setShowCartCustDrop(o => !o); setShowCustDrop(false); setCustSearch('') }}
+                      <button type="button" onClick={() => { setShowCartCustDrop(o => !o); setShowCustDrop(false); setCustSearch(''); setShowRegister(false) }}
                         className="shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-bold border text-white hover:bg-white/5"
                         style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
                         Change
