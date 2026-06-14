@@ -416,6 +416,8 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
     profit: {
       grossSales: Math.round(grossSales * 100) / 100,
       cogs: Math.round(cogs * 100) / 100,
+      repairPartsCogs: Math.round(repairPartsCogs * 100) / 100,
+      totalCogs: Math.round((cogs + repairPartsCogs) * 100) / 100,
       grossProfit: Math.round(grossProfit * 100) / 100,
       reloadCommission: Math.round(reloadCommission * 100) / 100,
       netProfit: Math.round(netProfit * 100) / 100,

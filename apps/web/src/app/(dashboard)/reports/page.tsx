@@ -1,6 +1,6 @@
 'use client'
 // v2
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   ComposedChart, Line, ReferenceLine,
@@ -197,7 +197,7 @@ function SalesTab({ days, fromDate, toDate, branchId }: { days: string; fromDate
 
   const totalRevenue  = revenueArr.reduce((s, d) => s + (d.totalRevenue ?? 0), 0)
   const totalProfit   = revenueArr.reduce((s, d) => s + (d.profit ?? 0), 0)
-  const totalCost     = revenueArr.reduce((s, d) => s + (d.totalExpenses ?? 0) + (d.cogs ?? 0), 0)
+  const totalCost     = revenueArr.reduce((s, d) => s + (d.totalExpenses ?? 0) + (d.cogs ?? 0) + (d.refundsTotal ?? 0), 0)
   const avgDaily      = revenueArr.length > 0 ? totalRevenue / revenueArr.length : 0
   const marginPct     = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : '0'
 
@@ -205,7 +205,7 @@ function SalesTab({ days, fromDate, toDate, branchId }: { days: string; fromDate
     date:     formatBusinessDateLabel(d.date),
     Revenue:  d.totalRevenue ?? 0,
     Profit:   d.profit ?? 0,
-    Expenses: (d.totalExpenses ?? 0) + (d.cogs ?? 0),
+    Expenses: (d.totalExpenses ?? 0) + (d.cogs ?? 0) + (d.refundsTotal ?? 0),
   })), [revenueArr])
 
   const exportRows = topProducts.map(p => [p.productName, p.quantitySold, p.revenue])
@@ -559,7 +559,7 @@ function OverviewTab({ days, fromDate, toDate, branchId }: { days: string; fromD
 
   const totalRevenue  = revenue.reduce((s, d) => s + (d.totalRevenue ?? 0), 0)
   const totalProfit   = revenue.reduce((s, d) => s + (d.profit ?? 0), 0)
-  const totalCost     = revenue.reduce((s, d) => s + (d.totalExpenses ?? 0) + (d.cogs ?? 0), 0)
+  const totalCost     = revenue.reduce((s, d) => s + (d.totalExpenses ?? 0) + (d.cogs ?? 0) + (d.refundsTotal ?? 0), 0)
   const margin        = totalRevenue > 0 ? Math.round((totalProfit / totalRevenue) * 100) : 0
   const activeRepairs = repairs.filter(r => !['DELIVERED','CANCELLED'].includes(r.status)).reduce((s, r) => s + (r.count ?? 0), 0)
 
@@ -567,7 +567,7 @@ function OverviewTab({ days, fromDate, toDate, branchId }: { days: string; fromD
     date:    formatBusinessDateLabel(d.date),
     Revenue: d.totalRevenue ?? 0,
     Profit:  d.profit ?? 0,
-    Cost:    (d.totalExpenses ?? 0) + (d.cogs ?? 0),
+    Cost:    (d.totalExpenses ?? 0) + (d.cogs ?? 0) + (d.refundsTotal ?? 0),
   })), [revenue])
 
   const health = [
@@ -776,7 +776,7 @@ function PLTab({ fromDate, toDate, branchId }: { fromDate: string; toDate: strin
               </span>
               {row.value !== undefined ? (
                 <span className={`text-sm font-semibold ${row.bold ? 'text-base' : ''} ${row.positive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {row.positive ? '+' : '−'}{formatCurrency(Math.abs(row.value))}
+                  {formatCurrency(row.value)}
                 </span>
               ) : (
                 <span className={`text-sm font-medium ${row.positive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{row.pct}%</span>
@@ -840,7 +840,7 @@ function CashFlowTab({ fromDate, toDate, branchId }: { fromDate: string; toDate:
     let cumulative = 0
     return revenueArr.map(d => {
       const cashIn  = (d.salesRevenue ?? 0) + (d.otherIncome   ?? 0)
-      const cashOut = (d.cogs         ?? 0) + (d.totalExpenses ?? 0)
+      const cashOut = (d.cogs ?? 0) + (d.totalExpenses ?? 0) + (d.refundsTotal ?? 0)
       const net     = cashIn - cashOut
       cumulative   += net
       return { date: formatBusinessDateLabel(d.date), rawDate: d.date, cashIn, cashOut, net, cumulative }
@@ -936,6 +936,11 @@ export default function ReportsPage() {
 
   const { data: branchesData } = useBranches()
   const branches: any[] = Array.isArray(branchesData) ? branchesData : []
+
+  useEffect(() => {
+    if (branches.length && !branchId) setBranchId(branches[0].id)
+  }, [branches, branchId])
+
   const todayStr = useMemo(() => businessToday(), [])
 
   const toDate = useMemo(() => {

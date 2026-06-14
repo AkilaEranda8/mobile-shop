@@ -24,6 +24,7 @@ export interface DailyRevenueRow {
   otherIncome: number
   cogs: number
   totalExpenses: number
+  refundsTotal: number
   grossProfit: number
   profit: number
   reloadCommission: number
@@ -73,9 +74,7 @@ function mapPreviewToSummary(
   const otherIncome = round2(
     s.repairIncome + s.billPaymentIncome + s.otherIncome + s.creditPayments,
   )
-  const repairPartsCogs = round2(
-    p.grossSales + p.reloadCommission - p.cogs - preview.expenses.totalExpenses - s.refundsTotal - p.netProfit,
-  )
+  const repairPartsCogs = round2(p.repairPartsCogs ?? 0)
   return {
     salesRevenue: s.totalSales,
     grossSales: p.grossSales,
@@ -83,7 +82,7 @@ function mapPreviewToSummary(
     reloadCommission: p.reloadCommission,
     salesCount: s.salesCount,
     cogs: p.cogs,
-    repairPartsCogs: Math.max(0, repairPartsCogs),
+    repairPartsCogs,
     opExpenses: preview.expenses.totalExpenses,
     refundsTotal: s.refundsTotal,
     grossProfit: p.grossProfit,
@@ -101,6 +100,7 @@ export function toDailyRevenueRow(date: string, fin: BusinessFinancialSummary): 
     otherIncome: ancillaryIncome,
     cogs: totalCogs,
     totalExpenses: fin.opExpenses,
+    refundsTotal: fin.refundsTotal,
     grossProfit: fin.grossProfit,
     profit: fin.netProfit,
     reloadCommission: fin.reloadCommission,
@@ -158,18 +158,15 @@ export async function getDailyRevenueBreakdown(
   const days = listBusinessDays(fromKey, toKey)
   const branches = branchId ? [branchId] : await tenantBranchIds(tenantId)
 
-  const byDay: Record<string, BusinessFinancialSummary> = {}
-
-  await Promise.all(
-    days.flatMap(day =>
-      branches.map(async bid => {
-        const fin = await getBranchDayFinancials(tenantId, bid, day)
-        byDay[day] = byDay[day] ? addSummaries(byDay[day], fin) : fin
-      }),
-    ),
-  )
-
-  return days.map(day => toDailyRevenueRow(day, byDay[day] ?? emptySummary()))
+  const results: DailyRevenueRow[] = []
+  for (const day of days) {
+    let dayTotal = emptySummary()
+    for (const bid of branches) {
+      dayTotal = addSummaries(dayTotal, await getBranchDayFinancials(tenantId, bid, day))
+    }
+    results.push(toDailyRevenueRow(day, dayTotal))
+  }
+  return results
 }
 
 /** Finance /summary API shape */
