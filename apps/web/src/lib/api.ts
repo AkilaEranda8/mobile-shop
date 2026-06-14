@@ -383,6 +383,8 @@ export const dailyReloadApi = {
   remove: (id: string) => api.delete(`/daily-reloads/${id}`),
   getReport: (params?: Record<string, string>) =>
     api.get(`/daily-reloads/report${params ? '?' + new URLSearchParams(params) : ''}`),
+  payProvider: (body: { date: string; provider: string; paymentMethod?: string; branchId?: string }) =>
+    api.post('/daily-reloads/pay-provider', body),
   uploadFile: async (file: File): Promise<{ imported: number }> => {
     const { authStorage } = await import('@/lib/auth')
     const token = authStorage.getAccessToken()

@@ -2,15 +2,17 @@ import { Router, Request, Response, NextFunction } from 'express'
 import multer from 'multer'
 import { prisma } from '../../config/database'
 import { sendSuccess } from '../../utils/response'
-import { authenticate } from '../../middleware/auth.middleware'
+import { authenticate, authorize } from '../../middleware/auth.middleware'
 import { AppError } from '../../middleware/error.middleware'
-import { businessDayRange, businessDateKeyFromInstant, resolveQueryDateRange } from '../../utils/date-range'
+import { businessDayRange, businessDateKeyFromInstant, resolveQueryDateRange, businessDateDb, normalizeBusinessDate } from '../../utils/date-range'
+import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 import {
   calcReloadCommission,
   fetchTenantReloadSettings,
   getCommissionRate,
   resolveReloadProvider,
 } from './reload-settings.util'
+import { buildProviderBreakdown, summarizeProviderBreakdown } from './reload-provider.util'
 
 const router = Router()
 router.use(authenticate)
@@ -52,6 +54,26 @@ function sumCommission(reloads: any[], settings: Awaited<ReturnType<typeof fetch
   ) / 100
 }
 
+function round2(n: number) {
+  return Math.round(n * 100) / 100
+}
+
+async function resolveBranchId(tenantId: string, userId: string, branchId?: string) {
+  if (branchId) {
+    const b = await prisma.branch.findFirst({ where: { id: branchId, tenantId, isActive: true } })
+    if (!b) throw new AppError('Invalid branch', 400)
+    return b.id
+  }
+  const link = await prisma.userBranch.findFirst({
+    where: { userId },
+    include: { branch: true },
+  })
+  if (link?.branch?.isActive) return link.branchId
+  const fallback = await prisma.branch.findFirst({ where: { tenantId, isActive: true }, orderBy: { isHeadquarters: 'desc' } })
+  if (!fallback) throw new AppError('No active branch found', 400)
+  return fallback.id
+}
+
 // ── List reloads ──────────────────────────────────────────────────────────────
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -72,10 +94,32 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 
     const enriched = reloads.map(r => enrichReload(r, settings))
     const totalAmount = agg._sum.amount ?? 0
+    const successReloads = reloads.filter(r => r.status === 'Success')
+    const commission = sumCommission(successReloads, settings)
+
+    let providerBreakdown: ReturnType<typeof buildProviderBreakdown> = []
+    let settlement = { reloadTotal: 0, commission: 0, netPayable: 0, paid: 0, remaining: 0 }
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      const payments = await prisma.dailyReloadProviderPayment.findMany({
+        where: { tenantId, businessDate: businessDateDb(date) },
+      })
+      const paidMap: Record<string, number> = {}
+      for (const p of payments) {
+        paidMap[p.provider] = (paidMap[p.provider] ?? 0) + Number(p.amountPaid)
+      }
+      providerBreakdown = buildProviderBreakdown(successReloads, settings, paidMap)
+      settlement = summarizeProviderBreakdown(providerBreakdown)
+    }
+
     sendSuccess(res, {
       data: enriched, total,
       totalAmount,
-      commission: sumCommission(reloads, settings),
+      commission,
+      netPayable: settlement.netPayable > 0 ? settlement.netPayable : round2(
+        successReloads.reduce((s, r) => s + Number(r.amount), 0) - commission,
+      ),
+      providerBreakdown,
+      settlement,
       settings,
       page: pageNum, limit: limitNum,
     })
@@ -216,6 +260,92 @@ router.get('/report', async (req: Request, res: Response, next: NextFunction) =>
       dailyBreakdown: Object.values(byDate),
       settings,
     })
+  } catch (e) { next(e) }
+})
+
+// ── Pay provider (net reload total minus commission) ───────────────────────────
+router.post('/pay-provider', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenantId = req.tenantId!
+    const user = req.user!
+    const { date, provider, paymentMethod = 'CASH', branchId: bodyBranchId } = req.body as {
+      date?: string
+      provider?: string
+      paymentMethod?: string
+      branchId?: string
+    }
+    if (!date || !provider) throw new AppError('date and provider are required', 400)
+    const dateKey = normalizeBusinessDate(date)
+    const branchId = await resolveBranchId(tenantId, user.userId, bodyBranchId)
+    await assertBusinessDayOpenIfEnabled(tenantId, branchId)
+
+    const settings = await fetchTenantReloadSettings(tenantId)
+    const { start, end } = businessDayRange(dateKey)
+    const reloads = await prisma.dailyReload.findMany({
+      where: { tenantId, reloadDate: { gte: start, lte: end }, status: 'Success' },
+    })
+
+    const payments = await prisma.dailyReloadProviderPayment.findMany({
+      where: { tenantId, businessDate: businessDateDb(dateKey), provider },
+    })
+    const paidSoFar = round2(payments.reduce((s, p) => s + Number(p.amountPaid), 0))
+
+    const providerReloads = reloads.filter(r => {
+      const p = resolveReloadProvider(r.connectionNo, r.provider) ?? 'Other'
+      return p === provider
+    })
+    if (providerReloads.length === 0 && paidSoFar === 0) throw new AppError('No successful reloads for this provider on selected date', 400)
+
+    const reloadTotal = round2(providerReloads.reduce((s, r) => s + Number(r.amount), 0))
+    const commission = round2(providerReloads.reduce(
+      (s, r) => s + calcReloadCommission(r.amount, settings, r.connectionNo, r.provider), 0,
+    ))
+    const netPayable = round2(reloadTotal - commission)
+    const remaining = round2(Math.max(0, netPayable - paidSoFar))
+    if (remaining <= 0) throw new AppError('Provider already paid for this date', 400)
+
+    const method = ['CASH', 'CARD', 'UPI', 'WALLET', 'BANK_TRANSFER'].includes(paymentMethod)
+      ? paymentMethod as 'CASH' | 'CARD' | 'UPI' | 'WALLET' | 'BANK_TRANSFER'
+      : 'CASH'
+
+    const financeTx = await prisma.transaction.create({
+      data: {
+        tenantId,
+        branchId,
+        type: 'EXPENSE',
+        category: 'Reload Provider',
+        amount: remaining,
+        description: `${provider} reload settlement ${dateKey} (net after commission Rs ${commission.toFixed(2)})`,
+        paymentMethod: method,
+        performedBy: user.email,
+      },
+    })
+
+    const payment = await prisma.dailyReloadProviderPayment.create({
+      data: {
+        tenantId,
+        branchId,
+        provider,
+        businessDate: businessDateDb(dateKey),
+        reloadTotal,
+        commission,
+        amountPaid: remaining,
+        paymentMethod: method,
+        paidBy: user.email,
+        financeTxId: financeTx.id,
+      },
+    })
+
+    sendSuccess(res, {
+      payment,
+      provider,
+      date: dateKey,
+      reloadTotal,
+      commission,
+      netPayable,
+      amountPaid: remaining,
+      financeTxId: financeTx.id,
+    }, 'Provider payment recorded', 201)
   } catch (e) { next(e) }
 })
 

@@ -8,6 +8,7 @@ import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { dailyReloadApi } from '@/lib/api'
 import { useFeatureFlag } from '@/lib/hooks'
+import { businessToday } from '@/lib/business-date'
 
 /* ── Types ───────────────────────────────────────────────────────────────────── */
 interface Reload {
@@ -23,15 +24,37 @@ interface Reload {
   commissionRate?: number
 }
 
+interface ProviderRow {
+  provider: string
+  count: number
+  reloadTotal: number
+  commission: number
+  netPayable: number
+  paid: number
+  remaining: number
+  isPaid: boolean
+}
+
+interface Settlement {
+  reloadTotal: number
+  commission: number
+  netPayable: number
+  paid: number
+  remaining: number
+}
+
 interface Summary {
   data: Reload[]
   total: number
   totalAmount: number
   commission: number
+  netPayable?: number
+  providerBreakdown?: ProviderRow[]
+  settlement?: Settlement
 }
 
 /* ── Helpers ─────────────────────────────────────────────────────────────────── */
-const today = () => new Date().toISOString().slice(0, 10)
+const today = () => businessToday()
 
 function formatAmt(n: number) {
   return `Rs ${n.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -59,17 +82,22 @@ export default function DailyReloadPage() {
   const [agent,  setAgent]   = useState('')
   const [status, setStatus]  = useState('Success')
   const [saving, setSaving]  = useState(false)
+  const [payingProvider, setPayingProvider] = useState<string | null>(null)
 
   /* ── Fetch ───────────────────────────────────────────────────────────────── */
   const fetch = useCallback(async () => {
     setLoading(true)
     try {
       const res: any = await dailyReloadApi.list({ date, _t: Date.now().toString() })
+      const payload = res.data ?? res
       setSummary({
-        data:        res.data?.data        ?? [],
-        total:       res.data?.total       ?? 0,
-        totalAmount: res.data?.totalAmount ?? 0,
-        commission:  res.data?.commission  ?? 0,
+        data:        payload.data        ?? [],
+        total:       payload.total       ?? 0,
+        totalAmount: payload.totalAmount ?? 0,
+        commission:  payload.commission  ?? 0,
+        netPayable:  payload.netPayable,
+        providerBreakdown: payload.providerBreakdown ?? [],
+        settlement: payload.settlement,
       })
     } catch { toast.error('Failed to load reloads') }
     finally { setLoading(false) }
@@ -108,6 +136,35 @@ export default function DailyReloadPage() {
       fetch()
     } catch (e: any) { toast.error(e.message || 'Failed to save') }
     finally { setSaving(false) }
+  }
+
+  const handlePayProvider = async (provider: string) => {
+    const row = summary.providerBreakdown?.find(p => p.provider === provider)
+    if (!row || row.remaining <= 0) return
+    if (!confirm(`Pay ${provider} Rs ${row.remaining.toLocaleString('en-LK', { minimumFractionDigits: 2 })} (reload total minus commission)?`)) return
+    setPayingProvider(provider)
+    try {
+      await dailyReloadApi.payProvider({ date, provider })
+      toast.success(`${provider} payment recorded`)
+      fetch()
+    } catch (e: any) { toast.error(e.message || 'Payment failed') }
+    finally { setPayingProvider(null) }
+  }
+
+  const handlePayAll = async () => {
+    const unpaid = (summary.providerBreakdown ?? []).filter(p => p.remaining > 0.01)
+    if (!unpaid.length) { toast.error('Nothing to pay'); return }
+    const total = unpaid.reduce((s, p) => s + p.remaining, 0)
+    if (!confirm(`Pay all providers total Rs ${total.toLocaleString('en-LK', { minimumFractionDigits: 2 })}?`)) return
+    setPayingProvider('ALL')
+    try {
+      for (const p of unpaid) {
+        await dailyReloadApi.payProvider({ date, provider: p.provider })
+      }
+      toast.success('All provider payments recorded')
+      fetch()
+    } catch (e: any) { toast.error(e.message || 'Payment failed') }
+    finally { setPayingProvider(null) }
   }
 
   /* ── Delete ──────────────────────────────────────────────────────────────── */
@@ -213,6 +270,9 @@ export default function DailyReloadPage() {
 
   /* ── UI ──────────────────────────────────────────────────────────────────── */
   const successCount = summary.data.filter(r => r.status === 'Success').length
+  const settlement = summary.settlement
+  const providerRows = summary.providerBreakdown ?? []
+  const netPayable = summary.netPayable ?? (summary.totalAmount - summary.commission)
 
   if (!hasAccess) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -267,9 +327,9 @@ export default function DailyReloadPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { icon: PhoneCall,     label: 'Total Reloads',  value: summary.total.toString(),      color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' },
-          { icon: TrendingUp,    label: 'Total Amount',   value: formatAmt(summary.totalAmount), color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
-          { icon: TrendingUp,    label: 'Commission',  value: formatAmt(summary.commission),  color: '#10b981', bg: 'rgba(16,185,129,0.1)' },
-          { icon: CheckCircle2,  label: 'Success',        value: `${successCount} / ${summary.total}`, color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+          { icon: TrendingUp,    label: 'Reload Total',   value: formatAmt(summary.totalAmount), color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
+          { icon: TrendingUp,    label: 'Commission (Earned)',  value: formatAmt(summary.commission),  color: '#10b981', bg: 'rgba(16,185,129,0.1)' },
+          { icon: CheckCircle2,  label: 'Net to Provider', value: formatAmt(netPayable), color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
         ].map(({ icon: Icon, label, value, color, bg }) => (
           <div key={label} className="card rounded-2xl p-4 flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: bg }}>
@@ -282,6 +342,90 @@ export default function DailyReloadPage() {
           </div>
         ))}
       </div>
+
+      {/* ── Provider settlement ─────────────────────────────────────────────── */}
+      {providerRows.length > 0 && (
+        <div className="card rounded-2xl p-5 space-y-4" style={{ border: '1px solid rgba(245,158,11,0.2)', background: 'rgba(245,158,11,0.04)' }}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Provider Settlement</h2>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                Pay provider = Reload total − Commission earned · {date}
+              </p>
+            </div>
+            {settlement && settlement.remaining > 0.01 && (
+              <button
+                onClick={handlePayAll}
+                disabled={payingProvider !== null}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff' }}
+              >
+                {payingProvider === 'ALL' ? <RefreshCw size={14} className="animate-spin" /> : null}
+                Pay All ({formatAmt(settlement.remaining)})
+              </button>
+            )}
+          </div>
+
+          <div className="overflow-x-auto rounded-xl" style={{ border: '1px solid var(--border-subtle)' }}>
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                  {['Provider', 'Reloads', 'Reload Total', 'Commission', 'Net to Pay', 'Paid', 'Balance', 'Action'].map(h => (
+                    <th key={h} className="text-left text-[10px] font-semibold uppercase tracking-wide px-3 py-2" style={{ color: 'var(--text-muted)' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {providerRows.map(row => (
+                  <tr key={row.provider} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                    <td className="px-3 py-2.5 font-semibold text-xs" style={{ color: 'var(--text-primary)' }}>{row.provider}</td>
+                    <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{row.count}</td>
+                    <td className="px-3 py-2.5 text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{formatAmt(row.reloadTotal)}</td>
+                    <td className="px-3 py-2.5 text-xs font-semibold text-emerald-500">{formatAmt(row.commission)}</td>
+                    <td className="px-3 py-2.5 text-xs font-bold text-amber-500">{formatAmt(row.netPayable)}</td>
+                    <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{formatAmt(row.paid)}</td>
+                    <td className="px-3 py-2.5 text-xs font-semibold" style={{ color: row.remaining > 0 ? '#ef4444' : '#10b981' }}>
+                      {formatAmt(row.remaining)}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      {row.isPaid || row.remaining <= 0.01 ? (
+                        <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-500">Paid</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handlePayProvider(row.provider)}
+                          disabled={payingProvider !== null}
+                          className="px-3 py-1.5 rounded-lg text-[10px] font-bold text-white disabled:opacity-50"
+                          style={{ background: 'linear-gradient(135deg,#f59e0b,#d97706)' }}
+                        >
+                          {payingProvider === row.provider ? 'Paying…' : `Pay ${formatAmt(row.remaining)}`}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              {settlement && (
+                <tfoot>
+                  <tr style={{ background: 'var(--bg-subtle)' }}>
+                    <td className="px-3 py-2.5 text-xs font-bold" style={{ color: 'var(--text-primary)' }}>Total</td>
+                    <td />
+                    <td className="px-3 py-2.5 text-xs font-bold">{formatAmt(settlement.reloadTotal)}</td>
+                    <td className="px-3 py-2.5 text-xs font-bold text-emerald-500">{formatAmt(settlement.commission)}</td>
+                    <td className="px-3 py-2.5 text-xs font-bold text-amber-500">{formatAmt(settlement.netPayable)}</td>
+                    <td className="px-3 py-2.5 text-xs font-bold">{formatAmt(settlement.paid)}</td>
+                    <td className="px-3 py-2.5 text-xs font-bold" style={{ color: settlement.remaining > 0 ? '#ef4444' : '#10b981' }}>{formatAmt(settlement.remaining)}</td>
+                    <td />
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+          <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+            Commission is your shop profit from the provider. Net to Pay is sent to the provider (reload total minus commission). Payment is recorded in Finance as &quot;Reload Provider&quot; expense.
+          </p>
+        </div>
+      )}
 
       {/* ── Upload + Manual Entry ───────────────────────────────────────────── */}
       <div className="card rounded-2xl overflow-hidden">
@@ -424,8 +568,10 @@ export default function DailyReloadPage() {
               <p className="text-lg font-bold text-emerald-400">{formatAmt(summary.commission)}</p>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-wide font-medium" style={{ color: 'var(--text-muted)' }}>Transactions</p>
-              <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{summary.total}</p>
+              <p className="text-[10px] uppercase tracking-wide font-medium" style={{ color: 'var(--text-muted)' }}>Net Paid / Due</p>
+              <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+                {formatAmt(settlement?.paid ?? 0)} / {formatAmt(settlement?.remaining ?? netPayable)}
+              </p>
             </div>
           </div>
           <button

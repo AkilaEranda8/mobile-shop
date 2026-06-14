@@ -170,6 +170,7 @@ model Tenant {
   features        TenantFeature[]
   services        Service[]
   dailyReloads    DailyReload[]
+  dailyReloadProviderPayments DailyReloadProviderPayment[]
   dailyClosings   DailyClosing[]
   profitFunds     ProfitFund[]
   profitAllocations ProfitAllocation[]
@@ -232,6 +233,7 @@ model Branch {
   dailyClosings  DailyClosing[]
   profitFunds    ProfitFund[]
   profitAllocations ProfitAllocation[]
+  dailyReloadProviderPayments DailyReloadProviderPayment[]
   profitTransactions ProfitTransaction[]
   profitWithdrawals  ProfitWithdrawal[]
   imeiRecords    ImeiRecord[]
@@ -1031,6 +1033,26 @@ model DailyReload {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, reloadDate])
+}
+
+model DailyReloadProviderPayment {
+  id            String        @id @default(cuid())
+  tenantId      String
+  branchId      String
+  provider      String
+  businessDate  DateTime      @db.Date
+  reloadTotal   Float
+  commission    Float
+  amountPaid    Float
+  paymentMethod PaymentMethod @default(CASH)
+  paidBy        String
+  financeTxId   String?
+  createdAt     DateTime      @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branchId], references: [id])
+
+  @@index([tenantId, businessDate])
 }
 
 // ─────────────── Daily Closing ───────────────

@@ -407,6 +407,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [calcReset, setCalcReset]                 = useState(false)
   const searchRef                                 = useRef<HTMLInputElement>(null)
   const payNowRef                                 = useRef<HTMLInputElement>(null)
+  const customerPaidRef                           = useRef<HTMLInputElement>(null)
   const outstandingPayRef                         = useRef<HTMLInputElement>(null)
   const prevSaleTotalRef                          = useRef(0)
   const handleCheckoutRef                         = useRef<() => Promise<void>>(async () => {})
@@ -415,6 +416,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
     canOpenCheckout: false,
     customerOutstanding: 0,
     includeOutstanding: false,
+    collectAtCheckout: 0,
+    hasSelectedCustomer: false,
   })
 
   const calcInput = (val: string) => {
@@ -1217,6 +1220,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
     canOpenCheckout,
     customerOutstanding,
     includeOutstanding,
+    collectAtCheckout,
+    hasSelectedCustomer: !!selectedCustomer,
   }
 
   const submitCheckoutFromInput = (e: React.KeyboardEvent) => {
@@ -1249,6 +1254,24 @@ function POSContent({ onClose }: { onClose: () => void }) {
       if ((cart.length > 0 || ck.outstandingPaying > 0) && !checkoutLoading && !completedSale) {
         if (cartView === 'checkout') void handleCheckoutRef.current()
         else openCheckout()
+      }
+    }
+    const focusCustomerPaid = () => {
+      const ck = checkoutKeyboardRef.current
+      setPaymentMethod('CASH')
+      if (!ck.hasSelectedCustomer) {
+        const amt = ck.collectAtCheckout > 0 ? ck.collectAtCheckout.toFixed(2) : ''
+        setCustomerPaid(amt)
+        setTimeout(() => {
+          customerPaidRef.current?.focus()
+          customerPaidRef.current?.select()
+        }, 0)
+      } else if (payNowRef.current) {
+        payNowRef.current.focus()
+        payNowRef.current.select()
+      } else if (outstandingPayRef.current) {
+        outstandingPayRef.current.focus()
+        outstandingPayRef.current.select()
       }
     }
     const handler = (e: KeyboardEvent) => {
@@ -1306,6 +1329,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
             e.preventDefault()
             setIncludeOutstanding(p => !p)
           }
+        }
+        if (e.key === 'p' || e.key === 'P') {
+          e.preventDefault()
+          focusCustomerPaid()
         }
       }
 
@@ -2317,10 +2344,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   {!selectedCustomer && paymentMethod === 'CASH' && (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold" style={{ color: POS_THEME.text }}>Customer Paid</span>
+                        <span className="text-xs font-semibold" style={{ color: POS_THEME.text }}>
+                          Customer Paid
+                          <kbd className="ml-1.5 px-1 py-0.5 rounded text-[9px] font-bold border" style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>P</kbd>
+                        </span>
                         <span className="text-[10px]" style={{ color: POS_THEME.muted }}>Due {formatCurrency(collectAtCheckout)}</span>
                       </div>
                       <input
+                        ref={customerPaidRef}
                         type="number"
                         min="0"
                         step="0.01"
