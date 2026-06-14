@@ -115,6 +115,19 @@ enum TransactionType {
   EXPENSE
 }
 
+enum ProfitFundType {
+  FIXED_AMOUNT
+  PERCENTAGE
+  MANUAL
+}
+
+enum ProfitTxnType {
+  ALLOCATION
+  WITHDRAW
+  DEPOSIT
+  ADJUSTMENT
+}
+
 // ─────────────── Tenant / Auth ───────────────
 
 model Tenant {
@@ -158,6 +171,10 @@ model Tenant {
   services        Service[]
   dailyReloads    DailyReload[]
   dailyClosings   DailyClosing[]
+  profitFunds     ProfitFund[]
+  profitAllocations ProfitAllocation[]
+  profitTransactions ProfitTransaction[]
+  profitWithdrawals  ProfitWithdrawal[]
 }
 
 model TenantFeature {
@@ -213,6 +230,10 @@ model Branch {
   stockMovements StockMovement[]
   dailySummaries DailySummary[]
   dailyClosings  DailyClosing[]
+  profitFunds    ProfitFund[]
+  profitAllocations ProfitAllocation[]
+  profitTransactions ProfitTransaction[]
+  profitWithdrawals  ProfitWithdrawal[]
   imeiRecords    ImeiRecord[]
   exchanges      DeviceExchange[]
 }
@@ -1128,6 +1149,114 @@ model PlatformActivityLog {
 
   @@index([createdAt])
   @@index([eventType])
+}
+
+// ─────────────── Profit Allocation & Fund Management ───────────────
+
+model ProfitFund {
+  id          String         @id @default(cuid())
+  tenantId    String
+  branchId    String
+  name        String
+  type        ProfitFundType
+  fixedAmount Float          @default(0)
+  percentage  Float          @default(0)
+  sortOrder   Int            @default(0)
+  isActive    Boolean        @default(true)
+  description String?
+  balance     Float          @default(0)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch       Branch                 @relation(fields: [branchId], references: [id])
+  allocationLines ProfitAllocationLine[]
+  transactions ProfitTransaction[]
+  withdrawals  ProfitWithdrawal[]
+
+  @@unique([tenantId, branchId, name])
+  @@index([tenantId, branchId])
+}
+
+model ProfitAllocation {
+  id               String   @id @default(cuid())
+  tenantId         String
+  branchId         String
+  date             DateTime
+  todaySales       Float    @default(0)
+  todayProfit      Float    @default(0)
+  totalAllocated   Float    @default(0)
+  remainingProfit  Float    @default(0)
+  notes            String?
+  createdBy        String?
+  createdByName    String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  tenant Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch                 @relation(fields: [branchId], references: [id])
+  lines  ProfitAllocationLine[]
+
+  @@unique([tenantId, branchId, date])
+  @@index([tenantId, date])
+}
+
+model ProfitAllocationLine {
+  id               String @id @default(cuid())
+  allocationId     String
+  fundId           String
+  todayAllocation  Float  @default(0)
+  yesterdayBalance Float  @default(0)
+  totalBalance     Float  @default(0)
+  withdrawn        Float  @default(0)
+  remainingBalance Float  @default(0)
+
+  allocation ProfitAllocation @relation(fields: [allocationId], references: [id], onDelete: Cascade)
+  fund       ProfitFund       @relation(fields: [fundId], references: [id], onDelete: Cascade)
+
+  @@unique([allocationId, fundId])
+}
+
+model ProfitTransaction {
+  id           String        @id @default(cuid())
+  tenantId     String
+  branchId     String
+  fundId       String
+  date         DateTime
+  type         ProfitTxnType
+  amount       Float
+  balanceAfter Float         @default(0)
+  notes        String?
+  userId       String?
+  userName     String?
+  createdAt    DateTime      @default(now())
+
+  tenant Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch     @relation(fields: [branchId], references: [id])
+  fund   ProfitFund @relation(fields: [fundId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, branchId, date])
+  @@index([fundId])
+}
+
+model ProfitWithdrawal {
+  id        String        @id @default(cuid())
+  tenantId  String
+  branchId  String
+  fundId    String
+  type      ProfitTxnType
+  amount    Float
+  notes     String?
+  userId    String?
+  userName  String?
+  createdAt DateTime      @default(now())
+
+  tenant Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch     @relation(fields: [branchId], references: [id])
+  fund   ProfitFund @relation(fields: [fundId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, fundId])
+  @@index([tenantId, branchId])
 }
 
 // ─────────────── Platform Announcements ───────────────

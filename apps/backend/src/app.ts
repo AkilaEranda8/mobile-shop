@@ -34,6 +34,7 @@ import platformRoutes from './modules/platform/platform.routes'
 import servicesRoutes from './modules/services/services.routes'
 import dailyReloadRoutes from './modules/daily-reload/daily-reload.routes'
 import dailyClosingRoutes from './modules/daily-closing/daily-closing.routes'
+import profitAllocationRoutes from './modules/profit-allocation/profit-allocation.routes'
 
 const app = express()
 
@@ -141,6 +142,7 @@ app.use(`${API}/whatsapp`, whatsappRoutes)
 app.use(`${API}/services`, servicesRoutes)
 app.use(`${API}/daily-reloads`, dailyReloadRoutes)
 app.use(`${API}/daily-closing`, dailyClosingRoutes)
+app.use(`${API}/profit-allocation`, profitAllocationRoutes)
 app.use(`${API}/delivery`, deliveryRoutes)
 app.use(`${API}/device-catalog`, deviceCatalogRoutes)
 app.use(`${API}/upload`, uploadRoutes)

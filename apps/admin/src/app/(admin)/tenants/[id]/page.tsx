@@ -47,6 +47,7 @@ const FEATURE_DEFS = [
   { key: 'SERVICES',       label: 'Services',           desc: 'Billable services catalogue (server)', optIn: false, priced: true, defaultPrice: 0 },
   { key: 'DAILY_RELOAD',   label: 'Daily Reload',       desc: 'POS mobile reload sales + daily reload reports (per tenant)', optIn: true  },
   { key: 'DAILY_CLOSING',  label: 'Daily Closing',      desc: 'End-of-day business summary, cash count & day lock', optIn: true  },
+  { key: 'PROFIT_ALLOCATION', label: 'Profit Allocation', desc: 'Daily profit allocation & fund management', optIn: true },
   { key: 'CUSTOMER_CREDIT', label: 'Customer Credit',    desc: 'Customer credit payments & outstanding', optIn: true  },
 ]
 const SALE_STATUS_BADGE: Record<string, string> = {

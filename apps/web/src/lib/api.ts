@@ -333,6 +333,27 @@ export const dailyClosingApi = {
   reopen: (body: unknown) => api.post('/daily-closing/reopen', body),
 }
 
+export const profitAllocationApi = {
+  dashboard: (params: Record<string, string>) =>
+    api.get(`/profit-allocation/dashboard?${new URLSearchParams(params)}`),
+  calculate: (body: unknown) => api.post('/profit-allocation/calculate', body),
+  save: (body: unknown) => api.post('/profit-allocation/save', body),
+  funds: (params: Record<string, string>) =>
+    api.get(`/profit-allocation/funds?${new URLSearchParams(params)}`),
+  createFund: (body: unknown) => api.post('/profit-allocation/funds', body),
+  updateFund: (id: string, body: unknown) => api.put(`/profit-allocation/funds/${id}`, body),
+  deleteFund: (id: string) => api.delete(`/profit-allocation/funds/${id}`),
+  toggleFund: (id: string, isActive: boolean) =>
+    api.patch(`/profit-allocation/funds/${id}/toggle`, { isActive }),
+  transactions: (params?: Record<string, string>) =>
+    api.get(`/profit-allocation/transactions${params ? '?' + new URLSearchParams(params) : ''}`),
+  withdraw: (body: unknown) => api.post('/profit-allocation/withdraw', body),
+  deposit: (body: unknown) => api.post('/profit-allocation/deposit', body),
+  adjustment: (body: unknown) => api.post('/profit-allocation/adjustment', body),
+  monthlySummary: (params: Record<string, string>) =>
+    api.get(`/profit-allocation/monthly-summary?${new URLSearchParams(params)}`),
+}
+
 export const imeiApi = {
   list: (params?: Record<string, string>) =>
     api.get(`/imei${params ? '?' + new URLSearchParams(params) : ''}`),

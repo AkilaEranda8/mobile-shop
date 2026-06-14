@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   productsApi, customersApi, salesApi, repairsApi,
   warrantyApi, suppliersApi, financeApi, analyticsApi,
-  imeiApi, usersApi, branchesApi, tenantApi, dailyReloadApi, dailyClosingApi,
+  imeiApi, usersApi, branchesApi, tenantApi, dailyReloadApi, dailyClosingApi, profitAllocationApi,
   fetchPlatformStatus, type PlatformStatus,
 } from './api'
 import { isFeatureEnabled, clearFeaturesCache, PRICED_FEATURES } from './tenant-features'
@@ -134,6 +134,26 @@ export function useDailyClosingPreview(branchId: string, date: string, enabled =
       return dailyClosingApi.preview({ branchId, date }) as Promise<{ data: unknown }>
     },
     [branchId, date, enabled],
+  )
+}
+
+export function useProfitAllocationDashboard(branchId: string, date: string, enabled = true) {
+  return useApi<unknown>(
+    () => {
+      if (!branchId || !enabled) return Promise.resolve({ data: null as unknown })
+      return profitAllocationApi.dashboard({ branchId, date }) as Promise<{ data: unknown }>
+    },
+    [branchId, date, enabled],
+  )
+}
+
+export function useProfitFunds(branchId: string, enabled = true) {
+  return useApi<unknown[]>(
+    () => {
+      if (!branchId || !enabled) return Promise.resolve({ data: [] as unknown[] })
+      return profitAllocationApi.funds({ branchId }) as Promise<{ data: unknown[] }>
+    },
+    [branchId, enabled],
   )
 }
 
