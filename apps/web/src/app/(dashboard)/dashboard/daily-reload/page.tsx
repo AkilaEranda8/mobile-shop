@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { Upload, Plus, Trash2, Download, RefreshCw, Calendar, TrendingUp, PhoneCall, CheckCircle2, FileSpreadsheet, AlertCircle } from 'lucide-react'
+import { Upload, Plus, Trash2, Download, RefreshCw, Calendar, TrendingUp, PhoneCall, CheckCircle2, FileSpreadsheet, AlertCircle, Banknote } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
@@ -70,7 +70,7 @@ export default function DailyReloadPage() {
   const [date, setDate]               = useState(today())
   const [summary, setSummary]         = useState<Summary>({ data: [], total: 0, totalAmount: 0, commission: 0 })
   const [loading, setLoading]         = useState(false)
-  const [tab, setTab]                 = useState<'upload' | 'manual'>('upload')
+  const [tab, setTab]                 = useState<'upload' | 'manual' | 'settlement'>('upload')
   const [uploading, setUploading]     = useState(false)
   const [dragOver, setDragOver]       = useState(false)
   const fileRef                       = useRef<HTMLInputElement>(null)
@@ -343,106 +343,27 @@ export default function DailyReloadPage() {
         ))}
       </div>
 
-      {/* ── Provider settlement ─────────────────────────────────────────────── */}
-      {providerRows.length > 0 && (
-        <div className="card rounded-2xl p-5 space-y-4" style={{ border: '1px solid rgba(245,158,11,0.2)', background: 'rgba(245,158,11,0.04)' }}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Provider Settlement</h2>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                Pay provider = Reload total − Commission earned · {date}
-              </p>
-            </div>
-            {settlement && settlement.remaining > 0.01 && (
-              <button
-                onClick={handlePayAll}
-                disabled={payingProvider !== null}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold disabled:opacity-50"
-                style={{ background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff' }}
-              >
-                {payingProvider === 'ALL' ? <RefreshCw size={14} className="animate-spin" /> : null}
-                Pay All ({formatAmt(settlement.remaining)})
-              </button>
-            )}
-          </div>
-
-          <div className="overflow-x-auto rounded-xl" style={{ border: '1px solid var(--border-subtle)' }}>
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                  {['Provider', 'Reloads', 'Reload Total', 'Commission', 'Net to Pay', 'Paid', 'Balance', 'Action'].map(h => (
-                    <th key={h} className="text-left text-[10px] font-semibold uppercase tracking-wide px-3 py-2" style={{ color: 'var(--text-muted)' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {providerRows.map(row => (
-                  <tr key={row.provider} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                    <td className="px-3 py-2.5 font-semibold text-xs" style={{ color: 'var(--text-primary)' }}>{row.provider}</td>
-                    <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{row.count}</td>
-                    <td className="px-3 py-2.5 text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{formatAmt(row.reloadTotal)}</td>
-                    <td className="px-3 py-2.5 text-xs font-semibold text-emerald-500">{formatAmt(row.commission)}</td>
-                    <td className="px-3 py-2.5 text-xs font-bold text-amber-500">{formatAmt(row.netPayable)}</td>
-                    <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{formatAmt(row.paid)}</td>
-                    <td className="px-3 py-2.5 text-xs font-semibold" style={{ color: row.remaining > 0 ? '#ef4444' : '#10b981' }}>
-                      {formatAmt(row.remaining)}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      {row.isPaid || row.remaining <= 0.01 ? (
-                        <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-500">Paid</span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handlePayProvider(row.provider)}
-                          disabled={payingProvider !== null}
-                          className="px-3 py-1.5 rounded-lg text-[10px] font-bold text-white disabled:opacity-50"
-                          style={{ background: 'linear-gradient(135deg,#f59e0b,#d97706)' }}
-                        >
-                          {payingProvider === row.provider ? 'Paying…' : `Pay ${formatAmt(row.remaining)}`}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              {settlement && (
-                <tfoot>
-                  <tr style={{ background: 'var(--bg-subtle)' }}>
-                    <td className="px-3 py-2.5 text-xs font-bold" style={{ color: 'var(--text-primary)' }}>Total</td>
-                    <td />
-                    <td className="px-3 py-2.5 text-xs font-bold">{formatAmt(settlement.reloadTotal)}</td>
-                    <td className="px-3 py-2.5 text-xs font-bold text-emerald-500">{formatAmt(settlement.commission)}</td>
-                    <td className="px-3 py-2.5 text-xs font-bold text-amber-500">{formatAmt(settlement.netPayable)}</td>
-                    <td className="px-3 py-2.5 text-xs font-bold">{formatAmt(settlement.paid)}</td>
-                    <td className="px-3 py-2.5 text-xs font-bold" style={{ color: settlement.remaining > 0 ? '#ef4444' : '#10b981' }}>{formatAmt(settlement.remaining)}</td>
-                    <td />
-                  </tr>
-                </tfoot>
-              )}
-            </table>
-          </div>
-          <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-            Commission is your shop profit from the provider. Net to Pay is sent to the provider (reload total minus commission). Payment is recorded in Finance as &quot;Reload Provider&quot; expense.
-          </p>
-        </div>
-      )}
-
-      {/* ── Upload + Manual Entry ───────────────────────────────────────────── */}
+      {/* ── Upload + Manual Entry + Provider Pay ────────────────────────────── */}
       <div className="card rounded-2xl overflow-hidden">
         {/* Tab bar */}
         <div className="flex border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-          {(['upload', 'manual'] as const).map(t => (
+          {([
+            { id: 'upload' as const, icon: FileSpreadsheet, label: 'Upload Excel' },
+            { id: 'manual' as const, icon: Plus, label: 'Manual Entry' },
+            { id: 'settlement' as const, icon: Banknote, label: 'Provider Pay' },
+          ]).map(({ id, icon: Icon, label }) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
+              key={id}
+              onClick={() => setTab(id)}
               className="flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors"
               style={{
-                borderColor:  tab === t ? 'var(--accent)' : 'transparent',
-                color:        tab === t ? 'var(--accent)' : 'var(--text-muted)',
+                borderColor:  tab === id ? 'var(--accent)' : 'transparent',
+                color:        tab === id ? 'var(--accent)' : 'var(--text-muted)',
                 background:   'transparent',
               }}
             >
-              {t === 'upload' ? <><FileSpreadsheet size={14} /> Upload Excel</> : <><Plus size={14} /> Manual Entry</>}
+              <Icon size={14} />
+              {label}
             </button>
           ))}
         </div>
@@ -525,6 +446,102 @@ export default function DailyReloadPage() {
                   {saving ? <RefreshCw size={14} className="animate-spin" /> : <Plus size={14} />}
                   {saving ? 'Saving…' : 'Add Reload'}
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Provider Pay ─────────────────────────────────────────────────── */}
+          {tab === 'settlement' && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Provider Settlement</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    Pay provider = Reload total − Commission earned · {date}
+                  </p>
+                </div>
+                {settlement && settlement.remaining > 0.01 && (
+                  <button
+                    type="button"
+                    onClick={handlePayAll}
+                    disabled={payingProvider !== null}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors disabled:opacity-40"
+                    style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}
+                  >
+                    {payingProvider === 'ALL' ? <RefreshCw size={13} className="animate-spin" /> : <Banknote size={13} />}
+                    Pay All ({formatAmt(settlement.remaining)})
+                  </button>
+                )}
+              </div>
+
+              {providerRows.length === 0 ? (
+                <div className="rounded-2xl border border-dashed p-10 text-center" style={{ borderColor: 'var(--border-default)' }}>
+                  <Banknote size={32} style={{ color: 'var(--text-muted)' }} className="mx-auto mb-3" />
+                  <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>No reload data for this date</p>
+                  <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Upload Excel or add manual entries first</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl" style={{ border: '1px solid var(--border-subtle)' }}>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                        {['Provider', 'Reloads', 'Reload Total', 'Commission', 'Net to Pay', 'Paid', 'Balance', 'Action'].map(h => (
+                          <th key={h} className="text-left text-[10px] font-semibold uppercase tracking-wide px-3 py-2" style={{ color: 'var(--text-muted)' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {providerRows.map(row => (
+                        <tr key={row.provider} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                          <td className="px-3 py-2.5 font-semibold text-xs" style={{ color: 'var(--text-primary)' }}>{row.provider}</td>
+                          <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{row.count}</td>
+                          <td className="px-3 py-2.5 text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{formatAmt(row.reloadTotal)}</td>
+                          <td className="px-3 py-2.5 text-xs font-semibold text-emerald-500">{formatAmt(row.commission)}</td>
+                          <td className="px-3 py-2.5 text-xs font-bold text-amber-500">{formatAmt(row.netPayable)}</td>
+                          <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{formatAmt(row.paid)}</td>
+                          <td className="px-3 py-2.5 text-xs font-semibold" style={{ color: row.remaining > 0 ? '#ef4444' : '#10b981' }}>
+                            {formatAmt(row.remaining)}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            {row.isPaid || row.remaining <= 0.01 ? (
+                              <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-500">Paid</span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handlePayProvider(row.provider)}
+                                disabled={payingProvider !== null}
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-colors disabled:opacity-40"
+                                style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}
+                              >
+                                {payingProvider === row.provider ? <RefreshCw size={11} className="animate-spin" /> : <Banknote size={11} />}
+                                Pay
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    {settlement && (
+                      <tfoot>
+                        <tr style={{ background: 'var(--bg-subtle)' }}>
+                          <td className="px-3 py-2.5 text-xs font-bold" style={{ color: 'var(--text-primary)' }}>Total</td>
+                          <td />
+                          <td className="px-3 py-2.5 text-xs font-bold">{formatAmt(settlement.reloadTotal)}</td>
+                          <td className="px-3 py-2.5 text-xs font-bold text-emerald-500">{formatAmt(settlement.commission)}</td>
+                          <td className="px-3 py-2.5 text-xs font-bold text-amber-500">{formatAmt(settlement.netPayable)}</td>
+                          <td className="px-3 py-2.5 text-xs font-bold">{formatAmt(settlement.paid)}</td>
+                          <td className="px-3 py-2.5 text-xs font-bold" style={{ color: settlement.remaining > 0 ? '#ef4444' : '#10b981' }}>{formatAmt(settlement.remaining)}</td>
+                          <td />
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
+              )}
+
+              <div className="flex items-start gap-2 px-4 py-3 rounded-xl text-xs" style={{ background: 'rgba(59,130,246,0.08)', color: 'var(--text-muted)' }}>
+                <AlertCircle size={14} className="flex-shrink-0 mt-0.5" style={{ color: '#3b82f6' }} />
+                <span>Commission is your shop profit from the provider. Net to Pay is sent to the provider (reload total minus commission). Payment is recorded in Finance as &quot;Reload Provider&quot; expense.</span>
               </div>
             </div>
           )}
