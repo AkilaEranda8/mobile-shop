@@ -2,7 +2,7 @@ import { ProfitFundType, ProfitTxnType } from '@prisma/client'
 import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import { buildDailyClosingPreview } from '../daily-closing/daily-closing.service'
-import { normalizeBusinessDate } from '../../utils/date-range'
+import { businessDayRange, businessDateDb, normalizeBusinessDate } from '../../utils/date-range'
 import type { createFundSchema, updateFundSchema } from './profit-allocation.schema'
 import type { z } from 'zod'
 
@@ -41,41 +41,73 @@ function round2(n: number) {
   return Math.round(n * 100) / 100
 }
 
-function parseBusinessDate(dateStr: string): Date {
-  const d = normalizeBusinessDate(dateStr)
-  return new Date(d + 'T00:00:00.000Z')
-}
-
-function dayRange(dateStr: string) {
-  const start = parseBusinessDate(dateStr)
-  const end = new Date(start)
-  end.setUTCDate(end.getUTCDate() + 1)
-  end.setUTCMilliseconds(-1)
-  return { start, end }
+function allocationDbDate(dateStr: string) {
+  return businessDateDb(normalizeBusinessDate(dateStr))
 }
 
 async function getDayProfit(tenantId: string, branchId: string, dateStr: string) {
+  const dateKey = normalizeBusinessDate(dateStr)
   try {
-    const preview = await buildDailyClosingPreview(tenantId, branchId, dateStr) as {
-      sales?: { totalSales?: number }
-      profit?: { netProfit?: number }
+    const preview = await buildDailyClosingPreview(tenantId, branchId, dateKey) as {
+      sales?: { totalSales?: number; salesCount?: number }
+      profit?: { netProfit?: number; grossProfit?: number }
+      status?: string
+      isClosed?: boolean
     }
     const todaySales = Number(preview.sales?.totalSales ?? 0)
     const todayProfit = Number(preview.profit?.netProfit ?? 0)
-    return { todaySales: round2(todaySales), todayProfit: round2(todayProfit) }
+    return {
+      todaySales: round2(todaySales),
+      todayProfit: round2(todayProfit),
+      salesCount: Number(preview.sales?.salesCount ?? 0),
+      source: preview.isClosed ? 'daily_closing_closed' : 'daily_closing_preview',
+    }
   } catch {
-    const { start, end } = dayRange(dateStr)
-    const salesAgg = await prisma.sale.aggregate({
-      where: {
-        tenantId,
-        branchId,
-        status: { not: 'RETURNED' },
-        createdAt: { gte: start, lte: end },
-      },
-      _sum: { total: true },
-    })
-    const todaySales = salesAgg._sum.total ?? 0
-    return { todaySales: round2(todaySales), todayProfit: round2(todaySales * 0.1) }
+    const { start, end } = businessDayRange(dateKey)
+    const saleWhere = {
+      tenantId,
+      branchId,
+      status: { not: 'RETURNED' as const },
+      createdAt: { gte: start, lte: end },
+    }
+    const txWhere = { tenantId, branchId, createdAt: { gte: start, lte: end } }
+
+    const [salesAgg, txIncome, txExpense, cogsRaw] = await Promise.all([
+      prisma.sale.aggregate({ where: saleWhere, _sum: { total: true }, _count: true }),
+      prisma.transaction.aggregate({
+        where: { ...txWhere, type: 'INCOME', category: { not: 'Sales' } },
+        _sum: { amount: true },
+      }),
+      prisma.transaction.aggregate({
+        where: { ...txWhere, type: 'EXPENSE', category: { not: 'Refund' } },
+        _sum: { amount: true },
+      }),
+      prisma.$queryRaw<Array<{ cogs: number }>>`
+        SELECT COALESCE(SUM(si.quantity::float * p."buyingPrice"), 0)::float AS cogs
+        FROM   "SaleItem" si
+        JOIN   "Sale"    s ON s.id = si."saleId"
+        JOIN   "Product" p ON p.id = si."productId"
+        WHERE  s."tenantId" = ${tenantId}
+          AND  s."branchId" = ${branchId}
+          AND  s."createdAt" >= ${start}
+          AND  s."createdAt" <= ${end}
+          AND  s.status != 'RETURNED'
+      `,
+    ])
+
+    const salesRevenue = salesAgg._sum.total ?? 0
+    const otherIncome = txIncome._sum.amount ?? 0
+    const cogs = Number(cogsRaw[0]?.cogs ?? 0)
+    const opExpenses = txExpense._sum.amount ?? 0
+    const todaySales = round2(salesRevenue)
+    const todayProfit = round2(salesRevenue + otherIncome - cogs - opExpenses)
+
+    return {
+      todaySales,
+      todayProfit,
+      salesCount: salesAgg._count ?? 0,
+      source: 'pos_finance',
+    }
   }
 }
 
@@ -161,7 +193,7 @@ export async function toggleFund(tenantId: string, id: string, isActive: boolean
 }
 
 async function getYesterdayBalance(fundId: string, dateStr: string) {
-  const start = parseBusinessDate(dateStr)
+  const start = allocationDbDate(dateStr)
   const prevLine = await prisma.profitAllocationLine.findFirst({
     where: {
       fundId,
@@ -176,7 +208,7 @@ async function getYesterdayBalance(fundId: string, dateStr: string) {
 }
 
 async function getDayWithdrawn(fundId: string, dateStr: string) {
-  const { start, end } = dayRange(dateStr)
+  const { start, end } = businessDayRange(normalizeBusinessDate(dateStr))
   const agg = await prisma.profitWithdrawal.aggregate({
     where: {
       fundId,
@@ -206,7 +238,8 @@ export async function calculateAllocationLines(
   })
 
   const pctCheck = validatePercentageTotal(funds)
-  const { todaySales, todayProfit } = await getDayProfit(tenantId, branchId, dateStr)
+  const profitMeta = await getDayProfit(tenantId, branchId, dateStr)
+  const { todaySales, todayProfit } = profitMeta
 
   let remainingProfit = todayProfit
   const lines: Array<{
@@ -301,20 +334,22 @@ export async function calculateAllocationLines(
   const remainingProfitFinal = round2(todayProfit - totalAllocated)
 
   return {
-    date: dateStr,
+    date: normalizeBusinessDate(dateStr),
     todaySales,
     todayProfit,
     totalAllocated,
     remainingProfit: remainingProfitFinal,
     percentageTotal: pctCheck.total,
     percentageValid: pctCheck.valid,
+    salesCount: profitMeta.salesCount,
+    dataSource: profitMeta.source,
     lines,
     saved: false,
   }
 }
 
 export async function getDashboard(tenantId: string, branchId: string, dateStr: string) {
-  const date = parseBusinessDate(dateStr)
+  const date = allocationDbDate(dateStr)
   const existing = await prisma.profitAllocation.findUnique({
     where: { tenantId_branchId_date: { tenantId, branchId, date } },
     include: {
@@ -340,13 +375,15 @@ export async function getDashboard(tenantId: string, branchId: string, dateStr: 
     const funds = await listFunds(tenantId, branchId)
     const pctCheck = validatePercentageTotal(funds)
     return {
-      date: dateStr,
+      date: normalizeBusinessDate(dateStr),
       todaySales: existing.todaySales,
       todayProfit: existing.todayProfit,
       totalAllocated: existing.totalAllocated,
       remainingProfit: existing.remainingProfit,
       percentageTotal: pctCheck.total,
       percentageValid: pctCheck.valid,
+      salesCount: null,
+      dataSource: 'saved_allocation',
       lines,
       saved: true,
       allocationId: existing.id,
@@ -370,7 +407,7 @@ export async function saveAllocation(
     throw new AppError(`Percentage funds must total 100%. Current total: ${calc.percentageTotal}%`, 400)
   }
 
-  const date = parseBusinessDate(dateStr)
+  const date = allocationDbDate(dateStr)
   const existing = await prisma.profitAllocation.findUnique({
     where: { tenantId_branchId_date: { tenantId, branchId, date } },
   })
@@ -445,7 +482,7 @@ async function applyFundMovement(
   const fund = await prisma.profitFund.findFirst({ where: { id: fundId, tenantId, branchId } })
   if (!fund) throw new AppError('Fund not found', 404)
 
-  const date = dateStr ? parseBusinessDate(dateStr) : new Date()
+  const date = dateStr ? allocationDbDate(dateStr) : businessDateDb(normalizeBusinessDate())
   let delta = amount
   if (type === 'WITHDRAW') {
     if (fund.balance < amount) throw new AppError('Insufficient fund balance', 400)
@@ -547,13 +584,8 @@ export async function listTransactions(
   if (opts.fundId) where.fundId = opts.fundId
   if (opts.from || opts.to) {
     where.date = {}
-    if (opts.from) (where.date as Record<string, Date>).gte = parseBusinessDate(opts.from)
-    if (opts.to) {
-      const end = parseBusinessDate(opts.to)
-      end.setUTCDate(end.getUTCDate() + 1)
-      end.setUTCMilliseconds(-1)
-      ;(where.date as Record<string, Date>).lte = end
-    }
+    if (opts.from) (where.date as Record<string, Date>).gte = allocationDbDate(opts.from)
+    if (opts.to) (where.date as Record<string, Date>).lte = businessDayRange(normalizeBusinessDate(opts.to)).end
   }
 
   const skip = (opts.page - 1) * opts.limit
@@ -576,8 +608,10 @@ export async function getMonthlySummary(
   monthStr: string,
 ) {
   const [year, month] = monthStr.split('-').map(Number)
-  const start = new Date(Date.UTC(year, month - 1, 1))
-  const end = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999))
+  const monthPad = String(month).padStart(2, '0')
+  const start = businessDateDb(`${year}-${monthPad}-01`)
+  const lastDay = new Date(year, month, 0).getDate()
+  const end = businessDayRange(`${year}-${monthPad}-${String(lastDay).padStart(2, '0')}`).end
 
   const funds = await listFunds(tenantId, branchId)
 

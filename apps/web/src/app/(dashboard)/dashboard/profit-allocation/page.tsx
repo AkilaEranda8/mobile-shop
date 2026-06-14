@@ -33,9 +33,18 @@ type DashboardData = {
   remainingProfit: number
   percentageTotal: number
   percentageValid: boolean
+  salesCount?: number | null
+  dataSource?: string
   lines: FundLine[]
   saved: boolean
   allocationId: string | null
+}
+
+const DATA_SOURCE_LABEL: Record<string, string> = {
+  daily_closing_preview: 'POS sales & daily closing (live)',
+  daily_closing_closed: 'Closed day summary',
+  pos_finance: 'POS sales & finance transactions',
+  saved_allocation: 'Saved allocation record',
 }
 
 type Fund = {
@@ -208,6 +217,10 @@ export default function ProfitAllocationPage() {
     if (branches.length && !branchId) setBranchId(branches[0].id)
   }, [branches, branchId])
 
+  useEffect(() => {
+    setDashboardOverride(null)
+  }, [branchId, date])
+
   const { data: dashRaw, loading, refetch } = useProfitAllocationDashboard(branchId, date, hasAccess && !!branchId)
   const dashboard = (dashboardOverride ?? dashRaw) as DashboardData | null
   const { data: fundsRaw, refetch: refetchFunds } = useProfitFunds(branchId, hasAccess && !!branchId)
@@ -257,6 +270,20 @@ export default function ProfitAllocationPage() {
       return true
     })
   }, [funds, fundTab])
+
+  const handleRefreshFromSystem = async () => {
+    if (!branchId) return
+    setDashboardOverride(null)
+    setCalcLoading(true)
+    try {
+      await refetch()
+      toast.success('Daily data refreshed from system')
+    } catch (e: unknown) {
+      toast.error((e as { message?: string })?.message ?? 'Refresh failed')
+    } finally {
+      setCalcLoading(false)
+    }
+  }
 
   const handleRecalculate = async () => {
     if (!branchId) return
@@ -384,9 +411,16 @@ export default function ProfitAllocationPage() {
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
           <h1 className="page-title">Profit Allocation & Fund Management</h1>
-          <p className="page-subtitle flex items-center gap-1.5">
+          <p className="page-subtitle flex items-center gap-1.5 flex-wrap">
             <Calendar size={12} />
             Allocate daily profit to funds · {formatDate(date)}
+            {dashboard?.dataSource && !loading && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                style={{ background: 'rgba(109,40,217,0.10)', color: '#6d28d9', border: '1px solid rgba(109,40,217,0.25)' }}>
+                {DATA_SOURCE_LABEL[dashboard.dataSource] ?? dashboard.dataSource}
+                {dashboard.salesCount != null ? ` · ${dashboard.salesCount} sales` : ''}
+              </span>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
@@ -395,7 +429,11 @@ export default function ProfitAllocationPage() {
               {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           )}
-          <input type="date" className="input-field text-sm max-w-[160px]" value={date} onChange={e => { setDate(e.target.value); setDashboardOverride(null) }} />
+          <input type="date" className="input-field text-sm max-w-[160px]" value={date} onChange={e => setDate(e.target.value)} />
+          <button onClick={handleRefreshFromSystem} disabled={calcLoading || !branchId} className="btn-secondary flex items-center gap-2 text-sm">
+            {calcLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+            Refresh
+          </button>
           {canManageFunds && (
             <button onClick={handleRecalculate} disabled={calcLoading || dashboard?.saved} className="btn-secondary flex items-center gap-2 text-sm">
               {calcLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
