@@ -357,8 +357,8 @@ export default function DailyReloadPage() {
               onClick={() => setTab(id)}
               className="flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors"
               style={{
-                borderColor:  tab === id ? 'var(--accent)' : 'transparent',
-                color:        tab === id ? 'var(--accent)' : 'var(--text-muted)',
+                borderColor:  tab === id ? 'var(--brand-primary)' : 'transparent',
+                color:        tab === id ? 'var(--brand-primary)' : 'var(--text-muted)',
                 background:   'transparent',
               }}
             >
@@ -378,12 +378,12 @@ export default function DailyReloadPage() {
                 onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
                 onClick={() => fileRef.current?.click()}
                 className="border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all"
-                style={{ borderColor: dragOver ? 'var(--accent)' : 'var(--border-default)', background: dragOver ? 'rgba(139,92,246,0.05)' : 'transparent' }}
+                style={{ borderColor: dragOver ? 'var(--brand-primary)' : 'var(--border-default)', background: dragOver ? 'rgba(139,92,246,0.05)' : 'transparent' }}
               >
                 <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }} />
                 {uploading ? (
                   <div className="flex flex-col items-center gap-3">
-                    <RefreshCw size={32} className="animate-spin" style={{ color: 'var(--accent)' }} />
+                    <RefreshCw size={32} className="animate-spin" style={{ color: 'var(--brand-primary)' }} />
                     <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Importing…</p>
                   </div>
                 ) : (
@@ -526,10 +526,10 @@ export default function DailyReloadPage() {
                         <tr style={{ background: 'var(--bg-subtle)' }}>
                           <td className="px-3 py-2.5 text-xs font-bold" style={{ color: 'var(--text-primary)' }}>Total</td>
                           <td />
-                          <td className="px-3 py-2.5 text-xs font-bold">{formatAmt(settlement.reloadTotal)}</td>
+                          <td className="px-3 py-2.5 text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{formatAmt(settlement.reloadTotal)}</td>
                           <td className="px-3 py-2.5 text-xs font-bold text-emerald-500">{formatAmt(settlement.commission)}</td>
                           <td className="px-3 py-2.5 text-xs font-bold text-amber-500">{formatAmt(settlement.netPayable)}</td>
-                          <td className="px-3 py-2.5 text-xs font-bold">{formatAmt(settlement.paid)}</td>
+                          <td className="px-3 py-2.5 text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{formatAmt(settlement.paid)}</td>
                           <td className="px-3 py-2.5 text-xs font-bold" style={{ color: settlement.remaining > 0 ? '#ef4444' : '#10b981' }}>{formatAmt(settlement.remaining)}</td>
                           <td />
                         </tr>

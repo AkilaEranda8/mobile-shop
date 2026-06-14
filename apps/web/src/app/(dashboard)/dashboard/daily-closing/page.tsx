@@ -452,8 +452,8 @@ export default function DailyClosingPage() {
                       onClick={() => setStep(s.id)}
                       className="flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0"
                       style={{
-                        borderColor: active ? 'var(--accent)' : 'transparent',
-                        color: active ? 'var(--accent)' : 'var(--text-muted)',
+                        borderColor: active ? 'var(--brand-primary)' : 'transparent',
+                        color: active ? 'var(--brand-primary)' : 'var(--text-muted)',
                       }}
                     >
                       <Icon size={14} />
