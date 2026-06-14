@@ -5,6 +5,7 @@ import { validate } from '../../middleware/validate.middleware'
 import { sendSuccess, sendPaginated } from '../../utils/response'
 import { getPagination } from '../../utils/pagination'
 import { AppError } from '../../middleware/error.middleware'
+import { businessDateFromInstant } from '../../utils/date-range'
 import {
   createFundSchema,
   updateFundSchema,
@@ -31,9 +32,10 @@ router.use(requireProfitAllocationFeature)
 router.get('/dashboard', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const branchId = req.query.branchId as string
-    const date = (req.query.date as string) || new Date().toISOString().slice(0, 10)
+    const date = (req.query.date as string) || businessDateFromInstant()
+    const live = req.query.live === 'true' || req.query.live === '1'
     if (!branchId) throw new AppError('branchId is required', 400)
-    sendSuccess(res, await profitAllocationService.getDashboard(req.tenantId!, branchId, date))
+    sendSuccess(res, await profitAllocationService.getDashboard(req.tenantId!, branchId, date, { live }))
   } catch (e) { next(e) }
 })
 

@@ -260,10 +260,11 @@ export function useFinanceSummary(params?: Record<string, string>) {
   )
 }
 
-export function useAnalyticsDashboard() {
+export function useAnalyticsDashboard(branchId?: string) {
+  const params = branchId ? { branchId } : undefined
   return useApi<unknown>(
-    () => analyticsApi.dashboard() as Promise<{ data: unknown }>,
-    [],
+    () => analyticsApi.dashboard(params) as Promise<{ data: unknown }>,
+    [branchId ?? ''],
   )
 }
 

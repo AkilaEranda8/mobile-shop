@@ -3,7 +3,8 @@ import { prisma } from '../../config/database'
 import { Prisma } from '@prisma/client'
 import { sendSuccess } from '../../utils/response'
 import { authenticate } from '../../middleware/auth.middleware'
-import { businessDayRange, businessDateFromInstant } from '../../utils/date-range'
+import { businessDayRange, businessDateFromInstant, resolveQueryDateRange } from '../../utils/date-range'
+import { getDailyRevenueBreakdown, getPeriodFinancials } from '../finance/business-financials.service'
 
 const router = Router()
 router.use(authenticate)
@@ -13,11 +14,12 @@ router.get('/dashboard', async (req: Request, res: Response, next: NextFunction)
     const tenantId = req.tenantId!
     const branchId = req.query.branchId as string | undefined
     const branchFilter = branchId ? { branchId } : {}
-    const { start: today, end: todayEnd } = businessDayRange(businessDateFromInstant())
-    const in30Days = new Date(); in30Days.setDate(in30Days.getDate() + 30)
+    const todayKey = businessDateFromInstant()
+    const in30End = businessDayRange(resolveQueryDateRange({ days: 30 }).toKey).end
 
-    const [todaySales, activeRepairs, totalCustomers, lowStockProducts, posRevenue, otherRevenue, expiringWarranties, readyForPickup, totalSalesCount] = await Promise.all([
-      prisma.sale.aggregate({ where: { tenantId, ...branchFilter, status: { not: 'RETURNED' }, createdAt: { gte: today, lte: todayEnd } }, _sum: { total: true }, _count: true }),
+    const todayFin = await getPeriodFinancials(tenantId, todayKey, todayKey, branchId)
+
+    const [activeRepairs, totalCustomers, lowStockProducts, posRevenue, otherRevenue, expiringWarranties, readyForPickup, totalSalesCount] = await Promise.all([
       prisma.repairTicket.count({ where: { tenantId, ...branchFilter, status: { notIn: ['DELIVERED', 'CANCELLED'] } } }),
       prisma.customer.count({ where: { tenantId } }),
       // Low stock: compare stock against each product's own minStock (not a hardcoded value)
@@ -32,16 +34,16 @@ router.get('/dashboard', async (req: Request, res: Response, next: NextFunction)
       `,
       prisma.sale.aggregate({ where: { tenantId, ...branchFilter, status: { not: 'RETURNED' } }, _sum: { total: true } }),
       // Other income (repairs, manual entries) — exclude 'Sales' category (already in posRevenue)
-      prisma.transaction.aggregate({ where: { tenantId, type: 'INCOME', category: { not: 'Sales' } }, _sum: { amount: true } }),
-      prisma.warranty.count({ where: { tenantId, endDate: { lte: in30Days }, status: 'ACTIVE' } }),
+      prisma.transaction.aggregate({ where: { tenantId, ...branchFilter, type: 'INCOME', category: { not: 'Sales' } }, _sum: { amount: true } }),
+      prisma.warranty.count({ where: { tenantId, endDate: { lte: in30End }, status: 'ACTIVE' } }),
       prisma.repairTicket.count({ where: { tenantId, ...branchFilter, status: 'READY' } }),
       prisma.sale.count({ where: { tenantId, ...branchFilter, status: { not: 'RETURNED' } } }),
     ])
 
     const totalRevenue = (posRevenue._sum.total ?? 0) + (otherRevenue._sum.amount ?? 0)
     sendSuccess(res, {
-      todayRevenue:    todaySales._sum.total ?? 0,
-      todaySalesCount: todaySales._count,
+      todayRevenue:    todayFin.grossSales + todayFin.reloadCommission,
+      todaySalesCount: todayFin.salesCount,
       totalSalesCount,
       activeRepairs,
       totalCustomers,
@@ -58,103 +60,14 @@ router.get('/revenue', async (req: Request, res: Response, next: NextFunction) =
   try {
     const tenantId = req.tenantId!
     const branchId = req.query.branchId as string | undefined
-    let from: Date
-    let to = new Date(); to.setHours(23, 59, 59, 999)
-    if (req.query.from) {
-      from = new Date(req.query.from as string); from.setHours(0, 0, 0, 0)
-      if (req.query.to) { to = new Date(req.query.to as string); to.setHours(23, 59, 59, 999) }
-    } else {
-      const days = parseInt(req.query.days as string) || 30
-      from = new Date(); from.setDate(from.getDate() - days); from.setHours(0, 0, 0, 0)
-    }
-    const saleBranch = branchId ? Prisma.sql`AND "branchId" = ${branchId}` : Prisma.empty
-    const sBranch    = branchId ? Prisma.sql`AND s."branchId" = ${branchId}` : Prisma.empty
-    const txBranch   = branchId ? Prisma.sql`AND "branchId" = ${branchId}` : Prisma.empty
+    const days = parseInt(req.query.days as string) || 30
+    const { fromKey, toKey } = resolveQueryDateRange({
+      from: req.query.from as string | undefined,
+      to: req.query.to as string | undefined,
+      days: req.query.from || req.query.to ? undefined : days,
+    })
 
-    // 1. POS sales revenue per day (exclude returned orders)
-    const salesRaw: Array<{ date: Date; total: number }> = await prisma.$queryRaw`
-      SELECT DATE_TRUNC('day', "createdAt" AT TIME ZONE 'Asia/Colombo') AS date,
-             COALESCE(SUM(total), 0)::float                    AS total
-      FROM   "Sale"
-      WHERE  "tenantId" = ${tenantId}
-        ${saleBranch}
-        AND  "createdAt" >= ${from}
-        AND  "createdAt" <= ${to}
-        AND  status != 'RETURNED'
-      GROUP  BY 1
-      ORDER  BY 1 ASC
-    `
-
-    // 2. COGS per day (exclude returned orders)
-    const cogsRaw: Array<{ date: Date; cogs: number }> = await prisma.$queryRaw`
-      SELECT DATE_TRUNC('day', s."createdAt" AT TIME ZONE 'Asia/Colombo') AS date,
-             COALESCE(SUM(si.quantity::float * p."buyingPrice"), 0)::float AS cogs
-      FROM   "SaleItem" si
-      JOIN   "Sale"    s ON s.id = si."saleId"
-      JOIN   "Product" p ON p.id = si."productId"
-      WHERE  s."tenantId" = ${tenantId}
-        ${sBranch}
-        AND  s."createdAt" >= ${from}
-        AND  s."createdAt" <= ${to}
-        AND  s.status != 'RETURNED'
-      GROUP  BY 1
-      ORDER  BY 1 ASC
-    `
-
-    // 3. Operating expenses per day (exclude Refund category)
-    const expensesRaw: Array<{ date: Date; total: number }> = await prisma.$queryRaw`
-      SELECT DATE_TRUNC('day', "createdAt" AT TIME ZONE 'Asia/Colombo') AS date,
-             COALESCE(SUM(amount), 0)::float                   AS total
-      FROM   "Transaction"
-      WHERE  "tenantId" = ${tenantId}
-        ${txBranch}
-        AND  type = 'EXPENSE'
-        AND  category != 'Refund'
-        AND  "createdAt" >= ${from}
-        AND  "createdAt" <= ${to}
-      GROUP  BY 1
-      ORDER  BY 1 ASC
-    `
-
-    // 4. Other income per day (Transaction.INCOME) — exclude category='Sales' to avoid
-    //    double-counting POS sales already captured in salesRaw above
-    const incomeRaw: Array<{ date: Date; total: number }> = await prisma.$queryRaw`
-      SELECT DATE_TRUNC('day', "createdAt" AT TIME ZONE 'Asia/Colombo') AS date,
-             COALESCE(SUM(amount), 0)::float                   AS total
-      FROM   "Transaction"
-      WHERE  "tenantId" = ${tenantId}
-        ${txBranch}
-        AND  type = 'INCOME'
-        AND  category != 'Sales'
-        AND  "createdAt" >= ${from}
-        AND  "createdAt" <= ${to}
-      GROUP  BY 1
-      ORDER  BY 1 ASC
-    `
-
-    // Merge all into date-keyed map
-    type DayData = { salesRevenue: number; cogs: number; opExpenses: number; otherIncome: number }
-    const map: Record<string, DayData> = {}
-    const ensure = (key: string) => { if (!map[key]) map[key] = { salesRevenue: 0, cogs: 0, opExpenses: 0, otherIncome: 0 } }
-
-    salesRaw.forEach  ((r) => { const k = new Date(r.date).toISOString().split('T')[0]; ensure(k); map[k].salesRevenue = Number(r.total) })
-    cogsRaw.forEach   ((r) => { const k = new Date(r.date).toISOString().split('T')[0]; ensure(k); map[k].cogs        = Number(r.cogs)  })
-    expensesRaw.forEach((r) => { const k = new Date(r.date).toISOString().split('T')[0]; ensure(k); map[k].opExpenses  = Number(r.total) })
-    incomeRaw.forEach ((r) => { const k = new Date(r.date).toISOString().split('T')[0]; ensure(k); map[k].otherIncome = Number(r.total) })
-
-    const result = Object.entries(map)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, v]) => ({
-        date,
-        totalRevenue:  v.salesRevenue + v.otherIncome,
-        salesRevenue:  v.salesRevenue,
-        otherIncome:   v.otherIncome,
-        cogs:          v.cogs,
-        totalExpenses: v.opExpenses,
-        grossProfit:   v.salesRevenue - v.cogs,
-        profit:        (v.salesRevenue + v.otherIncome) - v.cogs - v.opExpenses,
-      }))
-
+    const result = await getDailyRevenueBreakdown(tenantId, fromKey, toKey, branchId)
     sendSuccess(res, result)
   } catch (e) { next(e) }
 })
@@ -163,10 +76,16 @@ router.get('/top-products', async (req: Request, res: Response, next: NextFuncti
   try {
     const tenantId = req.tenantId!
     const limit = parseInt(req.query.limit as string) || 10
-    const fromDate = req.query.from ? new Date(req.query.from as string) : undefined
-    const toDate   = req.query.to   ? (() => { const d = new Date(req.query.to as string); d.setHours(23,59,59,999); return d })() : undefined
-    const dateFilter = fromDate ? { createdAt: { gte: fromDate, ...(toDate ? { lte: toDate } : {}) } } : {}
     const branchId = req.query.branchId as string | undefined
+    let dateFilter = {}
+    if (req.query.from || req.query.to) {
+      const { start, end } = resolveQueryDateRange({
+        from: req.query.from as string | undefined,
+        to: req.query.to as string | undefined,
+        days: 30,
+      })
+      dateFilter = { createdAt: { gte: start, lte: end } }
+    }
     const items = await prisma.saleItem.groupBy({
       by: ['productId', 'productName'],
       where: { sale: { tenantId, status: { not: 'RETURNED' }, ...(branchId && { branchId }), ...dateFilter } },
@@ -217,7 +136,7 @@ router.get('/delivery-summary', async (req: Request, res: Response, next: NextFu
   try {
     const tenantId = req.tenantId!
     const days = parseInt(req.query.days as string) || 30
-    const from = new Date(); from.setDate(from.getDate() - days); from.setHours(0, 0, 0, 0)
+    const { start: from } = resolveQueryDateRange({ days })
 
     const [byStatus, revenue, codTotal] = await Promise.all([
       prisma.deliveryOrder.groupBy({
@@ -251,15 +170,11 @@ router.get('/category-products', async (req: Request, res: Response, next: NextF
     const tenantId = req.tenantId!
     const category = (req.query.category as string) ?? ''
     const branchId = req.query.branchId as string | undefined
-    let from: Date
-    let to: Date = new Date(); to.setHours(23, 59, 59, 999)
-    if (req.query.from) {
-      from = new Date(req.query.from as string); from.setHours(0, 0, 0, 0)
-      if (req.query.to) { to = new Date(req.query.to as string); to.setHours(23, 59, 59, 999) }
-    } else {
-      const days = parseInt(req.query.days as string) || 30
-      from = new Date(); from.setDate(from.getDate() - days); from.setHours(0, 0, 0, 0)
-    }
+    const { start: from, end: to } = resolveQueryDateRange({
+      from: req.query.from as string | undefined,
+      to: req.query.to as string | undefined,
+      days: parseInt(req.query.days as string) || 30,
+    })
 
     const branchClause = branchId ? Prisma.sql`AND s."branchId" = ${branchId}` : Prisma.empty
     const categoryClause = category
@@ -313,15 +228,11 @@ router.get('/category-sales', async (req: Request, res: Response, next: NextFunc
   try {
     const tenantId = req.tenantId!
     const branchId = req.query.branchId as string | undefined
-    let from: Date
-    let to: Date = new Date(); to.setHours(23, 59, 59, 999)
-    if (req.query.from) {
-      from = new Date(req.query.from as string); from.setHours(0, 0, 0, 0)
-      if (req.query.to) { to = new Date(req.query.to as string); to.setHours(23, 59, 59, 999) }
-    } else {
-      const days = parseInt(req.query.days as string) || 30
-      from = new Date(); from.setDate(from.getDate() - days); from.setHours(0, 0, 0, 0)
-    }
+    const { start: from, end: to } = resolveQueryDateRange({
+      from: req.query.from as string | undefined,
+      to: req.query.to as string | undefined,
+      days: parseInt(req.query.days as string) || 30,
+    })
 
     const branchClause = branchId ? Prisma.sql`AND s."branchId" = ${branchId}` : Prisma.empty
 

@@ -201,7 +201,7 @@ export default function ProfitAllocationPage() {
   const [transactions, setTransactions] = useState<TxRow[]>([])
   const [txTotal, setTxTotal] = useState(0)
   const [txLoading, setTxLoading] = useState(false)
-  const [monthlyMonth, setMonthlyMonth] = useState(() => new Date().toISOString().slice(0, 7))
+  const [monthlyMonth, setMonthlyMonth] = useState(() => businessToday().slice(0, 7))
   const [monthlyData, setMonthlyData] = useState<unknown[]>([])
   const [calcLoading, setCalcLoading] = useState(false)
   const [saveLoading, setSaveLoading] = useState(false)
@@ -276,7 +276,8 @@ export default function ProfitAllocationPage() {
     setDashboardOverride(null)
     setCalcLoading(true)
     try {
-      await refetch()
+      const res = await profitAllocationApi.calculate({ branchId, date }) as { data: DashboardData }
+      setDashboardOverride(res.data)
       toast.success('Daily data refreshed from system')
     } catch (e: unknown) {
       toast.error((e as { message?: string })?.message ?? 'Refresh failed')

@@ -10,6 +10,7 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line
 } from 'recharts'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { businessToday, businessPeriodFrom, formatBusinessDateLabel } from '@/lib/business-date'
 import { useTransactions, useRevenue, useFinanceSummary, useFeatureFlag } from '@/lib/hooks'
 import Link from 'next/link'
 import { Lock } from 'lucide-react'
@@ -101,9 +102,18 @@ export default function FinancePage() {
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'INCOME' | 'EXPENSE'>('ALL')
   const [showAdd, setShowAdd] = useState(false)
 
+  const mtdParams = useMemo(() => {
+    const to = businessToday()
+    return { from: `${to.slice(0, 7)}-01`, to }
+  }, [])
+  const revenueParams = useMemo(() => {
+    const to = businessToday()
+    return { from: businessPeriodFrom(60, to), to }
+  }, [])
+
   const { data: txData,      loading: txLoading, refetch: refetchTx }     = useTransactions()
-  const { data: rawRevenue }                                                = useRevenue({ days: '60' })
-  const { data: summaryData, refetch: refetchSummary }                     = useFinanceSummary()
+  const { data: rawRevenue }                                                = useRevenue(revenueParams)
+  const { data: summaryData, refetch: refetchSummary }                     = useFinanceSummary(mtdParams)
   const hasDailyClosing = useFeatureFlag('DAILY_CLOSING')
 
   const transactions: AppTransaction[] = (txData?.data ?? []) as AppTransaction[]
@@ -130,7 +140,7 @@ export default function FinancePage() {
   const chartData = useMemo(() => {
     if (!revenueArr.length) return []
     return revenueArr.slice(-10).map((d: any) => ({
-      label: new Date(d.date).toLocaleDateString('en-LK', { day: 'numeric', month: 'short' }),
+      label: formatBusinessDateLabel(d.date),
       revenue:  Math.round((d.totalRevenue  ?? 0)),
       expenses: Math.round((d.totalExpenses ?? 0) + (d.cogs ?? 0)),
       profit:   Math.round((d.profit        ?? 0)),
@@ -174,7 +184,7 @@ export default function FinancePage() {
           <h1 className="page-title">Finance & Accounting</h1>
           <p className="page-subtitle flex items-center gap-1.5">
             <Calendar size={12} />
-            {new Date().toLocaleDateString('en-LK', { month: 'long', year: 'numeric' })} · Month-to-date
+            {new Date(`${businessToday()}T12:00:00+05:30`).toLocaleDateString('en-LK', { month: 'long', year: 'numeric', timeZone: 'Asia/Colombo' })} · Month-to-date
           </p>
         </div>
         <div className="flex gap-2 sm:ml-auto">

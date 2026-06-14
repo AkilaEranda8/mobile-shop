@@ -400,7 +400,8 @@ export const dailyReloadApi = {
 }
 
 export const analyticsApi = {
-  dashboard: () => api.get('/analytics/dashboard'),
+  dashboard: (params?: Record<string, string>) =>
+    params ? api.get(`/analytics/dashboard?${new URLSearchParams(params)}`) : api.get('/analytics/dashboard'),
   revenue: (params?: Record<string, string>) =>
     api.get(`/analytics/revenue${params ? '?' + new URLSearchParams(params) : ''}`),
   topProducts: (params?: Record<string, string>) =>

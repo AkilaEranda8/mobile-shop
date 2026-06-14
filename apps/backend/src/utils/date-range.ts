@@ -24,3 +24,56 @@ export function previousBusinessDate(dateStr: string): string {
   d.setUTCDate(d.getUTCDate() - 1)
   return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' })
 }
+
+export function monthStartBusinessDate(dateStr?: string | null): string {
+  const d = normalizeBusinessDate(dateStr)
+  return `${d.slice(0, 7)}-01`
+}
+
+/** Shift a Colombo business date by N days (negative = past) */
+export function shiftBusinessDate(dateStr: string, deltaDays: number): string {
+  const d = businessDateDb(dateStr)
+  d.setUTCDate(d.getUTCDate() + deltaDays)
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' })
+}
+
+/** Map PG DATE_TRUNC / Date values to YYYY-MM-DD in Colombo */
+export function businessDateKeyFromInstant(at: Date): string {
+  return at.toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' })
+}
+
+export function resolveQueryDateRange(opts: {
+  from?: string | null
+  to?: string | null
+  days?: number
+  defaultFrom?: 'month_start' | 'days'
+}) {
+  const toKey = normalizeBusinessDate(opts.to)
+  let fromKey: string
+  if (opts.from) {
+    fromKey = normalizeBusinessDate(opts.from)
+  } else if (opts.days && opts.days > 0) {
+    fromKey = shiftBusinessDate(toKey, -(opts.days - 1))
+  } else if (opts.defaultFrom === 'month_start') {
+    fromKey = monthStartBusinessDate(toKey)
+  } else {
+    fromKey = shiftBusinessDate(toKey, -29)
+  }
+  const { start } = businessDayRange(fromKey)
+  const { end } = businessDayRange(toKey)
+  return { start, end, fromKey, toKey }
+}
+
+/** Inclusive list of Colombo business dates from fromKey through toKey */
+export function listBusinessDays(fromKey: string, toKey: string): string[] {
+  const start = normalizeBusinessDate(fromKey)
+  const end = normalizeBusinessDate(toKey)
+  const days: string[] = []
+  let cur = start
+  while (cur <= end) {
+    days.push(cur)
+    if (cur === end) break
+    cur = shiftBusinessDate(cur, 1)
+  }
+  return days
+}

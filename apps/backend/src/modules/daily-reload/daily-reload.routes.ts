@@ -4,7 +4,7 @@ import { prisma } from '../../config/database'
 import { sendSuccess } from '../../utils/response'
 import { authenticate } from '../../middleware/auth.middleware'
 import { AppError } from '../../middleware/error.middleware'
-import { businessDayRange } from '../../utils/date-range'
+import { businessDayRange, businessDateKeyFromInstant, resolveQueryDateRange } from '../../utils/date-range'
 import {
   calcReloadCommission,
   fetchTenantReloadSettings,
@@ -182,8 +182,8 @@ router.get('/report', async (req: Request, res: Response, next: NextFunction) =>
     const tenantId = req.tenantId!
     const { from, to } = req.query as Record<string, string>
     const where: any = { tenantId }
-    if (from) where.reloadDate = { ...(where.reloadDate ?? {}), gte: new Date(from + 'T00:00:00.000Z') }
-    if (to)   where.reloadDate = { ...(where.reloadDate ?? {}), lte: new Date(to   + 'T23:59:59.999Z') }
+    const { start, end } = resolveQueryDateRange({ from, to, days: 30 })
+    where.reloadDate = { gte: start, lte: end }
 
     res.setHeader('Cache-Control', 'no-store')
     const settings = await fetchTenantReloadSettings(tenantId)
@@ -195,7 +195,7 @@ router.get('/report', async (req: Request, res: Response, next: NextFunction) =>
 
     const byDate: Record<string, { date: string; count: number; totalAmount: number; commission: number; successCount: number }> = {}
     for (const r of reloads) {
-      const d = r.reloadDate.toISOString().split('T')[0]
+      const d = businessDateKeyFromInstant(r.reloadDate)
       if (!byDate[d]) byDate[d] = { date: d, count: 0, totalAmount: 0, commission: 0, successCount: 0 }
       byDate[d].count++
       byDate[d].totalAmount += Number(r.amount)

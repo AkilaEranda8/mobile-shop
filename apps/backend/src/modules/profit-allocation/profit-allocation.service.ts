@@ -2,6 +2,7 @@ import { ProfitFundType, ProfitTxnType } from '@prisma/client'
 import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import { buildDailyClosingPreview } from '../daily-closing/daily-closing.service'
+import { financialsFromPreview } from '../finance/business-financials.service'
 import { businessDayRange, businessDateDb, normalizeBusinessDate } from '../../utils/date-range'
 import type { createFundSchema, updateFundSchema } from './profit-allocation.schema'
 import type { z } from 'zod'
@@ -47,67 +48,14 @@ function allocationDbDate(dateStr: string) {
 
 async function getDayProfit(tenantId: string, branchId: string, dateStr: string) {
   const dateKey = normalizeBusinessDate(dateStr)
-  try {
-    const preview = await buildDailyClosingPreview(tenantId, branchId, dateKey) as {
-      sales?: { totalSales?: number; salesCount?: number }
-      profit?: { netProfit?: number; grossProfit?: number }
-      status?: string
-      isClosed?: boolean
-    }
-    const todaySales = Number(preview.sales?.totalSales ?? 0)
-    const todayProfit = Number(preview.profit?.netProfit ?? 0)
-    return {
-      todaySales: round2(todaySales),
-      todayProfit: round2(todayProfit),
-      salesCount: Number(preview.sales?.salesCount ?? 0),
-      source: preview.isClosed ? 'daily_closing_closed' : 'daily_closing_preview',
-    }
-  } catch {
-    const { start, end } = businessDayRange(dateKey)
-    const saleWhere = {
-      tenantId,
-      branchId,
-      status: { not: 'RETURNED' as const },
-      createdAt: { gte: start, lte: end },
-    }
-    const txWhere = { tenantId, branchId, createdAt: { gte: start, lte: end } }
-
-    const [salesAgg, txIncome, txExpense, cogsRaw] = await Promise.all([
-      prisma.sale.aggregate({ where: saleWhere, _sum: { total: true }, _count: true }),
-      prisma.transaction.aggregate({
-        where: { ...txWhere, type: 'INCOME', category: { not: 'Sales' } },
-        _sum: { amount: true },
-      }),
-      prisma.transaction.aggregate({
-        where: { ...txWhere, type: 'EXPENSE', category: { not: 'Refund' } },
-        _sum: { amount: true },
-      }),
-      prisma.$queryRaw<Array<{ cogs: number }>>`
-        SELECT COALESCE(SUM(si.quantity::float * p."buyingPrice"), 0)::float AS cogs
-        FROM   "SaleItem" si
-        JOIN   "Sale"    s ON s.id = si."saleId"
-        JOIN   "Product" p ON p.id = si."productId"
-        WHERE  s."tenantId" = ${tenantId}
-          AND  s."branchId" = ${branchId}
-          AND  s."createdAt" >= ${start}
-          AND  s."createdAt" <= ${end}
-          AND  s.status != 'RETURNED'
-      `,
-    ])
-
-    const salesRevenue = salesAgg._sum.total ?? 0
-    const otherIncome = txIncome._sum.amount ?? 0
-    const cogs = Number(cogsRaw[0]?.cogs ?? 0)
-    const opExpenses = txExpense._sum.amount ?? 0
-    const todaySales = round2(salesRevenue)
-    const todayProfit = round2(salesRevenue + otherIncome - cogs - opExpenses)
-
-    return {
-      todaySales,
-      todayProfit,
-      salesCount: salesAgg._count ?? 0,
-      source: 'pos_finance',
-    }
+  const preview = await buildDailyClosingPreview(tenantId, branchId, dateKey)
+  const fin = financialsFromPreview(preview)
+  const source = preview.isClosed ? 'daily_closing_closed' : 'daily_closing_preview'
+  return {
+    todaySales: round2(fin.salesRevenue),
+    todayProfit: round2(fin.netProfit),
+    salesCount: fin.salesCount,
+    source,
   }
 }
 
@@ -348,9 +296,9 @@ export async function calculateAllocationLines(
   }
 }
 
-export async function getDashboard(tenantId: string, branchId: string, dateStr: string) {
+export async function getDashboard(tenantId: string, branchId: string, dateStr: string, opts?: { live?: boolean }) {
   const date = allocationDbDate(dateStr)
-  const existing = await prisma.profitAllocation.findUnique({
+  const existing = opts?.live ? null : await prisma.profitAllocation.findUnique({
     where: { tenantId_branchId_date: { tenantId, branchId, date } },
     include: {
       lines: { include: { fund: true } },

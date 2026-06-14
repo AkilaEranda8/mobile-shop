@@ -18,6 +18,7 @@ import {
   useFinanceSummary, useBranches, useDailyReloadReport, useFeatureFlag,
 } from '@/lib/hooks'
 import { formatCurrency } from '@/lib/utils'
+import { businessToday, businessPeriodFrom, shiftBusinessDate, formatBusinessDateLabel } from '@/lib/business-date'
 
 /* ── constants ─────────────────────────────────────────────────── */
 const TOOLTIP_STYLE = {
@@ -111,7 +112,7 @@ function DailyReloadTab({ fromDate, toDate }: { fromDate: string; toDate: string
   const successRate  = totalCount > 0 ? Math.round((successCount / totalCount) * 100) : 0
 
   const chartData = breakdown.map((r: any) => ({
-    date:       new Date(r.date + 'T00:00:00').toLocaleDateString('en-LK', { month: 'short', day: 'numeric' }),
+    date:       formatBusinessDateLabel(r.date),
     Amount:     r.totalAmount,
     Commission: r.commission,
   }))
@@ -201,7 +202,7 @@ function SalesTab({ days, fromDate, toDate, branchId }: { days: string; fromDate
   const marginPct     = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : '0'
 
   const chartData = useMemo(() => revenueArr.map(d => ({
-    date:     new Date(d.date).toLocaleDateString('en-LK', { month: 'short', day: 'numeric' }),
+    date:     formatBusinessDateLabel(d.date),
     Revenue:  d.totalRevenue ?? 0,
     Profit:   d.profit ?? 0,
     Expenses: (d.totalExpenses ?? 0) + (d.cogs ?? 0),
@@ -546,7 +547,7 @@ function DeliveryTab({ days }: { days: string }) {
 function OverviewTab({ days, fromDate, toDate, branchId }: { days: string; fromDate: string; toDate: string; branchId?: string }) {
   const revParams: Record<string, string> = { from: fromDate, to: toDate }
   if (branchId) revParams.branchId = branchId
-  const { data: dashData }         = useAnalyticsDashboard()
+  const { data: dashData }         = useAnalyticsDashboard(branchId)
   const { data: rawRevenue }       = useRevenue(revParams)
   const { data: repairStatusData } = useRepairsByStatus()
   const { data: invData }          = useInventorySummary()
@@ -563,7 +564,7 @@ function OverviewTab({ days, fromDate, toDate, branchId }: { days: string; fromD
   const activeRepairs = repairs.filter(r => !['DELIVERED','CANCELLED'].includes(r.status)).reduce((s, r) => s + (r.count ?? 0), 0)
 
   const chartData = useMemo(() => revenue.map((d: any) => ({
-    date:    new Date(d.date).toLocaleDateString('en-LK', { month: 'short', day: 'numeric' }),
+    date:    formatBusinessDateLabel(d.date),
     Revenue: d.totalRevenue ?? 0,
     Profit:  d.profit ?? 0,
     Cost:    (d.totalExpenses ?? 0) + (d.cogs ?? 0),
@@ -664,8 +665,8 @@ function PLTab({ fromDate, toDate, branchId }: { fromDate: string; toDate: strin
     const ms = new Date(toDate).getTime() - new Date(fromDate).getTime()
     return Math.max(1, Math.round(ms / 86400000) + 1)
   }, [fromDate, toDate])
-  const prevToDate   = useMemo(() => { const d = new Date(fromDate); d.setDate(d.getDate() - 1); return d.toISOString().split('T')[0] }, [fromDate])
-  const prevFromDate = useMemo(() => { const d = new Date(fromDate); d.setDate(d.getDate() - periodDays); return d.toISOString().split('T')[0] }, [fromDate, periodDays])
+  const prevToDate   = useMemo(() => shiftBusinessDate(fromDate, -1), [fromDate])
+  const prevFromDate = useMemo(() => shiftBusinessDate(fromDate, -periodDays), [fromDate, periodDays])
   const prevParams: Record<string, string> = { from: prevFromDate, to: prevToDate }
   if (branchId) prevParams.branchId = branchId
   const { data: prevData } = useFinanceSummary(prevParams)
@@ -842,7 +843,7 @@ function CashFlowTab({ fromDate, toDate, branchId }: { fromDate: string; toDate:
       const cashOut = (d.cogs         ?? 0) + (d.totalExpenses ?? 0)
       const net     = cashIn - cashOut
       cumulative   += net
-      return { date: new Date(d.date).toLocaleDateString('en-LK', { month: 'short', day: 'numeric' }), rawDate: d.date, cashIn, cashOut, net, cumulative }
+      return { date: formatBusinessDateLabel(d.date), rawDate: d.date, cashIn, cashOut, net, cumulative }
     })
   }, [revenueArr])
 
@@ -935,7 +936,7 @@ export default function ReportsPage() {
 
   const { data: branchesData } = useBranches()
   const branches: any[] = Array.isArray(branchesData) ? branchesData : []
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], [])
+  const todayStr = useMemo(() => businessToday(), [])
 
   const toDate = useMemo(() => {
     if (isCustom && customTo) return customTo
@@ -944,10 +945,8 @@ export default function ReportsPage() {
 
   const fromDate = useMemo(() => {
     if (isCustom && customFrom) return customFrom
-    const d = new Date()
-    d.setDate(d.getDate() - parseInt(period) + 1)
-    return d.toISOString().split('T')[0]
-  }, [isCustom, customFrom, period])
+    return businessPeriodFrom(parseInt(period), toDate)
+  }, [isCustom, customFrom, period, toDate])
 
   const handlePeriod = (days: string) => { setPeriod(days); setIsCustom(false) }
   const activeBranch = branchId || undefined

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useCategorySales, useCategoryProducts, useBranches } from '@/lib/hooks'
 import { formatCurrency } from '@/lib/utils'
+import { businessToday, businessPeriodFrom } from '@/lib/business-date'
 
 /* ── constants ─────────────────────────────────────────────────── */
 const TOOLTIP_STYLE = {
@@ -85,7 +86,7 @@ export default function CategoryReportPage() {
 
   const { data: branchesData } = useBranches()
   const branches: any[] = Array.isArray(branchesData) ? branchesData : []
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], [])
+  const todayStr = useMemo(() => businessToday(), [])
 
   const toDate = useMemo(() => {
     if (isCustom && customTo) return customTo
@@ -94,10 +95,8 @@ export default function CategoryReportPage() {
 
   const fromDate = useMemo(() => {
     if (isCustom && customFrom) return customFrom
-    const d = new Date()
-    d.setDate(d.getDate() - parseInt(period) + 1)
-    return d.toISOString().split('T')[0]
-  }, [isCustom, customFrom, period])
+    return businessPeriodFrom(parseInt(period), toDate)
+  }, [isCustom, customFrom, period, toDate])
 
   const apiParams: Record<string, string> = { from: fromDate, to: toDate }
   if (branchId) apiParams.branchId = branchId

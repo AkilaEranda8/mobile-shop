@@ -4,6 +4,8 @@ import { sendSuccess, sendPaginated } from '../../utils/response'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
 import { getPagination } from '../../utils/pagination'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
+import { resolveQueryDateRange } from '../../utils/date-range'
+import { getPeriodFinancials, toFinanceSummaryResponse } from './business-financials.service'
 
 const router = Router()
 router.use(authenticate)
@@ -38,68 +40,14 @@ router.get('/summary', async (req: Request, res: Response, next: NextFunction) =
   try {
     const tenantId = req.tenantId!
     const branchId = req.query.branchId as string | undefined
-    const from = req.query.from ? new Date(req.query.from as string) : new Date(new Date().setDate(1))
-    const to   = req.query.to   ? new Date(req.query.to   as string) : new Date()
-    to.setHours(23, 59, 59, 999)
-
-    const txWhere: any = { tenantId, ...(branchId && { branchId }), createdAt: { gte: from, lte: to } }
-    const saleWhere: any = { tenantId, ...(branchId && { branchId }), status: { not: 'RETURNED' }, createdAt: { gte: from, lte: to } }
-
-    const [txIncome, txExpense, salesAgg, cogsRaw] = await Promise.all([
-      // Manual income transactions (repair fees, other income) — exclude POS Sales (already in salesRevenue)
-      prisma.transaction.aggregate({ where: { ...txWhere, type: 'INCOME', category: { not: 'Sales' } }, _sum: { amount: true } }),
-      // Operating expense transactions (rent, salary, utilities — exclude Refunds since returned sales excluded above)
-      prisma.transaction.aggregate({ where: { ...txWhere, type: 'EXPENSE', category: { not: 'Refund' } }, _sum: { amount: true } }),
-      // POS sales revenue (exclude returned orders)
-      prisma.sale.aggregate({ where: saleWhere, _sum: { total: true }, _count: true }),
-      // COGS: qty sold × current buying price (exclude returned orders)
-      branchId
-        ? prisma.$queryRaw<Array<{ cogs: number }>>`
-            SELECT COALESCE(SUM(si.quantity::float * p."buyingPrice"), 0)::float AS cogs
-            FROM   "SaleItem" si
-            JOIN   "Sale"    s ON s.id = si."saleId"
-            JOIN   "Product" p ON p.id = si."productId"
-            WHERE  s."tenantId" = ${tenantId}
-              AND  s."branchId" = ${branchId}
-              AND  s."createdAt" >= ${from}
-              AND  s."createdAt" <= ${to}
-              AND  s.status != 'RETURNED'
-          `
-        : prisma.$queryRaw<Array<{ cogs: number }>>`
-            SELECT COALESCE(SUM(si.quantity::float * p."buyingPrice"), 0)::float AS cogs
-            FROM   "SaleItem" si
-            JOIN   "Sale"    s ON s.id = si."saleId"
-            JOIN   "Product" p ON p.id = si."productId"
-            WHERE  s."tenantId" = ${tenantId}
-              AND  s."createdAt" >= ${from}
-              AND  s."createdAt" <= ${to}
-              AND  s.status != 'RETURNED'
-          `,
-    ])
-
-    const salesRevenue  = salesAgg._sum.total    ?? 0
-    const salesCount    = salesAgg._count
-    const cogs          = Number((cogsRaw as any[])[0]?.cogs ?? 0)
-    const otherIncome   = txIncome._sum.amount   ?? 0
-    const opExpenses    = txExpense._sum.amount  ?? 0
-
-    const totalRevenue  = salesRevenue + otherIncome
-    const totalExpense  = cogs + opExpenses
-    const grossProfit   = salesRevenue - cogs
-    const netProfit     = totalRevenue - totalExpense
-
-    sendSuccess(res, {
-      salesRevenue,
-      salesCount,
-      otherIncome,
-      totalIncome:  totalRevenue,
-      cogs,
-      opExpenses,
-      totalExpense,
-      grossProfit,
-      profit:       netProfit,
-      period: { from, to },
+    const { fromKey, toKey } = resolveQueryDateRange({
+      from: req.query.from as string | undefined,
+      to: req.query.to as string | undefined,
+      defaultFrom: 'month_start',
     })
+
+    const fin = await getPeriodFinancials(tenantId, fromKey, toKey, branchId)
+    sendSuccess(res, toFinanceSummaryResponse(fin, { from: fromKey, to: toKey }))
   } catch (e) { next(e) }
 })
 
