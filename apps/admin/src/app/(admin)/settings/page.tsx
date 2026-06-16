@@ -553,6 +553,7 @@ function SecurityTab({ cfg, onChange, onSave, saving }: {
         </div>
       </div>
     </div>
+    </div>
   )
 }
 
