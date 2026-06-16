@@ -23,6 +23,14 @@ function normalizeServiceCategory(category: string | null | undefined): string {
 
 const SERVICE_REPORT_CATEGORY = 'Service'
 
+function isReloadSaleItemSql() {
+  return Prisma.sql`(UPPER(si.sku) LIKE 'RELOAD-%' OR LOWER(si."productName") LIKE '%reload%')`
+}
+
+function isCatalogServiceSaleItemSql() {
+  return Prisma.sql`(si."productId" IS NULL AND sv.id IS NOT NULL AND NOT ${isReloadSaleItemSql()})`
+}
+
 function serviceCategoryExpr() {
   return Prisma.sql`${SERVICE_REPORT_CATEGORY}`
 }
@@ -30,14 +38,14 @@ function serviceCategoryExpr() {
 function saleItemCategoryExpr(includeServices: boolean) {
   return Prisma.sql`COALESCE(
     CASE WHEN si."productId" IS NOT NULL THEN c.name END,
-    ${includeServices ? Prisma.sql`CASE WHEN si."productId" IS NULL AND sv.id IS NOT NULL THEN ${serviceCategoryExpr()} END,` : Prisma.empty}
+    ${includeServices ? Prisma.sql`CASE WHEN ${isCatalogServiceSaleItemSql()} THEN ${serviceCategoryExpr()} END,` : Prisma.empty}
     'Uncategorised'
   )`
 }
 
 function serviceSaleItemClause(includeServices: boolean) {
   return includeServices
-    ? Prisma.sql`AND (si."productId" IS NOT NULL OR sv.id IS NOT NULL)`
+    ? Prisma.sql`AND (si."productId" IS NOT NULL OR ${isCatalogServiceSaleItemSql()})`
     : Prisma.sql`AND si."productId" IS NOT NULL`
 }
 
@@ -219,7 +227,7 @@ router.get('/category-products', async (req: Request, res: Response, next: NextF
     const branchClause = branchId ? Prisma.sql`AND s."branchId" = ${branchId}` : Prisma.empty
     const categoryClause = category
       ? category === SERVICE_REPORT_CATEGORY
-        ? Prisma.sql`AND si."productId" IS NULL AND sv.id IS NOT NULL`
+        ? Prisma.sql`AND ${isCatalogServiceSaleItemSql()}`
         : Prisma.sql`AND si."productId" IS NOT NULL AND COALESCE(c.name, 'Uncategorised') = ${category}`
       : Prisma.empty
     const itemTypeClause = serviceSaleItemClause(includeServices)
