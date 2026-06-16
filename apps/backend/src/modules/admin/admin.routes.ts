@@ -18,6 +18,7 @@ import {
   resetAuthRateLimitKeys,
   resetGlobalRateLimitForIp,
 } from '../../config/rate-limit'
+import { RATE_LIMIT_CONFIG_KEYS, refreshRateLimitSettings } from '../../config/rate-limit-settings'
 import { getClientIp, logPlatformActivity } from '../../utils/activity-log'
 import { clearTenantTrialData } from '../../utils/clear-tenant-data'
 
@@ -984,6 +985,9 @@ const CONFIG_DEFAULTS: Record<string, string> = {
   'sms.senderId':               '',
   'security.sessionTimeoutMin': '120',
   'security.maxLoginAttempts':  '5',
+  'security.rateLimit.windowMinutes': '15',
+  'security.rateLimit.globalMax':     '700',
+  'security.rateLimit.authMax':       '30',
   'security.ipWhitelist':       '',
   'security.enforce2FA':        'true',
   'maintenance.enabled':        'false',
@@ -1013,6 +1017,9 @@ router.put('/settings/config', async (req: Request, res: Response, next: NextFun
         || prevMaintenance.message
         || DEFAULT_MAINTENANCE_MESSAGE
       await syncMaintenanceAnnouncement(true, message)
+    }
+    if (Object.keys(updates).some((k) => RATE_LIMIT_CONFIG_KEYS.includes(k as typeof RATE_LIMIT_CONFIG_KEYS[number]))) {
+      await refreshRateLimitSettings()
     }
     sendSuccess(res, null, 'Config saved')
   } catch (e) { next(e) }

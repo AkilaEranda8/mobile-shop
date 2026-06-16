@@ -9,6 +9,7 @@ import {
 import {
   fetchPlatformConfig, savePlatformConfig,
   fetchAdminUsers, createAdminUser, deleteAdminUser,
+  resetLoginRateLimit,
   type PlatformConfigMap, type AdminUserRow,
 } from '@/lib/api'
 import { Switch } from '@/components/ui/Switch'
@@ -393,17 +394,121 @@ function SMSTab({ cfg, onChange, onSave, saving }: {
 /* ── Security tab ───────────────────────────────────────────────────────────── */
 function SecurityTab({ cfg, onChange, onSave, saving }: {
   cfg: PlatformConfigMap; onChange: (k: string, v: string) => void
-  onSave: (keys: string[]) => Promise<void>; saving: boolean
+  onSave: (keys: string[], overrides?: PlatformConfigMap) => Promise<void>; saving: boolean
 }) {
   const [saved, setSaved] = useState(false)
+  const [rateSaved, setRateSaved] = useState(false)
+  const [resetEmail, setResetEmail] = useState('')
+  const [resetMsg, setResetMsg] = useState('')
+  const [resetting, setResetting] = useState(false)
   const KEYS = ['security.sessionTimeoutMin', 'security.maxLoginAttempts', 'security.ipWhitelist', 'security.enforce2FA']
+  const RATE_KEYS = ['security.rateLimit.windowMinutes', 'security.rateLimit.globalMax', 'security.rateLimit.authMax']
+
+  const handleResetLimits = async (resetAll = false) => {
+    setResetting(true)
+    setResetMsg('')
+    try {
+      if (resetAll) {
+        await resetLoginRateLimit({ resetAll: true })
+        setResetMsg('All API and login rate limits cleared.')
+      } else {
+        const email = resetEmail.trim()
+        if (!email) {
+          setResetMsg('Enter an email to clear login limits for that user.')
+          return
+        }
+        const res = await resetLoginRateLimit({ email })
+        setResetMsg(`Cleared ${res.keysCleared ?? res.keys?.length ?? 0} login limit key(s) for ${email}.`)
+      }
+    } catch (e) {
+      setResetMsg(e instanceof Error ? e.message : 'Failed to clear rate limits')
+    } finally {
+      setResetting(false)
+    }
+  }
 
   return (
-    <div className="card p-5 max-w-lg">
-      <div className="flex items-center gap-2 mb-4">
-        <Shield size={16} className="text-gray-500" />
-        <h3 className="section-title !mb-0">Admin Security</h3>
+    <div className="space-y-4">
+      <div className="card p-5 max-w-lg">
+        <div className="flex items-center gap-2 mb-4">
+          <Shield size={16} className="text-gray-500" />
+          <h3 className="section-title !mb-0">API Rate Limits</h3>
+        </div>
+        <p className="text-xs text-gray-500 mb-4">
+          Controls how many requests the API accepts per time window. Changes apply immediately after save (no restart).
+        </p>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Window</label>
+              <div className="flex items-center gap-2">
+                <input className="input w-20 text-center" type="number" min={1} max={1440}
+                  value={cfg['security.rateLimit.windowMinutes'] ?? '15'}
+                  onChange={e => onChange('security.rateLimit.windowMinutes', e.target.value)} />
+                <span className="text-xs text-gray-400">minutes</span>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Global API max</label>
+              <div className="flex items-center gap-2">
+                <input className="input w-24 text-center" type="number" min={50} max={10000}
+                  value={cfg['security.rateLimit.globalMax'] ?? '700'}
+                  onChange={e => onChange('security.rateLimit.globalMax', e.target.value)} />
+                <span className="text-xs text-gray-400">req / window</span>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Login failures max</label>
+              <div className="flex items-center gap-2">
+                <input className="input w-20 text-center" type="number" min={5} max={500}
+                  value={cfg['security.rateLimit.authMax'] ?? '30'}
+                  onChange={e => onChange('security.rateLimit.authMax', e.target.value)} />
+                <span className="text-xs text-gray-400">fails / window</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button disabled={saving} onClick={async () => {
+              await onSave(RATE_KEYS)
+              setRateSaved(true)
+              setTimeout(() => setRateSaved(false), 2000)
+            }}
+              className="btn-primary text-sm disabled:opacity-50">
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}Save Rate Limits
+            </button>
+            <SaveFeedback show={rateSaved} />
+          </div>
+        </div>
+
+        <div className="mt-6 pt-5 border-t border-gray-100">
+          <h4 className="text-sm font-semibold text-gray-800 mb-2">Clear blocked users</h4>
+          <p className="text-xs text-gray-500 mb-3">
+            Reset counters when someone is stuck on &quot;Too many requests&quot; or login rate limit errors.
+          </p>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-xs font-medium text-gray-700 mb-1">User email</label>
+              <input className="input text-sm" value={resetEmail} placeholder="user@example.com"
+                onChange={e => setResetEmail(e.target.value)} />
+            </div>
+            <button disabled={resetting} onClick={() => handleResetLimits(false)}
+              className="btn-secondary text-sm disabled:opacity-50">
+              Clear for email
+            </button>
+            <button disabled={resetting} onClick={() => handleResetLimits(true)}
+              className="btn-secondary text-sm text-amber-700 border-amber-200 hover:bg-amber-50 disabled:opacity-50">
+              Clear all limits
+            </button>
+          </div>
+          {resetMsg && <p className="text-xs text-gray-600 mt-2">{resetMsg}</p>}
+        </div>
       </div>
+
+      <div className="card p-5 max-w-lg">
+        <div className="flex items-center gap-2 mb-4">
+          <Shield size={16} className="text-gray-500" />
+          <h3 className="section-title !mb-0">Admin Security</h3>
+        </div>
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div>

@@ -1,12 +1,14 @@
 import { env } from './config/env'
 import { connectDatabase, disconnectDatabase } from './config/database'
 import { connectRedis, redis } from './config/redis'
+import { refreshRateLimitSettings } from './config/rate-limit-settings'
 import app from './app'
 
 async function bootstrap() {
   try {
     await connectDatabase()
     await connectRedis()
+    await refreshRateLimitSettings()
 
     const server = app.listen(parseInt(env.PORT), () => {
       console.log(`🚀 Hexalyte API running on port ${env.PORT}`)
