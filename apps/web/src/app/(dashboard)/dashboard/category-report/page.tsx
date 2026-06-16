@@ -152,7 +152,7 @@ export default function CategoryReportPage() {
         <div>
           <h1 className="page-title">Category Sales Report</h1>
           <p className="page-subtitle">
-            Revenue · COGS · Profit · Margin — by product category{hasServices ? ' and service category' : ''}
+            Revenue · COGS · Profit · Margin — by product category{hasServices ? ' and services' : ''}
           </p>
         </div>
 

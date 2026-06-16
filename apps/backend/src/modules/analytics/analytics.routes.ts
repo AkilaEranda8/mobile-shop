@@ -21,26 +21,24 @@ function normalizeServiceCategory(category: string | null | undefined): string {
   return trimmed || 'General'
 }
 
-async function listServiceCatalogCategories(tenantId: string): Promise<string[]> {
-  const services = await prisma.service.findMany({
-    where: { tenantId },
-    select: { category: true },
-  })
-  const cats = new Set<string>()
-  for (const s of services) cats.add(normalizeServiceCategory(s.category))
-  return Array.from(cats).sort()
-}
+const SERVICE_REPORT_CATEGORY = 'Service'
 
 function serviceCategoryExpr() {
-  return Prisma.sql`COALESCE(sv.category, 'Services')`
+  return Prisma.sql`${SERVICE_REPORT_CATEGORY}`
 }
 
 function saleItemCategoryExpr(includeServices: boolean) {
   return Prisma.sql`COALESCE(
     CASE WHEN si."productId" IS NOT NULL THEN c.name END,
-    ${includeServices ? Prisma.sql`CASE WHEN si."productId" IS NULL THEN ${serviceCategoryExpr()} END,` : Prisma.empty}
+    ${includeServices ? Prisma.sql`CASE WHEN si."productId" IS NULL AND sv.id IS NOT NULL THEN ${serviceCategoryExpr()} END,` : Prisma.empty}
     'Uncategorised'
   )`
+}
+
+function serviceSaleItemClause(includeServices: boolean) {
+  return includeServices
+    ? Prisma.sql`AND (si."productId" IS NOT NULL OR sv.id IS NOT NULL)`
+    : Prisma.sql`AND si."productId" IS NOT NULL`
 }
 
 function saleItemCogsExpr() {
@@ -220,14 +218,11 @@ router.get('/category-products', async (req: Request, res: Response, next: NextF
 
     const branchClause = branchId ? Prisma.sql`AND s."branchId" = ${branchId}` : Prisma.empty
     const categoryClause = category
-      ? Prisma.sql`AND (
-          (si."productId" IS NOT NULL AND COALESCE(c.name, 'Uncategorised') = ${category})
-          OR (si."productId" IS NULL AND ${serviceCategoryExpr()} = ${category})
-        )`
+      ? category === SERVICE_REPORT_CATEGORY
+        ? Prisma.sql`AND si."productId" IS NULL AND sv.id IS NOT NULL`
+        : Prisma.sql`AND si."productId" IS NOT NULL AND COALESCE(c.name, 'Uncategorised') = ${category}`
       : Prisma.empty
-    const itemTypeClause = includeServices
-      ? Prisma.empty
-      : Prisma.sql`AND si."productId" IS NOT NULL`
+    const itemTypeClause = serviceSaleItemClause(includeServices)
 
     const rows: Array<{
       product: string; sku: string
@@ -238,7 +233,7 @@ router.get('/category-products', async (req: Request, res: Response, next: NextF
         si."productName"                                           AS product,
         CASE
           WHEN si."productId" IS NOT NULL THEN COALESCE(p.sku, '')
-          ELSE COALESCE(sv.category, si.sku, 'Service')
+          ELSE COALESCE(sv.category, 'General')
         END                                                        AS sku,
         COALESCE(SUM(si.total), 0)::float                          AS revenue,
         COALESCE(SUM(${saleItemCogsExpr()}), 0)::float              AS cogs,
@@ -262,14 +257,14 @@ router.get('/category-products', async (req: Request, res: Response, next: NextF
       GROUP  BY si."productName",
         CASE
           WHEN si."productId" IS NOT NULL THEN COALESCE(p.sku, '')
-          ELSE COALESCE(sv.category, si.sku, 'Service')
+          ELSE COALESCE(sv.category, 'General')
         END
       ORDER  BY revenue DESC
     `
 
-    if (includeServices && category && category !== 'Services') {
+    if (includeServices && category === SERVICE_REPORT_CATEGORY) {
       const catalogServices = await prisma.service.findMany({
-        where: { tenantId, category },
+        where: { tenantId },
         select: { name: true, category: true },
       })
       const existing = new Set(rows.map(r => r.product))
@@ -316,9 +311,7 @@ router.get('/category-sales', async (req: Request, res: Response, next: NextFunc
     })
 
     const branchClause = branchId ? Prisma.sql`AND s."branchId" = ${branchId}` : Prisma.empty
-    const itemTypeClause = includeServices
-      ? Prisma.empty
-      : Prisma.sql`AND si."productId" IS NOT NULL`
+    const itemTypeClause = serviceSaleItemClause(includeServices)
     const categoryExpr = saleItemCategoryExpr(includeServices)
 
     const rows: Array<{
@@ -370,12 +363,12 @@ router.get('/category-sales', async (req: Request, res: Response, next: NextFunc
     }))
 
     if (includeServices) {
-      const catalogCats = await listServiceCatalogCategories(tenantId)
-      const byCat = new Map(categories.map(c => [c.category, c]))
-      for (const cat of catalogCats) {
-        if (!byCat.has(cat)) {
-          byCat.set(cat, {
-            category: cat,
+      const catalogCount = await prisma.service.count({ where: { tenantId } })
+      if (catalogCount > 0) {
+        const byCat = new Map(categories.map(c => [c.category, c]))
+        if (!byCat.has(SERVICE_REPORT_CATEGORY)) {
+          byCat.set(SERVICE_REPORT_CATEGORY, {
+            category: SERVICE_REPORT_CATEGORY,
             revenue: 0,
             cogs: 0,
             profit: 0,
@@ -385,9 +378,9 @@ router.get('/category-sales', async (req: Request, res: Response, next: NextFunc
             share: 0,
           })
         }
+        categories.length = 0
+        categories.push(...Array.from(byCat.values()).sort((a, b) => b.revenue - a.revenue))
       }
-      categories.length = 0
-      categories.push(...Array.from(byCat.values()).sort((a, b) => b.revenue - a.revenue))
     }
 
     sendSuccess(res, {
