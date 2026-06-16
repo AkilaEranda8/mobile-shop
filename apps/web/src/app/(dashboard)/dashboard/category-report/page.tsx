@@ -8,7 +8,7 @@ import {
   TrendingUp, TrendingDown, DollarSign, Package,
   Download, Calendar, Building2, Tag, X, ChevronRight,
 } from 'lucide-react'
-import { useCategorySales, useCategoryProducts, useBranches } from '@/lib/hooks'
+import { useCategorySales, useCategoryProducts, useBranches, useFeatureFlag } from '@/lib/hooks'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday, businessPeriodFrom } from '@/lib/business-date'
 
@@ -77,6 +77,7 @@ const renderPieLabel = ({ name, percent }: any) =>
 
 /* ── main page ──────────────────────────────────────────────────── */
 export default function CategoryReportPage() {
+  const hasServices = useFeatureFlag('SERVICES')
   const [period, setPeriod]         = useState('30')
   const [branchId, setBranchId]     = useState('')
   const [selectedCat, setSelectedCat] = useState('')
@@ -150,7 +151,9 @@ export default function CategoryReportPage() {
       <div className="flex flex-col gap-3">
         <div>
           <h1 className="page-title">Category Sales Report</h1>
-          <p className="page-subtitle">Revenue · COGS · Profit · Margin — broken down by product category</p>
+          <p className="page-subtitle">
+            Revenue · COGS · Profit · Margin — by product category{hasServices ? ' and service category' : ''}
+          </p>
         </div>
 
         <div className="flex flex-wrap gap-2 items-center">
@@ -303,8 +306,8 @@ export default function CategoryReportPage() {
             <div className="card p-5">
               <div className="flex items-center justify-between mb-4">
                 <SectionTitle
-                  title={`Product Breakdown — ${selectedCat}`}
-                  sub={`All products sold in this category · ${fromDate} → ${toDate}`}
+                  title={`${hasServices ? 'Item' : 'Product'} Breakdown — ${selectedCat}`}
+                  sub={`${hasServices ? 'Products and services' : 'Products'} sold in this category · ${fromDate} → ${toDate}`}
                 />
                 <ExportCSV
                   filename={`${selectedCat.replace(/\s+/g, '-')}-products.csv`}
@@ -341,7 +344,7 @@ export default function CategoryReportPage() {
                         </tr>
                       ))}
                       {products.length === 0 && (
-                        <tr><td colSpan={9} className="text-center py-8 text-xs" style={{ color: 'var(--text-muted)' }}>No products found for this category in the selected period.</td></tr>
+                        <tr><td colSpan={9} className="text-center py-8 text-xs" style={{ color: 'var(--text-muted)' }}>No {hasServices ? 'items' : 'products'} found for this category in the selected period.</td></tr>
                       )}
                     </tbody>
                   </table>

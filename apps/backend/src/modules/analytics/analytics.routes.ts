@@ -9,6 +9,28 @@ import { getDailyRevenueBreakdown, getPeriodFinancials } from '../finance/busine
 const router = Router()
 router.use(authenticate)
 
+async function tenantHasServices(tenantId: string): Promise<boolean> {
+  const row = await prisma.tenantFeature.findFirst({
+    where: { tenantId, feature: 'SERVICES', enabled: true },
+  })
+  return !!row
+}
+
+function saleItemCategoryExpr(includeServices: boolean) {
+  return Prisma.sql`COALESCE(
+    CASE WHEN si."productId" IS NOT NULL THEN c.name END,
+    ${includeServices ? Prisma.sql`CASE WHEN si."productId" IS NULL THEN COALESCE(sv.category, si.sku, 'Services') END,` : Prisma.empty}
+    'Uncategorised'
+  )`
+}
+
+function saleItemCogsExpr() {
+  return Prisma.sql`CASE
+    WHEN si."productId" IS NOT NULL THEN si.quantity * COALESCE(p."buyingPrice", 0)
+    ELSE si.quantity * COALESCE(sv.cost, 0)
+  END`
+}
+
 router.get('/dashboard', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
@@ -170,6 +192,7 @@ router.get('/category-products', async (req: Request, res: Response, next: NextF
     const tenantId = req.tenantId!
     const category = (req.query.category as string) ?? ''
     const branchId = req.query.branchId as string | undefined
+    const includeServices = await tenantHasServices(tenantId)
     const { start: from, end: to } = resolveQueryDateRange({
       from: req.query.from as string | undefined,
       to: req.query.to as string | undefined,
@@ -178,8 +201,14 @@ router.get('/category-products', async (req: Request, res: Response, next: NextF
 
     const branchClause = branchId ? Prisma.sql`AND s."branchId" = ${branchId}` : Prisma.empty
     const categoryClause = category
-      ? Prisma.sql`AND COALESCE(c.name, 'Uncategorised') = ${category}`
+      ? Prisma.sql`AND (
+          (si."productId" IS NOT NULL AND COALESCE(c.name, 'Uncategorised') = ${category})
+          OR (si."productId" IS NULL AND COALESCE(sv.category, si.sku, 'Services') = ${category})
+        )`
       : Prisma.empty
+    const itemTypeClause = includeServices
+      ? Prisma.empty
+      : Prisma.sql`AND si."productId" IS NOT NULL`
 
     const rows: Array<{
       product: string; sku: string
@@ -187,24 +216,35 @@ router.get('/category-products', async (req: Request, res: Response, next: NextF
       units_sold: number; transactions: number
     }> = await prisma.$queryRaw`
       SELECT
-        p.name                                                     AS product,
-        p.sku                                                      AS sku,
+        si."productName"                                           AS product,
+        CASE
+          WHEN si."productId" IS NOT NULL THEN COALESCE(p.sku, '')
+          ELSE COALESCE(sv.category, si.sku, 'Service')
+        END                                                        AS sku,
         COALESCE(SUM(si.total), 0)::float                          AS revenue,
-        COALESCE(SUM(si.quantity * p."buyingPrice"), 0)::float     AS cogs,
-        COALESCE(SUM(si.total - si.quantity * p."buyingPrice"), 0)::float AS profit,
+        COALESCE(SUM(${saleItemCogsExpr()}), 0)::float              AS cogs,
+        COALESCE(SUM(si.total - ${saleItemCogsExpr()}), 0)::float   AS profit,
         COALESCE(SUM(si.quantity), 0)::float                       AS units_sold,
         COUNT(DISTINCT si."saleId")::int                           AS transactions
       FROM   "SaleItem"  si
       JOIN   "Sale"      s ON s.id = si."saleId"
-      JOIN   "Product"   p ON p.id = si."productId"
-      LEFT   JOIN "Category" c ON c.id = p."categoryId"
+      LEFT   JOIN "Product"   p ON p.id = si."productId"
+      LEFT   JOIN "Category"  c ON c.id = p."categoryId"
+      LEFT   JOIN "Service"   sv ON sv."tenantId" = s."tenantId"
+        AND sv.name = si."productName"
+        AND si."productId" IS NULL
       WHERE  s."tenantId" = ${tenantId}
         AND  s.status != 'RETURNED'
         AND  s."createdAt" >= ${from}
         AND  s."createdAt" <= ${to}
+        ${itemTypeClause}
         ${branchClause}
         ${categoryClause}
-      GROUP  BY p.name, p.sku
+      GROUP  BY si."productName",
+        CASE
+          WHEN si."productId" IS NOT NULL THEN COALESCE(p.sku, '')
+          ELSE COALESCE(sv.category, si.sku, 'Service')
+        END
       ORDER  BY revenue DESC
     `
 
@@ -228,6 +268,7 @@ router.get('/category-sales', async (req: Request, res: Response, next: NextFunc
   try {
     const tenantId = req.tenantId!
     const branchId = req.query.branchId as string | undefined
+    const includeServices = await tenantHasServices(tenantId)
     const { start: from, end: to } = resolveQueryDateRange({
       from: req.query.from as string | undefined,
       to: req.query.to as string | undefined,
@@ -235,6 +276,10 @@ router.get('/category-sales', async (req: Request, res: Response, next: NextFunc
     })
 
     const branchClause = branchId ? Prisma.sql`AND s."branchId" = ${branchId}` : Prisma.empty
+    const itemTypeClause = includeServices
+      ? Prisma.empty
+      : Prisma.sql`AND si."productId" IS NOT NULL`
+    const categoryExpr = saleItemCategoryExpr(includeServices)
 
     const rows: Array<{
       category: string
@@ -245,22 +290,26 @@ router.get('/category-sales', async (req: Request, res: Response, next: NextFunc
       transactions: number
     }> = await prisma.$queryRaw`
       SELECT
-        COALESCE(c.name, 'Uncategorised')         AS category,
-        COALESCE(SUM(si.total), 0)::float          AS revenue,
-        COALESCE(SUM(si.quantity * p."buyingPrice"), 0)::float AS cogs,
-        COALESCE(SUM(si.total - si.quantity * p."buyingPrice"), 0)::float AS profit,
-        COALESCE(SUM(si.quantity), 0)::float       AS units_sold,
-        COUNT(DISTINCT si."saleId")::int           AS transactions
+        ${categoryExpr}                                            AS category,
+        COALESCE(SUM(si.total), 0)::float                          AS revenue,
+        COALESCE(SUM(${saleItemCogsExpr()}), 0)::float              AS cogs,
+        COALESCE(SUM(si.total - ${saleItemCogsExpr()}), 0)::float   AS profit,
+        COALESCE(SUM(si.quantity), 0)::float                         AS units_sold,
+        COUNT(DISTINCT si."saleId")::int                           AS transactions
       FROM   "SaleItem"  si
       JOIN   "Sale"      s ON s.id = si."saleId"
-      JOIN   "Product"   p ON p.id = si."productId"
-      LEFT   JOIN "Category" c ON c.id = p."categoryId"
+      LEFT   JOIN "Product"   p ON p.id = si."productId"
+      LEFT   JOIN "Category"  c ON c.id = p."categoryId"
+      LEFT   JOIN "Service"   sv ON sv."tenantId" = s."tenantId"
+        AND sv.name = si."productName"
+        AND si."productId" IS NULL
       WHERE  s."tenantId" = ${tenantId}
         AND  s.status != 'RETURNED'
         AND  s."createdAt" >= ${from}
         AND  s."createdAt" <= ${to}
+        ${itemTypeClause}
         ${branchClause}
-      GROUP  BY c.name
+      GROUP  BY 1
       ORDER  BY revenue DESC
     `
 
