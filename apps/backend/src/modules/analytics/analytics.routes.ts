@@ -16,10 +16,14 @@ async function tenantHasServices(tenantId: string): Promise<boolean> {
   return !!row
 }
 
+function serviceCategoryExpr() {
+  return Prisma.sql`COALESCE(sv.category, 'Services')`
+}
+
 function saleItemCategoryExpr(includeServices: boolean) {
   return Prisma.sql`COALESCE(
     CASE WHEN si."productId" IS NOT NULL THEN c.name END,
-    ${includeServices ? Prisma.sql`CASE WHEN si."productId" IS NULL THEN COALESCE(sv.category, si.sku, 'Services') END,` : Prisma.empty}
+    ${includeServices ? Prisma.sql`CASE WHEN si."productId" IS NULL THEN ${serviceCategoryExpr()} END,` : Prisma.empty}
     'Uncategorised'
   )`
 }
@@ -203,7 +207,7 @@ router.get('/category-products', async (req: Request, res: Response, next: NextF
     const categoryClause = category
       ? Prisma.sql`AND (
           (si."productId" IS NOT NULL AND COALESCE(c.name, 'Uncategorised') = ${category})
-          OR (si."productId" IS NULL AND COALESCE(sv.category, si.sku, 'Services') = ${category})
+          OR (si."productId" IS NULL AND ${serviceCategoryExpr()} = ${category})
         )`
       : Prisma.empty
     const itemTypeClause = includeServices
