@@ -11,6 +11,7 @@ import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { Switch } from '@/components/ui/Switch'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
+import { useFeatureFlag } from '@/lib/hooks'
 
 interface Service {
   id: string
@@ -33,6 +34,7 @@ const CATEGORY_COLORS: Record<string, { color: string; bg: string; border: strin
 const getColor = (cat: string) => CATEGORY_COLORS[cat] ?? { color: '#64748b', bg: 'rgba(100,116,139,0.10)', border: 'rgba(100,116,139,0.25)' }
 
 export default function ServicesPage() {
+  const hasServices = useFeatureFlag('SERVICES')
   const [services, setServices]   = useState<Service[]>([])
   const [categories, setCategories] = useState<string[]>([])
   const [loading, setLoading]     = useState(true)
@@ -42,17 +44,19 @@ export default function ServicesPage() {
 
   const load = async () => {
     try {
-      const [res, cats] = await Promise.all([
-        servicesApi.list({}),
-        servicesApi.categories(),
-      ])
+      const res = await servicesApi.list({})
       setServices((res as any)?.data ?? res ?? [])
-      setCategories((cats as any)?.data ?? cats ?? [])
+      if (hasServices) {
+        const cats = await servicesApi.categories()
+        setCategories((cats as any)?.data ?? cats ?? [])
+      } else {
+        setCategories([])
+      }
     } catch { toast.error('Failed to load services') }
     finally { setLoading(false) }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [hasServices])
 
   const activeCount   = services.filter(s => s.isActive).length
   const inactiveCount = services.length - activeCount
@@ -62,7 +66,14 @@ export default function ServicesPage() {
     if (!editing) return
     setSaving(true)
     try {
-      const body = { name: editing.name, description: editing.description, cost: editing.cost ?? 0, price: editing.price, category: editing.category, isActive: editing.isActive }
+      const body = {
+        name: editing.name,
+        description: editing.description,
+        cost: editing.cost ?? 0,
+        price: editing.price,
+        category: hasServices ? editing.category : 'General',
+        isActive: editing.isActive,
+      }
       if (editing.id.startsWith('new')) await servicesApi.create(body)
       else await servicesApi.update(editing.id, body)
       toast.success(editing.id.startsWith('new') ? 'Service created' : 'Service updated')
@@ -82,12 +93,13 @@ export default function ServicesPage() {
     setShowModal(true)
   }
 
-  const columns = useMemo<ColumnDef<Service>[]>(() => [
+  const columns = useMemo<ColumnDef<Service>[]>(() => {
+    const cols: ColumnDef<Service>[] = [
     {
       accessorKey: 'name',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Service" />,
       cell: ({ row: { original: s } }) => {
-        const { color, bg, border } = getColor(s.category)
+        const { color, bg, border } = hasServices ? getColor(s.category) : { color: '#7c3aed', bg: 'rgba(109,40,217,0.10)', border: 'rgba(109,40,217,0.25)' }
         return (
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: bg, border: `1px solid ${border}` }}>
@@ -101,7 +113,7 @@ export default function ServicesPage() {
         )
       },
     },
-    {
+    ...(hasServices ? [{
       accessorKey: 'category',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Category" />,
       cell: ({ row: { original: s } }) => {
@@ -112,7 +124,7 @@ export default function ServicesPage() {
           </span>
         )
       },
-    },
+    }] as ColumnDef<Service>[] : []),
     {
       accessorKey: 'cost',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Cost" />,
@@ -143,7 +155,9 @@ export default function ServicesPage() {
         />
       ),
     },
-  ], [categories, handleDelete])
+  ]
+    return cols
+  }, [categories, handleDelete, hasServices])
 
   return (
     <div className="space-y-6">
@@ -186,8 +200,8 @@ export default function ServicesPage() {
         isLoading={loading}
         pageCount={Math.ceil((services.length || 1) / 20)}
         searchableColumns={[
-          { id: 'name',     title: 'Name'     },
-          { id: 'category', title: 'Category' },
+          { id: 'name', title: 'Name' },
+          ...(hasServices ? [{ id: 'category', title: 'Category' }] : []),
         ]}
         filterableColumns={[
           {
@@ -198,11 +212,11 @@ export default function ServicesPage() {
               { label: 'Inactive', value: 'Inactive' },
             ],
           },
-          {
+          ...(hasServices ? [{
             id: 'category',
             title: 'Category',
             options: categories.map(c => ({ label: c, value: c })),
-          },
+          }] : []),
         ]}
       />
 
@@ -254,12 +268,14 @@ export default function ServicesPage() {
                     placeholder="0.00"
                     value={editing.price || ''} onChange={e => setEditing({ ...editing, price: parseFloat(e.target.value) || 0 })} />
                 </div>
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Category</label>
-                  <input type="text" className="input-field w-full"
-                    placeholder="General"
-                    value={editing.category} onChange={e => setEditing({ ...editing, category: e.target.value })} />
-                </div>
+                {hasServices && (
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Category</label>
+                    <input type="text" className="input-field w-full"
+                      placeholder="General"
+                      value={editing.category} onChange={e => setEditing({ ...editing, category: e.target.value })} />
+                  </div>
+                )}
               </div>
 
               <label className="flex items-center gap-2.5 cursor-pointer select-none">

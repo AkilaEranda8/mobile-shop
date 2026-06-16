@@ -16,6 +16,21 @@ async function tenantHasServices(tenantId: string): Promise<boolean> {
   return !!row
 }
 
+function normalizeServiceCategory(category: string | null | undefined): string {
+  const trimmed = category?.trim()
+  return trimmed || 'General'
+}
+
+async function listServiceCatalogCategories(tenantId: string): Promise<string[]> {
+  const services = await prisma.service.findMany({
+    where: { tenantId },
+    select: { category: true },
+  })
+  const cats = new Set<string>()
+  for (const s of services) cats.add(normalizeServiceCategory(s.category))
+  return Array.from(cats).sort()
+}
+
 function serviceCategoryExpr() {
   return Prisma.sql`COALESCE(sv.category, 'Services')`
 }
@@ -252,6 +267,27 @@ router.get('/category-products', async (req: Request, res: Response, next: NextF
       ORDER  BY revenue DESC
     `
 
+    if (includeServices && category && category !== 'Services') {
+      const catalogServices = await prisma.service.findMany({
+        where: { tenantId, category },
+        select: { name: true, category: true },
+      })
+      const existing = new Set(rows.map(r => r.product))
+      for (const svc of catalogServices) {
+        if (!existing.has(svc.name)) {
+          rows.push({
+            product: svc.name,
+            sku: normalizeServiceCategory(svc.category),
+            revenue: 0,
+            cogs: 0,
+            profit: 0,
+            units_sold: 0,
+            transactions: 0,
+          })
+        }
+      }
+    }
+
     const totalRevenue = rows.reduce((s, r) => s + Number(r.revenue), 0)
 
     sendSuccess(res, rows.map(r => ({
@@ -332,6 +368,27 @@ router.get('/category-sales', async (req: Request, res: Response, next: NextFunc
       transactions: Number(r.transactions),
       share:        totalRevenue > 0 ? Math.round((Number(r.revenue) / totalRevenue) * 100) : 0,
     }))
+
+    if (includeServices) {
+      const catalogCats = await listServiceCatalogCategories(tenantId)
+      const byCat = new Map(categories.map(c => [c.category, c]))
+      for (const cat of catalogCats) {
+        if (!byCat.has(cat)) {
+          byCat.set(cat, {
+            category: cat,
+            revenue: 0,
+            cogs: 0,
+            profit: 0,
+            margin: 0,
+            unitsSold: 0,
+            transactions: 0,
+            share: 0,
+          })
+        }
+      }
+      categories.length = 0
+      categories.push(...Array.from(byCat.values()).sort((a, b) => b.revenue - a.revenue))
+    }
 
     sendSuccess(res, {
       categories,
