@@ -199,25 +199,35 @@ export default function ServicesPage() {
         columns={columns}
         isLoading={loading}
         pageCount={Math.ceil((services.length || 1) / 20)}
-        searchableColumns={[
-          { id: 'name', title: 'Name' },
-          ...(hasServices ? [{ id: 'category', title: 'Category' }] : []),
-        ]}
-        filterableColumns={[
-          {
-            id: 'status' as any,
-            title: 'Status',
-            options: [
-              { label: 'Active',   value: 'Active'   },
-              { label: 'Inactive', value: 'Inactive' },
-            ],
-          },
-          ...(hasServices ? [{
-            id: 'category',
-            title: 'Category',
-            options: categories.map(c => ({ label: c, value: c })),
-          }] : []),
-        ]}
+        searchableColumns={hasServices
+          ? [{ id: 'name', title: 'Name' }, { id: 'category', title: 'Category' }]
+          : [{ id: 'name', title: 'Name' }]}
+        filterableColumns={hasServices
+          ? [
+              {
+                id: 'status' as any,
+                title: 'Status',
+                options: [
+                  { label: 'Active',   value: 'Active'   },
+                  { label: 'Inactive', value: 'Inactive' },
+                ],
+              },
+              {
+                id: 'category',
+                title: 'Category',
+                options: categories.map(c => ({ label: c, value: c })),
+              },
+            ]
+          : [
+              {
+                id: 'status' as any,
+                title: 'Status',
+                options: [
+                  { label: 'Active',   value: 'Active'   },
+                  { label: 'Inactive', value: 'Inactive' },
+                ],
+              },
+            ]}
       />
 
       {/* ── Modal ── */}
