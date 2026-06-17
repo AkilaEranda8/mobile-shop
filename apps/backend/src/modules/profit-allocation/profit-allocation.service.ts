@@ -57,18 +57,28 @@ function isMobileProduct(product: { trackImei?: boolean; category?: { name?: str
 
 const FUND_COST_ALIASES: Record<string, string[]> = {
   accessories: ['accessories'],
-  print: ['print', 'printing'],
+  print: ['print', 'printing', 'printout', 'print out'],
+}
+
+function isPrintRelated(category: string, productName: string) {
+  const c = category.toLowerCase()
+  const n = productName.toLowerCase()
+  return /print|laminate|photocopy|xerox/.test(c) || /print|laminate/.test(n)
 }
 
 function fundCategoryCost(fundName: string, costMap: Record<string, { cogs: number }>) {
   const normalized = fundName.trim().toLowerCase()
+  if (normalized === 'print') {
+    return round2(costMap.Print?.cogs ?? 0)
+  }
   const aliases = FUND_COST_ALIASES[normalized] ?? [normalized]
+  let total = 0
   for (const alias of aliases) {
     for (const [key, val] of Object.entries(costMap)) {
-      if (key.toLowerCase() === alias) return val.cogs
+      if (key.toLowerCase() === alias) total += val.cogs
     }
   }
-  return 0
+  return round2(total)
 }
 
 async function buildCategoryCostMap(tenantId: string, branchId: string, dateStr: string) {
@@ -112,6 +122,7 @@ async function buildCategoryCostMap(tenantId: string, branchId: string, dateStr:
         add(catName, revenue, cogs)
         if (isMobileProduct(item.product)) add('Mobile', revenue, cogs)
         else add('Accessories', revenue, cogs)
+        if (isPrintRelated(catName, item.productName)) add('Print', revenue, cogs)
       } else {
         const svc = serviceMap.get(item.productName)
         const cogs = item.quantity * Number(svc?.cost ?? 0)
