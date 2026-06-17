@@ -23,6 +23,8 @@ type FundLine = AllocationLine & {
   sortOrder: number
   isActive: boolean
   description: string | null
+  categoryCost?: number
+  pctAllocation?: number
 }
 
 type DashboardData = {
@@ -504,8 +506,8 @@ export default function ProfitAllocationPage() {
             <table className="w-full">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  {['Fund', 'Type', 'Value', 'Today', 'Yesterday', 'Total', 'Withdrawn', 'Remaining', 'Actions'].map((h, i) => (
-                    <th key={h} className={`table-header whitespace-nowrap${i >= 3 ? ' text-right' : ''}${i === 8 ? ' text-center' : ''}`}>{h}</th>
+                  {['Fund', 'Type', 'Value', 'Cost', 'Today', 'Yesterday', 'Total', 'Withdrawn', 'Remaining', 'Actions'].map((h, i) => (
+                    <th key={h} className={`table-header whitespace-nowrap${i >= 4 && i <= 8 ? ' text-right' : ''}${i === 9 ? ' text-center' : ''}`}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -516,6 +518,12 @@ export default function ProfitAllocationPage() {
                   const valueLabel = line.fundType === 'FIXED_AMOUNT'
                     ? formatCurrency(line.value)
                     : line.fundType === 'PERCENTAGE' ? `${line.value}%` : '—'
+                  const costLabel = line.fundType === 'PERCENTAGE'
+                    ? formatCurrency(line.categoryCost ?? 0)
+                    : '—'
+                  const todaySub = line.fundType === 'PERCENTAGE' && (line.categoryCost ?? 0) > 0
+                    ? `Cost ${formatCurrency(line.categoryCost ?? 0)} + ${formatCurrency(line.pctAllocation ?? line.todayAllocation)}`
+                    : null
                   return (
                     <tr key={line.fundId} className="transition-colors hover:bg-white/2" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                       <td className="table-cell">
@@ -529,7 +537,17 @@ export default function ProfitAllocationPage() {
                       </td>
                       <td className="table-cell"><FundTypeBadge type={line.fundType} /></td>
                       <td className="table-cell"><span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{valueLabel}</span></td>
-                      <td className="table-cell text-right"><span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(line.todayAllocation)}</span></td>
+                      <td className="table-cell text-right">
+                        <span className="text-sm font-medium" style={{ color: line.fundType === 'PERCENTAGE' ? '#b45309' : 'var(--text-muted)' }}>
+                          {costLabel}
+                        </span>
+                      </td>
+                      <td className="table-cell text-right">
+                        <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(line.todayAllocation)}</span>
+                        {todaySub && (
+                          <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{todaySub}</p>
+                        )}
+                      </td>
                       <td className="table-cell text-right"><span className="text-sm" style={{ color: 'var(--text-muted)' }}>{formatCurrency(line.yesterdayBalance)}</span></td>
                       <td className="table-cell text-right"><span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(line.totalBalance)}</span></td>
                       <td className="table-cell text-right"><span className="text-sm font-semibold" style={{ color: '#b91c1c' }}>{formatCurrency(line.withdrawn)}</span></td>

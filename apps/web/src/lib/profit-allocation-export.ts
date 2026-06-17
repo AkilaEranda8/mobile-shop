@@ -4,6 +4,8 @@ export type AllocationLine = {
   fundName: string
   fundType: string
   value: number
+  categoryCost?: number
+  pctAllocation?: number
   todayAllocation: number
   yesterdayBalance: number
   totalBalance: number
@@ -15,11 +17,12 @@ export function exportAllocationCsv(
   lines: AllocationLine[],
   meta: { date: string; todaySales: number; todayProfit: number },
 ) {
-  const header = ['Fund Name', 'Type', 'Value', 'Today Allocation', 'Yesterday Balance', 'Total Balance', 'Withdrawn', 'Remaining Balance']
+  const header = ['Fund Name', 'Type', 'Value', 'Cost', 'Today Allocation', 'Yesterday Balance', 'Total Balance', 'Withdrawn', 'Remaining Balance']
   const rows = lines.map(l => [
     l.fundName,
     l.fundType,
     l.value,
+    l.categoryCost ?? 0,
     l.todayAllocation,
     l.yesterdayBalance,
     l.totalBalance,
@@ -54,9 +57,9 @@ export function exportAllocationExcel(
     ['Total Allocated', meta.totalAllocated],
     ['Remaining Profit', meta.remainingProfit],
     [],
-    ['Fund Name', 'Type', 'Value', 'Today Allocation', 'Yesterday Balance', 'Total Balance', 'Withdrawn', 'Remaining Balance'],
+    ['Fund Name', 'Type', 'Value', 'Cost', 'Today Allocation', 'Yesterday Balance', 'Total Balance', 'Withdrawn', 'Remaining Balance'],
     ...lines.map(l => [
-      l.fundName, l.fundType, l.value, l.todayAllocation,
+      l.fundName, l.fundType, l.value, l.categoryCost ?? 0, l.todayAllocation,
       l.yesterdayBalance, l.totalBalance, l.withdrawn, l.remainingBalance,
     ]),
   ])
@@ -87,12 +90,12 @@ export function exportAllocationPdf(
     </div>
     <table>
       <thead><tr>
-        <th>Fund</th><th>Type</th><th>Value</th><th>Today</th><th>Yesterday</th>
+        <th>Fund</th><th>Type</th><th>Value</th><th>Cost</th><th>Today</th><th>Yesterday</th>
         <th>Total</th><th>Withdrawn</th><th>Remaining</th>
       </tr></thead>
       <tbody>
         ${lines.map(l => `<tr>
-          <td>${l.fundName}</td><td>${l.fundType}</td><td>${l.value}</td>
+          <td>${l.fundName}</td><td>${l.fundType}</td><td>${l.value}</td><td>${l.categoryCost ?? 0}</td>
           <td>${l.todayAllocation}</td><td>${l.yesterdayBalance}</td>
           <td>${l.totalBalance}</td><td>${l.withdrawn}</td><td>${l.remainingBalance}</td>
         </tr>`).join('')}

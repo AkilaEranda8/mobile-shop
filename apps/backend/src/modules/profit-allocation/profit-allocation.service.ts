@@ -42,6 +42,95 @@ function round2(n: number) {
   return Math.round(n * 100) / 100
 }
 
+function isReloadSaleItem(item: { sku?: string | null; productName?: string }) {
+  const sku = (item.sku ?? '').toUpperCase()
+  const name = (item.productName ?? '').toLowerCase()
+  return sku.startsWith('RELOAD-') || name.includes('reload')
+}
+
+function isMobileProduct(product: { trackImei?: boolean; category?: { name?: string; slug?: string } | null } | null) {
+  if (!product) return false
+  if (product.trackImei) return true
+  const cat = `${product.category?.name ?? ''} ${product.category?.slug ?? ''}`.toLowerCase()
+  return /mobile|phone|smartphone|handset/.test(cat)
+}
+
+const FUND_COST_ALIASES: Record<string, string[]> = {
+  accessories: ['accessories'],
+  print: ['print', 'printing'],
+}
+
+function fundCategoryCost(fundName: string, costMap: Record<string, { cogs: number }>) {
+  const normalized = fundName.trim().toLowerCase()
+  const aliases = FUND_COST_ALIASES[normalized] ?? [normalized]
+  for (const alias of aliases) {
+    for (const [key, val] of Object.entries(costMap)) {
+      if (key.toLowerCase() === alias) return val.cogs
+    }
+  }
+  return 0
+}
+
+async function buildCategoryCostMap(tenantId: string, branchId: string, dateStr: string) {
+  const { start, end } = businessDayRange(normalizeBusinessDate(dateStr))
+  const [sales, services] = await Promise.all([
+    prisma.sale.findMany({
+      where: {
+        tenantId,
+        branchId,
+        status: { not: 'RETURNED' },
+        createdAt: { gte: start, lte: end },
+        source: { not: 'REPAIR' },
+      },
+      include: {
+        items: { include: { product: { include: { category: true } } } },
+      },
+    }),
+    prisma.service.findMany({
+      where: { tenantId },
+      select: { name: true, category: true, cost: true },
+    }),
+  ])
+
+  const serviceMap = new Map(services.map(s => [s.name, s]))
+  const map: Record<string, { revenue: number; cogs: number }> = {}
+
+  const add = (key: string, revenue: number, cogs: number) => {
+    const k = key.trim() || 'Other'
+    if (!map[k]) map[k] = { revenue: 0, cogs: 0 }
+    map[k].revenue += revenue
+    map[k].cogs += cogs
+  }
+
+  for (const sale of sales) {
+    for (const item of sale.items) {
+      if (isReloadSaleItem(item)) continue
+      const revenue = Number(item.total)
+      if (item.productId && item.product) {
+        const cogs = item.quantity * Number(item.product.buyingPrice ?? 0)
+        const catName = item.product.category?.name ?? 'Uncategorised'
+        add(catName, revenue, cogs)
+        if (isMobileProduct(item.product)) add('Mobile', revenue, cogs)
+        else add('Accessories', revenue, cogs)
+      } else {
+        const svc = serviceMap.get(item.productName)
+        const cogs = item.quantity * Number(svc?.cost ?? 0)
+        const catName = svc?.category?.trim() || 'Service'
+        add(catName, revenue, cogs)
+        add('Service', revenue, cogs)
+        if (/print/i.test(item.productName) || /print/i.test(catName)) add('Print', revenue, cogs)
+      }
+    }
+  }
+
+  return Object.fromEntries(
+    Object.entries(map).map(([k, v]) => [
+      k,
+      { revenue: round2(v.revenue), cogs: round2(v.cogs), profit: round2(v.revenue - v.cogs) },
+    ]),
+  )
+}
+
 function allocationDbDate(dateStr: string) {
   return businessDateDb(normalizeBusinessDate(dateStr))
 }
@@ -195,6 +284,8 @@ export async function calculateAllocationLines(
     fundName: string
     fundType: ProfitFundType
     value: number
+    categoryCost: number
+    pctAllocation: number
     todayAllocation: number
     yesterdayBalance: number
     totalBalance: number
@@ -204,6 +295,8 @@ export async function calculateAllocationLines(
     isActive: boolean
     description: string | null
   }> = []
+
+  const categoryCostMap = await buildCategoryCostMap(tenantId, branchId, dateStr)
 
   const fixedFunds = funds.filter(f => f.type === 'FIXED_AMOUNT')
   const pctFunds = funds.filter(f => f.type === 'PERCENTAGE')
@@ -221,6 +314,8 @@ export async function calculateAllocationLines(
       fundName: fund.name,
       fundType: fund.type,
       value: fund.fixedAmount,
+      categoryCost: 0,
+      pctAllocation: todayAllocation,
       todayAllocation,
       yesterdayBalance,
       totalBalance,
@@ -236,7 +331,9 @@ export async function calculateAllocationLines(
   for (const fund of pctFunds) {
     const yesterdayBalance = await getYesterdayBalance(fund.id, dateStr)
     const withdrawn = await getDayWithdrawn(fund.id, dateStr)
-    const todayAllocation = round2(poolAfterFixed * (fund.percentage / 100))
+    const categoryCost = fundCategoryCost(fund.name, categoryCostMap)
+    const pctAllocation = round2(poolAfterFixed * (fund.percentage / 100))
+    const todayAllocation = round2(categoryCost + pctAllocation)
     const totalBalance = round2(yesterdayBalance + todayAllocation)
     const remainingBalance = round2(totalBalance - withdrawn)
     lines.push({
@@ -244,6 +341,8 @@ export async function calculateAllocationLines(
       fundName: fund.name,
       fundType: fund.type,
       value: fund.percentage,
+      categoryCost,
+      pctAllocation,
       todayAllocation,
       yesterdayBalance,
       totalBalance,
@@ -265,6 +364,8 @@ export async function calculateAllocationLines(
       fundName: fund.name,
       fundType: fund.type,
       value: 0,
+      categoryCost: 0,
+      pctAllocation: 0,
       todayAllocation: 0,
       yesterdayBalance,
       totalBalance,
@@ -306,20 +407,31 @@ export async function getDashboard(tenantId: string, branchId: string, dateStr: 
   })
 
   if (existing) {
-    const lines = existing.lines.map(l => ({
-      fundId: l.fundId,
-      fundName: l.fund.name,
-      fundType: l.fund.type,
-      value: l.fund.type === 'FIXED_AMOUNT' ? l.fund.fixedAmount : l.fund.type === 'PERCENTAGE' ? l.fund.percentage : 0,
-      todayAllocation: l.todayAllocation,
-      yesterdayBalance: l.yesterdayBalance,
-      totalBalance: l.totalBalance,
-      withdrawn: l.withdrawn,
-      remainingBalance: l.remainingBalance,
-      sortOrder: l.fund.sortOrder,
-      isActive: l.fund.isActive,
-      description: l.fund.description,
-    }))
+    const categoryCostMap = await buildCategoryCostMap(tenantId, branchId, dateStr)
+    const lines = existing.lines.map(l => {
+      const categoryCost = l.fund.type === 'PERCENTAGE'
+        ? fundCategoryCost(l.fund.name, categoryCostMap)
+        : 0
+      const pctAllocation = l.fund.type === 'PERCENTAGE'
+        ? round2(l.todayAllocation - categoryCost)
+        : 0
+      return {
+        fundId: l.fundId,
+        fundName: l.fund.name,
+        fundType: l.fund.type,
+        value: l.fund.type === 'FIXED_AMOUNT' ? l.fund.fixedAmount : l.fund.type === 'PERCENTAGE' ? l.fund.percentage : 0,
+        categoryCost,
+        pctAllocation,
+        todayAllocation: l.todayAllocation,
+        yesterdayBalance: l.yesterdayBalance,
+        totalBalance: l.totalBalance,
+        withdrawn: l.withdrawn,
+        remainingBalance: l.remainingBalance,
+        sortOrder: l.fund.sortOrder,
+        isActive: l.fund.isActive,
+        description: l.fund.description,
+      }
+    })
     const funds = await listFunds(tenantId, branchId)
     const pctCheck = validatePercentageTotal(funds)
     return {
