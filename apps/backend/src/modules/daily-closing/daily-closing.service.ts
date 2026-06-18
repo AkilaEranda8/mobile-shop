@@ -479,6 +479,7 @@ export async function assertBusinessDayOpen(tenantId: string, branchId: string, 
 function previewToClosingData(
   preview: Awaited<ReturnType<typeof buildDailyClosingPreview>>,
   overrides: { openingCash?: number; actualCash?: number; notes?: string },
+  existingSummary?: Record<string, unknown> | null,
 ) {
   const openingCash = overrides.openingCash ?? preview.openingCash
   const actualCash = overrides.actualCash ?? preview.cash.actualCash
@@ -517,12 +518,76 @@ function previewToClosingData(
     salesCount: preview.sales.salesCount,
     newCustomers: preview.customers.newCustomers,
     repairsCompleted: preview.repairs.repairsCompleted,
-    summaryJson: { sales: preview.sales, profit: preview.profit, cash: preview.cash, imei: preview.imei },
+    summaryJson: {
+      sales: preview.sales,
+      profit: preview.profit,
+      cash: preview.cash,
+      imei: preview.imei,
+      ...(existingSummary?.dayStart ? { dayStart: existingSummary.dayStart } : {}),
+    },
     expenseBreakdown: preview.expenses.breakdown,
     reloadBreakdown: preview.reload.breakdown,
     insightsJson: preview.insights,
     notes: overrides.notes ?? preview.notes,
   }
+}
+
+export async function getDayStartStatus(tenantId: string, branchId: string, dateStr: string) {
+  const dateKey = normalizeBusinessDate(dateStr)
+  const suggested = await getOpeningCash(tenantId, branchId, dateKey)
+  const date = businessDateDb(dateKey)
+  const existing = await prisma.dailyClosing.findUnique({
+    where: { tenantId_branchId_date: { tenantId, branchId, date } },
+  })
+  const summary = (existing?.summaryJson ?? {}) as Record<string, unknown>
+  const dayStart = summary.dayStart as { at?: string; byName?: string; amount?: number } | undefined
+
+  return {
+    date: dateKey,
+    suggestedOpeningCash: Math.round(suggested * 100) / 100,
+    openingCash: dayStart?.at
+      ? Math.round((existing?.openingCash ?? suggested) * 100) / 100
+      : Math.round(suggested * 100) / 100,
+    dayStarted: !!dayStart?.at,
+    isClosed: existing?.status === 'CLOSED',
+    startedAt: dayStart?.at ?? null,
+    startedBy: dayStart?.byName ?? null,
+  }
+}
+
+export async function startBusinessDay(
+  tenantId: string,
+  branchId: string,
+  dateStr: string,
+  openingCash: number,
+  userId: string,
+  userName: string,
+) {
+  if (!Number.isFinite(openingCash) || openingCash < 0) {
+    throw new AppError('Opening cash must be zero or greater', 400)
+  }
+  const preview = await buildDailyClosingPreview(tenantId, branchId, dateStr)
+  if (preview.isClosed) throw new AppError('Business day is already closed', 400)
+
+  const date = businessDateDb(normalizeBusinessDate(dateStr))
+  const existing = await prisma.dailyClosing.findUnique({
+    where: { tenantId_branchId_date: { tenantId, branchId, date } },
+  })
+  const prevSummary = (existing?.summaryJson as Record<string, unknown>) ?? {}
+  const rounded = Math.round(openingCash * 100) / 100
+  const data = previewToClosingData(preview, { openingCash: rounded }, prevSummary)
+  const summaryJson = {
+    ...(typeof data.summaryJson === 'object' ? data.summaryJson : {}),
+    dayStart: { at: new Date().toISOString(), by: userId, byName: userName, amount: rounded },
+  }
+
+  await prisma.dailyClosing.upsert({
+    where: { tenantId_branchId_date: { tenantId, branchId, date } },
+    create: { tenantId, branchId, date, status: 'DRAFT', ...data, summaryJson },
+    update: { status: 'DRAFT', ...data, summaryJson },
+  })
+
+  return getDayStartStatus(tenantId, branchId, dateStr)
 }
 
 export async function saveDailyClosingDraft(
@@ -534,12 +599,18 @@ export async function saveDailyClosingDraft(
   const preview = await buildDailyClosingPreview(tenantId, branchId, dateStr)
   if (preview.isClosed) throw new AppError('Day is already closed', 400)
 
+  const date = businessDateDb(dateStr)
+  const existing = await prisma.dailyClosing.findUnique({
+    where: { tenantId_branchId_date: { tenantId, branchId, date } },
+  })
+  const prevSummary = (existing?.summaryJson as Record<string, unknown>) ?? {}
+
   const actualCash = body.cashCount ? calcCashCountTotal(body.cashCount) : preview.cash.actualCash
   const data = previewToClosingData(preview, {
     openingCash: body.openingCash ?? preview.openingCash,
     actualCash,
     notes: body.notes,
-  })
+  }, prevSummary)
 
   const date = businessDateDb(dateStr)
   const closing = await prisma.dailyClosing.upsert({
@@ -571,14 +642,18 @@ export async function closeBusinessDay(
   const preview = await buildDailyClosingPreview(tenantId, branchId, dateStr)
   if (preview.isClosed) throw new AppError('Day is already closed', 400)
 
+  const date = businessDateDb(dateStr)
+  const existing = await prisma.dailyClosing.findUnique({
+    where: { tenantId_branchId_date: { tenantId, branchId, date } },
+  })
+  const prevSummary = (existing?.summaryJson as Record<string, unknown>) ?? {}
+
   const actualCash = calcCashCountTotal(body.cashCount)
   const data = previewToClosingData(preview, {
     openingCash: body.openingCash ?? preview.openingCash,
     actualCash,
     notes: body.notes,
-  })
-
-  const date = businessDateDb(dateStr)
+  }, prevSummary)
 
   await prisma.$transaction(async tx => {
     const record = await tx.dailyClosing.upsert({

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import {
   Calendar, Loader2, Lock, Unlock, ChevronRight, ChevronLeft, CheckCircle2,
   AlertTriangle, TrendingUp, Wallet, Receipt, Smartphone, Download, Sparkles,
@@ -85,6 +86,7 @@ function SectionTitle({ title, sub }: { title: string; sub?: string }) {
 }
 
 export default function DailyClosingPage() {
+  const searchParams = useSearchParams()
   const hasAccess = useFeatureFlag('DAILY_CLOSING')
   const hasDailyReload = useFeatureFlag('DAILY_RELOAD')
   const user = authStorage.getUser()
@@ -96,7 +98,7 @@ export default function DailyClosingPage() {
   const { data: branchesRaw } = useBranches()
   const branches = (branchesRaw as any[]) ?? []
   const [branchId, setBranchId] = useState('')
-  const [date, setDate] = useState(businessToday())
+  const [date, setDate] = useState(() => searchParams.get('date') || businessToday())
   const [step, setStep] = useState(cashOnly ? 3 : 1)
   const [cashCount, setCashCount] = useState(emptyCash())
   const [openingCash, setOpeningCash] = useState<number | ''>('')

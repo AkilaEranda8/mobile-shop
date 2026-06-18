@@ -11,16 +11,17 @@ import {
   Headphones, Wrench, PackageSearch, ShoppingBag, User, CheckCircle2, Shield,
   Menu, ShoppingCart, Bell, Wifi, Cloud, TrendingUp, MoreHorizontal,
   Grid3X3, List as ListIcon, MessageCircle, Star, RefreshCw, RotateCcw,
-  LayoutGrid, Hash, Wallet, Users, PhoneCall,
+  LayoutGrid, Hash, Wallet, Users, PhoneCall, PlayCircle,
 } from 'lucide-react'
 import { HexaPosLayout, POS_THEME, categoryIcon, type PosNavItem } from './HexaPosLayout'
 import { PosReturnModal } from './PosReturnModal'
 import { PosReloadPanel, type ReloadProvider } from './PosReloadPanel'
 import { useUIStore } from '@/stores/ui-store'
 import { useProducts, useFeatureFlag } from '@/lib/hooks'
-import { salesApi, customersApi, productsApi, imeiApi, warrantyApi, servicesApi, financeApi, dailyReloadApi, tenantApi } from '@/lib/api'
+import { salesApi, customersApi, productsApi, imeiApi, warrantyApi, servicesApi, financeApi, dailyReloadApi, tenantApi, dailyClosingApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
+import { businessToday } from '@/lib/business-date'
 import toast from 'react-hot-toast'
 import { getInvoiceSettings, fetchInvoiceSettings, shopContextFromTenant, type InvoiceSettings, type ShopContext } from '@/lib/invoiceSettings'
 import { cacheProductsForOffline, cacheCategoriesForOffline, getCachedProducts, getCachedCategories } from '@/lib/offline/products-cache'
@@ -360,6 +361,13 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [showOpeningCash, setShowOpeningCash]     = useState(false)
   const [openingCashAmount, setOpeningCashAmount] = useState('')
   const [openingCashLoading, setOpeningCashLoading] = useState(false)
+  const [dayStartStatus, setDayStartStatus] = useState<{
+    suggestedOpeningCash: number
+    openingCash: number
+    dayStarted: boolean
+    isClosed: boolean
+  } | null>(null)
+  const [dayStarted, setDayStarted] = useState(false)
   const [showCashFlow, setShowCashFlow]           = useState(false)
   const [cashFlowMode, setCashFlowMode]           = useState<'IN' | 'OUT'>('IN')
   const [cashFlowAmount, setCashFlowAmount]       = useState('')
@@ -385,6 +393,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const hasWhatsApp = useFeatureFlag('WHATSAPP')
   const hasDailyReload = useFeatureFlag('DAILY_RELOAD')
   const hasServices = useFeatureFlag('SERVICES')
+  const hasDailyClosing = useFeatureFlag('DAILY_CLOSING')
   const [mobileView, setMobileView]               = useState<'products' | 'cart'>('products')
   const [isDesktop, setIsDesktop]                 = useState(false)
   const [hideOutOfStock, setHideOutOfStock]       = useState(false)
@@ -448,6 +457,38 @@ function POSContent({ onClose }: { onClose: () => void }) {
   }
 
   const getBranchId = () => authStorage.getUser()?.branchIds?.[0] ?? ''
+  const posUser = authStorage.getUser()
+  const businessDateStr = businessToday()
+
+  const loadDayStartStatus = useCallback(async (promptIfNeeded = false) => {
+    const branchId = getBranchId()
+    if (!hasDailyClosing || !branchId) return null
+    try {
+      const res = await dailyClosingApi.dayStartStatus({ branchId, date: businessDateStr }) as {
+        data?: {
+          suggestedOpeningCash: number
+          openingCash: number
+          dayStarted: boolean
+          isClosed: boolean
+        }
+      }
+      const d = res.data ?? (res as unknown as typeof res.data)
+      if (!d) return null
+      setDayStartStatus(d)
+      setDayStarted(d.dayStarted)
+      if (!d.dayStarted) {
+        setOpeningCashAmount(String(Math.round(d.openingCash ?? d.suggestedOpeningCash ?? 0)))
+        if (promptIfNeeded && !d.isClosed) setShowOpeningCash(true)
+      }
+      return d
+    } catch {
+      return null
+    }
+  }, [hasDailyClosing, businessDateStr])
+
+  useEffect(() => {
+    if (hasDailyClosing) loadDayStartStatus(true)
+  }, [hasDailyClosing, loadDayStartStatus])
 
   const recordCashTransaction = async (opts: { type: 'INCOME' | 'EXPENSE'; category: string; amount: number; description: string }) => {
     const branchId = getBranchId()
@@ -499,9 +540,25 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
   const submitOpeningCash = async () => {
     const amount = parseFloat(openingCashAmount)
-    if (!amount || amount <= 0) { toast.error('Enter a valid opening cash amount'); return }
+    if (Number.isNaN(amount) || amount < 0) { toast.error('Enter a valid opening cash amount'); return }
     setOpeningCashLoading(true)
     try {
+      if (hasDailyClosing) {
+        const branchId = getBranchId()
+        if (!branchId) { toast.error('No branch on your account'); return }
+        await dailyClosingApi.startDay({
+          branchId,
+          date: businessDateStr,
+          openingCash: amount,
+        })
+        setDayStarted(true)
+        await loadDayStartStatus()
+        openDrawer()
+        toast.success(`Shift started — opening cash ${formatCurrency(amount)}`, { icon: '💵' })
+        setShowOpeningCash(false)
+        return
+      }
+      if (!amount || amount <= 0) { toast.error('Enter a valid opening cash amount'); return }
       const ok = await recordCashTransaction({
         type: 'INCOME',
         category: 'Opening Cash',
@@ -509,7 +566,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         description: `POS opening cash — ${new Date().toLocaleDateString('en-GB')}`,
       })
       if (!ok) return
-      const key = `pos_opening_cash_${new Date().toISOString().slice(0, 10)}`
+      const key = `pos_opening_cash_${businessDateStr}`
       localStorage.setItem(key, String(amount))
       openDrawer()
       toast.success(`Opening cash recorded: ${formatCurrency(amount)}`, { icon: '💵' })
@@ -518,6 +575,15 @@ function POSContent({ onClose }: { onClose: () => void }) {
     } catch (e: any) {
       toast.error(e?.message ?? 'Failed to record opening cash')
     } finally { setOpeningCashLoading(false) }
+  }
+
+  const openDayStartModal = () => {
+    setShowOpeningCash(true)
+    loadDayStartStatus(false)
+  }
+
+  const openDayEnd = () => {
+    router.push(`/dashboard/daily-closing?date=${businessDateStr}`)
   }
 
   const submitCashFlow = async () => {
@@ -1825,7 +1891,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
               { label: 'Hold Sales (F4)', onClick: handleHoldSales, bg: `linear-gradient(135deg, ${POS_THEME.blue}, ${POS_THEME.blueDark})` },
               { label: 'Recent Sales', onClick: openRecentSales, bg: `linear-gradient(135deg, ${POS_THEME.teal}, ${POS_THEME.tealDark})` },
               ...(hasDailyReload ? [{ label: 'Reload', onClick: () => { setSelectedCategory('RELOAD'); setActiveNavId('products') }, bg: `linear-gradient(135deg, ${POS_THEME.teal}, ${POS_THEME.tealDark})` }] : []),
-              { label: 'Opening Cash', onClick: () => setShowOpeningCash(true), bg: `linear-gradient(135deg, ${POS_THEME.amber}, ${POS_THEME.amberDark})` },
+              ...(hasDailyClosing
+                ? [
+                    { label: dayStarted ? 'Day Started ✓' : 'Day Start', onClick: openDayStartModal, bg: `linear-gradient(135deg, ${POS_THEME.green}, ${POS_THEME.greenDark})` },
+                    { label: 'Day End', onClick: openDayEnd, bg: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})` },
+                  ]
+                : [{ label: 'Opening Cash', onClick: openDayStartModal, bg: `linear-gradient(135deg, ${POS_THEME.amber}, ${POS_THEME.amberDark})` }]),
               { label: 'Cash In/Out', onClick: () => { setCashFlowMode('IN'); setShowCashFlow(true) }, bg: POS_THEME.card },
               { label: heldCarts.length > 0 ? `More (${heldCarts.length})` : 'More', onClick: () => setShowMoreMenu(true), bg: POS_THEME.card },
             ].map(btn => (
@@ -2473,29 +2544,73 @@ function POSContent({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
-      {/* ── Opening Cash ── */}
+      {/* ── Opening Cash / Day Start ── */}
       {showOpeningCash && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowOpeningCash(false)}>
-          <div data-pos="dark" className="w-full max-w-sm rounded-2xl shadow-2xl border overflow-hidden" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }} onClick={e => e.stopPropagation()}>
+          <div data-pos="dark" className="w-full max-w-md rounded-2xl shadow-2xl border overflow-hidden" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: POS_THEME.border }}>
-              <div className="flex items-center gap-2">
-                <Banknote size={15} style={{ color: POS_THEME.amber }} />
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${POS_THEME.green}22`, border: `1px solid ${POS_THEME.green}44` }}>
+                  <Banknote size={15} style={{ color: POS_THEME.green }} />
+                </div>
                 <h3 className="text-sm font-bold text-white">Opening Cash</h3>
               </div>
               <button type="button" onClick={() => setShowOpeningCash(false)} className="p-1.5 rounded-lg hover:bg-white/5 text-white/70"><X size={14} /></button>
             </div>
-            <div className="p-5 space-y-3">
-              <p className="text-xs text-white/60">Enter float amount in drawer at shift start. Saved to Finance.</p>
-              <input autoFocus type="number" min="0" step="0.01" placeholder="e.g. 5000" value={openingCashAmount} onChange={e => setOpeningCashAmount(e.target.value)}
-                className="w-full h-10 px-3 rounded-xl text-sm font-bold border outline-none text-white placeholder:text-white/40"
-                style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }}
-                onKeyDown={e => { if (e.key === 'Enter') submitOpeningCash() }} />
+            <div className="p-5 space-y-4">
+              {hasDailyClosing && (
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <p className="text-white/50 mb-0.5">Cashier</p>
+                    <p className="font-semibold text-white truncate">{posUser?.name ?? posUser?.email ?? '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-white/50 mb-0.5">Date</p>
+                    <p className="font-semibold text-white">{new Date(businessDateStr + 'T12:00:00').toLocaleDateString('en-US')}</p>
+                  </div>
+                </div>
+              )}
+              {hasDailyClosing && dayStartStatus && dayStartStatus.suggestedOpeningCash > 0 && (
+                <p className="text-xs font-medium" style={{ color: POS_THEME.green }}>
+                  Suggested from last close: {formatCurrency(dayStartStatus.suggestedOpeningCash)}
+                </p>
+              )}
+              <div>
+                <label className="block text-xs font-medium text-white/70 mb-1.5">Opening amount (LKR)</label>
+                <input autoFocus type="number" min="0" step="1" placeholder="0" value={openingCashAmount} onChange={e => setOpeningCashAmount(e.target.value)}
+                  className="w-full h-12 px-3 rounded-xl text-lg font-bold border outline-none text-white placeholder:text-white/40"
+                  style={{ background: POS_THEME.bg, borderColor: POS_THEME.purple }}
+                  onKeyDown={e => { if (e.key === 'Enter') submitOpeningCash() }} />
+              </div>
+              {hasDailyClosing && (
+                <div className="flex flex-wrap gap-2">
+                  {[5000, 10000, 15000, 20000].map(amt => (
+                    <button key={amt} type="button" onClick={() => setOpeningCashAmount(String(amt))}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold border text-white/90 hover:bg-white/5"
+                      style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
+                      {amt.toLocaleString()}
+                    </button>
+                  ))}
+                  {dayStartStatus?.suggestedOpeningCash > 0 && (
+                    <button type="button" onClick={() => setOpeningCashAmount(String(Math.round(dayStartStatus.suggestedOpeningCash)))}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold border"
+                      style={{ borderColor: POS_THEME.green, color: POS_THEME.green, background: `${POS_THEME.green}15` }}>
+                      Use last close
+                    </button>
+                  )}
+                </div>
+              )}
+              <p className="text-[11px] text-white/50 leading-relaxed">
+                {hasDailyClosing
+                  ? 'Count your drawer float before starting sales. This saves to Daily Closing opening cash.'
+                  : 'Enter float amount in drawer at shift start. Saved to Finance.'}
+              </p>
               <div className="flex gap-2 pt-1">
-                <button type="button" onClick={() => setShowOpeningCash(false)} className="flex-1 h-10 rounded-xl text-sm font-semibold border text-white" style={{ borderColor: POS_THEME.border }}>Cancel</button>
-                <button type="button" onClick={submitOpeningCash} disabled={openingCashLoading}
-                  className="flex-1 h-10 rounded-xl text-sm font-bold text-white disabled:opacity-60"
-                  style={{ background: `linear-gradient(135deg, ${POS_THEME.amber}, ${POS_THEME.amberDark})` }}>
-                  {openingCashLoading ? <Loader2 size={14} className="animate-spin mx-auto" /> : 'Save & Open Drawer'}
+                <button type="button" onClick={() => setShowOpeningCash(false)} className="flex-1 h-11 rounded-xl text-sm font-semibold border text-white" style={{ borderColor: POS_THEME.border }}>Cancel</button>
+                <button type="button" onClick={submitOpeningCash} disabled={openingCashLoading || (hasDailyClosing && dayStartStatus?.isClosed)}
+                  className="flex-1 h-11 rounded-xl text-sm font-bold text-white disabled:opacity-60 flex items-center justify-center gap-2"
+                  style={{ background: `linear-gradient(135deg, ${POS_THEME.green}, ${POS_THEME.greenDark})` }}>
+                  {openingCashLoading ? <Loader2 size={14} className="animate-spin" /> : <><PlayCircle size={15} /> {hasDailyClosing ? 'Start Shift' : 'Save & Open Drawer'}</>}
                 </button>
               </div>
             </div>

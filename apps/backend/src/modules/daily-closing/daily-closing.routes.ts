@@ -8,6 +8,8 @@ import {
   saveDailyClosingDraft,
   closeBusinessDay,
   reopenBusinessDay,
+  getDayStartStatus,
+  startBusinessDay,
 } from './daily-closing.service'
 import { normalizeBusinessDate } from '../../utils/date-range'
 
@@ -58,6 +60,36 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
       include: { cashCount: true, branch: { select: { name: true } } },
     })
     sendSuccess(res, rows)
+  } catch (e) { next(e) }
+})
+
+router.get('/day-start', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const branchId = req.query.branchId as string
+    const date = resolveBusinessDate(req.query.date as string | undefined)
+    if (!branchId) throw new AppError('branchId is required', 400)
+    sendSuccess(res, await getDayStartStatus(req.tenantId!, branchId, date))
+  } catch (e) { next(e) }
+})
+
+router.post('/day-start', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { branchId, date, openingCash } = req.body
+    if (!branchId || !date) throw new AppError('branchId and date are required', 400)
+    if (openingCash == null || Number.isNaN(Number(openingCash))) throw new AppError('openingCash is required', 400)
+    const user = req.user!
+    sendSuccess(
+      res,
+      await startBusinessDay(
+        req.tenantId!,
+        branchId,
+        resolveBusinessDate(date),
+        Number(openingCash),
+        user.userId,
+        user.email,
+      ),
+      'Day started',
+    )
   } catch (e) { next(e) }
 })
 

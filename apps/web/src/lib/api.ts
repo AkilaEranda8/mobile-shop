@@ -331,6 +331,9 @@ export const dailyClosingApi = {
   saveCashCount: (body: unknown) => api.post('/daily-closing/cash-count', body),
   close: (body: unknown) => api.post('/daily-closing/close', body),
   reopen: (body: unknown) => api.post('/daily-closing/reopen', body),
+  dayStartStatus: (params: Record<string, string>) =>
+    api.get(`/daily-closing/day-start?${new URLSearchParams(params)}`),
+  startDay: (body: unknown) => api.post('/daily-closing/day-start', body),
 }
 
 export const profitAllocationApi = {
