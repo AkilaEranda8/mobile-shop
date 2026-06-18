@@ -11,7 +11,7 @@ import {
   Headphones, Wrench, PackageSearch, ShoppingBag, User, CheckCircle2, Shield,
   Menu, ShoppingCart, Bell, Wifi, Cloud, TrendingUp, MoreHorizontal,
   Grid3X3, List as ListIcon, MessageCircle, Star, RefreshCw, RotateCcw,
-  LayoutGrid, Hash, Wallet, Users, PhoneCall, PlayCircle,
+  LayoutGrid, Hash, Wallet, Users, PhoneCall, PlayCircle, Lock, AlertTriangle,
 } from 'lucide-react'
 import { HexaPosLayout, POS_THEME, categoryIcon, type PosNavItem } from './HexaPosLayout'
 import { PosReturnModal } from './PosReturnModal'
@@ -47,6 +47,21 @@ interface CartItem {
   cost?: number
   serviceId?: string
 }
+
+const DAY_END_DENOMS: Array<{ key: string; label: string; value: number }> = [
+  { key: 'd5000', label: '5000', value: 5000 },
+  { key: 'd2000', label: '2000', value: 2000 },
+  { key: 'd1000', label: '1000', value: 1000 },
+  { key: 'd500', label: '500', value: 500 },
+  { key: 'd100', label: '100', value: 100 },
+  { key: 'd50', label: '50', value: 50 },
+  { key: 'd20', label: '20', value: 20 },
+  { key: 'd10', label: '10', value: 10 },
+]
+
+const emptyDayEndCash = () => ({
+  d5000: 0, d2000: 0, d1000: 0, d500: 0, d100: 0, d50: 0, d20: 0, d10: 0, coins: 0,
+})
 
 /* ── Invoice Template ───────────────────────────────────────────────────── */
 const IV = {
@@ -360,6 +375,13 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [showCalc, setShowCalc]                   = useState(false)
   const [showOpeningCash, setShowOpeningCash]     = useState(false)
   const [openingCashAmount, setOpeningCashAmount] = useState('')
+  const [openingCashDate, setOpeningCashDate]     = useState(() => businessToday())
+  const [modalDayStatus, setModalDayStatus]       = useState<{
+    suggestedOpeningCash: number
+    openingCash: number
+    dayStarted: boolean
+    isClosed: boolean
+  } | null>(null)
   const [openingCashLoading, setOpeningCashLoading] = useState(false)
   const [dayStartStatus, setDayStartStatus] = useState<{
     suggestedOpeningCash: number
@@ -368,6 +390,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
     isClosed: boolean
   } | null>(null)
   const [dayStarted, setDayStarted] = useState(false)
+  const [showDayEnd, setShowDayEnd]               = useState(false)
+  const [dayEndLoading, setDayEndLoading]         = useState(false)
+  const [dayEndSaving, setDayEndSaving]           = useState(false)
+  const [dayEndData, setDayEndData]               = useState<Record<string, any> | null>(null)
+  const [dayEndCashCount, setDayEndCashCount]     = useState(emptyDayEndCash)
+  const [dayEndNotes, setDayEndNotes]             = useState('')
   const [showCashFlow, setShowCashFlow]           = useState(false)
   const [cashFlowMode, setCashFlowMode]           = useState<'IN' | 'OUT'>('IN')
   const [cashFlowAmount, setCashFlowAmount]       = useState('')
@@ -458,7 +486,47 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
   const getBranchId = () => authStorage.getUser()?.branchIds?.[0] ?? ''
   const posUser = authStorage.getUser()
+  const posRole = posUser?.role ?? 'CASHIER'
+  const canCloseDay = posRole === 'OWNER' || posRole === 'MANAGER'
   const businessDateStr = businessToday()
+  const dayIsClosed = dayStartStatus?.isClosed || dayEndData?.isClosed
+
+  const dayEndCashTotal = useMemo(() => {
+    let t = Number(dayEndCashCount.coins || 0)
+    for (const den of DAY_END_DENOMS) t += Number((dayEndCashCount as Record<string, number>)[den.key] || 0) * den.value
+    return Math.round(t * 100) / 100
+  }, [dayEndCashCount])
+
+  const dayEndExpectedCash = useMemo(() => {
+    if (!dayEndData?.cash) return 0
+    const open = dayEndData.openingCash ?? 0
+    const refunds = dayEndData.cash.cashRefunds ?? 0
+    return Math.round((open + dayEndData.cash.cashSales - dayEndData.expenses.totalExpenses - dayEndData.cash.bankDeposits - refunds) * 100) / 100
+  }, [dayEndData])
+
+  const dayEndVariance = Math.round((dayEndExpectedCash - dayEndCashTotal) * 100) / 100
+
+  const loadOpeningCashForDate = useCallback(async (date: string) => {
+    const branchId = getBranchId()
+    if (!hasDailyClosing || !branchId) return null
+    try {
+      const res = await dailyClosingApi.dayStartStatus({ branchId, date }) as {
+        data?: {
+          suggestedOpeningCash: number
+          openingCash: number
+          dayStarted: boolean
+          isClosed: boolean
+        }
+      }
+      const d = res.data ?? (res as unknown as typeof res.data)
+      if (!d) return null
+      setModalDayStatus(d)
+      setOpeningCashAmount(String(Math.round(d.openingCash ?? d.suggestedOpeningCash ?? 0)))
+      return d
+    } catch {
+      return null
+    }
+  }, [hasDailyClosing])
 
   const loadDayStartStatus = useCallback(async (promptIfNeeded = false) => {
     const branchId = getBranchId()
@@ -546,15 +614,26 @@ function POSContent({ onClose }: { onClose: () => void }) {
       if (hasDailyClosing) {
         const branchId = getBranchId()
         if (!branchId) { toast.error('No branch on your account'); return }
-        await dailyClosingApi.startDay({
-          branchId,
-          date: businessDateStr,
-          openingCash: amount,
-        })
-        setDayStarted(true)
-        await loadDayStartStatus()
-        openDrawer()
-        toast.success(`Shift started — opening cash ${formatCurrency(amount)}`, { icon: '💵' })
+        const targetDate = openingCashDate
+        const isToday = targetDate === businessDateStr
+        if (isToday) {
+          await dailyClosingApi.startDay({
+            branchId,
+            date: targetDate,
+            openingCash: amount,
+          })
+          setDayStarted(true)
+          await loadDayStartStatus()
+          openDrawer()
+          toast.success(`Shift started — opening cash ${formatCurrency(amount)}`, { icon: '💵' })
+        } else {
+          await dailyClosingApi.saveOpeningCash({
+            branchId,
+            date: targetDate,
+            openingCash: amount,
+          })
+          toast.success(`Opening cash saved for ${new Date(targetDate + 'T12:00:00').toLocaleDateString('en-US')}`, { icon: '💵' })
+        }
         setShowOpeningCash(false)
         return
       }
@@ -578,12 +657,109 @@ function POSContent({ onClose }: { onClose: () => void }) {
   }
 
   const openDayStartModal = () => {
+    setOpeningCashDate(businessDateStr)
     setShowOpeningCash(true)
-    loadDayStartStatus(false)
+    loadOpeningCashForDate(businessDateStr)
   }
 
+  const onOpeningCashDateChange = (nextDate: string) => {
+    setOpeningCashDate(nextDate)
+    loadOpeningCashForDate(nextDate)
+  }
+
+  const loadDayEndPreview = useCallback(async () => {
+    const branchId = getBranchId()
+    if (!branchId) {
+      toast.error('No branch on your account')
+      return
+    }
+    setDayEndLoading(true)
+    try {
+      const res = await dailyClosingApi.preview({ branchId, date: businessDateStr }) as { data?: Record<string, unknown> }
+      const d = (res.data ?? res) as Record<string, any>
+      setDayEndData(d)
+      if (d?.cashCount) {
+        setDayEndCashCount({
+          d5000: d.cashCount.d5000 ?? 0,
+          d2000: d.cashCount.d2000 ?? 0,
+          d1000: d.cashCount.d1000 ?? 0,
+          d500: d.cashCount.d500 ?? 0,
+          d100: d.cashCount.d100 ?? 0,
+          d50: d.cashCount.d50 ?? 0,
+          d20: d.cashCount.d20 ?? 0,
+          d10: d.cashCount.d10 ?? 0,
+          coins: d.cashCount.coins ?? 0,
+        })
+      } else {
+        setDayEndCashCount(emptyDayEndCash())
+      }
+      setDayEndNotes(d?.notes ?? '')
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Failed to load day summary')
+    } finally {
+      setDayEndLoading(false)
+    }
+  }, [businessDateStr])
+
   const openDayEnd = () => {
-    router.push(`/dashboard/daily-closing?date=${businessDateStr}`)
+    if (!hasDailyClosing) return
+    if (!dayStarted && !dayStartStatus?.dayStarted) {
+      toast.error('Start your shift first (Day Start)')
+      return
+    }
+    setShowDayEnd(true)
+    loadDayEndPreview()
+  }
+
+  const saveDayEndCashCount = async () => {
+    const branchId = getBranchId()
+    if (!branchId || dayEndData?.isClosed) return
+    setDayEndSaving(true)
+    try {
+      await dailyClosingApi.saveCashCount({
+        branchId,
+        date: businessDateStr,
+        cashCount: dayEndCashCount,
+        openingCash: dayEndData?.openingCash,
+        notes: dayEndNotes,
+      })
+      toast.success('Cash count saved')
+      await loadDayEndPreview()
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Save failed')
+    } finally {
+      setDayEndSaving(false)
+    }
+  }
+
+  const closeBusinessDayFromPos = async () => {
+    if (!canCloseDay || dayEndData?.isClosed) return
+    if (!confirm('Close business day? New sales will be blocked until reopened.')) return
+    const branchId = getBranchId()
+    if (!branchId) return
+    setDayEndSaving(true)
+    try {
+      await dailyClosingApi.close({
+        branchId,
+        date: businessDateStr,
+        openingCash: dayEndData?.openingCash,
+        cashCount: dayEndCashCount,
+        notes: dayEndNotes,
+      })
+      toast.success('Business day closed')
+      await loadDayEndPreview()
+      await loadDayStartStatus()
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Close failed')
+    } finally {
+      setDayEndSaving(false)
+    }
+  }
+
+  const openFullDailyClosing = () => {
+    setShowDayEnd(false)
+    onClose()
+    router.push(`/dashboard/daily-closing?date=${businessDateStr}&step=3`)
   }
 
   const submitCashFlow = async () => {
@@ -1353,10 +1529,29 @@ function POSContent({ onClose }: { onClose: () => void }) {
         else if (showMoreMenu) setShowMoreMenu(false)
         else if (showFilters) setShowFilters(false)
         else if (showOpeningCash) setShowOpeningCash(false)
+        else if (showDayEnd) setShowDayEnd(false)
         else if (showCashFlow) setShowCashFlow(false)
         else if (showRegister && (showCartCustDrop || showCustDrop)) setShowRegister(false)
         else if (showCartCustDrop || showCustDrop) { setShowCartCustDrop(false); setShowCustDrop(false); setShowRegister(false) }
         else if (cartView === 'checkout' && !completedSale) setCartView('items')
+        return
+      }
+
+      if (e.ctrlKey && !e.shiftKey && e.key === 'F7') {
+        e.preventDefault()
+        if (cart.length > 0) setShowDocPreview('QUOTE')
+        else toast.error('Cart is empty')
+        return
+      }
+      if (e.ctrlKey && !e.shiftKey && e.key === 'F8') {
+        e.preventDefault()
+        if (cart.length > 0) setShowDocPreview('DRAFT')
+        else toast.error('Cart is empty')
+        return
+      }
+      if (e.shiftKey && e.key === 'F6') {
+        e.preventDefault()
+        setShowHeldCarts(true)
         return
       }
 
@@ -1367,13 +1562,22 @@ function POSContent({ onClose }: { onClose: () => void }) {
         if (e.key === 'F4') { e.preventDefault(); handleHoldSales() }
         if (e.key === 'F5') {
           e.preventDefault()
-          if (completedSale) printThermalReceipt({ invoiceNumber: completedSale.invoiceNumber, createdAt: completedSale.createdAt, customerName: completedSale.customerName, customerPhone: completedSale.customerPhone, items: completedSale.items ?? [], subtotal, discountAmount, total: completedSale.total ?? saleTotal, paymentMethod: completedSale.paymentMethod, cashReceived: completedSale.cashReceived, changeAmount: completedSale.changeAmount, warrantyNumbers: completedSale.warrantyNumbers, warrantyMonths: completedSale.warrantyMonths }, invoiceSettings, thermalShopCtx)
+          if (completedSale) {
+            printThermalReceipt({ invoiceNumber: completedSale.invoiceNumber, createdAt: completedSale.createdAt, customerName: completedSale.customerName, customerPhone: completedSale.customerPhone, items: completedSale.items ?? [], subtotal, discountAmount, total: completedSale.total ?? saleTotal, paymentMethod: completedSale.paymentMethod, cashReceived: completedSale.cashReceived, changeAmount: completedSale.changeAmount, warrantyNumbers: completedSale.warrantyNumbers, warrantyMonths: completedSale.warrantyMonths }, invoiceSettings, thermalShopCtx)
+          } else openRecentSales()
         }
-        if (e.key === 'F6') { e.preventDefault(); setShowHeldCarts(true) }
-        if (e.key === 'F7') { e.preventDefault(); if (cart.length > 0) setShowDocPreview('QUOTE'); else toast.error('Cart is empty') }
-        if (e.key === 'F8') { e.preventDefault(); if (cart.length > 0) setShowDocPreview('DRAFT'); else toast.error('Cart is empty') }
+        if (e.key === 'F6') {
+          e.preventDefault()
+          if (hasDailyReload) {
+            setSelectedCategory('RELOAD')
+            setActiveNavId('products')
+          } else setShowHeldCarts(true)
+        }
+        if (e.key === 'F7') { e.preventDefault(); openDayStartModal() }
+        if (e.key === 'F8') { e.preventDefault(); setCashFlowMode('IN'); setShowCashFlow(true) }
         if (e.key === 'F9') { e.preventDefault(); openCheckout() }
         if (e.key === 'F10') { e.preventDefault(); handleNewSale() }
+        if (e.key === 'F11' && hasDailyClosing) { e.preventDefault(); openDayEnd() }
         if (e.key === 'F12') { e.preventDefault(); setShowCalc(p => !p) }
         if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); payNow() }
         return
@@ -1889,15 +2093,15 @@ function POSContent({ onClose }: { onClose: () => void }) {
             {[
               { label: 'New Sale (F10)', onClick: handleNewSale, bg: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})` },
               { label: 'Hold Sales (F4)', onClick: handleHoldSales, bg: `linear-gradient(135deg, ${POS_THEME.blue}, ${POS_THEME.blueDark})` },
-              { label: 'Recent Sales', onClick: openRecentSales, bg: `linear-gradient(135deg, ${POS_THEME.teal}, ${POS_THEME.tealDark})` },
-              ...(hasDailyReload ? [{ label: 'Reload', onClick: () => { setSelectedCategory('RELOAD'); setActiveNavId('products') }, bg: `linear-gradient(135deg, ${POS_THEME.teal}, ${POS_THEME.tealDark})` }] : []),
+              { label: 'Recent Sales (F5)', onClick: openRecentSales, bg: `linear-gradient(135deg, ${POS_THEME.teal}, ${POS_THEME.tealDark})` },
+              ...(hasDailyReload ? [{ label: 'Reload (F6)', onClick: () => { setSelectedCategory('RELOAD'); setActiveNavId('products') }, bg: `linear-gradient(135deg, ${POS_THEME.teal}, ${POS_THEME.tealDark})` }] : []),
               ...(hasDailyClosing
                 ? [
-                    { label: dayStarted ? 'Day Started ✓' : 'Day Start', onClick: openDayStartModal, bg: `linear-gradient(135deg, ${POS_THEME.green}, ${POS_THEME.greenDark})` },
-                    { label: 'Day End', onClick: openDayEnd, bg: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})` },
+                    { label: dayStarted ? 'Day Started ✓ (F7)' : 'Day Start (F7)', onClick: openDayStartModal, bg: `linear-gradient(135deg, ${POS_THEME.green}, ${POS_THEME.greenDark})` },
+                    { label: dayIsClosed ? 'Day Closed ✓ (F11)' : 'Day End (F11)', onClick: openDayEnd, bg: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})` },
                   ]
-                : [{ label: 'Opening Cash', onClick: openDayStartModal, bg: `linear-gradient(135deg, ${POS_THEME.amber}, ${POS_THEME.amberDark})` }]),
-              { label: 'Cash In/Out', onClick: () => { setCashFlowMode('IN'); setShowCashFlow(true) }, bg: POS_THEME.card },
+                : [{ label: 'Opening Cash (F7)', onClick: openDayStartModal, bg: `linear-gradient(135deg, ${POS_THEME.amber}, ${POS_THEME.amberDark})` }]),
+              { label: 'Cash In/Out (F8)', onClick: () => { setCashFlowMode('IN'); setShowCashFlow(true) }, bg: POS_THEME.card },
               { label: heldCarts.length > 0 ? `More (${heldCarts.length})` : 'More', onClick: () => setShowMoreMenu(true), bg: POS_THEME.card },
             ].map(btn => (
               <button key={btn.label} type="button" onClick={btn.onClick}
@@ -2544,6 +2748,145 @@ function POSContent({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
+      {/* ── Day End / Cash Count ── */}
+      {showDayEnd && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowDayEnd(false)}>
+          <div data-pos="dark" className="w-full max-w-lg rounded-2xl shadow-2xl border overflow-hidden max-h-[92vh] flex flex-col" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b shrink-0" style={{ borderColor: POS_THEME.border }}>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${POS_THEME.purple}22`, border: `1px solid ${POS_THEME.purple}44` }}>
+                  <Lock size={15} style={{ color: POS_THEME.purple }} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Day End</h3>
+                  <p className="text-[10px] text-white/50">{new Date(businessDateStr + 'T12:00:00').toLocaleDateString('en-US')}</p>
+                </div>
+              </div>
+              <button type="button" onClick={() => setShowDayEnd(false)} className="p-1.5 rounded-lg hover:bg-white/5 text-white/70"><X size={14} /></button>
+            </div>
+            <div className="p-5 space-y-4 overflow-y-auto flex-1">
+              {dayEndLoading && !dayEndData ? (
+                <div className="flex items-center justify-center py-12 text-white/60">
+                  <Loader2 size={22} className="animate-spin" />
+                </div>
+              ) : dayEndData ? (
+                <>
+                  {dayEndData.isClosed ? (
+                    <div className="flex items-center gap-3 p-4 rounded-xl border" style={{ background: `${POS_THEME.green}12`, borderColor: `${POS_THEME.green}40` }}>
+                      <CheckCircle2 size={20} style={{ color: POS_THEME.green }} />
+                      <div>
+                        <p className="text-sm font-semibold text-white">Day closed successfully</p>
+                        {dayEndData.closedByName && (
+                          <p className="text-[11px] text-white/50 mt-0.5">
+                            By {dayEndData.closedByName}
+                            {dayEndData.closedAt ? ` · ${new Date(dayEndData.closedAt).toLocaleString('en-LK')}` : ''}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { label: 'Total Sales', value: formatCurrency(dayEndData.sales?.totalSales ?? 0) },
+                      { label: 'Cash Sales', value: formatCurrency(dayEndData.cash?.cashSales ?? 0) },
+                      { label: 'Expenses', value: formatCurrency(dayEndData.expenses?.totalExpenses ?? 0) },
+                      { label: 'Opening Cash', value: formatCurrency(dayEndData.openingCash ?? 0) },
+                    ].map(k => (
+                      <div key={k.label} className="rounded-xl px-3 py-2 border" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
+                        <p className="text-[10px] text-white/50 uppercase tracking-wide">{k.label}</p>
+                        <p className="text-sm font-bold text-white mt-0.5">{k.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {!dayEndData.isClosed && (
+                    <>
+                      <div>
+                        <p className="text-xs font-semibold text-white mb-2">Cash denomination count</p>
+                        <div className="grid grid-cols-3 gap-2">
+                          {DAY_END_DENOMS.map(den => (
+                            <label key={den.key}>
+                              <span className="text-[10px] text-white/50">Rs {den.label}</span>
+                              <input type="number" min="0" className="w-full h-9 mt-0.5 px-2 rounded-lg text-sm font-semibold border outline-none text-white"
+                                style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }}
+                                value={(dayEndCashCount as Record<string, number>)[den.key]}
+                                onChange={e => setDayEndCashCount(p => ({ ...p, [den.key]: parseInt(e.target.value) || 0 }))} />
+                            </label>
+                          ))}
+                          <label>
+                            <span className="text-[10px] text-white/50">Coins</span>
+                            <input type="number" min="0" step="0.01" className="w-full h-9 mt-0.5 px-2 rounded-lg text-sm font-semibold border outline-none text-white"
+                              style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }}
+                              value={dayEndCashCount.coins}
+                              onChange={e => setDayEndCashCount(p => ({ ...p, coins: parseFloat(e.target.value) || 0 }))} />
+                          </label>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="rounded-xl px-3 py-2 border" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
+                          <p className="text-[10px] text-white/50">Expected</p>
+                          <p className="text-sm font-bold text-white">{formatCurrency(dayEndExpectedCash)}</p>
+                        </div>
+                        <div className="rounded-xl px-3 py-2 border" style={{ borderColor: `${POS_THEME.green}40`, background: `${POS_THEME.green}12` }}>
+                          <p className="text-[10px] text-white/50">Counted</p>
+                          <p className="text-sm font-bold" style={{ color: POS_THEME.green }}>{formatCurrency(dayEndCashTotal)}</p>
+                        </div>
+                        <div className="rounded-xl px-3 py-2 border" style={{
+                          borderColor: dayEndVariance === 0 ? `${POS_THEME.green}40` : Math.abs(dayEndVariance) <= 100 ? `${POS_THEME.amber}40` : '#ef444440',
+                          background: dayEndVariance === 0 ? `${POS_THEME.green}12` : Math.abs(dayEndVariance) <= 100 ? `${POS_THEME.amber}12` : '#ef444412',
+                        }}>
+                          <p className="text-[10px] text-white/50">Difference</p>
+                          <p className="text-sm font-bold text-white">{formatCurrency(dayEndVariance)}</p>
+                        </div>
+                      </div>
+                      {dayEndVariance !== 0 && (
+                        <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-xl border" style={{ borderColor: '#f59e0b40', background: '#f59e0b12', color: '#fbbf24' }}>
+                          <AlertTriangle size={14} />
+                          {dayEndVariance > 0 ? `Shortage ${formatCurrency(dayEndVariance)}` : `Overage ${formatCurrency(Math.abs(dayEndVariance))}`}
+                        </div>
+                      )}
+                      <textarea className="w-full min-h-[72px] px-3 py-2 rounded-xl text-sm border outline-none text-white placeholder:text-white/40 resize-none"
+                        style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }}
+                        placeholder="Closing notes (optional)" value={dayEndNotes} onChange={e => setDayEndNotes(e.target.value)} />
+                    </>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-white/60 text-center py-8">Could not load day summary</p>
+              )}
+            </div>
+            <div className="px-5 py-4 border-t shrink-0 space-y-2" style={{ borderColor: POS_THEME.border }}>
+              {dayEndData && !dayEndData.isClosed && (
+                <div className="flex gap-2">
+                  <button type="button" onClick={saveDayEndCashCount} disabled={dayEndSaving || dayEndLoading}
+                    className="flex-1 h-11 rounded-xl text-sm font-semibold border text-white disabled:opacity-60 flex items-center justify-center gap-2"
+                    style={{ borderColor: POS_THEME.border }}>
+                    {dayEndSaving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                    Save Cash Count
+                  </button>
+                  {canCloseDay && (
+                    <button type="button" onClick={closeBusinessDayFromPos} disabled={dayEndSaving || dayEndLoading}
+                      className="flex-1 h-11 rounded-xl text-sm font-bold text-white disabled:opacity-60 flex items-center justify-center gap-2"
+                      style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})` }}>
+                      {dayEndSaving ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
+                      Close Day
+                    </button>
+                  )}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setShowDayEnd(false)} className="flex-1 h-10 rounded-xl text-sm font-semibold border text-white" style={{ borderColor: POS_THEME.border }}>Close</button>
+                <button type="button" onClick={openFullDailyClosing} className="flex-1 h-10 rounded-xl text-sm font-semibold border text-white/90 hover:bg-white/5" style={{ borderColor: POS_THEME.border }}>
+                  Full Daily Closing
+                </button>
+              </div>
+              {!canCloseDay && dayEndData && !dayEndData.isClosed && (
+                <p className="text-[10px] text-white/45 text-center">Only manager/owner can close the day. Save cash count here or ask your manager.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Opening Cash / Day Start ── */}
       {showOpeningCash && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowOpeningCash(false)}>
@@ -2566,13 +2909,25 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   </div>
                   <div>
                     <p className="text-white/50 mb-0.5">Date</p>
-                    <p className="font-semibold text-white">{new Date(businessDateStr + 'T12:00:00').toLocaleDateString('en-US')}</p>
+                    <input
+                      type="date"
+                      max={businessDateStr}
+                      value={openingCashDate}
+                      onChange={e => onOpeningCashDateChange(e.target.value)}
+                      className="w-full h-9 px-2 rounded-lg text-sm font-semibold border outline-none text-white"
+                      style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }}
+                    />
                   </div>
                 </div>
               )}
-              {hasDailyClosing && dayStartStatus && dayStartStatus.suggestedOpeningCash > 0 && (
+              {hasDailyClosing && openingCashDate !== businessDateStr && (
+                <p className="text-[11px] font-medium" style={{ color: POS_THEME.amber }}>
+                  Setting opening cash for a past business day
+                </p>
+              )}
+              {hasDailyClosing && modalDayStatus && modalDayStatus.suggestedOpeningCash > 0 && (
                 <p className="text-xs font-medium" style={{ color: POS_THEME.green }}>
-                  Suggested from last close: {formatCurrency(dayStartStatus.suggestedOpeningCash)}
+                  Suggested from last close: {formatCurrency(modalDayStatus.suggestedOpeningCash)}
                 </p>
               )}
               <div>
@@ -2591,8 +2946,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       {amt.toLocaleString()}
                     </button>
                   ))}
-                  {(dayStartStatus?.suggestedOpeningCash ?? 0) > 0 && (
-                    <button type="button" onClick={() => setOpeningCashAmount(String(Math.round(dayStartStatus!.suggestedOpeningCash)))}
+                  {(modalDayStatus?.suggestedOpeningCash ?? 0) > 0 && (
+                    <button type="button" onClick={() => setOpeningCashAmount(String(Math.round(modalDayStatus!.suggestedOpeningCash)))}
                       className="px-3 py-1.5 rounded-lg text-xs font-semibold border"
                       style={{ borderColor: POS_THEME.green, color: POS_THEME.green, background: `${POS_THEME.green}15` }}>
                       Use last close
@@ -2602,15 +2957,17 @@ function POSContent({ onClose }: { onClose: () => void }) {
               )}
               <p className="text-[11px] text-white/50 leading-relaxed">
                 {hasDailyClosing
-                  ? 'Count your drawer float before starting sales. This saves to Daily Closing opening cash.'
+                  ? openingCashDate === businessDateStr
+                    ? 'Count your drawer float before starting sales. This saves to Daily Closing opening cash.'
+                    : 'Save opening cash for the selected past date. Use Daily Closing to close that day if needed.'
                   : 'Enter float amount in drawer at shift start. Saved to Finance.'}
               </p>
               <div className="flex gap-2 pt-1">
                 <button type="button" onClick={() => setShowOpeningCash(false)} className="flex-1 h-11 rounded-xl text-sm font-semibold border text-white" style={{ borderColor: POS_THEME.border }}>Cancel</button>
-                <button type="button" onClick={submitOpeningCash} disabled={openingCashLoading || (hasDailyClosing && dayStartStatus?.isClosed)}
+                <button type="button" onClick={submitOpeningCash} disabled={openingCashLoading || (hasDailyClosing && modalDayStatus?.isClosed)}
                   className="flex-1 h-11 rounded-xl text-sm font-bold text-white disabled:opacity-60 flex items-center justify-center gap-2"
                   style={{ background: `linear-gradient(135deg, ${POS_THEME.green}, ${POS_THEME.greenDark})` }}>
-                  {openingCashLoading ? <Loader2 size={14} className="animate-spin" /> : <><PlayCircle size={15} /> {hasDailyClosing ? 'Start Shift' : 'Save & Open Drawer'}</>}
+                  {openingCashLoading ? <Loader2 size={14} className="animate-spin" /> : <><PlayCircle size={15} /> {hasDailyClosing ? (openingCashDate === businessDateStr ? 'Start Shift' : 'Save Opening Cash') : 'Save & Open Drawer'}</>}
                 </button>
               </div>
             </div>

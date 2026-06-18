@@ -99,7 +99,14 @@ export default function DailyClosingPage() {
   const branches = (branchesRaw as any[]) ?? []
   const [branchId, setBranchId] = useState('')
   const [date, setDate] = useState(() => searchParams.get('date') || businessToday())
-  const [step, setStep] = useState(cashOnly ? 3 : 1)
+  const [step, setStep] = useState(() => {
+    const fromUrl = searchParams.get('step')
+    if (fromUrl) {
+      const n = parseInt(fromUrl, 10)
+      if (n >= 1 && n <= 5) return n
+    }
+    return cashOnly ? 3 : 1
+  })
   const [cashCount, setCashCount] = useState(emptyCash())
   const [openingCash, setOpeningCash] = useState<number | ''>('')
   const [notes, setNotes] = useState('')
@@ -138,7 +145,14 @@ export default function DailyClosingPage() {
   }, [refetch])
 
   useEffect(() => {
-    if (d?.cashCount) {
+    setOpeningCash('')
+    setNotes('')
+    setCashCount(emptyCash())
+  }, [date, branchId])
+
+  useEffect(() => {
+    if (!d || d.date !== date) return
+    if (d.cashCount) {
       setCashCount({
         d5000: d.cashCount.d5000 ?? 0,
         d2000: d.cashCount.d2000 ?? 0,
@@ -150,11 +164,14 @@ export default function DailyClosingPage() {
         d10:   d.cashCount.d10   ?? 0,
         coins: d.cashCount.coins ?? 0,
       })
+    } else {
+      setCashCount(emptyCash())
     }
-    if (d?.openingCash != null && openingCash === '') setOpeningCash(d.openingCash)
-    if (d?.notes) setNotes(d.notes)
+    if (d.openingCash != null) setOpeningCash(d.openingCash)
+    else setOpeningCash('')
+    setNotes(d.notes ?? '')
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [d?.closingId, d?.cashCount])
+  }, [d?.closingId, d?.cashCount, d?.openingCash, d?.notes, d?.date, date])
 
   const cashTotal = useMemo(() => {
     let t = Number(cashCount.coins || 0)
@@ -199,6 +216,22 @@ export default function DailyClosingPage() {
       toast.error('Excel export failed')
     }
   }, [d, date, branchId, showReload])
+
+  const saveOpeningCash = async () => {
+    if (!branchId) return
+    if (typeof openingCash !== 'number' || Number.isNaN(openingCash) || openingCash < 0) {
+      toast.error('Enter a valid opening cash amount')
+      return
+    }
+    setSaving(true)
+    try {
+      await dailyClosingApi.saveOpeningCash({ branchId, date, openingCash })
+      toast.success(`Opening cash saved for ${date}`)
+      refetch()
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Save failed')
+    } finally { setSaving(false) }
+  }
 
   const saveCashCount = async () => {
     if (!branchId) return
@@ -359,7 +392,7 @@ export default function DailyClosingPage() {
         </div>
       )}
 
-      {loading ? (
+      {loading || !d || d.date !== date ? (
         <div className="card rounded-2xl p-16 flex flex-col items-center justify-center gap-3">
           <Loader2 size={28} className="animate-spin text-violet-500" />
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading closing data…</p>
@@ -536,12 +569,24 @@ export default function DailyClosingPage() {
                     <MetricCard label="Cash In Bank" value={formatCurrency(d?.cash?.cashInBank ?? 0)} />
                   </div>
 
-                  {canDraft && !d?.isClosed && (
-                    <label className="block max-w-xs">
-                      <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Opening Cash (override)</span>
-                      <input type="number" className="input-field mt-1.5" value={openingCash}
-                        onChange={e => setOpeningCash(e.target.value === '' ? '' : parseFloat(e.target.value))} />
-                    </label>
+                  {!d?.isClosed && (
+                    <div className="flex flex-wrap items-end gap-3">
+                      <label className="block min-w-[200px]">
+                        <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Opening Cash</span>
+                        <input type="number" min="0" step="1" className="input-field mt-1.5" value={openingCash}
+                          onChange={e => setOpeningCash(e.target.value === '' ? '' : parseFloat(e.target.value))} />
+                      </label>
+                      <button onClick={saveOpeningCash} disabled={saving}
+                        className="btn-primary text-sm flex items-center gap-2 h-10 px-4">
+                        {saving ? <Loader2 size={14} className="animate-spin" /> : <Wallet size={14} />}
+                        Save Opening Cash
+                      </button>
+                      {date !== businessToday() && (
+                        <p className="text-[11px] pb-1" style={{ color: 'var(--text-muted)' }}>
+                          Backfilling opening cash for {date}
+                        </p>
+                      )}
+                    </div>
                   )}
 
                   <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>

@@ -10,6 +10,7 @@ import {
   reopenBusinessDay,
   getDayStartStatus,
   startBusinessDay,
+  saveOpeningCash,
 } from './daily-closing.service'
 import { normalizeBusinessDate } from '../../utils/date-range'
 
@@ -72,6 +73,19 @@ router.get('/day-start', async (req: Request, res: Response, next: NextFunction)
   } catch (e) { next(e) }
 })
 
+router.post('/opening-cash', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { branchId, date, openingCash } = req.body
+    if (!branchId || !date) throw new AppError('branchId and date are required', 400)
+    if (openingCash == null || Number.isNaN(Number(openingCash))) throw new AppError('openingCash is required', 400)
+    sendSuccess(
+      res,
+      await saveOpeningCash(req.tenantId!, branchId, resolveBusinessDate(date), Number(openingCash)),
+      'Opening cash saved',
+    )
+  } catch (e) { next(e) }
+})
+
 router.post('/day-start', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { branchId, date, openingCash } = req.body
@@ -97,7 +111,8 @@ router.post('/draft', authorize('OWNER', 'MANAGER'), async (req: Request, res: R
   try {
     const { branchId, date, openingCash, cashCount, notes } = req.body
     if (!branchId || !date) throw new AppError('branchId and date are required', 400)
-    sendSuccess(res, await saveDailyClosingDraft(req.tenantId!, branchId, date, { openingCash, cashCount, notes }), 'Draft saved')
+    const dateKey = resolveBusinessDate(date)
+    sendSuccess(res, await saveDailyClosingDraft(req.tenantId!, branchId, dateKey, { openingCash, cashCount, notes }), 'Draft saved')
   } catch (e) { next(e) }
 })
 
@@ -105,7 +120,8 @@ router.post('/cash-count', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req:
   try {
     const { branchId, date, cashCount, openingCash, notes } = req.body
     if (!branchId || !date || !cashCount) throw new AppError('branchId, date, and cashCount are required', 400)
-    sendSuccess(res, await saveDailyClosingDraft(req.tenantId!, branchId, date, { openingCash, cashCount, notes }), 'Cash count saved')
+    const dateKey = resolveBusinessDate(date)
+    sendSuccess(res, await saveDailyClosingDraft(req.tenantId!, branchId, dateKey, { openingCash, cashCount, notes }), 'Cash count saved')
   } catch (e) { next(e) }
 })
 
@@ -114,9 +130,10 @@ router.post('/close', authorize('OWNER', 'MANAGER'), async (req: Request, res: R
     const { branchId, date, openingCash, cashCount, notes } = req.body
     if (!branchId || !date || !cashCount) throw new AppError('branchId, date, and cashCount are required', 400)
     const user = req.user!
+    const dateKey = resolveBusinessDate(date)
     sendSuccess(
       res,
-      await closeBusinessDay(req.tenantId!, branchId, date, user.userId, user.email, { openingCash, cashCount, notes }),
+      await closeBusinessDay(req.tenantId!, branchId, dateKey, user.userId, user.email, { openingCash, cashCount, notes }),
       'Business day closed',
     )
   } catch (e) { next(e) }
@@ -126,7 +143,7 @@ router.post('/reopen', authorize('OWNER', 'MANAGER'), async (req: Request, res: 
   try {
     const { branchId, date } = req.body
     if (!branchId || !date) throw new AppError('branchId and date are required', 400)
-    sendSuccess(res, await reopenBusinessDay(req.tenantId!, branchId, date), 'Day reopened')
+    sendSuccess(res, await reopenBusinessDay(req.tenantId!, branchId, resolveBusinessDate(date)), 'Day reopened')
   } catch (e) { next(e) }
 })
 

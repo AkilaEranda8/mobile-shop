@@ -5,6 +5,11 @@ import { Loader2, History, CheckCircle2, FileEdit } from 'lucide-react'
 import { dailyClosingApi } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
 
+function closingDateKey(value: string | Date): string {
+  const at = typeof value === 'string' ? new Date(value) : value
+  return at.toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' })
+}
+
 export function DailyClosingHistory({ branchId, onSelectDate }: { branchId: string; onSelectDate: (date: string) => void }) {
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -42,7 +47,7 @@ export function DailyClosingHistory({ branchId, onSelectDate }: { branchId: stri
             </thead>
             <tbody>
               {rows.slice(0, 10).map((r: any) => {
-                const dateStr = typeof r.date === 'string' ? r.date.slice(0, 10) : new Date(r.date).toISOString().slice(0, 10)
+                const dateStr = closingDateKey(r.date)
                 return (
                   <tr key={r.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                     <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>{dateStr}</td>
