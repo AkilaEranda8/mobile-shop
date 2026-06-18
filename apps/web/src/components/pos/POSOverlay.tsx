@@ -2591,8 +2591,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       {amt.toLocaleString()}
                     </button>
                   ))}
-                  {dayStartStatus?.suggestedOpeningCash > 0 && (
-                    <button type="button" onClick={() => setOpeningCashAmount(String(Math.round(dayStartStatus.suggestedOpeningCash)))}
+                  {(dayStartStatus?.suggestedOpeningCash ?? 0) > 0 && (
+                    <button type="button" onClick={() => setOpeningCashAmount(String(Math.round(dayStartStatus!.suggestedOpeningCash)))}
                       className="px-3 py-1.5 rounded-lg text-xs font-semibold border"
                       style={{ borderColor: POS_THEME.green, color: POS_THEME.green, background: `${POS_THEME.green}15` }}>
                       Use last close
