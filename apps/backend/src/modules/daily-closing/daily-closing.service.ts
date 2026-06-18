@@ -612,7 +612,6 @@ export async function saveDailyClosingDraft(
     notes: body.notes,
   }, prevSummary)
 
-  const date = businessDateDb(dateStr)
   const closing = await prisma.dailyClosing.upsert({
     where: { tenantId_branchId_date: { tenantId, branchId, date } },
     create: { tenantId, branchId, date, status: 'DRAFT', ...data },
