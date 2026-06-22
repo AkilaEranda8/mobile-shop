@@ -11,7 +11,7 @@ import {
   Headphones, Wrench, PackageSearch, ShoppingBag, User, CheckCircle2, Shield,
   Menu, ShoppingCart, Bell, Wifi, Cloud, TrendingUp, MoreHorizontal,
   Grid3X3, List as ListIcon, MessageCircle, Star, RefreshCw, RotateCcw,
-  LayoutGrid, Hash, Wallet, Users, PhoneCall, PlayCircle, Lock, AlertTriangle,
+  LayoutGrid, Hash, Wallet, Users, PhoneCall, PlayCircle, Lock, AlertTriangle, Calendar,
 } from 'lucide-react'
 import { HexaPosLayout, POS_THEME, categoryIcon, type PosNavItem } from './HexaPosLayout'
 import { PosReturnModal } from './PosReturnModal'
@@ -842,7 +842,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
     fetchRecentSales()
   }
 
-  const { data: productsData, refetch: refetchProducts } = useProducts({ limit: '500' })
+  const { data: productsData, refetch: refetchProducts } = useProducts()
   const [customers, setCustomers]     = useState<any[]>([])
   const [custLoading, setCustLoading] = useState(false)
   const [cachedProducts, setCachedProducts] = useState<any[]>([])
@@ -2909,14 +2909,21 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   </div>
                   <div>
                     <p className="text-white/50 mb-0.5">Date</p>
-                    <input
-                      type="date"
-                      max={businessDateStr}
-                      value={openingCashDate}
-                      onChange={e => onOpeningCashDateChange(e.target.value)}
-                      className="w-full h-9 px-2 rounded-lg text-sm font-semibold border outline-none text-white"
-                      style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }}
-                    />
+                    <div className="relative">
+                      <input
+                        type="date"
+                        max={businessDateStr}
+                        value={openingCashDate}
+                        onChange={e => onOpeningCashDateChange(e.target.value)}
+                        className="w-full h-9 pl-2 pr-9 rounded-lg text-sm font-semibold border outline-none text-white [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:top-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                        style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }}
+                      />
+                      <Calendar
+                        size={15}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                        style={{ color: POS_THEME.text }}
+                      />
+                    </div>
                   </div>
                 </div>
               )}
