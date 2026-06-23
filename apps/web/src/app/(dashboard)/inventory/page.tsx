@@ -776,9 +776,18 @@ export default function InventoryPage() {
     },
   ], [handleDelete, setViewProduct, setEditProduct])
 
+  /* ── If Add Product is open, render it full-content (sidebar stays) ── */
+  if (showAddModal) {
+    return (
+      <AddProductModal
+        onClose={() => setShowAddModal(false)}
+        onSaved={() => { refetch(); setShowAddModal(false) }}
+      />
+    )
+  }
+
   return (
     <div className="space-y-6">
-      {showAddModal && <AddProductModal onClose={() => setShowAddModal(false)} onSaved={() => { refetch(); setShowAddModal(false) }} />}
       {showImport  && <ImportModal onClose={() => setShowImport(false)} onSaved={refetch} />}
       {showAddCat    && <AddCategoryModal onClose={() => setShowAddCat(false)} onSaved={() => refetchCats()} />}
       {showManageCat && <ManageCategoriesModal onClose={() => setShowManageCat(false)} onChanged={() => { refetchCats(); refetch() }} />}
