@@ -34,29 +34,43 @@ const UNIT_OPTS   = ['Piece (Pc)','Box','Set','Pair','Pack','Dozen','Kg','Gram',
 const BARCODE_OPTS= ['Code 128 (C128)','Code 39','EAN-13','EAN-8','UPC-A','QR Code']
 const WARRANTY_OPTS=['None','1 Month','3 Months','6 Months','1 Year','2 Years']
 
-/* ─── Tiny helpers ──────────────────────────────────────────────────────── */
+/* ─── Light-theme tokens ─────────────────────────────────────────────── */
+const T = {
+  pageBg:     '#f1f5f9',   // slate-100
+  cardBg:     '#ffffff',
+  subtleBg:   '#f8fafc',   // slate-50
+  border:     '#e2e8f0',   // slate-200
+  borderMd:   '#cbd5e1',   // slate-300
+  textPrimary:'#0f172a',   // slate-900
+  textSec:    '#475569',   // slate-600
+  textMuted:  '#94a3b8',   // slate-400
+  blue:       '#2563eb',
+  blueDark:   '#1d4ed8',
+  popBg:      '#ffffff',
+}
 
 const S = {
   card: {
-    background: 'var(--bg-card)',
-    border: '1px solid var(--border-subtle)',
+    background: T.cardBg,
+    border: `1px solid ${T.border}`,
     borderRadius: 12,
     padding: '24px 28px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
   } as React.CSSProperties,
   label: {
-    fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)',
+    fontSize: 12, fontWeight: 600, color: T.textSec,
     marginBottom: 6, display: 'block',
   } as React.CSSProperties,
   input: {
     width: '100%', height: 36, padding: '0 12px', borderRadius: 8,
-    fontSize: 13, outline: 'none', background: 'var(--bg-page)',
-    border: '1px solid var(--border-default)', color: 'var(--text-primary)',
+    fontSize: 13, outline: 'none', background: '#ffffff',
+    border: `1px solid ${T.border}`, color: T.textPrimary,
     boxSizing: 'border-box',
   } as React.CSSProperties,
   select: {
     width: '100%', height: 36, padding: '0 32px 0 12px', borderRadius: 8,
-    fontSize: 13, outline: 'none', background: 'var(--bg-page)',
-    border: '1px solid var(--border-default)', color: 'var(--text-primary)',
+    fontSize: 13, outline: 'none', background: '#ffffff',
+    border: `1px solid ${T.border}`, color: T.textPrimary,
     appearance: 'none' as const, cursor: 'pointer',
   } as React.CSSProperties,
   btn: {
@@ -77,9 +91,9 @@ function Lbl({ children, req, tip }: { children: React.ReactNode; req?: boolean;
       {children}{req && <span style={{ color: '#ef4444' }}> *</span>}
       {tip && (
         <span className="group relative inline-block ml-1 cursor-help">
-          <Info size={11} style={{ color: 'var(--text-muted)', verticalAlign: 'middle' }} />
+          <Info size={11} style={{ color: T.textMuted, verticalAlign: 'middle' }} />
           <span className="absolute bottom-full left-0 mb-1 hidden group-hover:block z-50 text-[10px] px-2 py-1 rounded-lg whitespace-nowrap"
-            style={{ background: '#1e2433', color: '#94a3b8', border: '1px solid var(--border-subtle)' }}>{tip}</span>
+            style={{ background: '#1e293b', color: '#e2e8f0', border: `1px solid ${T.borderMd}` }}>{tip}</span>
         </span>
       )}
     </label>
@@ -95,7 +109,7 @@ function Sel({ value, onChange, children, placeholder }: {
         {placeholder && <option value="">{placeholder}</option>}
         {children}
       </select>
-      <ChevronDown size={13} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
+      <ChevronDown size={13} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: T.textMuted }} />
     </div>
   )
 }
@@ -103,7 +117,7 @@ function Sel({ value, onChange, children, placeholder }: {
 function PlusBtn({ onClick }: { onClick: () => void }) {
   return (
     <button type="button" onClick={onClick}
-      style={{ ...S.btn, width: 36, padding: 0, background: 'var(--bg-page)', border: '1px solid var(--border-default)', color: 'var(--text-muted)', flexShrink: 0 }}>
+      style={{ ...S.btn, width: 36, padding: 0, background: '#fff', border: `1px solid ${T.border}`, color: T.textMuted, flexShrink: 0 }}>
       <Plus size={14} />
     </button>
   )
@@ -120,24 +134,24 @@ function Checkbox({ checked, onChange, label, desc, tip }: {
     <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', paddingBottom: 10 }}>
       <div onClick={() => onChange(!checked)} style={{
         width: 16, height: 16, borderRadius: 4, marginTop: 2, flexShrink: 0,
-        background: checked ? '#2563eb' : 'transparent',
-        border: `2px solid ${checked ? '#2563eb' : 'var(--border-default)'}`,
+        background: checked ? T.blue : 'transparent',
+        border: `2px solid ${checked ? T.blue : T.border}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         {checked && <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
       </div>
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{label}</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: T.textPrimary }}>{label}</span>
           {tip && (
             <span className="group relative cursor-help">
-              <Info size={10} style={{ color: 'var(--text-muted)' }} />
+              <Info size={10} style={{ color: T.textMuted }} />
               <span className="absolute bottom-full left-0 mb-1 hidden group-hover:block z-50 text-[10px] px-2 py-1 rounded-lg whitespace-nowrap"
-                style={{ background: '#1e2433', color: '#94a3b8', border: '1px solid var(--border-subtle)' }}>{tip}</span>
+                style={{ background: '#1e293b', color: '#e2e8f0', border: `1px solid ${T.borderMd}` }}>{tip}</span>
             </span>
           )}
         </div>
-        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{desc}</p>
+        <p style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>{desc}</p>
       </div>
     </label>
   )
@@ -151,11 +165,11 @@ function AddCatPopup({ onClose, onSaved }: { onClose: () => void; onSaved: (c: C
     catch (e: any) { toast.error(e.message || 'Failed') } finally { setLoading(false) }
   }
   return (
-    <div style={{ position: 'absolute', right: 0, top: 42, zIndex: 50, width: 200, padding: 12, borderRadius: 10, background: '#1a2035', border: '1px solid var(--border-default)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
-      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>New Category</p>
+    <div style={{ position: 'absolute', right: 0, top: 42, zIndex: 50, width: 200, padding: 12, borderRadius: 10, background: T.popBg, border: `1px solid ${T.border}`, boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}>
+      <p style={{ fontSize: 12, fontWeight: 600, color: T.textPrimary, marginBottom: 8 }}>New Category</p>
       <input autoFocus style={{ ...S.input, marginBottom: 8 }} placeholder="Category name…" value={name} onChange={e => setName(e.target.value)} onKeyDown={e => e.key === 'Enter' && save()} />
       <div style={{ display: 'flex', gap: 6 }}>
-        <button type="button" onClick={onClose} style={{ ...S.btn, flex: 1, fontSize: 11, background: 'var(--bg-subtle)', color: 'var(--text-muted)', border: 'none' }}>Cancel</button>
+        <button type="button" onClick={onClose} style={{ ...S.btn, flex: 1, fontSize: 11, background: T.subtleBg, color: T.textMuted, border: `1px solid ${T.border}` }}>Cancel</button>
         <button type="button" onClick={save} disabled={!name.trim() || loading} style={{ ...S.btn, flex: 1, fontSize: 11, background: '#2563eb', color: '#fff', border: 'none', opacity: (!name.trim() || loading) ? 0.5 : 1 }}>
           {loading ? <Loader2 size={11} className="animate-spin" /> : 'Add'}
         </button>
@@ -192,8 +206,8 @@ function ImageUploader({ imageUrl, onUploaded }: { imageUrl: string; onUploaded:
         style={{
           height: 200, borderRadius: 10, cursor: 'pointer', display: 'flex',
           flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          border: `2px dashed ${drag ? '#2563eb' : 'var(--border-subtle)'}`,
-          background: drag ? 'rgba(37,99,235,0.04)' : 'var(--bg-subtle)',
+          border: `2px dashed ${drag ? T.blue : T.borderMd}`,
+          background: drag ? 'rgba(37,99,235,0.04)' : T.subtleBg,
           transition: 'border-color 0.15s',
         }}
       >
@@ -212,8 +226,8 @@ function ImageUploader({ imageUrl, onUploaded }: { imageUrl: string; onUploaded:
                 <Upload size={20} style={{ color: '#2563eb' }} />
               </div>
               <p style={{ fontSize: 12, fontWeight: 600, color: '#2563eb' }}>Click to upload</p>
-              <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>or drag and drop</p>
-              <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6 }}>PNG, JPG, JPEG (Max 2MB)</p>
+              <p style={{ fontSize: 11, color: T.textMuted, marginTop: 3 }}>or drag and drop</p>
+              <p style={{ fontSize: 10, color: T.textMuted, marginTop: 6 }}>PNG, JPG, JPEG (Max 2MB)</p>
             </>
           )}
       </div>
@@ -286,20 +300,20 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
   const closeDds = () => { setColorDd(null); setStorageDd(null) }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 50, overflowY: 'auto', background: 'var(--bg-page, #0f1629)' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, overflowY: 'auto', background: T.pageBg }}>
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 28px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border-subtle)' }}>
+      <div style={{ position: 'sticky', top: 0, zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 28px', background: T.cardBg, borderBottom: `1px solid ${T.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={onClose} style={{ padding: '6px', borderRadius: 8, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}>
+          <button onClick={onClose} style={{ padding: '6px', borderRadius: 8, background: 'transparent', border: 'none', cursor: 'pointer', color: T.textMuted, display: 'flex' }}>
             <ArrowLeft size={16} />
           </button>
           <div>
-            <h1 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Add New Product</h1>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0 }}>Create a new product with model (storage) and color variations</p>
+            <h1 style={{ fontSize: 15, fontWeight: 700, color: T.textPrimary, margin: 0 }}>Add New Product</h1>
+            <p style={{ fontSize: 11, color: T.textMuted, margin: 0 }}>Create a new product with model (storage) and color variations</p>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} style={{ ...S.btn, background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>Cancel</button>
+          <button onClick={onClose} style={{ ...S.btn, background: T.subtleBg, border: `1px solid ${T.border}`, color: T.textSec }}>Cancel</button>
           <button onClick={submit} disabled={loading || !form.name.trim() || !form.sku.trim()}
             style={{ ...S.btn, background: '#2563eb', color: '#fff', border: 'none', opacity: (loading || !form.name.trim() || !form.sku.trim()) ? 0.6 : 1 }}>
             {loading ? <Loader2 size={14} className="animate-spin" /> : (
