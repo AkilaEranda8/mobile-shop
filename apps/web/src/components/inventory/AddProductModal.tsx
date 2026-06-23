@@ -300,7 +300,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
   const closeDds = () => { setColorDd(null); setStorageDd(null) }
 
   return (
-    <div style={{ background: T.pageBg, minHeight: '100%', margin: '-24px', padding: 0 }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, overflowY: 'auto', background: T.pageBg }}>
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div style={{ position: 'sticky', top: 0, zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 28px', background: T.cardBg, borderBottom: `1px solid ${T.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
