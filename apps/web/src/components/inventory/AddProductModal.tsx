@@ -253,11 +253,11 @@ function ImageUploader({ imageUrl, onUploaded }: { imageUrl: string; onUploaded:
 export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
   const { data: catsData, refetch: refetchCats } = useCategories()
   const { data: brandsData, refetch: refetchBrands } = useBrands()
-  const { data: suppliersData } = useSuppliers()
+  const { data: suppliersRaw } = useSuppliers()
 
   const cats: Category[]  = (catsData ?? []) as Category[]
   const brands: Brand[]   = (brandsData ?? []) as Brand[]
-  const suppliers: Supplier[] = (suppliersData ?? []) as Supplier[]
+  const suppliers: Supplier[] = ((suppliersRaw as any)?.data ?? []) as Supplier[]
 
   const [loading, setLoading] = useState(false)
   const [showAddCat, setShowAddCat] = useState(false)
