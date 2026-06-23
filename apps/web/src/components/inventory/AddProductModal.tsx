@@ -367,6 +367,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
   const handleSubmit = async () => {
     if (!form.name.trim()) { toast.error('Product name is required'); setTab('basic'); return }
     if (!form.sku.trim()) { toast.error('SKU is required'); setTab('basic'); return }
+    if (!form.categoryName.trim()) { toast.error('Category is required'); setTab('basic'); return }
 
     setLoading(true)
     try {
@@ -378,18 +379,26 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
         categoryName: form.categoryName || undefined,
         description: form.description || undefined,
         imageUrl: form.imageUrl || undefined,
-        // default pricing from first storage variation or 0
+        // Use first storage variation selling price as default, or 0
         buyingPrice: 0,
         sellingPrice: storageVariations[0] ? Number(storageVariations[0].defaultSellingPrice) || 0 : 0,
+        mrp: storageVariations[0] ? Number(storageVariations[0].defaultSellingPrice) || 0 : 0,
         stock: 0,
         minStock: settings.minStockAlert ? Number(settings.minStock) || 5 : 0,
         trackImei: settings.trackImei,
         warrantyMonths: settings.warrantyTracking ? 12 : 0,
         isActive: settings.isActive,
-        // store variations as JSON in description or as extra fields
-        storageVariations: storageVariations.map(s => ({ storage: s.storage, sellingPrice: Number(s.defaultSellingPrice) || 0 })),
-        colorVariations: colorVariations.map(c => ({ name: c.name, hex: c.hex })),
+        // Saved as JSON columns in the database
+        storageVariations: storageVariations.map(s => ({
+          storage: s.storage,
+          sellingPrice: Number(s.defaultSellingPrice) || 0,
+        })),
+        colorVariations: colorVariations.map(c => ({
+          name: c.name,
+          hex: c.hex,
+        })),
       })
+
       toast.success(`Product "${form.name}" created!`)
       onSaved()
       onClose()

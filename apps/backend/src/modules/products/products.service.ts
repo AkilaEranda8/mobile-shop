@@ -62,31 +62,34 @@ export const productsService = {
     if (!p) throw new AppError('Product not found', 404)
     const { name, description, sku, barcode, categoryId, brandId,
             buyingPrice, sellingPrice, mrp, trackImei, warrantyMonths,
-            imageUrl, stock, minStock, isActive } = body
+            imageUrl, stock, minStock, isActive,
+            storageVariations, colorVariations } = body
     const data: any = {}
-    if (name           !== undefined) data.name           = name
-    if (description    !== undefined) data.description    = description
-    if (sku            !== undefined) data.sku            = sku
-    if (barcode        !== undefined) data.barcode        = barcode
-    if (categoryId     !== undefined) data.categoryId     = categoryId
-    if (brandId        !== undefined) data.brandId        = brandId
-    if (buyingPrice    !== undefined) data.buyingPrice    = Number(buyingPrice)
-    if (sellingPrice   !== undefined) data.sellingPrice   = Number(sellingPrice)
-    if (mrp            !== undefined) data.mrp            = Number(mrp)
-    if (trackImei      !== undefined) data.trackImei      = Boolean(trackImei)
-    if (warrantyMonths !== undefined) data.warrantyMonths = Number(warrantyMonths)
-    if (imageUrl       !== undefined) data.imageUrl       = imageUrl
-    if (stock          !== undefined) {
+    if (name              !== undefined) data.name              = name
+    if (description       !== undefined) data.description       = description
+    if (sku               !== undefined) data.sku               = sku
+    if (barcode           !== undefined) data.barcode           = barcode
+    if (categoryId        !== undefined) data.categoryId        = categoryId
+    if (brandId           !== undefined) data.brandId           = brandId
+    if (buyingPrice       !== undefined) data.buyingPrice       = Number(buyingPrice)
+    if (sellingPrice      !== undefined) data.sellingPrice      = Number(sellingPrice)
+    if (mrp               !== undefined) data.mrp               = Number(mrp)
+    if (trackImei         !== undefined) data.trackImei         = Boolean(trackImei)
+    if (warrantyMonths    !== undefined) data.warrantyMonths    = Number(warrantyMonths)
+    if (imageUrl          !== undefined) data.imageUrl          = imageUrl
+    if (storageVariations !== undefined) data.storageVariations = storageVariations
+    if (colorVariations   !== undefined) data.colorVariations   = colorVariations
+    if (stock             !== undefined) {
       const n = Number(stock)
       if (Number.isNaN(n) || n < 0) throw new AppError('Stock cannot be negative', 400)
       data.stock = n
     }
-    if (minStock       !== undefined) {
+    if (minStock          !== undefined) {
       const n = Number(minStock)
       if (Number.isNaN(n) || n < 0) throw new AppError('Minimum stock cannot be negative', 400)
       data.minStock = n
     }
-    if (isActive       !== undefined) data.isActive       = Boolean(isActive)
+    if (isActive          !== undefined) data.isActive          = Boolean(isActive)
     return prisma.product.update({ where: { id }, data })
   },
 
