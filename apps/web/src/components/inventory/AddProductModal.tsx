@@ -30,70 +30,51 @@ const COLOR_OPTS = [
   { name:'Midnight',hex:'#1e1b4b' }, { name:'Starlight',hex:'#f0ebe3'},
   { name:'Graphite',hex:'#374151' },
 ]
-const UNIT_OPTS   = ['Piece (Pc)','Box','Set','Pair','Pack','Dozen','Kg','Gram','Litre','Meter']
-const BARCODE_OPTS= ['Code 128 (C128)','Code 39','EAN-13','EAN-8','UPC-A','QR Code']
-const WARRANTY_OPTS=['None','1 Month','3 Months','6 Months','1 Year','2 Years']
+const UNIT_OPTS    = ['Piece (Pc)','Box','Set','Pair','Pack','Dozen','Kg','Gram','Litre','Meter']
+const BARCODE_OPTS = ['Code 128 (C128)','Code 39','EAN-13','EAN-8','UPC-A','QR Code']
+const WARRANTY_OPTS= ['None','1 Month','3 Months','6 Months','1 Year','2 Years']
 
-/* ─── Light-theme tokens ─────────────────────────────────────────────── */
-const T = {
-  pageBg:     '#f1f5f9',   // slate-100
-  cardBg:     '#ffffff',
-  subtleBg:   '#f8fafc',   // slate-50
-  border:     '#e2e8f0',   // slate-200
-  borderMd:   '#cbd5e1',   // slate-300
-  textPrimary:'#0f172a',   // slate-900
-  textSec:    '#475569',   // slate-600
-  textMuted:  '#94a3b8',   // slate-400
-  blue:       '#2563eb',
-  blueDark:   '#1d4ed8',
-  popBg:      '#ffffff',
+/* ─── Style helpers ──────────────────────────────────────────────────────── */
+
+const card: React.CSSProperties = {
+  background: 'var(--bg-card)',
+  border: '1px solid var(--border-subtle)',
+  borderRadius: 12,
+  padding: '24px 28px',
+}
+const inputStyle: React.CSSProperties = {
+  width: '100%', height: 36, padding: '0 12px', borderRadius: 8,
+  fontSize: 13, outline: 'none',
+  background: 'var(--bg-subtle)',
+  border: '1px solid var(--border-default)',
+  color: 'var(--text-primary)',
+  boxSizing: 'border-box',
+}
+const selectStyle: React.CSSProperties = {
+  ...inputStyle, paddingRight: 32, appearance: 'none' as const, cursor: 'pointer',
+}
+const btn: React.CSSProperties = {
+  height: 36, padding: '0 16px', borderRadius: 8, fontSize: 13,
+  fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center',
+  justifyContent: 'center', gap: 6,
+}
+const sectionBadge: React.CSSProperties = {
+  width: 26, height: 26, borderRadius: '50%', background: '#2563eb',
+  color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+  fontSize: 12, fontWeight: 700, flexShrink: 0,
 }
 
-const S = {
-  card: {
-    background: T.cardBg,
-    border: `1px solid ${T.border}`,
-    borderRadius: 12,
-    padding: '24px 28px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-  } as React.CSSProperties,
-  label: {
-    fontSize: 12, fontWeight: 600, color: T.textSec,
-    marginBottom: 6, display: 'block',
-  } as React.CSSProperties,
-  input: {
-    width: '100%', height: 36, padding: '0 12px', borderRadius: 8,
-    fontSize: 13, outline: 'none', background: '#ffffff',
-    border: `1px solid ${T.border}`, color: T.textPrimary,
-    boxSizing: 'border-box',
-  } as React.CSSProperties,
-  select: {
-    width: '100%', height: 36, padding: '0 32px 0 12px', borderRadius: 8,
-    fontSize: 13, outline: 'none', background: '#ffffff',
-    border: `1px solid ${T.border}`, color: T.textPrimary,
-    appearance: 'none' as const, cursor: 'pointer',
-  } as React.CSSProperties,
-  btn: {
-    height: 36, padding: '0 16px', borderRadius: 8, fontSize: 13,
-    fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center',
-    justifyContent: 'center', gap: 6,
-  } as React.CSSProperties,
-  sectionNum: {
-    width: 26, height: 26, borderRadius: '50%', background: '#2563eb',
-    color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 12, fontWeight: 700, flexShrink: 0,
-  } as React.CSSProperties,
-}
+/* ─── Small components ───────────────────────────────────────────────────── */
 
 function Lbl({ children, req, tip }: { children: React.ReactNode; req?: boolean; tip?: string }) {
   return (
-    <label style={S.label}>
+    <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6, display: 'block' }}>
       {children}{req && <span style={{ color: '#ef4444' }}> *</span>}
       {tip && (
         <span className="group relative inline-block ml-1 cursor-help">
-          <Info size={11} style={{ color: T.textMuted, verticalAlign: 'middle' }} />
+          <Info size={11} style={{ color: 'var(--text-muted)', verticalAlign: 'middle' }} />
           <span className="absolute bottom-full left-0 mb-1 hidden group-hover:block z-50 text-[10px] px-2 py-1 rounded-lg whitespace-nowrap"
-            style={{ background: '#1e293b', color: '#e2e8f0', border: `1px solid ${T.borderMd}` }}>{tip}</span>
+            style={{ background: 'var(--bg-tooltip, #1e293b)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}>{tip}</span>
         </span>
       )}
     </label>
@@ -105,11 +86,11 @@ function Sel({ value, onChange, children, placeholder }: {
 }) {
   return (
     <div style={{ position: 'relative' }}>
-      <select style={S.select} value={value} onChange={e => onChange(e.target.value)}>
+      <select style={selectStyle} value={value} onChange={e => onChange(e.target.value)}>
         {placeholder && <option value="">{placeholder}</option>}
         {children}
       </select>
-      <ChevronDown size={13} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: T.textMuted }} />
+      <ChevronDown size={13} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
     </div>
   )
 }
@@ -117,7 +98,7 @@ function Sel({ value, onChange, children, placeholder }: {
 function PlusBtn({ onClick }: { onClick: () => void }) {
   return (
     <button type="button" onClick={onClick}
-      style={{ ...S.btn, width: 36, padding: 0, background: '#fff', border: `1px solid ${T.border}`, color: T.textMuted, flexShrink: 0 }}>
+      style={{ ...btn, width: 36, padding: 0, background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-muted)', flexShrink: 0 }}>
       <Plus size={14} />
     </button>
   )
@@ -134,24 +115,24 @@ function Checkbox({ checked, onChange, label, desc, tip }: {
     <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', paddingBottom: 10 }}>
       <div onClick={() => onChange(!checked)} style={{
         width: 16, height: 16, borderRadius: 4, marginTop: 2, flexShrink: 0,
-        background: checked ? T.blue : 'transparent',
-        border: `2px solid ${checked ? T.blue : T.border}`,
+        background: checked ? '#2563eb' : 'transparent',
+        border: `2px solid ${checked ? '#2563eb' : 'var(--border-default)'}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         {checked && <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
       </div>
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: T.textPrimary }}>{label}</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{label}</span>
           {tip && (
             <span className="group relative cursor-help">
-              <Info size={10} style={{ color: T.textMuted }} />
+              <Info size={10} style={{ color: 'var(--text-muted)' }} />
               <span className="absolute bottom-full left-0 mb-1 hidden group-hover:block z-50 text-[10px] px-2 py-1 rounded-lg whitespace-nowrap"
-                style={{ background: '#1e293b', color: '#e2e8f0', border: `1px solid ${T.borderMd}` }}>{tip}</span>
+                style={{ background: 'var(--bg-tooltip, #1e293b)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}>{tip}</span>
             </span>
           )}
         </div>
-        <p style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>{desc}</p>
+        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{desc}</p>
       </div>
     </label>
   )
@@ -161,16 +142,19 @@ function AddCatPopup({ onClose, onSaved }: { onClose: () => void; onSaved: (c: C
   const [name, setName] = useState(''); const [loading, setLoading] = useState(false)
   const save = async () => {
     if (!name.trim()) return; setLoading(true)
-    try { const r: any = await productsApi.createCategory({ name: name.trim() }); toast.success(`Category "${name}" added`); onSaved(r.data ?? r); onClose() }
+    try { const r: any = await productsApi.createCategory({ name: name.trim() }); toast.success(`"${name}" added`); onSaved(r.data ?? r); onClose() }
     catch (e: any) { toast.error(e.message || 'Failed') } finally { setLoading(false) }
   }
   return (
-    <div style={{ position: 'absolute', right: 0, top: 42, zIndex: 50, width: 200, padding: 12, borderRadius: 10, background: T.popBg, border: `1px solid ${T.border}`, boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}>
-      <p style={{ fontSize: 12, fontWeight: 600, color: T.textPrimary, marginBottom: 8 }}>New Category</p>
-      <input autoFocus style={{ ...S.input, marginBottom: 8 }} placeholder="Category name…" value={name} onChange={e => setName(e.target.value)} onKeyDown={e => e.key === 'Enter' && save()} />
+    <div style={{ position: 'absolute', right: 0, top: 42, zIndex: 50, width: 200, padding: 12, borderRadius: 10,
+      background: 'var(--bg-card)', border: '1px solid var(--border-default)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>New Category</p>
+      <input autoFocus style={{ ...inputStyle, marginBottom: 8 }} placeholder="Category name…" value={name}
+        onChange={e => setName(e.target.value)} onKeyDown={e => e.key === 'Enter' && save()} />
       <div style={{ display: 'flex', gap: 6 }}>
-        <button type="button" onClick={onClose} style={{ ...S.btn, flex: 1, fontSize: 11, background: T.subtleBg, color: T.textMuted, border: `1px solid ${T.border}` }}>Cancel</button>
-        <button type="button" onClick={save} disabled={!name.trim() || loading} style={{ ...S.btn, flex: 1, fontSize: 11, background: '#2563eb', color: '#fff', border: 'none', opacity: (!name.trim() || loading) ? 0.5 : 1 }}>
+        <button type="button" onClick={onClose} style={{ ...btn, flex: 1, fontSize: 11, background: 'var(--bg-subtle)', color: 'var(--text-muted)', border: 'none' }}>Cancel</button>
+        <button type="button" onClick={save} disabled={!name.trim() || loading}
+          style={{ ...btn, flex: 1, fontSize: 11, background: '#2563eb', color: '#fff', border: 'none', opacity: (!name.trim() || loading) ? 0.5 : 1 }}>
           {loading ? <Loader2 size={11} className="animate-spin" /> : 'Add'}
         </button>
       </div>
@@ -196,7 +180,7 @@ function ImageUploader({ imageUrl, onUploaded }: { imageUrl: string; onUploaded:
 
   return (
     <div>
-      <Lbl>Product Image</Lbl>
+      <Lbl req>Product Image</Lbl>
       <input ref={ref} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => e.target.files?.[0] && handle(e.target.files[0])} />
       <div
         onClick={() => !uploading && ref.current?.click()}
@@ -204,10 +188,10 @@ function ImageUploader({ imageUrl, onUploaded }: { imageUrl: string; onUploaded:
         onDragLeave={() => setDrag(false)}
         onDrop={e => { e.preventDefault(); setDrag(false); e.dataTransfer.files[0] && handle(e.dataTransfer.files[0]) }}
         style={{
-          height: 200, borderRadius: 10, cursor: 'pointer', display: 'flex',
+          height: 190, borderRadius: 10, cursor: 'pointer', display: 'flex',
           flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          border: `2px dashed ${drag ? T.blue : T.borderMd}`,
-          background: drag ? 'rgba(37,99,235,0.04)' : T.subtleBg,
+          border: `2px dashed ${drag ? '#2563eb' : 'var(--border-subtle)'}`,
+          background: drag ? 'rgba(37,99,235,0.06)' : 'var(--bg-subtle)',
           transition: 'border-color 0.15s',
         }}
       >
@@ -222,12 +206,12 @@ function ImageUploader({ imageUrl, onUploaded }: { imageUrl: string; onUploaded:
             </div>
           ) : (
             <>
-              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(37,99,235,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+              <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(37,99,235,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
                 <Upload size={20} style={{ color: '#2563eb' }} />
               </div>
               <p style={{ fontSize: 12, fontWeight: 600, color: '#2563eb' }}>Click to upload</p>
-              <p style={{ fontSize: 11, color: T.textMuted, marginTop: 3 }}>or drag and drop</p>
-              <p style={{ fontSize: 10, color: T.textMuted, marginTop: 6 }}>PNG, JPG, JPEG (Max 2MB)</p>
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>or drag and drop</p>
+              <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6 }}>PNG, JPG, JPEG (Max 2MB)</p>
             </>
           )}
       </div>
@@ -247,10 +231,10 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
     name: '', sku: '', barcodeType: 'Code 128 (C128)', brandName: '',
     categoryName: '', subCategory: '', unit: 'Piece (Pc)', deviceModel: '', description: '', imageUrl: '',
   })
-  const [trackImei,       setTrackImei]       = useState(true)
-  const [warrantyTrack,   setWarrantyTrack]   = useState(true)
-  const [lowStock,        setLowStock]        = useState(true)
-  const [minStock,        setMinStock]        = useState('5')
+  const [trackImei,     setTrackImei]     = useState(true)
+  const [warrantyTrack, setWarrantyTrack] = useState(true)
+  const [lowStock,      setLowStock]      = useState(true)
+  const [minStock,      setMinStock]      = useState('5')
   const [pricing, setPricing] = useState({ tax: 'None', taxType: 'Exclusive', purchaseEx: '', purchaseInc: '', sellingEx: '', margin: '' })
   const [extra,   setExtra]   = useState({ supplier: '', warranty: 'None', hsCode: '', tags: '' })
   const [variants, setVariants] = useState<VariantRow[]>([])
@@ -296,26 +280,30 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
     finally { setLoading(false) }
   }
 
-  /* close dropdowns on outside click */
   const closeDds = () => { setColorDd(null); setStorageDd(null) }
 
+  /* ── Render ────────────────────────────────────────────────────────────── */
   return (
-    <div style={{ background: T.pageBg, minHeight: '100%', margin: '-24px', padding: 0 }}>
-      {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 28px', background: T.cardBg, borderBottom: `1px solid ${T.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+    <div style={{ minHeight: '100%', background: 'var(--bg-page)', margin: '-24px', padding: 0 }}>
+
+      {/* ── Sticky Header ──────────────────────────────────────────────── */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 20, display: 'flex', alignItems: 'center',
+        justifyContent: 'space-between', padding: '12px 28px',
+        background: 'var(--bg-card)', borderBottom: '1px solid var(--border-subtle)',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={onClose} style={{ padding: '6px', borderRadius: 8, background: 'transparent', border: 'none', cursor: 'pointer', color: T.textMuted, display: 'flex' }}>
+          <button onClick={onClose} style={{ padding: 6, borderRadius: 8, background: 'var(--bg-subtle)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}>
             <ArrowLeft size={16} />
           </button>
           <div>
-            <h1 style={{ fontSize: 15, fontWeight: 700, color: T.textPrimary, margin: 0 }}>Add New Product</h1>
-            <p style={{ fontSize: 11, color: T.textMuted, margin: 0 }}>Create a new product with model (storage) and color variations</p>
+            <h1 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Add New Product</h1>
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0 }}>Add a new product with model (storage) and color variations</p>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} style={{ ...S.btn, background: T.subtleBg, border: `1px solid ${T.border}`, color: T.textSec }}>Cancel</button>
+          <button onClick={onClose} style={{ ...btn, background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>Cancel</button>
           <button onClick={submit} disabled={loading || !form.name.trim() || !form.sku.trim()}
-            style={{ ...S.btn, background: '#2563eb', color: '#fff', border: 'none', opacity: (loading || !form.name.trim() || !form.sku.trim()) ? 0.6 : 1 }}>
+            style={{ ...btn, background: '#2563eb', color: '#fff', border: 'none', opacity: (loading || !form.name.trim() || !form.sku.trim()) ? 0.6 : 1 }}>
             {loading ? <Loader2 size={14} className="animate-spin" /> : (
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
@@ -327,19 +315,19 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
         </div>
       </div>
 
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* ── Content ────────────────────────────────────────────────────── */}
+      <div style={{ maxWidth: 1400, margin: '0 auto', padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
         {/* ══ 1. Basic Information ══════════════════════════════════════ */}
-        <div style={S.card}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
-            <div style={S.sectionNum}>1</div>
+        <div style={card}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 22 }}>
+            <div style={sectionBadge}>1</div>
             <div>
-              <p style={{ fontSize: 13, fontWeight: 700, color: '#2563eb', margin: 0 }}>Basic Information</p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa', margin: 0 }}>Basic Information</p>
             </div>
           </div>
 
-          {/* Image + Fields */}
-          <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 28 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '185px 1fr', gap: 28 }}>
             <ImageUploader imageUrl={form.imageUrl} onUploaded={url => f('imageUrl', url)} />
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -347,14 +335,14 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
                 <div>
                   <Lbl req>Product Name</Lbl>
-                  <input style={S.input} placeholder="Enter product name" value={form.name} onChange={e => f('name', e.target.value)} />
+                  <input style={inputStyle} placeholder="Enter product name" value={form.name} onChange={e => f('name', e.target.value)} />
                 </div>
                 <div>
                   <Lbl req>SKU</Lbl>
-                  <input style={S.input} placeholder="Enter SKU" value={form.sku} onChange={e => f('sku', e.target.value)} />
+                  <input style={inputStyle} placeholder="Enter SKU" value={form.sku} onChange={e => f('sku', e.target.value)} />
                 </div>
                 <div>
-                  <Lbl tip="Barcode format used for printing labels">Barcode Type</Lbl>
+                  <Lbl tip="Barcode format for label printing">Barcode Type</Lbl>
                   <Sel value={form.barcodeType} onChange={v => f('barcodeType', v)}>
                     {BARCODE_OPTS.map(b => <option key={b}>{b}</option>)}
                   </Sel>
@@ -366,10 +354,9 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                 <div>
                   <Lbl req>Brand</Lbl>
                   <div style={{ display: 'flex', gap: 6 }}>
-                    <div style={{ position: 'relative', flex: 1 }}>
-                      <input style={S.input} placeholder="Select brand" list="brand-dl" value={form.brandName} onChange={e => f('brandName', e.target.value)} />
-                      <datalist id="brand-dl">{['Apple','Samsung','Xiaomi','OnePlus','Google','Sony'].map(b => <option key={b} value={b} />)}</datalist>
-                    </div>
+                    <input style={{ ...inputStyle, flex: 1 }} placeholder="Select brand" list="brand-dl"
+                      value={form.brandName} onChange={e => f('brandName', e.target.value)} />
+                    <datalist id="brand-dl">{['Apple','Samsung','Xiaomi','OnePlus','Google','Sony'].map(b => <option key={b} value={b} />)}</datalist>
                     <PlusBtn onClick={() => {}} />
                   </div>
                 </div>
@@ -399,7 +386,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
               </div>
 
               {/* Row 3 */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <div>
                   <Lbl req>Unit</Lbl>
                   <Sel value={form.unit} onChange={v => f('unit', v)}>
@@ -413,7 +400,6 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                     <option value="ipad">iPad</option>
                     <option value="android">Android</option>
                     <option value="laptop">Laptop</option>
-                    <option value="tablet">Tablet</option>
                   </Sel>
                 </div>
               </div>
@@ -421,34 +407,44 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
           </div>
 
           {/* Description + Settings */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24, marginTop: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 290px', gap: 24, marginTop: 20 }}>
             <div>
               <Lbl>Description</Lbl>
-              {/* Toolbar */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '6px 10px', background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)', borderBottom: 'none', borderRadius: '8px 8px 0 0', flexWrap: 'wrap' }}>
-                {['B', 'I', 'U'].map((f, i) => (
-                  <button key={f} type="button" style={{ padding: '3px 7px', fontSize: 12, fontWeight: 700, borderRadius: 4, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontStyle: i === 1 ? 'italic' : 'normal', textDecoration: i === 2 ? 'underline' : 'none' }}>{f}</button>
-                ))}
-                <div style={{ width: 1, height: 14, background: 'var(--border-subtle)', margin: '0 4px' }} />
-                {['≡', '⁝', '⊞'].map((s, i) => (
-                  <button key={i} type="button" style={{ padding: '3px 6px', fontSize: 13, borderRadius: 4, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>{s}</button>
-                ))}
-                <div style={{ width: 1, height: 14, background: 'var(--border-subtle)', margin: '0 4px' }} />
-                <button type="button" style={{ padding: '3px 6px', fontSize: 12, borderRadius: 4, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>🔗</button>
-                <button type="button" style={{ padding: '3px 6px', fontSize: 12, borderRadius: 4, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>🖼</button>
-                <div style={{ marginLeft: 'auto' }}>
-                  <select style={{ fontSize: 11, padding: '3px 8px', borderRadius: 5, background: 'var(--bg-page)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                    <option>Paragraph</option><option>Heading 1</option><option>Heading 2</option>
-                  </select>
+              <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 8, overflow: 'hidden' }}>
+                {/* Toolbar */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '6px 10px',
+                  background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-subtle)', flexWrap: 'wrap' }}>
+                  {[['B','bold'],['I','italic'],['U','underline']].map(([l]) => (
+                    <button key={l} type="button" style={{ padding: '3px 7px', fontSize: 12, fontWeight: 700, borderRadius: 4,
+                      background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>{l}</button>
+                  ))}
+                  <div style={{ width: 1, height: 14, background: 'var(--border-subtle)', margin: '0 4px' }} />
+                  {['≡','⁝','⊞'].map((s,i) => (
+                    <button key={i} type="button" style={{ padding: '3px 6px', fontSize: 13, borderRadius: 4,
+                      background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>{s}</button>
+                  ))}
+                  <div style={{ width: 1, height: 14, background: 'var(--border-subtle)', margin: '0 4px' }} />
+                  {['🔗','🖼'].map((s,i) => (
+                    <button key={i} type="button" style={{ padding: '3px 6px', fontSize: 12, borderRadius: 4,
+                      background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>{s}</button>
+                  ))}
+                  <div style={{ marginLeft: 'auto' }}>
+                    <select style={{ fontSize: 11, padding: '3px 8px', borderRadius: 5,
+                      background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)',
+                      color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                      <option>Paragraph</option><option>Heading 1</option><option>Heading 2</option>
+                    </select>
+                  </div>
                 </div>
+                <textarea rows={6} maxLength={2000} placeholder="Write product description…"
+                  style={{ ...inputStyle, height: 'auto', padding: '12px', resize: 'none', border: 'none',
+                    borderRadius: 0, fontFamily: 'inherit', lineHeight: 1.6 }}
+                  value={form.description} onChange={e => f('description', e.target.value)} />
               </div>
-              <textarea rows={6} maxLength={2000} placeholder="Write product description..."
-                style={{ ...S.input, height: 'auto', padding: '12px', resize: 'none', borderRadius: '0 0 8px 8px', fontFamily: 'inherit', lineHeight: 1.5 }}
-                value={form.description} onChange={e => f('description', e.target.value)} />
               <p style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'right', marginTop: 4 }}>{form.description.length}/2000</p>
             </div>
 
-            {/* Settings */}
+            {/* Settings panel */}
             <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 10, padding: '14px 16px' }}>
               <Checkbox checked={trackImei} onChange={setTrackImei} label="Track IMEI / Serial Number"
                 desc="Enable IMEI or Serial number tracking for this product" tip="Each unit must have a unique IMEI/Serial" />
@@ -461,119 +457,132 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
               {lowStock && (
                 <div style={{ paddingLeft: 26 }}>
                   <Lbl req>Min Stock Quantity</Lbl>
-                  <input type="number" min={0} style={S.input} value={minStock} onChange={e => setMinStock(e.target.value)} />
+                  <input type="number" min={0} style={inputStyle} value={minStock} onChange={e => setMinStock(e.target.value)} />
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* ══ 2 + 3 side by side ═══════════════════════════════════════ */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20 }}>
+        {/* ══ 2 + 3 ════════════════════════════════════════════════════ */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 290px', gap: 20 }}>
 
           {/* 2. Variant Combinations */}
-          <div style={S.card}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div style={card}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={S.sectionNum}>2</div>
+                <div style={sectionBadge}>2</div>
                 <div>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: '#2563eb', margin: 0 }}>Variant Combinations</p>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa', margin: 0 }}>Variant Combinations</p>
                   <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0' }}>Add all available combinations of storage (model) and color.</p>
                 </div>
               </div>
               <button type="button" onClick={addVariant}
-                style={{ ...S.btn, background: '#2563eb', color: '#fff', border: 'none', fontSize: 12, whiteSpace: 'nowrap' }}>
+                style={{ ...btn, background: '#2563eb', color: '#fff', border: 'none', fontSize: 12, whiteSpace: 'nowrap' }}>
                 <Plus size={13} /> Add Variant
               </button>
             </div>
 
             {variants.length > 0 ? (
-              <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                  <thead>
-                    <tr style={{ background: 'var(--bg-subtle)' }}>
-                      {['#', '', 'Storage (Model) *', 'Color *', 'SKU (Optional)', 'Default Selling Price (LKR) *', 'Cost Price (LKR) Optional', 'Action'].map((h, i) => (
-                        <th key={i} style={{ padding: '9px 10px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)', whiteSpace: 'nowrap', width: i === 0 ? 28 : i === 1 ? 24 : i === 7 ? 48 : 'auto' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {variants.map((v, i) => (
-                      <tr key={v.id} style={{ borderBottom: i < variants.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
-                        <td style={{ padding: '8px 10px', color: 'var(--text-muted)', textAlign: 'center' }}>{i + 1}</td>
-                        <td style={{ padding: '8px 4px' }}><GripVertical size={12} style={{ color: 'var(--text-muted)' }} /></td>
-
-                        {/* Storage dropdown */}
-                        <td style={{ padding: '8px 6px' }}>
-                          <div style={{ position: 'relative' }}>
-                            <div onClick={() => { closeDds(); setStorageDd(storageDd === v.id ? null : v.id) }}
-                              style={{ ...S.input, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}>
-                              <span>{v.storage}</span>
-                              <ChevronDown size={11} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                            </div>
-                            {storageDd === v.id && (
-                              <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 40, width: 140, borderRadius: 10, background: '#1a2035', border: '1px solid var(--border-default)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', maxHeight: 200, overflowY: 'auto', marginTop: 2 }}>
-                                {STORAGE_OPTS.map(s => (
-                                  <button key={s} type="button" onClick={() => { updVariant(v.id, 'storage', s); setStorageDd(null) }}
-                                    style={{ width: '100%', textAlign: 'left', padding: '7px 12px', fontSize: 12, background: 'transparent', border: 'none', cursor: 'pointer', color: v.storage === s ? '#60a5fa' : 'var(--text-secondary)' }}>
-                                    {s}
-                                  </button>
-                                ))}
-                                <div style={{ padding: '6px 8px', borderTop: '1px solid var(--border-subtle)' }}>
-                                  <input style={{ ...S.input, height: 28, fontSize: 11 }} placeholder="Custom…"
-                                    onKeyDown={e => { if (e.key === 'Enter') { updVariant(v.id, 'storage', (e.target as HTMLInputElement).value); setStorageDd(null) } }} />
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-
-                        {/* Color dropdown */}
-                        <td style={{ padding: '8px 6px' }}>
-                          <div style={{ position: 'relative' }}>
-                            <div onClick={() => { closeDds(); setColorDd(colorDd === v.id ? null : v.id) }}
-                              style={{ ...S.input, height: 32, display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', userSelect: 'none' }}>
-                              <ColorDot hex={v.colorHex} />
-                              <span style={{ flex: 1 }}>{v.colorName}</span>
-                              <ChevronDown size={11} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                            </div>
-                            {colorDd === v.id && (
-                              <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 40, width: 160, borderRadius: 10, background: '#1a2035', border: '1px solid var(--border-default)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', maxHeight: 220, overflowY: 'auto', marginTop: 2 }}>
-                                {COLOR_OPTS.map(c => (
-                                  <button key={c.name} type="button" onClick={() => { updColor(v.id, c.name, c.hex); setColorDd(null) }}
-                                    style={{ width: '100%', textAlign: 'left', padding: '7px 12px', fontSize: 12, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, color: v.colorName === c.name ? '#60a5fa' : 'var(--text-secondary)' }}>
-                                    <ColorDot hex={c.hex} />{c.name}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-
-                        <td style={{ padding: '8px 6px' }}>
-                          <input style={{ ...S.input, height: 32, fontFamily: 'monospace', fontSize: 11 }}
-                            placeholder={`${(form.sku || 'IP12P').toUpperCase()}-${v.storage.replace(/\s/g,'')}-${v.colorName.slice(0,3).toUpperCase()}`}
-                            value={v.sku} onChange={e => updVariant(v.id, 'sku', e.target.value)} />
-                        </td>
-                        <td style={{ padding: '8px 6px' }}>
-                          <input type="number" min={0} style={{ ...S.input, height: 32 }} placeholder="0.00"
-                            value={v.sellingPrice} onChange={e => updVariant(v.id, 'sellingPrice', e.target.value)} />
-                        </td>
-                        <td style={{ padding: '8px 6px' }}>
-                          <input type="number" min={0} style={{ ...S.input, height: 32 }} placeholder="0.00"
-                            value={v.costPrice} onChange={e => updVariant(v.id, 'costPrice', e.target.value)} />
-                        </td>
-                        <td style={{ padding: '8px 10px' }}>
-                          <button type="button" onClick={() => delVariant(v.id)}
-                            style={{ padding: 6, borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'flex' }}>
-                            <Trash2 size={13} />
-                          </button>
-                        </td>
+              <>
+                <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ background: 'var(--bg-subtle)' }}>
+                        {['#','','Storage (Model) *','Color *','SKU (Optional)','Default Selling Price (LKR) *','Cost Price (LKR) Optional','Action'].map((h,i) => (
+                          <th key={i} style={{ padding: '9px 10px', textAlign: 'left', fontSize: 11, fontWeight: 600,
+                            color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)', whiteSpace: 'nowrap',
+                            width: i===0?28:i===1?24:i===7?48:'auto' }}>{h}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {variants.map((v, i) => (
+                        <tr key={v.id} style={{ borderBottom: i < variants.length-1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                          <td style={{ padding: '8px 10px', color: 'var(--text-muted)', textAlign: 'center' }}>{i+1}</td>
+                          <td style={{ padding: '8px 4px' }}><GripVertical size={12} style={{ color: 'var(--text-muted)' }} /></td>
+
+                          {/* Storage */}
+                          <td style={{ padding: '8px 6px' }}>
+                            <div style={{ position: 'relative' }}>
+                              <div onClick={() => { closeDds(); setStorageDd(storageDd===v.id?null:v.id) }}
+                                style={{ ...inputStyle, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}>
+                                <span>{v.storage}</span>
+                                <ChevronDown size={11} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                              </div>
+                              {storageDd===v.id && (
+                                <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 40, width: 140, borderRadius: 10,
+                                  background: 'var(--bg-card)', border: '1px solid var(--border-default)',
+                                  boxShadow: '0 8px 24px rgba(0,0,0,0.4)', maxHeight: 200, overflowY: 'auto', marginTop: 2 }}>
+                                  {STORAGE_OPTS.map(s => (
+                                    <button key={s} type="button" onClick={() => { updVariant(v.id,'storage',s); setStorageDd(null) }}
+                                      style={{ width:'100%', textAlign:'left', padding:'7px 12px', fontSize:12,
+                                        background:'transparent', border:'none', cursor:'pointer',
+                                        color: v.storage===s ? '#60a5fa' : 'var(--text-secondary)' }}>{s}</button>
+                                  ))}
+                                  <div style={{ padding: '6px 8px', borderTop: '1px solid var(--border-subtle)' }}>
+                                    <input style={{ ...inputStyle, height: 28, fontSize: 11 }} placeholder="Custom…"
+                                      onKeyDown={e => { if(e.key==='Enter'){updVariant(v.id,'storage',(e.target as HTMLInputElement).value);setStorageDd(null)}}} />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Color */}
+                          <td style={{ padding: '8px 6px' }}>
+                            <div style={{ position: 'relative' }}>
+                              <div onClick={() => { closeDds(); setColorDd(colorDd===v.id?null:v.id) }}
+                                style={{ ...inputStyle, height: 32, display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', userSelect: 'none' }}>
+                                <ColorDot hex={v.colorHex} />
+                                <span style={{ flex: 1 }}>{v.colorName}</span>
+                                <ChevronDown size={11} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                              </div>
+                              {colorDd===v.id && (
+                                <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 40, width: 160, borderRadius: 10,
+                                  background: 'var(--bg-card)', border: '1px solid var(--border-default)',
+                                  boxShadow: '0 8px 24px rgba(0,0,0,0.4)', maxHeight: 220, overflowY: 'auto', marginTop: 2 }}>
+                                  {COLOR_OPTS.map(c => (
+                                    <button key={c.name} type="button" onClick={() => { updColor(v.id,c.name,c.hex); setColorDd(null) }}
+                                      style={{ width:'100%', textAlign:'left', padding:'7px 12px', fontSize:12, background:'transparent', border:'none',
+                                        cursor:'pointer', display:'flex', alignItems:'center', gap:8,
+                                        color: v.colorName===c.name ? '#60a5fa' : 'var(--text-secondary)' }}>
+                                      <ColorDot hex={c.hex}/>{c.name}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+
+                          <td style={{ padding: '8px 6px' }}>
+                            <input style={{ ...inputStyle, height: 32, fontFamily: 'monospace', fontSize: 11 }}
+                              placeholder={`${(form.sku||'PROD').toUpperCase()}-${v.storage.replace(/\s/g,'')}-${v.colorName.slice(0,3).toUpperCase()}`}
+                              value={v.sku} onChange={e => updVariant(v.id,'sku',e.target.value)} />
+                          </td>
+                          <td style={{ padding: '8px 6px' }}>
+                            <input type="number" min={0} style={{ ...inputStyle, height: 32 }} placeholder="0.00"
+                              value={v.sellingPrice} onChange={e => updVariant(v.id,'sellingPrice',e.target.value)} />
+                          </td>
+                          <td style={{ padding: '8px 6px' }}>
+                            <input type="number" min={0} style={{ ...inputStyle, height: 32 }} placeholder="0.00"
+                              value={v.costPrice} onChange={e => updVariant(v.id,'costPrice',e.target.value)} />
+                          </td>
+                          <td style={{ padding: '8px 10px' }}>
+                            <button type="button" onClick={() => delVariant(v.id)}
+                              style={{ padding: 6, borderRadius: 6, background: 'rgba(239,68,68,0.1)', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'flex' }}>
+                              <Trash2 size={13} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <Info size={10} /> Each variant represents a unique combination of storage (model) and color.
+                </p>
+              </>
             ) : (
               <div style={{ borderRadius: 8, padding: '40px 0', textAlign: 'center', border: '1px dashed var(--border-subtle)' }}>
                 <Box size={22} style={{ color: 'var(--text-muted)', margin: '0 auto 8px' }} />
@@ -581,18 +590,13 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                 <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Click &quot;+ Add Variant&quot; to add storage and color combinations</p>
               </div>
             )}
-            {variants.length > 0 && (
-              <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
-                <Info size={10} /> Each variant represents a unique combination of storage (model) and color.
-              </p>
-            )}
           </div>
 
           {/* 3. Pricing & Tax */}
-          <div style={S.card}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-              <div style={S.sectionNum}>3</div>
-              <p style={{ fontSize: 13, fontWeight: 700, color: '#2563eb', margin: 0 }}>Pricing &amp; Tax</p>
+          <div style={card}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+              <div style={sectionBadge}>3</div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa', margin: 0 }}>Pricing &amp; Tax</p>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -614,23 +618,27 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   <div>
                     <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 5 }}>Ex. Tax</p>
-                    <input type="number" min={0} style={S.input} placeholder="0.00" value={pricing.purchaseEx} onChange={e => setPricing(p => ({ ...p, purchaseEx: e.target.value }))} />
+                    <input type="number" min={0} style={inputStyle} placeholder="0.00"
+                      value={pricing.purchaseEx} onChange={e => setPricing(p => ({ ...p, purchaseEx: e.target.value }))} />
                   </div>
                   <div>
                     <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 5 }}>Inc. Tax</p>
-                    <input type="number" min={0} style={S.input} placeholder="0.00" value={pricing.purchaseInc} onChange={e => setPricing(p => ({ ...p, purchaseInc: e.target.value }))} />
+                    <input type="number" min={0} style={inputStyle} placeholder="0.00"
+                      value={pricing.purchaseInc} onChange={e => setPricing(p => ({ ...p, purchaseInc: e.target.value }))} />
                   </div>
                 </div>
               </div>
               <div>
                 <Lbl>Default Selling Price (LKR)</Lbl>
                 <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 5 }}>Ex. Tax</p>
-                <input type="number" min={0} style={S.input} placeholder="0.00" value={pricing.sellingEx} onChange={e => setPricing(p => ({ ...p, sellingEx: e.target.value }))} />
+                <input type="number" min={0} style={inputStyle} placeholder="0.00"
+                  value={pricing.sellingEx} onChange={e => setPricing(p => ({ ...p, sellingEx: e.target.value }))} />
               </div>
               <div>
                 <Lbl>Margin (%)</Lbl>
                 <div style={{ position: 'relative' }}>
-                  <input type="number" min={0} style={{ ...S.input, paddingRight: 32 }} placeholder="0.00" value={pricing.margin} onChange={e => setPricing(p => ({ ...p, margin: e.target.value }))} />
+                  <input type="number" min={0} style={{ ...inputStyle, paddingRight: 32 }} placeholder="0.00"
+                    value={pricing.margin} onChange={e => setPricing(p => ({ ...p, margin: e.target.value }))} />
                   <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'var(--text-muted)' }}>%</span>
                 </div>
               </div>
@@ -639,10 +647,10 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
         </div>
 
         {/* ══ 4. Additional Information ═════════════════════════════════ */}
-        <div style={S.card}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-            <div style={S.sectionNum}>4</div>
-            <p style={{ fontSize: 13, fontWeight: 700, color: '#2563eb', margin: 0 }}>
+        <div style={card}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+            <div style={sectionBadge}>4</div>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa', margin: 0 }}>
               Additional Information <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 12 }}>(Optional)</span>
             </p>
           </div>
@@ -664,11 +672,11 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
             </div>
             <div>
               <Lbl>HS Code</Lbl>
-              <input style={S.input} placeholder="Enter HS code" value={extra.hsCode} onChange={e => setExtra(p => ({ ...p, hsCode: e.target.value }))} />
+              <input style={inputStyle} placeholder="Enter HS code" value={extra.hsCode} onChange={e => setExtra(p => ({ ...p, hsCode: e.target.value }))} />
             </div>
             <div>
               <Lbl>Tags</Lbl>
-              <input style={S.input} placeholder="Enter tags" value={extra.tags} onChange={e => setExtra(p => ({ ...p, tags: e.target.value }))} />
+              <input style={inputStyle} placeholder="Enter tags" value={extra.tags} onChange={e => setExtra(p => ({ ...p, tags: e.target.value }))} />
               <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>Press enter to add</p>
             </div>
           </div>
@@ -677,7 +685,6 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
         <div style={{ height: 24 }} />
       </div>
 
-      {/* backdrop click to close dropdowns */}
       {(colorDd || storageDd) && <div style={{ position: 'fixed', inset: 0, zIndex: 30 }} onClick={closeDds} />}
     </div>
   )
