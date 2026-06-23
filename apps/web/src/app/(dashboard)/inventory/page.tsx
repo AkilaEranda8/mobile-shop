@@ -2,7 +2,7 @@
 
 import { useState, useRef, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Package, AlertTriangle, Download, Upload, QrCode, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, ImageOff, RotateCcw } from 'lucide-react'
+import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, RotateCcw } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -14,6 +14,7 @@ import type { Product, Category } from '@/types'
 import toast from 'react-hot-toast'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
+import { AddProductModal } from '@/components/inventory/AddProductModal'
 
 /* ── CSV Export ─────────────────────────────────────────────────────── */
 function exportProductsCSV(products: Product[]) {
@@ -414,105 +415,7 @@ function ProductImagePicker({ imageUrl, onUploaded }: { imageUrl: string; onUplo
   )
 }
 
-function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const { data: cats, refetch: refetchCats } = useCategories()
-  const categories: Category[] = (cats ?? []) as Category[]
-  const [showAddCat, setShowAddCat] = useState(false)
-  const [form, setForm] = useState({ name: '', sku: '', categoryName: '', brandName: '', buyingPrice: '', sellingPrice: '', stock: '', minStock: '5', description: '', imageUrl: '' })
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(p => ({ ...p, [k]: e.target.value }))
-
-  useEffect(() => {
-    if (categories.length > 0 && !form.categoryName) {
-      setForm(p => ({ ...p, categoryName: categories[0].name }))
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categories.length])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true); setError('')
-    try {
-      await productsApi.create({
-        ...form,
-        buyingPrice: Number(form.buyingPrice),
-        sellingPrice: Number(form.sellingPrice),
-        stock: Number(form.stock),
-        minStock: Number(form.minStock),
-        imageUrl: form.imageUrl || undefined,
-      })
-      onSaved(); onClose()
-    } catch (err: any) { setError(err.message || 'Failed to create product') }
-    finally { setLoading(false) }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
-          <h3 className="text-base font-semibold text-white">Add Product</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors"><X size={16} /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <ProductImagePicker imageUrl={form.imageUrl} onUploaded={url => setForm(p => ({ ...p, imageUrl: url }))} />
-            <div className="col-span-2">
-              <label className="block text-xs text-slate-400 mb-1.5">Product Name *</label>
-              <input required className="input-field" placeholder="iPhone 15 Pro Max 256GB" value={form.name} onChange={f('name')} />
-            </div>
-            <div>
-              <label className="block text-xs text-slate-400 mb-1.5">SKU *</label>
-              <input required className="input-field" placeholder="IP15PM-256-BLK" value={form.sku} onChange={f('sku')} />
-            </div>
-            <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Brand</label>
-              <input className="input-field" placeholder="Apple" value={form.brandName} onChange={f('brandName')} />
-            </div>
-            <div className="col-span-2">
-              <label className="block text-xs text-slate-400 mb-1.5">Category</label>
-              <div className="flex gap-2">
-                <select className="input-field flex-1" value={form.categoryName} onChange={f('categoryName')}>
-                  {categories.map(c => <option key={c.id} value={c.name}>{c.icon ? `${c.icon} ` : ''}{c.name}</option>)}
-                </select>
-                <button type="button" onClick={() => setShowAddCat(true)}
-                  className="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors hover:bg-violet-500/10 hover:text-violet-500"
-                  style={{ border: '1px solid var(--border-default)', color: 'var(--text-muted)' }}
-                  title="Add new category">
-                  <Plus size={15} />
-                </button>
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Buying Price (LKR) *</label>
-              <input required type="number" min="0" className="input-field" placeholder="75000" value={form.buyingPrice} onChange={f('buyingPrice')} />
-            </div>
-            <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Selling Price (LKR) *</label>
-              <input required type="number" min="0" className="input-field" placeholder="89999" value={form.sellingPrice} onChange={f('sellingPrice')} />
-            </div>
-            <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Stock Qty *</label>
-              <input required type="number" min="0" className="input-field" placeholder="10" value={form.stock} onChange={f('stock')} />
-            </div>
-            <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Min Stock Alert</label>
-              <input type="number" min="0" className="input-field" placeholder="5" value={form.minStock} onChange={f('minStock')} />
-            </div>
-          </div>
-          {error && <p className="text-xs text-red-400">{error}</p>}
-          <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
-            <button type="submit" disabled={loading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
-              {loading ? <Loader2 size={14} className="animate-spin" /> : null}Add Product
-            </button>
-          </div>
-        </form>
-      </div>
-      {showAddCat && <AddCategoryModal onClose={() => setShowAddCat(false)} onSaved={cat => { refetchCats(); setForm(p => ({ ...p, categoryName: cat.name })) }} />}
-    </div>
-  )
-}
+// AddProductModal is imported from @/components/inventory/AddProductModal
 
 function EditProductModal({ product, onClose, onSaved }: { product: Product; onClose: () => void; onSaved: () => void }) {
   const { data: cats, refetch: refetchCats } = useCategories()
