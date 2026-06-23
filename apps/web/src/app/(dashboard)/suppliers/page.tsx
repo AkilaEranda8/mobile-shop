@@ -792,7 +792,7 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="rounded-2xl w-full max-w-xl shadow-2xl max-h-[90vh] overflow-y-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+      <div className="rounded-2xl w-full max-w-4xl shadow-2xl max-h-[92vh] overflow-y-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
         <div className="flex items-center justify-between p-5 border-b sticky top-0" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
           <h3 className="text-base font-semibold text-white">New Purchase Order</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
@@ -870,159 +870,79 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
               )}
             </div>
 
-            {/* Column headers — only show for non-card view */}
-            <div className="hidden" />
+            {/* Column headers */}
+            <div className="grid grid-cols-12 gap-3 mb-1 px-2">
+              <span className="col-span-5 text-[10px] text-slate-600 uppercase tracking-wide">Product</span>
+              <span className="col-span-2 text-[10px] text-slate-600 uppercase tracking-wide text-center">Qty</span>
+              <span className="col-span-3 text-[10px] text-slate-600 uppercase tracking-wide">Unit Cost</span>
+              <span className="col-span-2 text-[10px] text-slate-600 uppercase tracking-wide text-right">Total</span>
+            </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {items.map((item, i) => (
-                <div key={i} className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)', background: 'rgba(255,255,255,0.02)' }}>
+                <div key={i} className="rounded-xl border overflow-visible" style={{ borderColor: 'var(--border-subtle)', background: 'rgba(255,255,255,0.02)' }}>
 
-                  {/* ── Row: Product search + delete ── */}
-                  <div className="flex items-center gap-2 px-3 pt-3 pb-2">
-                    <div className="flex-1 relative">
-                      <input
-                        required
-                        className="input-field text-sm w-full"
-                        placeholder="Search product..."
-                        value={searches[i] ?? ''}
-                        onFocus={() => setOpenIdx(i)}
-                        onChange={e => {
-                          const v = e.target.value
-                          setSearches(prev => prev.map((s, idx) => idx === i ? v : s))
-                          setItems(prev => prev.map((row, idx) => idx === i ? { ...row, productName: v, productId: '', _variations: [] } : row))
-                          setOpenIdx(i)
-                        }}
-                        onBlur={() => setTimeout(() => setOpenIdx(null), 150)}
-                      />
-                      {openIdx === i && getFiltered(i).length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-1 rounded-xl shadow-2xl z-50 overflow-hidden max-h-48 overflow-y-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                          {getFiltered(i).map((p: any) => (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onMouseDown={() => selectProduct(i, p)}
-                              className="w-full px-3 py-2.5 text-left hover:bg-violet-500/10 transition-colors flex items-center justify-between gap-2"
-                              style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
-                            >
-                              <div className="min-w-0">
-                                <p className="text-xs text-slate-200 truncate font-medium">{p.name}</p>
-                                <p className="text-[10px] text-slate-500">{p.sku}{p.brandName ? ` · ${p.brandName}` : ''}</p>
-                              </div>
-                              <div className="text-right flex-shrink-0">
-                                <p className="text-[10px] text-violet-400 font-semibold">{formatCurrency(p.buyingPrice)}</p>
-                                <p className="text-[10px] text-slate-600">stock: {p.stock}</p>
-                              </div>
-                            </button>
-                          ))}
-                          {allProducts.length === 0 && (
-                            <p className="text-xs text-slate-500 px-3 py-2">No products in inventory</p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <button type="button" onClick={() => removeItem(i)} disabled={items.length === 1}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-600 hover:text-red-400 hover:bg-red-400/10 disabled:opacity-20 transition-all flex-shrink-0">
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
+                  {/* ── Main row ── */}
+                  <div className="grid grid-cols-12 gap-3 items-start p-2">
 
-                  {/* ── Variation selectors (only when product has variants) ── */}
-                  {(item._variations?.length ?? 0) > 0 && (() => {
-                    const vars = item._variations!
-                    const storageOpts = [...new Set(vars.map((v: any) => v.storage as string))]
-                    const colorOpts = vars.filter((v: any) => v.storage === item.storage)
-                    return (
-                      <div className="px-3 pb-2 space-y-2" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                        {/* Storage pills */}
-                        <div className="pt-2">
-                          <p className="text-[9px] font-bold uppercase tracking-widest text-slate-600 mb-1.5">Storage</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {storageOpts.map(s => (
-                              <button key={s} type="button"
-                                onClick={() => {
-                                  const firstColorForStorage = vars.find((v: any) => v.storage === s)
-                                  setItems(prev => prev.map((row, idx) => idx === i ? {
-                                    ...row,
-                                    storage:   s,
-                                    colorName: firstColorForStorage?.colorName ?? '',
-                                    sku:       firstColorForStorage?.sku ?? '',
-                                    unitCost:  firstColorForStorage?.costPrice ?? row.unitCost,
-                                  } : row))
-                                }}
-                                className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all"
-                                style={item.storage === s
-                                  ? { background: 'rgba(139,92,246,0.2)', borderColor: 'rgba(139,92,246,0.5)', color: '#c4b5fd' }
-                                  : { background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', color: '#64748b' }}>
-                                {s}
+                    {/* Product search */}
+                    <div className="col-span-5">
+                      <div className="relative">
+                        <input
+                          required
+                          className="input-field text-sm w-full"
+                          placeholder="Search product..."
+                          value={searches[i] ?? ''}
+                          onFocus={() => setOpenIdx(i)}
+                          onChange={e => {
+                            const v = e.target.value
+                            setSearches(prev => prev.map((s, idx) => idx === i ? v : s))
+                            setItems(prev => prev.map((row, idx) => idx === i ? { ...row, productName: v, productId: '', _variations: [] } : row))
+                            setOpenIdx(i)
+                          }}
+                          onBlur={() => setTimeout(() => setOpenIdx(null), 150)}
+                        />
+                        {openIdx === i && getFiltered(i).length > 0 && (
+                          <div className="absolute top-full left-0 right-0 mt-1 rounded-xl shadow-2xl z-50 overflow-hidden max-h-48 overflow-y-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                            {getFiltered(i).map((p: any) => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onMouseDown={() => selectProduct(i, p)}
+                                className="w-full px-3 py-2.5 text-left hover:bg-violet-500/10 transition-colors flex items-center justify-between gap-2"
+                                style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                              >
+                                <div className="min-w-0">
+                                  <p className="text-xs text-slate-200 truncate font-medium">{p.name}</p>
+                                  <p className="text-[10px] text-slate-500">{p.sku}{p.brandName ? ` · ${p.brandName}` : ''}</p>
+                                </div>
+                                <div className="text-right flex-shrink-0">
+                                  <p className="text-[10px] text-violet-400 font-semibold">{formatCurrency(p.buyingPrice)}</p>
+                                  <p className="text-[10px] text-slate-600">stock: {p.stock}</p>
+                                </div>
                               </button>
                             ))}
-                          </div>
-                        </div>
-
-                        {/* Color pills */}
-                        <div>
-                          <p className="text-[9px] font-bold uppercase tracking-widest text-slate-600 mb-1.5">Color</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {colorOpts.map((v: any) => (
-                              <button key={v.colorName} type="button"
-                                onClick={() => {
-                                  setItems(prev => prev.map((row, idx) => idx === i ? {
-                                    ...row,
-                                    colorName: v.colorName,
-                                    sku:       v.sku ?? row.sku,
-                                    unitCost:  v.costPrice ?? row.unitCost,
-                                  } : row))
-                                }}
-                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all"
-                                style={item.colorName === v.colorName
-                                  ? { background: 'rgba(139,92,246,0.2)', borderColor: 'rgba(139,92,246,0.5)', color: '#c4b5fd' }
-                                  : { background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', color: '#64748b' }}>
-                                {/* colour dot */}
-                                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-white/20"
-                                  style={{ background: (() => {
-                                    const n = v.colorName.toLowerCase()
-                                    if (n.includes('black')) return '#1a1a1a'
-                                    if (n.includes('white') || n.includes('silver') || n.includes('star')) return '#e2e8f0'
-                                    if (n.includes('gold') || n.includes('yellow')) return '#f59e0b'
-                                    if (n.includes('red') || n.includes('rose')) return '#ef4444'
-                                    if (n.includes('blue') || n.includes('sky')) return '#3b82f6'
-                                    if (n.includes('green') || n.includes('midnight')) return '#10b981'
-                                    if (n.includes('purple') || n.includes('violet')) return '#8b5cf6'
-                                    if (n.includes('pink')) return '#ec4899'
-                                    if (n.includes('orange')) return '#f97316'
-                                    return '#6b7280'
-                                  })() }} />
-                                {v.colorName}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* SKU chip */}
-                        {item.sku && (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[9px] font-bold uppercase tracking-widest text-slate-600">SKU</span>
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-md text-violet-400" style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)' }}>{item.sku}</span>
+                            {allProducts.length === 0 && (
+                              <p className="text-xs text-slate-500 px-3 py-2">No products in inventory</p>
+                            )}
                           </div>
                         )}
                       </div>
-                    )
-                  })()}
+                    </div>
 
-                  {/* ── Row: Qty + Unit Cost + Total ── */}
-                  <div className="flex items-center gap-2 px-3 pb-3 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div className="flex-none">
-                      <p className="text-[9px] font-bold uppercase tracking-widest text-slate-600 mb-1">Qty</p>
+                    {/* Qty */}
+                    <div className="col-span-2">
                       <input
                         required type="number" min="1"
-                        className="input-field text-sm text-center w-16"
+                        className="input-field text-sm text-center w-full"
                         placeholder="1"
                         value={item.quantity}
                         onChange={e => updateItem(i, 'quantity', e.target.value)}
                       />
                     </div>
-                    <div className="flex-1">
-                      <p className="text-[9px] font-bold uppercase tracking-widest text-slate-600 mb-1">Unit Cost</p>
+
+                    {/* Unit Cost */}
+                    <div className="col-span-3">
                       <input
                         required type="number" min="0"
                         className="input-field text-sm w-full"
@@ -1031,10 +951,101 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
                         onChange={e => updateItem(i, 'unitCost', e.target.value)}
                       />
                     </div>
-                    <div className="flex-none text-right pt-4">
-                      <p className="text-sm font-bold text-white">{formatCurrency(Number(item.quantity) * Number(item.unitCost))}</p>
+
+                    {/* Total + delete */}
+                    <div className="col-span-2 flex items-center justify-end gap-2 pt-1">
+                      <span className="text-sm font-bold text-white">{formatCurrency(Number(item.quantity) * Number(item.unitCost))}</span>
+                      <button type="button" onClick={() => removeItem(i)} disabled={items.length === 1}
+                        className="w-6 h-6 rounded-lg flex items-center justify-center text-slate-600 hover:text-red-400 hover:bg-red-400/10 disabled:opacity-20 transition-all flex-shrink-0">
+                        <Trash2 size={12} />
+                      </button>
                     </div>
                   </div>
+
+                  {/* ── Variation selectors (only when product has variants) ── */}
+                  {(item._variations?.length ?? 0) > 0 && (() => {
+                    const vars = item._variations!
+                    const storageOpts = [...new Set(vars.map((v: any) => v.storage as string))]
+                    const colorOpts = vars.filter((v: any) => v.storage === item.storage)
+                    return (
+                      <div className="px-3 pb-3 pt-0" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div className="flex flex-wrap items-start gap-4 pt-2">
+
+                          {/* Storage pills */}
+                          <div>
+                            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-600 mb-1.5">Storage</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {storageOpts.map(s => (
+                                <button key={s} type="button"
+                                  onClick={() => {
+                                    const firstColorForStorage = vars.find((v: any) => v.storage === s)
+                                    setItems(prev => prev.map((row, idx) => idx === i ? {
+                                      ...row,
+                                      storage:   s,
+                                      colorName: firstColorForStorage?.colorName ?? '',
+                                      sku:       firstColorForStorage?.sku ?? '',
+                                      unitCost:  firstColorForStorage?.costPrice ?? row.unitCost,
+                                    } : row))
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all"
+                                  style={item.storage === s
+                                    ? { background: 'rgba(139,92,246,0.2)', borderColor: 'rgba(139,92,246,0.5)', color: '#c4b5fd' }
+                                    : { background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', color: '#64748b' }}>
+                                  {s}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Color pills */}
+                          <div>
+                            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-600 mb-1.5">Color</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {colorOpts.map((v: any) => (
+                                <button key={v.colorName} type="button"
+                                  onClick={() => {
+                                    setItems(prev => prev.map((row, idx) => idx === i ? {
+                                      ...row,
+                                      colorName: v.colorName,
+                                      sku:       v.sku ?? row.sku,
+                                      unitCost:  v.costPrice ?? row.unitCost,
+                                    } : row))
+                                  }}
+                                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all"
+                                  style={item.colorName === v.colorName
+                                    ? { background: 'rgba(139,92,246,0.2)', borderColor: 'rgba(139,92,246,0.5)', color: '#c4b5fd' }
+                                    : { background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', color: '#64748b' }}>
+                                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-white/20"
+                                    style={{ background: (() => {
+                                      const n = v.colorName.toLowerCase()
+                                      if (n.includes('black')) return '#1a1a1a'
+                                      if (n.includes('white') || n.includes('silver') || n.includes('star')) return '#e2e8f0'
+                                      if (n.includes('gold') || n.includes('yellow')) return '#f59e0b'
+                                      if (n.includes('red') || n.includes('rose')) return '#ef4444'
+                                      if (n.includes('blue') || n.includes('sky')) return '#3b82f6'
+                                      if (n.includes('green') || n.includes('midnight')) return '#10b981'
+                                      if (n.includes('purple') || n.includes('violet')) return '#8b5cf6'
+                                      if (n.includes('pink')) return '#ec4899'
+                                      if (n.includes('orange')) return '#f97316'
+                                      return '#6b7280'
+                                    })() }} />
+                                  {v.colorName}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* SKU chip */}
+                          {item.sku && (
+                            <div className="flex items-start gap-1.5 pt-4">
+                              <span className="text-[9px] font-bold uppercase tracking-widest text-slate-600 mt-0.5">SKU</span>
+                              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md text-violet-400" style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)' }}>{item.sku}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })()}
 
                 </div>
               ))}
