@@ -356,7 +356,8 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
     <div className="fixed inset-0 z-50 overflow-y-auto"
       style={{ background: 'var(--bg-page, #0f1629)' }}>
       <div className="min-h-screen">
-        {/* ── Top Header ── */}
+
+        {/* ── Sticky Header ── */}
         <div className="sticky top-0 z-20 flex items-center justify-between px-6 py-3.5"
           style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border-subtle)' }}>
           <div className="flex items-center gap-3">
@@ -380,7 +381,9 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
             >
               {loading ? <Loader2 size={14} className="animate-spin" /> : (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17,21 17,13 7,13 7,21" /><polyline points="7,3 7,8 15,8" />
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                  <polyline points="17,21 17,13 7,13 7,21" />
+                  <polyline points="7,3 7,8 15,8" />
                 </svg>
               )}
               Save Product
@@ -842,11 +845,6 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
           <div className="h-6" />
         </div>
       </div>
-
-      {/* Click outside dropdowns to close */}
-      {(showColorDropdown || showStorageDropdown) && (
-        <div className="fixed inset-0 z-20" onClick={() => { setShowColorDropdown(null); setShowStorageDropdown(null) }} />
-      )}
     </div>
   )
 }
