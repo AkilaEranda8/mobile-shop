@@ -284,26 +284,22 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
 
   /* ── Render ────────────────────────────────────────────────────────────── */
   return (
-    <div style={{ minHeight: '100%', background: 'var(--bg-page)', margin: '-24px', padding: 0 }}>
-
-      {/* ── Sticky Header ──────────────────────────────────────────────── */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 20, display: 'flex', alignItems: 'center',
-        justifyContent: 'space-between', padding: '12px 28px',
-        background: 'var(--bg-card)', borderBottom: '1px solid var(--border-subtle)',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={onClose} style={{ padding: 6, borderRadius: 8, background: 'var(--bg-subtle)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}>
-            <ArrowLeft size={16} />
+    <div className="space-y-6 pb-8">
+      {/* ── Header ──────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="flex items-center gap-3">
+          <button onClick={onClose} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 transition-colors">
+            <ArrowLeft size={18} />
           </button>
           <div>
-            <h1 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Add New Product</h1>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0 }}>Add a new product with model (storage) and color variations</p>
+            <h1 className="page-title">Add New Product</h1>
+            <p className="page-subtitle">Add a new product with model (storage) and color variations</p>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} style={{ ...btn, background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>Cancel</button>
+        <div className="flex flex-wrap gap-2 sm:ml-auto">
+          <button onClick={onClose} className="btn-secondary text-sm">Cancel</button>
           <button onClick={submit} disabled={loading || !form.name.trim() || !form.sku.trim()}
-            style={{ ...btn, background: '#2563eb', color: '#fff', border: 'none', opacity: (loading || !form.name.trim() || !form.sku.trim()) ? 0.6 : 1 }}>
+            className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
             {loading ? <Loader2 size={14} className="animate-spin" /> : (
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
@@ -316,7 +312,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
       </div>
 
       {/* ── Content ────────────────────────────────────────────────────── */}
-      <div style={{ maxWidth: 1400, margin: '0 auto', padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div className="flex flex-col gap-6">
 
         {/* ══ 1. Basic Information ══════════════════════════════════════ */}
         <div style={card}>
@@ -682,9 +678,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
           </div>
         </div>
 
-        <div style={{ height: 24 }} />
       </div>
-
       {(colorDd || storageDd) && <div style={{ position: 'fixed', inset: 0, zIndex: 30 }} onClick={closeDds} />}
     </div>
   )
