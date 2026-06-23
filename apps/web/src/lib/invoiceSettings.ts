@@ -20,7 +20,7 @@ export interface InvoiceSettings {
   signatoryTitle:   string
   footerNote:       string
   bankDetails:      string
-  thermalWidthPOS:    '58mm' | '80mm'
+  thermalWidthPOS:    '58mm' | '80mm' | 'stockForm'
   thermalWidthRepair: '58mm' | '80mm'
   thermalShowLogo:      boolean
   thermalShowSlogan:    boolean

@@ -57,15 +57,21 @@ export default function ThermalReceiptCustomizer({ settings, onChange, showPrevi
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs text-slate-400 mb-2">POS paper width</label>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               {(['58mm', '80mm'] as const).map(w => (
                 <button key={w} type="button" onClick={() => onChange({ thermalWidthPOS: w })}
                   className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${settings.thermalWidthPOS === w ? 'bg-violet-600 border-violet-500 text-white' : 'bg-white/5 border-white/10 text-slate-400 hover:border-violet-500/40'}`}>
                   {w}
                 </button>
               ))}
+              <button type="button" onClick={() => onChange({ thermalWidthPOS: 'stockForm' })}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all whitespace-nowrap ${settings.thermalWidthPOS === 'stockForm' ? 'bg-violet-600 border-violet-500 text-white' : 'bg-white/5 border-white/10 text-slate-400 hover:border-violet-500/40'}`}
+                title="9.5&quot; × 11&quot; dot-matrix continuous form paper (241 mm × 279 mm)">
+                9.5″×11″
+              </button>
             </div>
           </div>
+
           <div>
             <label className="block text-xs text-slate-400 mb-2">Repair paper width</label>
             <div className="flex gap-2">

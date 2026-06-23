@@ -29,6 +29,7 @@ import { buildOfflineInvoiceNumber, queueOfflineSale } from '@/lib/offline/queue
 import { isBrowserOnline, isNetworkError } from '@/lib/offline/sync'
 import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrint'
 import { printThermalReceipt } from '@/components/invoice/ThermalReceipt'
+import { printStockFormInvoice } from '@/components/invoice/StockFormInvoice'
 import { whatsappApi } from '@/lib/whatsapp-api'
 import { Switch } from '@/components/ui/Switch'
 
@@ -961,7 +962,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         const res: any = await salesApi.getById(sale.id)
         saleData = res?.data ?? res
       }
-      printThermalReceipt({
+      const reprintData = {
         invoiceNumber: saleData.invoiceNumber,
         createdAt: saleData.createdAt,
         customerName: saleData.customerName ?? 'Walk-in Customer',
@@ -970,10 +971,17 @@ function POSContent({ onClose }: { onClose: () => void }) {
         subtotal: saleData.subtotal ?? saleData.total,
         discountAmount: saleData.discount ?? 0,
         total: saleData.total,
+        payments: saleData.payments,
         paymentMethod: saleData.payments?.[0]?.method,
         cashReceived: undefined,
         changeAmount: undefined,
-      }, invoiceSettings, thermalShopCtx)
+        dueAmount: saleData.dueAmount,
+      }
+      if (invoiceSettings.thermalWidthPOS === 'stockForm') {
+        printStockFormInvoice(reprintData, invoiceSettings, thermalShopCtx)
+      } else {
+        printThermalReceipt(reprintData, invoiceSettings, thermalShopCtx)
+      }
       toast.success('Receipt sent to printer')
     } catch {
       toast.error('Could not print invoice')
@@ -2375,8 +2383,15 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   <button onClick={() => setShowA4Invoice(true)} className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold rounded-xl bg-white/5 text-slate-200 hover:bg-white/10 border border-white/10 transition-colors">
                     <Receipt size={12} /> A4 Invoice
                   </button>
-                  <button onClick={() => printThermalReceipt({ invoiceNumber: completedSale.invoiceNumber, createdAt: completedSale.createdAt, customerName: completedSale.customerName, customerPhone: completedSale.customerPhone, items: completedSale.items ?? [], subtotal, discountAmount, total: completedSale.total ?? saleTotal, paymentMethod: completedSale.paymentMethod, cashReceived: completedSale.cashReceived, changeAmount: completedSale.changeAmount, warrantyNumbers: completedSale.warrantyNumbers, warrantyMonths: completedSale.warrantyMonths }, invoiceSettings, thermalShopCtx)} className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors">
-                    <Printer size={12} /> Thermal Print
+                  <button onClick={() => {
+                    const saleData = { invoiceNumber: completedSale.invoiceNumber, createdAt: completedSale.createdAt, customerName: completedSale.customerName, customerPhone: completedSale.customerPhone, cashierName: completedSale.cashierName, items: completedSale.items ?? [], subtotal, discountAmount, total: completedSale.total ?? saleTotal, payments: completedSale.payments, paymentMethod: completedSale.paymentMethod, cashReceived: completedSale.cashReceived, changeAmount: completedSale.changeAmount, warrantyNumbers: completedSale.warrantyNumbers, warrantyMonths: completedSale.warrantyMonths, dueAmount: completedSale.dueAmount }
+                    if (invoiceSettings.thermalWidthPOS === 'stockForm') {
+                      printStockFormInvoice(saleData, invoiceSettings, thermalShopCtx)
+                    } else {
+                      printThermalReceipt(saleData, invoiceSettings, thermalShopCtx)
+                    }
+                  }} className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors">
+                    <Printer size={12} /> {invoiceSettings.thermalWidthPOS === 'stockForm' ? 'Stock Form Print' : 'Thermal Print'}
                   </button>
                 </div>
                 <button onClick={downloadInvoice} disabled={downloading} className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-semibold rounded-xl bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 border border-violet-500/20 transition-colors disabled:opacity-50">
