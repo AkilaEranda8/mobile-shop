@@ -72,6 +72,17 @@ export interface Branch {
 
 // ---- Inventory ----
 
+export interface ProductVariation {
+  id?: string
+  storage: string
+  colorName: string
+  colorHex: string
+  sku?: string
+  sellingPrice: number
+  costPrice: number
+  stock?: number
+}
+
 export interface Category {
   id: string
   name: string
@@ -108,6 +119,7 @@ export interface Product {
   branchId: string
   isActive: boolean
   createdAt: string
+  storageVariations?: ProductVariation[]
 }
 
 export interface ImeiRecord {

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, RotateCcw } from 'lucide-react'
+import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, RotateCcw, ChevronDown, ChevronUp, GripVertical } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -10,7 +10,7 @@ import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency } from '@/lib/utils'
 import { useProducts, useCategories } from '@/lib/hooks'
 import { productsApi, uploadApi } from '@/lib/api'
-import type { Product, Category } from '@/types'
+import type { Product, Category, ProductVariation } from '@/types'
 import toast from 'react-hot-toast'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
@@ -416,10 +416,30 @@ function ProductImagePicker({ imageUrl, onUploaded }: { imageUrl: string; onUplo
 
 // AddProductModal is imported from @/components/inventory/AddProductModal
 
+/* ── Variant constants (for Edit modal) ─────────────────────────────── */
+const EDIT_STORAGE_OPTS = ['16GB','32GB','64GB','128GB','256GB','512GB','1TB','2TB','Basic','Standard','Pro','Max','Plus','Lite']
+const EDIT_COLOR_OPTS = [
+  { name:'Black', hex:'#1a1a1a' }, { name:'White', hex:'#e5e5e5' },
+  { name:'Silver', hex:'#c0c0c0' }, { name:'Gold', hex:'#d4af6e' },
+  { name:'Blue', hex:'#2563eb' }, { name:'Red', hex:'#dc2626' },
+  { name:'Green', hex:'#16a34a' }, { name:'Purple', hex:'#7c3aed' },
+  { name:'Pink', hex:'#db2777' }, { name:'Yellow', hex:'#ca8a04' },
+  { name:'Orange', hex:'#ea580c' }, { name:'Titanium', hex:'#8a8a8a' },
+  { name:'Midnight', hex:'#1e1b4b' }, { name:'Starlight', hex:'#f0ebe3'},
+  { name:'Graphite', hex:'#374151' },
+]
+const genEditId = () => Math.random().toString(36).slice(2, 9)
+
+interface EditVariantRow {
+  id: string; storage: string; colorName: string; colorHex: string
+  sku: string; sellingPrice: string; costPrice: string
+}
+
 function EditProductModal({ product, onClose, onSaved }: { product: Product; onClose: () => void; onSaved: () => void }) {
   const { data: cats, refetch: refetchCats } = useCategories()
   const categories: Category[] = (cats ?? []) as Category[]
   const [showAddCat, setShowAddCat] = useState(false)
+  const [showVariants, setShowVariants] = useState(true)
   const [form, setForm] = useState({
     name: product.name, sku: product.sku,
     categoryName: product.categoryName ?? '',
@@ -430,6 +450,25 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // Load existing variants into edit state
+  const [variants, setVariants] = useState<EditVariantRow[]>(
+    (product.storageVariations ?? []).map(v => ({
+      id: v.id ?? genEditId(),
+      storage: v.storage,
+      colorName: v.colorName,
+      colorHex: v.colorHex,
+      sku: v.sku ?? '',
+      sellingPrice: String(v.sellingPrice),
+      costPrice: String(v.costPrice),
+    }))
+  )
+
+  const addVariant = () => setVariants(p => [...p, { id: genEditId(), storage: '128GB', colorName: 'Black', colorHex: '#1a1a1a', sku: '', sellingPrice: '', costPrice: '' }])
+  const delVariant = (id: string) => setVariants(p => p.filter(v => v.id !== id))
+  const updVariant = (id: string, k: keyof EditVariantRow, val: string) => setVariants(p => p.map(v => v.id === id ? { ...v, [k]: val } : v))
+  const updColor = (id: string, name: string, hex: string) => setVariants(p => p.map(v => v.id === id ? { ...v, colorName: name, colorHex: hex } : v))
+
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(p => ({ ...p, [k]: e.target.value }))
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -441,20 +480,40 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
         buyingPrice: Number(form.buyingPrice), sellingPrice: Number(form.sellingPrice),
         mrp: Number(form.sellingPrice), stock: Number(form.stock), minStock: Number(form.minStock),
         imageUrl: form.imageUrl || undefined,
+        storageVariations: variants.map(v => ({
+          id: v.id,
+          storage: v.storage,
+          colorName: v.colorName,
+          colorHex: v.colorHex,
+          sku: v.sku || undefined,
+          sellingPrice: Number(v.sellingPrice) || 0,
+          costPrice: Number(v.costPrice) || 0,
+        })),
+        colorVariations: variants.map(v => ({ name: v.colorName, hex: v.colorHex })),
       })
       onSaved(); onClose()
     } catch (err: any) { setError(err.message || 'Failed to update') }
     finally { setLoading(false) }
   }
 
+  const inputSt: React.CSSProperties = {
+    width: '100%', height: 30, padding: '0 8px', borderRadius: 6,
+    fontSize: 11, outline: 'none',
+    background: 'var(--bg-subtle)',
+    border: '1px solid var(--border-default)',
+    color: 'var(--text-primary)', boxSizing: 'border-box',
+  }
+  const selSt: React.CSSProperties = { ...inputSt, paddingRight: 24, appearance: 'none', cursor: 'pointer' }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
           <h3 className="text-base font-semibold text-white">Edit Product</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors"><X size={16} /></button>
         </div>
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="p-5 space-y-5">
+          {/* Basic Fields */}
           <div className="grid grid-cols-2 gap-4">
             <ProductImagePicker imageUrl={form.imageUrl} onUploaded={url => setForm(p => ({ ...p, imageUrl: url }))} />
             <div className="col-span-2">
@@ -503,6 +562,118 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
               <input type="number" min="0" className="input-field" value={form.minStock} onChange={f('minStock')} />
             </div>
           </div>
+
+          {/* ── Variants Section ────────────────────────────────────── */}
+          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
+            <button
+              type="button"
+              onClick={() => setShowVariants(p => !p)}
+              className="w-full flex items-center justify-between px-4 py-3 text-left"
+              style={{ background: 'var(--bg-subtle)' }}
+            >
+              <div className="flex items-center gap-2">
+                <Layers size={13} className="text-violet-400" />
+                <span className="text-xs font-semibold text-violet-300">Variant Combinations</span>
+                {variants.length > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400 font-medium">
+                    {variants.length}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={e => { e.stopPropagation(); addVariant() }}
+                  className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg bg-violet-600 text-white hover:bg-violet-500 transition-colors"
+                >
+                  <Plus size={11} /> Add
+                </button>
+                {showVariants ? <ChevronUp size={14} className="text-slate-400" /> : <ChevronDown size={14} className="text-slate-400" />}
+              </div>
+            </button>
+
+            {showVariants && (
+              <div className="p-3">
+                {variants.length === 0 ? (
+                  <div className="text-center py-6">
+                    <Layers size={18} className="text-slate-600 mx-auto mb-2" />
+                    <p className="text-xs text-slate-500">No variants yet — click "Add" to create Storage × Color combinations</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                      <thead>
+                        <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
+                          {['#', 'Storage', 'Color', 'SKU', 'Sell Price', 'Cost Price', ''].map((h, i) => (
+                            <th key={i} style={{ padding: '7px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)', whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {variants.map((v, i) => (
+                          <tr key={v.id} style={{ borderBottom: i < variants.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                            <td style={{ padding: '6px 8px', color: 'var(--text-muted)', fontSize: 10 }}>{i + 1}</td>
+
+                            {/* Storage */}
+                            <td style={{ padding: '6px 4px' }}>
+                              <div style={{ position: 'relative' }}>
+                                <select value={v.storage} onChange={e => updVariant(v.id, 'storage', e.target.value)} style={selSt}>
+                                  {EDIT_STORAGE_OPTS.map(s => <option key={s}>{s}</option>)}
+                                  {!EDIT_STORAGE_OPTS.includes(v.storage) && <option value={v.storage}>{v.storage}</option>}
+                                </select>
+                                <ChevronDown size={10} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
+                              </div>
+                            </td>
+
+                            {/* Color */}
+                            <td style={{ padding: '6px 4px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                <span style={{ width: 12, height: 12, borderRadius: '50%', background: v.colorHex, border: '1px solid rgba(255,255,255,0.2)', flexShrink: 0, display: 'inline-block' }} />
+                                <div style={{ position: 'relative', flex: 1 }}>
+                                  <select value={v.colorName} onChange={e => { const found = EDIT_COLOR_OPTS.find(c => c.name === e.target.value); if (found) updColor(v.id, found.name, found.hex) }} style={selSt}>
+                                    {EDIT_COLOR_OPTS.map(c => <option key={c.name}>{c.name}</option>)}
+                                  </select>
+                                  <ChevronDown size={10} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* SKU */}
+                            <td style={{ padding: '6px 4px' }}>
+                              <input style={{ ...inputSt, fontFamily: 'monospace' }}
+                                placeholder={`${(form.sku || 'SKU').toUpperCase()}-${v.storage.replace(/\s/g, '')}-${v.colorName.slice(0, 3).toUpperCase()}`}
+                                value={v.sku} onChange={e => updVariant(v.id, 'sku', e.target.value)} />
+                            </td>
+
+                            {/* Sell Price */}
+                            <td style={{ padding: '6px 4px' }}>
+                              <input type="number" min={0} style={inputSt} placeholder="0.00"
+                                value={v.sellingPrice} onChange={e => updVariant(v.id, 'sellingPrice', e.target.value)} />
+                            </td>
+
+                            {/* Cost Price */}
+                            <td style={{ padding: '6px 4px' }}>
+                              <input type="number" min={0} style={inputSt} placeholder="0.00"
+                                value={v.costPrice} onChange={e => updVariant(v.id, 'costPrice', e.target.value)} />
+                            </td>
+
+                            {/* Delete */}
+                            <td style={{ padding: '6px 8px' }}>
+                              <button type="button" onClick={() => delVariant(v.id)}
+                                style={{ padding: 5, borderRadius: 5, background: 'rgba(239,68,68,0.1)', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'flex' }}>
+                                <Trash2 size={11} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {error && <p className="text-xs text-red-400">{error}</p>}
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
@@ -524,6 +695,8 @@ function ProductDetailModal({ product, onClose, onEdit }: { product: Product; on
   const stockValue = product.buyingPrice * product.stock
   const isOut = product.stock === 0
   const isLow = product.stock < product.minStock && product.stock > 0
+  const variations = product.storageVariations ?? []
+  const [showVars, setShowVars] = useState(true)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -564,9 +737,14 @@ function ProductDetailModal({ product, onClose, onEdit }: { product: Product; on
           {/* Name + brand */}
           <div>
             <h2 className="text-lg font-bold text-white leading-tight">{product.name}</h2>
-            <div className="flex items-center gap-2 mt-1.5">
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
               {p.brandName && <span className="text-[11px] px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300">{p.brandName}</span>}
               {p.categoryName && <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-500/10 border border-slate-500/20 text-slate-400">{p.categoryName}</span>}
+              {variations.length > 0 && (
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400">
+                  {variations.length} variant{variations.length > 1 ? 's' : ''}
+                </span>
+              )}
               <span className={`text-[11px] px-2 py-0.5 rounded-full border ${
                 isOut ? 'bg-red-500/10 border-red-500/20 text-red-400'
                 : isLow ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'
@@ -627,10 +805,82 @@ function ProductDetailModal({ product, onClose, onEdit }: { product: Product; on
               </div>
             ))}
           </div>
+
+          {/* ── Variants Panel ─────────────────────────────────────── */}
+          {variations.length > 0 && (
+            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
+              <button
+                type="button"
+                onClick={() => setShowVars(p => !p)}
+                className="w-full flex items-center justify-between px-4 py-3"
+                style={{ background: 'var(--bg-subtle)' }}
+              >
+                <div className="flex items-center gap-2">
+                  <Layers size={13} className="text-violet-400" />
+                  <span className="text-xs font-semibold text-violet-300">Variants</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400 font-medium">{variations.length}</span>
+                </div>
+                {showVars ? <ChevronUp size={14} className="text-slate-400" /> : <ChevronDown size={14} className="text-slate-400" />}
+              </button>
+
+              {showVars && (
+                <div className="p-3 overflow-x-auto">
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                    <thead>
+                      <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
+                        {['Storage', 'Color', 'SKU', 'Sell Price', 'Cost'].map((h, i) => (
+                          <th key={i} style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)', whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {variations.map((v, i) => (
+                        <tr key={v.id ?? i} style={{ borderBottom: i < variations.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                          <td style={{ padding: '8px 10px' }}>
+                            <span className="text-[11px] px-2 py-0.5 rounded-md font-medium" style={{ background: 'rgba(124,58,237,0.1)', color: '#a78bfa' }}>{v.storage}</span>
+                          </td>
+                          <td style={{ padding: '8px 10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ width: 12, height: 12, borderRadius: '50%', background: v.colorHex, border: '1px solid rgba(255,255,255,0.2)', flexShrink: 0, display: 'inline-block' }} />
+                              <span style={{ color: 'var(--text-primary)', fontSize: 11 }}>{v.colorName}</span>
+                            </div>
+                          </td>
+                          <td style={{ padding: '8px 10px', fontFamily: 'monospace', color: 'var(--text-muted)', fontSize: 10 }}>
+                            {v.sku ?? '—'}
+                          </td>
+                          <td style={{ padding: '8px 10px', fontWeight: 700, color: '#a78bfa' }}>
+                            {formatCurrency(v.sellingPrice)}
+                          </td>
+                          <td style={{ padding: '8px 10px', color: 'var(--text-muted)' }}>
+                            {formatCurrency(v.costPrice)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
   )
+}
+
+/* ── Flat row type for the table (product + optional variation) ─────── */
+interface FlatRow {
+  key: string           // unique row key
+  product: Product      // parent product
+  variation?: ProductVariation  // undefined = no variants / single product row
+  // Computed display fields
+  displaySku: string
+  displayPrice: number
+  displayStock: number
+  displayMinStock: number
+  displayName: string   // includes Storage / Color label if variant
+  categoryName: string
+  brandName: string
 }
 
 export default function InventoryPage() {
@@ -661,6 +911,45 @@ export default function InventoryPage() {
     if (statusFilter === 'in' && !(p.stock >= p.minStock)) return false
     return true
   }), [products, categoryFilter, brandFilter, statusFilter])
+
+  /* Flatten: each variant becomes its own table row */
+  const flatRows = useMemo<FlatRow[]>(() => {
+    const rows: FlatRow[] = []
+    for (const product of filteredProducts) {
+      const vars = product.storageVariations ?? []
+      if (vars.length === 0) {
+        // No variants — single row
+        rows.push({
+          key: product.id,
+          product,
+          displaySku: product.sku,
+          displayPrice: product.sellingPrice,
+          displayStock: product.stock,
+          displayMinStock: product.minStock,
+          displayName: product.name,
+          categoryName: product.categoryName ?? '',
+          brandName: product.brandName ?? '',
+        })
+      } else {
+        // One row per variant
+        for (const v of vars) {
+          rows.push({
+            key: `${product.id}__${v.id ?? v.storage + v.colorName}`,
+            product,
+            variation: v,
+            displaySku: v.sku ?? product.sku,
+            displayPrice: v.sellingPrice,
+            displayStock: v.stock ?? product.stock,
+            displayMinStock: product.minStock,
+            displayName: product.name,
+            categoryName: product.categoryName ?? '',
+            brandName: product.brandName ?? '',
+          })
+        }
+      }
+    }
+    return rows
+  }, [filteredProducts])
 
   const hasActiveFilters = categoryFilter !== 'all' || brandFilter !== 'all' || statusFilter !== 'all'
 
@@ -697,52 +986,78 @@ export default function InventoryPage() {
     refetch()
   }
 
-  const columns = useMemo<ColumnDef<Product>[]>(() => [
+  const columns = useMemo<ColumnDef<FlatRow>[]>(() => [
     {
-      accessorKey: 'name',
+      id: 'name',
+      accessorFn: (row) => row.displayName,
       header: ({ column }) => <DataTableColumnHeader column={column} title="Product" />,
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg overflow-hidden border border-violet-500/20 flex items-center justify-center flex-shrink-0 bg-violet-500/10">
-            {row.original.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={row.original.imageUrl} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <Package size={14} className="text-violet-400" />
-            )}
+      cell: ({ row }) => {
+        const { product, variation } = row.original
+        return (
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg overflow-hidden border border-violet-500/20 flex items-center justify-center flex-shrink-0 bg-violet-500/10">
+              {product.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={product.imageUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <Package size={14} className="text-violet-400" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <button
+                className="text-sm font-medium text-slate-200 hover:text-violet-400 text-left transition-colors leading-tight"
+                onClick={() => setViewProduct(product)}
+              >
+                {product.name}
+              </button>
+              {variation ? (
+                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'rgba(124,58,237,0.15)', color: '#a78bfa' }}>
+                    {variation.storage}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: variation.colorHex, border: '1px solid rgba(255,255,255,0.2)', display: 'inline-block', flexShrink: 0 }} />
+                    <span className="text-[10px] text-slate-500">{variation.colorName}</span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500">{(product as any).brandName}</p>
+              )}
+            </div>
           </div>
-          <div>
-            <button className="text-sm font-medium text-slate-200 hover:text-violet-400 text-left transition-colors" onClick={() => setViewProduct(row.original)}>{row.original.name}</button>
-            <p className="text-xs text-slate-500">{(row.original as any).brandName}</p>
-          </div>
-        </div>
-      ),
+        )
+      },
     },
     {
-      accessorKey: 'sku',
+      id: 'sku',
+      accessorFn: (row) => row.displaySku,
       header: ({ column }) => <DataTableColumnHeader column={column} title="SKU" />,
-      cell: ({ row }) => <span className="text-xs font-mono text-slate-400">{row.original.sku}</span>,
+      cell: ({ row }) => <span className="text-xs font-mono text-slate-400">{row.original.displaySku}</span>,
     },
     {
       id: 'categoryName',
-      accessorFn: (row) => (row as any).categoryName ?? '',
+      accessorFn: (row) => (row.product as any).categoryName ?? '',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Category" />,
-      cell: ({ row }) => <span className="text-xs text-slate-400">{(row.original as any).categoryName}</span>,
+      cell: ({ row }) => <span className="text-xs text-slate-400">{(row.original.product as any).categoryName}</span>,
     },
     {
-      accessorKey: 'sellingPrice',
+      id: 'sellingPrice',
+      accessorFn: (row) => row.displayPrice,
       header: ({ column }) => <DataTableColumnHeader column={column} title="Price" />,
-      cell: ({ row }) => <span className="text-sm font-semibold text-white">{formatCurrency(row.original.sellingPrice)}</span>,
+      cell: ({ row }) => <span className="text-sm font-semibold text-white">{formatCurrency(row.original.displayPrice)}</span>,
     },
     {
-      accessorKey: 'stock',
+      id: 'stock',
+      accessorFn: (row) => row.displayStock,
       header: ({ column }) => <DataTableColumnHeader column={column} title="Stock" />,
       cell: ({ row }) => {
-        const isOut = row.original.stock === 0
-        const isLow = row.original.stock < row.original.minStock && row.original.stock > 0
+        const stock = row.original.displayStock
+        const minStock = row.original.displayMinStock
+        const isOut = stock === 0
+        const isLow = stock < minStock && stock > 0
         return (
           <div className="flex items-center gap-1.5">
-            <span className={`text-sm font-bold ${isOut ? 'text-red-400' : isLow ? 'text-yellow-400' : 'text-white'}`}>{row.original.stock}</span>
+            <span className={`text-sm font-bold ${isOut ? 'text-red-400' : isLow ? 'text-yellow-400' : 'text-white'}`}>{stock}</span>
             {isLow && <AlertTriangle size={10} className="text-yellow-500" />}
           </div>
         )
@@ -750,11 +1065,16 @@ export default function InventoryPage() {
     },
     {
       id: 'stockStatus',
-      accessorFn: (row) => row.stock === 0 ? 'Out of Stock' : row.stock < row.minStock ? 'Low Stock' : 'In Stock',
+      accessorFn: (row) => {
+        const stock = row.displayStock; const min = row.displayMinStock
+        return stock === 0 ? 'Out of Stock' : stock < min ? 'Low Stock' : 'In Stock'
+      },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
       cell: ({ row }) => {
-        const isOut = row.original.stock === 0
-        const isLow = row.original.stock < row.original.minStock && row.original.stock > 0
+        const stock = row.original.displayStock
+        const minStock = row.original.displayMinStock
+        const isOut = stock === 0
+        const isLow = stock < minStock && stock > 0
         return (
           <span className={`text-[11px] px-2 py-0.5 rounded-full border ${isOut ? 'bg-red-500/10 border-red-500/20 text-red-400' : isLow ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400' : 'bg-green-500/10 border-green-500/20 text-green-400'}`}>
             {isOut ? 'Out of Stock' : isLow ? 'Low Stock' : 'In Stock'}
@@ -766,9 +1086,9 @@ export default function InventoryPage() {
       id: 'actions',
       cell: ({ row }) => (
         <TableActionsRow
-          showAction={{ action: () => setViewProduct(row.original) }}
-          editAction={{ action: () => setEditProduct(row.original) }}
-          deleteAction={{ action: () => handleDelete(row.original.id, row.original.name) }}
+          showAction={{ action: () => setViewProduct(row.original.product) }}
+          editAction={{ action: () => setEditProduct(row.original.product) }}
+          deleteAction={{ action: () => handleDelete(row.original.product.id, row.original.product.name) }}
         />
       ),
     },
@@ -873,10 +1193,10 @@ export default function InventoryPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total SKUs',       value: filteredProducts.length,                                                         icon: Package,       color: 'violet' },
-          { label: 'Stock Value',      value: formatCurrency(filteredProducts.reduce((s, p) => s + p.buyingPrice * p.stock, 0)), icon: TrendingUp,    color: 'green'  },
-          { label: 'Low Stock',        value: lowStockCount,                                                            icon: AlertTriangle, color: 'yellow' },
-          { label: 'Out of Stock',     value: filteredProducts.filter(p => p.stock === 0).length,                               icon: AlertCircle,   color: 'red'    },
+          { label: 'Total SKUs',   value: flatRows.length,                                                                          icon: Package,       color: 'violet' },
+          { label: 'Stock Value',  value: formatCurrency(filteredProducts.reduce((s, p) => s + p.buyingPrice * p.stock, 0)),         icon: TrendingUp,    color: 'green'  },
+          { label: 'Low Stock',   value: lowStockCount,                                                                               icon: AlertTriangle, color: 'yellow' },
+          { label: 'Out of Stock', value: filteredProducts.filter(p => p.stock === 0).length,                                         icon: AlertCircle,   color: 'red'    },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="card p-4 flex items-center gap-3">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20`}>
@@ -892,13 +1212,13 @@ export default function InventoryPage() {
 
       {/* Table */}
       <ClientSideTable
-        data={filteredProducts}
+        data={flatRows}
         columns={columns}
         isLoading={loading}
-        pageCount={Math.ceil((filteredProducts.length || 1) / 20)}
+        pageCount={Math.ceil((flatRows.length || 1) / 20)}
         searchableColumns={[
-          { id: 'name', title: 'Name' },
-          { id: 'sku',  title: 'SKU'  },
+          { id: 'displayName', title: 'Name' },
+          { id: 'displaySku',  title: 'SKU'  },
           { id: 'categoryName', title: 'Category' },
           { id: 'brandName', title: 'Brand' },
         ]}
