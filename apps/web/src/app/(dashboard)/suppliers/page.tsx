@@ -651,7 +651,16 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
   const [supplierId, setSupplierId]   = useState(suppliers[0]?.id ?? '')
   const [expectedDelivery, setExpDel] = useState('')
   const [notes, setNotes]             = useState('')
-  const [items, setItems]             = useState<{productId:string;productName:string;quantity:number;unitCost:number}[]>([])
+  const [items, setItems] = useState<{
+    productId: string
+    productName: string
+    quantity: number
+    unitCost: number
+    storage?: string
+    colorName?: string
+    sku?: string
+    _variations?: any[]
+  }[]>([])
   const [loading, setLoading]         = useState(false)
   const [searches, setSearches]       = useState<string[]>([])
   const [openIdx, setOpenIdx]         = useState<number | null>(null)
@@ -683,12 +692,18 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
   }
 
   const selectProduct = (i: number, product: any) => {
+    const vars: any[] = Array.isArray(product.storageVariations) ? product.storageVariations : []
+    const firstVar = vars[0]
     setItems(prev => prev.map((row, idx) =>
       idx === i ? {
         ...row,
         productId:   product.id,
         productName: product.name,
-        unitCost:    product.buyingPrice ?? 0,
+        unitCost:    firstVar?.costPrice ?? product.buyingPrice ?? 0,
+        _variations: vars,
+        storage:     firstVar?.storage ?? undefined,
+        colorName:   firstVar?.colorName ?? undefined,
+        sku:         firstVar?.sku ?? undefined,
       } : row
     ))
     setSearches(prev => prev.map((s, idx) => idx === i ? product.name : s))
@@ -699,16 +714,27 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
     setItems(prev => prev.map((row, idx) => idx === i ? { ...row, [k]: v } : row))
 
   const addItem = () => {
-    setItems(p => [...p, { productId: '', productName: '', quantity: 1, unitCost: 0 }])
+    setItems(p => [...p, { productId: '', productName: '', quantity: 1, unitCost: 0, _variations: [] }])
     setSearches(p => [...p, ''])
   }
 
   const quickAddProduct = (product: any) => {
-    const existing = items.findIndex(r => r.productId === product.id)
-    if (existing >= 0) {
+    const vars: any[] = Array.isArray(product.storageVariations) ? product.storageVariations : []
+    const firstVar = vars[0]
+    const existing = items.findIndex(r => r.productId === product.id && !r.storage)
+    if (existing >= 0 && vars.length === 0) {
       setItems(prev => prev.map((r, i) => i === existing ? { ...r, quantity: r.quantity + 1 } : r))
     } else {
-      setItems(p => [...p, { productId: product.id, productName: product.name, quantity: 1, unitCost: product.buyingPrice ?? 0 }])
+      setItems(p => [...p, {
+        productId:   product.id,
+        productName: product.name,
+        quantity:    1,
+        unitCost:    firstVar?.costPrice ?? product.buyingPrice ?? 0,
+        _variations: vars,
+        storage:     firstVar?.storage ?? undefined,
+        colorName:   firstVar?.colorName ?? undefined,
+        sku:         firstVar?.sku ?? undefined,
+      }])
       setSearches(p => [...p, product.name])
     }
     setQuickSearch('')
@@ -744,6 +770,9 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
           unitCost:         Number(r.unitCost),
           total:            Number(r.quantity) * Number(r.unitCost),
           receivedQuantity: 0,
+          storage:          r.storage   || undefined,
+          colorName:        r.colorName || undefined,
+          sku:              r.sku       || undefined,
         })),
         branchId: branchId || undefined,
         subtotal,
@@ -895,6 +924,66 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
                       </div>
                     )}
                   </div>
+
+                  {/* Variation selectors — shown only when product has variants */}
+                  {(item._variations?.length ?? 0) > 0 && (() => {
+                    const vars = item._variations!
+                    const storageOpts = [...new Set(vars.map((v: any) => v.storage as string))]
+                    const colorOpts = vars.filter((v: any) => v.storage === item.storage)
+                    return (
+                      <>
+                        {/* Storage dropdown */}
+                        <div className="col-span-12 grid grid-cols-12 gap-2 -mt-1">
+                          <div className="col-span-5 flex gap-2">
+                            <div className="flex-1">
+                              <label className="block text-[9px] text-slate-600 uppercase tracking-wide mb-0.5">Storage</label>
+                              <select
+                                className="input-field text-xs w-full py-1"
+                                value={item.storage ?? ''}
+                                onChange={e => {
+                                  const newStorage = e.target.value
+                                  const firstColorForStorage = vars.find((v: any) => v.storage === newStorage)
+                                  setItems(prev => prev.map((row, idx) => idx === i ? {
+                                    ...row,
+                                    storage:   newStorage,
+                                    colorName: firstColorForStorage?.colorName ?? '',
+                                    sku:       firstColorForStorage?.sku ?? '',
+                                    unitCost:  firstColorForStorage?.costPrice ?? row.unitCost,
+                                  } : row))
+                                }}
+                              >
+                                {storageOpts.map(s => <option key={s} value={s}>{s}</option>)}
+                              </select>
+                            </div>
+                            <div className="flex-1">
+                              <label className="block text-[9px] text-slate-600 uppercase tracking-wide mb-0.5">Color</label>
+                              <select
+                                className="input-field text-xs w-full py-1"
+                                value={item.colorName ?? ''}
+                                onChange={e => {
+                                  const newColor = e.target.value
+                                  const matched = vars.find((v: any) => v.storage === item.storage && v.colorName === newColor)
+                                  setItems(prev => prev.map((row, idx) => idx === i ? {
+                                    ...row,
+                                    colorName: newColor,
+                                    sku:       matched?.sku ?? row.sku,
+                                    unitCost:  matched?.costPrice ?? row.unitCost,
+                                  } : row))
+                                }}
+                              >
+                                {colorOpts.map((v: any) => <option key={v.colorName} value={v.colorName}>{v.colorName}</option>)}
+                              </select>
+                            </div>
+                          </div>
+                          <div className="col-span-7 flex items-end">
+                            {item.sku && (
+                              <span className="text-[10px] font-mono text-slate-500 truncate">SKU: {item.sku}</span>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )
+                  })()}
 
                   <input
                     required type="number" min="1"

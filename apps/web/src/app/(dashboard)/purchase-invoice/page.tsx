@@ -428,7 +428,8 @@ function InvoiceContent() {
                     const brand     = item.brand ?? item.brandName ?? null
                     const imei      = item.imei ?? null
                     const storage   = item.storage ?? null
-                    const color     = item.color  ?? null
+                    const color     = item.colorName ?? item.color ?? null
+                    const itemSku   = item.sku ?? null
                     const qty       = item.quantity   ?? item.qty   ?? 0
                     const unitPrice = item.unitCost   ?? item.unitPrice ?? 0
                     const discount  = item.discount   ?? 0
@@ -445,6 +446,7 @@ function InvoiceContent() {
                             <div>
                               <p className="font-semibold text-gray-900 text-sm leading-tight">{name}</p>
                               {brand && <span className="text-[10px] text-orange-400 font-medium bg-orange-500/10 px-1.5 py-0.5 rounded mt-0.5 inline-block">{brand}</span>}
+                              {itemSku && <span className="text-[10px] font-mono text-gray-400 mt-0.5 block">{itemSku}</span>}
                             </div>
                           </div>
                         </td>
