@@ -278,8 +278,6 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
   const [pricing, setPricing] = useState({ tax: 'None', taxType: 'Exclusive', purchaseEx: '', purchaseInc: '', sellingEx: '', margin: '' })
   const [extra,   setExtra]   = useState({ supplierId: '', warranty: 'None', hsCode: '', tags: '' })
   const [variants, setVariants] = useState<VariantRow[]>([])
-  const [colorDd,   setColorDd]   = useState<string|null>(null)
-  const [storageDd, setStorageDd] = useState<string|null>(null)
 
   const f = useCallback((k: string, v: string) => setForm(p => ({ ...p, [k]: v })), [])
 
@@ -337,8 +335,6 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
     } catch (e: any) { toast.error(e?.message ?? 'Failed') }
     finally { setLoading(false) }
   }
-
-  const closeDds = () => { setColorDd(null); setStorageDd(null) }
 
   /* ── Render ────────────────────────────────────────────────────────────── */
   return (
@@ -546,56 +542,38 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                           <td style={{ padding: '8px 10px', color: 'var(--text-muted)', textAlign: 'center' }}>{i+1}</td>
                           <td style={{ padding: '8px 4px' }}><GripVertical size={12} style={{ color: 'var(--text-muted)' }} /></td>
 
-                          {/* Storage */}
+                          {/* Storage — native select to avoid overflow clipping */}
                           <td style={{ padding: '8px 6px' }}>
                             <div style={{ position: 'relative' }}>
-                              <div onClick={() => { closeDds(); setStorageDd(storageDd===v.id?null:v.id) }}
-                                style={{ ...inputStyle, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}>
-                                <span>{v.storage}</span>
-                                <ChevronDown size={11} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                              </div>
-                              {storageDd===v.id && (
-                                <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 40, width: 140, borderRadius: 10,
-                                  background: 'var(--bg-card)', border: '1px solid var(--border-default)',
-                                  boxShadow: '0 8px 24px rgba(0,0,0,0.4)', maxHeight: 200, overflowY: 'auto', marginTop: 2 }}>
-                                  {STORAGE_OPTS.map(s => (
-                                    <button key={s} type="button" onClick={() => { updVariant(v.id,'storage',s); setStorageDd(null) }}
-                                      style={{ width:'100%', textAlign:'left', padding:'7px 12px', fontSize:12,
-                                        background:'transparent', border:'none', cursor:'pointer',
-                                        color: v.storage===s ? '#60a5fa' : 'var(--text-secondary)' }}>{s}</button>
-                                  ))}
-                                  <div style={{ padding: '6px 8px', borderTop: '1px solid var(--border-subtle)' }}>
-                                    <input style={{ ...inputStyle, height: 28, fontSize: 11 }} placeholder="Custom…"
-                                      onKeyDown={e => { if(e.key==='Enter'){updVariant(v.id,'storage',(e.target as HTMLInputElement).value);setStorageDd(null)}}} />
-                                  </div>
-                                </div>
-                              )}
+                              <select
+                                value={v.storage}
+                                onChange={e => updVariant(v.id, 'storage', e.target.value)}
+                                style={{ ...selectStyle, height: 32, fontSize: 12 }}
+                              >
+                                {STORAGE_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
+                                {!STORAGE_OPTS.includes(v.storage) && <option value={v.storage}>{v.storage}</option>}
+                              </select>
+                              <ChevronDown size={11} style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
                             </div>
                           </td>
 
-                          {/* Color */}
+                          {/* Color — native select with color dot preview */}
                           <td style={{ padding: '8px 6px' }}>
-                            <div style={{ position: 'relative' }}>
-                              <div onClick={() => { closeDds(); setColorDd(colorDd===v.id?null:v.id) }}
-                                style={{ ...inputStyle, height: 32, display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', userSelect: 'none' }}>
-                                <ColorDot hex={v.colorHex} />
-                                <span style={{ flex: 1 }}>{v.colorName}</span>
-                                <ChevronDown size={11} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <ColorDot hex={v.colorHex} />
+                              <div style={{ position: 'relative', flex: 1 }}>
+                                <select
+                                  value={v.colorName}
+                                  onChange={e => {
+                                    const found = COLOR_OPTS.find(c => c.name === e.target.value)
+                                    if (found) updColor(v.id, found.name, found.hex)
+                                  }}
+                                  style={{ ...selectStyle, height: 32, fontSize: 12 }}
+                                >
+                                  {COLOR_OPTS.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                                </select>
+                                <ChevronDown size={11} style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
                               </div>
-                              {colorDd===v.id && (
-                                <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 40, width: 160, borderRadius: 10,
-                                  background: 'var(--bg-card)', border: '1px solid var(--border-default)',
-                                  boxShadow: '0 8px 24px rgba(0,0,0,0.4)', maxHeight: 220, overflowY: 'auto', marginTop: 2 }}>
-                                  {COLOR_OPTS.map(c => (
-                                    <button key={c.name} type="button" onClick={() => { updColor(v.id,c.name,c.hex); setColorDd(null) }}
-                                      style={{ width:'100%', textAlign:'left', padding:'7px 12px', fontSize:12, background:'transparent', border:'none',
-                                        cursor:'pointer', display:'flex', alignItems:'center', gap:8,
-                                        color: v.colorName===c.name ? '#60a5fa' : 'var(--text-secondary)' }}>
-                                      <ColorDot hex={c.hex}/>{c.name}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
                             </div>
                           </td>
 
@@ -724,7 +702,6 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
         </div>
 
       </div>
-      {(colorDd || storageDd) && <div style={{ position: 'fixed', inset: 0, zIndex: 30 }} onClick={closeDds} />}
     </div>
   )
 }
