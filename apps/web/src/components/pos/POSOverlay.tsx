@@ -32,6 +32,8 @@ import { printThermalReceipt } from '@/components/invoice/ThermalReceipt'
 import { whatsappApi } from '@/lib/whatsapp-api'
 import { Switch } from '@/components/ui/Switch'
 
+import type { ProductVariation } from '@/types'
+
 interface CartItem {
   cartId: string
   productId: string | null
@@ -46,6 +48,7 @@ interface CartItem {
   reloadProvider?: string
   cost?: number
   serviceId?: string
+  variationLabel?: string  // e.g. "256GB / Black"
 }
 
 const DAY_END_DENOMS: Array<{ key: string; label: string; value: number }> = [
@@ -328,9 +331,174 @@ function RegisterCustomerInline({ onBack, onCreated }: { onBack: () => void; onC
   )
 }
 
+/* ── Variation Picker Modal ─────────────────────────────────────────────── */
+function VariationPickerModal({
+  product,
+  variations,
+  onClose,
+  onAdd,
+}: {
+  product: any
+  variations: ProductVariation[]
+  onClose: () => void
+  onAdd: (v: ProductVariation) => void
+}) {
+  const storageOptions = [...new Set(variations.map(v => v.storage))]
+  const [selStorage, setSelStorage] = useState<string>(storageOptions[0] ?? '')
+
+  const colorOptions = variations.filter(v => v.storage === selStorage)
+  const [selColor, setSelColor] = useState<string>(colorOptions[0]?.colorName ?? '')
+
+  // Keep color in sync when storage changes
+  useEffect(() => {
+    const first = variations.find(v => v.storage === selStorage)
+    setSelColor(first?.colorName ?? '')
+  }, [selStorage, variations])
+
+  const selected = variations.find(v => v.storage === selStorage && v.colorName === selColor)
+  const { gradient, Icon: CardIcon, iconColor } = (() => {
+    const cat = (product.categoryName ?? '').toLowerCase()
+    if (cat.includes('mobile') || cat.includes('phone')) return { gradient: 'linear-gradient(135deg,#3b1fa5,#1d2fb5)', Icon: Smartphone, iconColor: '#818cf8' }
+    if (cat.includes('tablet')) return { gradient: 'linear-gradient(135deg,#0e4f6e,#0e6e5a)', Icon: Tablet, iconColor: '#34d399' }
+    if (cat.includes('accessor') || cat.includes('headphone')) return { gradient: 'linear-gradient(135deg,#5b1fa5,#8b1fa5)', Icon: Headphones, iconColor: '#c084fc' }
+    return { gradient: 'linear-gradient(135deg,#1c2333,#151921)', Icon: Package, iconColor: '#9CA3AF' }
+  })()
+
+  // Colour dot helper
+  const colorDot = (name: string) => {
+    const n = name.toLowerCase()
+    if (n.includes('black')) return '#1a1a1a'
+    if (n.includes('white') || n.includes('silver') || n.includes('star')) return '#e2e8f0'
+    if (n.includes('gold') || n.includes('yellow')) return '#f59e0b'
+    if (n.includes('red') || n.includes('rose')) return '#ef4444'
+    if (n.includes('blue') || n.includes('sky') || n.includes('pacific')) return '#3b82f6'
+    if (n.includes('green') || n.includes('midnight') || n.includes('alpine')) return '#10b981'
+    if (n.includes('purple') || n.includes('violet')) return '#8b5cf6'
+    if (n.includes('pink')) return '#ec4899'
+    if (n.includes('orange')) return '#f97316'
+    return '#6b7280'
+  }
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="relative w-full max-w-sm mx-4 rounded-2xl shadow-2xl overflow-hidden border" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
+
+        {/* Header — product image + name */}
+        <div className="relative overflow-hidden" style={{ height: 130 }}>
+          <div className="absolute inset-0" style={{ background: gradient }}>
+            <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 65% 20%, rgba(255,255,255,0.16) 0%, transparent 55%)' }} />
+          </div>
+          {product.imageUrl
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={product.imageUrl} alt={product.name} className="absolute inset-0 w-full h-full object-cover" />
+            : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(4px)' }}>
+                  <CardIcon size={26} style={{ color: iconColor }} />
+                </div>
+              </div>
+            )
+          }
+          {/* Close button */}
+          <button onClick={onClose} className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center hover:bg-black/40 text-white transition-colors" style={{ background: 'rgba(0,0,0,0.3)' }}>
+            <X size={14} />
+          </button>
+          {/* Gradient overlay for text readability */}
+          <div className="absolute bottom-0 left-0 right-0 h-12" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)' }} />
+          <p className="absolute bottom-2 left-3 text-[13px] font-bold text-white leading-tight pr-8">{product.name}</p>
+        </div>
+
+        {/* Body */}
+        <div className="p-4 space-y-4">
+
+          {/* Storage selection */}
+          {storageOptions.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: POS_THEME.muted }}>Storage</p>
+              <div className="flex flex-wrap gap-2">
+                {storageOptions.map(s => (
+                  <button key={s} onClick={() => setSelStorage(s)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold border transition-all"
+                    style={selStorage === s
+                      ? { background: POS_THEME.purple, borderColor: POS_THEME.purple, color: '#fff', boxShadow: `0 2px 8px ${POS_THEME.purple}55` }
+                      : { background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Color selection */}
+          {colorOptions.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: POS_THEME.muted }}>Color</p>
+              <div className="flex flex-wrap gap-2">
+                {colorOptions.map(v => (
+                  <button key={v.colorName} onClick={() => setSelColor(v.colorName)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
+                    style={selColor === v.colorName
+                      ? { background: POS_THEME.purple, borderColor: POS_THEME.purple, color: '#fff', boxShadow: `0 2px 8px ${POS_THEME.purple}55` }
+                      : { background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }}>
+                    <span className="w-3 h-3 rounded-full border border-white/30 flex-shrink-0" style={{ background: colorDot(v.colorName) }} />
+                    {v.colorName}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Selected variant info */}
+          {selected && (
+            <div className="rounded-xl p-3 flex items-center justify-between gap-3" style={{ background: POS_THEME.bg, border: `1px solid ${POS_THEME.border}` }}>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: POS_THEME.muted }}>Price</p>
+                <p className="pos-price text-lg font-extrabold leading-none">{formatCurrency(selected.sellingPrice)}</p>
+              </div>
+              {selected.sku && (
+                <div className="text-right">
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: POS_THEME.muted }}>SKU</p>
+                  <p className="text-[11px] font-mono text-white/70">{selected.sku}</p>
+                </div>
+              )}
+              {(selected.stock != null) && (
+                <div className="text-right">
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: POS_THEME.muted }}>Stock</p>
+                  <p className="text-[11px] font-semibold" style={{ color: (selected.stock ?? 0) === 0 ? POS_THEME.red : (selected.stock ?? 0) <= 4 ? POS_THEME.amber : POS_THEME.green }}>
+                    {(selected.stock ?? 0) === 0 ? 'Out' : selected.stock}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex gap-3 pt-1">
+            <button onClick={onClose}
+              className="flex-1 h-11 rounded-xl text-sm font-bold border transition-colors"
+              style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }}>
+              Cancel
+            </button>
+            <button
+              disabled={!selected || (selected.stock != null && (selected.stock ?? 0) === 0)}
+              onClick={() => selected && onAdd(selected)}
+              className="flex-1 h-11 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-40"
+              style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, boxShadow: `0 2px 14px ${POS_THEME.purple}55` }}>
+              <ShoppingCart size={15} />
+              Add to Cart
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ── Main POS Page ──────────────────────────────────────────────────────── */
 function POSContent({ onClose }: { onClose: () => void }) {
   const router = useRouter()
+
   const { pendingCustomer, clearPendingCustomer } = useUIStore()
   const [cart, setCart]                         = useState<CartItem[]>([])
   const [search, setSearch]                     = useState('')
@@ -427,6 +595,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [hideOutOfStock, setHideOutOfStock]       = useState(false)
   const [now, setNow]                             = useState(() => new Date())
   const [gridView, setGridView]                   = useState(true)
+  const [variationPickerProduct, setVariationPickerProduct] = useState<any | null>(null)
   useEffect(() => {
     const check = () => setIsDesktop(window.innerWidth >= 1024)
     check()
@@ -987,30 +1156,37 @@ function POSContent({ onClose }: { onClose: () => void }) {
     return { gradient: 'linear-gradient(160deg, #1c2333 0%, #151921 100%)', iconColor: '#9CA3AF', Icon: Package }
   }
 
-  const addToCart = (product: any, imei?: string) => {
-    const price = product.sellingPrice ?? product.price
-    const isService = product.sellingPrice === undefined && product.price !== undefined
-    const cost = isService ? Number(product.cost ?? 0) : Number(product.buyingPrice ?? 0)
+  const addToCart = (product: any, imei?: string, variation?: ProductVariation) => {
+    const price = variation ? variation.sellingPrice : (product.sellingPrice ?? product.price)
+    const sku   = variation?.sku ?? product.sku ?? product.category ?? ''
+    const name  = variation
+      ? `${product.name} · ${variation.storage} / ${variation.colorName}`
+      : product.name
+    const isService = !variation && product.sellingPrice === undefined && product.price !== undefined
+    const cost = isService ? Number(product.cost ?? 0) : Number(variation?.costPrice ?? product.buyingPrice ?? 0)
     const serviceId = isService ? product.id : undefined
     setCart(prev => {
       if (!imei) {
+        // Match by productId + variation key so each variant is a separate cart line
+        const varKey = variation ? `${variation.storage}::${variation.colorName}` : ''
         const existing = prev.find(i => i.isService
-          ? i.serviceId === serviceId && i.name === product.name
-          : i.productId === product.id && !i.imei)
+          ? i.serviceId === serviceId && i.name === name
+          : i.productId === product.id && !i.imei && (i.variationLabel ?? '') === varKey)
         if (existing) return prev.map(i => i.cartId === existing.cartId ? { ...i, quantity: i.quantity + 1 } : i)
       }
       return [...prev, {
         cartId: `${product.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         productId: isService ? null : product.id,
         serviceId,
-        name: product.name,
-        sku: product.sku ?? product.category ?? '',
+        name,
+        sku,
         price,
         originalPrice: price,
         cost,
         quantity: 1,
         imei,
         isService,
+        variationLabel: variation ? `${variation.storage}::${variation.colorName}` : undefined,
       }]
     })
   }
@@ -1850,6 +2026,19 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
   return (
     <>
+      {/* ── Variation Picker Modal ─────────────────────────────── */}
+      {variationPickerProduct && (
+        <VariationPickerModal
+          product={variationPickerProduct}
+          variations={Array.isArray(variationPickerProduct.storageVariations) ? variationPickerProduct.storageVariations : []}
+          onClose={() => setVariationPickerProduct(null)}
+          onAdd={(variation) => {
+            addToCart(variationPickerProduct, undefined, variation)
+            setVariationPickerProduct(null)
+          }}
+        />
+      )}
+
       {/* Modals */}
       {showA4Invoice && completedSale && (() => {
         const a4Data = buildA4Data()
@@ -1969,7 +2158,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     <div key={item.id}
                       className={`relative flex flex-col rounded-xl overflow-hidden border transition-all group cursor-pointer select-none ${isOut ? 'opacity-40 cursor-not-allowed' : 'hover:shadow-lg hover:shadow-black/25 hover:-translate-y-0.5'}`}
                       style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}
-                      onClick={() => !isOut && addToCart(item)}>
+                      onClick={() => {
+                        if (isOut) return
+                        const vars = Array.isArray(item.storageVariations) ? item.storageVariations : []
+                        if (vars.length > 0) { setVariationPickerProduct(item) }
+                        else addToCart(item)
+                      }}>
 
                       {/* ── IMAGE ZONE ── */}
                       <div className="relative overflow-hidden" style={{ paddingBottom: '58%' }}>
@@ -2044,7 +2238,13 @@ function POSContent({ onClose }: { onClose: () => void }) {
                             )}
                           </div>
                           <button type="button" disabled={isOut}
-                            onClick={e => { e.stopPropagation(); if (!isOut) addToCart(item) }}
+                            onClick={e => {
+                              e.stopPropagation()
+                              if (isOut) return
+                              const vars = Array.isArray(item.storageVariations) ? item.storageVariations : []
+                              if (vars.length > 0) { setVariationPickerProduct(item) }
+                              else addToCart(item)
+                            }}
                             className="w-7 h-7 rounded-lg flex items-center justify-center text-white transition-all disabled:opacity-30 hover:scale-105 active:scale-95 flex-shrink-0"
                             style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, boxShadow: `0 1px 6px ${POS_THEME.purple}66` }}>
                             <Plus size={13} />
