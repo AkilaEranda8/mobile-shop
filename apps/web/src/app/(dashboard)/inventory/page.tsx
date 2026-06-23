@@ -453,7 +453,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
 
   // Load existing variants into edit state
   const [variants, setVariants] = useState<EditVariantRow[]>(
-    (product.storageVariations ?? []).map(v => ({
+    (Array.isArray(product.storageVariations) ? product.storageVariations : []).map((v: any) => ({
       id: v.id ?? genEditId(),
       storage: v.storage,
       colorName: v.colorName,
@@ -695,7 +695,7 @@ function ProductDetailModal({ product, onClose, onEdit }: { product: Product; on
   const stockValue = product.buyingPrice * product.stock
   const isOut = product.stock === 0
   const isLow = product.stock < product.minStock && product.stock > 0
-  const variations = product.storageVariations ?? []
+  const variations = Array.isArray(product.storageVariations) ? product.storageVariations : []
   const [showVars, setShowVars] = useState(true)
 
   return (
@@ -916,7 +916,7 @@ export default function InventoryPage() {
   const flatRows = useMemo<FlatRow[]>(() => {
     const rows: FlatRow[] = []
     for (const product of filteredProducts) {
-      const vars = product.storageVariations ?? []
+      const vars = Array.isArray(product.storageVariations) ? product.storageVariations : []
       if (vars.length === 0) {
         // No variants — single row
         rows.push({
