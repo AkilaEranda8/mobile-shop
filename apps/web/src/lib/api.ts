@@ -230,6 +230,7 @@ export const productsApi = {
   deleteCategory: (id: string, reassignToId?: string) =>
     api.delete(`/products/categories/${id}${reassignToId ? `?reassignToId=${encodeURIComponent(reassignToId)}` : ''}`),
   brands: () => api.get('/products/brands'),
+  createBrand: (body: { name: string }) => api.post('/products/brands', body),
 }
 
 export const customersApi = {

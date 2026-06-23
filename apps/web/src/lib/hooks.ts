@@ -310,6 +310,20 @@ export function useCategories() {
   )
 }
 
+export function useBrands() {
+  return useApi<unknown[]>(
+    () => productsApi.brands() as Promise<{ data: unknown[] }>,
+    [],
+  )
+}
+
+export function useSuppliers() {
+  return useApi<unknown[]>(
+    () => suppliersApi.list() as Promise<{ data: unknown[] }>,
+    [],
+  )
+}
+
 export function useUsers(params?: Record<string, string>) {
   const p = { ...ALL, ...params }
   return useApi<{ data: unknown[]; meta: any }>(

@@ -53,6 +53,8 @@ export const productsService = {
     }
 
     const { categoryName, brandName, ...productData } = body
+    // strip fields not in schema that Prisma won't accept
+    delete productData.subCategoryName
     const raw: any = await prisma.product.create({ data: { ...productData, tenantId }, include: { category: { select: { name: true } }, brand: { select: { name: true } } } })
     return { ...raw, categoryName: raw.category?.name, brandName: raw.brand?.name }
   },
@@ -79,6 +81,8 @@ export const productsService = {
     if (imageUrl          !== undefined) data.imageUrl          = imageUrl
     if (storageVariations !== undefined) data.storageVariations = storageVariations
     if (colorVariations   !== undefined) data.colorVariations   = colorVariations
+    if (body.subCategory  !== undefined) data.subCategory       = body.subCategory
+    if (body.deviceModel  !== undefined) data.deviceModel       = body.deviceModel
     if (stock             !== undefined) {
       const n = Number(stock)
       if (Number.isNaN(n) || n < 0) throw new AppError('Stock cannot be negative', 400)

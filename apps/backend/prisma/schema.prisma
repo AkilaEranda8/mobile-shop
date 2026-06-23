@@ -333,6 +333,8 @@ model Product {
   isActive        Boolean  @default(true)
   storageVariations Json?
   colorVariations   Json?
+  subCategory       String?
+  deviceModel       String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

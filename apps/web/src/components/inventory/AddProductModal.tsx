@@ -2,8 +2,8 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { Plus, Trash2, Upload, Loader2, ChevronDown, Info, GripVertical, ArrowLeft, Box } from 'lucide-react'
-import { productsApi, uploadApi } from '@/lib/api'
-import { useCategories } from '@/lib/hooks'
+import { productsApi, suppliersApi, uploadApi } from '@/lib/api'
+import { useCategories, useBrands, useSuppliers } from '@/lib/hooks'
 import type { Category } from '@/types'
 import toast from 'react-hot-toast'
 
@@ -14,6 +14,8 @@ interface VariantRow {
   sku: string; sellingPrice: string; costPrice: string
 }
 interface AddProductModalProps { onClose: () => void; onSaved: () => void }
+interface Brand { id: string; name: string }
+interface Supplier { id: string; name: string }
 
 /* ─── Constants ─────────────────────────────────────────────────────────── */
 
@@ -33,6 +35,8 @@ const COLOR_OPTS = [
 const UNIT_OPTS    = ['Piece (Pc)','Box','Set','Pair','Pack','Dozen','Kg','Gram','Litre','Meter']
 const BARCODE_OPTS = ['Code 128 (C128)','Code 39','EAN-13','EAN-8','UPC-A','QR Code']
 const WARRANTY_OPTS= ['None','1 Month','3 Months','6 Months','1 Year','2 Years']
+const SUB_CAT_OPTS = ['Flagship','Mid Range','Budget','Entry Level','Premium','Ultra','Lite','Pro','Plus','Standard']
+const DEVICE_MODEL_OPTS = ['iPhone','iPad','MacBook','Samsung Galaxy','Xiaomi','OnePlus','Google Pixel','Oppo','Vivo','Huawei','Sony','Nokia','Motorola','Laptop','Tablet','Desktop','Smart Watch','Earbuds','Speaker','Other']
 
 /* ─── Style helpers ──────────────────────────────────────────────────────── */
 
@@ -138,6 +142,7 @@ function Checkbox({ checked, onChange, label, desc, tip }: {
   )
 }
 
+/* ─── Add Category Popup ─────────────────────────────────────────────────── */
 function AddCatPopup({ onClose, onSaved }: { onClose: () => void; onSaved: (c: Category) => void }) {
   const [name, setName] = useState(''); const [loading, setLoading] = useState(false)
   const save = async () => {
@@ -162,8 +167,32 @@ function AddCatPopup({ onClose, onSaved }: { onClose: () => void; onSaved: (c: C
   )
 }
 
-/* ─── Image Uploader ──────────────────────────────────────────────────────── */
+/* ─── Add Brand Popup ─────────────────────────────────────────────────────── */
+function AddBrandPopup({ onClose, onSaved }: { onClose: () => void; onSaved: (b: Brand) => void }) {
+  const [name, setName] = useState(''); const [loading, setLoading] = useState(false)
+  const save = async () => {
+    if (!name.trim()) return; setLoading(true)
+    try { const r: any = await productsApi.createBrand({ name: name.trim() }); toast.success(`"${name}" added`); onSaved(r.data ?? r); onClose() }
+    catch (e: any) { toast.error(e.message || 'Failed') } finally { setLoading(false) }
+  }
+  return (
+    <div style={{ position: 'absolute', right: 0, top: 42, zIndex: 50, width: 200, padding: 12, borderRadius: 10,
+      background: 'var(--bg-card)', border: '1px solid var(--border-default)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>New Brand</p>
+      <input autoFocus style={{ ...inputStyle, marginBottom: 8 }} placeholder="Brand name…" value={name}
+        onChange={e => setName(e.target.value)} onKeyDown={e => e.key === 'Enter' && save()} />
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button type="button" onClick={onClose} style={{ ...btn, flex: 1, fontSize: 11, background: 'var(--bg-subtle)', color: 'var(--text-muted)', border: 'none' }}>Cancel</button>
+        <button type="button" onClick={save} disabled={!name.trim() || loading}
+          style={{ ...btn, flex: 1, fontSize: 11, background: '#2563eb', color: '#fff', border: 'none', opacity: (!name.trim() || loading) ? 0.5 : 1 }}>
+          {loading ? <Loader2 size={11} className="animate-spin" /> : 'Add'}
+        </button>
+      </div>
+    </div>
+  )
+}
 
+/* ─── Image Uploader ──────────────────────────────────────────────────────── */
 function ImageUploader({ imageUrl, onUploaded }: { imageUrl: string; onUploaded: (url: string) => void }) {
   const ref = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -223,20 +252,31 @@ function ImageUploader({ imageUrl, onUploaded }: { imageUrl: string; onUploaded:
 
 export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
   const { data: catsData, refetch: refetchCats } = useCategories()
-  const cats: Category[] = (catsData ?? []) as Category[]
+  const { data: brandsData, refetch: refetchBrands } = useBrands()
+  const { data: suppliersData } = useSuppliers()
+
+  const cats: Category[]  = (catsData ?? []) as Category[]
+  const brands: Brand[]   = (brandsData ?? []) as Brand[]
+  const suppliers: Supplier[] = (suppliersData ?? []) as Supplier[]
+
   const [loading, setLoading] = useState(false)
   const [showAddCat, setShowAddCat] = useState(false)
+  const [showAddBrand, setShowAddBrand] = useState(false)
+  const [extraBrands, setExtraBrands] = useState<Brand[]>([])
+
+  const allBrands = [...brands, ...extraBrands.filter(eb => !brands.find(b => b.id === eb.id))]
 
   const [form, setForm] = useState({
     name: '', sku: '', barcodeType: 'Code 128 (C128)', brandName: '',
-    categoryName: '', subCategory: '', unit: 'Piece (Pc)', deviceModel: '', description: '', imageUrl: '',
+    categoryName: '', subCategory: '', unit: 'Piece (Pc)',
+    deviceModel: '', description: '', imageUrl: '',
   })
   const [trackImei,     setTrackImei]     = useState(true)
   const [warrantyTrack, setWarrantyTrack] = useState(true)
   const [lowStock,      setLowStock]      = useState(true)
   const [minStock,      setMinStock]      = useState('5')
   const [pricing, setPricing] = useState({ tax: 'None', taxType: 'Exclusive', purchaseEx: '', purchaseInc: '', sellingEx: '', margin: '' })
-  const [extra,   setExtra]   = useState({ supplier: '', warranty: 'None', hsCode: '', tags: '' })
+  const [extra,   setExtra]   = useState({ supplierId: '', warranty: 'None', hsCode: '', tags: '' })
   const [variants, setVariants] = useState<VariantRow[]>([])
   const [colorDd,   setColorDd]   = useState<string|null>(null)
   const [storageDd, setStorageDd] = useState<string|null>(null)
@@ -257,21 +297,39 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
     if (!form.name.trim())         { toast.error('Product name required'); return }
     if (!form.sku.trim())          { toast.error('SKU required'); return }
     if (!form.categoryName.trim()) { toast.error('Category required'); return }
+
     const fv = variants[0]
     setLoading(true)
     try {
       await productsApi.create({
-        name: form.name.trim(), sku: form.sku.trim(),
-        brandName: form.brandName || undefined,
-        categoryName: form.categoryName || undefined,
-        description: form.description || undefined,
-        imageUrl: form.imageUrl || undefined,
-        buyingPrice: fv ? Number(fv.costPrice) || 0 : 0,
-        sellingPrice: fv ? Number(fv.sellingPrice) || 0 : 0,
-        mrp: fv ? Number(fv.sellingPrice) || 0 : 0,
-        stock: 0, minStock: lowStock ? Number(minStock) || 5 : 0,
-        trackImei, warrantyMonths: warrantyTrack ? 12 : 0, isActive: true,
-        storageVariations: variants.map(v => ({ storage: v.storage, sellingPrice: Number(v.sellingPrice) || 0 })),
+        name:         form.name.trim(),
+        sku:          form.sku.trim(),
+        brandName:    form.brandName || 'General',
+        categoryName: form.categoryName,
+        subCategory:  form.subCategory  || undefined,
+        deviceModel:  form.deviceModel  || undefined,
+        description:  form.description  || undefined,
+        imageUrl:     form.imageUrl     || undefined,
+        barcode:      form.barcodeType  || undefined,
+
+        buyingPrice:    fv ? Number(fv.costPrice)    || 0 : 0,
+        sellingPrice:   fv ? Number(fv.sellingPrice) || 0 : 0,
+        mrp:            fv ? Number(fv.sellingPrice) || 0 : 0,
+
+        stock:          0,
+        minStock:       lowStock ? Number(minStock) || 5 : 0,
+        trackImei,
+        warrantyMonths: warrantyTrack ? 12 : 0,
+        isActive:       true,
+
+        storageVariations: variants.map(v => ({
+          storage:      v.storage,
+          colorName:    v.colorName,
+          colorHex:     v.colorHex,
+          sku:          v.sku || undefined,
+          sellingPrice: Number(v.sellingPrice) || 0,
+          costPrice:    Number(v.costPrice)    || 0,
+        })),
         colorVariations: variants.map(v => ({ name: v.colorName, hex: v.colorHex })),
       })
       toast.success(`"${form.name}" created!`)
@@ -311,16 +369,13 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
         </div>
       </div>
 
-      {/* ── Content ────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-6">
 
         {/* ══ 1. Basic Information ══════════════════════════════════════ */}
         <div style={card}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 22 }}>
             <div style={sectionBadge}>1</div>
-            <div>
-              <p style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa', margin: 0 }}>Basic Information</p>
-            </div>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa', margin: 0 }}>Basic Information</p>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '185px 1fr', gap: 28 }}>
@@ -345,17 +400,28 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                 </div>
               </div>
 
-              {/* Row 2 */}
+              {/* Row 2 — Brand, Category, Sub Category */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
-                <div>
+                {/* Brand — real dropdown from DB */}
+                <div style={{ position: 'relative' }}>
                   <Lbl req>Brand</Lbl>
                   <div style={{ display: 'flex', gap: 6 }}>
-                    <input style={{ ...inputStyle, flex: 1 }} placeholder="Select brand" list="brand-dl"
-                      value={form.brandName} onChange={e => f('brandName', e.target.value)} />
-                    <datalist id="brand-dl">{['Apple','Samsung','Xiaomi','OnePlus','Google','Sony'].map(b => <option key={b} value={b} />)}</datalist>
-                    <PlusBtn onClick={() => {}} />
+                    <Sel value={form.brandName} onChange={v => f('brandName', v)} placeholder="Select brand">
+                      {allBrands.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                    </Sel>
+                    <div style={{ position: 'relative' }}>
+                      <PlusBtn onClick={() => setShowAddBrand(p => !p)} />
+                      {showAddBrand && (
+                        <AddBrandPopup
+                          onClose={() => setShowAddBrand(false)}
+                          onSaved={b => { setExtraBrands(p => [...p, b]); refetchBrands(); f('brandName', b.name) }}
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
+
+                {/* Category */}
                 <div style={{ position: 'relative' }}>
                   <Lbl req>Category</Lbl>
                   <div style={{ display: 'flex', gap: 6 }}>
@@ -368,20 +434,17 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                     </div>
                   </div>
                 </div>
+
+                {/* Sub Category */}
                 <div>
                   <Lbl>Sub Category</Lbl>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <Sel value={form.subCategory} onChange={v => f('subCategory', v)} placeholder="Select sub category">
-                      <option value="flagship">Flagship</option>
-                      <option value="mid-range">Mid Range</option>
-                      <option value="budget">Budget</option>
-                    </Sel>
-                    <PlusBtn onClick={() => {}} />
-                  </div>
+                  <Sel value={form.subCategory} onChange={v => f('subCategory', v)} placeholder="Select sub category">
+                    {SUB_CAT_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
+                  </Sel>
                 </div>
               </div>
 
-              {/* Row 3 */}
+              {/* Row 3 — Unit, Device Model */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <div>
                   <Lbl req>Unit</Lbl>
@@ -392,10 +455,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                 <div>
                   <Lbl>Device Model</Lbl>
                   <Sel value={form.deviceModel} onChange={v => f('deviceModel', v)} placeholder="Select device model">
-                    <option value="iphone">iPhone</option>
-                    <option value="ipad">iPad</option>
-                    <option value="android">Android</option>
-                    <option value="laptop">Laptop</option>
+                    {DEVICE_MODEL_OPTS.map(m => <option key={m} value={m}>{m}</option>)}
                   </Sel>
                 </div>
               </div>
@@ -410,7 +470,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                 {/* Toolbar */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '6px 10px',
                   background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-subtle)', flexWrap: 'wrap' }}>
-                  {[['B','bold'],['I','italic'],['U','underline']].map(([l]) => (
+                  {[['B'],['I'],['U']].map(([l]) => (
                     <button key={l} type="button" style={{ padding: '3px 7px', fontSize: 12, fontWeight: 700, borderRadius: 4,
                       background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>{l}</button>
                   ))}
@@ -419,18 +479,6 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                     <button key={i} type="button" style={{ padding: '3px 6px', fontSize: 13, borderRadius: 4,
                       background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>{s}</button>
                   ))}
-                  <div style={{ width: 1, height: 14, background: 'var(--border-subtle)', margin: '0 4px' }} />
-                  {['🔗','🖼'].map((s,i) => (
-                    <button key={i} type="button" style={{ padding: '3px 6px', fontSize: 12, borderRadius: 4,
-                      background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>{s}</button>
-                  ))}
-                  <div style={{ marginLeft: 'auto' }}>
-                    <select style={{ fontSize: 11, padding: '3px 8px', borderRadius: 5,
-                      background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)',
-                      color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                      <option>Paragraph</option><option>Heading 1</option><option>Heading 2</option>
-                    </select>
-                  </div>
                 </div>
                 <textarea rows={6} maxLength={2000} placeholder="Write product description…"
                   style={{ ...inputStyle, height: 'auto', padding: '12px', resize: 'none', border: 'none',
@@ -653,12 +701,9 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 16 }}>
             <div>
               <Lbl>Supplier</Lbl>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <Sel value={extra.supplier} onChange={v => setExtra(p => ({ ...p, supplier: v }))} placeholder="Select supplier">
-                  <option value="general">General Supplier</option>
-                </Sel>
-                <PlusBtn onClick={() => {}} />
-              </div>
+              <Sel value={extra.supplierId} onChange={v => setExtra(p => ({ ...p, supplierId: v }))} placeholder="Select supplier">
+                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </Sel>
             </div>
             <div>
               <Lbl>Warranty Period</Lbl>
