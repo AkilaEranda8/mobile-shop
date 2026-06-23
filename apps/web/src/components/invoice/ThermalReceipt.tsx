@@ -39,8 +39,8 @@ function row(left: string, right: string) {
   return { left, right }
 }
 
-function thermalBodyWidth(paper: '58mm' | '80mm') {
-  return paper === '58mm' ? '200px' : '288px'
+function thermalBodyWidth(paper: '58mm' | '80mm' | 'stockForm') {
+  return paper === '80mm' ? '288px' : '200px'
 }
 
 function thermalFontScale(size: InvoiceSettings['thermalFontSize']) {
@@ -74,7 +74,7 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
   function ThermalReceipt({ sale, settings }, ref) {
     const currency = settings.currency || 'LKR'
     const f = (n: number) => fmt(n, currency)
-    const paper = settings.thermalWidthPOS || '58mm'
+    const paper = (settings.thermalWidthPOS === 'stockForm' ? '58mm' : (settings.thermalWidthPOS || '58mm')) as '58mm' | '80mm'
     const fs = thermalFontScale(settings.thermalFontSize || 'md')
     const show = {
       logo: settings.thermalShowLogo !== false,
@@ -265,7 +265,7 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
   const dateStr = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
   const timeStr = date.toLocaleTimeString('en-LK', { hour: '2-digit', minute: '2-digit' })
 
-  const paperWidth = settings.thermalWidthPOS || '58mm'
+  const paperWidth = (settings.thermalWidthPOS === 'stockForm' ? '58mm' : (settings.thermalWidthPOS || '58mm')) as '58mm' | '80mm'
   const bodyWidth = thermalBodyWidth(paperWidth)
 
   const itemBlocks = sale.items.map(item => `
