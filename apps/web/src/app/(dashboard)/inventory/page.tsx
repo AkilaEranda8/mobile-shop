@@ -899,9 +899,6 @@ export default function InventoryPage() {
           <button onClick={() => exportProductsCSV(filteredProducts)} disabled={filteredProducts.length === 0} className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40">
             <Download size={14} />Export
           </button>
-          <button onClick={() => router.push('/inventory/add-stock')} className="btn-primary text-sm flex items-center gap-2">
-            <ShoppingCart size={14} />Add Stock
-          </button>
           <button onClick={() => setShowAddModal(true)} className="btn-secondary text-sm flex items-center gap-2">
             <Plus size={14} />Add Product
           </button>
