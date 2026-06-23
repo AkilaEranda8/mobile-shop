@@ -14,7 +14,6 @@ import type { Product, Category } from '@/types'
 import toast from 'react-hot-toast'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
-import { AddProductModal } from '@/components/inventory/AddProductModal'
 
 /* ── CSV Export ─────────────────────────────────────────────────────── */
 function exportProductsCSV(products: Product[]) {
@@ -636,7 +635,6 @@ function ProductDetailModal({ product, onClose, onEdit }: { product: Product; on
 
 export default function InventoryPage() {
   const router = useRouter()
-  const [showAddModal, setShowAddModal] = useState(false)
   const [showImport, setShowImport]   = useState(false)
   const [showAddCat, setShowAddCat]   = useState(false)
   const [showManageCat, setShowManageCat] = useState(false)
@@ -776,15 +774,6 @@ export default function InventoryPage() {
     },
   ], [handleDelete, setViewProduct, setEditProduct])
 
-  /* ── If Add Product is open, render it full-content (sidebar stays) ── */
-  if (showAddModal) {
-    return (
-      <AddProductModal
-        onClose={() => setShowAddModal(false)}
-        onSaved={() => { refetch(); setShowAddModal(false) }}
-      />
-    )
-  }
 
   return (
     <div className="space-y-6">
@@ -811,7 +800,7 @@ export default function InventoryPage() {
           <button onClick={() => exportProductsCSV(filteredProducts)} disabled={filteredProducts.length === 0} className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40">
             <Download size={14} />Export
           </button>
-          <button onClick={() => setShowAddModal(true)} className="btn-secondary text-sm flex items-center gap-2">
+          <button onClick={() => router.push('/inventory/add-product')} className="btn-secondary text-sm flex items-center gap-2">
             <Plus size={14} />Add Product
           </button>
           <button onClick={() => setShowManageCat(true)} className="btn-secondary text-sm flex items-center gap-2">
