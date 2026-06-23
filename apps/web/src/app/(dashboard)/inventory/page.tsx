@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useMemo, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Plus, Package, AlertTriangle, Download, Upload, QrCode, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, ImageOff, RotateCcw } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
@@ -731,6 +732,7 @@ function ProductDetailModal({ product, onClose, onEdit }: { product: Product; on
 }
 
 export default function InventoryPage() {
+  const router = useRouter()
   const [showAddModal, setShowAddModal] = useState(false)
   const [showImport, setShowImport]   = useState(false)
   const [showAddCat, setShowAddCat]   = useState(false)
@@ -897,7 +899,10 @@ export default function InventoryPage() {
           <button onClick={() => exportProductsCSV(filteredProducts)} disabled={filteredProducts.length === 0} className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40">
             <Download size={14} />Export
           </button>
-          <button onClick={() => setShowAddModal(true)} className="btn-primary text-sm flex items-center gap-2">
+          <button onClick={() => router.push('/inventory/add-stock')} className="btn-primary text-sm flex items-center gap-2">
+            <ShoppingCart size={14} />Add Stock
+          </button>
+          <button onClick={() => setShowAddModal(true)} className="btn-secondary text-sm flex items-center gap-2">
             <Plus size={14} />Add Product
           </button>
           <button onClick={() => setShowManageCat(true)} className="btn-secondary text-sm flex items-center gap-2">
