@@ -432,7 +432,7 @@ const genEditId = () => Math.random().toString(36).slice(2, 9)
 
 interface EditVariantRow {
   id: string; storage: string; colorName: string; colorHex: string
-  sku: string; sellingPrice: string; costPrice: string
+  sku: string; stock: number; sellingPrice: string; costPrice: string
 }
 
 function EditProductModal({ product, onClose, onSaved }: { product: Product; onClose: () => void; onSaved: () => void }) {
@@ -459,12 +459,13 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
       colorName: v.colorName,
       colorHex: v.colorHex,
       sku: v.sku ?? '',
+      stock: v.stock ?? 0,
       sellingPrice: String(v.sellingPrice),
       costPrice: String(v.costPrice),
     }))
   )
 
-  const addVariant = () => setVariants(p => [...p, { id: genEditId(), storage: '128GB', colorName: 'Black', colorHex: '#1a1a1a', sku: '', sellingPrice: '', costPrice: '' }])
+  const addVariant = () => setVariants(p => [...p, { id: genEditId(), storage: '128GB', colorName: 'Black', colorHex: '#1a1a1a', sku: '', stock: 0, sellingPrice: '', costPrice: '' }])
   const delVariant = (id: string) => setVariants(p => p.filter(v => v.id !== id))
   const updVariant = (id: string, k: keyof EditVariantRow, val: string) => setVariants(p => p.map(v => v.id === id ? { ...v, [k]: val } : v))
   const updColor = (id: string, name: string, hex: string) => setVariants(p => p.map(v => v.id === id ? { ...v, colorName: name, colorHex: hex } : v))
@@ -486,6 +487,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
           colorName: v.colorName,
           colorHex: v.colorHex,
           sku: v.sku || undefined,
+          stock: v.stock,
           sellingPrice: Number(v.sellingPrice) || 0,
           costPrice: Number(v.costPrice) || 0,
         })),
@@ -939,7 +941,7 @@ export default function InventoryPage() {
             variation: v,
             displaySku: v.sku ?? product.sku,
             displayPrice: v.sellingPrice,
-            displayStock: v.stock ?? product.stock,
+            displayStock: v.stock ?? 0,
             displayMinStock: product.minStock,
             displayName: product.name,
             categoryName: product.categoryName ?? '',

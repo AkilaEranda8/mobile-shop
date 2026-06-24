@@ -325,6 +325,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
           colorName:    v.colorName,
           colorHex:     v.colorHex,
           sku:          v.sku || undefined,
+          stock:        0,
           sellingPrice: Number(v.sellingPrice) || 0,
           costPrice:    Number(v.costPrice)    || 0,
         })),

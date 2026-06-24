@@ -59,7 +59,7 @@ export const salesService = {
       })
       for (const item of body.items) {
         if (!item.productId) continue  // service items have no productId — skip stock ops
-        const product = await tx.product.findUnique({ where: { id: item.productId }, select: { stock: true, name: true } })
+        const product = await tx.product.findUnique({ where: { id: item.productId }, select: { stock: true, name: true, storageVariations: true } })
         if (!product) continue         // productId present but not found — skip safely
         // Atomic conditional decrement prevents overselling under concurrent checkouts.
         const dec = await tx.product.updateMany({
@@ -68,6 +68,27 @@ export const salesService = {
         })
         if (dec.count === 0) {
           throw new AppError(`Insufficient stock for "${product.name}". Available: ${product.stock}, Requested: ${item.quantity}`, 400)
+        }
+
+        // Update variant stock if applicable
+        if (item.sku && product.storageVariations) {
+          let updatedVariations = product.storageVariations as any[]
+          if (Array.isArray(updatedVariations)) {
+            let changed = false
+            updatedVariations = updatedVariations.map((v: any) => {
+              if (v.sku === item.sku) {
+                changed = true
+                return { ...v, stock: Math.max(0, (v.stock || 0) - item.quantity) }
+              }
+              return v
+            })
+            if (changed) {
+              await tx.product.update({
+                where: { id: item.productId },
+                data: { storageVariations: updatedVariations }
+              })
+            }
+          }
         }
         await tx.stockMovement.create({ data: { productId: item.productId, branchId: body.branchId, type: 'SALE', quantity: -item.quantity, reference: invoiceNumber, performedBy: cashierName } })
         if (item.imei) {

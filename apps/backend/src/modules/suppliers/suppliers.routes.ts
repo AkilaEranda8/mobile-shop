@@ -166,12 +166,30 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
 
         if (itemsWithProduct.length > 0) {
           await Promise.all(
-            itemsWithProduct.map((item: any) =>
-              prisma.product.update({
+            itemsWithProduct.map(async (item: any) => {
+              const p = await prisma.product.findUnique({ where: { id: item.productId } })
+              if (!p) return
+
+              let updatedVariations = p.storageVariations as any[] | null
+              if (updatedVariations && Array.isArray(updatedVariations)) {
+                updatedVariations = updatedVariations.map((v: any) => {
+                  const match = (item.sku && v.sku === item.sku) ||
+                                (item.storage && item.colorName && v.storage === item.storage && v.colorName === item.colorName)
+                  if (match) {
+                    return { ...v, stock: (v.stock || 0) + item.quantity }
+                  }
+                  return v
+                })
+              }
+
+              return prisma.product.update({
                 where: { id: item.productId },
-                data: { stock: { increment: item.quantity } },
+                data: {
+                  stock: { increment: item.quantity },
+                  ...(updatedVariations ? { storageVariations: updatedVariations } : {})
+                },
               })
-            )
+            })
           )
           await prisma.stockMovement.createMany({
             data: itemsWithProduct.map((item: any) => ({

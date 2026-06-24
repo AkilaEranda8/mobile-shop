@@ -1,0 +1,1 @@
+const { PrismaClient } = require('@prisma/client'); const p = new PrismaClient(); p.product.findMany({ where: { storageVariations: { not: null } }, take: 1 }).then(x => console.log(JSON.stringify(x, null, 2))).catch(e => console.error(e)).finally(() => p.$disconnect());

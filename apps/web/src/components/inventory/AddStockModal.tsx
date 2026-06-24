@@ -660,19 +660,44 @@ export function AddStockModal({ onClose, onSaved }: AddStockModalProps) {
     }
     setSaving(true)
     try {
-      // For each device, update the product stock and create IMEI records via API
+      // Group by productId
+      const updatesByProduct = new Map<string, { totalQty: number, variationsMap: Map<string, number>, devices: typeof devices }>()
+
       for (const d of devices) {
-        // Increment stock by 1 for each device added
-        const product = products.find(p => p.id === d.productId)
+        if (!updatesByProduct.has(d.productId)) updatesByProduct.set(d.productId, { totalQty: 0, variationsMap: new Map(), devices: [] })
+        const pUpdate = updatesByProduct.get(d.productId)!
+        pUpdate.totalQty += 1
+        pUpdate.devices.push(d)
+
+        // Identify variant by SKU or storage+color
+        const vKey = d.sku || `${d.storage}|${d.color}`
+        pUpdate.variationsMap.set(vKey, (pUpdate.variationsMap.get(vKey) || 0) + 1)
+      }
+
+      for (const [productId, updateData] of Array.from(updatesByProduct.entries())) {
+        const product = products.find(p => p.id === productId)
         if (product) {
-          await productsApi.update(d.productId, {
-            stock: (product.stock || 0) + 1,
-            buyingPrice: Number(d.buyingPrice) || product.buyingPrice,
-            sellingPrice: Number(d.sellingPrice) || product.sellingPrice,
+          let updatedVariations = product.storageVariations
+          if (Array.isArray(updatedVariations)) {
+            updatedVariations = updatedVariations.map((v: any) => {
+              const vKeySku = v.sku
+              const vKeyProps = `${v.storage}|${v.colorName}`
+              const addQty = updateData.variationsMap.get(vKeySku) || updateData.variationsMap.get(vKeyProps) || 0
+              if (addQty > 0) {
+                return { ...v, stock: (v.stock || 0) + addQty }
+              }
+              return v
+            })
+          }
+
+          const lastDevice = updateData.devices[updateData.devices.length - 1]
+          await productsApi.update(productId, {
+            stock: (product.stock || 0) + updateData.totalQty,
+            buyingPrice: Number(lastDevice.buyingPrice) || product.buyingPrice,
+            sellingPrice: Number(lastDevice.sellingPrice) || product.sellingPrice,
+            storageVariations: updatedVariations,
           })
         }
-        // If IMEI API available, create records
-        // await imeiApi.create({ imei: d.imei1, productId: d.productId, ... })
       }
       toast.success(`${devices.length} device${devices.length > 1 ? 's' : ''} added to stock!`)
       onSaved()

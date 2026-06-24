@@ -121,7 +121,7 @@ function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClos
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
+      <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl w-full max-w-4xl shadow-2xl max-h-[90vh] flex flex-col">
 
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)] flex-shrink-0">
@@ -136,7 +136,7 @@ function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClos
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/5 text-slate-500 hover:text-white"><X size={16} /></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"><X size={16} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="overflow-y-auto p-5 space-y-4 flex-1">
@@ -146,7 +146,7 @@ function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClos
             <Hash size={13} className="text-violet-400 flex-shrink-0" />
             <input
               autoFocus
-              className="flex-1 bg-transparent outline-none text-sm font-mono tracking-widest placeholder-slate-600"
+              className="flex-1 bg-transparent outline-none text-sm font-mono tracking-widest placeholder:text-[var(--text-muted)] placeholder:opacity-50"
               style={{ color: 'var(--text-primary)' }}
               placeholder="Scan or type IMEI then press Enter..."
               value={scanValue}
@@ -187,26 +187,26 @@ function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClos
                     <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                       {item.storage && (
                         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md border"
-                          style={{ background: 'rgba(139,92,246,0.15)', borderColor: 'rgba(139,92,246,0.35)', color: '#c4b5fd' }}>
+                          style={{ background: 'rgba(139,92,246,0.1)', borderColor: 'rgba(139,92,246,0.2)', color: 'var(--text-primary)' }}>
                           {item.storage}
                         </span>
                       )}
                       {item.colorName && (
                         <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md border"
-                          style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)', color: '#94a3b8' }}>
-                          <span className="w-2 h-2 rounded-full border border-white/20 flex-shrink-0"
+                          style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}>
+                          <span className="w-2 h-2 rounded-full border border-[var(--border-default)] flex-shrink-0"
                             style={{ background: colorDot(item.colorName) }} />
                           {item.colorName}
                         </span>
                       )}
                       {item.sku && (
-                        <span className="text-[10px] font-mono text-violet-400"
-                          style={{ background: 'rgba(139,92,246,0.08)', padding: '1px 6px', borderRadius: 4, border: '1px solid rgba(139,92,246,0.2)' }}>
+                        <span className="text-[10px] font-mono"
+                          style={{ background: 'rgba(139,92,246,0.08)', color: 'var(--text-primary)', padding: '1px 6px', borderRadius: 4, border: '1px solid rgba(139,92,246,0.2)' }}>
                           {item.sku}
                         </span>
                       )}
                       {!item.storage && !item.colorName && (
-                        <span className="text-[10px] text-slate-600">No variation</span>
+                        <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>No variation</span>
                       )}
                     </div>
                   </div>
@@ -230,7 +230,7 @@ function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClos
                       <div key={idx}>
                         <label className="block text-[10px] mb-1" style={{ color: 'var(--text-muted)' }}>Unit {idx + 1}</label>
                         <input
-                          className={`input-field font-mono text-xs tracking-wider w-full ${
+                          className={`input-field font-mono text-xs tracking-wider w-full placeholder:text-[var(--text-muted)] placeholder:opacity-50 ${
                             val.length === 15 ? 'border-green-500/40' : val.length > 0 ? 'border-red-500/40' : ''
                           }`}
                           placeholder="000000000000000"
@@ -262,7 +262,7 @@ function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClos
                   {filledSlots} / {totalSlots} IMEIs
                 </span>
               </div>
-              <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+              <div className="h-1.5 rounded-full bg-[var(--border-default)] overflow-hidden">
                 <div className="h-full rounded-full transition-all duration-300"
                   style={{ width: `${(filledSlots / totalSlots) * 100}%`, background: filledSlots === totalSlots ? '#22c55e' : '#8b5cf6' }} />
               </div>
@@ -897,22 +897,22 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="rounded-2xl w-full max-w-4xl shadow-2xl max-h-[92vh] overflow-y-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
         <div className="flex items-center justify-between p-5 border-b sticky top-0" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
-          <h3 className="text-base font-semibold text-white">New Purchase Order</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
+          <h3 className="text-base font-semibold text-[var(--text-primary)]">New Purchase Order</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)]"><X size={16} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-5">
           {/* Supplier + delivery */}
           <div className="grid grid-cols-2 gap-4">
             {branches.length > 1 && (
               <div className="col-span-2">
-                <label className="block text-xs text-slate-400 mb-1.5">Branch *</label>
+                <label className="block text-xs text-[var(--text-muted)] mb-1.5">Branch *</label>
                 <select className="input-field" value={branchId} onChange={e => setBranchId(e.target.value)}>
                   {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
               </div>
             )}
             <div className="col-span-2">
-              <label className="block text-xs text-slate-400 mb-1.5">Supplier *</label>
+              <label className="block text-xs text-[var(--text-muted)] mb-1.5">Supplier *</label>
               {suppliers.length === 0
                 ? <p className="text-xs text-red-400">No suppliers yet — add one first</p>
                 : <select className="input-field" value={supplierId} onChange={e => setSupplierId(e.target.value)}>
@@ -921,11 +921,11 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
               }
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Expected Delivery</label>
+              <label className="block text-xs text-[var(--text-muted)] mb-1.5">Expected Delivery</label>
               <input type="date" className="input-field" value={expectedDelivery} onChange={e => setExpDel(e.target.value)} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Notes</label>
+              <label className="block text-xs text-[var(--text-muted)] mb-1.5">Notes</label>
               <input className="input-field" placeholder="Optional notes" value={notes} onChange={e => setNotes(e.target.value)} />
             </div>
           </div>
@@ -933,12 +933,12 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
           {/* Items */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <label className="text-xs text-slate-400 uppercase tracking-wide">Items *</label>
+              <label className="text-xs text-[var(--text-muted)] uppercase tracking-wide">Items *</label>
             </div>
 
             {/* Quick product search */}
             <div className="relative mb-3">
-              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
               <input
                 className="input-field pl-8 text-sm w-full"
                 placeholder="Search & add product…"
@@ -975,15 +975,15 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
 
             {/* Column headers */}
             <div className="grid grid-cols-12 gap-3 mb-1 px-2">
-              <span className="col-span-5 text-[10px] text-slate-600 uppercase tracking-wide">Product</span>
-              <span className="col-span-2 text-[10px] text-slate-600 uppercase tracking-wide text-center">Qty</span>
-              <span className="col-span-3 text-[10px] text-slate-600 uppercase tracking-wide">Unit Cost</span>
-              <span className="col-span-2 text-[10px] text-slate-600 uppercase tracking-wide text-right">Total</span>
+              <span className="col-span-5 text-[10px] text-[var(--text-muted)] uppercase tracking-wide">Product</span>
+              <span className="col-span-2 text-[10px] text-[var(--text-muted)] uppercase tracking-wide text-center">Qty</span>
+              <span className="col-span-3 text-[10px] text-[var(--text-muted)] uppercase tracking-wide">Unit Cost</span>
+              <span className="col-span-2 text-[10px] text-[var(--text-muted)] uppercase tracking-wide text-right">Total</span>
             </div>
 
             <div className="space-y-1.5">
               {items.map((item, i) => (
-                <div key={i} className="rounded-xl border overflow-visible" style={{ borderColor: 'var(--border-subtle)', background: 'rgba(255,255,255,0.02)' }}>
+                <div key={i} className="rounded-xl border overflow-visible" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
 
                   {/* ── Main row ── */}
                   <div className="grid grid-cols-12 gap-3 items-start p-2">
@@ -1016,7 +1016,7 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
                                 style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
                               >
                                 <div className="min-w-0">
-                                  <p className="text-xs text-slate-200 truncate font-medium">{p.name}</p>
+                                  <p className="text-xs text-[var(--text-primary)] truncate font-medium">{p.name}</p>
                                   <p className="text-[10px] text-slate-500">{p.sku}{p.brandName ? ` · ${p.brandName}` : ''}</p>
                                 </div>
                                 <div className="text-right flex-shrink-0">
@@ -1057,9 +1057,9 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
 
                     {/* Total + delete */}
                     <div className="col-span-2 flex items-center justify-end gap-2 pt-1">
-                      <span className="text-sm font-bold text-white">{formatCurrency(Number(item.quantity) * Number(item.unitCost))}</span>
+                      <span className="text-sm font-bold text-[var(--text-primary)]">{formatCurrency(Number(item.quantity) * Number(item.unitCost))}</span>
                       <button type="button" onClick={() => removeItem(i)} disabled={items.length === 1}
-                        className="w-6 h-6 rounded-lg flex items-center justify-center text-slate-600 hover:text-red-400 hover:bg-red-400/10 disabled:opacity-20 transition-all flex-shrink-0">
+                        className="w-6 h-6 rounded-lg flex items-center justify-center text-[var(--text-muted)] hover:text-red-400 hover:bg-red-400/10 disabled:opacity-20 transition-all flex-shrink-0">
                         <Trash2 size={12} />
                       </button>
                     </div>
@@ -1076,7 +1076,7 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
 
                           {/* Storage pills */}
                           <div>
-                            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-600 mb-1.5">Storage</p>
+                            <p className="text-[9px] font-bold uppercase tracking-widest text-[var(--text-muted)] mb-1.5">Storage</p>
                             <div className="flex flex-wrap gap-1.5">
                               {storageOpts.map(s => (
                                 <button key={s} type="button"
@@ -1092,8 +1092,8 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
                                   }}
                                   className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all"
                                   style={item.storage === s
-                                    ? { background: 'rgba(139,92,246,0.2)', borderColor: 'rgba(139,92,246,0.5)', color: '#c4b5fd' }
-                                    : { background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', color: '#64748b' }}>
+                                    ? { background: 'rgba(139,92,246,0.1)', borderColor: 'rgba(139,92,246,0.2)', color: 'var(--text-primary)' }
+                                    : { background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-muted)' }}>
                                   {s}
                                 </button>
                               ))}
@@ -1102,7 +1102,7 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
 
                           {/* Color pills */}
                           <div>
-                            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-600 mb-1.5">Color</p>
+                            <p className="text-[9px] font-bold uppercase tracking-widest text-[var(--text-muted)] mb-1.5">Color</p>
                             <div className="flex flex-wrap gap-1.5">
                               {colorOpts.map((v: any) => (
                                 <button key={v.colorName ?? v.sku ?? Math.random()} type="button"
@@ -1116,8 +1116,8 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
                                   }}
                                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all"
                                   style={item.colorName === v.colorName
-                                    ? { background: 'rgba(139,92,246,0.2)', borderColor: 'rgba(139,92,246,0.5)', color: '#c4b5fd' }
-                                    : { background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', color: '#64748b' }}>
+                                    ? { background: 'rgba(139,92,246,0.1)', borderColor: 'rgba(139,92,246,0.2)', color: 'var(--text-primary)' }
+                                    : { background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-muted)' }}>
                                   <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-white/20"
                                     style={{ background: (() => {
                                       const n = (v.colorName ?? '').toLowerCase()
@@ -1141,8 +1141,8 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
                           {/* SKU chip */}
                           {item.sku && (
                             <div className="flex items-start gap-1.5 pt-4">
-                              <span className="text-[9px] font-bold uppercase tracking-widest text-slate-600 mt-0.5">SKU</span>
-                              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md text-violet-400" style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)' }}>{item.sku}</span>
+                              <span className="text-[9px] font-bold uppercase tracking-widest text-[var(--text-muted)] mt-0.5">SKU</span>
+                              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md" style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', color: 'var(--text-primary)' }}>{item.sku}</span>
                             </div>
                           )}
                         </div>
