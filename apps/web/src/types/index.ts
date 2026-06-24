@@ -325,6 +325,7 @@ export interface PurchaseOrder {
   dueAmount: number
   expectedDelivery?: string
   receivedAt?: string
+  imeisRegisteredAt?: string
   branchId: string
   notes?: string
   createdAt: string

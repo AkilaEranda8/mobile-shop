@@ -14,48 +14,62 @@ import toast from 'react-hot-toast'
 import type { Supplier, PurchaseOrder, POItem } from '@/types'
 
 /* ── IMEI Register Modal ─────────────────────────────────────────── */
-function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClose: () => void; onSaved: (poId: string) => void }) {
+function IMEIRegisterModal({ po, products, onClose, onSaved }: {
+  po: PurchaseOrder
+  products: { id: string; trackImei?: boolean; name?: string }[]
+  onClose: () => void
+  onSaved: (poId: string) => void
+}) {
   const [branches, setBranches] = useState<any[]>([])
-  const [defaultBranch, setDefaultBranch] = useState('')
+  const [defaultBranch, setDefaultBranch] = useState(po.branchId ?? '')
   const [loading, setLoading] = useState(false)
   const [scanValue, setScanValue] = useState('')
 
-  // Build item sections keyed by "productId::storage::colorName"
-  const itemsWithId = po.items.filter(i => i.productId)
+  const productMap = useMemo(() => new Map(products.map(p => [p.id, p])), [products])
+
+  // Only IMEI-tracked products with linked productId
+  const itemsWithId = po.items.filter(i => {
+    if (!i.productId) return false
+    return productMap.get(i.productId)?.trackImei === true
+  })
   const itemKey = (item: POItem) =>
     `${item.productId}::${item.storage ?? ''}::${item.colorName ?? ''}`
 
   // imeis[itemKey] = string[] (one per unit)
-  const [imeis, setImeis] = useState<Record<string, string[]>>(() => {
+  const [imeis, setImeis] = useState<Record<string, string[]>>({})
+
+  useEffect(() => {
     const init: Record<string, string[]> = {}
     for (const item of itemsWithId) {
       init[itemKey(item)] = Array(item.quantity).fill('')
     }
-    return init
-  })
+    setImeis(init)
+  }, [po.id, itemsWithId.map(i => `${itemKey(i)}:${i.quantity}`).join('|')])
 
   useEffect(() => {
     branchesApi.list().then((r: any) => {
       const list = r.data ?? []
       setBranches(list)
-      setDefaultBranch(list[0]?.id ?? '')
+      const poBranchValid = list.some((b: any) => b.id === po.branchId)
+      setDefaultBranch(poBranchValid ? po.branchId : (list[0]?.id ?? ''))
     }).catch(() => {})
-  }, [])
+  }, [po.branchId])
 
   const setImei = (key: string, idx: number, val: string) =>
     setImeis(prev => ({ ...prev, [key]: prev[key].map((v, i) => i === idx ? val : v) }))
 
   // Fill next empty IMEI slot from scanner
   const handleScan = (scanned: string) => {
-    const trimmed = scanned.trim()
-    if (!trimmed) return
+    const digits = scanned.replace(/\D/g, '')
+    const imei = digits.length > 15 ? digits.slice(-15) : digits
+    if (imei.length !== 15) { toast.error('IMEI must be 15 digits'); return }
     let filled = false
     setImeis(prev => {
       const next = { ...prev }
       outer: for (const key of Object.keys(next)) {
         const arr = [...next[key]]
         for (let i = 0; i < arr.length; i++) {
-          if (!arr[i]) { arr[i] = trimmed; next[key] = arr; filled = true; break outer }
+          if (!arr[i]) { arr[i] = imei; next[key] = arr; filled = true; break outer }
         }
       }
       return next
@@ -87,6 +101,7 @@ function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClos
       }
     }
     if (!entries.length) { toast.error('Enter at least one IMEI'); return }
+    if (!defaultBranch) { toast.error('Select a branch before registering IMEIs'); return }
     setLoading(true)
     try {
       const r: any = await suppliersApi.registerPoImei(po.id, entries)
@@ -153,9 +168,8 @@ function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClos
               value={scanValue}
               onChange={e => setScanValue(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleScan(scanValue) } }}
-              maxLength={15}
             />
-            {scanValue.length === 15 && <span className="text-[10px] text-green-400 font-bold">✓ VALID</span>}
+            {scanValue.replace(/\D/g, '').length === 15 && <span className="text-[10px] text-green-400 font-bold">✓ VALID</span>}
           </div>
 
           {/* Branch selector */}
@@ -169,7 +183,7 @@ function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClos
           )}
 
           {itemsWithId.length === 0 && (
-            <p className="text-xs text-amber-400 text-center py-4">No linked products in this PO. Assign products first.</p>
+            <p className="text-xs text-amber-400 text-center py-4">No IMEI-tracked products in this PO.</p>
           )}
 
           {/* One card per variation line item */}
@@ -1182,12 +1196,16 @@ export default function SuppliersPage() {
   const [markReceiving,  setMarkReceiving]        = useState<string | null>(null)
   const [confirmPO,       setConfirmPO]           = useState<PurchaseOrder | null>(null)
   const [registerImeiPO,  setRegisterImeiPO]      = useState<PurchaseOrder | null>(null)
-  const [registeredImeiPOs, setRegisteredImeiPOs] = useState<Set<string>>(new Set())
   const [paySupplier,     setPaySupplier]         = useState<Supplier | null>(null)
   const { data: suppliersData, loading: suppliersLoading, refetch: refetchSuppliers } = useSuppliers()
   const { data: ordersData,    loading: ordersLoading,    refetch: refetchOrders    } = usePurchaseOrders()
+  const { data: productsData } = useProducts({ limit: '500' })
   const suppliers:      Supplier[]      = (suppliersData?.data ?? []) as Supplier[]
   const purchaseOrders: PurchaseOrder[] = (ordersData?.data    ?? []) as PurchaseOrder[]
+  const allProducts: { id: string; trackImei?: boolean; name?: string }[] = (productsData?.data ?? []) as any[]
+
+  const poHasImeiProducts = (po: PurchaseOrder) =>
+    po.items.some(i => i.productId && allProducts.find(p => p.id === i.productId)?.trackImei)
 
   const handleMarkReceived = async (po: PurchaseOrder) => {
     setConfirmPO(po)
@@ -1197,9 +1215,13 @@ export default function SuppliersPage() {
     if (!confirmPO) return
     setMarkReceiving(confirmPO.id)
     try {
-      await suppliersApi.updatePO(confirmPO.id, { status: 'RECEIVED' })
+      const res: any = await suppliersApi.updatePO(confirmPO.id, { status: 'RECEIVED' })
       toast.success(`${confirmPO.poNumber} received — inventory updated`)
       refetchOrders()
+      const updated = (res?.data ?? confirmPO) as PurchaseOrder
+      if (poHasImeiProducts(updated) && !updated.imeisRegisteredAt) {
+        setRegisterImeiPO(updated)
+      }
     } catch (err: any) {
       toast.error(err?.message ?? 'Failed to update PO')
     } finally {
@@ -1319,8 +1341,10 @@ export default function SuppliersPage() {
       id: 'actions',
       cell: ({ row }) => {
         const po = row.original
-        const canReceive = po.status !== 'CLOSED'
-        const canRegisterImei = (po.status === 'RECEIVED' || po.status === 'CLOSED') && po.items.some(i => i.productId) && !registeredImeiPOs.has(po.id)
+        const canReceive = ['DRAFT', 'SENT', 'PARTIAL'].includes(po.status)
+        const canRegisterImei = (po.status === 'RECEIVED' || po.status === 'CLOSED')
+          && poHasImeiProducts(po)
+          && !po.imeisRegisteredAt
         return (
           <div className="flex items-center gap-2">
             {canReceive && (
@@ -1348,7 +1372,7 @@ export default function SuppliersPage() {
         )
       },
     },
-  ], [router, markReceiving, handleMarkReceived, setRegisterImeiPO, registeredImeiPOs])
+  ], [router, markReceiving, handleMarkReceived, setRegisterImeiPO, allProducts])
 
   return (
     <div className="space-y-6">
@@ -1357,7 +1381,7 @@ export default function SuppliersPage() {
       {detailSupplier  && <SupplierDetailsModal supplier={detailSupplier} allPOs={purchaseOrders} onClose={() => setDetailSupplier(null)} onEdit={() => { setEditSupplier(detailSupplier); setDetailSupplier(null) }} />}
       {editSupplier    && <EditSupplierModal supplier={editSupplier} onClose={() => setEditSupplier(null)} onSaved={() => { refetchSuppliers(); setEditSupplier(null) }} />}
       {confirmPO       && <ConfirmReceiveModal po={confirmPO} onConfirm={doReceive} onCancel={() => setConfirmPO(null)} loading={!!markReceiving} />}
-      {registerImeiPO  && <IMEIRegisterModal po={registerImeiPO} onClose={() => setRegisterImeiPO(null)} onSaved={(poId) => { setRegisteredImeiPOs(prev => new Set([...prev, poId])); refetchOrders() }} />}
+      {registerImeiPO  && <IMEIRegisterModal po={registerImeiPO} products={allProducts} onClose={() => setRegisterImeiPO(null)} onSaved={() => refetchOrders()} />}
       {paySupplier     && <RecordPaymentModal supplier={paySupplier} allPOs={purchaseOrders} onClose={() => setPaySupplier(null)} onSaved={() => { refetchSuppliers(); refetchOrders() }} />}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">

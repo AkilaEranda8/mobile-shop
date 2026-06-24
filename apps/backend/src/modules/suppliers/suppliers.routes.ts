@@ -59,10 +59,17 @@ router.get('/purchase-orders', async (req: Request, res: Response, next: NextFun
 
 router.post('/purchase-orders', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { supplierId, supplierName, subtotal, tax, total, paidAmount, dueAmount, expectedDelivery, notes, status, items } = req.body
+    const { supplierId, supplierName, subtotal, tax, total, paidAmount, dueAmount, expectedDelivery, notes, status, items, branchId: bodyBranchId } = req.body
     const poNumber = await generatePONumber(req.tenantId!)
-    const userBranch = await prisma.userBranch.findFirst({ where: { userId: req.user!.userId } })
-    let branchId = userBranch?.branchId
+    let branchId: string | undefined = bodyBranchId
+    if (branchId) {
+      const valid = await prisma.branch.findFirst({ where: { id: branchId, tenantId: req.tenantId! } })
+      if (!valid) branchId = undefined
+    }
+    if (!branchId) {
+      const userBranch = await prisma.userBranch.findFirst({ where: { userId: req.user!.userId } })
+      branchId = userBranch?.branchId
+    }
     if (!branchId) {
       const firstBranch = await prisma.branch.findFirst({ where: { tenantId: req.tenantId! } })
       branchId = firstBranch?.id
@@ -123,66 +130,57 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
     if (!po) throw new AppError('Purchase order not found', 404)
 
     const newStatus = req.body.status as string | undefined
-    // ── Restock inventory when marking as RECEIVED ─────────────────────────
-    // Only restock when transitioning TO RECEIVED (not if already RECEIVED).
-    if (newStatus === 'RECEIVED' && po.status !== 'RECEIVED') {
-      try {
-        console.log(`[PO receive] Processing PO ${po.poNumber} with ${po.items.length} items`)
+    const isReceiving = newStatus === 'RECEIVED' && po.status !== 'RECEIVED'
 
-        // Step 1: Resolve productId + branchId for each PO item
-        const resolvedItems: { item: any; productId: string; branchId: string }[] = []
+    if (isReceiving) {
+      await prisma.$transaction(async (tx) => {
+        const resolvedItems: { item: typeof po.items[0]; productId: string; branchId: string }[] = []
         for (const item of po.items) {
           let productId = (item.productId as string | null) || undefined
-          let branchId  = (item as any).branchId ?? po.branchId
+          let branchId  = po.branchId
 
           if (!productId && item.productName) {
-            const found = await prisma.product.findFirst({
+            const found = await tx.product.findFirst({
               where: { tenantId: req.tenantId!, name: { equals: item.productName, mode: 'insensitive' }, isActive: true },
             })
             if (found) { productId = found.id; branchId = found.branchId ?? po.branchId }
           }
-          if (!productId) { console.warn(`[PO receive] No productId for "${item.productName}" — skip`); continue }
+          if (!productId) throw new AppError(`Cannot receive PO: product not linked for "${item.productName}"`, 400)
 
           if (!branchId) {
-            const branch = await prisma.branch.findFirst({ where: { tenantId: req.tenantId! } })
+            const branch = await tx.branch.findFirst({ where: { tenantId: req.tenantId! } })
             branchId = branch?.id
           }
-          if (!branchId) { console.warn(`[PO receive] No branchId for "${item.productName}" — skip`); continue }
+          if (!branchId) throw new AppError('No branch found for stock update', 400)
 
           resolvedItems.push({ item, productId, branchId })
         }
 
-        // Step 2: Group by productId so same-product variants are updated in ONE DB write
         const byProduct = new Map<string, typeof resolvedItems>()
         for (const r of resolvedItems) {
           if (!byProduct.has(r.productId)) byProduct.set(r.productId, [])
           byProduct.get(r.productId)!.push(r)
         }
 
-        // Step 3: Per product — read once, apply ALL variant updates, write once
         for (const [productId, group] of byProduct) {
-          const p = await prisma.product.findUnique({ where: { id: productId } })
-          if (!p) { console.warn(`[PO receive] Product ${productId} not found — skip`); continue }
+          const p = await tx.product.findUnique({ where: { id: productId } })
+          if (!p) throw new AppError(`Product ${productId} not found during receive`, 404)
 
           const totalQty = group.reduce((s, r) => s + r.item.quantity, 0)
-
-          // Apply all variant stock changes to the variations array in one pass
           let updatedVariations = (p as any).storageVariations as any[] | null
           if (updatedVariations && Array.isArray(updatedVariations)) {
             for (const { item } of group) {
-              const anyItem = item as any
               updatedVariations = updatedVariations.map((v: any) => {
-                const match = (anyItem.sku && v.sku === anyItem.sku) ||
-                              (anyItem.storage && anyItem.colorName &&
-                               v.storage === anyItem.storage && v.colorName === anyItem.colorName)
-                if (match) return { ...v, stock: (v.stock || 0) + anyItem.quantity }
+                const match = (item.sku && v.sku === item.sku) ||
+                              (item.storage && item.colorName &&
+                               v.storage === item.storage && v.colorName === item.colorName)
+                if (match) return { ...v, stock: (v.stock || 0) + item.quantity }
                 return v
               })
             }
           }
 
-          // Single product.update for all variants of this product
-          await prisma.product.update({
+          await tx.product.update({
             where: { id: productId },
             data: {
               stock: { increment: totalQty },
@@ -190,27 +188,44 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
             },
           })
 
-          // Create one StockMovement per PO item (unique reference per item)
           const branchId = group[0].branchId
-          await prisma.stockMovement.createMany({
+          await tx.stockMovement.createMany({
             data: group.map(({ item }) => ({
               productId,
               branchId,
               type:        'PURCHASE' as const,
               quantity:    item.quantity,
               reference:   `${po.id}:${item.id}`,
-              note:        `Received via PO ${po.poNumber} (${(item as any).sku ?? (item as any).storage ?? item.productName})`,
+              note:        `Received via PO ${po.poNumber} (${item.sku ?? item.storage ?? item.productName})`,
               performedBy: req.user?.userId ?? 'system',
             })),
           })
 
-          console.log(`[PO receive] ✓ Product "${(p as any).name}" — ${group.map((r: any) => `${r.item.sku ?? r.item.storage ?? '?'} +${r.item.quantity}`).join(', ')}`)
+          for (const { item } of group) {
+            await tx.pOItem.update({
+              where: { id: item.id },
+              data:  { receivedQuantity: item.quantity },
+            })
+          }
         }
-      } catch (stockErr) {
-        console.error('[PO receive] stock update failed:', stockErr)
-      }
-    }
 
+        await tx.purchaseOrder.update({
+          where: { id: req.params.id },
+          data: {
+            status:     'RECEIVED',
+            receivedAt: new Date(),
+            paidAmount: req.body.paidAmount ?? po.paidAmount,
+          },
+        })
+      })
+
+      await recalcSupplierStats(po.supplierId, req.tenantId!)
+      const updated = await prisma.purchaseOrder.findFirst({
+        where: { id: req.params.id, tenantId: req.tenantId! },
+        include: { items: true },
+      })
+      return sendSuccess(res, updated)
+    }
 
     const updated = await prisma.purchaseOrder.update({
       where: { id: req.params.id },
@@ -233,23 +248,43 @@ router.post('/purchase-orders/:id/register-imei', authorize('OWNER', 'MANAGER'),
       where: { id: req.params.id, tenantId: req.tenantId! },
     })
     if (!po) throw new AppError('Purchase order not found', 404)
+    if (po.status !== 'RECEIVED' && po.status !== 'CLOSED') {
+      throw new AppError('PO must be received before registering IMEIs', 400)
+    }
 
-    // items: [{ productId, branchId, imei }]
-    const entries: { productId: string; branchId: string; imei: string }[] = req.body.items ?? []
+    const entries: { productId: string; branchId: string; imei: string; variation?: string | null }[] = req.body.items ?? []
     if (!entries.length) throw new AppError('No IMEI entries provided', 400)
 
     const results = { created: 0, skipped: 0, errors: [] as string[] }
 
     for (const entry of entries) {
       const { productId, branchId, imei, variation } = entry
-      if (!imei || !/^\d{15}$/.test(imei.trim())) { results.errors.push(`Invalid IMEI: ${imei}`); continue }
-      const trimmed = imei.trim()
-      const product = await prisma.product.findFirst({ where: { id: productId, tenantId: req.tenantId! } })
+      const trimmed = (imei ?? '').trim()
+      if (!trimmed || !/^\d{15}$/.test(trimmed)) { results.errors.push(`Invalid IMEI: ${imei}`); continue }
+      if (!branchId) { results.errors.push(`Missing branch for IMEI ${trimmed}`); continue }
+
+      const [product, branch] = await Promise.all([
+        prisma.product.findFirst({ where: { id: productId, tenantId: req.tenantId! } }),
+        prisma.branch.findFirst({ where: { id: branchId, tenantId: req.tenantId! } }),
+      ])
       if (!product) { results.errors.push(`Product not found: ${productId}`); continue }
+      if (!branch) { results.errors.push(`Branch not found: ${branchId}`); continue }
+      if (!product.trackImei) { results.errors.push(`${product.name} does not track IMEI`); continue }
+
       const existing = await prisma.imeiRecord.findUnique({ where: { imei: trimmed } })
       if (existing) { results.skipped++; continue }
-      await prisma.imeiRecord.create({ data: { imei: trimmed, productId, branchId, variation, status: 'IN_STOCK' } })
+
+      await prisma.imeiRecord.create({
+        data: { imei: trimmed, productId, branchId, variation: variation ?? undefined, status: 'IN_STOCK' },
+      })
       results.created++
+    }
+
+    if (results.created > 0) {
+      await prisma.purchaseOrder.update({
+        where: { id: po.id },
+        data:  { imeisRegisteredAt: new Date() },
+      })
     }
 
     sendSuccess(res, results, `${results.created} IMEI(s) registered, ${results.skipped} skipped`)

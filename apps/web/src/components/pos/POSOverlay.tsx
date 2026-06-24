@@ -408,7 +408,7 @@ function VariationPickerModal({
       setLoadingImeis(true)
       imeiApi.list({ productId: product.id, status: 'IN_STOCK', limit: '9999' })
         .then((res: any) => {
-          const list = res.data?.data ?? []
+          const list = Array.isArray(res?.data) ? res.data : []
           setImeis(list)
         })
         .finally(() => setLoadingImeis(false))
@@ -1644,6 +1644,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           productId:   i.isService ? undefined : i.productId,
           productName: i.name,
           sku:         i.sku,
+          variationLabel: i.variationLabel,
           quantity:    i.quantity,
           unitPrice:   i.price,
           total:       i.price * i.quantity,

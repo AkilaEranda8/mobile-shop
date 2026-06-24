@@ -671,8 +671,8 @@ export function AddStockModal({ onClose, onSaved }: AddStockModalProps) {
         pUpdate.totalQty += 1
         pUpdate.devices.push(d)
 
-        // Identify variant by SKU or storage+color
-        const vKey = d.sku || `${d.storage}|${d.color}`
+        // Identify variant by SKU or storage+colorName
+        const vKey = d.sku || `${d.storage}::${d.color}`
         pUpdate.variationsMap.set(vKey, (pUpdate.variationsMap.get(vKey) || 0) + 1)
       }
 
@@ -683,8 +683,11 @@ export function AddStockModal({ onClose, onSaved }: AddStockModalProps) {
           if (Array.isArray(updatedVariations)) {
             updatedVariations = updatedVariations.map((v: any) => {
               const vKeySku = v.sku
-              const vKeyProps = `${v.storage}|${v.colorName}`
-              const addQty = updateData.variationsMap.get(vKeySku) || updateData.variationsMap.get(vKeyProps) || 0
+              const vKeyProps = `${v.storage}::${v.colorName}`
+              const addQty = updateData.variationsMap.get(vKeySku)
+                || updateData.variationsMap.get(vKeyProps)
+                || updateData.variationsMap.get(`${v.storage}::${v.colorName}`)
+                || 0
               if (addQty > 0) {
                 return { ...v, stock: (v.stock || 0) + addQty }
               }
@@ -705,12 +708,23 @@ export function AddStockModal({ onClose, onSaved }: AddStockModalProps) {
           const primaryBranchId = user?.branchIds?.[0]
           if (product.trackImei && primaryBranchId) {
             for (const d of updateData.devices) {
-              const variationLabel = d.sku || `${d.storage}::${d.color}`
+              const matchedVar = Array.isArray(updatedVariations)
+                ? updatedVariations.find((v: any) =>
+                    (d.sku && v.sku === d.sku) ||
+                    (v.storage === d.storage && v.colorName === d.color))
+                : undefined
+              const variationLabel = matchedVar?.sku || `${matchedVar?.storage ?? d.storage}::${matchedVar?.colorName ?? d.color}`
               if (d.imei1 && d.imei1.length === 15) {
-                await imeiApi.create({ imei: d.imei1, productId, branchId: primaryBranchId, variation: variationLabel }).catch(() => null)
+                await imeiApi.create({ imei: d.imei1, productId, branchId: primaryBranchId, variation: variationLabel }).catch((e) => {
+                  console.error('IMEI create failed:', e)
+                  toast.error(`Failed to register IMEI ${d.imei1}`)
+                })
               }
               if (d.imei2 && d.imei2.length === 15) {
-                await imeiApi.create({ imei: d.imei2, productId, branchId: primaryBranchId, variation: variationLabel }).catch(() => null)
+                await imeiApi.create({ imei: d.imei2, productId, branchId: primaryBranchId, variation: variationLabel }).catch((e) => {
+                  console.error('IMEI create failed:', e)
+                  toast.error(`Failed to register IMEI ${d.imei2}`)
+                })
               }
             }
           }

@@ -70,13 +70,16 @@ export const salesService = {
           throw new AppError(`Insufficient stock for "${product.name}". Available: ${product.stock}, Requested: ${item.quantity}`, 400)
         }
 
-        // Update variant stock if applicable
-        if (item.sku && product.storageVariations) {
+        // Update variant stock — match by SKU or storage+colorName (same as PO receive)
+        if (product.storageVariations) {
           let updatedVariations = product.storageVariations as any[]
           if (Array.isArray(updatedVariations)) {
             let changed = false
             updatedVariations = updatedVariations.map((v: any) => {
-              if (v.sku === item.sku) {
+              const matchSku = item.sku && v.sku === item.sku
+              const matchProps = (item as any).variationLabel &&
+                `${v.storage}::${v.colorName}` === (item as any).variationLabel
+              if (matchSku || matchProps) {
                 changed = true
                 return { ...v, stock: Math.max(0, (v.stock || 0) - item.quantity) }
               }
@@ -96,8 +99,17 @@ export const salesService = {
           if (existingImei) {
             await tx.imeiRecord.update({ where: { imei: item.imei }, data: { status: 'SOLD', customerId: body.customerId ?? existingImei.customerId, saleId: s.id } })
           } else if (item.productId) {
-            // Auto-create ImeiRecord if not pre-registered
-            await tx.imeiRecord.create({ data: { imei: item.imei, productId: item.productId, branchId: body.branchId, status: 'SOLD', customerId: body.customerId, saleId: s.id } })
+            await tx.imeiRecord.create({
+              data: {
+                imei: item.imei,
+                productId: item.productId,
+                branchId: body.branchId,
+                status: 'SOLD',
+                variation: (item as any).variationLabel ?? undefined,
+                customerId: body.customerId,
+                saleId: s.id,
+              },
+            })
           }
         }
       }
