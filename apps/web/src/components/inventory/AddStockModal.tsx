@@ -702,14 +702,15 @@ export function AddStockModal({ onClose, onSaved }: AddStockModalProps) {
 
           // Create ImeiRecords for each device entered
           const user = authStorage.getUser()
-          if (product.trackImei && user?.branchId) {
+          const primaryBranchId = user?.branchIds?.[0]
+          if (product.trackImei && primaryBranchId) {
             for (const d of updateData.devices) {
               const variationLabel = d.sku || `${d.storage}::${d.color}`
               if (d.imei1 && d.imei1.length === 15) {
-                await imeiApi.create({ imei: d.imei1, productId, branchId: user.branchId, variation: variationLabel }).catch(() => null)
+                await imeiApi.create({ imei: d.imei1, productId, branchId: primaryBranchId, variation: variationLabel }).catch(() => null)
               }
               if (d.imei2 && d.imei2.length === 15) {
-                await imeiApi.create({ imei: d.imei2, productId, branchId: user.branchId, variation: variationLabel }).catch(() => null)
+                await imeiApi.create({ imei: d.imei2, productId, branchId: primaryBranchId, variation: variationLabel }).catch(() => null)
               }
             }
           }
