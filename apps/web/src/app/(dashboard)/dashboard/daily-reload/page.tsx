@@ -69,7 +69,13 @@ function fmtDate(iso: string) {
 export default function DailyReloadPage() {
   const hasAccess = useFeatureFlag('DAILY_RELOAD')
   const [date, setDate]               = useState(today())
+  const [settlementDate, setSettlementDate] = useState(today())
   const [summary, setSummary]         = useState<Summary>({ data: [], total: 0, totalAmount: 0, commission: 0 })
+  const [settlementSummary, setSettlementSummary] = useState<{
+    providerBreakdown: ProviderRow[]
+    settlement?: Settlement
+    loading: boolean
+  }>({ providerBreakdown: [], loading: false })
   const [loading, setLoading]         = useState(false)
   const [tab, setTab]                 = useState<'upload' | 'manual' | 'settlement'>('upload')
   const [uploading, setUploading]     = useState(false)
@@ -101,20 +107,35 @@ export default function DailyReloadPage() {
         totalAmount: payload.totalAmount ?? 0,
         commission:  payload.commission  ?? 0,
         netPayable:  payload.netPayable,
-        providerBreakdown: payload.providerBreakdown ?? [],
-        settlement: payload.settlement,
       })
     } catch { toast.error('Failed to load reloads') }
     finally { setLoading(false) }
   }, [date])
 
+  const fetchSettlement = useCallback(async () => {
+    setSettlementSummary(prev => ({ ...prev, loading: true }))
+    try {
+      const res: any = await dailyReloadApi.list({ date: settlementDate, _t: Date.now().toString() })
+      const payload = res.data ?? res
+      setSettlementSummary({
+        providerBreakdown: payload.providerBreakdown ?? [],
+        settlement: payload.settlement,
+        loading: false,
+      })
+    } catch {
+      toast.error('Failed to load provider settlement')
+      setSettlementSummary(prev => ({ ...prev, loading: false }))
+    }
+  }, [settlementDate])
+
   useEffect(() => { fetch() }, [fetch])
+  useEffect(() => { fetchSettlement() }, [fetchSettlement])
 
   useEffect(() => {
-    const onSaleComplete = () => { fetch() }
+    const onSaleComplete = () => { fetch(); fetchSettlement() }
     window.addEventListener('pos:sale-complete', onSaleComplete)
     return () => window.removeEventListener('pos:sale-complete', onSaleComplete)
-  }, [fetch])
+  }, [fetch, fetchSettlement])
 
   /* ── Excel Upload ────────────────────────────────────────────────────────── */
   const handleFile = async (file: File) => {
@@ -151,7 +172,7 @@ export default function DailyReloadPage() {
   }
 
   const openPayModal = (provider: string) => {
-    const row = summary.providerBreakdown?.find(p => p.provider === provider)
+    const row = settlementSummary.providerBreakdown.find(p => p.provider === provider)
     if (!row || row.remaining <= 0) return
     setPayModal({
       provider,
@@ -174,7 +195,7 @@ export default function DailyReloadPage() {
     setPayingProvider(payModal.provider)
     try {
       await dailyReloadApi.payProvider({
-        date,
+        date: settlementDate,
         provider: payModal.provider,
         amount: amt,
         paymentMethod: payMethod,
@@ -186,7 +207,7 @@ export default function DailyReloadPage() {
           : `${payModal.provider} fully paid`,
       )
       setPayModal(null)
-      fetch()
+      fetchSettlement()
     } catch (e: any) { toast.error(e.message || 'Payment failed') }
     finally { setPayingProvider(null) }
   }
@@ -194,17 +215,17 @@ export default function DailyReloadPage() {
   const handlePayProvider = (provider: string) => openPayModal(provider)
 
   const handlePayAll = async () => {
-    const unpaid = (summary.providerBreakdown ?? []).filter(p => p.remaining > 0.01)
+    const unpaid = settlementSummary.providerBreakdown.filter(p => p.remaining > 0.01)
     if (!unpaid.length) { toast.error('Nothing to pay'); return }
     const total = unpaid.reduce((s, p) => s + p.remaining, 0)
     if (!confirm(`Pay all providers total Rs ${total.toLocaleString('en-LK', { minimumFractionDigits: 2 })}?`)) return
     setPayingProvider('ALL')
     try {
       for (const p of unpaid) {
-        await dailyReloadApi.payProvider({ date, provider: p.provider })
+        await dailyReloadApi.payProvider({ date: settlementDate, provider: p.provider })
       }
       toast.success('All provider payments recorded')
-      fetch()
+      fetchSettlement()
     } catch (e: any) { toast.error(e.message || 'Payment failed') }
     finally { setPayingProvider(null) }
   }
@@ -325,9 +346,10 @@ export default function DailyReloadPage() {
 
   /* ── UI ──────────────────────────────────────────────────────────────────── */
   const successCount = summary.data.filter(r => r.status === 'Success').length
-  const settlement = summary.settlement
-  const providerRows = summary.providerBreakdown ?? []
+  const settlement = settlementSummary.settlement
+  const providerRows = settlementSummary.providerBreakdown
   const netPayable = summary.netPayable ?? (summary.totalAmount - summary.commission)
+  const settlementLoading = settlementSummary.loading
 
   if (!hasAccess) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -524,24 +546,59 @@ export default function DailyReloadPage() {
                 <div>
                   <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Provider Settlement</p>
                   <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                    Pay provider = Reload total − Commission earned · {date}
+                    Pay provider = Reload total − Commission earned
                   </p>
                 </div>
-                {settlement && settlement.remaining > 0.01 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-surface)', color: 'var(--text-primary)' }}>
+                    <Calendar size={13} style={{ color: 'var(--text-muted)' }} />
+                    <input
+                      type="date"
+                      value={settlementDate}
+                      onChange={e => setSettlementDate(e.target.value)}
+                      className="bg-transparent outline-none text-sm"
+                      style={{ color: 'var(--text-primary)' }}
+                    />
+                  </div>
                   <button
                     type="button"
-                    onClick={handlePayAll}
-                    disabled={payingProvider !== null}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors disabled:opacity-40"
-                    style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}
+                    onClick={() => setSettlementDate(today())}
+                    className="px-3 py-2 rounded-xl border text-xs font-medium transition-colors hover:bg-white/5"
+                    style={{ borderColor: 'var(--border-default)', color: 'var(--text-muted)' }}
                   >
-                    {payingProvider === 'ALL' ? <RefreshCw size={13} className="animate-spin" /> : <Banknote size={13} />}
-                    Pay All ({formatAmt(settlement.remaining)})
+                    Today
                   </button>
-                )}
+                  <button
+                    type="button"
+                    onClick={fetchSettlement}
+                    disabled={settlementLoading}
+                    className="p-2 rounded-xl border transition-colors hover:bg-white/5"
+                    style={{ borderColor: 'var(--border-default)', color: 'var(--text-muted)' }}
+                    title="Refresh settlement"
+                  >
+                    <RefreshCw size={14} className={settlementLoading ? 'animate-spin' : ''} />
+                  </button>
+                  {settlement && settlement.remaining > 0.01 && (
+                    <button
+                      type="button"
+                      onClick={handlePayAll}
+                      disabled={payingProvider !== null || settlementLoading}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors disabled:opacity-40"
+                      style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}
+                    >
+                      {payingProvider === 'ALL' ? <RefreshCw size={13} className="animate-spin" /> : <Banknote size={13} />}
+                      Pay All ({formatAmt(settlement.remaining)})
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {providerRows.length === 0 ? (
+              {settlementLoading ? (
+                <div className="rounded-2xl border border-dashed p-10 text-center" style={{ borderColor: 'var(--border-default)' }}>
+                  <RefreshCw size={28} className="animate-spin mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
+                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading settlement for {settlementDate}…</p>
+                </div>
+              ) : providerRows.length === 0 ? (
                 <div className="rounded-2xl border border-dashed p-10 text-center" style={{ borderColor: 'var(--border-default)' }}>
                   <Banknote size={32} style={{ color: 'var(--text-muted)' }} className="mx-auto mb-3" />
                   <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>No reload data for this date</p>
@@ -631,7 +688,7 @@ export default function DailyReloadPage() {
             <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
               <div>
                 <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Pay {payModal.provider}</h3>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{date}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{settlementDate}</p>
               </div>
               <button type="button" onClick={() => setPayModal(null)} disabled={!!payingProvider} className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: 'var(--text-muted)' }}>
                 <X size={16} />
@@ -762,10 +819,8 @@ export default function DailyReloadPage() {
               <p className="text-lg font-bold text-emerald-400">{formatAmt(summary.commission)}</p>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-wide font-medium" style={{ color: 'var(--text-muted)' }}>Net Paid / Due</p>
-              <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
-                {formatAmt(settlement?.paid ?? 0)} / {formatAmt(settlement?.remaining ?? netPayable)}
-              </p>
+              <p className="text-[10px] uppercase tracking-wide font-medium" style={{ color: 'var(--text-muted)' }}>Net to Provider</p>
+              <p className="text-lg font-bold text-amber-400">{formatAmt(netPayable)}</p>
             </div>
           </div>
           <button
