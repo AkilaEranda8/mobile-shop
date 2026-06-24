@@ -2230,7 +2230,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         <p className="text-[11px] font-mono truncate" style={{ color: POS_THEME.muted }}>{item.sku}</p>
                         <div className="flex items-end justify-between gap-1.5">
                           <div className="min-w-0">
-                            <p className="pos-price text-sm font-extrabold leading-none tracking-tight">{formatCurrency(isService ? item.price : item.sellingPrice)}</p>
+                            <p className="text-white text-sm font-extrabold leading-none tracking-tight">{formatCurrency(isService ? item.price : item.sellingPrice)}</p>
                             {isService ? (
                               <p className="text-[11px] mt-0.5 truncate" style={{ color: POS_THEME.muted }}>
                                 Cost {formatCurrency(Number(item.cost ?? 0))}
