@@ -14,7 +14,7 @@ import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency, formatDate, getRepairStatusColor } from '@/lib/utils'
-import { useRepairs, useProducts } from '@/lib/hooks'
+import { useRepairs, useProducts, useFeatureFlag } from '@/lib/hooks'
 import { repairsApi, customersApi, deviceCatalogApi, usersApi, uploadApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { getInvoiceSettings, type InvoiceSettings } from '@/lib/invoiceSettings'
@@ -23,15 +23,24 @@ import type { Customer } from '@/types'
 import toast from 'react-hot-toast'
 import type { RepairTicket } from '@/types'
 
+function calcRepairTotals(repair: Pick<RepairTicket, 'estimatedCost' | 'spareParts'>) {
+  const partsTotal = (repair.spareParts ?? []).reduce(
+    (sum, p) => sum + (Number((p as { total?: number }).total) || 0),
+    0,
+  )
+  const estimatedCost = Number(repair.estimatedCost ?? 0) || 0
+  const serviceFee = estimatedCost
+  return { serviceFee, partsTotal, estimatedTotal: estimatedCost, subtotal: estimatedCost, estimatedCost }
+}
+
 /* ── Thermal Receipt Printer ─────────────────────────────────────── */
 function printRepairReceipt(repair: RepairTicket, settings: InvoiceSettings) {
   const paperWidth = settings.thermalWidthRepair || '80mm'
   const bodyWidth  = paperWidth === '58mm' ? '216px' : '302px'
   const fmt = (n: number) => `LKR ${n.toLocaleString('en-LK', { minimumFractionDigits: 2 })}`
-  const partsTotal = repair.spareParts?.reduce((s: any, p: any) => s + p.total, 0) ?? 0
-  const subtotal = (repair.estimatedCost ?? 0) + partsTotal
+  const { serviceFee, partsTotal, subtotal } = calcRepairTotals(repair)
   const partsRows = (repair.spareParts ?? []).map((p: any) => `
-    <tr><td>${p.productName}</td><td style="text-align:right">${p.quantity}x</td><td style="text-align:right">${fmt(p.total)}</td></tr>`).join('')
+    <tr><td>${p.productName}</td><td style="text-align:right">${p.quantity}x</td><td style="text-align:right">${fmt(Number(p.total))}</td></tr>`).join('')
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/>
 <title>Repair Receipt</title>
 <style>
@@ -74,9 +83,8 @@ ${repair.accessories ? `<div class="row"><span>Accessories:</span><span>${repair
 <div class="line"></div>
 <div class="bold med">CHARGES</div>
 <table><tbody>
-  <tr><td>Service Charge</td><td></td><td>${fmt(repair.estimatedCost ?? 0)}</td></tr>
   ${partsRows}
-  <tr class="total-row"><td colspan="2">TOTAL</td><td>${fmt(subtotal)}</td></tr>
+  <tr class="total-row"><td colspan="2">ESTIMATED COST</td><td>${fmt(subtotal)}</td></tr>
 </tbody></table>
 ${repair.technicianName ? `<div class="line"></div><div class="row"><span>Technician:</span><span>${repair.technicianName}</span></div>` : ''}
 <div class="line"></div>
@@ -288,7 +296,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
     { icon: AlertTriangle, label: 'Issue',     value: selectedIssues.join(', ') },
     { icon: Wrench,        label: 'Technician',value: form.technicianName },
     { icon: Clock,         label: 'Priority',  value: form.priority },
-    { icon: DollarSign,    label: 'Est. Cost', value: form.estimatedCost ? formatCurrency(Number(form.estimatedCost)) : '' },
+    { icon: DollarSign,    label: 'Estimated Cost', value: form.estimatedCost ? formatCurrency(Number(form.estimatedCost)) : '' },
   ]
 
   const STEPS = [
@@ -737,7 +745,8 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                     </div>
                     <div>
                       <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Estimated Cost (LKR)</label>
-                      <input type="number" min="0" className="input-field h-12" placeholder="2500" value={form.estimatedCost} onChange={f('estimatedCost')} />
+                      <input type="number" min="0" step="0.01" className="input-field h-12" placeholder="2500" value={form.estimatedCost} onChange={f('estimatedCost')} />
+                      <p className="text-[10px] mt-1.5" style={{ color: 'var(--text-muted)' }}>Repair service charge. Parts are tracked separately and not added to this total.</p>
                     </div>
                     <div className="col-span-2">
                       <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Estimated Completion</label>
@@ -777,7 +786,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                         { label: 'Technician',      value: form.technicianName || '—' },
                         { label: 'Source',          value: SOURCE_OPTIONS.find(o => o.value === form.source)?.label ?? form.source },
                         { label: 'Priority',        value: form.priority },
-                        { label: 'Est. Cost',       value: form.estimatedCost ? formatCurrency(Number(form.estimatedCost)) : '—' },
+                        { label: 'Estimated Cost',  value: form.estimatedCost ? formatCurrency(Number(form.estimatedCost)) : '—' },
                         { label: 'Est. Completion', value: form.estimatedCompletion || '—' },
                       ]},
                     ].map(section => (
@@ -887,12 +896,13 @@ const priorityBadge = (p: string) => {
 }
 
 /* ── Repair Details Modal ─────────────────────────────────────────────── */
-function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh, allRepairs }: {
+function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh, onRepairUpdate, allRepairs }: {
   repair: RepairTicket
   onClose: () => void
   onEdit: () => void
   onStatusChange: (id: string, status: string) => Promise<void>
   onRefresh: () => void
+  onRepairUpdate: (repair: RepairTicket) => void
   allRepairs?: RepairTicket[]
 }) {
   const quoteRef    = useRef<HTMLDivElement>(null)
@@ -930,11 +940,10 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
   }
 
   const sendQuoteWhatsApp = () => {
-    const partsTotal = repair.spareParts?.reduce((s: any, p: any) => s + p.total, 0) ?? 0
-    const grandTotal = (repair.estimatedCost ?? 0) + partsTotal
+    const { serviceFee, partsTotal, estimatedCost } = calcRepairTotals(repair)
     const fmt = (n: number) => `LKR ${n.toLocaleString('en-LK')}`
     const partsLines = (repair.spareParts ?? []).length > 0
-      ? `\n\n*Parts:*\n` + repair.spareParts!.map((p: any) => `  - ${p.productName} x${p.quantity} - ${fmt(p.total)}`).join('\n')
+      ? `\n\n*Parts used (inventory):*\n` + repair.spareParts!.map((p: any) => `  - ${p.productName} x${p.quantity}`).join('\n')
       : ''
     const msg = [
       `*Repair Quote — ${invSettings.shopName || 'Service Center'}*`,
@@ -946,9 +955,9 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
       ``,
       `*Issue:* ${repair.reportedIssue}`,
       ``,
-      `*Service Charge:* ${fmt(repair.estimatedCost ?? 0)}` + partsLines,
+      `*Service Charge:* ${fmt(serviceFee)}` + partsLines,
       ``,
-      `*Total Estimate:* *${fmt(grandTotal)}*`,
+      `*Estimated Cost:* *${fmt(estimatedCost)}*`,
       repair.technicianName ? `*Technician:* ${repair.technicianName}` : null,
       ``,
       `_For any queries, please contact us._`,
@@ -963,17 +972,16 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
 
   const sendInvoiceWhatsApp = () => {
     const fmt = (n: number) => `LKR ${n.toLocaleString('en-LK')}`
-    const partsTotal = repair.spareParts?.reduce((s: any, p: any) => s + p.total, 0) ?? 0
-    const subtotal   = (repair.estimatedCost ?? 0) + partsTotal
-    const discount   = repair.actualCost != null && repair.actualCost < subtotal ? subtotal - repair.actualCost : 0
-    const grandTotal = discount > 0 ? repair.actualCost! : subtotal
+    const { serviceFee, subtotal } = calcRepairTotals(repair)
+    const discount   = repair.actualCost != null && repair.actualCost < subtotal ? subtotal - Number(repair.actualCost) : 0
+    const grandTotal = discount > 0 ? Number(repair.actualCost) : subtotal
 
     const itemLines = [
-      repair.estimatedCost
-        ? `  - Repair Service (${repair.deviceBrand} ${repair.deviceModel}): ${fmt(repair.estimatedCost)}`
+      serviceFee > 0
+        ? `  - Repair Service (${repair.deviceBrand} ${repair.deviceModel}): ${fmt(serviceFee)}`
         : null,
       ...(repair.spareParts ?? []).map((p: any) =>
-        `  - ${p.productName} x${p.quantity}: ${fmt(p.total)}`),
+        `  - ${p.productName} x${p.quantity} (inventory)`),
     ].filter(Boolean).join('\n')
 
     const bankSection = invSettings.bankName
@@ -1057,7 +1065,9 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
   const [showPayment, setShowPayment] = useState(false)
   const [discount,    setDiscount]    = useState('')
   const [payMethod,   setPayMethod]   = useState<'CASH'|'CARD'|'UPI'|'BANK_TRANSFER'>('CASH')
+  const [amountPaying, setAmountPaying] = useState('')
   const [collecting,  setCollecting]  = useState(false)
+  const hasCustomerCredit = useFeatureFlag('CUSTOMER_CREDIT')
   /* ── spare parts state ── */
   const [showAddPart, setShowAddPart]       = useState(false)
   const [partSearch,  setPartSearch]        = useState('')
@@ -1076,14 +1086,16 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
     if (!selProduct) return
     setAddingPart(true)
     try {
-      await repairsApi.addPart(repair.id, {
+      const res: any = await repairsApi.addPart(repair.id, {
         productId: selProduct.id,
         quantity:  partQty,
         unitCost:  partCost ? Number(partCost) : undefined,
       })
+      const updated = res?.data as RepairTicket | undefined
+      if (updated) onRepairUpdate(updated)
+      else onRefresh()
       toast.success(`${selProduct.name} added`)
       setShowAddPart(false); setPartSearch(''); setSelProduct(null); setPartQty(1); setPartCost('')
-      onRefresh()
     } catch { toast.error('Failed to add part') }
     finally { setAddingPart(false) }
   }
@@ -1091,9 +1103,11 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
   const handleRemovePart = async (partId: string) => {
     setRemovingId(partId)
     try {
-      await repairsApi.removePart(repair.id, partId)
+      const res: any = await repairsApi.removePart(repair.id, partId)
+      const updated = res?.data as RepairTicket | undefined
+      if (updated) onRepairUpdate(updated)
+      else onRefresh()
       toast.success('Part removed')
-      onRefresh()
     } catch { toast.error('Failed to remove part') }
     finally { setRemovingId(null) }
   }
@@ -1113,16 +1127,32 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
     setChangingStatus(false)
   }
 
-  const partsTotal   = repair.spareParts?.reduce((s: number, p: any) => s + p.total, 0) ?? 0
-  const subtotal     = (repair.estimatedCost ?? 0) + partsTotal
+  const { serviceFee, partsTotal, estimatedCost, subtotal } = calcRepairTotals(repair)
   const discountAmt  = Number(discount) || 0
   const finalAmount  = Math.max(0, subtotal - discountAmt)
+  const payNow = (() => {
+    if (!hasCustomerCredit) return finalAmount
+    const v = parseFloat(amountPaying)
+    if (isNaN(v) || amountPaying.trim() === '') return finalAmount
+    return Math.min(Math.max(0, v), finalAmount)
+  })()
+  const creditAmount = hasCustomerCredit ? Math.max(0, finalAmount - payNow) : 0
 
   const handleCollectPayment = async () => {
+    if (creditAmount > 0 && !repair.customerId) {
+      toast.error('Customer is required for credit payment')
+      return
+    }
     setCollecting(true)
     try {
-      await repairsApi.collectPayment(repair.id, { discount: discountAmt, paymentMethod: payMethod })
-      toast.success('Payment collected — sale recorded!')
+      await repairsApi.collectPayment(repair.id, {
+        discount: discountAmt,
+        paymentMethod: payMethod,
+        paidAmount: payNow,
+      })
+      toast.success(creditAmount > 0
+        ? `Payment recorded — ${formatCurrency(creditAmount)} added to customer credit`
+        : 'Payment collected — sale recorded!')
       setShowPayment(false)
       onRefresh()
       onClose()
@@ -1132,8 +1162,9 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
 
   const STEP_ICONS = [Smartphone, Wrench, CheckCircle2]
 
-  const isPaid      = repair.actualCost != null
-  const balanceDue  = isPaid ? 0 : subtotal
+  const isPaid      = repair.status === 'DELIVERED'
+  const balanceDue  = isPaid ? 0 : estimatedCost
+  const displayTotal = isPaid ? (Number(repair.actualCost) || estimatedCost) : estimatedCost
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm">
@@ -1307,9 +1338,10 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                     </div>
                     <div className="p-4 space-y-4">
                       <div className="space-y-2">
-                        <div className="flex justify-between text-sm"><span style={{ color: 'var(--text-secondary)' }}>Service Fee</span><span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(repair.estimatedCost ?? 0)}</span></div>
-                        {partsTotal > 0 && <div className="flex justify-between text-sm"><span style={{ color: 'var(--text-secondary)' }}>Spare Parts ({repair.spareParts?.length})</span><span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(partsTotal)}</span></div>}
-                        <div className="flex justify-between text-sm pt-2 font-bold" style={{ borderTop: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
+                        <div className="flex justify-between text-sm pt-2 font-bold" style={{ color: 'var(--text-primary)' }}>
+                          <span>Estimated Cost</span>
+                          <span>{formatCurrency(estimatedCost)}</span>
+                        </div>
                       </div>
                       <div>
                         <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--text-muted)' }}>Discount Amount</label>
@@ -1317,8 +1349,32 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                       </div>
                       {discountAmt > 0 && (
                         <div className="flex justify-between items-center px-3 py-2.5 rounded-xl border border-green-500/20" style={{ background: 'rgba(34,197,94,0.05)' }}>
-                          <span className="text-sm font-bold text-green-600">Final Amount</span>
+                          <span className="text-sm font-bold text-green-600">Amount Due</span>
                           <span className="text-lg font-black text-green-600">{formatCurrency(finalAmount)}</span>
+                        </div>
+                      )}
+                      {hasCustomerCredit && repair.customerId && finalAmount > 0 && (
+                        <div className="rounded-xl border p-3 space-y-2" style={{ borderColor: creditAmount > 0 ? 'rgba(245,158,11,0.35)' : 'var(--border-subtle)', background: creditAmount > 0 ? 'rgba(245,158,11,0.06)' : 'var(--bg-subtle)' }}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Paying now</span>
+                            <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Bill {formatCurrency(finalAmount)}</span>
+                          </div>
+                          <input
+                            type="number"
+                            min={0}
+                            max={finalAmount}
+                            step="0.01"
+                            value={amountPaying}
+                            onChange={e => setAmountPaying(e.target.value)}
+                            placeholder="Amount customer pays now"
+                            className="input-field"
+                          />
+                          {creditAmount > 0 && (
+                            <div className="flex justify-between text-xs">
+                              <span style={{ color: 'var(--text-secondary)' }}>Added to customer credit</span>
+                              <span className="font-bold text-amber-600">{formatCurrency(creditAmount)}</span>
+                            </div>
+                          )}
                         </div>
                       )}
                       <div>
@@ -1337,7 +1393,9 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                         className="w-full py-3 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60"
                         style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)' }}>
                         {collecting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
-                        {collecting ? 'Processing…' : `Confirm & Collect ${formatCurrency(finalAmount)}`}
+                        {collecting ? 'Processing…' : creditAmount > 0
+                          ? `Confirm — Pay ${formatCurrency(payNow)} + Credit ${formatCurrency(creditAmount)}`
+                          : `Confirm & Collect ${formatCurrency(payNow)}`}
                       </button>
                     </div>
                   </div>
@@ -1360,7 +1418,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                 <div className="flex items-center gap-2">
                   <Wrench size={13} className="text-indigo-500" />
                   <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-                    Items ({(repair.spareParts?.length ?? 0) + (repair.estimatedCost ? 1 : 0)})
+                    Items ({(repair.spareParts?.length ?? 0) + (serviceFee > 0 ? 1 : 0)})
                   </p>
                 </div>
                 <button onClick={() => setShowAddPart(v => !v)}
@@ -1369,6 +1427,9 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                   {showAddPart ? <><X size={10} />Cancel</> : <><Plus size={10} />Add Part</>}
                 </button>
               </div>
+              <p className="text-[11px] mb-3" style={{ color: 'var(--text-muted)' }}>
+                Parts are for inventory only — not added to estimated cost.
+              </p>
 
               {showAddPart && (
                 <div className="rounded-xl p-4 mb-3 space-y-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
@@ -1400,7 +1461,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                   )}
                   <div className="grid grid-cols-2 gap-3">
                     <div><label className="block text-[11px] font-bold mb-1" style={{ color: 'var(--text-muted)' }}>Quantity</label><input type="number" min={1} className="input-field" value={partQty} onChange={e => setPartQty(Number(e.target.value))} /></div>
-                    <div><label className="block text-[11px] font-bold mb-1" style={{ color: 'var(--text-muted)' }}>Unit Cost</label><input type="number" min={0} className="input-field" placeholder={selProduct ? String(selProduct.buyingPrice ?? '') : '0'} value={partCost} onChange={e => setPartCost(e.target.value)} /></div>
+                    <div><label className="block text-[11px] font-bold mb-1" style={{ color: 'var(--text-muted)' }}>Part Price (LKR)</label><input type="number" min={0} className="input-field" placeholder={selProduct ? String(selProduct.sellingPrice ?? selProduct.buyingPrice ?? '') : '0'} value={partCost} onChange={e => setPartCost(e.target.value)} /></div>
                   </div>
                   <button onClick={handleAddPart} disabled={!selProduct || addingPart}
                     className="w-full py-2 text-sm rounded-lg text-white font-bold flex items-center justify-center gap-2 disabled:opacity-50"
@@ -1417,7 +1478,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                   <div className="col-span-2 text-right">Unit Price</div>
                   <div className="col-span-2 text-right">Total</div>
                 </div>
-                {repair.estimatedCost != null && repair.estimatedCost > 0 && (
+                {serviceFee > 0 && (
                   <div className="grid grid-cols-12 px-4 py-3.5 items-center border-b" style={{ borderColor: 'var(--border-subtle)' }}>
                     <div className="col-span-6">
                       <div className="flex items-center gap-2">
@@ -1434,8 +1495,8 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                       </div>
                     </div>
                     <div className="col-span-2 text-center text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>1</div>
-                    <div className="col-span-2 text-right text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(repair.estimatedCost)}</div>
-                    <div className="col-span-2 text-right text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(repair.estimatedCost)}</div>
+                    <div className="col-span-2 text-right text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(serviceFee)}</div>
+                    <div className="col-span-2 text-right text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(serviceFee)}</div>
                   </div>
                 )}
                 {repair.spareParts?.length > 0 ? repair.spareParts.map((part: any) => (
@@ -1465,20 +1526,16 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                       </button>
                     </div>
                   </div>
-                )) : !showAddPart && repair.estimatedCost == null && (
+                )) : !showAddPart && serviceFee <= 0 && (
                   <div className="py-8 text-center">
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>No items yet</p>
                     <button onClick={() => setShowAddPart(true)} className="text-xs font-bold text-violet-500 hover:text-violet-400 mt-1">+ Add spare part</button>
                   </div>
                 )}
-                <div className="px-4 py-3 space-y-1.5" style={{ background: 'var(--bg-subtle)' }}>
-                  <div className="flex justify-between text-sm"><span style={{ color: 'var(--text-secondary)' }}>Subtotal</span><span style={{ color: 'var(--text-primary)' }}>{formatCurrency(subtotal)}</span></div>
-                  {repair.actualCost != null && repair.actualCost !== subtotal && (
-                    <div className="flex justify-between text-sm"><span style={{ color: 'var(--text-secondary)' }}>Discount</span><span className="text-red-500">– {formatCurrency(subtotal - repair.actualCost)}</span></div>
-                  )}
-                  <div className="flex justify-between font-black text-base pt-1.5" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                    <span style={{ color: 'var(--text-primary)' }}>Total</span>
-                    <span className="text-indigo-600 dark:text-violet-400">{formatCurrency(repair.actualCost ?? subtotal)}</span>
+                <div className="px-4 py-3" style={{ background: 'var(--bg-subtle)' }}>
+                  <div className="flex justify-between font-black text-base">
+                    <span style={{ color: 'var(--text-primary)' }}>Estimated Cost</span>
+                    <span className="text-indigo-600 dark:text-violet-400">{formatCurrency(isPaid ? displayTotal : estimatedCost)}</span>
                   </div>
                 </div>
               </div>
@@ -1558,12 +1615,12 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
               </div>
               <div className="p-4 space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Total Amount</span>
-                  <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(subtotal)}</span>
+                  <span className="text-sm font-bold" style={{ color: 'var(--text-secondary)' }}>Estimated Cost</span>
+                  <span className="text-sm font-black" style={{ color: 'var(--text-primary)' }}>{formatCurrency(estimatedCost)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Paid Amount</span>
-                  <span className="text-sm font-bold text-green-600 dark:text-green-400">{formatCurrency(isPaid ? (repair.actualCost ?? subtotal) : 0)}</span>
+                  <span className="text-sm font-bold text-green-600 dark:text-green-400">{formatCurrency(isPaid ? displayTotal : 0)}</span>
                 </div>
                 <div className="flex justify-between items-center pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
                   <span className="text-sm font-bold" style={{ color: 'var(--text-secondary)' }}>Balance Due</span>
@@ -1768,16 +1825,15 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
             customerEmail:   '',
             customerAddress: repair.customerPhone || '',
             items: [
-              ...(repair.estimatedCost ? [{ description: `Repair Service – ${repair.deviceBrand} ${repair.deviceModel}`, details: repair.reportedIssue || undefined, price: repair.estimatedCost, qty: 1 }] : []),
-              ...(repair.spareParts?.map((p: any) => ({ description: p.productName, details: 'Spare Part', price: p.unitCost ?? (p.total / p.quantity), qty: p.quantity })) ?? []),
+              ...(serviceFee > 0 ? [{ description: `Repair Service – ${repair.deviceBrand} ${repair.deviceModel}`, details: repair.reportedIssue || undefined, price: serviceFee, qty: 1 }] : []),
             ],
             bankName:  invSettings.bankName  || '',
             accNumber: invSettings.accNumber || '',
             accHolder: invSettings.accHolder || '',
             swiftCode: invSettings.swiftCode || '',
             taxRate:      0,
-            discountRate: repair.actualCost != null && repair.actualCost < ((repair.estimatedCost ?? 0) + (repair.spareParts?.reduce((s: number, p: any) => s + p.total, 0) ?? 0))
-              ? (((repair.estimatedCost ?? 0) + (repair.spareParts?.reduce((s: number, p: any) => s + p.total, 0) ?? 0) - repair.actualCost) / ((repair.estimatedCost ?? 0) + (repair.spareParts?.reduce((s: number, p: any) => s + p.total, 0) ?? 0))) * 100
+            discountRate: repair.actualCost != null && Number(repair.actualCost) < subtotal
+              ? ((subtotal - Number(repair.actualCost)) / subtotal) * 100
               : 0,
             terms:          invSettings.terms.length ? invSettings.terms : ['Thank you for choosing our repair services!'],
             signatoryName:  repair.technicianName || invSettings.signatoryName || '',
@@ -2027,7 +2083,7 @@ export default function RepairsPage() {
     ready:     allRepairs.filter(r => r.status === 'READY').length,
     delivered: allRepairs.filter(r => r.status === 'DELIVERED').length,
     urgent:    allRepairs.filter(r => r.priority === 'URGENT').length,
-    revenue:   allRepairs.filter(r => r.status === 'DELIVERED').reduce((s, r) => s + ((r as any).actualCost ?? r.estimatedCost ?? 0), 0),
+    revenue:   allRepairs.filter(r => r.status === 'DELIVERED').reduce((s, r) => s + (Number((r as any).actualCost) || calcRepairTotals(r).subtotal), 0),
   }), [allRepairs])
 
   const repairs = useMemo(() => {
@@ -2136,7 +2192,7 @@ export default function RepairsPage() {
   return (
     <div className="space-y-6">
       {showAddModal  && <NewTicketModal onClose={() => { setShowAddModal(false); setPrefillData(null) }} onSaved={refetch} prefill={prefillData ?? undefined} />}
-      {detailRepair  && <RepairDetailsModal repair={detailRepair} allRepairs={allRepairs} onClose={() => setDetailRepair(null)} onEdit={() => { setEditRepair(detailRepair); setDetailRepair(null) }} onStatusChange={handleStatusUpdate} onRefresh={async () => { refetch(); const res: any = await repairsApi.getById(detailRepair.id); setDetailRepair(res?.data ?? detailRepair) }} />}
+      {detailRepair  && <RepairDetailsModal repair={detailRepair} allRepairs={allRepairs} onClose={() => setDetailRepair(null)} onEdit={() => { setEditRepair(detailRepair); setDetailRepair(null) }} onStatusChange={handleStatusUpdate} onRepairUpdate={setDetailRepair} onRefresh={async () => { refetch(); const res: any = await repairsApi.getById(detailRepair.id); setDetailRepair(res?.data ?? detailRepair) }} />}
       {editRepair    && <EditRepairModal   repair={editRepair}   onClose={() => setEditRepair(null)}   onSaved={() => { refetch(); setEditRepair(null) }} />}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">

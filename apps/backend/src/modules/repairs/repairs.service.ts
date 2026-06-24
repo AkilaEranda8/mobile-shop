@@ -72,7 +72,7 @@ export const repairsService = {
   },
 
   async update(tenantId: string, id: string, body: any) {
-    const r = await prisma.repairTicket.findFirst({ where: { id, tenantId } })
+    const r = await prisma.repairTicket.findFirst({ where: { id, tenantId }, include: { spareParts: true } })
     if (!r) throw new AppError('Repair ticket not found', 404)
     const { customerName, customerPhone, deviceBrand, deviceModel, deviceColor,
             imei, reportedIssue, technicianId, technicianName, priority,
@@ -96,7 +96,7 @@ export const repairsService = {
     if (technicianId        !== undefined) data.technicianId        = technicianId
     if (technicianName      !== undefined) data.technicianName      = technicianName
     if (priority            !== undefined) data.priority            = priority
-    if (estimatedCost       !== undefined) data.estimatedCost       = Number(estimatedCost)
+    if (estimatedCost       !== undefined) data.estimatedCost = Number(estimatedCost)
     if (actualCost          !== undefined) data.actualCost          = Number(actualCost)
     if (estimatedCompletion !== undefined) data.estimatedCompletion = estimatedCompletion ? new Date(estimatedCompletion) : null
     if (source              !== undefined) data.source              = source
@@ -129,9 +129,12 @@ export const repairsService = {
     const product = await prisma.product.findFirst({ where: { id: body.productId, tenantId } })
     if (!product) throw new AppError('Product not found', 404)
     const qty      = Number(body.quantity) || 1
-    const unitCost = Number(body.unitCost) || Number(product.buyingPrice) || 0
-    const part = await prisma.repairSparePart.create({
-      data: { repairId, productId: body.productId, productName: product.name, quantity: qty, unitCost, total: qty * unitCost },
+    const unitCost = body.unitCost != null && String(body.unitCost).trim() !== ''
+      ? Number(body.unitCost)
+      : (Number(product.sellingPrice) || Number(product.buyingPrice) || 0)
+    const partTotal = qty * unitCost
+    await prisma.repairSparePart.create({
+      data: { repairId, productId: body.productId, productName: product.name, quantity: qty, unitCost, total: partTotal },
     })
     return prisma.repairTicket.findUnique({ where: { id: repairId }, include: { notes: true, spareParts: true, history: true } })
   },
@@ -149,46 +152,69 @@ export const repairsService = {
     return prisma.repairTicket.update({ where: { id }, data: { photos }, include: { notes: true, spareParts: true, history: true } })
   },
 
-  async collectPayment(tenantId: string, id: string, body: { discount?: number; paymentMethod: string; cashierName?: string }) {
+  async collectPayment(tenantId: string, id: string, body: { discount?: number; paymentMethod: string; cashierName?: string; paidAmount?: number }) {
     const r = await prisma.repairTicket.findFirst({ where: { id, tenantId }, include: { spareParts: true } })
     if (!r) throw new AppError('Repair ticket not found', 404)
     if (r.status === 'DELIVERED') throw new AppError('Payment has already been collected for this ticket', 400)
     await assertBusinessDayOpenIfEnabled(tenantId, r.branchId)
 
-    const partsTotal  = r.spareParts.reduce((s: number, p: any) => s + p.total, 0)
-    const subtotal    = (r.estimatedCost || 0) + partsTotal
-    const discount    = Number(body.discount)    || 0
-    const finalAmount = Math.max(0, subtotal - discount)
+    const serviceFee  = Number(r.estimatedCost) || 0
+    const subtotal    = serviceFee
+    const discount    = Number(body.discount) || 0
+    const total       = Math.max(0, subtotal - discount)
+    const paidAmount  = body.paidAmount != null
+      ? Math.min(Math.max(0, Number(body.paidAmount)), total)
+      : total
+    const dueAmount   = Math.max(0, total - paidAmount)
+    if (dueAmount > 0 && !r.customerId) {
+      throw new AppError('Customer is required when recording credit / partial payment', 400)
+    }
+    const saleStatus  = dueAmount > 0 ? (paidAmount > 0 ? 'PARTIAL' : 'DUE') : 'PAID'
     const cashierName = body.cashierName || 'System'
     const invoiceNumber = await generateInvoiceNumber(tenantId)
 
     await prisma.$transaction(async (tx: any) => {
       await tx.repairTicket.update({
         where: { id },
-        data: { actualCost: finalAmount, status: 'DELIVERED', completedAt: new Date() },
+        data: { actualCost: total, status: 'DELIVERED', completedAt: new Date() },
       })
       await tx.repairStatusHistory.create({
-        data: { repairId: id, status: 'DELIVERED', changedBy: cashierName, note: 'Payment collected' },
+        data: {
+          repairId: id,
+          status: 'DELIVERED',
+          changedBy: cashierName,
+          note: dueAmount > 0 ? `Payment collected — LKR ${dueAmount} on customer credit` : 'Payment collected',
+        },
       })
       const saleItems: any[] = []
-      if (r.estimatedCost > 0) {
-        saleItems.push({ productName: `Repair Service – ${r.deviceBrand} ${r.deviceModel}`, sku: r.ticketNumber, quantity: 1, unitPrice: r.estimatedCost, discount: 0, total: r.estimatedCost })
-      }
-      for (const p of r.spareParts) {
-        saleItems.push({ productId: p.productId, productName: p.productName, sku: '', quantity: p.quantity, unitPrice: p.unitCost, discount: 0, total: p.total })
+      if (serviceFee > 0) {
+        saleItems.push({ productName: `Repair Service – ${r.deviceBrand} ${r.deviceModel}`, sku: r.ticketNumber, quantity: 1, unitPrice: serviceFee, discount: 0, total: serviceFee })
       }
       await tx.sale.create({
         data: {
           tenantId, branchId: r.branchId, invoiceNumber,
           customerId: r.customerId, customerName: r.customerName, customerPhone: r.customerPhone,
-          subtotal, discount, tax: 0, total: finalAmount,
-          paidAmount: finalAmount, dueAmount: 0,
-          status: 'PAID', cashierName, source: 'REPAIR',
+          subtotal, discount, tax: 0, total,
+          paidAmount, dueAmount,
+          status: saleStatus, cashierName, source: 'REPAIR',
           notes: `Repair ticket: ${r.ticketNumber}`,
           items:    { create: saleItems },
-          payments: { create: [{ method: body.paymentMethod as any, amount: finalAmount }] },
+          payments: paidAmount > 0
+            ? { create: [{ method: body.paymentMethod as any, amount: paidAmount }] }
+            : undefined,
         },
       })
+      if (r.customerId && dueAmount > 0) {
+        await tx.customer.update({
+          where: { id: r.customerId },
+          data: { totalDue: { increment: dueAmount }, totalPurchases: { increment: 1 } },
+        })
+      } else if (r.customerId) {
+        await tx.customer.update({
+          where: { id: r.customerId },
+          data: { totalPurchases: { increment: 1 } },
+        }).catch(() => {})
+      }
       for (const p of r.spareParts) {
         if (p.productId) {
           const prod = await tx.product.findUnique({ where: { id: p.productId }, select: { stock: true, name: true } })
@@ -218,19 +244,21 @@ export const repairsService = {
     })
     // ── Auto-create Finance INCOME transaction for repair payment ──
     try {
-      await prisma.transaction.create({
-        data: {
-          tenantId,
-          branchId:    r.branchId,
-          type:        'INCOME',
-          category:    'Repairs',
-          amount:      finalAmount,
-          description: `Repair - ${r.ticketNumber} (${r.deviceBrand} ${r.deviceModel})${r.customerName ? ' — ' + r.customerName : ''}`,
-          paymentMethod: body.paymentMethod as any,
-          reference:   r.ticketNumber,
-          performedBy: cashierName,
-        },
-      })
+      if (paidAmount > 0) {
+        await prisma.transaction.create({
+          data: {
+            tenantId,
+            branchId:    r.branchId,
+            type:        'INCOME',
+            category:    'Repairs',
+            amount:      paidAmount,
+            description: `Repair - ${r.ticketNumber} (${r.deviceBrand} ${r.deviceModel})${r.customerName ? ' — ' + r.customerName : ''}${dueAmount > 0 ? ` (Credit: LKR ${dueAmount})` : ''}`,
+            paymentMethod: body.paymentMethod as any,
+            reference:   r.ticketNumber,
+            performedBy: cashierName,
+          },
+        })
+      }
     } catch (e) { console.error('Finance repair transaction error:', e) }
     return prisma.repairTicket.findUnique({ where: { id }, include: { notes: true, spareParts: true, history: true } })
   },

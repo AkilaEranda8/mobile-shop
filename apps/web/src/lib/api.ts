@@ -265,7 +265,7 @@ export const repairsApi = {
     api.post(`/repairs/${id}/parts`, body),
   removePart: (id: string, partId: string) =>
     api.delete(`/repairs/${id}/parts/${partId}`),
-  collectPayment: (id: string, body: { discount?: number; paymentMethod: string }) =>
+  collectPayment: (id: string, body: { discount?: number; paymentMethod: string; paidAmount?: number }) =>
     api.post(`/repairs/${id}/collect-payment`, body),
   updatePhotos: (id: string, photos: string[]) =>
     api.put(`/repairs/${id}/photos`, { photos }),
