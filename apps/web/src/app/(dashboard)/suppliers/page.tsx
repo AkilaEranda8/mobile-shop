@@ -9,7 +9,7 @@ import { DataTableColumnHeader } from '@/components/table/data-table-column-head
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useSuppliers, usePurchaseOrders, useProducts } from '@/lib/hooks'
-import { suppliersApi, branchesApi, imeiApi } from '@/lib/api'
+import { suppliersApi, branchesApi, imeiApi, productsApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import type { Supplier, PurchaseOrder, POItem } from '@/types'
 
@@ -881,7 +881,7 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
     }).catch(() => {})
   }, [])
 
-  const { data: productsData } = useProducts({ limit: '200' })
+  const { data: productsData } = useProducts({ limit: '2000' })
   const allProducts: any[] = (productsData?.data ?? []) as any[]
 
   const getFiltered = (i: number) => {
@@ -960,7 +960,14 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
   const subtotal = items.reduce((s, r) => s + Number(r.quantity) * Number(r.unitCost), 0)
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setLoading(true)
+    e.preventDefault()
+    if (!items.length) { toast.error('Add at least one item'); return }
+    const unlinked = items.filter(r => !r.productId)
+    if (unlinked.length) {
+      toast.error('Select each product from the search list (do not type names manually)')
+      return
+    }
+    setLoading(true)
     try {
       const selectedSupplier = suppliers.find(s => s.id === supplierId)
       await suppliersApi.createPO({
@@ -1056,7 +1063,7 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
                       style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                       <div className="min-w-0">
                         <p className="text-sm text-slate-200 truncate font-medium">{p.name}</p>
-                        <p className="text-[10px] text-slate-500">{p.sku} · {p.brandName}</p>
+                        <p className="text-[10px] text-slate-500">{p.sku} · {p.brandName}{p.trackImei ? ' · IMEI' : ''}</p>
                       </div>
                       <div className="text-right flex-shrink-0 flex items-center gap-2">
                         <div>
@@ -1117,7 +1124,7 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
                               >
                                 <div className="min-w-0">
                                   <p className="text-xs text-[var(--text-primary)] truncate font-medium">{p.name}</p>
-                                  <p className="text-[10px] text-slate-500">{p.sku}{p.brandName ? ` · ${p.brandName}` : ''}</p>
+                                  <p className="text-[10px] text-slate-500">{p.sku}{p.brandName ? ` · ${p.brandName}` : ''}{p.trackImei ? ' · IMEI' : ''}</p>
                                 </div>
                                 <div className="text-right flex-shrink-0">
                                   <p className="text-[10px] text-violet-400 font-semibold">{formatCurrency(p.buyingPrice)}</p>
@@ -1288,6 +1295,14 @@ export default function SuppliersPage() {
   const suppliers:      Supplier[]      = (suppliersData?.data ?? []) as Supplier[]
   const purchaseOrders: PurchaseOrder[] = (ordersData?.data    ?? []) as PurchaseOrder[]
   const allProducts: PoProduct[] = (productsData?.data ?? []) as PoProduct[]
+
+  const incompletePoCount = useMemo(() =>
+    purchaseOrders.filter(po => {
+      const expected = getExpectedImeiCount(po, allProducts)
+      const registered = po.imeiRegisteredCount ?? 0
+      return (po.status === 'RECEIVED' || po.status === 'CLOSED') && expected > 0 && registered < expected
+    }).length,
+  [purchaseOrders, allProducts])
 
   const handleMarkReceived = async (po: PurchaseOrder) => {
     setConfirmPO(po)
@@ -1489,6 +1504,15 @@ export default function SuppliersPage() {
           </button>
         </div>
       </div>
+
+      {activeTab === 'orders' && incompletePoCount > 0 && (
+        <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 px-4 py-3 flex items-center gap-3">
+          <AlertCircle size={16} className="text-amber-400 flex-shrink-0" />
+          <p className="text-xs text-amber-200">
+            <strong>{incompletePoCount}</strong> received PO(s) still need device IMEI registration — use <strong>Register IMEI</strong> on each PO.
+          </p>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 bg-white/3 p-1 rounded-xl w-fit">

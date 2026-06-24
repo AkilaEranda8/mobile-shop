@@ -162,7 +162,7 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
 
           if (!branchId) {
             const branch = await tx.branch.findFirst({ where: { tenantId: req.tenantId! } })
-            branchId = branch?.id
+            if (branch) branchId = branch.id
           }
           if (!branchId) throw new AppError('No branch found for stock update', 400)
 

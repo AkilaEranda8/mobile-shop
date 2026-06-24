@@ -231,6 +231,8 @@ export const productsApi = {
     api.delete(`/products/categories/${id}${reassignToId ? `?reassignToId=${encodeURIComponent(reassignToId)}` : ''}`),
   brands: () => api.get('/products/brands'),
   createBrand: (body: { name: string }) => api.post('/products/brands', body),
+  imeiHealth: () => api.get('/products/imei-health'),
+  bulkInferTrackImei: () => api.post('/products/bulk-infer-track-imei', {}),
 }
 
 export const customersApi = {

@@ -2,6 +2,7 @@ import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import { getPagination } from '../../utils/pagination'
 import { Request } from 'express'
+import { inferTrackImeiFromMeta } from '../../utils/productImei'
 
 export const productsService = {
   async list(tenantId: string, req: Request) {
@@ -11,7 +12,21 @@ export const productsService = {
     const where: any = { tenantId, isActive: true, ...(branchId && { branchId }), ...(categoryId && { categoryId }), ...(search && { OR: [{ name: { contains: search, mode: 'insensitive' } }, { sku: { contains: search, mode: 'insensitive' } }, { barcode: { contains: search, mode: 'insensitive' } }] }) }
     const include = { category: { select: { name: true } }, brand: { select: { name: true } } }
     const [raw, total] = await Promise.all([prisma.product.findMany({ where, skip, take: limit, orderBy: { name: 'asc' }, include }), prisma.product.count({ where })])
-    const data = raw.map((p: any) => ({ ...p, categoryName: p.category?.name, brandName: p.brand?.name }))
+    const trackIds = raw.filter((p: any) => p.trackImei).map((p: any) => p.id)
+    const imeiCounts = trackIds.length
+      ? await prisma.imeiRecord.groupBy({
+          by: ['productId'],
+          where: { productId: { in: trackIds }, status: 'IN_STOCK' },
+          _count: { _all: true },
+        })
+      : []
+    const imeiMap = new Map(imeiCounts.map(c => [c.productId, c._count._all]))
+    const data = raw.map((p: any) => {
+      const base = { ...p, categoryName: p.category?.name, brandName: p.brand?.name }
+      if (!p.trackImei) return base
+      const imeiInStock = imeiMap.get(p.id) ?? 0
+      return { ...base, imeiInStock, imeiGap: Math.max(0, p.stock - imeiInStock) }
+    })
     return { data, total, page, limit }
   },
 
@@ -50,6 +65,16 @@ export const productsService = {
       let brand = await prisma.brand.findFirst({ where: { tenantId, name: brandName } })
       if (!brand) brand = await prisma.brand.create({ data: { tenantId, name: brandName } })
       body.brandId = brand.id
+    }
+
+    if (body.trackImei === undefined) {
+      const hasVariants = Array.isArray(body.storageVariations) && body.storageVariations.length > 0
+      const inferred = inferTrackImeiFromMeta({
+        categoryName: body.categoryName,
+        productName: body.name,
+        hasVariants,
+      })
+      if (inferred !== null) body.trackImei = inferred
     }
 
     const { categoryName, brandName, ...productData } = body
@@ -146,5 +171,101 @@ export const productsService = {
 
   async createBrand(tenantId: string, body: { name: string; logoUrl?: string }) {
     return prisma.brand.create({ data: { tenantId, ...body } })
+  },
+
+  async getImeiHealth(tenantId: string) {
+    const [trackProducts, poOrders, poImeiCounts] = await Promise.all([
+      prisma.product.findMany({
+        where: { tenantId, isActive: true, trackImei: true, stock: { gt: 0 } },
+        include: { category: { select: { name: true } } },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.purchaseOrder.findMany({
+        where: { tenantId, status: { in: ['RECEIVED', 'CLOSED'] } },
+        include: { items: true },
+        orderBy: { receivedAt: 'desc' },
+        take: 100,
+      }),
+      prisma.imeiRecord.groupBy({
+        by: ['purchaseOrderId'],
+        where: { purchaseOrderId: { not: null }, product: { tenantId } },
+        _count: { _all: true },
+      }),
+    ])
+
+    const trackIds = trackProducts.map(p => p.id)
+    const imeiCounts = trackIds.length
+      ? await prisma.imeiRecord.groupBy({
+          by: ['productId'],
+          where: { productId: { in: trackIds }, status: 'IN_STOCK' },
+          _count: { _all: true },
+        })
+      : []
+    const imeiMap = new Map(imeiCounts.map(c => [c.productId, c._count._all]))
+
+    const stockMismatches = trackProducts
+      .map(p => {
+        const imeiInStock = imeiMap.get(p.id) ?? 0
+        const gap = Math.max(0, p.stock - imeiInStock)
+        return { id: p.id, name: p.name, stock: p.stock, imeiInStock, gap }
+      })
+      .filter(p => p.gap > 0)
+
+    const allProducts = await prisma.product.findMany({
+      where: { tenantId, isActive: true },
+      select: { id: true, name: true, trackImei: true },
+    })
+    const productById = new Map(allProducts.map(p => [p.id, p]))
+    const productByName = new Map(allProducts.map(p => [p.name.toLowerCase(), p]))
+    const poCountMap = new Map(
+      poImeiCounts.filter(c => c.purchaseOrderId).map(c => [c.purchaseOrderId!, c._count._all]),
+    )
+
+    const incompletePurchaseOrders: {
+      id: string; poNumber: string; expected: number; registered: number
+    }[] = []
+
+    for (const po of poOrders) {
+      let expected = 0
+      for (const item of po.items) {
+        const p = item.productId
+          ? productById.get(item.productId)
+          : productByName.get(item.productName.toLowerCase())
+        if (p?.trackImei) expected += item.quantity
+      }
+      if (expected === 0) continue
+      const registered = poCountMap.get(po.id) ?? 0
+      if (registered < expected) {
+        incompletePurchaseOrders.push({
+          id: po.id,
+          poNumber: po.poNumber,
+          expected,
+          registered,
+        })
+      }
+    }
+
+    return { stockMismatches, incompletePurchaseOrders }
+  },
+
+  async bulkInferTrackImei(tenantId: string) {
+    const products = await prisma.product.findMany({
+      where: { tenantId, isActive: true },
+      include: { category: { select: { name: true } } },
+    })
+    let updated = 0
+    for (const p of products) {
+      const hasVariants = Array.isArray(p.storageVariations) && (p.storageVariations as unknown[]).length > 0
+      const inferred = inferTrackImeiFromMeta({
+        categoryName: p.category?.name,
+        productName: p.name,
+        hasVariants,
+      })
+      if (inferred !== null && inferred !== p.trackImei) {
+        await prisma.product.update({ where: { id: p.id }, data: { trackImei: inferred } })
+        updated++
+      }
+    }
+    return { updated, total: products.length }
   },
 }

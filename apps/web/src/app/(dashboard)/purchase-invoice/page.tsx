@@ -7,7 +7,7 @@ import {
   Phone, Globe, MapPin, Package, Building2, User, Truck, CreditCard,
   BarChart2, QrCode, ChevronRight, Zap, ArrowLeft, Loader2,
 } from 'lucide-react'
-import { suppliersApi } from '@/lib/api'
+import { suppliersApi, imeiApi } from '@/lib/api'
 import { formatDate } from '@/lib/utils'
 import { getInvoiceSettings } from '@/lib/invoiceSettings'
 import { authStorage } from '@/lib/auth'
@@ -136,6 +136,7 @@ function InvoiceContent() {
   }
 
   const [po, setPo]           = useState<any>(null)
+  const [poImeis, setPoImeis] = useState<{ imei: string; variation?: string; product?: { name?: string } }[]>([])
   const [loading, setLoading] = useState(!!poId)
   const [error, setError]     = useState('')
   const [downloading, setDownloading] = useState(false)
@@ -149,7 +150,12 @@ function InvoiceContent() {
         const list  = res?.data ?? []
         const found = list.find((p: any) => p.id === poId) ?? list[0] ?? null
         if (!found) setError('Purchase order not found')
-        else setPo(found)
+        else {
+          setPo(found)
+          imeiApi.list({ purchaseOrderId: found.id, limit: '500' })
+            .then((ir: any) => setPoImeis(ir.data ?? []))
+            .catch(() => setPoImeis([]))
+        }
       })
       .catch(() => setError('Failed to load purchase order'))
       .finally(() => setLoading(false))
@@ -493,6 +499,27 @@ function InvoiceContent() {
                 </tbody>
               </table>
             </div>
+
+            {poImeis.length > 0 && (
+              <div className="mt-4 rounded-2xl border border-violet-100 bg-violet-50/50 p-5">
+                <h3 className="text-xs font-bold text-violet-700 uppercase tracking-widest mb-3">
+                  Registered Device IMEIs ({poImeis.length})
+                </h3>
+                <div className="grid sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                  {poImeis.map((rec, i) => (
+                    <div key={i} className="text-[11px] font-mono bg-white rounded-lg px-3 py-2 border border-violet-100">
+                      <span className="text-violet-600">{rec.imei}</span>
+                      {rec.product?.name && (
+                        <span className="block text-[10px] text-gray-500 font-sans mt-0.5 truncate">{rec.product.name}</span>
+                      )}
+                      {rec.variation && (
+                        <span className="block text-[10px] text-gray-400 font-sans">{rec.variation}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── TOTALS + NOTES ──────────────────────────────────── */}

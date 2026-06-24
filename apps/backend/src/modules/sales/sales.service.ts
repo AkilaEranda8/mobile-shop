@@ -61,6 +61,29 @@ export const salesService = {
     else await assertBusinessDayOpenIfEnabled(tenantId, branchId)
     const invoiceNumber = await generateInvoiceNumber(tenantId)
     const items: any[] = Array.isArray(body.items) ? body.items : []
+
+    for (const item of items) {
+      if (!item.productId) continue
+      const product = await prisma.product.findFirst({
+        where: { id: item.productId, tenantId },
+        select: { trackImei: true, name: true },
+      })
+      if (!product?.trackImei) continue
+      const imei = (item.imei ?? '').trim()
+      if (!imei) throw new AppError(`IMEI required for "${product.name}"`, 400)
+      if (Number(item.quantity) > 1) {
+        throw new AppError(`IMEI products must be sold one unit per line: "${product.name}"`, 400)
+      }
+      const record = await prisma.imeiRecord.findUnique({ where: { imei } })
+      if (!record) throw new AppError(`IMEI ${imei} is not registered in the system`, 400)
+      if (record.productId !== item.productId) {
+        throw new AppError(`IMEI ${imei} belongs to a different product`, 400)
+      }
+      if (record.status !== 'IN_STOCK') {
+        throw new AppError(`IMEI ${imei} is not available for sale (status: ${record.status})`, 400)
+      }
+    }
+
     const itemCreates = items.map((item) => {
       const row: any = {
         productName: item.productName,

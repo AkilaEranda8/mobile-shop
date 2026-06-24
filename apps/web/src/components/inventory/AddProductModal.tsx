@@ -6,6 +6,8 @@ import { productsApi, suppliersApi, uploadApi } from '@/lib/api'
 import { useCategories, useBrands, useSuppliers } from '@/lib/hooks'
 import type { Category } from '@/types'
 import toast from 'react-hot-toast'
+import { ImeiProductTypeSelector } from './ImeiProductTypeSelector'
+import { inferImeiProductType, imeiTypeToTrackFlag, type ImeiProductType } from '@/lib/productImei'
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 
@@ -278,7 +280,8 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
     categoryName: '', subCategory: '', unit: 'Piece (Pc)',
     deviceModel: '', description: '', imageUrl: '',
   })
-  const [trackImei,     setTrackImei]     = useState(false)
+  const [imeiType,      setImeiType]      = useState<ImeiProductType>('accessory')
+  const [imeiTouched,   setImeiTouched]   = useState(false)
   const [warrantyTrack, setWarrantyTrack] = useState(true)
   const [lowStock,      setLowStock]      = useState(true)
   const [minStock,      setMinStock]      = useState('5')
@@ -297,6 +300,18 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
     if (allBrands.length > 0 && !form.brandName) f('brandName', allBrands[0].name)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allBrands.length])
+
+  useEffect(() => {
+    if (imeiTouched) return
+    const hint = inferImeiProductType({
+      categoryName: form.categoryName,
+      deviceModel: form.deviceModel,
+      hasVariants: variants.length > 0,
+    })
+    if (hint) setImeiType(hint)
+  }, [form.categoryName, form.deviceModel, variants.length, imeiTouched])
+
+  const trackImei = imeiTypeToTrackFlag(imeiType)
 
   const resolveBuyPrice = () => {
     const ex = Number(pricing.purchaseEx)
@@ -592,9 +607,15 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
 
             {/* Settings panel */}
             <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 10, padding: '14px 16px' }}>
-              <Checkbox checked={trackImei} onChange={setTrackImei} label="Track IMEI / Serial Number"
-                desc="Enable IMEI or Serial number tracking for this product" tip="Each unit must have a unique IMEI/Serial" />
-              <div style={{ borderTop: '1px solid var(--border-subtle)', marginBottom: 10 }} />
+              <ImeiProductTypeSelector
+                value={imeiType}
+                onChange={type => { setImeiTouched(true); setImeiType(type) }}
+                categoryName={form.categoryName}
+                deviceModel={form.deviceModel}
+                hasVariants={variants.length > 0}
+                compact
+              />
+              <div style={{ borderTop: '1px solid var(--border-subtle)', margin: '12px 0 10px' }} />
               <Checkbox checked={warrantyTrack} onChange={checked => {
                 setWarrantyTrack(checked)
                 if (checked && extra.warranty === 'None') setExtra(p => ({ ...p, warranty: '1 Year' }))

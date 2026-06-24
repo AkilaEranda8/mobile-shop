@@ -2,7 +2,7 @@
 
 import { useState, useRef, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, RotateCcw, ChevronDown, ChevronUp, GripVertical } from 'lucide-react'
+import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, RotateCcw, ChevronDown, ChevronUp, GripVertical, Smartphone } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -14,6 +14,8 @@ import type { Product, Category, ProductVariation } from '@/types'
 import toast from 'react-hot-toast'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
+import { ImeiProductTypeSelector } from '@/components/inventory/ImeiProductTypeSelector'
+import { imeiTypeToTrackFlag, trackFlagToImeiType, inferImeiProductType, type ImeiProductType } from '@/lib/productImei'
 
 /* ── CSV Export ─────────────────────────────────────────────────────── */
 function exportProductsCSV(products: Product[]) {
@@ -42,8 +44,8 @@ function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const [done, setDone] = useState(false)
 
-  const TEMPLATE = 'name,sku,brandName,categoryName,buyingPrice,sellingPrice,stock,minStock'
-  const SAMPLE   = 'iPhone 15 Pro,IP15P-256,Apple,Smartphones,75000,89999,5,2'
+  const TEMPLATE = 'name,sku,brandName,categoryName,buyingPrice,sellingPrice,stock,minStock,trackImei'
+  const SAMPLE   = 'iPhone 15 Pro,IP15P-256,Apple,Smartphones,75000,89999,5,2,true'
 
   const COL_ALIASES: Record<string, string> = {
     'product name': 'name', 'product': 'name', 'item name': 'name', 'item': 'name',
@@ -54,6 +56,7 @@ function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
     'selling price': 'sellingPrice', 'sale price': 'sellingPrice', 'price': 'sellingPrice', 'retail price': 'sellingPrice',
     'stock qty': 'stock', 'stock quantity': 'stock', 'qty': 'stock', 'quantity': 'stock', 'stock': 'stock',
     'min stock': 'minStock', 'minimum stock': 'minStock', 'min stock alert': 'minStock', 'min qty': 'minStock',
+    'track imei': 'trackImei', 'imei': 'trackImei', 'has imei': 'trackImei',
   }
 
   const downloadTemplate = () => {
@@ -90,10 +93,19 @@ function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i]
       try {
+        const explicitImei = r.trackImei?.toLowerCase()
+        let trackImei: boolean | undefined
+        if (explicitImei === 'true' || explicitImei === 'yes' || explicitImei === '1') trackImei = true
+        else if (explicitImei === 'false' || explicitImei === 'no' || explicitImei === '0') trackImei = false
+        else {
+          const inferred = inferImeiProductType({ categoryName: r.categoryName, productName: r.name })
+          if (inferred !== null) trackImei = inferred === 'device'
+        }
         await productsApi.create({
           name: r.name, sku: r.sku, brandName: r.brandName, categoryName: r.categoryName,
           buyingPrice: Number(r.buyingPrice), sellingPrice: Number(r.sellingPrice),
           stock: Number(r.stock), minStock: Number(r.minStock ?? 3),
+          ...(trackImei !== undefined ? { trackImei } : {}),
         })
       } catch (e: any) {
         errs.push(`Row ${i + 2}: ${r.name} — ${e?.message ?? 'failed'}`)
@@ -448,6 +460,8 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
     stock: String(product.stock), minStock: String(product.minStock),
     imageUrl: product.imageUrl ?? '',
   })
+  const [imeiType, setImeiType] = useState<ImeiProductType>(trackFlagToImeiType(product.trackImei))
+  const [warrantyMonths, setWarrantyMonths] = useState(product.warrantyMonths ?? 12)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -480,6 +494,8 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
         ...form,
         buyingPrice: Number(form.buyingPrice), sellingPrice: Number(form.sellingPrice),
         mrp: Number(form.sellingPrice), stock: Number(form.stock), minStock: Number(form.minStock),
+        trackImei: imeiTypeToTrackFlag(imeiType),
+        warrantyMonths: Number(warrantyMonths) || 0,
         imageUrl: form.imageUrl || undefined,
         storageVariations: variants.map(v => ({
           id: v.id,
@@ -563,6 +579,27 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
               <label className="block text-xs text-slate-400 mb-1.5">Min Stock Alert</label>
               <input type="number" min="0" className="input-field" value={form.minStock} onChange={f('minStock')} />
             </div>
+          </div>
+
+          <ImeiProductTypeSelector
+            value={imeiType}
+            onChange={setImeiType}
+            categoryName={form.categoryName}
+            hasVariants={variants.length > 0}
+            compact
+          />
+
+          <div>
+            <label className="block text-xs text-slate-400 mb-1.5">Warranty Period</label>
+            <select className="input-field" value={warrantyMonths}
+              onChange={e => setWarrantyMonths(Number(e.target.value))}>
+              <option value={0}>None</option>
+              <option value={1}>1 Month</option>
+              <option value={3}>3 Months</option>
+              <option value={6}>6 Months</option>
+              <option value={12}>1 Year</option>
+              <option value={24}>2 Years</option>
+            </select>
           </div>
 
           {/* ── Variants Section ────────────────────────────────────── */}
@@ -870,6 +907,77 @@ function ProductDetailModal({ product, onClose, onEdit }: { product: Product; on
   )
 }
 
+/* ── IMEI health alerts ─────────────────────────────────────────────── */
+function ImeiHealthBanner({ onFixed }: { onFixed: () => void }) {
+  const [health, setHealth] = useState<{
+    stockMismatches: { id: string; name: string; stock: number; imeiInStock: number; gap: number }[]
+    incompletePurchaseOrders: { id: string; poNumber: string; expected: number; registered: number }[]
+  } | null>(null)
+  const [fixing, setFixing] = useState(false)
+
+  const load = () => {
+    productsApi.imeiHealth().then((r: any) => setHealth(r.data ?? r)).catch(() => {})
+  }
+
+  useEffect(() => { load() }, [])
+
+  const mismatches = health?.stockMismatches ?? []
+  const incompletePos = health?.incompletePurchaseOrders ?? []
+  if (!mismatches.length && !incompletePos.length) return null
+
+  const handleBulkFix = async () => {
+    setFixing(true)
+    try {
+      const r: any = await productsApi.bulkInferTrackImei()
+      toast.success(`Updated IMEI flags on ${r.data?.updated ?? 0} product(s)`)
+      load()
+      onFixed()
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Failed to update IMEI flags')
+    } finally {
+      setFixing(false)
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 space-y-3">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <AlertTriangle size={16} className="text-amber-400 flex-shrink-0" />
+          <p className="text-sm font-semibold text-amber-200">IMEI attention needed</p>
+        </div>
+        <button type="button" onClick={handleBulkFix} disabled={fixing}
+          className="text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-50">
+          {fixing ? 'Fixing…' : 'Auto-fix product IMEI flags'}
+        </button>
+      </div>
+      {mismatches.length > 0 && (
+        <div>
+          <p className="text-xs text-amber-300/90 mb-1">{mismatches.length} phone(s) have stock without enough registered IMEIs:</p>
+          <ul className="text-[11px] text-slate-400 space-y-0.5 max-h-24 overflow-y-auto">
+            {mismatches.slice(0, 8).map(m => (
+              <li key={m.id}>• {m.name} — stock {m.stock}, IMEI {m.imeiInStock} <span className="text-amber-400">(missing {m.gap})</span></li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {incompletePos.length > 0 && (
+        <div>
+          <p className="text-xs text-amber-300/90 mb-1">{incompletePos.length} received PO(s) need IMEI registration:</p>
+          <ul className="text-[11px] text-slate-400 space-y-0.5">
+            {incompletePos.slice(0, 5).map(po => (
+              <li key={po.id}>
+                • <a href={`/purchase-invoice?id=${po.id}`} className="text-violet-400 hover:underline">{po.poNumber}</a>
+                {' '}— {po.registered}/{po.expected} IMEIs
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ── Flat row type for the table (product + optional variation) ─────── */
 interface FlatRow {
   key: string           // unique row key
@@ -895,7 +1003,7 @@ export default function InventoryPage() {
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [brandFilter, setBrandFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState<'all' | 'in' | 'low' | 'out'>('all')
-  const { data: productsData, loading, refetch } = useProducts()
+  const { data: productsData, loading, refetch } = useProducts({ limit: '2000' })
   const { data: catsData, refetch: refetchCats } = useCategories()
   const allCategories: Category[] = (catsData ?? []) as Category[]
   const products: Product[] = (productsData?.data ?? []) as Product[]
@@ -1023,7 +1131,16 @@ export default function InventoryPage() {
                   </div>
                 </div>
               ) : (
-                <p className="text-xs text-slate-500">{(product as any).brandName}</p>
+                <p className="text-xs text-slate-500 flex items-center gap-1.5 flex-wrap">
+                  <span>{(product as any).brandName}</span>
+                  {product.trackImei ? (
+                    <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400 font-semibold">
+                      <Smartphone size={8} /> IMEI
+                    </span>
+                  ) : (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-500/10 text-slate-500">No IMEI</span>
+                  )}
+                </p>
               )}
             </div>
           </div>
@@ -1066,6 +1183,28 @@ export default function InventoryPage() {
       },
     },
     {
+      id: 'imeiGap',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="IMEI" />,
+      cell: ({ row }) => {
+        const { product, variation } = row.original
+        if (variation || !product.trackImei) return <span className="text-xs text-slate-600">—</span>
+        const gap = product.imeiGap ?? 0
+        const inStock = product.imeiInStock ?? 0
+        if (gap > 0) {
+          return (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              {inStock}/{product.stock} · -{gap}
+            </span>
+          )
+        }
+        return (
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/10 text-green-400">
+            {inStock} OK
+          </span>
+        )
+      },
+    },
+    {
       id: 'stockStatus',
       accessorFn: (row) => {
         const stock = row.displayStock; const min = row.displayMinStock
@@ -1104,6 +1243,9 @@ export default function InventoryPage() {
       {showManageCat && <ManageCategoriesModal onClose={() => setShowManageCat(false)} onChanged={() => { refetchCats(); refetch() }} />}
       {editProduct && <EditProductModal product={editProduct} onClose={() => setEditProduct(null)} onSaved={refetch} />}
       {viewProduct && <ProductDetailModal product={viewProduct} onClose={() => setViewProduct(null)} onEdit={() => { setEditProduct(viewProduct); setViewProduct(null) }} />}
+
+      <ImeiHealthBanner onFixed={refetch} />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>

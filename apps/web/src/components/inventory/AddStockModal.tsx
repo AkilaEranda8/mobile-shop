@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useRef, useCallback, useMemo } from 'react'
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import {
   X, Plus, Trash2, Edit2, QrCode, Upload, Loader2,
   Package, ShoppingCart, Barcode, ScanLine, ChevronDown,
   AlertCircle, CheckCircle, Cpu,
 } from 'lucide-react'
-import { productsApi, imeiApi } from '@/lib/api'
+import { productsApi, imeiApi, branchesApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { useProducts, useCategories } from '@/lib/hooks'
 import type { Product } from '@/types'
@@ -604,6 +604,15 @@ export function AddStockModal({ onClose, onSaved }: AddStockModalProps) {
   const [devices, setDevices] = useState<DeviceEntry[]>([])
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [fallbackBranchId, setFallbackBranchId] = useState('')
+
+  useEffect(() => {
+    branchesApi.list().then((res: any) => {
+      const list = (res.data ?? res ?? []) as { id: string; isActive?: boolean }[]
+      const active = list.filter(b => b.isActive !== false)
+      if (active[0]?.id) setFallbackBranchId(active[0].id)
+    }).catch(() => {})
+  }, [])
 
   const handleFormChange = useCallback((patch: Partial<DeviceEntry>) => {
     setForm(prev => ({ ...prev, ...patch }))
@@ -705,7 +714,10 @@ export function AddStockModal({ onClose, onSaved }: AddStockModalProps) {
 
           // Create ImeiRecords for each device entered
           const user = authStorage.getUser()
-          const primaryBranchId = user?.branchIds?.[0]
+          const primaryBranchId = user?.branchIds?.[0] || fallbackBranchId
+          if (product.trackImei && !primaryBranchId) {
+            toast.error(`No branch for IMEI registration — add branch in settings (${product.name})`)
+          }
           if (product.trackImei && primaryBranchId) {
             for (const d of updateData.devices) {
               const matchedVar = Array.isArray(updatedVariations)

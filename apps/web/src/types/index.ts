@@ -113,6 +113,8 @@ export interface Product {
   mrp: number
   trackImei: boolean
   warrantyMonths: number
+  imeiInStock?: number
+  imeiGap?: number
   imageUrl?: string
   stock: number
   minStock: number

@@ -37,4 +37,10 @@ export const productsController = {
   async createBrand(req: Request, res: Response, next: NextFunction) {
     try { sendSuccess(res, await productsService.createBrand(req.tenantId!, req.body), 'Brand created', 201) } catch (e) { next(e) }
   },
+  async getImeiHealth(req: Request, res: Response, next: NextFunction) {
+    try { sendSuccess(res, await productsService.getImeiHealth(req.tenantId!)) } catch (e) { next(e) }
+  },
+  async bulkInferTrackImei(req: Request, res: Response, next: NextFunction) {
+    try { sendSuccess(res, await productsService.bulkInferTrackImei(req.tenantId!), 'IMEI flags updated') } catch (e) { next(e) }
+  },
 }
