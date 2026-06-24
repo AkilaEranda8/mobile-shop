@@ -124,8 +124,8 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
 
     const newStatus = req.body.status as string | undefined
     // ── Restock inventory when marking as RECEIVED ─────────────────────────
-    // Per-item sequential processing to avoid race conditions.
-    if (newStatus === 'RECEIVED') {
+    // Only restock when transitioning TO RECEIVED (not if already RECEIVED).
+    if (newStatus === 'RECEIVED' && po.status !== 'RECEIVED') {
       try {
         console.log(`[PO receive] Processing PO ${po.poNumber} with ${po.items.length} items`)
 
@@ -156,19 +156,6 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
             continue
           }
 
-          // Idempotency guard per item
-          const alreadyDone = !!(await prisma.stockMovement.findFirst({
-            where: {
-              type:      'PURCHASE',
-              productId: productId,
-              reference: po.id,
-            },
-          }))
-          if (alreadyDone) {
-            console.log(`[PO receive] Item "${item.productName}" already restocked — skipping`)
-            continue
-          }
-
           const p = await prisma.product.findUnique({ where: { id: productId } })
           if (!p) {
             console.warn(`[PO receive] Product ${productId} not found in DB — skipping`)
@@ -176,10 +163,11 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
           }
 
           // Update variation stock if product has variants
+          // Match by SKU first (most precise), then by storage+color
           let updatedVariations = (p as any).storageVariations as any[] | null
           if (updatedVariations && Array.isArray(updatedVariations)) {
+            const anyItem = item as any
             updatedVariations = updatedVariations.map((v: any) => {
-              const anyItem = item as any
               const match = (anyItem.sku && v.sku === anyItem.sku) ||
                             (anyItem.storage && anyItem.colorName &&
                              v.storage === anyItem.storage && v.colorName === anyItem.colorName)
@@ -196,19 +184,20 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
             },
           })
 
+          // Use po.id + item.id as unique reference so same-product variants don't block each other
           await prisma.stockMovement.create({
             data: {
               productId,
               branchId,
               type:        'PURCHASE' as const,
               quantity:    item.quantity,
-              reference:   po.id,
-              note:        `Received via PO ${po.poNumber}`,
+              reference:   `${po.id}:${item.id}`,
+              note:        `Received via PO ${po.poNumber} (item: ${item.productName})`,
               performedBy: req.user?.userId ?? 'system',
             },
           })
 
-          console.log(`[PO receive] ✓ Restocked "${item.productName}" +${item.quantity}`)
+          console.log(`[PO receive] ✓ Restocked "${item.productName}" (${(item as any).sku ?? (item as any).storage ?? ''}) +${item.quantity}`)
         }
       } catch (stockErr) {
         // Stock update failed — log but don't block the PO status update
