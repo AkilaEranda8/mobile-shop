@@ -6,7 +6,8 @@ import {
   Package, ShoppingCart, Barcode, ScanLine, ChevronDown,
   AlertCircle, CheckCircle, Cpu,
 } from 'lucide-react'
-import { productsApi } from '@/lib/api'
+import { productsApi, imeiApi } from '@/lib/api'
+import { authStorage } from '@/lib/auth'
 import { useProducts, useCategories } from '@/lib/hooks'
 import type { Product } from '@/types'
 import { formatCurrency } from '@/lib/utils'
@@ -698,6 +699,20 @@ export function AddStockModal({ onClose, onSaved }: AddStockModalProps) {
             sellingPrice: Number(lastDevice.sellingPrice) || product.sellingPrice,
             storageVariations: updatedVariations,
           })
+
+          // Create ImeiRecords for each device entered
+          const user = authStorage.getUser()
+          if (product.trackImei && user?.branchId) {
+            for (const d of updateData.devices) {
+              const variationLabel = d.sku || `${d.storage}::${d.color}`
+              if (d.imei1 && d.imei1.length === 15) {
+                await imeiApi.create({ imei: d.imei1, productId, branchId: user.branchId, variation: variationLabel }).catch(() => null)
+              }
+              if (d.imei2 && d.imei2.length === 15) {
+                await imeiApi.create({ imei: d.imei2, productId, branchId: user.branchId, variation: variationLabel }).catch(() => null)
+              }
+            }
+          }
         }
       }
       toast.success(`${devices.length} device${devices.length > 1 ? 's' : ''} added to stock!`)

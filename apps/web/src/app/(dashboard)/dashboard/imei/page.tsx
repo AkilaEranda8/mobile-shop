@@ -476,6 +476,12 @@ export default function IMEIPage() {
       cell: ({ row }) => <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{row.original.product?.brand?.name ?? '—'}</span>,
     },
     {
+      id: 'variation',
+      accessorFn: (row) => row.variation ?? '',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Variation" />,
+      cell: ({ row }) => <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{row.original.variation?.replace('::', ' ') ?? '—'}</span>,
+    },
+    {
       accessorKey: 'status',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
       cell: ({ row }) => {

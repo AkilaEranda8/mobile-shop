@@ -361,6 +361,7 @@ model ImeiRecord {
   customerId  String?
   saleId      String?
   status      ImeiStatus @default(IN_STOCK)
+  variation   String?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 

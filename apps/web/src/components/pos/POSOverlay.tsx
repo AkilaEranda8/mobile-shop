@@ -479,24 +479,33 @@ function VariationPickerModal({
                 <div className="flex items-center gap-2 text-xs text-white/50">
                   <Loader2 size={12} className="animate-spin" /> Loading available IMEIs...
                 </div>
-              ) : imeis.length > 0 ? (
-                <div className="relative">
-                  <select
-                    value={selImei}
-                    onChange={e => setSelImei(e.target.value)}
-                    className="w-full h-10 px-3 rounded-xl text-sm border outline-none appearance-none"
-                    style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: selImei ? 'white' : 'rgba(255,255,255,0.5)' }}
-                  >
-                    <option value="" disabled>-- Select an IMEI --</option>
-                    {imeis.map(i => (
-                      <option key={i.imei} value={i.imei} style={{ color: 'black' }}>{i.imei}</option>
-                    ))}
-                  </select>
-                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none" />
-                </div>
-              ) : (
-                <p className="text-xs text-red-400">No IN_STOCK IMEIs available for this product.</p>
-              )}
+              ) : (() => {
+                  const availableImeis = imeis.filter(i => {
+                    if (!i.variation) return true
+                    const vLabel = selected?.sku || `${selected?.storage}::${selected?.colorName}`
+                    return i.variation === vLabel
+                  })
+                  if (availableImeis.length > 0) {
+                    return (
+                      <div className="relative">
+                        <select
+                          value={selImei}
+                          onChange={e => setSelImei(e.target.value)}
+                          className="w-full h-10 px-3 rounded-xl text-sm border outline-none appearance-none"
+                          style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: selImei ? 'white' : 'rgba(255,255,255,0.5)' }}
+                        >
+                          <option value="" disabled>-- Select an IMEI --</option>
+                          {availableImeis.map(i => (
+                            <option key={i.imei} value={i.imei} style={{ color: 'black' }}>{i.imei}</option>
+                          ))}
+                        </select>
+                        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none" />
+                      </div>
+                    )
+                  } else {
+                    return <p className="text-xs text-red-400">No IN_STOCK IMEIs available for this variant.</p>
+                  }
+              })()}
             </div>
           )}
 

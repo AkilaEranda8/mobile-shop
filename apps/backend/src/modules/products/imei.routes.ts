@@ -134,14 +134,14 @@ router.get('/lookup/:imei', async (req: Request, res: Response, next: NextFuncti
 
 router.post('/', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { imei, productId, branchId } = req.body
+    const { imei, productId, branchId, variation } = req.body
     if (!imei || !productId || !branchId) throw new AppError('imei, productId and branchId are required', 400)
     const existing = await prisma.imeiRecord.findUnique({ where: { imei } })
     if (existing) throw new AppError('IMEI already registered', 409)
     const product = await prisma.product.findFirst({ where: { id: productId, tenantId: req.tenantId! } })
     if (!product) throw new AppError('Product not found', 404)
     const record = await prisma.imeiRecord.create({
-      data: { imei, productId, branchId, status: 'IN_STOCK' },
+      data: { imei, productId, branchId, variation, status: 'IN_STOCK' },
       include: { product: { select: { name: true, brand: { select: { name: true } } } } },
     })
     sendSuccess(res, record, 'IMEI registered', 201)
