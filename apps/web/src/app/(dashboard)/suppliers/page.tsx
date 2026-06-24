@@ -1068,8 +1068,8 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
                   {/* ── Variation selectors (only when product has variants) ── */}
                   {(item._variations?.length ?? 0) > 0 && (() => {
                     const vars = item._variations!
-                    const storageOpts = [...new Set(vars.map((v: any) => v.storage as string))]
-                    const colorOpts = vars.filter((v: any) => v.storage === item.storage)
+                    const storageOpts = [...new Set(vars.filter((v: any) => v.storage).map((v: any) => v.storage as string))]
+                    const colorOpts = vars.filter((v: any) => v.storage === item.storage && v.colorName)
                     return (
                       <div className="px-3 pb-3 pt-0" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                         <div className="flex flex-wrap items-start gap-4 pt-2">
@@ -1105,7 +1105,7 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
                             <p className="text-[9px] font-bold uppercase tracking-widest text-slate-600 mb-1.5">Color</p>
                             <div className="flex flex-wrap gap-1.5">
                               {colorOpts.map((v: any) => (
-                                <button key={v.colorName} type="button"
+                                <button key={v.colorName ?? v.sku ?? Math.random()} type="button"
                                   onClick={() => {
                                     setItems(prev => prev.map((row, idx) => idx === i ? {
                                       ...row,
@@ -1120,7 +1120,7 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
                                     : { background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', color: '#64748b' }}>
                                   <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-white/20"
                                     style={{ background: (() => {
-                                      const n = v.colorName.toLowerCase()
+                                      const n = (v.colorName ?? '').toLowerCase()
                                       if (n.includes('black')) return '#1a1a1a'
                                       if (n.includes('white') || n.includes('silver') || n.includes('star')) return '#e2e8f0'
                                       if (n.includes('gold') || n.includes('yellow')) return '#f59e0b'
