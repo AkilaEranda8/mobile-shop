@@ -107,6 +107,12 @@ export default function DailyReloadPage() {
 
   useEffect(() => { fetch() }, [fetch])
 
+  useEffect(() => {
+    const onSaleComplete = () => { fetch() }
+    window.addEventListener('pos:sale-complete', onSaleComplete)
+    return () => window.removeEventListener('pos:sale-complete', onSaleComplete)
+  }, [fetch])
+
   /* ── Excel Upload ────────────────────────────────────────────────────────── */
   const handleFile = async (file: File) => {
     if (!file.name.match(/\.(xlsx|xls)$/i)) { toast.error('Please upload an Excel (.xlsx) file'); return }

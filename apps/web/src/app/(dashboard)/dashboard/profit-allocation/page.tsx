@@ -100,9 +100,9 @@ function computePresetRange(preset: string, today: string): { from: string; to: 
     return { from: `${y}-${m}-01`, to: today }
   }
   const days = parseInt(preset, 10)
-  const d = new Date(`${today}T12:00:00`)
-  d.setDate(d.getDate() - (days - 1))
-  return { from: d.toISOString().slice(0, 10), to: today }
+  const d = new Date(`${today}T12:00:00+05:30`)
+  d.setUTCDate(d.getUTCDate() - (days - 1))
+  return { from: d.toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' }), to: today }
 }
 
 function SectionTitle({ title, sub }: { title: string; sub?: string }) {
@@ -229,7 +229,7 @@ export default function ProfitAllocationPage() {
   const [txTotal, setTxTotal] = useState(0)
   const [txLoading, setTxLoading] = useState(false)
   const [periodData, setPeriodData] = useState<{
-    totals: { sales: number; profit: number; allocated: number; remaining: number; savedDays: number }
+    totals: { sales: number; profit: number; allocated: number; remaining: number; savedDays: number; liveDays?: number }
     fundLines: FundLine[]
     summaries: unknown[]
   } | null>(null)
@@ -289,7 +289,7 @@ export default function ProfitAllocationPage() {
         branchId, from: dateFrom, to: dateTo,
       })
       const payload = ((res as { data?: unknown }).data ?? res) as {
-        totals: { sales: number; profit: number; allocated: number; remaining: number; savedDays: number }
+        totals: { sales: number; profit: number; allocated: number; remaining: number; savedDays: number; liveDays?: number }
         fundLines: FundLine[]
         summaries: unknown[]
       }
@@ -298,8 +298,9 @@ export default function ProfitAllocationPage() {
         fundLines: payload.fundLines ?? [],
         summaries: payload.summaries ?? [],
       })
-    } catch {
+    } catch (e: unknown) {
       setPeriodData(null)
+      toast.error((e as { message?: string })?.message ?? 'Failed to load period summary')
     } finally {
       setPeriodLoading(false)
     }
@@ -322,7 +323,9 @@ export default function ProfitAllocationPage() {
         lines: periodData.fundLines,
         saved: periodData.totals.savedDays > 0,
         allocationId: null,
-        dataSource: `period_summary · ${periodData.totals.savedDays} saved day(s)`,
+        dataSource: periodData.totals.savedDays > 0
+          ? `period_summary · ${periodData.totals.savedDays} saved + ${periodData.totals.liveDays ?? 0} live day(s)`
+          : 'period_summary · live POS & daily closing',
       } : null
 
   const tableLoading = isSingleDay ? loading : periodLoading

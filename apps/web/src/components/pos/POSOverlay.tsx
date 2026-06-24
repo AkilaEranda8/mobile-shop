@@ -18,7 +18,7 @@ import { PosReturnModal } from './PosReturnModal'
 import { PosReloadPanel, type ReloadProvider } from './PosReloadPanel'
 import { useUIStore } from '@/stores/ui-store'
 import { useProducts, useFeatureFlag } from '@/lib/hooks'
-import { salesApi, customersApi, productsApi, imeiApi, warrantyApi, servicesApi, financeApi, dailyReloadApi, tenantApi, dailyClosingApi } from '@/lib/api'
+import { salesApi, customersApi, productsApi, imeiApi, warrantyApi, servicesApi, financeApi, tenantApi, dailyClosingApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday } from '@/lib/business-date'
@@ -1661,6 +1661,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
           unitPrice:   i.price,
           total:       i.price * i.quantity,
           imei:        i.imei,
+          ...(i.isReload && i.reloadProvider ? {
+            reloadProvider: i.reloadProvider,
+            reloadType: i.reloadType ?? 'RELOAD',
+          } : {}),
         })),
         payments,
       }
@@ -1743,21 +1747,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       }
       const reloadItems = cart.filter(i => i.isReload && i.reloadProvider)
       if (reloadItems.length > 0) {
-        const invoiceNo = res.data?.invoiceNumber ?? ''
-        for (const item of reloadItems) {
-          try {
-            await dailyReloadApi.create({
-              connectionNo: item.reloadProvider!,
-              provider: item.reloadProvider!,
-              reloadType: item.reloadType ?? 'RELOAD',
-              amount: item.price * item.quantity,
-              executedBy: user?.name || 'POS',
-              transactionId: invoiceNo || undefined,
-              status: 'Success',
-            })
-          } catch (e) { console.error('Reload record failed:', e) }
-        }
-        toast.success(`${reloadItems.length} reload record${reloadItems.length > 1 ? 's' : ''} saved`, { icon: '📱' })
+        toast.success(`${reloadItems.length} reload record${reloadItems.length > 1 ? 's' : ''} saved with sale`, { icon: '📱' })
       }
       if (saleDueAmount > 0) {
         toast.success(`${formatCurrency(saleDueAmount)} added to customer credit`, { icon: '📋' })
@@ -2313,7 +2303,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           selectedCategory === 'RELOAD' && hasDailyReload ? (
             <PosReloadPanel onAdd={addReloadToCart} />
           ) : (
-          <div className={gridView ? 'grid gap-2.5' : 'space-y-1.5'} style={gridView ? { gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))' } : undefined}>
+          <div className={gridView ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3' : 'space-y-1.5'}>
             {pagedProducts.length === 0 ? (
               <div className="col-span-full flex flex-col items-center justify-center h-40 opacity-30">
                 <PackageSearch size={32} className="mb-2" style={{ color: POS_THEME.muted }} />
@@ -2326,7 +2316,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   const isOut  = !isService && item.stock === 0
                   const vars   = Array.isArray(item.storageVariations) ? item.storageVariations : []
                   const { gradient, iconColor, Icon: CardIcon } = isService ? { gradient: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, iconColor: '#c4b5fd', Icon: Wrench } : getProductCardStyle(item)
-                  const initials = (item.name as string).split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()
                   const isFav  = favorites.has(item.id)
                   const price  = formatCurrency(isService ? item.price : item.sellingPrice)
                   const stockLabel = isOut ? 'Out of stock' : isLow ? `Low stock (${item.stock})` : `In stock (${item.stock})`
@@ -2372,12 +2361,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
                   return (
                     <div key={item.id}
-                      className={`relative flex flex-col rounded-xl overflow-hidden border transition-all group cursor-pointer select-none ${isOut ? 'opacity-40 cursor-not-allowed' : 'hover:shadow-lg hover:shadow-black/25 hover:-translate-y-0.5'}`}
+                      className={`relative flex flex-col h-full rounded-xl overflow-hidden border transition-all group cursor-pointer select-none ${isOut ? 'opacity-40 cursor-not-allowed' : 'hover:shadow-lg hover:shadow-black/25 hover:-translate-y-0.5'}`}
                       style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}
                       onClick={handlePick}>
 
-                      {/* Image — fixed height, no giant empty area */}
-                      <div className="relative h-24 overflow-hidden">
+                      {/* Image */}
+                      <div className="relative aspect-[4/3] overflow-hidden">
                         <div className="absolute inset-0" style={{ background: gradient }}>
                           <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 65% 20%, rgba(255,255,255,0.18) 0%, transparent 55%)' }} />
                         </div>
@@ -2386,11 +2375,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={item.imageUrl} alt={item.name} className="absolute inset-0 w-full h-full object-cover" />
                         ) : (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 pointer-events-none">
-                            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.22)', backdropFilter: 'blur(4px)' }}>
-                              <CardIcon size={20} style={{ color: iconColor }} />
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.22)', backdropFilter: 'blur(4px)' }}>
+                              <CardIcon size={24} style={{ color: iconColor }} />
                             </div>
-                            <span className="text-[8px] font-bold tracking-widest uppercase" style={{ color: iconColor, opacity: 0.7 }}>{initials}</span>
                           </div>
                         )}
 
@@ -2419,18 +2407,18 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       </div>
 
                       {/* Info */}
-                      <div className="flex flex-col px-2 py-1.5 gap-0.5">
-                        <p className="text-[12px] font-bold leading-tight line-clamp-2" style={{ color: POS_THEME.text }}>{item.name}</p>
-                        <p className="text-[10px] font-mono truncate" style={{ color: POS_THEME.muted }}>{item.sku}</p>
-                        <div className="flex items-end justify-between gap-1 mt-0.5">
+                      <div className="flex flex-col px-3 py-2.5 gap-1 flex-1">
+                        <p className="text-sm font-bold leading-snug line-clamp-2 min-h-[2.5rem]" style={{ color: POS_THEME.text }}>{item.name}</p>
+                        <p className="text-[11px] font-mono truncate" style={{ color: POS_THEME.muted }}>{item.sku}</p>
+                        <div className="flex items-end justify-between gap-2 mt-auto pt-1">
                           <div className="min-w-0">
-                            <p className="text-white text-[13px] font-extrabold leading-none">{price}</p>
+                            <p className="text-white text-sm font-extrabold leading-none">{price}</p>
                             {isService ? (
-                              <p className="text-[10px] mt-0.5 truncate" style={{ color: POS_THEME.muted }}>
+                              <p className="text-[11px] mt-1 truncate" style={{ color: POS_THEME.muted }}>
                                 Cost {formatCurrency(Number(item.cost ?? 0))}
                               </p>
                             ) : (
-                              <p className="text-[10px] font-semibold flex items-center gap-1 mt-0.5 truncate" style={{ color: stockColor }}>
+                              <p className="text-[11px] font-semibold flex items-center gap-1 mt-1 truncate" style={{ color: stockColor }}>
                                 <span className="w-1.5 h-1.5 rounded-full inline-block shrink-0" style={{ background: stockColor }} />
                                 {stockLabel}
                               </p>
@@ -2438,9 +2426,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
                           </div>
                           <button type="button" disabled={isOut}
                             onClick={e => { e.stopPropagation(); handlePick() }}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center text-white transition-all disabled:opacity-30 hover:scale-105 active:scale-95 shrink-0"
-                            style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, boxShadow: `0 1px 6px ${POS_THEME.purple}66` }}>
-                            <Plus size={13} />
+                            className="w-8 h-8 rounded-lg flex items-center justify-center text-white transition-all disabled:opacity-30 hover:scale-105 active:scale-95 shrink-0"
+                            style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, boxShadow: `0 2px 8px ${POS_THEME.purple}55` }}>
+                            <Plus size={15} />
                           </button>
                         </div>
                       </div>

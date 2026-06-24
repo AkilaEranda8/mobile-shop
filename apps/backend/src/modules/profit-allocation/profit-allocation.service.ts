@@ -3,7 +3,7 @@ import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import { buildDailyClosingPreview } from '../daily-closing/daily-closing.service'
 import { financialsFromPreview } from '../finance/business-financials.service'
-import { businessDayRange, businessDateDb, normalizeBusinessDate } from '../../utils/date-range'
+import { businessDayRange, businessDateDb, businessDateKeyFromInstant, listBusinessDays, normalizeBusinessDate } from '../../utils/date-range'
 import type { createFundSchema, updateFundSchema } from './profit-allocation.schema'
 import type { z } from 'zod'
 
@@ -737,6 +737,70 @@ async function buildFundSummariesForRange(
   )
 }
 
+type PeriodFundLineAgg = {
+  fundId: string
+  fundName: string
+  fundType: string
+  value: number
+  categoryCost?: number
+  pctAllocation?: number
+  todayAllocation: number
+  yesterdayBalance: number
+  totalBalance: number
+  withdrawn: number
+  remainingBalance: number
+  isActive: boolean
+  sortOrder: number
+  description: string | null
+}
+
+function mergePeriodFundLine(
+  fundLineAgg: Map<string, PeriodFundLineAgg>,
+  line: {
+    fundId: string
+    fundName: string
+    fundType: string
+    value: number
+    categoryCost?: number
+    pctAllocation?: number
+    todayAllocation: number
+    yesterdayBalance: number
+    totalBalance: number
+    withdrawn: number
+    remainingBalance: number
+    isActive: boolean
+    sortOrder: number
+    description: string | null
+  },
+) {
+  let agg = fundLineAgg.get(line.fundId)
+  if (!agg) {
+    agg = {
+      fundId: line.fundId,
+      fundName: line.fundName,
+      fundType: line.fundType,
+      value: line.value,
+      categoryCost: 0,
+      pctAllocation: 0,
+      todayAllocation: 0,
+      yesterdayBalance: line.yesterdayBalance,
+      totalBalance: line.totalBalance,
+      withdrawn: line.withdrawn,
+      remainingBalance: line.remainingBalance,
+      isActive: line.isActive,
+      sortOrder: line.sortOrder,
+      description: line.description,
+    }
+    fundLineAgg.set(line.fundId, agg)
+  }
+  agg.todayAllocation = round2(agg.todayAllocation + line.todayAllocation)
+  agg.categoryCost = round2((agg.categoryCost ?? 0) + (line.categoryCost ?? 0))
+  agg.pctAllocation = round2((agg.pctAllocation ?? 0) + (line.pctAllocation ?? 0))
+  agg.totalBalance = line.totalBalance
+  agg.withdrawn = line.withdrawn
+  agg.remainingBalance = line.remainingBalance
+}
+
 export async function getPeriodSummary(
   tenantId: string,
   branchId: string,
@@ -749,65 +813,77 @@ export async function getPeriodSummary(
 
   const start = allocationDbDate(from)
   const end = businessDayRange(to).end
+  const days = listBusinessDays(from, to)
+
+  await ensureDefaultFunds(tenantId, branchId)
 
   const allocRecords = await prisma.profitAllocation.findMany({
     where: { tenantId, branchId, date: { gte: start, lte: end } },
     orderBy: { date: 'asc' },
+    include: { lines: { include: { fund: true } } },
   })
 
-  const totals = {
-    sales: round2(allocRecords.reduce((s, a) => s + a.todaySales, 0)),
-    profit: round2(allocRecords.reduce((s, a) => s + a.todayProfit, 0)),
-    allocated: round2(allocRecords.reduce((s, a) => s + a.totalAllocated, 0)),
-    remaining: round2(allocRecords.length ? allocRecords[allocRecords.length - 1].remainingProfit : 0),
-    savedDays: allocRecords.length,
+  const savedByDate = new Map<string, (typeof allocRecords)[number]>()
+  for (const record of allocRecords) {
+    savedByDate.set(businessDateKeyFromInstant(record.date), record)
   }
 
-  const linesInRange = await prisma.profitAllocationLine.findMany({
-    where: { allocation: { tenantId, branchId, date: { gte: start, lte: end } } },
-    include: { fund: true },
-    orderBy: [{ allocation: { date: 'asc' } }, { fund: { sortOrder: 'asc' } }],
-  })
+  const fundLineAgg = new Map<string, PeriodFundLineAgg>()
+  let totalSales = 0
+  let totalProfit = 0
+  let totalAllocated = 0
 
-  const fundLineAgg = new Map<string, {
-    fundId: string
-    fundName: string
-    fundType: string
-    value: number
-    todayAllocation: number
-    yesterdayBalance: number
-    totalBalance: number
-    withdrawn: number
-    remainingBalance: number
-    isActive: boolean
-    sortOrder: number
-    description: string | null
-  }>()
-
-  for (const line of linesInRange) {
-    const fund = line.fund
-    let agg = fundLineAgg.get(line.fundId)
-    if (!agg) {
-      agg = {
-        fundId: line.fundId,
-        fundName: fund.name,
-        fundType: fund.type,
-        value: fund.type === 'FIXED_AMOUNT' ? fund.fixedAmount : fund.type === 'PERCENTAGE' ? fund.percentage : 0,
-        todayAllocation: 0,
-        yesterdayBalance: line.yesterdayBalance,
-        totalBalance: line.totalBalance,
-        withdrawn: line.withdrawn,
-        remainingBalance: line.remainingBalance,
-        isActive: fund.isActive,
-        sortOrder: fund.sortOrder,
-        description: fund.description,
+  for (const day of days) {
+    const saved = savedByDate.get(day)
+    if (saved) {
+      totalSales += saved.todaySales
+      totalProfit += saved.todayProfit
+      totalAllocated += saved.totalAllocated
+      const categoryCostMap = await buildCategoryCostMap(tenantId, branchId, day)
+      for (const line of saved.lines) {
+        const fund = line.fund
+        const categoryCost = fund.type === 'PERCENTAGE'
+          ? fundCategoryCost(fund.name, categoryCostMap)
+          : 0
+        const pctAllocation = fund.type === 'PERCENTAGE'
+          ? round2(line.todayAllocation - categoryCost)
+          : 0
+        mergePeriodFundLine(fundLineAgg, {
+          fundId: line.fundId,
+          fundName: fund.name,
+          fundType: fund.type,
+          value: fund.type === 'FIXED_AMOUNT' ? fund.fixedAmount : fund.type === 'PERCENTAGE' ? fund.percentage : 0,
+          categoryCost,
+          pctAllocation,
+          todayAllocation: line.todayAllocation,
+          yesterdayBalance: line.yesterdayBalance,
+          totalBalance: line.totalBalance,
+          withdrawn: line.withdrawn,
+          remainingBalance: line.remainingBalance,
+          isActive: fund.isActive,
+          sortOrder: fund.sortOrder,
+          description: fund.description,
+        })
       }
-      fundLineAgg.set(line.fundId, agg)
+      continue
     }
-    agg.todayAllocation = round2(agg.todayAllocation + line.todayAllocation)
-    agg.totalBalance = line.totalBalance
-    agg.withdrawn = line.withdrawn
-    agg.remainingBalance = line.remainingBalance
+
+    const calc = await calculateAllocationLines(tenantId, branchId, day)
+    totalSales += calc.todaySales
+    totalProfit += calc.todayProfit
+    totalAllocated += calc.totalAllocated
+    for (const line of calc.lines) {
+      mergePeriodFundLine(fundLineAgg, line)
+    }
+  }
+
+  const totals = {
+    sales: round2(totalSales),
+    profit: round2(totalProfit),
+    allocated: round2(totalAllocated),
+    remaining: round2(totalProfit - totalAllocated),
+    savedDays: allocRecords.length,
+    liveDays: days.length - allocRecords.length,
   }
 
   const summaries = await buildFundSummariesForRange(tenantId, branchId, start, end)

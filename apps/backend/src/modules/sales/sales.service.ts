@@ -5,6 +5,7 @@ import { getPagination } from '../../utils/pagination'
 import { generateInvoiceNumber } from '../../utils/counters'
 import { Request } from 'express'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
+import { createDailyReloadsFromSaleItems } from '../daily-reload/pos-reload.util'
 
 export const salesService = {
   async list(tenantId: string, req: Request) {
@@ -131,6 +132,12 @@ export const salesService = {
       if (body.customerId) {
         await tx.customer.update({ where: { id: body.customerId }, data: { totalPurchases: { increment: 1 }, totalDue: { increment: body.dueAmount ?? 0 } } })
       }
+      await createDailyReloadsFromSaleItems(tx, {
+        tenantId,
+        items,
+        invoiceNumber,
+        cashierName,
+      })
       return s
     })
     // ── Auto-create income transaction in Finance (non-blocking) ──
