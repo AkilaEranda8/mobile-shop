@@ -280,11 +280,12 @@ router.post('/pay-provider', authorize('OWNER', 'MANAGER', 'CASHIER'), async (re
   try {
     const tenantId = req.tenantId!
     const user = req.user!
-    const { date, provider, paymentMethod = 'CASH', branchId: bodyBranchId } = req.body as {
+    const { date, provider, paymentMethod = 'CASH', branchId: bodyBranchId, amount: bodyAmount } = req.body as {
       date?: string
       provider?: string
       paymentMethod?: string
       branchId?: string
+      amount?: number
     }
     if (!date || !provider) throw new AppError('date and provider are required', 400)
     const dateKey = normalizeBusinessDate(date)
@@ -310,15 +311,31 @@ router.post('/pay-provider', authorize('OWNER', 'MANAGER', 'CASHIER'), async (re
 
     const reloadTotal = round2(providerReloads.reduce((s, r) => s + Number(r.amount), 0))
     const commission = round2(providerReloads.reduce(
-      (s, r) => s + calcReloadCommission(r.amount, settings, r.connectionNo, r.provider), 0,
+      (s, r) => s + calcReloadCommission(
+        r.amount, settings, r.connectionNo, r.provider, reloadServiceType(r),
+      ), 0,
     ))
     const netPayable = round2(reloadTotal - commission)
     const remaining = round2(Math.max(0, netPayable - paidSoFar))
     if (remaining <= 0) throw new AppError('Provider already paid for this date', 400)
 
+    const requested = bodyAmount !== undefined && bodyAmount !== null
+      ? round2(Number(bodyAmount))
+      : remaining
+    if (!Number.isFinite(requested) || requested <= 0) {
+      throw new AppError('Payment amount must be greater than zero', 400)
+    }
+    if (requested > remaining + 0.01) {
+      throw new AppError(`Payment cannot exceed remaining balance (Rs ${remaining.toFixed(2)})`, 400)
+    }
+    const amountPaid = round2(Math.min(requested, remaining))
+
     const method = ['CASH', 'CARD', 'UPI', 'WALLET', 'BANK_TRANSFER'].includes(paymentMethod)
       ? paymentMethod as 'CASH' | 'CARD' | 'UPI' | 'WALLET' | 'BANK_TRANSFER'
       : 'CASH'
+
+    const balanceAfter = round2(remaining - amountPaid)
+    const partialLabel = balanceAfter > 0.01 ? ` — partial Rs ${amountPaid.toFixed(2)} (balance Rs ${balanceAfter.toFixed(2)})` : ''
 
     const financeTx = await prisma.transaction.create({
       data: {
@@ -326,8 +343,8 @@ router.post('/pay-provider', authorize('OWNER', 'MANAGER', 'CASHIER'), async (re
         branchId,
         type: 'EXPENSE',
         category: 'Reload Provider',
-        amount: remaining,
-        description: `${provider} reload settlement ${dateKey} (net after commission Rs ${commission.toFixed(2)})`,
+        amount: amountPaid,
+        description: `${provider} reload settlement ${dateKey}${partialLabel} (net after commission Rs ${commission.toFixed(2)})`,
         paymentMethod: method,
         performedBy: user.email,
       },
@@ -341,7 +358,7 @@ router.post('/pay-provider', authorize('OWNER', 'MANAGER', 'CASHIER'), async (re
         businessDate: businessDateDb(dateKey),
         reloadTotal,
         commission,
-        amountPaid: remaining,
+        amountPaid,
         paymentMethod: method,
         paidBy: user.email,
         financeTxId: financeTx.id,
@@ -355,9 +372,11 @@ router.post('/pay-provider', authorize('OWNER', 'MANAGER', 'CASHIER'), async (re
       reloadTotal,
       commission,
       netPayable,
-      amountPaid: remaining,
+      amountPaid,
+      paidSoFar: round2(paidSoFar + amountPaid),
+      remaining: balanceAfter,
       financeTxId: financeTx.id,
-    }, 'Provider payment recorded', 201)
+    }, balanceAfter > 0.01 ? 'Partial provider payment recorded' : 'Provider payment recorded', 201)
   } catch (e) { next(e) }
 })
 

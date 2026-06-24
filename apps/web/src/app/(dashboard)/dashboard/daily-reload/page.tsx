@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { Upload, Plus, Trash2, Download, RefreshCw, Calendar, TrendingUp, PhoneCall, CheckCircle2, FileSpreadsheet, AlertCircle, Banknote } from 'lucide-react'
+import { Upload, Plus, Trash2, Download, RefreshCw, Calendar, TrendingUp, PhoneCall, CheckCircle2, FileSpreadsheet, AlertCircle, Banknote, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
@@ -85,6 +85,9 @@ export default function DailyReloadPage() {
   const [reloadType, setReloadType] = useState<'RELOAD' | 'RECHARGE_CARD'>('RELOAD')
   const [saving, setSaving]  = useState(false)
   const [payingProvider, setPayingProvider] = useState<string | null>(null)
+  const [payModal, setPayModal] = useState<{ provider: string; remaining: number; netPayable: number; paid: number } | null>(null)
+  const [payAmount, setPayAmount] = useState('')
+  const [payMethod, setPayMethod] = useState('CASH')
 
   /* ── Fetch ───────────────────────────────────────────────────────────────── */
   const fetch = useCallback(async () => {
@@ -147,18 +150,48 @@ export default function DailyReloadPage() {
     finally { setSaving(false) }
   }
 
-  const handlePayProvider = async (provider: string) => {
+  const openPayModal = (provider: string) => {
     const row = summary.providerBreakdown?.find(p => p.provider === provider)
     if (!row || row.remaining <= 0) return
-    if (!confirm(`Pay ${provider} Rs ${row.remaining.toLocaleString('en-LK', { minimumFractionDigits: 2 })} (reload total minus commission)?`)) return
-    setPayingProvider(provider)
+    setPayModal({
+      provider,
+      remaining: row.remaining,
+      netPayable: row.netPayable,
+      paid: row.paid,
+    })
+    setPayAmount(row.remaining.toFixed(2))
+    setPayMethod('CASH')
+  }
+
+  const submitProviderPay = async () => {
+    if (!payModal) return
+    const amt = parseFloat(payAmount)
+    if (!Number.isFinite(amt) || amt <= 0) { toast.error('Enter a valid payment amount'); return }
+    if (amt > payModal.remaining + 0.01) {
+      toast.error(`Amount cannot exceed balance (${formatAmt(payModal.remaining)})`)
+      return
+    }
+    setPayingProvider(payModal.provider)
     try {
-      await dailyReloadApi.payProvider({ date, provider })
-      toast.success(`${provider} payment recorded`)
+      await dailyReloadApi.payProvider({
+        date,
+        provider: payModal.provider,
+        amount: amt,
+        paymentMethod: payMethod,
+      })
+      const balanceAfter = Math.max(0, payModal.remaining - amt)
+      toast.success(
+        balanceAfter > 0.01
+          ? `${payModal.provider}: ${formatAmt(amt)} paid · ${formatAmt(balanceAfter)} remaining`
+          : `${payModal.provider} fully paid`,
+      )
+      setPayModal(null)
       fetch()
     } catch (e: any) { toast.error(e.message || 'Payment failed') }
     finally { setPayingProvider(null) }
   }
+
+  const handlePayProvider = (provider: string) => openPayModal(provider)
 
   const handlePayAll = async () => {
     const unpaid = (summary.providerBreakdown ?? []).filter(p => p.remaining > 0.01)
@@ -540,16 +573,21 @@ export default function DailyReloadPage() {
                             {row.isPaid || row.remaining <= 0.01 ? (
                               <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-500">Paid</span>
                             ) : (
-                              <button
-                                type="button"
-                                onClick={() => handlePayProvider(row.provider)}
-                                disabled={payingProvider !== null}
-                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-colors disabled:opacity-40"
-                                style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}
-                              >
-                                {payingProvider === row.provider ? <RefreshCw size={11} className="animate-spin" /> : <Banknote size={11} />}
-                                Pay
-                              </button>
+                              <div className="flex flex-col gap-1">
+                                {row.paid > 0.01 && (
+                                  <span className="text-[9px] font-medium text-amber-500">Partial paid</span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handlePayProvider(row.provider)}
+                                  disabled={payingProvider !== null}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-colors disabled:opacity-40"
+                                  style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}
+                                >
+                                  {payingProvider === row.provider ? <RefreshCw size={11} className="animate-spin" /> : <Banknote size={11} />}
+                                  Pay
+                                </button>
+                              </div>
                             )}
                           </td>
                         </tr>
@@ -575,12 +613,117 @@ export default function DailyReloadPage() {
 
               <div className="flex items-start gap-2 px-4 py-3 rounded-xl text-xs" style={{ background: 'rgba(59,130,246,0.08)', color: 'var(--text-muted)' }}>
                 <AlertCircle size={14} className="flex-shrink-0 mt-0.5" style={{ color: '#3b82f6' }} />
-                <span>Commission is your shop profit from the provider. Net to Pay is sent to the provider (reload total minus commission). Payment is recorded in Finance as &quot;Reload Provider&quot; expense.</span>
+                <span>Commission is your shop profit from the provider. Net to Pay is sent to the provider (reload total minus commission). You can pay the full balance or enter a smaller amount in parts. Each payment is recorded in Finance as &quot;Reload Provider&quot; expense.</span>
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* ── Provider Pay Modal ─────────────────────────────────────────────── */}
+      {payModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" onClick={() => !payingProvider && setPayModal(null)}>
+          <div
+            className="w-full max-w-md rounded-2xl border shadow-2xl"
+            style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div>
+                <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Pay {payModal.provider}</h3>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{date}</p>
+              </div>
+              <button type="button" onClick={() => setPayModal(null)} disabled={!!payingProvider} className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: 'var(--text-muted)' }}>
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-3 gap-2 text-center">
+                {[
+                  { label: 'Net to Pay', value: formatAmt(payModal.netPayable), color: '#f59e0b' },
+                  { label: 'Paid', value: formatAmt(payModal.paid), color: '#10b981' },
+                  { label: 'Balance', value: formatAmt(payModal.remaining), color: '#ef4444' },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className="rounded-xl p-2.5" style={{ background: 'var(--bg-subtle)' }}>
+                    <p className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{label}</p>
+                    <p className="text-xs font-bold mt-0.5" style={{ color }}>{value}</p>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Amount to pay now (Rs)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  max={payModal.remaining}
+                  value={payAmount}
+                  onChange={e => setPayAmount(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none focus:border-violet-500"
+                  style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
+                />
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setPayAmount(payModal.remaining.toFixed(2))}
+                    className="px-2.5 py-1 rounded-lg text-[10px] font-semibold"
+                    style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}
+                  >
+                    Full balance
+                  </button>
+                  {[1000, 5000, 10000].filter(n => n < payModal.remaining).map(n => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setPayAmount(String(n))}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-semibold"
+                      style={{ background: 'var(--bg-subtle)', color: 'var(--text-secondary)' }}
+                    >
+                      Rs {n.toLocaleString()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Payment method</label>
+                <select
+                  value={payMethod}
+                  onChange={e => setPayMethod(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none focus:border-violet-500"
+                  style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
+                >
+                  <option value="CASH">Cash</option>
+                  <option value="CARD">Card</option>
+                  <option value="UPI">UPI</option>
+                  <option value="WALLET">Wallet</option>
+                  <option value="BANK_TRANSFER">Bank Transfer</option>
+                </select>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setPayModal(null)}
+                  disabled={!!payingProvider}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-medium border disabled:opacity-40"
+                  style={{ borderColor: 'var(--border-default)', color: 'var(--text-muted)' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={submitProviderPay}
+                  disabled={!!payingProvider}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40"
+                  style={{ background: 'rgba(245,158,11,0.2)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.35)' }}
+                >
+                  {payingProvider === payModal.provider ? <RefreshCw size={14} className="animate-spin" /> : <Banknote size={14} />}
+                  Record payment
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Table ──────────────────────────────────────────────────────────── */}
       <ClientSideTable
