@@ -129,81 +129,88 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
       try {
         console.log(`[PO receive] Processing PO ${po.poNumber} with ${po.items.length} items`)
 
+        // Step 1: Resolve productId + branchId for each PO item
+        const resolvedItems: { item: any; productId: string; branchId: string }[] = []
         for (const item of po.items) {
-          let productId = item.productId || undefined
+          let productId = (item.productId as string | null) || undefined
           let branchId  = (item as any).branchId ?? po.branchId
 
-          // Fallback: resolve by name if productId not supplied
           if (!productId && item.productName) {
-            const p = await prisma.product.findFirst({
+            const found = await prisma.product.findFirst({
               where: { tenantId: req.tenantId!, name: { equals: item.productName, mode: 'insensitive' }, isActive: true },
             })
-            if (p) { productId = p.id; branchId = p.branchId ?? po.branchId }
+            if (found) { productId = found.id; branchId = found.branchId ?? po.branchId }
           }
+          if (!productId) { console.warn(`[PO receive] No productId for "${item.productName}" — skip`); continue }
 
-          if (!productId) {
-            console.warn(`[PO receive] Skipping item "${item.productName}" — no productId found`)
-            continue
-          }
-
-          // Ensure branchId is resolved — fall back to first branch of tenant
           if (!branchId) {
             const branch = await prisma.branch.findFirst({ where: { tenantId: req.tenantId! } })
             branchId = branch?.id
           }
-          if (!branchId) {
-            console.warn(`[PO receive] Skipping item "${item.productName}" — no branchId found`)
-            continue
-          }
+          if (!branchId) { console.warn(`[PO receive] No branchId for "${item.productName}" — skip`); continue }
 
+          resolvedItems.push({ item, productId, branchId })
+        }
+
+        // Step 2: Group by productId so same-product variants are updated in ONE DB write
+        const byProduct = new Map<string, typeof resolvedItems>()
+        for (const r of resolvedItems) {
+          if (!byProduct.has(r.productId)) byProduct.set(r.productId, [])
+          byProduct.get(r.productId)!.push(r)
+        }
+
+        // Step 3: Per product — read once, apply ALL variant updates, write once
+        for (const [productId, group] of byProduct) {
           const p = await prisma.product.findUnique({ where: { id: productId } })
-          if (!p) {
-            console.warn(`[PO receive] Product ${productId} not found in DB — skipping`)
-            continue
-          }
+          if (!p) { console.warn(`[PO receive] Product ${productId} not found — skip`); continue }
 
-          // Update variation stock if product has variants
-          // Match by SKU first (most precise), then by storage+color
+          const totalQty = group.reduce((s, r) => s + r.item.quantity, 0)
+
+          // Apply all variant stock changes to the variations array in one pass
           let updatedVariations = (p as any).storageVariations as any[] | null
           if (updatedVariations && Array.isArray(updatedVariations)) {
-            const anyItem = item as any
-            updatedVariations = updatedVariations.map((v: any) => {
-              const match = (anyItem.sku && v.sku === anyItem.sku) ||
-                            (anyItem.storage && anyItem.colorName &&
-                             v.storage === anyItem.storage && v.colorName === anyItem.colorName)
-              if (match) return { ...v, stock: (v.stock || 0) + item.quantity }
-              return v
-            })
+            for (const { item } of group) {
+              const anyItem = item as any
+              updatedVariations = updatedVariations.map((v: any) => {
+                const match = (anyItem.sku && v.sku === anyItem.sku) ||
+                              (anyItem.storage && anyItem.colorName &&
+                               v.storage === anyItem.storage && v.colorName === anyItem.colorName)
+                if (match) return { ...v, stock: (v.stock || 0) + anyItem.quantity }
+                return v
+              })
+            }
           }
 
+          // Single product.update for all variants of this product
           await prisma.product.update({
             where: { id: productId },
             data: {
-              stock: { increment: item.quantity },
+              stock: { increment: totalQty },
               ...(updatedVariations ? { storageVariations: updatedVariations } : {}),
             },
           })
 
-          // Use po.id + item.id as unique reference so same-product variants don't block each other
-          await prisma.stockMovement.create({
-            data: {
+          // Create one StockMovement per PO item (unique reference per item)
+          const branchId = group[0].branchId
+          await prisma.stockMovement.createMany({
+            data: group.map(({ item }) => ({
               productId,
               branchId,
               type:        'PURCHASE' as const,
               quantity:    item.quantity,
               reference:   `${po.id}:${item.id}`,
-              note:        `Received via PO ${po.poNumber} (item: ${item.productName})`,
+              note:        `Received via PO ${po.poNumber} (${(item as any).sku ?? (item as any).storage ?? item.productName})`,
               performedBy: req.user?.userId ?? 'system',
-            },
+            })),
           })
 
-          console.log(`[PO receive] ✓ Restocked "${item.productName}" (${(item as any).sku ?? (item as any).storage ?? ''}) +${item.quantity}`)
+          console.log(`[PO receive] ✓ Product "${(p as any).name}" — ${group.map((r: any) => `${r.item.sku ?? r.item.storage ?? '?'} +${r.item.quantity}`).join(', ')}`)
         }
       } catch (stockErr) {
-        // Stock update failed — log but don't block the PO status update
         console.error('[PO receive] stock update failed:', stockErr)
       }
     }
+
 
     const updated = await prisma.purchaseOrder.update({
       where: { id: req.params.id },
