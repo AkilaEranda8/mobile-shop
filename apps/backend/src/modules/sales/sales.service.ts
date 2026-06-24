@@ -38,7 +38,27 @@ export const salesService = {
     if (dueAmount > 0 && !body.customerId) {
       throw new AppError('Customer is required when recording credit / partial payment', 400)
     }
+    let branchId: string | undefined = body.branchId
+    if (!branchId) {
+      const userBranch = await prisma.userBranch.findFirst({
+        where: { userId: cashierId },
+        select: { branchId: true },
+      })
+      branchId = userBranch?.branchId
+    }
+    if (!branchId) {
+      const branch = await prisma.branch.findFirst({
+        where: { tenantId },
+        orderBy: [{ isHeadquarters: 'desc' }, { createdAt: 'asc' }],
+        select: { id: true },
+      })
+      branchId = branch?.id
+    }
+    if (!branchId) {
+      throw new AppError('No branch configured for this shop. Add a branch in settings.', 400)
+    }
     if (body.branchId) await assertBusinessDayOpenIfEnabled(tenantId, body.branchId)
+    else await assertBusinessDayOpenIfEnabled(tenantId, branchId)
     const invoiceNumber = await generateInvoiceNumber(tenantId)
     const items: any[] = Array.isArray(body.items) ? body.items : []
     const itemCreates = items.map((item) => {
@@ -59,7 +79,7 @@ export const salesService = {
       const s = await tx.sale.create({
         data: {
           tenantId,
-          branchId: body.branchId,
+          branchId,
           invoiceNumber,
           customerId: body.customerId,
           customerName: body.customerName,
@@ -115,7 +135,7 @@ export const salesService = {
             }
           }
         }
-        await tx.stockMovement.create({ data: { productId: item.productId, branchId: body.branchId, type: 'SALE', quantity: -item.quantity, reference: invoiceNumber, performedBy: cashierName } })
+        await tx.stockMovement.create({ data: { productId: item.productId, branchId, type: 'SALE', quantity: -item.quantity, reference: invoiceNumber, performedBy: cashierName } })
         if (item.imei) {
           const existingImei = await tx.imeiRecord.findUnique({ where: { imei: item.imei } })
           if (existingImei) {
@@ -125,7 +145,7 @@ export const salesService = {
               data: {
                 imei: item.imei,
                 productId: item.productId,
-                branchId: body.branchId,
+                branchId,
                 status: 'SOLD',
                 variation: (item as any).variationLabel ?? undefined,
                 customerId: body.customerId,
@@ -161,17 +181,12 @@ export const salesService = {
     try {
       const paymentMethod = (body.payments?.[0]?.method ?? 'CASH') as any
       // Resolve branchId: use provided or fall back to tenant's first branch
-      let resolvedBranchId = body.branchId
-      if (!resolvedBranchId) {
-        const branch = await prisma.branch.findFirst({ where: { tenantId }, select: { id: true } })
-        resolvedBranchId = branch?.id
-      }
       const incomeAmount = Number(body.paidAmount ?? body.total ?? 0)
-      if (resolvedBranchId && incomeAmount > 0) {
+      if (incomeAmount > 0) {
         await prisma.transaction.create({
           data: {
             tenantId,
-            branchId:    resolvedBranchId,
+            branchId,
             type:        'INCOME',
             category:    'Sales',
             amount:      incomeAmount,
