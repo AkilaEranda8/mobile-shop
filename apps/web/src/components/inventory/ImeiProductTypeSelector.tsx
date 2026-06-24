@@ -11,6 +11,7 @@ interface ImeiProductTypeSelectorProps {
   deviceModel?: string
   hasVariants?: boolean
   compact?: boolean
+  hideIntro?: boolean
 }
 
 export function ImeiProductTypeSelector({
@@ -20,6 +21,7 @@ export function ImeiProductTypeSelector({
   deviceModel,
   hasVariants,
   compact,
+  hideIntro,
 }: ImeiProductTypeSelectorProps) {
   const suggestion = inferImeiProductType({ categoryName, deviceModel, hasVariants })
 
@@ -48,12 +50,16 @@ export function ImeiProductTypeSelector({
 
   return (
     <div>
-      <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8, display: 'block' }}>
-        IMEI Tracking <span style={{ color: '#ef4444' }}>*</span>
-      </label>
-      <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 10px', lineHeight: 1.45 }}>
-        Phones and tablets have a unique 15-digit IMEI. Other products do not — select the correct type.
-      </p>
+      {!hideIntro && (
+        <>
+          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8, display: 'block' }}>
+            IMEI Tracking <span style={{ color: '#ef4444' }}>*</span>
+          </label>
+          <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 10px', lineHeight: 1.45 }}>
+            Phones and tablets have a unique 15-digit IMEI. Other products do not — select the correct type.
+          </p>
+        </>
+      )}
       <div style={{ display: 'flex', flexDirection: compact ? 'column' : 'row', gap: 8 }}>
         {options.map(opt => {
           const selected = value === opt.type
