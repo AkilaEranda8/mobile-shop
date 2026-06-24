@@ -29,6 +29,7 @@ interface DeviceEntry {
   warranty: string
   condition: 'Brand New' | 'Refurbished' | 'Used - Good' | 'Used - Fair'
   notes: string
+  sku?: string
 }
 
 interface AddStockModalProps {
