@@ -576,12 +576,21 @@ function VariationPickerModal({
                     <select
                       value={selImei}
                       onChange={e => { setSelImei(e.target.value); setImeiScanError(''); setImeiScanValue('') }}
-                      className="w-full h-10 px-3 rounded-xl text-sm border outline-none appearance-none"
-                      style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: selImei ? 'white' : 'rgba(255,255,255,0.5)' }}
+                      className="w-full h-10 px-3 rounded-xl text-sm border outline-none appearance-none font-mono"
+                      style={{
+                        background: POS_THEME.card,
+                        borderColor: POS_THEME.border,
+                        color: selImei ? '#fff' : POS_THEME.muted,
+                        colorScheme: 'dark',
+                      }}
                     >
-                      <option value="" disabled>-- Select IMEI ({availableImeis.length} in stock) --</option>
+                      <option value="" disabled style={{ background: '#1e293b', color: '#94a3b8' }}>
+                        -- Select IMEI ({availableImeis.length} in stock) --
+                      </option>
                       {availableImeis.map(i => (
-                        <option key={i.imei} value={i.imei} style={{ color: 'black' }}>{i.imei}</option>
+                        <option key={i.imei} value={i.imei} style={{ background: '#1e293b', color: '#f8fafc' }}>
+                          {i.imei}
+                        </option>
                       ))}
                     </select>
                     <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none" />

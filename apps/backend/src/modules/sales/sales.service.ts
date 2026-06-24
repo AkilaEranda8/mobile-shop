@@ -33,6 +33,21 @@ export const salesService = {
     }
     if (body.branchId) await assertBusinessDayOpenIfEnabled(tenantId, body.branchId)
     const invoiceNumber = await generateInvoiceNumber(tenantId)
+    const items: any[] = Array.isArray(body.items) ? body.items : []
+    const itemCreates = items.map((item) => {
+      const row: any = {
+        productName: item.productName,
+        sku:         item.sku ?? '',
+        imei:        item.imei ?? undefined,
+        quantity:    item.quantity,
+        unitPrice:   item.unitPrice,
+        discount:    item.discount ?? 0,
+        total:       item.total,
+        warrantyMonths: item.warrantyMonths ?? 0,
+      }
+      if (item.productId) row.product = { connect: { id: item.productId } }
+      return row
+    })
     const sale = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const s = await tx.sale.create({
         data: {
@@ -52,12 +67,12 @@ export const salesService = {
           cashierId,
           cashierName,
           notes: body.notes,
-          items: { create: body.items },
+          items: { create: itemCreates },
           payments: { create: body.payments },
         },
         include: { items: true, payments: true },
       })
-      for (const item of body.items) {
+      for (const item of items) {
         if (!item.productId) continue  // service items have no productId — skip stock ops
         const product = await tx.product.findUnique({ where: { id: item.productId }, select: { stock: true, name: true, storageVariations: true } })
         if (!product) continue         // productId present but not found — skip safely
