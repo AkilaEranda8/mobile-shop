@@ -342,19 +342,40 @@ function VariationPickerModal({
   product: any
   variations: ProductVariation[]
   onClose: () => void
-  onAdd: (v: ProductVariation) => void
+  onAdd: (v: ProductVariation, imei?: string) => void
 }) {
   const storageOptions = [...new Set(variations.map(v => v.storage))]
   const [selStorage, setSelStorage] = useState<string>(storageOptions[0] ?? '')
 
   const colorOptions = variations.filter(v => v.storage === selStorage)
   const [selColor, setSelColor] = useState<string>(colorOptions[0]?.colorName ?? '')
+  
+  // IMEI Selection State
+  const [imeis, setImeis] = useState<any[]>([])
+  const [selImei, setSelImei] = useState<string>('')
+  const [loadingImeis, setLoadingImeis] = useState(false)
 
   // Keep color in sync when storage changes
   useEffect(() => {
     const first = variations.find(v => v.storage === selStorage)
     setSelColor(first?.colorName ?? '')
   }, [selStorage, variations])
+  
+  // Fetch IMEIs if product tracks IMEI
+  useEffect(() => {
+    if (product?.trackImei) {
+      setLoadingImeis(true)
+      imeiApi.list({ productId: product.id, status: 'IN_STOCK' })
+        .then((res: any) => {
+          setImeis(res.data?.data ?? [])
+          // Auto-select if only 1 IMEI is available
+          if (res.data?.data?.length === 1) {
+            setSelImei(res.data.data[0].imei)
+          }
+        })
+        .finally(() => setLoadingImeis(false))
+    }
+  }, [product])
 
   const selected = variations.find(v => v.storage === selStorage && v.colorName === selColor)
   const { gradient, Icon: CardIcon, iconColor } = (() => {
@@ -450,6 +471,35 @@ function VariationPickerModal({
             </div>
           )}
 
+          {/* IMEI Selection */}
+          {product.trackImei && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: POS_THEME.muted }}>Select IMEI *</p>
+              {loadingImeis ? (
+                <div className="flex items-center gap-2 text-xs text-white/50">
+                  <Loader2 size={12} className="animate-spin" /> Loading available IMEIs...
+                </div>
+              ) : imeis.length > 0 ? (
+                <div className="relative">
+                  <select
+                    value={selImei}
+                    onChange={e => setSelImei(e.target.value)}
+                    className="w-full h-10 px-3 rounded-xl text-sm border outline-none appearance-none"
+                    style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: selImei ? 'white' : 'rgba(255,255,255,0.5)' }}
+                  >
+                    <option value="" disabled>-- Select an IMEI --</option>
+                    {imeis.map(i => (
+                      <option key={i.imei} value={i.imei} style={{ color: 'black' }}>{i.imei}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none" />
+                </div>
+              ) : (
+                <p className="text-xs text-red-400">No IN_STOCK IMEIs available for this product.</p>
+              )}
+            </div>
+          )}
+
           {/* Selected variant info */}
           {selected && (
             <div className="rounded-xl p-3 flex items-center justify-between gap-3" style={{ background: POS_THEME.bg, border: `1px solid ${POS_THEME.border}` }}>
@@ -482,8 +532,8 @@ function VariationPickerModal({
               Cancel
             </button>
             <button
-              disabled={!selected || (selected.stock != null && (selected.stock ?? 0) === 0)}
-              onClick={() => selected && onAdd(selected)}
+              disabled={!selected || (selected.stock != null && (selected.stock ?? 0) === 0) || (product.trackImei && !selImei)}
+              onClick={() => selected && onAdd(selected, selImei || undefined)}
               className="flex-1 h-11 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-40"
               style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, boxShadow: `0 2px 14px ${POS_THEME.purple}55` }}>
               <ShoppingCart size={15} />
@@ -2040,8 +2090,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
           product={variationPickerProduct}
           variations={Array.isArray(variationPickerProduct.storageVariations) ? variationPickerProduct.storageVariations : []}
           onClose={() => setVariationPickerProduct(null)}
-          onAdd={(variation) => {
-            addToCart(variationPickerProduct, undefined, variation)
+          onAdd={(variation, imei) => {
+            addToCart(variationPickerProduct, imei, variation)
             setVariationPickerProduct(null)
           }}
         />

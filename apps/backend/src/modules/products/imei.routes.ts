@@ -12,13 +12,15 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { skip, limit, page } = getPagination(req)
     const tenantId = req.tenantId!
-    const status   = req.query.status as string | undefined
-    const search   = req.query.search as string | undefined
+    const status    = req.query.status as string | undefined
+    const search    = req.query.search as string | undefined
+    const productId = req.query.productId as string | undefined
 
     // ── 1. Registered ImeiRecords ──────────────────────────────────────────
     const imeiWhere: any = {
       product: { tenantId },
       ...(status && { status }),
+      ...(productId && { productId }),
       ...(search && { OR: [{ imei: { contains: search, mode: 'insensitive' } }] }),
     }
     const [registered, registeredTotal] = await Promise.all([
