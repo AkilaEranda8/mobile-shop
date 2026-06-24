@@ -13,12 +13,20 @@ import {
   Grid3X3, List as ListIcon, MessageCircle, Star, RefreshCw, RotateCcw,
   LayoutGrid, Hash, Wallet, Users, PhoneCall, PlayCircle, Lock, AlertTriangle, Calendar,
 } from 'lucide-react'
-import { HexaPosLayout, POS_THEME, categoryIcon, type PosNavItem } from './HexaPosLayout'
+import { HexaPosLayout, POS_THEME, categoryIcon } from './HexaPosLayout'
 import { PosReturnModal } from './PosReturnModal'
 import { PosReloadPanel, type ReloadProvider } from './PosReloadPanel'
+import type { CartItem } from './types'
+import { buildPosNavItems, buildCategoryTabs, buildBottomActions } from './pos-features'
+import {
+  isQtyLockedLine,
+  getWarrantyCartItems,
+  extractSaleWarrantyCodes,
+  formatWarrantyMonths,
+} from './cart-rules'
 import { useUIStore } from '@/stores/ui-store'
 import { useProducts, useFeatureFlag } from '@/lib/hooks'
-import { salesApi, customersApi, productsApi, imeiApi, warrantyApi, servicesApi, financeApi, tenantApi, dailyClosingApi } from '@/lib/api'
+import { salesApi, customersApi, productsApi, imeiApi, servicesApi, financeApi, tenantApi, dailyClosingApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday } from '@/lib/business-date'
@@ -34,24 +42,6 @@ import { whatsappApi } from '@/lib/whatsapp-api'
 import { Switch } from '@/components/ui/Switch'
 
 import type { ProductVariation } from '@/types'
-
-interface CartItem {
-  cartId: string
-  productId: string | null
-  name: string
-  sku: string
-  price: number
-  originalPrice: number
-  quantity: number
-  imei?: string
-  isService?: boolean
-  isReload?: boolean
-  reloadProvider?: string
-  reloadType?: 'RELOAD' | 'RECHARGE_CARD'
-  cost?: number
-  serviceId?: string
-  variationLabel?: string  // e.g. "256GB / Black"
-}
 
 const DAY_END_DENOMS: Array<{ key: string; label: string; value: number }> = [
   { key: 'd5000', label: '5000', value: 5000 },
@@ -700,8 +690,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
     try { return JSON.parse(localStorage.getItem('pos_held_carts') ?? '[]') } catch { return [] }
   })
   const [showDocPreview, setShowDocPreview]       = useState<'QUOTE'|'DRAFT'|null>(null)
-  const [addWarranty, setAddWarranty]             = useState(false)
-  const [warrantyMonths, setWarrantyMonths]       = useState(12)
   const [showCalc, setShowCalc]                   = useState(false)
   const [showOpeningCash, setShowOpeningCash]     = useState(false)
   const [openingCashAmount, setOpeningCashAmount] = useState('')
@@ -752,6 +740,11 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const hasDailyReload = useFeatureFlag('DAILY_RELOAD')
   const hasServices = useFeatureFlag('SERVICES')
   const hasDailyClosing = useFeatureFlag('DAILY_CLOSING')
+  const hasWarranty = useFeatureFlag('WARRANTY')
+  useEffect(() => {
+    if (selectedCategory === 'RELOAD' && !hasDailyReload) setSelectedCategory('ALL')
+    if (selectedCategory === 'SERVICES' && !hasServices) setSelectedCategory('ALL')
+  }, [selectedCategory, hasDailyReload, hasServices])
   const [mobileView, setMobileView]               = useState<'products' | 'cart'>('products')
   const [isDesktop, setIsDesktop]                 = useState(false)
   const [hideOutOfStock, setHideOutOfStock]       = useState(false)
@@ -1286,6 +1279,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
       isReload: true,
       reloadProvider: provider,
       reloadType: serviceType,
+      warrantyMonths: 0,
+      trackImei: false,
     }])
     toast.success(`${provider} ${label.toLowerCase()} ${formatCurrency(amount)} added to cart`, { icon: '📱' })
   }, [])
@@ -1293,6 +1288,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const displayItems = selectedCategory === 'SERVICES' ? filteredServices
     : selectedCategory === 'RELOAD' ? []
     : filtered
+  const warrantyCartItems = useMemo(
+    () => getWarrantyCartItems(cart, hasWarranty),
+    [cart, hasWarranty],
+  )
   const totalPages    = Math.max(1, Math.ceil(displayItems.length / perPage))
   const pagedProducts = displayItems.slice((page - 1) * perPage, page * perPage)
 
@@ -1337,7 +1336,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
     const cost = isService ? Number(product.cost ?? 0) : Number(variation?.costPrice ?? product.buyingPrice ?? 0)
     const serviceId = isService ? product.id : undefined
     setCart(prev => {
-      if (!imei) {
+      const trackImei = Boolean(product.trackImei)
+      if (!imei && !trackImei) {
         // Match by productId + variation key so each variant is a separate cart line
         const varKey = variation ? `${variation.storage}::${variation.colorName}` : ''
         const existing = prev.find(i => i.isService
@@ -1358,6 +1358,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
         imei,
         isService,
         variationLabel: variation ? `${variation.storage}::${variation.colorName}` : undefined,
+        warrantyMonths: isService ? 0 : Number(product.warrantyMonths ?? 0),
+        trackImei,
       }]
     })
   }
@@ -1398,10 +1400,16 @@ function POSContent({ onClose }: { onClose: () => void }) {
   }
 
   const updateQty = (cartId: string, delta: number) =>
-    setCart(prev => prev.map(i => i.cartId === cartId ? { ...i, quantity: i.quantity + delta } : i).filter(i => i.quantity > 0))
+    setCart(prev => prev.map(i => {
+      if (i.cartId !== cartId || isQtyLockedLine(i)) return i
+      return { ...i, quantity: i.quantity + delta }
+    }).filter(i => i.quantity > 0))
 
   const setQty = (cartId: string, qty: number) =>
-    setCart(prev => prev.map(i => i.cartId === cartId ? { ...i, quantity: Math.max(1, qty) } : i))
+    setCart(prev => prev.map(i => {
+      if (i.cartId !== cartId || isQtyLockedLine(i)) return i
+      return { ...i, quantity: Math.max(1, qty) }
+    }))
 
   const saveEditPrice = (cartId: string) => {
     const val = parseFloat(editPriceVal)
@@ -1541,7 +1549,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
       setCustomerOutstanding(0)
       setIncludeOutstanding(false)
       setOutstandingPayAmount('')
-      setAddWarranty(false)
       return
     }
     setSelectedCustomer(c)
@@ -1572,8 +1579,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
   const handleCheckout = async () => {
     if (cart.length === 0 && outstandingPaying <= 0) return
-    if (cart.length > 0 && addWarranty && !selectedCustomer) {
-      setCheckoutError('Please select a customer to add warranty')
+    if (cart.length > 0 && warrantyCartItems.length > 0 && !selectedCustomer) {
+      setCheckoutError('Please select a customer — warranty products require customer details')
       return
     }
     if (needsCustomerForPartial) {
@@ -1602,8 +1609,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
         setCheckoutError('Cannot settle outstanding balance while offline')
         return
       }
-      if (addWarranty) {
-        setCheckoutError('Warranty registration requires an internet connection')
+      if (warrantyCartItems.length > 0) {
+        setCheckoutError('Warranty sales require an internet connection')
         return
       }
       if (cart.some(i => i.isReload)) {
@@ -1661,6 +1668,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           unitPrice:   i.price,
           total:       i.price * i.quantity,
           imei:        i.imei,
+          warrantyMonths: i.warrantyMonths ?? 0,
           ...(i.isReload && i.reloadProvider ? {
             reloadProvider: i.reloadProvider,
             reloadType: i.reloadType ?? 'RELOAD',
@@ -1715,35 +1723,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
         }
         throw createErr
       }
-      // ── Create warranties if user opted in ──
-      const createdWarrantyCodes: string[] = []
-      if (addWarranty && cart.length > 0) {
-        const start = new Date()
-        const end   = new Date(start)
-        end.setMonth(end.getMonth() + warrantyMonths)
-        for (const item of cart) {
-          try {
-            const prod = products.find((p: any) => p.id === item.productId)
-            const w: any = await warrantyApi.create({
-              customerId:     selectedCustomer?.id,
-              customerName:   selectedCustomer?.name  || 'Walk-in Customer',
-              customerPhone:  selectedCustomer?.phone || '',
-              productId:      item.productId,
-              productName:    item.name,
-              brandName:      prod?.brandName || prod?.brand || '',
-              imei:           item.imei   || '',
-              saleId:         res.data?.id || '',
-              invoiceNumber:  res.data?.invoiceNumber || '',
-              startDate:      start.toISOString(),
-              endDate:        end.toISOString(),
-              monthsDuration: warrantyMonths,
-            })
-            const code = w?.data?.warrantyCode || w?.warrantyCode
-            if (code) createdWarrantyCodes.push(code)
-          } catch (e) { console.error('Warranty creation failed:', e) }
-        }
-        if (createdWarrantyCodes.length > 0)
-          toast.success(`${createdWarrantyCodes.length} warranty${createdWarrantyCodes.length > 1 ? 's' : ''} created`, { icon: '🛡️' })
+      const createdWarrantyCodes = extractSaleWarrantyCodes(res)
+      if (createdWarrantyCodes.length > 0) {
+        toast.success(`${createdWarrantyCodes.length} warranty${createdWarrantyCodes.length > 1 ? 's' : ''} created`, { icon: '🛡️' })
       }
       const reloadItems = cart.filter(i => i.isReload && i.reloadProvider)
       if (reloadItems.length > 0) {
@@ -1776,7 +1758,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
         cashReceived: cashReceivedAmount,
         changeAmount,
         warrantyNumbers: createdWarrantyCodes,
-        warrantyMonths:  addWarranty ? warrantyMonths : undefined,
+        warrantyMonths:  createdWarrantyCodes.length > 0
+          ? Math.max(...warrantyCartItems.map(i => i.warrantyMonths ?? 0), 0) || undefined
+          : undefined,
       })
     } catch (e: any) {
       if (settledOutstanding > 0) {
@@ -2038,7 +2022,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const handleNewSale = () => {
     setCart([]); setCompletedSale(null); setSearch('')
     setDiscountPct(0); setDiscountFlat(0); setSelectedCustomer(null); setCheckoutError('')
-    setAddWarranty(false); setWarrantyMonths(12); setMobileView('products')
+    setMobileView('products')
     setManualTotalMode(false); setManualTotal('')
     setCustomerOutstanding(0); setIncludeOutstanding(false); setOutstandingPayAmount('')
     setAmountPaying(''); setCustomerPaid(''); setPaymentMethod('CASH')
@@ -2081,18 +2065,35 @@ function POSContent({ onClose }: { onClose: () => void }) {
     }
   }, [onClose, router, openRecentSales])
 
-  const posNavItems = useMemo((): PosNavItem[] => {
-    const items: PosNavItem[] = [
-      { id: 'products', label: 'Products', icon: LayoutGrid },
-      { id: 'sales', label: 'Sales', icon: Receipt },
-      { id: 'customers', label: 'Customers', icon: Users },
-    ]
-    if (hasIMEI) items.push({ id: 'imei', label: 'IMEI / Serial', icon: Hash })
-    if (hasFinance) items.push({ id: 'cash', label: 'Cash In/Out', icon: Wallet })
-    items.push({ id: 'returns', label: 'Returns', icon: RotateCcw })
-    if (hasDailyReload) items.push({ id: 'reload', label: 'Reload', icon: PhoneCall })
-    return items
-  }, [hasIMEI, hasFinance, hasDailyReload])
+  const posNavItems = useMemo(
+    () => buildPosNavItems({ hasIMEI, hasFinance, hasDailyReload }),
+    [hasIMEI, hasFinance, hasDailyReload],
+  )
+
+  const categoryTabs = useMemo(
+    () => buildCategoryTabs({ hasServices, hasDailyReload }, categories, getCategoryIcon),
+    [hasServices, hasDailyReload, categories],
+  )
+
+  const bottomActionButtons = useMemo(
+    () => buildBottomActions({
+      flags: { hasDailyReload, hasDailyClosing },
+      heldCount: heldCarts.length,
+      dayStarted,
+      dayIsClosed,
+      handlers: {
+        newSale: handleNewSale,
+        holdSales: handleHoldSales,
+        recentSales: openRecentSales,
+        reload: () => { setSelectedCategory('RELOAD'); setActiveNavId('products') },
+        dayStart: openDayStartModal,
+        dayEnd: openDayEnd,
+        cashFlow: () => { setCashFlowMode('IN'); setShowCashFlow(true) },
+        moreMenu: () => setShowMoreMenu(true),
+      },
+    }),
+    [hasDailyReload, hasDailyClosing, heldCarts.length, dayStarted, dayIsClosed, handleNewSale, handleHoldSales, openRecentSales, openDayStartModal, openDayEnd],
+  )
 
   const sendWhatsAppInvoice = useCallback(async () => {
     if (!completedSale?.id) return
@@ -2279,12 +2280,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         customerSlot={customerSlot}
         categoryBar={(
           <div className="flex items-center gap-2 px-4 py-2.5 border-b shrink-0 overflow-x-auto scrollbar-none" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
-            {[
-              { id: 'ALL', name: 'All', icon: Package },
-              ...(hasServices ? [{ id: 'SERVICES', name: 'Services', icon: Wrench }] : []),
-              ...(hasDailyReload ? [{ id: 'RELOAD', name: 'Reload', icon: PhoneCall }] : []),
-              ...categories.map(c => ({ ...c, icon: getCategoryIcon(c.name) }))
-            ].map(({ id, name, icon: Icon }) => (
+            {categoryTabs.map(({ id, name, icon: Icon }) => (
               <button key={id} onClick={() => setSelectedCategory(id)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all flex-shrink-0 whitespace-nowrap"
                 style={selectedCategory === id
@@ -2322,9 +2318,15 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   const stockColor = isOut ? POS_THEME.muted : isLow ? POS_THEME.amber : POS_THEME.green
                   const handlePick = () => {
                     if (isOut) return
-                    if (vars.length > 0) setVariationPickerProduct(item)
-                    else addToCart(item)
+                    if (vars.length > 0) { setVariationPickerProduct(item); return }
+                    if (!isService && item.trackImei && hasIMEI) {
+                      toast('Scan IMEI barcode to add this product', { icon: '📱' })
+                      searchRef.current?.focus()
+                      return
+                    }
+                    addToCart(item)
                   }
+                  const showWarrantyBadge = hasWarranty && !isService && (item.warrantyMonths ?? 0) > 0
 
                   if (!gridView) {
                     return (
@@ -2342,6 +2344,11 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-bold truncate" style={{ color: POS_THEME.text }}>{item.name}</p>
                           <p className="text-[11px] font-mono truncate" style={{ color: POS_THEME.muted }}>{item.sku}</p>
+                          {showWarrantyBadge && (
+                            <p className="text-[10px] font-semibold flex items-center gap-1 mt-0.5" style={{ color: POS_THEME.green }}>
+                              <Shield size={9} /> {formatWarrantyMonths(item.warrantyMonths ?? 0)} warranty
+                            </p>
+                          )}
                         </div>
                         <div className="text-right shrink-0 hidden sm:block">
                           <p className="text-sm font-extrabold text-white">{price}</p>
@@ -2398,6 +2405,11 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         )}
                         {vars.length > 0 && (
                           <div className="absolute bottom-1 left-1 px-1.5 py-px rounded text-[8px] font-bold text-white/90" style={{ background: 'rgba(0,0,0,0.4)' }}>{vars.length} variants</div>
+                        )}
+                        {showWarrantyBadge && (
+                          <div className="absolute bottom-1 right-1 flex items-center gap-0.5 px-1.5 py-px rounded text-[8px] font-bold text-white" style={{ background: 'rgba(16,185,129,0.85)' }}>
+                            <Shield size={8} /> {formatWarrantyMonths(item.warrantyMonths ?? 0)}
+                          </div>
                         )}
                         <button type="button" onClick={e => { e.stopPropagation(); setFavorites(prev => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n }) }}
                           className={`absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center transition-all ${isFav ? 'opacity-100 text-red-400' : 'opacity-0 [@media(hover:hover)]:group-hover:opacity-100 text-white/70 hover:text-red-400'}`}
@@ -2471,20 +2483,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         )}
         bottomActions={(
           <div className="flex flex-wrap gap-2 px-4 py-3 border-t shrink-0" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
-            {[
-              { label: 'New Sale (F10)', onClick: handleNewSale, bg: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})` },
-              { label: 'Hold Sales (F4)', onClick: handleHoldSales, bg: `linear-gradient(135deg, ${POS_THEME.blue}, ${POS_THEME.blueDark})` },
-              { label: 'Recent Sales (F5)', onClick: openRecentSales, bg: `linear-gradient(135deg, ${POS_THEME.teal}, ${POS_THEME.tealDark})` },
-              ...(hasDailyReload ? [{ label: 'Reload (F6)', onClick: () => { setSelectedCategory('RELOAD'); setActiveNavId('products') }, bg: `linear-gradient(135deg, ${POS_THEME.teal}, ${POS_THEME.tealDark})` }] : []),
-              ...(hasDailyClosing
-                ? [
-                    { label: dayStarted ? 'Day Started ✓ (F7)' : 'Day Start (F7)', onClick: openDayStartModal, bg: `linear-gradient(135deg, ${POS_THEME.green}, ${POS_THEME.greenDark})` },
-                    { label: dayIsClosed ? 'Day Closed ✓ (F11)' : 'Day End (F11)', onClick: openDayEnd, bg: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})` },
-                  ]
-                : [{ label: 'Opening Cash (F7)', onClick: openDayStartModal, bg: `linear-gradient(135deg, ${POS_THEME.amber}, ${POS_THEME.amberDark})` }]),
-              { label: 'Cash In/Out (F8)', onClick: () => { setCashFlowMode('IN'); setShowCashFlow(true) }, bg: POS_THEME.card },
-              { label: heldCarts.length > 0 ? `More (${heldCarts.length})` : 'More', onClick: () => setShowMoreMenu(true), bg: POS_THEME.card },
-            ].map(btn => (
+            {bottomActionButtons.map(btn => (
               <button key={btn.label} type="button" onClick={btn.onClick}
                 className="flex-1 min-w-[110px] h-10 rounded-xl text-xs font-bold text-white border"
                 style={{ background: btn.bg, borderColor: POS_THEME.border }}>
@@ -2680,6 +2679,11 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         </p>
                       )}
                       {item.imei && <p className="text-[10px] font-mono text-white/80">IMEI: {item.imei}</p>}
+                      {hasWarranty && !item.isService && !item.isReload && (item.warrantyMonths ?? 0) > 0 && (
+                        <p className="text-[10px] font-semibold flex items-center gap-1" style={{ color: POS_THEME.green }}>
+                          <Shield size={9} /> Warranty · {formatWarrantyMonths(item.warrantyMonths ?? 0)}
+                        </p>
+                      )}
                       {editPriceId === item.cartId ? (
                         <div className="flex items-center gap-1 mt-0.5">
                           <input autoFocus type="number" min="0" className="w-20 bg-white/5 border border-violet-500/40 rounded px-1.5 py-0.5 text-xs text-white"
@@ -2697,6 +2701,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       )}
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
+                      {isQtyLockedLine(item) ? (
+                        <span className="w-8 text-center text-xs font-bold" style={{ color: POS_THEME.text }}>{item.quantity}</span>
+                      ) : (
+                        <>
                       <button onClick={() => updateQty(item.cartId, -1)} className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 text-white flex items-center justify-center transition-colors"><Minus size={10} /></button>
                       <input
                         type="number"
@@ -2708,6 +2716,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         style={{ color: POS_THEME.text, background: POS_THEME.card, borderColor: POS_THEME.border }}
                       />
                       <button onClick={() => updateQty(item.cartId, 1)} className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 text-white flex items-center justify-center transition-colors"><Plus size={10} /></button>
+                        </>
+                      )}
                     </div>
                     <span className="text-xs font-bold w-16 text-right flex-shrink-0" style={{ color: POS_THEME.text }}>{formatCurrency(item.price * item.quantity)}</span>
                     <button onClick={() => setCart(prev => prev.filter(i => i.cartId !== item.cartId))}
@@ -2957,33 +2967,27 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       <span className="font-bold" style={{ color: POS_THEME.text }}>{formatCurrency(collectAtCheckout)}</span>
                     </div>
                   )}
-                  {selectedCustomer && (
-                    <div className="rounded-xl border p-2.5" style={{ borderColor: addWarranty ? `${POS_THEME.amber}66` : POS_THEME.border, background: addWarranty ? `${POS_THEME.amber}0D` : POS_THEME.card, opacity: !selectedCustomer ? 0.5 : 1 }}>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <Shield size={13} className="text-white" />
-                          <span className="text-xs font-semibold text-white">Warranty</span>
-                          {addWarranty && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-white/10 text-white">{warrantyMonths < 12 ? `${warrantyMonths}mo` : `${warrantyMonths/12}yr`}</span>}
-                        </div>
-                        <Switch
-                          checked={addWarranty}
-                          onChange={setAddWarranty}
-                          trackStyle={{ background: addWarranty ? POS_THEME.amber : POS_THEME.border }}
-                        />
+                  {hasWarranty && warrantyCartItems.length > 0 && (
+                    <div className="rounded-xl border p-2.5" style={{ borderColor: `${POS_THEME.amber}66`, background: `${POS_THEME.amber}0D` }}>
+                      <div className="flex items-center gap-1.5">
+                        <Shield size={13} style={{ color: POS_THEME.amber }} />
+                        <span className="text-xs font-semibold text-white">Warranty included</span>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-white/10 text-amber-300">
+                          {warrantyCartItems.length} item{warrantyCartItems.length > 1 ? 's' : ''}
+                        </span>
                       </div>
-                      {addWarranty && (
-                        <div className="grid grid-cols-4 gap-1 mt-2">
-                          {[3, 6, 12, 24].map(m => (
-                            <button key={m} type="button" onClick={() => setWarrantyMonths(m)}
-                              className="py-1.5 rounded-lg text-[10px] font-bold border transition-all text-white"
-                              style={warrantyMonths === m
-                                ? { background: `${POS_THEME.amber}25`, borderColor: `${POS_THEME.amber}80`, color: POS_THEME.amber }
-                                : { background: 'transparent', borderColor: POS_THEME.border, color: POS_THEME.text }}>
-                              {m < 12 ? `${m} mo` : `${m/12} yr`}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      <p className="text-[10px] mt-1.5" style={{ color: POS_THEME.muted }}>
+                        {selectedCustomer
+                          ? 'Warranty certificates will be created automatically at checkout.'
+                          : 'Select a customer to issue warranty certificates.'}
+                      </p>
+                      <ul className="mt-1 space-y-0.5">
+                        {warrantyCartItems.map(i => (
+                          <li key={i.cartId} className="text-[10px] truncate" style={{ color: POS_THEME.text }}>
+                            {i.name} · {formatWarrantyMonths(i.warrantyMonths ?? 0)}{i.imei ? ` · ${i.imei}` : ''}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   )}
                   <div className="grid grid-cols-3 gap-1.5">

@@ -6,6 +6,7 @@ import { generateInvoiceNumber } from '../../utils/counters'
 import { Request } from 'express'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 import { createDailyReloadsFromSaleItems } from '../daily-reload/pos-reload.util'
+import { createWarrantiesFromSaleItems } from '../warranty/warranty.service'
 
 export const salesService = {
   async list(tenantId: string, req: Request) {
@@ -49,7 +50,7 @@ export const salesService = {
       if (item.productId) row.product = { connect: { id: item.productId } }
       return row
     })
-    const sale = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const txResult = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const s = await tx.sale.create({
         data: {
           tenantId,
@@ -138,8 +139,19 @@ export const salesService = {
         invoiceNumber,
         cashierName,
       })
-      return s
+      const warranties = await createWarrantiesFromSaleItems(tx, {
+        tenantId,
+        saleId: s.id,
+        invoiceNumber,
+        customerId: body.customerId,
+        customerName: body.customerName || 'Walk-in Customer',
+        customerPhone: body.customerPhone,
+        items,
+      })
+      return { sale: s, warranties }
     })
+    const sale = txResult.sale
+    const warranties = txResult.warranties
     // ── Auto-create income transaction in Finance (non-blocking) ──
     try {
       const paymentMethod = (body.payments?.[0]?.method ?? 'CASH') as any
@@ -166,6 +178,6 @@ export const salesService = {
         })
       }
     } catch (e) { console.error('Finance transaction creation failed:', e) }
-    return sale
+    return { ...sale, warranties }
   },
 }

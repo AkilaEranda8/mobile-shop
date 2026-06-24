@@ -2,6 +2,7 @@ import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import { getPagination } from '../../utils/pagination'
 import { generateTicketNumber, generateInvoiceNumber } from '../../utils/counters'
+import { linkRepairToClaim } from '../warranty/warranty.service'
 import { Request } from 'express'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 
@@ -67,6 +68,9 @@ export const repairsService = {
     await prisma.customer.update({ where: { id: body.customerId }, data: { totalRepairs: { increment: 1 } } }).catch(() => {})
     if (body.imei) {
       await prisma.imeiRecord.updateMany({ where: { imei: body.imei }, data: { status: 'IN_REPAIR' } }).catch(() => {})
+    }
+    if (body.warrantyClaimId) {
+      await linkRepairToClaim(tenantId, body.warrantyClaimId, repair.id)
     }
     return repair
   },

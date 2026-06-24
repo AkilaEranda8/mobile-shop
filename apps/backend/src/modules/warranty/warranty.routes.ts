@@ -6,13 +6,25 @@ import { AppError } from '../../middleware/error.middleware'
 import { getPagination } from '../../utils/pagination'
 import { generateWarrantyCode } from '../../utils/counters'
 import { sendMail, warrantyEmailHtml } from '../../utils/mailer'
+import {
+  buildWarrantyQrUrl,
+  createClaim,
+  verifyWarrantyByCode,
+} from './warranty.service'
 
 const router = Router()
+
+// Public verification — no login required (warranty codes are globally unique)
+router.get('/verify/:code', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    sendSuccess(res, await verifyWarrantyByCode(req.params.code))
+  } catch (e) { next(e) }
+})
+
 router.use(authenticate)
 
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // Auto-expire any warranties whose endDate has passed
     await prisma.warranty.updateMany({
       where: { tenantId: req.tenantId!, status: 'ACTIVE', endDate: { lt: new Date() } },
       data:  { status: 'EXPIRED' },
@@ -22,14 +34,6 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     const where: any = { tenantId: req.tenantId!, ...(status && { status }), ...(search && { OR: [{ warrantyCode: { contains: search, mode: 'insensitive' } }, { customerName: { contains: search, mode: 'insensitive' } }, { productName: { contains: search, mode: 'insensitive' } }, { imei: { contains: search } }] }) }
     const [data, total] = await Promise.all([prisma.warranty.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { claims: true } }), prisma.warranty.count({ where })])
     sendPaginated(res, data, total, page, limit)
-  } catch (e) { next(e) }
-})
-
-router.get('/verify/:code', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const w = await prisma.warranty.findUnique({ where: { warrantyCode: req.params.code }, include: { claims: true } })
-    if (!w) throw new AppError('Warranty not found', 404)
-    sendSuccess(res, w)
   } catch (e) { next(e) }
 })
 
@@ -44,7 +48,15 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const warrantyCode = generateWarrantyCode()
-    const w = await prisma.warranty.create({ data: { ...req.body, tenantId: req.tenantId!, warrantyCode }, include: { claims: true } })
+    const w = await prisma.warranty.create({
+      data: {
+        ...req.body,
+        tenantId: req.tenantId!,
+        warrantyCode,
+        qrUrl: buildWarrantyQrUrl(warrantyCode),
+      },
+      include: { claims: true },
+    })
     sendSuccess(res, w, 'Warranty created', 201)
   } catch (e) { next(e) }
 })
@@ -80,11 +92,10 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
 
 router.post('/:id/claims', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const w = await prisma.warranty.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! } })
-    if (!w) throw new AppError('Warranty not found', 404)
-    const claim = await prisma.warrantyClaim.create({ data: { warrantyId: w.id, issue: req.body.issue } })
-    // Mark warranty as CLAIMED if it was ACTIVE
-    if (w.status === 'ACTIVE') await prisma.warranty.update({ where: { id: w.id }, data: { status: 'CLAIMED' } })
+    const claim = await createClaim(req.tenantId!, req.params.id, {
+      issue: req.body.issue,
+      claimType: req.body.claimType,
+    })
     sendSuccess(res, claim, 'Claim submitted', 201)
   } catch (e) { next(e) }
 })
@@ -100,6 +111,12 @@ router.put('/:id/claims/:claimId', async (req: Request, res: Response, next: Nex
     if (assessedBy     !== undefined) data.assessedBy     = assessedBy
     if (repairTicketId !== undefined) data.repairTicketId = repairTicketId
     const updated = await prisma.warrantyClaim.update({ where: { id: req.params.claimId }, data })
+    if (status === 'RESOLVED' && w.imei) {
+      await prisma.imeiRecord.updateMany({
+        where: { imei: w.imei },
+        data: { status: 'SOLD' },
+      }).catch(() => {})
+    }
     sendSuccess(res, updated, 'Claim updated')
   } catch (e) { next(e) }
 })
@@ -109,7 +126,6 @@ router.post('/:id/email', async (req: Request, res: Response, next: NextFunction
     const w = await prisma.warranty.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! }, include: { claims: true } })
     if (!w) throw new AppError('Warranty not found', 404)
 
-    // Resolve recipient: body.email → customer.email → error
     let to: string = req.body.email ?? ''
     if (!to && w.customerId) {
       const customer = await prisma.customer.findUnique({ where: { id: w.customerId } })

@@ -35,6 +35,13 @@ const COLOR_OPTS = [
 const UNIT_OPTS    = ['Piece (Pc)','Box','Set','Pair','Pack','Dozen','Kg','Gram','Litre','Meter']
 const BARCODE_OPTS = ['Code 128 (C128)','Code 39','EAN-13','EAN-8','UPC-A','QR Code']
 const WARRANTY_OPTS= ['None','1 Month','3 Months','6 Months','1 Year','2 Years']
+
+function warrantyLabelToMonths(label: string): number {
+  const map: Record<string, number> = {
+    None: 0, '1 Month': 1, '3 Months': 3, '6 Months': 6, '1 Year': 12, '2 Years': 24,
+  }
+  return map[label] ?? 0
+}
 const SUB_CAT_OPTS = ['Flagship','Mid Range','Budget','Entry Level','Premium','Ultra','Lite','Pro','Plus','Standard']
 const DEVICE_MODEL_OPTS = ['iPhone','iPad','MacBook','Samsung Galaxy','Xiaomi','OnePlus','Google Pixel','Oppo','Vivo','Huawei','Sony','Nokia','Motorola','Laptop','Tablet','Desktop','Smart Watch','Earbuds','Speaker','Other']
 
@@ -327,7 +334,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
       stock:        0,
       minStock:     lowStock ? Number(minStock) || 5 : 0,
       trackImei:    opts.trackImei,
-      warrantyMonths: warrantyTrack ? 12 : 0,
+      warrantyMonths: warrantyTrack ? (warrantyLabelToMonths(extra.warranty) || 12) : 0,
       isActive:     true,
       storageVariations: rows.map(v => ({
         storage: v.storage, colorName: v.colorName, colorHex: v.colorHex,
@@ -337,7 +344,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
       })),
       colorVariations: rows.map(v => ({ name: v.colorName, hex: v.colorHex })),
     }
-  }, [lowStock, minStock, warrantyTrack])
+  }, [lowStock, minStock, warrantyTrack, extra.warranty])
 
   const addVariant = () => setVariants(p => [...p, {
     id: genId(), storage: '128GB', colorName: 'Black', colorHex: '#1a1a1a',

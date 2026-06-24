@@ -40,15 +40,12 @@ export function categoryIcon(name: string) {
   return Package
 }
 
-const NAV_ITEMS = [
+const NAV_ITEMS: PosNavItem[] = [
   { id: 'products', label: 'Products', icon: LayoutGrid },
   { id: 'sales', label: 'Sales', icon: Receipt },
   { id: 'customers', label: 'Customers', icon: Users },
-  { id: 'imei', label: 'IMEI / Serial', icon: Hash },
-  { id: 'cash', label: 'Cash In/Out', icon: Wallet },
   { id: 'returns', label: 'Returns', icon: RotateCcw },
-  { id: 'reload', label: 'Reload', icon: Phone },
-] as const
+]
 
 export type PosNavItem = { id: string; label: string; icon: LucideIcon }
 
@@ -109,7 +106,7 @@ export function HexaPosLayout({
   cartPanel,
   mainOverlay,
 }: HexaPosLayoutProps) {
-  const sidebarItems: PosNavItem[] = navItems ?? NAV_ITEMS.map(({ id, label, icon }) => ({ id, label, icon }))
+  const sidebarItems: PosNavItem[] = navItems ?? NAV_ITEMS
 
   return (
     <div

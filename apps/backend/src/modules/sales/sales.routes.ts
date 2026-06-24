@@ -8,6 +8,7 @@ import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import { getPagination } from '../../utils/pagination'
 import { generateReturnNumber } from '../../utils/counters'
+import { voidWarrantiesForSaleReturn } from '../warranty/warranty.service'
 
 const router = Router()
 router.use(authenticate)
@@ -189,6 +190,11 @@ router.post('/:id/returns', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req
           data:  { totalPurchases: { decrement: 1 } },
         }).catch(() => {})
       }
+
+      const returnedImeis = items
+        .map((ri: any) => ri.imei ?? sale.items.find((si: any) => si.productId === ri.productId && si.imei)?.imei)
+        .filter(Boolean) as string[]
+      await voidWarrantiesForSaleReturn(tx, req.tenantId!, sale.id, returnedImeis)
 
       return ret
     })
