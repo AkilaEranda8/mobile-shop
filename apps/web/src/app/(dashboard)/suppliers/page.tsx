@@ -788,9 +788,9 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
     const q = (searches[i] ?? '').toLowerCase()
     if (!q) return allProducts.slice(0, 10)
     return allProducts.filter(p =>
-      p.name?.toLowerCase().includes(q) ||
-      p.sku?.toLowerCase().includes(q) ||
-      p.brandName?.toLowerCase().includes(q)
+      String(p.name ?? '').toLowerCase().includes(q) ||
+      String(p.sku ?? '').toLowerCase().includes(q) ||
+      String(p.brandName ?? '').toLowerCase().includes(q)
     ).slice(0, 10)
   }
 
@@ -846,9 +846,9 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
 
   const quickFiltered = quickSearch.trim()
     ? allProducts.filter(p =>
-        p.name?.toLowerCase().includes(quickSearch.toLowerCase()) ||
-        p.sku?.toLowerCase().includes(quickSearch.toLowerCase()) ||
-        p.brandName?.toLowerCase().includes(quickSearch.toLowerCase())
+        String(p.name ?? '').toLowerCase().includes(quickSearch.toLowerCase()) ||
+        String(p.sku ?? '').toLowerCase().includes(quickSearch.toLowerCase()) ||
+        String(p.brandName ?? '').toLowerCase().includes(quickSearch.toLowerCase())
       ).slice(0, 8)
     : allProducts.slice(0, 8)
 

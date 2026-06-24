@@ -1099,8 +1099,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
   const filtered = products.filter((p: any) => {
     const matchCat = selectedCategory === 'ALL' || p.categoryId === selectedCategory || p.categoryName === selectedCategory
-    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
-      (p.sku ?? '').toLowerCase().includes(search.toLowerCase())
+    const matchSearch = String(p.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
+      String(p.sku ?? '').toLowerCase().includes(search.toLowerCase())
     const matchStock = !hideOutOfStock || (p.stock ?? 0) > 0
     const matchFav = !showFavoritesOnly || favorites.has(p.id)
     return matchCat && matchSearch && matchStock && matchFav
@@ -1108,7 +1108,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
   const filteredServices = services.filter((s: any) => {
     const matchCat = selectedCategory === 'SERVICES' || selectedCategory === 'ALL'
-    const matchSearch = s.name.toLowerCase().includes(search.toLowerCase())
+    const matchSearch = String(s.name ?? '').toLowerCase().includes(search.toLowerCase())
     return matchCat && matchSearch
   })
 

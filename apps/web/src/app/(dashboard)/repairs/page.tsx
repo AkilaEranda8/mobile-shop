@@ -1069,7 +1069,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
   const { data: productsData } = useProducts()
   const allProducts: any[] = (productsData?.data ?? []) as any[]
   const filteredProducts = partSearch.length > 1
-    ? allProducts.filter(p => p.name.toLowerCase().includes(partSearch.toLowerCase()) || p.sku?.toLowerCase().includes(partSearch.toLowerCase())).slice(0, 8)
+    ? allProducts.filter(p => String(p.name ?? '').toLowerCase().includes(partSearch.toLowerCase()) || String(p.sku ?? '').toLowerCase().includes(partSearch.toLowerCase())).slice(0, 8)
     : []
 
   const handleAddPart = async () => {
