@@ -503,7 +503,16 @@ function VariationPickerModal({
                       </div>
                     )
                   } else {
-                    return <p className="text-xs text-red-400">No IN_STOCK IMEIs available for this variant.</p>
+                    return (
+                      <div>
+                        <p className="text-xs text-red-400">No IN_STOCK IMEIs available for this variant.</p>
+                        <p className="text-[9px] text-white/40 mt-1">
+                          Debug: imeis.length={imeis.length}, 
+                          vLabel='{(selected?.sku || `${selected?.storage}::${selected?.colorName}`).trim()}',
+                          found=[{imeis.map(i => `'${i.variation}'`).join(', ')}]
+                        </p>
+                      </div>
+                    )
                   }
               })()}
             </div>
