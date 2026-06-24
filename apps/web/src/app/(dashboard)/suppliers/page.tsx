@@ -13,38 +13,95 @@ import { suppliersApi, branchesApi, imeiApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import type { Supplier, PurchaseOrder, POItem } from '@/types'
 
+type PoProduct = { id: string; trackImei?: boolean; name?: string }
+
+function resolvePoProduct(item: POItem, products: PoProduct[]) {
+  if (item.productId) return products.find(p => p.id === item.productId)
+  if (item.productName) {
+    const n = item.productName.toLowerCase()
+    return products.find(p => p.name?.toLowerCase() === n)
+  }
+  return undefined
+}
+
+function getExpectedImeiCount(po: PurchaseOrder, products: PoProduct[]) {
+  return po.items.reduce((sum, item) => {
+    const p = resolvePoProduct(item, products)
+    return p?.trackImei ? sum + item.quantity : sum
+  }, 0)
+}
+
+function poHasImeiProducts(po: PurchaseOrder, products: PoProduct[]) {
+  return getExpectedImeiCount(po, products) > 0
+}
+
+function poCanRegisterImei(po: PurchaseOrder, products: PoProduct[]) {
+  const expected = getExpectedImeiCount(po, products)
+  const registered = po.imeiRegisteredCount ?? 0
+  return (po.status === 'RECEIVED' || po.status === 'CLOSED') && expected > 0 && registered < expected
+}
+
 /* ── IMEI Register Modal ─────────────────────────────────────────── */
 function IMEIRegisterModal({ po, products, onClose, onSaved }: {
   po: PurchaseOrder
-  products: { id: string; trackImei?: boolean; name?: string }[]
+  products: PoProduct[]
   onClose: () => void
   onSaved: (poId: string) => void
 }) {
   const [branches, setBranches] = useState<any[]>([])
   const [defaultBranch, setDefaultBranch] = useState(po.branchId ?? '')
   const [loading, setLoading] = useState(false)
+  const [prefillLoading, setPrefillLoading] = useState(true)
   const [scanValue, setScanValue] = useState('')
 
-  const productMap = useMemo(() => new Map(products.map(p => [p.id, p])), [products])
+  type ImeiLine = POItem & { resolvedProductId: string }
 
-  // Only IMEI-tracked products with linked productId
-  const itemsWithId = po.items.filter(i => {
-    if (!i.productId) return false
-    return productMap.get(i.productId)?.trackImei === true
-  })
+  const imeiLines = useMemo((): ImeiLine[] =>
+    po.items.flatMap(item => {
+      const p = resolvePoProduct(item, products)
+      if (!p?.trackImei) return []
+      return [{ ...item, resolvedProductId: p.id }]
+    }),
+  [po.items, products])
+
   const itemKey = (item: POItem) =>
-    `${item.productId}::${item.storage ?? ''}::${item.colorName ?? ''}`
+    item.id ?? `${item.productName}::${item.sku ?? item.storage ?? ''}::${item.colorName ?? ''}`
 
   // imeis[itemKey] = string[] (one per unit)
   const [imeis, setImeis] = useState<Record<string, string[]>>({})
 
   useEffect(() => {
-    const init: Record<string, string[]> = {}
-    for (const item of itemsWithId) {
-      init[itemKey(item)] = Array(item.quantity).fill('')
+    let cancelled = false
+    const initEmpty = () => {
+      const init: Record<string, string[]> = {}
+      for (const item of imeiLines) init[itemKey(item)] = Array(item.quantity).fill('')
+      return init
     }
-    setImeis(init)
-  }, [po.id, itemsWithId.map(i => `${itemKey(i)}:${i.quantity}`).join('|')])
+
+    setPrefillLoading(true)
+    imeiApi.list({ purchaseOrderId: po.id, limit: '500' })
+      .then((r: any) => {
+        if (cancelled) return
+        const records: { imei: string; productId?: string; poItemId?: string; variation?: string }[] = r.data ?? []
+        const init = initEmpty()
+        for (const item of imeiLines) {
+          const variationLabel = item.sku || `${item.storage ?? ''}::${item.colorName ?? ''}`
+          const existing = records
+            .filter(rec =>
+              rec.poItemId === item.id
+              || (!rec.poItemId && rec.productId === item.resolvedProductId
+                && (!rec.variation || !variationLabel || rec.variation === variationLabel)),
+            )
+            .map(rec => rec.imei)
+          existing.forEach((imei, i) => { if (i < init[itemKey(item)].length) init[itemKey(item)][i] = imei })
+        }
+        setImeis(init)
+      })
+      .catch(() => setImeis(initEmpty()))
+      .finally(() => { if (!cancelled) setPrefillLoading(false) })
+
+    return () => { cancelled = true }
+  }, [po.id, imeiLines.map(i => `${i.id}:${i.quantity}`).join('|')])
 
   useEffect(() => {
     branchesApi.list().then((r: any) => {
@@ -91,13 +148,28 @@ function IMEIRegisterModal({ po, products, onClose, onSaved }: {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const entries: { productId: string; branchId: string; imei: string; variation?: string | null }[] = []
-    // Map key back to productId
-    for (const item of itemsWithId) {
+    const entries: {
+      productId: string
+      productName: string
+      branchId: string
+      imei: string
+      variation?: string | null
+      poItemId?: string
+    }[] = []
+    for (const item of imeiLines) {
       const key = itemKey(item)
-      const variationLabel = item.sku || `${item.storage}::${item.colorName}`
+      const variationLabel = item.sku || `${item.storage ?? ''}::${item.colorName ?? ''}`
       for (const imei of (imeis[key] ?? [])) {
-        if (imei.trim()) entries.push({ productId: item.productId, branchId: defaultBranch, imei: imei.trim(), variation: variationLabel })
+        if (imei.trim()) {
+          entries.push({
+            productId: item.resolvedProductId,
+            productName: item.productName,
+            ...(item.id ? { poItemId: item.id } : {}),
+            branchId: defaultBranch,
+            imei: imei.trim(),
+            variation: variationLabel,
+          })
+        }
       }
     }
     if (!entries.length) { toast.error('Enter at least one IMEI'); return }
@@ -105,10 +177,12 @@ function IMEIRegisterModal({ po, products, onClose, onSaved }: {
     setLoading(true)
     try {
       const r: any = await suppliersApi.registerPoImei(po.id, entries)
+      const registered = r.data?.registered ?? 0
+      const expected = r.data?.expected ?? 0
       toast.success(r.message ?? `${r.data?.created ?? 0} IMEI(s) registered`)
       if ((r.data?.errors?.length ?? 0) > 0) toast.error(`Errors: ${r.data.errors.join(', ')}`)
       onSaved(po.id)
-      onClose()
+      if (registered >= expected && expected > 0) onClose()
     } catch (err: any) {
       toast.error(err?.message ?? 'Failed to register IMEIs')
     } finally {
@@ -146,7 +220,7 @@ function IMEIRegisterModal({ po, products, onClose, onSaved }: {
               <Smartphone size={16} className="text-violet-400" />
             </div>
             <div>
-              <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Register IMEIs</h3>
+              <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Register Device IMEI</h3>
               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                 PO {po.poNumber} — {filledSlots}/{totalSlots} slots filled
               </p>
@@ -182,12 +256,23 @@ function IMEIRegisterModal({ po, products, onClose, onSaved }: {
             </div>
           )}
 
-          {itemsWithId.length === 0 && (
-            <p className="text-xs text-amber-400 text-center py-4">No IMEI-tracked products in this PO.</p>
+          {prefillLoading && (
+            <div className="flex items-center justify-center gap-2 py-6 text-xs" style={{ color: 'var(--text-muted)' }}>
+              <Loader2 size={14} className="animate-spin" /> Loading registered IMEIs…
+            </div>
+          )}
+
+          {!prefillLoading && imeiLines.length === 0 && (
+            <div className="text-center py-4 space-y-2">
+              <p className="text-xs text-amber-400">No IMEI-tracked products in this PO.</p>
+              <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                Enable &quot;Track IMEI&quot; on the product and ensure the PO line matches the product name.
+              </p>
+            </div>
           )}
 
           {/* One card per variation line item */}
-          {itemsWithId.map(item => {
+          {!prefillLoading && imeiLines.map(item => {
             const key = itemKey(item)
             const slots = imeis[key] ?? []
             const filled = slots.filter(v => v.length === 15).length
@@ -286,10 +371,10 @@ function IMEIRegisterModal({ po, products, onClose, onSaved }: {
 
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
-            <button type="submit" disabled={loading || itemsWithId.length === 0}
+            <button type="submit" disabled={loading || prefillLoading || imeiLines.length === 0}
               className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
               {loading ? <Loader2 size={14} className="animate-spin" /> : <Smartphone size={14} />}
-              Register IMEIs
+              Register Device IMEI
             </button>
           </div>
         </form>
@@ -1199,13 +1284,10 @@ export default function SuppliersPage() {
   const [paySupplier,     setPaySupplier]         = useState<Supplier | null>(null)
   const { data: suppliersData, loading: suppliersLoading, refetch: refetchSuppliers } = useSuppliers()
   const { data: ordersData,    loading: ordersLoading,    refetch: refetchOrders    } = usePurchaseOrders()
-  const { data: productsData } = useProducts({ limit: '500' })
+  const { data: productsData } = useProducts({ limit: '2000' })
   const suppliers:      Supplier[]      = (suppliersData?.data ?? []) as Supplier[]
   const purchaseOrders: PurchaseOrder[] = (ordersData?.data    ?? []) as PurchaseOrder[]
-  const allProducts: { id: string; trackImei?: boolean; name?: string }[] = (productsData?.data ?? []) as any[]
-
-  const poHasImeiProducts = (po: PurchaseOrder) =>
-    po.items.some(i => i.productId && allProducts.find(p => p.id === i.productId)?.trackImei)
+  const allProducts: PoProduct[] = (productsData?.data ?? []) as PoProduct[]
 
   const handleMarkReceived = async (po: PurchaseOrder) => {
     setConfirmPO(po)
@@ -1219,7 +1301,7 @@ export default function SuppliersPage() {
       toast.success(`${confirmPO.poNumber} received — inventory updated`)
       refetchOrders()
       const updated = (res?.data ?? confirmPO) as PurchaseOrder
-      if (poHasImeiProducts(updated) && !updated.imeisRegisteredAt) {
+      if (poHasImeiProducts(updated, allProducts) && poCanRegisterImei(updated, allProducts)) {
         setRegisterImeiPO(updated)
       }
     } catch (err: any) {
@@ -1342,9 +1424,9 @@ export default function SuppliersPage() {
       cell: ({ row }) => {
         const po = row.original
         const canReceive = ['DRAFT', 'SENT', 'PARTIAL'].includes(po.status)
-        const canRegisterImei = (po.status === 'RECEIVED' || po.status === 'CLOSED')
-          && poHasImeiProducts(po)
-          && !po.imeisRegisteredAt
+        const canRegisterImei = poCanRegisterImei(po, allProducts)
+        const imeiExpected = getExpectedImeiCount(po, allProducts)
+        const imeiRegistered = po.imeiRegisteredCount ?? 0
         return (
           <div className="flex items-center gap-2">
             {canReceive && (
@@ -1362,8 +1444,17 @@ export default function SuppliersPage() {
               <button
                 onClick={() => setRegisterImeiPO(po)}
                 className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-violet-500/10 text-violet-400 border border-violet-500/20 hover:bg-violet-500/20 transition-colors">
-                <Smartphone size={10} />IMEIs
+                <Smartphone size={10} />
+                Register IMEI
+                {imeiRegistered > 0 && (
+                  <span className="text-[9px] opacity-75">({imeiRegistered}/{imeiExpected})</span>
+                )}
               </button>
+            )}
+            {(po.status === 'RECEIVED' || po.status === 'CLOSED') && imeiExpected > 0 && !canRegisterImei && (
+              <span className="flex items-center gap-1 text-[10px] text-green-400 px-2 py-0.5">
+                <CheckCircle size={10} /> IMEI done
+              </span>
             )}
             <TableActionsRow
               dropMoreActions={[{ text: 'View Invoice', function: () => router.push(`/purchase-invoice?id=${po.id}`), icon: <FileText size={13} /> }]}

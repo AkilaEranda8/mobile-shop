@@ -15,12 +15,14 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     const status    = req.query.status as string | undefined
     const search    = req.query.search as string | undefined
     const productId = req.query.productId as string | undefined
+    const purchaseOrderId = req.query.purchaseOrderId as string | undefined
 
     // ── 1. Registered ImeiRecords ──────────────────────────────────────────
     const imeiWhere: any = {
       product: { tenantId },
       ...(status && { status }),
       ...(productId && { productId }),
+      ...(purchaseOrderId && { purchaseOrderId }),
       ...(search && { OR: [{ imei: { contains: search, mode: 'insensitive' } }] }),
     }
     const [registered, registeredTotal] = await Promise.all([

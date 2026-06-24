@@ -52,7 +52,20 @@ router.get('/purchase-orders', async (req: Request, res: Response, next: NextFun
     const status = req.query.status as string | undefined
     const id     = req.query.id     as string | undefined
     const where: any = { tenantId: req.tenantId!, ...(status && { status }), ...(id && { id }) }
-    const [data, total] = await Promise.all([prisma.purchaseOrder.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { items: true } }), prisma.purchaseOrder.count({ where })])
+    const [raw, total] = await Promise.all([
+      prisma.purchaseOrder.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { items: true } }),
+      prisma.purchaseOrder.count({ where }),
+    ])
+    const poIds = raw.map(p => p.id)
+    const counts = poIds.length
+      ? await prisma.imeiRecord.groupBy({
+          by: ['purchaseOrderId'],
+          where: { purchaseOrderId: { in: poIds } },
+          _count: { _all: true },
+        })
+      : []
+    const countMap = new Map(counts.map(c => [c.purchaseOrderId!, c._count._all]))
+    const data = raw.map(po => ({ ...po, imeiRegisteredCount: countMap.get(po.id) ?? 0 }))
     sendPaginated(res, data, total, page, limit)
   } catch (e) { next(e) }
 })
@@ -244,50 +257,124 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
 
 router.post('/purchase-orders/:id/register-imei', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const tenantId = req.tenantId!
     const po = await prisma.purchaseOrder.findFirst({
-      where: { id: req.params.id, tenantId: req.tenantId! },
+      where: { id: req.params.id, tenantId },
+      include: { items: true },
     })
     if (!po) throw new AppError('Purchase order not found', 404)
     if (po.status !== 'RECEIVED' && po.status !== 'CLOSED') {
       throw new AppError('PO must be received before registering IMEIs', 400)
     }
 
-    const entries: { productId: string; branchId: string; imei: string; variation?: string | null }[] = req.body.items ?? []
+    const entries: {
+      productId?: string
+      productName?: string
+      branchId: string
+      imei: string
+      variation?: string | null
+      poItemId?: string
+    }[] = req.body.items ?? []
     if (!entries.length) throw new AppError('No IMEI entries provided', 400)
 
     const results = { created: 0, skipped: 0, errors: [] as string[] }
 
+    const resolveProduct = async (entry: typeof entries[number]) => {
+      if (entry.productId) {
+        const p = await prisma.product.findFirst({ where: { id: entry.productId, tenantId } })
+        if (p) return p
+      }
+      if (entry.productName) {
+        return prisma.product.findFirst({
+          where: { tenantId, name: { equals: entry.productName, mode: 'insensitive' }, isActive: true },
+        })
+      }
+      const poItem = entry.poItemId ? po.items.find(i => i.id === entry.poItemId) : undefined
+      if (poItem?.productName) {
+        return prisma.product.findFirst({
+          where: { tenantId, name: { equals: poItem.productName, mode: 'insensitive' }, isActive: true },
+        })
+      }
+      return null
+    }
+
+    const matchPoItem = (productId: string, variation?: string | null, poItemId?: string) => {
+      if (poItemId) {
+        const byId = po.items.find(i => i.id === poItemId)
+        if (byId) return byId
+      }
+      return po.items.find(i => {
+        if (i.productId && i.productId !== productId) return false
+        if (!i.productId) return true
+        if (!variation) return true
+        const label = i.sku || `${i.storage ?? ''}::${i.colorName ?? ''}`
+        return !label || label === variation
+      })
+    }
+
     for (const entry of entries) {
-      const { productId, branchId, imei, variation } = entry
+      const { branchId, imei, variation, poItemId } = entry
       const trimmed = (imei ?? '').trim()
       if (!trimmed || !/^\d{15}$/.test(trimmed)) { results.errors.push(`Invalid IMEI: ${imei}`); continue }
       if (!branchId) { results.errors.push(`Missing branch for IMEI ${trimmed}`); continue }
 
-      const [product, branch] = await Promise.all([
-        prisma.product.findFirst({ where: { id: productId, tenantId: req.tenantId! } }),
-        prisma.branch.findFirst({ where: { id: branchId, tenantId: req.tenantId! } }),
-      ])
-      if (!product) { results.errors.push(`Product not found: ${productId}`); continue }
-      if (!branch) { results.errors.push(`Branch not found: ${branchId}`); continue }
+      const product = await resolveProduct(entry)
+      if (!product) { results.errors.push(`Product not found for IMEI ${trimmed}`); continue }
       if (!product.trackImei) { results.errors.push(`${product.name} does not track IMEI`); continue }
+
+      const poItem = matchPoItem(product.id, variation, poItemId)
+      if (poItem && !poItem.productId) {
+        await prisma.pOItem.update({ where: { id: poItem.id }, data: { productId: product.id } })
+      }
 
       const existing = await prisma.imeiRecord.findUnique({ where: { imei: trimmed } })
       if (existing) { results.skipped++; continue }
 
       await prisma.imeiRecord.create({
-        data: { imei: trimmed, productId, branchId, variation: variation ?? undefined, status: 'IN_STOCK' },
+        data: {
+          imei: trimmed,
+          productId: product.id,
+          branchId,
+          variation: variation ?? undefined,
+          purchaseOrderId: po.id,
+          poItemId: poItem?.id,
+          status: 'IN_STOCK',
+        },
       })
       results.created++
     }
 
-    if (results.created > 0) {
-      await prisma.purchaseOrder.update({
-        where: { id: po.id },
-        data:  { imeisRegisteredAt: new Date() },
-      })
+    const linkedIds = po.items.map(i => i.productId).filter(Boolean) as string[]
+    const unlinkedNames = po.items.filter(i => !i.productId).map(i => i.productName)
+    const [linkedProducts, unlinkedProducts] = await Promise.all([
+      linkedIds.length
+        ? prisma.product.findMany({ where: { tenantId, id: { in: linkedIds } }, select: { id: true, trackImei: true, name: true } })
+        : Promise.resolve([]),
+      unlinkedNames.length
+        ? prisma.product.findMany({
+            where: { tenantId, isActive: true, OR: unlinkedNames.map(n => ({ name: { equals: n, mode: 'insensitive' as const } })) },
+            select: { id: true, trackImei: true, name: true },
+          })
+        : Promise.resolve([]),
+    ])
+    const productById = new Map(linkedProducts.map(p => [p.id, p]))
+    const productByName = new Map(unlinkedProducts.map(p => [p.name.toLowerCase(), p]))
+
+    let expected = 0
+    for (const item of po.items) {
+      const p = item.productId
+        ? productById.get(item.productId)
+        : productByName.get(item.productName.toLowerCase())
+      if (p?.trackImei) expected += item.quantity
     }
 
-    sendSuccess(res, results, `${results.created} IMEI(s) registered, ${results.skipped} skipped`)
+    const registered = await prisma.imeiRecord.count({ where: { purchaseOrderId: po.id } })
+    await prisma.purchaseOrder.update({
+      where: { id: po.id },
+      data:  { imeisRegisteredAt: expected > 0 && registered >= expected ? new Date() : null },
+    })
+
+    sendSuccess(res, { ...results, registered, expected }, `${results.created} IMEI(s) registered, ${results.skipped} skipped`)
   } catch (e) { next(e) }
 })
 

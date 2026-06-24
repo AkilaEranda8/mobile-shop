@@ -360,6 +360,8 @@ model ImeiRecord {
   branchId    String
   customerId  String?
   saleId      String?
+  purchaseOrderId String?
+  poItemId        String?
   status      ImeiStatus @default(IN_STOCK)
   variation   String?
   createdAt   DateTime   @default(now())
@@ -369,6 +371,7 @@ model ImeiRecord {
   branch   Branch    @relation(fields: [branchId], references: [id])
   customer Customer? @relation(fields: [customerId], references: [id])
   sale     Sale?     @relation(fields: [saleId], references: [id])
+  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
 }
 
 model StockMovement {
@@ -739,6 +742,7 @@ model PurchaseOrder {
   branch   Branch   @relation(fields: [branchId], references: [id])
   supplier Supplier @relation(fields: [supplierId], references: [id])
   items    POItem[]
+  imeiRecords ImeiRecord[]
 
   @@unique([tenantId, poNumber])
 }
