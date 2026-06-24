@@ -176,12 +176,13 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
           }
 
           // Update variation stock if product has variants
-          let updatedVariations = p.storageVariations as any[] | null
+          let updatedVariations = (p as any).storageVariations as any[] | null
           if (updatedVariations && Array.isArray(updatedVariations)) {
             updatedVariations = updatedVariations.map((v: any) => {
-              const match = (item.sku && v.sku === item.sku) ||
-                            ((item as any).storage && (item as any).colorName &&
-                             v.storage === (item as any).storage && v.colorName === (item as any).colorName)
+              const anyItem = item as any
+              const match = (anyItem.sku && v.sku === anyItem.sku) ||
+                            (anyItem.storage && anyItem.colorName &&
+                             v.storage === anyItem.storage && v.colorName === anyItem.colorName)
               if (match) return { ...v, stock: (v.stock || 0) + item.quantity }
               return v
             })
