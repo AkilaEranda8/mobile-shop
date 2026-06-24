@@ -68,8 +68,6 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     const all   = [...registered, ...unregistered]
     const total = registeredTotal + unregistered.length
     const paged = all.slice(skip, skip + limit)
-    console.log(`[IMEI API] GET /api/v1/imei productId=${productId} status=${status} limit=${limit} skip=${skip}. Found: ${all.length} total, returning ${paged.length}`)
-    if (productId && paged.length > 0) console.log(`[IMEI API] Sample variation: ${paged[0].variation}`)
     sendPaginated(res, paged, total, page, limit)
   } catch (e) { next(e) }
 })

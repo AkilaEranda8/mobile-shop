@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Plus, Trash2, Upload, Loader2, ChevronDown, Info, GripVertical, ArrowLeft, Box } from 'lucide-react'
+import { Plus, Trash2, Upload, Loader2, ChevronDown, Info, GripVertical, ArrowLeft, Box, ScanLine, Barcode, ListPlus } from 'lucide-react'
 import { productsApi, suppliersApi, uploadApi } from '@/lib/api'
 import { useCategories, useBrands, useSuppliers } from '@/lib/hooks'
 import type { Category } from '@/types'
@@ -13,6 +13,12 @@ interface VariantRow {
   id: string; storage: string; colorName: string; colorHex: string
   sku: string; sellingPrice: string; costPrice: string
 }
+interface QuickProductRow {
+  id: string; name: string; sku: string; barcode: string
+  buyingPrice: string; sellingPrice: string
+  categoryName: string; brandName: string; trackImei: boolean
+}
+type AddMode = 'scan' | 'full'
 interface AddProductModalProps { onClose: () => void; onSaved: () => void }
 interface Brand { id: string; name: string }
 interface Supplier { id: string; name: string }
@@ -266,8 +272,18 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
 
   const allBrands = [...brands, ...extraBrands.filter(eb => !brands.find(b => b.id === eb.id))]
 
+  const [mode, setMode] = useState<AddMode>('scan')
+  const [scanValue, setScanValue] = useState('')
+  const [queue, setQueue] = useState<QuickProductRow[]>([])
+  const [quickDraft, setQuickDraft] = useState({
+    name: '', sku: '', barcode: '', buyingPrice: '', sellingPrice: '',
+    categoryName: '', brandName: 'General', trackImei: false,
+  })
+  const scanRef = useRef<HTMLInputElement>(null)
+  const nameRef = useRef<HTMLInputElement>(null)
+
   const [form, setForm] = useState({
-    name: '', sku: '', barcodeType: 'Code 128 (C128)', brandName: '',
+    name: '', sku: '', barcodeValue: '', barcodeType: 'Code 128 (C128)', brandName: '',
     categoryName: '', subCategory: '', unit: 'Piece (Pc)',
     deviceModel: '', description: '', imageUrl: '',
   })
@@ -282,9 +298,116 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
   const f = useCallback((k: string, v: string) => setForm(p => ({ ...p, [k]: v })), [])
 
   useEffect(() => {
-    if (cats.length > 0 && !form.categoryName) f('categoryName', cats[0].name)
+    if (cats.length > 0 && !form.categoryName) {
+      f('categoryName', cats[0].name)
+      setQuickDraft(p => ({ ...p, categoryName: p.categoryName || cats[0].name }))
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cats.length])
+
+  useEffect(() => {
+    if (mode === 'scan') scanRef.current?.focus()
+  }, [mode])
+
+  const buildPayload = useCallback((opts: {
+    name: string; sku: string; barcode?: string; brandName: string; categoryName: string
+    buyingPrice: number; sellingPrice: number; trackImei: boolean
+    subCategory?: string; deviceModel?: string; description?: string; imageUrl?: string
+    variantRows?: VariantRow[]
+  }) => {
+    const rows = opts.variantRows ?? []
+    return {
+      name:         opts.name.trim(),
+      sku:          opts.sku.trim(),
+      brandName:    opts.brandName || 'General',
+      categoryName: opts.categoryName,
+      subCategory:  opts.subCategory  || undefined,
+      deviceModel:  opts.deviceModel  || undefined,
+      description:  opts.description  || undefined,
+      imageUrl:     opts.imageUrl     || undefined,
+      barcode:      opts.barcode?.trim() || opts.sku.trim() || undefined,
+      buyingPrice:  opts.buyingPrice,
+      sellingPrice: opts.sellingPrice,
+      mrp:          opts.sellingPrice,
+      stock:        0,
+      minStock:     lowStock ? Number(minStock) || 5 : 0,
+      trackImei:    opts.trackImei,
+      warrantyMonths: warrantyTrack ? 12 : 0,
+      isActive:     true,
+      storageVariations: rows.map(v => ({
+        storage: v.storage, colorName: v.colorName, colorHex: v.colorHex,
+        sku: v.sku || undefined, stock: 0,
+        sellingPrice: Number(v.sellingPrice) || 0,
+        costPrice:    Number(v.costPrice)    || 0,
+      })),
+      colorVariations: rows.map(v => ({ name: v.colorName, hex: v.colorHex })),
+    }
+  }, [lowStock, minStock, warrantyTrack])
+
+  const handleScan = (raw: string) => {
+    const code = raw.trim()
+    if (!code) return
+    const isImei = /^\d{15}$/.test(code)
+    setQuickDraft(p => ({
+      ...p,
+      sku: code,
+      barcode: code,
+      trackImei: isImei,
+      categoryName: p.categoryName || form.categoryName || cats[0]?.name || '',
+    }))
+    setScanValue('')
+    toast.success(isImei ? 'IMEI scanned — fill name & prices' : 'Barcode scanned — fill name & prices')
+    nameRef.current?.focus()
+  }
+
+  const addQuickToQueue = () => {
+    const cat = quickDraft.categoryName || form.categoryName
+    if (!quickDraft.name.trim())  { toast.error('Product name required'); return }
+    if (!quickDraft.sku.trim())   { toast.error('SKU / barcode required'); return }
+    if (!cat.trim())              { toast.error('Category required'); return }
+    if (!Number(quickDraft.buyingPrice))  { toast.error('Buying price required'); return }
+    if (!Number(quickDraft.sellingPrice)) { toast.error('Selling price required'); return }
+    if (queue.some(q => q.sku === quickDraft.sku.trim())) {
+      toast.error('This SKU is already in the list'); return
+    }
+    setQueue(p => [...p, {
+      id: genId(),
+      name: quickDraft.name.trim(),
+      sku: quickDraft.sku.trim(),
+      barcode: quickDraft.barcode.trim() || quickDraft.sku.trim(),
+      buyingPrice: quickDraft.buyingPrice,
+      sellingPrice: quickDraft.sellingPrice,
+      categoryName: cat,
+      brandName: quickDraft.brandName || 'General',
+      trackImei: quickDraft.trackImei,
+    }])
+    setQuickDraft(p => ({
+      name: '', sku: '', barcode: '', buyingPrice: '', sellingPrice: '',
+      categoryName: p.categoryName, brandName: p.brandName, trackImei: false,
+    }))
+    scanRef.current?.focus()
+    toast.success('Added to list')
+  }
+
+  const saveQueue = async () => {
+    if (queue.length === 0) { toast.error('Scan and add at least one product'); return }
+    setLoading(true)
+    let ok = 0
+    try {
+      for (const row of queue) {
+        await productsApi.create(buildPayload({
+          name: row.name, sku: row.sku, barcode: row.barcode,
+          brandName: row.brandName, categoryName: row.categoryName,
+          buyingPrice: Number(row.buyingPrice), sellingPrice: Number(row.sellingPrice),
+          trackImei: row.trackImei,
+        }))
+        ok++
+      }
+      toast.success(`${ok} product${ok > 1 ? 's' : ''} saved!`)
+      onSaved(); onClose()
+    } catch (e: any) { toast.error(e?.message ?? `Saved ${ok} of ${queue.length}`) }
+    finally { setLoading(false) }
+  }
 
   const addVariant = () => setVariants(p => [...p, { id: genId(), storage: '128GB', colorName: 'Black', colorHex: '#1a1a1a', sku: '', sellingPrice: '', costPrice: '' }])
   const delVariant = (id: string) => setVariants(p => p.filter(v => v.id !== id))
@@ -297,40 +420,24 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
     if (!form.categoryName.trim()) { toast.error('Category required'); return }
 
     const fv = variants[0]
+    const buyingPrice  = fv ? Number(fv.costPrice)    || 0 : Number(pricing.purchaseEx) || 0
+    const sellingPrice = fv ? Number(fv.sellingPrice) || 0 : Number(pricing.sellingEx)  || 0
+
+    if (variants.length === 0) {
+      if (!buyingPrice)  { toast.error('Buying price required'); return }
+      if (!sellingPrice) { toast.error('Selling price required'); return }
+    }
+
     setLoading(true)
     try {
-      await productsApi.create({
-        name:         form.name.trim(),
-        sku:          form.sku.trim(),
-        brandName:    form.brandName || 'General',
-        categoryName: form.categoryName,
-        subCategory:  form.subCategory  || undefined,
-        deviceModel:  form.deviceModel  || undefined,
-        description:  form.description  || undefined,
-        imageUrl:     form.imageUrl     || undefined,
-        barcode:      form.barcodeType  || undefined,
-
-        buyingPrice:    fv ? Number(fv.costPrice)    || 0 : 0,
-        sellingPrice:   fv ? Number(fv.sellingPrice) || 0 : 0,
-        mrp:            fv ? Number(fv.sellingPrice) || 0 : 0,
-
-        stock:          0,
-        minStock:       lowStock ? Number(minStock) || 5 : 0,
-        trackImei,
-        warrantyMonths: warrantyTrack ? 12 : 0,
-        isActive:       true,
-
-        storageVariations: variants.map(v => ({
-          storage:      v.storage,
-          colorName:    v.colorName,
-          colorHex:     v.colorHex,
-          sku:          v.sku || undefined,
-          stock:        0,
-          sellingPrice: Number(v.sellingPrice) || 0,
-          costPrice:    Number(v.costPrice)    || 0,
-        })),
-        colorVariations: variants.map(v => ({ name: v.colorName, hex: v.colorHex })),
-      })
+      await productsApi.create(buildPayload({
+        name: form.name, sku: form.sku, barcode: form.barcodeValue || form.sku,
+        brandName: form.brandName, categoryName: form.categoryName,
+        buyingPrice, sellingPrice, trackImei,
+        subCategory: form.subCategory, deviceModel: form.deviceModel,
+        description: form.description, imageUrl: form.imageUrl,
+        variantRows: variants,
+      }))
       toast.success(`"${form.name}" created!`)
       onSaved(); onClose()
     } catch (e: any) { toast.error(e?.message ?? 'Failed') }
@@ -348,24 +455,181 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
           </button>
           <div>
             <h1 className="page-title">Add New Product</h1>
-            <p className="page-subtitle">Add a new product with model (storage) and color variations</p>
+            <p className="page-subtitle">Scan barcodes to add quickly, or use full form for variants</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2 sm:ml-auto">
           <button onClick={onClose} className="btn-secondary text-sm">Cancel</button>
-          <button onClick={submit} disabled={loading || !form.name.trim() || !form.sku.trim()}
-            className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
-            {loading ? <Loader2 size={14} className="animate-spin" /> : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                <polyline points="17,21 17,13 7,13 7,21" /><polyline points="7,3 7,8 15,8" />
-              </svg>
-            )}
-            Save Product
-          </button>
+          {mode === 'scan' ? (
+            <button onClick={saveQueue} disabled={loading || queue.length === 0}
+              className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <ListPlus size={14} />}
+              Save All ({queue.length})
+            </button>
+          ) : (
+            <button onClick={submit} disabled={loading || !form.name.trim() || !form.sku.trim()}
+              className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
+              {loading ? <Loader2 size={14} className="animate-spin" /> : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                  <polyline points="17,21 17,13 7,13 7,21" /><polyline points="7,3 7,8 15,8" />
+                </svg>
+              )}
+              Save Product
+            </button>
+          )}
         </div>
       </div>
 
+      {/* ── Mode tabs ───────────────────────────────────────────── */}
+      <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+        {([['scan', 'Quick Scan', ScanLine], ['full', 'Full Form', Box]] as const).map(([id, label, Icon]) => (
+          <button key={id} type="button" onClick={() => setMode(id)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+            style={{
+              background: mode === id ? '#2563eb' : 'transparent',
+              color: mode === id ? '#fff' : 'var(--text-muted)',
+            }}>
+            <Icon size={14} /> {label}
+          </button>
+        ))}
+      </div>
+
+      {/* ══ Quick Scan mode ══════════════════════════════════════════ */}
+      {mode === 'scan' && (
+        <div className="flex flex-col gap-5">
+          {/* Scan bar */}
+          <div className="flex gap-3 items-center p-4 rounded-xl border border-violet-500/25"
+            style={{ background: 'rgba(139,92,246,0.06)' }}>
+            <ScanLine size={18} className="text-violet-400 shrink-0" />
+            <input
+              ref={scanRef}
+              autoFocus
+              className="flex-1 bg-transparent outline-none text-sm font-mono tracking-wide"
+              style={{ color: 'var(--text-primary)' }}
+              placeholder="Scan barcode / SKU / IMEI — press Enter..."
+              value={scanValue}
+              onChange={e => setScanValue(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleScan(scanValue) } }}
+            />
+            {quickDraft.sku && (
+              <span className="text-[10px] font-bold text-green-400 shrink-0 hidden sm:inline">✓ SCANNED</span>
+            )}
+          </div>
+
+          {/* Quick entry */}
+          <div style={card}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+              <div style={sectionBadge}><Barcode size={13} /></div>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa', margin: 0 }}>Product Details</p>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0' }}>No variants — buy &amp; sell price only</p>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14 }}>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <Lbl req>Product Name</Lbl>
+                <input ref={nameRef} style={inputStyle} placeholder="Enter product name"
+                  value={quickDraft.name} onChange={e => setQuickDraft(p => ({ ...p, name: e.target.value }))}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addQuickToQueue() } }} />
+              </div>
+              <div>
+                <Lbl req>SKU / Barcode</Lbl>
+                <input style={{ ...inputStyle, fontFamily: 'monospace' }} placeholder="Scan or type..."
+                  value={quickDraft.sku} onChange={e => setQuickDraft(p => ({ ...p, sku: e.target.value, barcode: e.target.value }))} />
+              </div>
+              <div>
+                <Lbl req>Category</Lbl>
+                <Sel value={quickDraft.categoryName || form.categoryName} onChange={v => setQuickDraft(p => ({ ...p, categoryName: v }))}>
+                  {cats.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                </Sel>
+              </div>
+              <div>
+                <Lbl>Brand</Lbl>
+                <Sel value={quickDraft.brandName} onChange={v => setQuickDraft(p => ({ ...p, brandName: v }))}>
+                  {allBrands.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                </Sel>
+              </div>
+              <div>
+                <Lbl req>Buying Price (LKR)</Lbl>
+                <input type="number" min={0} style={inputStyle} placeholder="0.00"
+                  value={quickDraft.buyingPrice} onChange={e => setQuickDraft(p => ({ ...p, buyingPrice: e.target.value }))} />
+              </div>
+              <div>
+                <Lbl req>Selling Price (LKR)</Lbl>
+                <input type="number" min={0} style={inputStyle} placeholder="0.00"
+                  value={quickDraft.sellingPrice} onChange={e => setQuickDraft(p => ({ ...p, sellingPrice: e.target.value }))} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, flexWrap: 'wrap', gap: 10 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: 'var(--text-secondary)' }}>
+                <input type="checkbox" checked={quickDraft.trackImei}
+                  onChange={e => setQuickDraft(p => ({ ...p, trackImei: e.target.checked }))}
+                  style={{ width: 14, height: 14, accentColor: '#2563eb' }} />
+                Track IMEI (15-digit scan)
+              </label>
+              <button type="button" onClick={addQuickToQueue}
+                style={{ ...btn, background: '#2563eb', color: '#fff', border: 'none' }}>
+                <Plus size={14} /> Add to List
+              </button>
+            </div>
+          </div>
+
+          {/* Queue table */}
+          <div style={card}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa', margin: 0 }}>
+                Scanned Products ({queue.length})
+              </p>
+              {queue.length > 0 && (
+                <button type="button" onClick={() => setQueue([])}
+                  style={{ ...btn, fontSize: 11, background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-muted)' }}>
+                  Clear all
+                </button>
+              )}
+            </div>
+            {queue.length === 0 ? (
+              <div style={{ borderRadius: 8, padding: '32px 0', textAlign: 'center', border: '1px dashed var(--border-subtle)' }}>
+                <ScanLine size={22} style={{ color: 'var(--text-muted)', margin: '0 auto 8px' }} />
+                <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Scan a barcode to start</p>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Products appear here before saving</p>
+              </div>
+            ) : (
+              <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: 'var(--bg-subtle)' }}>
+                      {['#', 'Name', 'SKU / Barcode', 'Buy', 'Sell', 'Category', ''].map((h, i) => (
+                        <th key={i} style={{ padding: '9px 10px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {queue.map((row, i) => (
+                      <tr key={row.id} style={{ borderBottom: i < queue.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                        <td style={{ padding: '8px 10px', color: 'var(--text-muted)' }}>{i + 1}</td>
+                        <td style={{ padding: '8px 10px', fontWeight: 600 }}>{row.name}</td>
+                        <td style={{ padding: '8px 10px', fontFamily: 'monospace', fontSize: 11 }}>{row.sku}</td>
+                        <td style={{ padding: '8px 10px' }}>{Number(row.buyingPrice).toLocaleString()}</td>
+                        <td style={{ padding: '8px 10px' }}>{Number(row.sellingPrice).toLocaleString()}</td>
+                        <td style={{ padding: '8px 10px', color: 'var(--text-muted)' }}>{row.categoryName}</td>
+                        <td style={{ padding: '8px 10px' }}>
+                          <button type="button" onClick={() => setQueue(p => p.filter(q => q.id !== row.id))}
+                            style={{ padding: 6, borderRadius: 6, background: 'rgba(239,68,68,0.1)', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'flex' }}>
+                            <Trash2 size={13} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {mode === 'full' && (
       <div className="flex flex-col gap-6">
 
         {/* ══ 1. Basic Information ══════════════════════════════════════ */}
@@ -380,7 +644,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {/* Row 1 */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 14 }}>
                 <div>
                   <Lbl req>Product Name</Lbl>
                   <input style={inputStyle} placeholder="Enter product name" value={form.name} onChange={e => f('name', e.target.value)} />
@@ -388,6 +652,11 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                 <div>
                   <Lbl req>SKU</Lbl>
                   <input style={inputStyle} placeholder="Enter SKU" value={form.sku} onChange={e => f('sku', e.target.value)} />
+                </div>
+                <div>
+                  <Lbl tip="Scanned barcode number stored for POS lookup">Barcode</Lbl>
+                  <input style={{ ...inputStyle, fontFamily: 'monospace' }} placeholder="Scan or enter barcode"
+                    value={form.barcodeValue} onChange={e => f('barcodeValue', e.target.value)} />
                 </div>
                 <div>
                   <Lbl tip="Barcode format for label printing">Barcode Type</Lbl>
@@ -514,8 +783,8 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={sectionBadge}>2</div>
                 <div>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa', margin: 0 }}>Variant Combinations</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0' }}>Add all available combinations of storage (model) and color.</p>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa', margin: 0 }}>Variant Combinations <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 11 }}>(Optional)</span></p>
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0' }}>For phones/tablets with storage &amp; color. Skip for simple barcode products.</p>
                 </div>
               </div>
               <button type="button" onClick={addVariant}
@@ -609,8 +878,8 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
             ) : (
               <div style={{ borderRadius: 8, padding: '40px 0', textAlign: 'center', border: '1px dashed var(--border-subtle)' }}>
                 <Box size={22} style={{ color: 'var(--text-muted)', margin: '0 auto 8px' }} />
-                <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No variants yet</p>
-                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Click &quot;+ Add Variant&quot; to add storage and color combinations</p>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No variants — simple product</p>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Enter buy &amp; sell price in Pricing below, or add variants for phones</p>
               </div>
             )}
           </div>
@@ -619,9 +888,32 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
           <div style={card}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
               <div style={sectionBadge}>3</div>
-              <p style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa', margin: 0 }}>Pricing &amp; Tax</p>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa', margin: 0 }}>Pricing &amp; Tax</p>
+                {variants.length === 0 && (
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0' }}>Buy &amp; sell price for products without variants</p>
+                )}
+              </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {variants.length > 0 ? (
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', padding: '8px 10px', borderRadius: 8, background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+                  Prices are set per variant in the table above.
+                </p>
+              ) : (
+                <>
+                  <div>
+                    <Lbl req>Buying Price (LKR)</Lbl>
+                    <input type="number" min={0} style={inputStyle} placeholder="0.00"
+                      value={pricing.purchaseEx} onChange={e => setPricing(p => ({ ...p, purchaseEx: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Lbl req>Selling Price (LKR)</Lbl>
+                    <input type="number" min={0} style={inputStyle} placeholder="0.00"
+                      value={pricing.sellingEx} onChange={e => setPricing(p => ({ ...p, sellingEx: e.target.value }))} />
+                  </div>
+                </>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>
                   <Lbl>Applicable Tax</Lbl>
@@ -630,33 +922,37 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                   </Sel>
                 </div>
                 <div>
-                  <Lbl req>Selling Price Tax Type</Lbl>
+                  <Lbl>Selling Price Tax Type</Lbl>
                   <Sel value={pricing.taxType} onChange={v => setPricing(p => ({ ...p, taxType: v }))}>
                     <option>Exclusive</option><option>Inclusive</option>
                   </Sel>
                 </div>
               </div>
-              <div>
-                <Lbl>Default Purchase Price (LKR)</Lbl>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {variants.length > 0 && (
+                <>
                   <div>
+                    <Lbl>Default Purchase Price (LKR)</Lbl>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <div>
+                        <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 5 }}>Ex. Tax</p>
+                        <input type="number" min={0} style={inputStyle} placeholder="0.00"
+                          value={pricing.purchaseEx} onChange={e => setPricing(p => ({ ...p, purchaseEx: e.target.value }))} />
+                      </div>
+                      <div>
+                        <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 5 }}>Inc. Tax</p>
+                        <input type="number" min={0} style={inputStyle} placeholder="0.00"
+                          value={pricing.purchaseInc} onChange={e => setPricing(p => ({ ...p, purchaseInc: e.target.value }))} />
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <Lbl>Default Selling Price (LKR)</Lbl>
                     <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 5 }}>Ex. Tax</p>
                     <input type="number" min={0} style={inputStyle} placeholder="0.00"
-                      value={pricing.purchaseEx} onChange={e => setPricing(p => ({ ...p, purchaseEx: e.target.value }))} />
+                      value={pricing.sellingEx} onChange={e => setPricing(p => ({ ...p, sellingEx: e.target.value }))} />
                   </div>
-                  <div>
-                    <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 5 }}>Inc. Tax</p>
-                    <input type="number" min={0} style={inputStyle} placeholder="0.00"
-                      value={pricing.purchaseInc} onChange={e => setPricing(p => ({ ...p, purchaseInc: e.target.value }))} />
-                  </div>
-                </div>
-              </div>
-              <div>
-                <Lbl>Default Selling Price (LKR)</Lbl>
-                <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 5 }}>Ex. Tax</p>
-                <input type="number" min={0} style={inputStyle} placeholder="0.00"
-                  value={pricing.sellingEx} onChange={e => setPricing(p => ({ ...p, sellingEx: e.target.value }))} />
-              </div>
+                </>
+              )}
               <div>
                 <Lbl>Margin (%)</Lbl>
                 <div style={{ position: 'relative' }}>
@@ -703,6 +999,8 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
         </div>
 
       </div>
+      )}
+
     </div>
   )
 }
