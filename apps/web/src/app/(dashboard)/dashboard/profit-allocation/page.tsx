@@ -285,6 +285,9 @@ export default function ProfitAllocationPage() {
     if (!branchId || !dateFrom || !dateTo) return
     setPeriodLoading(true)
     try {
+      const res = await profitAllocationApi.periodSummary({
+        branchId, from: dateFrom, to: dateTo,
+      })
       const payload = ((res as { data?: unknown }).data ?? res) as {
         totals: { sales: number; profit: number; allocated: number; remaining: number; savedDays: number }
         fundLines: FundLine[]
