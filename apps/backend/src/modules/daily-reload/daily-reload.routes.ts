@@ -4,7 +4,7 @@ import { prisma } from '../../config/database'
 import { sendSuccess } from '../../utils/response'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
 import { AppError } from '../../middleware/error.middleware'
-import { businessDayRange, businessDateKeyFromInstant, resolveQueryDateRange, businessDateDb, normalizeBusinessDate } from '../../utils/date-range'
+import { businessDayRange, businessDateKeyFromInstant, businessDateFromInstant, resolveQueryDateRange, businessDateDb, normalizeBusinessDate } from '../../utils/date-range'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 import {
   calcReloadCommission,
@@ -80,6 +80,69 @@ async function resolveBranchId(tenantId: string, userId: string, branchId?: stri
   const fallback = await prisma.branch.findFirst({ where: { tenantId, isActive: true }, orderBy: { isHeadquarters: 'desc' } })
   if (!fallback) throw new AppError('No active branch found', 400)
   return fallback.id
+}
+
+function isAllScope(date?: string | null) {
+  return String(date ?? '').toLowerCase() === 'all'
+}
+
+async function buildProviderSettlement(
+  tenantId: string,
+  scope: 'day' | 'all',
+  dateKey?: string,
+) {
+  const settings = await fetchTenantReloadSettings(tenantId)
+  const reloadWhere: { tenantId: string; status: string; reloadDate?: { gte: Date; lte: Date } } = {
+    tenantId,
+    status: 'Success',
+  }
+  if (scope === 'day' && dateKey) {
+    const { start, end } = businessDayRange(dateKey)
+    reloadWhere.reloadDate = { gte: start, lte: end }
+  }
+
+  const paymentWhere: { tenantId: string; businessDate?: Date } = { tenantId }
+  if (scope === 'day' && dateKey) {
+    paymentWhere.businessDate = businessDateDb(dateKey)
+  }
+
+  const [reloads, payments] = await Promise.all([
+    prisma.dailyReload.findMany({ where: reloadWhere, orderBy: { reloadDate: 'desc' } }),
+    prisma.dailyReloadProviderPayment.findMany({ where: paymentWhere }),
+  ])
+
+  const paidMap: Record<string, number> = {}
+  for (const p of payments) {
+    paidMap[p.provider] = (paidMap[p.provider] ?? 0) + Number(p.amountPaid)
+  }
+
+  const providerBreakdown = buildProviderBreakdown(reloads, settings, paidMap)
+  const settlement = summarizeProviderBreakdown(providerBreakdown)
+  return { providerBreakdown, settlement, settings, reloads }
+}
+
+async function providerBalance(
+  tenantId: string,
+  provider: string,
+  scope: 'day' | 'all',
+  dateKey?: string,
+) {
+  const { providerBreakdown, settlement, settings, reloads } = await buildProviderSettlement(tenantId, scope, dateKey)
+  const row = providerBreakdown.find(r => r.provider === provider)
+  const providerReloads = reloads.filter(r => {
+    const p = resolveReloadProvider(r.connectionNo, r.provider) ?? 'Other'
+    return p === provider
+  })
+  const reloadTotal = row?.reloadTotal ?? round2(providerReloads.reduce((s, r) => s + Number(r.amount), 0))
+  const commission = row?.commission ?? round2(providerReloads.reduce(
+    (s, r) => s + calcReloadCommission(
+      r.amount, settings, r.connectionNo, r.provider, reloadServiceType(r),
+    ), 0,
+  ))
+  const netPayable = row?.netPayable ?? round2(reloadTotal - commission)
+  const paidSoFar = row?.paid ?? 0
+  const remaining = row?.remaining ?? round2(Math.max(0, netPayable - paidSoFar))
+  return { reloadTotal, commission, netPayable, paidSoFar, remaining, providerReloads, settlement }
 }
 
 // ── List reloads ──────────────────────────────────────────────────────────────
@@ -275,6 +338,28 @@ router.get('/report', async (req: Request, res: Response, next: NextFunction) =>
   } catch (e) { next(e) }
 })
 
+// ── Provider settlement (all reloads or single day) ─────────────────────────
+router.get('/provider-settlement', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenantId = req.tenantId!
+    const { date } = req.query as { date?: string }
+    const scopeAll = isAllScope(date)
+    const dateKey = scopeAll ? undefined : normalizeBusinessDate(date)
+    res.setHeader('Cache-Control', 'no-store')
+    const { providerBreakdown, settlement } = await buildProviderSettlement(
+      tenantId,
+      scopeAll ? 'all' : 'day',
+      dateKey,
+    )
+    sendSuccess(res, {
+      scope: scopeAll ? 'all' : 'day',
+      date: dateKey ?? null,
+      providerBreakdown,
+      settlement,
+    })
+  } catch (e) { next(e) }
+})
+
 // ── Pay provider (net reload total minus commission) ───────────────────────────
 router.post('/pay-provider', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -287,37 +372,37 @@ router.post('/pay-provider', authorize('OWNER', 'MANAGER', 'CASHIER'), async (re
       branchId?: string
       amount?: number
     }
-    if (!date || !provider) throw new AppError('date and provider are required', 400)
-    const dateKey = normalizeBusinessDate(date)
+    if (!provider) throw new AppError('provider is required', 400)
+    const scopeAll = isAllScope(date)
+    if (!scopeAll && !date) throw new AppError('date is required (or use all)', 400)
+    const paymentDateKey = businessDateFromInstant()
+    const settlementDateKey = scopeAll ? undefined : normalizeBusinessDate(date)
     const branchId = await resolveBranchId(tenantId, user.userId, bodyBranchId)
     await assertBusinessDayOpenIfEnabled(tenantId, branchId)
 
-    const settings = await fetchTenantReloadSettings(tenantId)
-    const { start, end } = businessDayRange(dateKey)
-    const reloads = await prisma.dailyReload.findMany({
-      where: { tenantId, reloadDate: { gte: start, lte: end }, status: 'Success' },
-    })
+    const {
+      reloadTotal,
+      commission,
+      netPayable,
+      paidSoFar,
+      remaining,
+      providerReloads,
+    } = await providerBalance(tenantId, provider, scopeAll ? 'all' : 'day', settlementDateKey)
 
-    const payments = await prisma.dailyReloadProviderPayment.findMany({
-      where: { tenantId, businessDate: businessDateDb(dateKey), provider },
-    })
-    const paidSoFar = round2(payments.reduce((s, p) => s + Number(p.amountPaid), 0))
-
-    const providerReloads = reloads.filter(r => {
-      const p = resolveReloadProvider(r.connectionNo, r.provider) ?? 'Other'
-      return p === provider
-    })
-    if (providerReloads.length === 0 && paidSoFar === 0) throw new AppError('No successful reloads for this provider on selected date', 400)
-
-    const reloadTotal = round2(providerReloads.reduce((s, r) => s + Number(r.amount), 0))
-    const commission = round2(providerReloads.reduce(
-      (s, r) => s + calcReloadCommission(
-        r.amount, settings, r.connectionNo, r.provider, reloadServiceType(r),
-      ), 0,
-    ))
-    const netPayable = round2(reloadTotal - commission)
-    const remaining = round2(Math.max(0, netPayable - paidSoFar))
-    if (remaining <= 0) throw new AppError('Provider already paid for this date', 400)
+    if (providerReloads.length === 0 && paidSoFar === 0) {
+      throw new AppError(
+        scopeAll
+          ? 'No successful reloads for this provider'
+          : 'No successful reloads for this provider on selected date',
+        400,
+      )
+    }
+    if (remaining <= 0) {
+      throw new AppError(
+        scopeAll ? 'Provider already fully paid' : 'Provider already paid for this date',
+        400,
+      )
+    }
 
     const requested = bodyAmount !== undefined && bodyAmount !== null
       ? round2(Number(bodyAmount))
@@ -344,7 +429,9 @@ router.post('/pay-provider', authorize('OWNER', 'MANAGER', 'CASHIER'), async (re
         type: 'EXPENSE',
         category: 'Reload Provider',
         amount: amountPaid,
-        description: `${provider} reload settlement ${dateKey}${partialLabel} (net after commission Rs ${commission.toFixed(2)})`,
+        description: scopeAll
+          ? `${provider} reload settlement (all time)${partialLabel} — net after commission Rs ${commission.toFixed(2)}`
+          : `${provider} reload settlement ${settlementDateKey}${partialLabel} (net after commission Rs ${commission.toFixed(2)})`,
         paymentMethod: method,
         performedBy: user.email,
       },
@@ -355,7 +442,7 @@ router.post('/pay-provider', authorize('OWNER', 'MANAGER', 'CASHIER'), async (re
         tenantId,
         branchId,
         provider,
-        businessDate: businessDateDb(dateKey),
+        businessDate: businessDateDb(paymentDateKey),
         reloadTotal,
         commission,
         amountPaid,
@@ -368,7 +455,9 @@ router.post('/pay-provider', authorize('OWNER', 'MANAGER', 'CASHIER'), async (re
     sendSuccess(res, {
       payment,
       provider,
-      date: dateKey,
+      scope: scopeAll ? 'all' : 'day',
+      date: scopeAll ? null : settlementDateKey,
+      paymentDate: paymentDateKey,
       reloadTotal,
       commission,
       netPayable,

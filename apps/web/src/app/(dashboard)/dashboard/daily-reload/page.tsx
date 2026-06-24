@@ -112,10 +112,9 @@ export default function DailyReloadPage() {
   }, [date])
 
   const fetchSettlement = useCallback(async () => {
-    const payDate = today()
     setSettlementSummary(prev => ({ ...prev, loading: true }))
     try {
-      const res: any = await dailyReloadApi.list({ date: payDate, _t: Date.now().toString() })
+      const res: any = await dailyReloadApi.providerSettlement()
       const payload = res.data ?? res
       setSettlementSummary({
         providerBreakdown: payload.providerBreakdown ?? [],
@@ -197,7 +196,7 @@ export default function DailyReloadPage() {
     setPayingProvider(payModal.provider)
     try {
       await dailyReloadApi.payProvider({
-        date: today(),
+        date: 'all',
         provider: payModal.provider,
         amount: amt,
         paymentMethod: payMethod,
@@ -541,7 +540,7 @@ export default function DailyReloadPage() {
                 <div>
                   <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Provider Settlement</p>
                   <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                    Today ({today()}) · Pay provider = Reload total − Commission earned
+                    All reloads · Pay provider = Reload total − Commission earned
                   </p>
                 </div>
               </div>
@@ -549,12 +548,12 @@ export default function DailyReloadPage() {
               {settlementLoading ? (
                 <div className="rounded-2xl border border-dashed p-10 text-center" style={{ borderColor: 'var(--border-default)' }}>
                   <RefreshCw size={28} className="animate-spin mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
-                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading today&apos;s settlement…</p>
+                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading all provider balances…</p>
                 </div>
               ) : providerRows.length === 0 ? (
                 <div className="rounded-2xl border border-dashed p-10 text-center" style={{ borderColor: 'var(--border-default)' }}>
                   <Banknote size={32} style={{ color: 'var(--text-muted)' }} className="mx-auto mb-3" />
-                  <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>No reload data for this date</p>
+                  <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>No reload data yet</p>
                   <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Upload Excel or add manual entries first</p>
                 </div>
               ) : (
@@ -641,7 +640,7 @@ export default function DailyReloadPage() {
             <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
               <div>
                 <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Pay {payModal.provider}</h3>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{today()}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>All reloads</p>
               </div>
               <button type="button" onClick={() => setPayModal(null)} disabled={!!payingProvider} className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: 'var(--text-muted)' }}>
                 <X size={16} />
