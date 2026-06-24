@@ -77,7 +77,7 @@ function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClos
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const entries: { productId: string; branchId: string; imei: string }[] = []
+    const entries: { productId: string; branchId: string; imei: string; variation?: string | null }[] = []
     // Map key back to productId
     for (const item of itemsWithId) {
       const key = itemKey(item)
