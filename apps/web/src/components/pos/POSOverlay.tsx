@@ -365,7 +365,7 @@ function VariationPickerModal({
   useEffect(() => {
     if (product?.trackImei) {
       setLoadingImeis(true)
-      imeiApi.list({ productId: product.id, status: 'IN_STOCK' })
+      imeiApi.list({ productId: product.id, status: 'IN_STOCK', limit: '9999' })
         .then((res: any) => {
           setImeis(res.data?.data ?? [])
           // Auto-select if only 1 IMEI is available
@@ -482,8 +482,8 @@ function VariationPickerModal({
               ) : (() => {
                   const availableImeis = imeis.filter(i => {
                     if (!i.variation) return true
-                    const vLabel = selected?.sku || `${selected?.storage}::${selected?.colorName}`
-                    return i.variation === vLabel
+                    const vLabel = (selected?.sku || `${selected?.storage}::${selected?.colorName}`).trim()
+                    return i.variation.trim() === vLabel
                   })
                   if (availableImeis.length > 0) {
                     return (
