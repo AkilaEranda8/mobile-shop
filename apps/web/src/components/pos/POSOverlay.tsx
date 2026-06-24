@@ -354,30 +354,90 @@ function VariationPickerModal({
   const [imeis, setImeis] = useState<any[]>([])
   const [selImei, setSelImei] = useState<string>('')
   const [loadingImeis, setLoadingImeis] = useState(false)
+  const [imeiScanValue, setImeiScanValue] = useState('')
+  const [imeiScanError, setImeiScanError] = useState('')
+  const imeiScanRef = useRef<HTMLInputElement>(null)
 
-  // Keep color in sync when storage changes
+  const selected = variations.find(v => v.storage === selStorage && v.colorName === selColor)
+
+  const variantLabels = (v?: ProductVariation): string[] => {
+    if (!v) return []
+    const labels: string[] = []
+    if (v.sku?.trim()) labels.push(v.sku.trim())
+    labels.push(`${v.storage}::${v.colorName}`)
+    return [...new Set(labels)]
+  }
+
+  const imeiMatchesVariant = (rec: { variation?: string | null }, v?: ProductVariation) => {
+    if (!v) return false
+    const recVar = (rec.variation ?? '').trim()
+    if (!recVar) return false
+    if (variantLabels(v).includes(recVar)) return true
+    const [rStorage, rColor] = recVar.split('::').map(s => s.trim())
+    return rStorage === v.storage && rColor === v.colorName
+  }
+
+  const availableImeis = (() => {
+    if (!selected) return []
+    const matched = imeis.filter(i => imeiMatchesVariant(i, selected))
+    if (matched.length > 0) return matched
+    // Legacy: IMEIs registered without a variation label — show when this variant has stock
+    if ((selected.stock ?? 0) > 0) {
+      return imeis.filter(i => !(i.variation ?? '').trim())
+    }
+    return []
+  })()
+
+  // Keep color valid when storage changes (don't override a valid color)
   useEffect(() => {
-    const first = variations.find(v => v.storage === selStorage)
-    setSelColor(first?.colorName ?? '')
-  }, [selStorage, variations])
-  
+    const colorsForStorage = variations.filter(v => v.storage === selStorage)
+    if (!colorsForStorage.some(v => v.colorName === selColor)) {
+      setSelColor(colorsForStorage[0]?.colorName ?? '')
+    }
+  }, [selStorage, variations, selColor])
+
+  const clearImeiSelection = () => {
+    setSelImei('')
+    setImeiScanValue('')
+    setImeiScanError('')
+  }
+
   // Fetch IMEIs if product tracks IMEI
   useEffect(() => {
     if (product?.trackImei) {
       setLoadingImeis(true)
       imeiApi.list({ productId: product.id, status: 'IN_STOCK', limit: '9999' })
         .then((res: any) => {
-          setImeis(res.data?.data ?? [])
-          // Auto-select if only 1 IMEI is available
-          if (res.data?.data?.length === 1) {
-            setSelImei(res.data.data[0].imei)
-          }
+          const list = res.data?.data ?? []
+          setImeis(list)
         })
         .finally(() => setLoadingImeis(false))
     }
   }, [product])
 
-  const selected = variations.find(v => v.storage === selStorage && v.colorName === selColor)
+  // Auto-select when only one IMEI for this variant
+  useEffect(() => {
+    if (availableImeis.length === 1) setSelImei(availableImeis[0].imei)
+    else if (selImei && !availableImeis.some(i => i.imei === selImei)) setSelImei('')
+  }, [availableImeis])
+
+  const handleImeiScanInModal = (raw: string) => {
+    const digits = raw.replace(/\D/g, '')
+    const imei = digits.length > 15 ? digits.slice(-15) : digits
+    if (imei.length !== 15) {
+      setImeiScanError('IMEI must be 15 digits')
+      return
+    }
+    const match = availableImeis.find(i => i.imei === imei)
+    if (match) {
+      setSelImei(imei)
+      setImeiScanValue('')
+      setImeiScanError('')
+      toast.success('IMEI selected')
+    } else {
+      setImeiScanError('This IMEI is not in stock for this variant')
+    }
+  }
   const { gradient, Icon: CardIcon, iconColor } = (() => {
     const cat = (product.categoryName ?? '').toLowerCase()
     if (cat.includes('mobile') || cat.includes('phone')) return { gradient: 'linear-gradient(135deg,#3b1fa5,#1d2fb5)', Icon: Smartphone, iconColor: '#818cf8' }
@@ -440,7 +500,7 @@ function VariationPickerModal({
               <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: POS_THEME.muted }}>Storage</p>
               <div className="flex flex-wrap gap-2">
                 {storageOptions.map(s => (
-                  <button key={s} onClick={() => setSelStorage(s)}
+                  <button key={s} onClick={() => { setSelStorage(s); clearImeiSelection() }}
                     className="px-3 py-1.5 rounded-lg text-xs font-bold border transition-all"
                     style={selStorage === s
                       ? { background: POS_THEME.purple, borderColor: POS_THEME.purple, color: '#fff', boxShadow: `0 2px 8px ${POS_THEME.purple}55` }
@@ -458,7 +518,7 @@ function VariationPickerModal({
               <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: POS_THEME.muted }}>Color</p>
               <div className="flex flex-wrap gap-2">
                 {colorOptions.map(v => (
-                  <button key={v.colorName} onClick={() => setSelColor(v.colorName)}
+                  <button key={v.colorName} onClick={() => { setSelColor(v.colorName); clearImeiSelection() }}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
                     style={selColor === v.colorName
                       ? { background: POS_THEME.purple, borderColor: POS_THEME.purple, color: '#fff', boxShadow: `0 2px 8px ${POS_THEME.purple}55` }
@@ -471,41 +531,73 @@ function VariationPickerModal({
             </div>
           )}
 
-          {/* IMEI Selection */}
+          {/* IMEI — select from this variant's in-stock units only */}
           {product.trackImei && (
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: POS_THEME.muted }}>Select IMEI *</p>
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: POS_THEME.muted }}>
+                Select IMEI * {selected ? `(${selected.storage} / ${selected.colorName})` : ''}
+              </p>
+
               {loadingImeis ? (
-                <div className="flex items-center gap-2 text-xs text-white/50">
-                  <Loader2 size={12} className="animate-spin" /> Loading available IMEIs...
+                <div className="flex items-center gap-2 text-xs text-white/50 py-2">
+                  <Loader2 size={12} className="animate-spin" /> Loading stock IMEIs...
                 </div>
-              ) : (() => {
-                  const availableImeis = imeis.filter(i => {
-                    if (!i.variation) return true
-                    const vLabel = (selected?.sku || `${selected?.storage}::${selected?.colorName}`).trim()
-                    return i.variation.trim() === vLabel
-                  })
-                  if (availableImeis.length > 0) {
-                    return (
-                      <div className="relative">
-                        <select
-                          value={selImei}
-                          onChange={e => setSelImei(e.target.value)}
-                          className="w-full h-10 px-3 rounded-xl text-sm border outline-none appearance-none"
-                          style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: selImei ? 'white' : 'rgba(255,255,255,0.5)' }}
-                        >
-                          <option value="" disabled>-- Select an IMEI --</option>
-                          {availableImeis.map(i => (
-                            <option key={i.imei} value={i.imei} style={{ color: 'black' }}>{i.imei}</option>
-                          ))}
-                        </select>
-                        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none" />
-                      </div>
-                    )
-                  } else {
-                    return <p className="text-xs text-red-400">No IN_STOCK IMEIs available for this variant.</p>
-                  }
-              })()}
+              ) : availableImeis.length === 0 ? (
+                <p className="text-xs text-red-400">
+                  No IN_STOCK IMEIs for {selected?.storage} / {selected?.colorName}.
+                </p>
+              ) : (
+                <>
+                  {/* Scan to pick from variant stock */}
+                  <div className="flex gap-2 items-center px-3 h-10 rounded-xl border"
+                    style={{ background: 'rgba(124,58,237,0.08)', borderColor: 'rgba(124,58,237,0.25)' }}>
+                    <Hash size={13} className="text-violet-400 flex-shrink-0" />
+                    <input
+                      ref={imeiScanRef}
+                      autoFocus
+                      className="flex-1 bg-transparent outline-none text-sm font-mono tracking-widest placeholder:text-white/30"
+                      style={{ color: 'var(--text-primary, #fff)' }}
+                      placeholder="Scan IMEI from this variant..."
+                      value={imeiScanValue}
+                      onChange={e => { setImeiScanValue(e.target.value); setImeiScanError('') }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') { e.preventDefault(); handleImeiScanInModal(imeiScanValue) }
+                      }}
+                    />
+                    {imeiScanValue.replace(/\D/g, '').length === 15
+                      ? <span className="text-[10px] text-green-400 font-bold flex-shrink-0">✓</span>
+                      : null}
+                  </div>
+
+                  {imeiScanError && <p className="text-xs text-red-400">{imeiScanError}</p>}
+
+                  {/* Dropdown — variant stock IMEIs only */}
+                  <div className="relative">
+                    <select
+                      value={selImei}
+                      onChange={e => { setSelImei(e.target.value); setImeiScanError(''); setImeiScanValue('') }}
+                      className="w-full h-10 px-3 rounded-xl text-sm border outline-none appearance-none"
+                      style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: selImei ? 'white' : 'rgba(255,255,255,0.5)' }}
+                    >
+                      <option value="" disabled>-- Select IMEI ({availableImeis.length} in stock) --</option>
+                      {availableImeis.map(i => (
+                        <option key={i.imei} value={i.imei} style={{ color: 'black' }}>{i.imei}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none" />
+                  </div>
+
+                  {selImei && (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-mono"
+                      style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: '#86efac' }}>
+                      <Check size={12} />
+                      <span className="tracking-widest">{selImei}</span>
+                      <button type="button" onClick={() => { setSelImei(''); imeiScanRef.current?.focus() }}
+                        className="ml-auto text-white/40 hover:text-white/70"><X size={12} /></button>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
 

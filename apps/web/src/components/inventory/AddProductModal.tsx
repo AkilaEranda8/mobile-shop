@@ -271,7 +271,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
     categoryName: '', subCategory: '', unit: 'Piece (Pc)',
     deviceModel: '', description: '', imageUrl: '',
   })
-  const [trackImei,     setTrackImei]     = useState(true)
+  const [trackImei,     setTrackImei]     = useState(false)
   const [warrantyTrack, setWarrantyTrack] = useState(true)
   const [lowStock,      setLowStock]      = useState(true)
   const [minStock,      setMinStock]      = useState('5')
@@ -285,6 +285,24 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
     if (cats.length > 0 && !form.categoryName) f('categoryName', cats[0].name)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cats.length])
+
+  useEffect(() => {
+    if (allBrands.length > 0 && !form.brandName) f('brandName', allBrands[0].name)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allBrands.length])
+
+  const resolveBuyPrice = () => {
+    const ex = Number(pricing.purchaseEx)
+    if (ex > 0) return ex
+    const inc = Number(pricing.purchaseInc)
+    if (inc > 0) {
+      const rate = pricing.tax === 'VAT 15%' ? 0.15 : pricing.tax === 'GST 10%' ? 0.10 : 0
+      return rate > 0 ? Math.round((inc / (1 + rate)) * 100) / 100 : inc
+    }
+    return 0
+  }
+
+  const resolveSellPrice = () => Number(pricing.sellingEx) || 0
 
   const buildPayload = useCallback((opts: {
     name: string; sku: string; barcode?: string; brandName: string; categoryName: string
@@ -373,8 +391,8 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
     if (!form.sku.trim())          { toast.error('SKU required'); return }
     if (!form.categoryName.trim()) { toast.error('Category required'); return }
 
-    const defaultBuy  = Number(pricing.purchaseEx) || 0
-    const defaultSell = Number(pricing.sellingEx)  || 0
+    const defaultBuy  = resolveBuyPrice()
+    const defaultSell = resolveSellPrice()
 
     const resolvedVariants = variants.map(v => ({
       ...v,
@@ -423,7 +441,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
           </button>
           <div>
             <h1 className="page-title">Add New Product</h1>
-            <p className="page-subtitle">Add with variants, or enter buy &amp; sell price for simple products</p>
+            <p className="page-subtitle">Variants optional — buy &amp; sell price in section 3</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2 sm:ml-auto">
@@ -707,6 +725,20 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {variants.length === 0 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div>
+                    <Lbl req>Buying Price (LKR)</Lbl>
+                    <input type="number" min={0} style={inputStyle} placeholder="0.00"
+                      value={pricing.purchaseEx} onChange={e => setPurchaseEx(e.target.value)} />
+                  </div>
+                  <div>
+                    <Lbl req>Selling Price (LKR)</Lbl>
+                    <input type="number" min={0} style={inputStyle} placeholder="0.00"
+                      value={pricing.sellingEx} onChange={e => setSellingEx(e.target.value)} />
+                  </div>
+                </div>
+              ) : null}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>
                   <Lbl>Applicable Tax</Lbl>
@@ -721,6 +753,8 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                   </Sel>
                 </div>
               </div>
+              {variants.length > 0 && (
+              <>
               <div>
                 <Lbl req>Default Purchase Price (LKR)</Lbl>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -742,6 +776,8 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                 <input type="number" min={0} style={inputStyle} placeholder="0.00"
                   value={pricing.sellingEx} onChange={e => setSellingEx(e.target.value)} />
               </div>
+              </>
+              )}
               <div>
                 <Lbl>Margin (%)</Lbl>
                 <div style={{ position: 'relative' }}>
