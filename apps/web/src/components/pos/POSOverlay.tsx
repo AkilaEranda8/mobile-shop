@@ -22,6 +22,7 @@ import {
   isQtyLockedLine,
   getWarrantyCartItems,
   extractSaleWarrantyCodes,
+  extractSaleWarranties,
   formatWarrantyMonths,
 } from './cart-rules'
 import { useUIStore } from '@/stores/ui-store'
@@ -31,11 +32,12 @@ import { authStorage } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday } from '@/lib/business-date'
 import toast from 'react-hot-toast'
-import { getInvoiceSettings, fetchInvoiceSettings, shopContextFromTenant, type InvoiceSettings, type ShopContext } from '@/lib/invoiceSettings'
+import { getInvoiceSettings, fetchInvoiceSettings, shopContextFromTenant, isKasthuriInvoice, type InvoiceSettings, type ShopContext } from '@/lib/invoiceSettings'
 import { cacheProductsForOffline, cacheCategoriesForOffline, getCachedProducts, getCachedCategories } from '@/lib/offline/products-cache'
 import { buildOfflineInvoiceNumber, queueOfflineSale } from '@/lib/offline/queue-sale'
 import { isBrowserOnline, isNetworkError } from '@/lib/offline/sync'
 import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrint'
+import KasthuriInvoicePrint, { buildKasthuriInvoiceData } from '@/components/invoice/KasthuriInvoicePrint'
 import { printThermalReceipt } from '@/components/invoice/ThermalReceipt'
 import { printStockFormInvoice } from '@/components/invoice/StockFormInvoice'
 import { whatsappApi } from '@/lib/whatsapp-api'
@@ -1121,7 +1123,15 @@ function POSContent({ onClose }: { onClose: () => void }) {
         createdAt: saleData.createdAt,
         customerName: saleData.customerName ?? 'Walk-in Customer',
         customerPhone: saleData.customerPhone ?? '',
-        items: saleData.items ?? [],
+        items: (saleData.items ?? []).map((i: any) => ({
+          productName: i.productName,
+          quantity: i.quantity,
+          unitPrice: i.unitPrice,
+          total: i.total,
+          sku: i.sku,
+          imei: i.imei,
+          warrantyMonths: i.warrantyMonths ?? 0,
+        })),
         subtotal: saleData.subtotal ?? saleData.total,
         discountAmount: saleData.discount ?? 0,
         total: saleData.total,
@@ -1130,6 +1140,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
         cashReceived: undefined,
         changeAmount: undefined,
         dueAmount: saleData.dueAmount,
+        warrantyNumbers: (saleData.warranties ?? []).map((w: any) => w.warrantyCode).filter(Boolean),
+        warranties: (saleData.warranties ?? []).map((w: any) => ({
+          warrantyCode: w.warrantyCode,
+          productName: w.productName,
+          imei: w.imei,
+          endDate: w.endDate,
+          monthsDuration: w.monthsDuration,
+        })),
       }
       if (invoiceSettings.thermalWidthPOS === 'stockForm') {
         printStockFormInvoice(reprintData, invoiceSettings, thermalShopCtx)
@@ -1460,6 +1478,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const shopName = currentUser?.name?.split(' ')[0] + ' Shop' || 'Our Shop'
   const [invoiceSettings, setInvoiceSettings] = useState<InvoiceSettings>(() => getInvoiceSettings())
   const [thermalShopCtx, setThermalShopCtx] = useState<ShopContext | undefined>(undefined)
+  const [tenantSlug, setTenantSlug] = useState<string | undefined>(undefined)
+  const useKasthuriInvoice = isKasthuriInvoice(invoiceSettings, tenantSlug)
 
   useEffect(() => {
     if (!currentUser?.tenantId) return
@@ -1471,6 +1491,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       ]).then(([settings, tenantRes]) => {
         setInvoiceSettings(settings)
         const tenant = (tenantRes as any)?.data ?? tenantRes
+        setTenantSlug(tenant?.slug)
         setThermalShopCtx(shopContextFromTenant(tenant, branchId))
       }).catch(() => {})
     }
@@ -1685,7 +1706,15 @@ function POSContent({ onClose }: { onClose: () => void }) {
           invoiceNumber,
           offline: true,
           total: saleTotal,
-          items: cart.map(i => ({ productName: i.name, sku: i.sku, imei: i.imei, quantity: i.quantity, unitPrice: i.price, total: i.price * i.quantity })),
+          items: cart.map(i => ({
+          productName: i.name,
+          sku: i.sku,
+          imei: i.imei,
+          quantity: i.quantity,
+          unitPrice: i.price,
+          total: i.price * i.quantity,
+          warrantyMonths: i.warrantyMonths ?? 0,
+        })),
           payments,
           paidAmount: payNowForSale,
           dueAmount: saleDueAmount,
@@ -1724,6 +1753,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         throw createErr
       }
       const createdWarrantyCodes = extractSaleWarrantyCodes(res)
+      const createdWarranties = extractSaleWarranties(res)
       if (createdWarrantyCodes.length > 0) {
         toast.success(`${createdWarrantyCodes.length} warranty${createdWarrantyCodes.length > 1 ? 's' : ''} created`, { icon: '🛡️' })
       }
@@ -1747,7 +1777,15 @@ function POSContent({ onClose }: { onClose: () => void }) {
       setCompletedSale({
         ...res.data,
         total: res.data?.total ?? saleTotal,
-        items: cart.map(i => ({ productName: i.name, sku: i.sku, imei: i.imei, quantity: i.quantity, unitPrice: i.price, total: i.price * i.quantity })),
+        items: cart.map(i => ({
+          productName: i.name,
+          sku: i.sku,
+          imei: i.imei,
+          quantity: i.quantity,
+          unitPrice: i.price,
+          total: i.price * i.quantity,
+          warrantyMonths: i.warrantyMonths ?? 0,
+        })),
         payments,
         paidAmount: payNowForSale,
         dueAmount: res.data?.dueAmount ?? saleDueAmount,
@@ -1758,6 +1796,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         cashReceived: cashReceivedAmount,
         changeAmount,
         warrantyNumbers: createdWarrantyCodes,
+        warranties: createdWarranties,
         warrantyMonths:  createdWarrantyCodes.length > 0
           ? Math.max(...warrantyCartItems.map(i => i.warrantyMonths ?? 0), 0) || undefined
           : undefined,
@@ -1886,7 +1925,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         if (e.key === 'F5') {
           e.preventDefault()
           if (completedSale) {
-            printThermalReceipt({ invoiceNumber: completedSale.invoiceNumber, createdAt: completedSale.createdAt, customerName: completedSale.customerName, customerPhone: completedSale.customerPhone, items: completedSale.items ?? [], subtotal, discountAmount, total: completedSale.total ?? saleTotal, paymentMethod: completedSale.paymentMethod, cashReceived: completedSale.cashReceived, changeAmount: completedSale.changeAmount, warrantyNumbers: completedSale.warrantyNumbers, warrantyMonths: completedSale.warrantyMonths }, invoiceSettings, thermalShopCtx)
+            printThermalReceipt({ invoiceNumber: completedSale.invoiceNumber, createdAt: completedSale.createdAt, customerName: completedSale.customerName, customerPhone: completedSale.customerPhone, items: completedSale.items ?? [], subtotal, discountAmount, total: completedSale.total ?? saleTotal, paymentMethod: completedSale.paymentMethod, cashReceived: completedSale.cashReceived, changeAmount: completedSale.changeAmount, warrantyNumbers: completedSale.warrantyNumbers, warrantyMonths: completedSale.warrantyMonths, warranties: completedSale.warranties }, invoiceSettings, thermalShopCtx)
           } else openRecentSales()
         }
         if (e.key === 'F6') {
@@ -2206,7 +2245,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
       {/* Modals */}
       {showA4Invoice && completedSale && (() => {
         const a4Data = buildA4Data()
-        if (!a4Data) return null
+        const kasthuriData = useKasthuriInvoice ? buildKasthuriInvoiceData(completedSale, invoiceSettings, { subtotal, discountAmount }) : null
+        if (!a4Data && !kasthuriData) return null
         return (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm overflow-y-auto">
             <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 bg-[#0a0f1a]/95 border-b border-white/10 backdrop-blur">
@@ -2219,7 +2259,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
                 <X size={13} /> Close
               </button>
             </div>
-            <InvoicePrint data={a4Data} />
+            {useKasthuriInvoice && kasthuriData
+              ? <KasthuriInvoicePrint data={kasthuriData} settings={invoiceSettings} />
+              : a4Data ? <InvoicePrint data={a4Data} /> : null}
           </div>
         )
       })()}
@@ -2556,7 +2598,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     <Receipt size={12} /> A4 Invoice
                   </button>
                   <button onClick={() => {
-                    const saleData = { invoiceNumber: completedSale.invoiceNumber, createdAt: completedSale.createdAt, customerName: completedSale.customerName, customerPhone: completedSale.customerPhone, cashierName: completedSale.cashierName, items: completedSale.items ?? [], subtotal, discountAmount, total: completedSale.total ?? saleTotal, payments: completedSale.payments, paymentMethod: completedSale.paymentMethod, cashReceived: completedSale.cashReceived, changeAmount: completedSale.changeAmount, warrantyNumbers: completedSale.warrantyNumbers, warrantyMonths: completedSale.warrantyMonths, dueAmount: completedSale.dueAmount }
+                    const saleData = { invoiceNumber: completedSale.invoiceNumber, createdAt: completedSale.createdAt, customerName: completedSale.customerName, customerPhone: completedSale.customerPhone, cashierName: completedSale.cashierName, items: completedSale.items ?? [], subtotal, discountAmount, total: completedSale.total ?? saleTotal, payments: completedSale.payments, paymentMethod: completedSale.paymentMethod, cashReceived: completedSale.cashReceived, changeAmount: completedSale.changeAmount, warrantyNumbers: completedSale.warrantyNumbers, warrantyMonths: completedSale.warrantyMonths, warranties: completedSale.warranties, dueAmount: completedSale.dueAmount }
                     if (invoiceSettings.thermalWidthPOS === 'stockForm') {
                       printStockFormInvoice(saleData, invoiceSettings, thermalShopCtx)
                     } else {
@@ -2580,7 +2622,18 @@ function POSContent({ onClose }: { onClose: () => void }) {
                 )}
                 <button onClick={handleNewSale} className="w-full py-3 rounded-2xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[.99]" style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: '0 4px 20px rgba(124,58,237,.4)' }}>+ New Sale (F10)</button>
               </div>
-              {completedSale && (() => { const d = buildA4Data(); return d ? <div style={{ position: 'fixed', left: '-9999px', top: 0, width: 794, pointerEvents: 'none' }}><InvoicePrint ref={a4Ref} data={d} hideControls /></div> : null })()}
+              {completedSale && (() => {
+                if (useKasthuriInvoice) {
+                  const kd = buildKasthuriInvoiceData(completedSale, invoiceSettings, { subtotal, discountAmount })
+                  return (
+                    <div style={{ position: 'fixed', left: '-9999px', top: 0, width: 794, pointerEvents: 'none' }}>
+                      <KasthuriInvoicePrint ref={a4Ref} data={kd} settings={invoiceSettings} hideControls />
+                    </div>
+                  )
+                }
+                const d = buildA4Data()
+                return d ? <div style={{ position: 'fixed', left: '-9999px', top: 0, width: 794, pointerEvents: 'none' }}><InvoicePrint ref={a4Ref} data={d} hideControls /></div> : null
+              })()}
             </div>
           ) : (
             <>

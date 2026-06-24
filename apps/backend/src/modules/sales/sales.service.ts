@@ -25,7 +25,12 @@ export const salesService = {
   async getById(tenantId: string, id: string) {
     const s = await prisma.sale.findFirst({ where: { id, tenantId }, include: { items: true, payments: true, returns: { include: { items: true } } } })
     if (!s) throw new AppError('Sale not found', 404)
-    return s
+    const warranties = await prisma.warranty.findMany({
+      where: { tenantId, saleId: id },
+      select: { warrantyCode: true, productName: true, imei: true, endDate: true, monthsDuration: true },
+      orderBy: { createdAt: 'asc' },
+    })
+    return { ...s, warranties }
   },
 
   async create(tenantId: string, cashierId: string, cashierName: string, body: any) {

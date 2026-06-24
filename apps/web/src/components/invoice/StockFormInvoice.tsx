@@ -29,6 +29,7 @@ export interface StockFormSale {
     total: number
     sku?: string
     imei?: string
+    warrantyMonths?: number
   }[]
   subtotal: number
   discountAmount: number
@@ -39,6 +40,13 @@ export interface StockFormSale {
   changeAmount?: number
   warrantyNumbers?: string[]
   warrantyMonths?: number
+  warranties?: {
+    warrantyCode: string
+    productName?: string
+    imei?: string
+    endDate?: string
+    monthsDuration?: number
+  }[]
   dueAmount?: number
 }
 
@@ -104,6 +112,7 @@ export function printStockFormInvoice(
           <b>${esc(item.productName)}</b>
           ${item.sku  ? `<br><span style="font-size:10px;color:#555;">SKU: ${esc(item.sku)}</span>` : ''}
           ${item.imei ? `<br><span style="font-size:10px;color:#555;">IMEI: ${esc(item.imei)}</span>` : ''}
+          ${(item.warrantyMonths ?? 0) > 0 ? `<br><span style="font-size:10px;color:#555;">Warranty: ${item.warrantyMonths} mo</span>` : ''}
         </td>
         <td style="padding:4px 8px;border-bottom:1px solid #ccc;text-align:center;">${item.quantity}</td>
         <td style="padding:4px 8px;border-bottom:1px solid #ccc;text-align:right;white-space:nowrap;">${f(item.unitPrice)}</td>
@@ -128,17 +137,36 @@ export function printStockFormInvoice(
   }
 
   // ── Warranty block ────────────────────────────────────────────────────────
+  const warrantyLines: StockFormSale['warranties'] = sale.warranties?.length
+    ? sale.warranties
+    : (sale.warrantyNumbers ?? []).map(code => ({ warrantyCode: code, monthsDuration: sale.warrantyMonths }))
+  const fmtExpiry = (endDate?: string, months?: number) => {
+    if (endDate) return new Date(endDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    if (sale.createdAt && months) {
+      const d = new Date(sale.createdAt)
+      d.setMonth(d.getMonth() + months)
+      return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    }
+    return '—'
+  }
   let warrantyHtml = ''
-  if (sale.warrantyNumbers && sale.warrantyNumbers.length > 0) {
+  if ((warrantyLines?.length ?? 0) > 0) {
     warrantyHtml = `
       <div style="border-top:2px dashed #000;margin-top:14px;padding-top:10px;">
         <b style="font-size:12px;text-transform:uppercase;letter-spacing:1px;">Warranty Information</b>
-        ${sale.warrantyNumbers.map((w, i) => `
-          <div style="display:flex;justify-content:space-between;margin-top:5px;font-size:11px;">
-            <span>Warranty ${sale.warrantyNumbers!.length > 1 ? i + 1 : ''}:</span>
-            <b style="font-family:monospace;">${esc(w)}</b>
+        ${(warrantyLines ?? []).map((w, i) => `
+          <div style="margin-top:8px;font-size:11px;">
+            ${w.productName ? `<div><b>${esc(w.productName)}</b></div>` : ''}
+            ${w.imei ? `<div>IMEI: <span class="mono">${esc(w.imei)}</span></div>` : ''}
+            <div style="display:flex;justify-content:space-between;margin-top:3px;">
+              <span>Warranty ${(warrantyLines ?? []).length > 1 ? i + 1 : ''}:</span>
+              <b style="font-family:monospace;">${esc(w.warrantyCode)}</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:2px;">
+              <span>Expires:</span>
+              <b>${esc(fmtExpiry(w.endDate, w.monthsDuration))}</b>
+            </div>
           </div>`).join('')}
-        ${sale.warrantyMonths ? `<p style="font-size:11px;margin-top:4px;">Valid for ${sale.warrantyMonths} month${sale.warrantyMonths !== 1 ? 's' : ''} from purchase date.</p>` : ''}
       </div>`
   }
 

@@ -22,9 +22,32 @@ export function cartNeedsOnline(cart: CartItem[], hasWarranty: boolean): boolean
 }
 
 export function extractSaleWarrantyCodes(saleResponse: unknown): string[] {
-  const root = saleResponse as { data?: { warranties?: Array<{ warrantyCode?: string }> }; warranties?: Array<{ warrantyCode?: string }> }
+  return extractSaleWarranties(saleResponse).map(w => w.warrantyCode)
+}
+
+export interface SaleWarrantyLine {
+  warrantyCode: string
+  productName?: string
+  imei?: string
+  endDate?: string
+  monthsDuration?: number
+}
+
+export function extractSaleWarranties(saleResponse: unknown): SaleWarrantyLine[] {
+  const root = saleResponse as {
+    data?: { warranties?: Array<Record<string, unknown>> }
+    warranties?: Array<Record<string, unknown>>
+  }
   const list = root?.data?.warranties ?? root?.warranties ?? []
-  return list.map(w => w.warrantyCode).filter((c): c is string => Boolean(c))
+  return list
+    .map(w => ({
+      warrantyCode: String(w.warrantyCode ?? ''),
+      productName: w.productName != null ? String(w.productName) : undefined,
+      imei: w.imei != null ? String(w.imei) : undefined,
+      endDate: w.endDate != null ? String(w.endDate) : undefined,
+      monthsDuration: w.monthsDuration != null ? Number(w.monthsDuration) : undefined,
+    }))
+    .filter(w => Boolean(w.warrantyCode))
 }
 
 export function formatWarrantyMonths(months: number): string {

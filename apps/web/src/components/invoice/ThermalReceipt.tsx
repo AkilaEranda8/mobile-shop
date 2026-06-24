@@ -3,13 +3,30 @@
 import React, { forwardRef } from 'react'
 import type { InvoiceSettings, ShopContext } from '@/lib/invoiceSettings'
 import { mergeReceiptSettings } from '@/lib/invoiceSettings'
+import { formatWarrantyMonths } from '@/components/pos/cart-rules'
+
+export interface ThermalWarrantyLine {
+  warrantyCode: string
+  productName?: string
+  imei?: string
+  endDate?: string
+  monthsDuration?: number
+}
 
 export interface ThermalSale {
   invoiceNumber: string
   createdAt?: string
   customerName?: string
   customerPhone?: string
-  items: { productName: string; quantity: number; unitPrice: number; total: number; sku?: string; imei?: string }[]
+  items: {
+    productName: string
+    quantity: number
+    unitPrice: number
+    total: number
+    sku?: string
+    imei?: string
+    warrantyMonths?: number
+  }[]
   subtotal: number
   discountAmount: number
   total: number
@@ -18,6 +35,7 @@ export interface ThermalSale {
   changeAmount?: number
   warrantyNumbers?: string[]
   warrantyMonths?: number
+  warranties?: ThermalWarrantyLine[]
 }
 
 interface ThermalReceiptProps {
@@ -49,6 +67,26 @@ function thermalFontScale(size: InvoiceSettings['thermalFontSize']) {
   return { base: 13, title: 16, total: 16, small: 11 }
 }
 
+function fmtWarrantyDate(iso?: string, fallbackCreatedAt?: string, months?: number): string {
+  if (iso) {
+    return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  }
+  if (fallbackCreatedAt && months && months > 0) {
+    const d = new Date(fallbackCreatedAt)
+    d.setMonth(d.getMonth() + months)
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  }
+  return '—'
+}
+
+function resolveWarrantyLines(sale: ThermalSale): ThermalWarrantyLine[] {
+  if (sale.warranties?.length) return sale.warranties
+  return (sale.warrantyNumbers ?? []).map(code => ({
+    warrantyCode: code,
+    monthsDuration: sale.warrantyMonths,
+  }))
+}
+
 export const SAMPLE_THERMAL_SALE: ThermalSale = {
   invoiceNumber: 'INV-2026-0042',
   createdAt: new Date().toISOString(),
@@ -66,6 +104,13 @@ export const SAMPLE_THERMAL_SALE: ThermalSale = {
   changeAmount: 5000,
   warrantyNumbers: ['WR-2026-001'],
   warrantyMonths: 12,
+  warranties: [{
+    warrantyCode: 'WR-2026-001',
+    productName: 'Samsung Galaxy A15',
+    imei: '356789012345678',
+    endDate: new Date(new Date().setMonth(new Date().getMonth() + 12)).toISOString(),
+    monthsDuration: 12,
+  }],
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -162,6 +207,11 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
             <div style={{ fontWeight: 'bold' }}>{item.productName}</div>
             {show.sku && item.sku && <div style={{ fontSize: fs.small, color: '#333' }}>SKU: {item.sku}</div>}
             {show.imei && item.imei && <div style={{ fontSize: fs.small, color: '#333' }}>IMEI: {item.imei}</div>}
+            {show.warranty && (item.warrantyMonths ?? 0) > 0 && (
+              <div style={{ fontSize: fs.small, color: '#333' }}>
+                Warranty: {formatWarrantyMonths(item.warrantyMonths!)}
+              </div>
+            )}
             <div style={{ ...rowStyle, marginTop: 2 }}>
               <span style={{ fontSize: fs.small }}>{item.quantity} x {f(item.unitPrice)}</span>
               <span style={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>{f(item.total)}</span>
@@ -192,21 +242,24 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
           <div style={{ ...rowStyle, fontWeight: 'bold' }}><span>Change:</span><span style={{ whiteSpace: 'nowrap' }}>{f(sale.changeAmount)}</span></div>
         )}
 
-        {show.warranty && sale.warrantyNumbers && sale.warrantyNumbers.length > 0 && (
+        {show.warranty && resolveWarrantyLines(sale).length > 0 && (
           <>
             <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }} />
             <div style={{ textAlign: 'center', fontWeight: 'bold' }}>WARRANTY</div>
-            {sale.warrantyNumbers.map((w, i) => (
-              <div key={i} style={rowStyle}>
-                <span>Warranty{sale.warrantyNumbers!.length > 1 ? ` ${i + 1}` : ''}:</span>
-                <span style={{ fontWeight: 'bold', wordBreak: 'break-all' }}>{w}</span>
+            {resolveWarrantyLines(sale).map((w, i) => (
+              <div key={i} style={{ marginBottom: 6, fontSize: fs.small }}>
+                {w.productName && <div style={{ fontWeight: 'bold' }}>{w.productName}</div>}
+                {w.imei && <div>IMEI: {w.imei}</div>}
+                <div style={rowStyle}>
+                  <span>Warranty:</span>
+                  <span style={{ fontWeight: 'bold', wordBreak: 'break-all' }}>{w.warrantyCode}</span>
+                </div>
+                <div style={rowStyle}>
+                  <span>Expires:</span>
+                  <span>{fmtWarrantyDate(w.endDate, sale.createdAt, w.monthsDuration)}</span>
+                </div>
               </div>
             ))}
-            {sale.warrantyMonths ? (
-              <div style={{ textAlign: 'center', fontSize: fs.small }}>
-                Valid for {sale.warrantyMonths} month{sale.warrantyMonths !== 1 ? 's' : ''}
-              </div>
-            ) : null}
           </>
         )}
 
@@ -273,12 +326,27 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
       <div class="item-name">${esc(item.productName)}</div>
       ${show.sku && item.sku ? `<div class="item-meta">SKU: ${esc(item.sku)}</div>` : ''}
       ${show.imei && item.imei ? `<div class="item-meta">IMEI: ${esc(item.imei)}</div>` : ''}
+      ${show.warranty && (item.warrantyMonths ?? 0) > 0 ? `<div class="item-meta">Warranty: ${esc(formatWarrantyMonths(item.warrantyMonths!))}</div>` : ''}
       <div class="row item-line">
         <span class="item-meta">${item.quantity} x ${f(item.unitPrice)}</span>
         <span class="bold nowrap">${f(item.total)}</span>
       </div>
     </div>
   `).join('')
+
+  const warrantyLines = resolveWarrantyLines(sale)
+  const warrantyBlock = show.warranty && warrantyLines.length > 0 ? `
+  <div class="dash"></div>
+  <div class="center bold">WARRANTY</div>
+  ${warrantyLines.map(w => `
+    <div class="item">
+      ${w.productName ? `<div class="item-name">${esc(w.productName)}</div>` : ''}
+      ${w.imei ? `<div class="item-meta">IMEI: ${esc(w.imei)}</div>` : ''}
+      <div class="row"><span>Warranty:</span><span class="bold wrap">${esc(w.warrantyCode)}</span></div>
+      <div class="row"><span>Expires:</span><span class="nowrap">${esc(fmtWarrantyDate(w.endDate, sale.createdAt, w.monthsDuration))}</span></div>
+    </div>
+  `).join('')}
+  ` : ''
 
   const html = `<!DOCTYPE html>
 <html>
@@ -358,12 +426,7 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
   ${show.payment && (sale.cashReceived != null && sale.cashReceived > 0) ? `<div class="row"><span>Cash:</span><span class="nowrap">${f(sale.cashReceived)}</span></div>` : ''}
   ${show.payment && (sale.changeAmount != null && sale.changeAmount > 0) ? `<div class="row bold"><span>Change:</span><span class="nowrap">${f(sale.changeAmount)}</span></div>` : ''}
 
-  ${show.warranty && (sale.warrantyNumbers && sale.warrantyNumbers.length > 0) ? `
-  <div class="dash"></div>
-  <div class="center bold">WARRANTY</div>
-  ${(sale.warrantyNumbers ?? []).map((w, i) => `<div class="row"><span>Warranty ${(sale.warrantyNumbers ?? []).length > 1 ? i+1 : ''}:</span><span class="bold wrap">${esc(w)}</span></div>`).join('')}
-  ${sale.warrantyMonths ? `<div class="center small">Valid for ${sale.warrantyMonths} month${sale.warrantyMonths !== 1 ? 's' : ''}</div>` : ''}
-  ` : ''}
+  ${warrantyBlock}
 
   ${show.bank && (settings.bankName || settings.accNumber) ? `
   <div class="dash"></div>

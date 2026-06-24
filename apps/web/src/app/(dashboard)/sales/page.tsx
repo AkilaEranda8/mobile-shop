@@ -15,7 +15,8 @@ import { salesApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
-import { getInvoiceSettings, type InvoiceSettings } from '@/lib/invoiceSettings'
+import { getInvoiceSettings, fetchInvoiceSettings, isKasthuriInvoice, type InvoiceSettings } from '@/lib/invoiceSettings'
+import KasthuriInvoicePrint, { buildKasthuriInvoiceData } from '@/components/invoice/KasthuriInvoicePrint'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
 
 const statusColors: Record<string, string> = {
@@ -185,7 +186,22 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
   const invoiceRef  = useRef<HTMLDivElement>(null)
   const [downloading, setDownloading] = useState(false)
   const shopName = authStorage.getUser()?.name?.split(' ')[0] + ' Shop' || 'Our Shop'
-  const [invSettings] = useState<InvoiceSettings>(() => getInvoiceSettings())
+  const [invSettings, setInvSettings] = useState<InvoiceSettings>(() => getInvoiceSettings())
+  const [tenantSlug, setTenantSlug] = useState<string | undefined>()
+  const useKasthuri = isKasthuriInvoice(invSettings, tenantSlug)
+  const kasthuriData = useKasthuri ? buildKasthuriInvoiceData(sale, invSettings) : null
+
+  useEffect(() => {
+    const user = authStorage.getUser()
+    if (!user?.tenantId) return
+    fetchInvoiceSettings(user.tenantId, user.branchIds?.[0]).then(setInvSettings).catch(() => {})
+    import('@/lib/api').then(({ tenantApi }) => {
+      tenantApi.get(user.tenantId).then((res: any) => {
+        const tenant = res?.data ?? res
+        setTenantSlug(tenant?.slug)
+      }).catch(() => {})
+    })
+  }, [])
 
   const downloadInvoice = async () => {
     if (!invoiceRef.current) return
@@ -339,9 +355,13 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
 
           {/* Hidden invoice for PDF capture */}
           <div style={{ position: 'fixed', left: '-9999px', top: 0, pointerEvents: 'none' }}>
-            <div ref={invoiceRef}>
-              <InvoiceTemplate sale={sale} shopName={shopName} settings={invSettings} />
-            </div>
+            {useKasthuri && kasthuriData
+              ? <KasthuriInvoicePrint ref={invoiceRef} data={kasthuriData} settings={invSettings} hideControls />
+              : (
+                <div ref={invoiceRef}>
+                  <InvoiceTemplate sale={sale} shopName={shopName} settings={invSettings} />
+                </div>
+              )}
           </div>
         </div>
       </div>

@@ -1,7 +1,15 @@
 export const INVOICE_SETTINGS_KEY = 'hx_invoice_settings'
 
+export type InvoiceTemplateId = 'default' | 'kasthuri'
+
+export const KASTHURI_TENANT_SLUG = 'kasthuri-mobile-solutions'
+
 export interface InvoiceSettings {
+  invoiceTemplate?: InvoiceTemplateId
   shopName:       string
+  companyLegalName?: string
+  vatRegNo?:        string
+  qrCodeUrl?:       string
   slogan:         string
   logo:           string
   phone:          string
@@ -37,7 +45,23 @@ export interface InvoiceSettings {
   thermalFontSize:      'sm' | 'md' | 'lg'
 }
 
+export const KASTHURI_INVOICE_PRESET: Partial<InvoiceSettings> = {
+  invoiceTemplate: 'kasthuri',
+  shopName: 'Kasthuri Mobile Solutions',
+  companyLegalName: 'KASTHURI MOBILE SOLUTIONS (PVT) LTD',
+  slogan: 'Expert In Repairs For iPhone, MacBook, Apple Watch, And AirPods – Delivering Professional, Reliable Solutions For All Your Apple Devices.',
+  address: '06, Behind Gimanhala Road, Dambulla, Sri Lanka.',
+  website: 'www.kasthurimobile.com',
+  email: 'info@kasthurimobile.com',
+  phone: '+94 74 100 1000',
+  terms: [
+    'Checking warranty does not apply if the warranty sticker is broken or removed.',
+    'Goods / Parts / Accessories once sold will not be taken back.',
+  ],
+}
+
 export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
+  invoiceTemplate: 'default',
   shopName:       '',
   slogan:         '',
   logo:           '',
@@ -90,6 +114,16 @@ export interface ShopContext {
 }
 
 /** Invoice Customize first; tenant/branch only when invoice fields are blank */
+export function isKasthuriInvoice(settings: InvoiceSettings, tenantSlug?: string): boolean {
+  if (settings.invoiceTemplate === 'kasthuri') return true
+  return tenantSlug === KASTHURI_TENANT_SLUG
+}
+
+export function applyKasthuriPreset(settings: InvoiceSettings, tenantSlug?: string): InvoiceSettings {
+  if (!isKasthuriInvoice(settings, tenantSlug)) return settings
+  return { ...KASTHURI_INVOICE_PRESET, ...settings, invoiceTemplate: 'kasthuri' }
+}
+
 export function mergeReceiptSettings(
   settings: InvoiceSettings,
   ctx?: ShopContext,
@@ -147,7 +181,8 @@ export async function fetchInvoiceSettings(tenantId: string, branchId?: string):
     const data = (invRes as any)?.data ?? invRes
     const tenant = (tenantRes as any)?.data ?? tenantRes
     const ctx = shopContextFromTenant(tenant, branchId)
-    const base = { ...DEFAULT_INVOICE_SETTINGS, ...data }
+    const slug = tenant?.slug as string | undefined
+    const base = applyKasthuriPreset({ ...DEFAULT_INVOICE_SETTINGS, ...data }, slug)
     const merged = mergeReceiptSettings(base, ctx)
     saveInvoiceSettings(merged)
     return merged
