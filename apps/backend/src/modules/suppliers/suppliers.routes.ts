@@ -241,14 +241,14 @@ router.post('/purchase-orders/:id/register-imei', authorize('OWNER', 'MANAGER'),
     const results = { created: 0, skipped: 0, errors: [] as string[] }
 
     for (const entry of entries) {
-      const { productId, branchId, imei } = entry
+      const { productId, branchId, imei, variation } = entry
       if (!imei || !/^\d{15}$/.test(imei.trim())) { results.errors.push(`Invalid IMEI: ${imei}`); continue }
       const trimmed = imei.trim()
       const product = await prisma.product.findFirst({ where: { id: productId, tenantId: req.tenantId! } })
       if (!product) { results.errors.push(`Product not found: ${productId}`); continue }
       const existing = await prisma.imeiRecord.findUnique({ where: { imei: trimmed } })
       if (existing) { results.skipped++; continue }
-      await prisma.imeiRecord.create({ data: { imei: trimmed, productId, branchId, status: 'IN_STOCK' } })
+      await prisma.imeiRecord.create({ data: { imei: trimmed, productId, branchId, variation, status: 'IN_STOCK' } })
       results.created++
     }
 

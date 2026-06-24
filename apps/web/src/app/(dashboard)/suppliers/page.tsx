@@ -81,8 +81,9 @@ function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClos
     // Map key back to productId
     for (const item of itemsWithId) {
       const key = itemKey(item)
+      const variationLabel = item.sku || `${item.storage}::${item.colorName}`
       for (const imei of (imeis[key] ?? [])) {
-        if (imei.trim()) entries.push({ productId: item.productId, branchId: defaultBranch, imei: imei.trim() })
+        if (imei.trim()) entries.push({ productId: item.productId, branchId: defaultBranch, imei: imei.trim(), variation: variationLabel })
       }
     }
     if (!entries.length) { toast.error('Enter at least one IMEI'); return }
