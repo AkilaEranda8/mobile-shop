@@ -123,24 +123,9 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
     if (!po) throw new AppError('Purchase order not found', 404)
 
     const newStatus = req.body.status as string | undefined
-
     // ── Restock inventory when marking as RECEIVED ─────────────────────────
-    // Guard: check StockMovement (not PO status) so retroactive restock works
-    // for POs that were RECEIVED before this fix was deployed.
-    // Use po.id as reference (unique). Also filter by productId so a SM belonging to a
-    // different PO that happens to share the same poNumber doesn't block this restock.
-    const poProductIds = po.items.map((i: any) => i.productId).filter(Boolean)
-    const alreadyRestocked = newStatus === 'RECEIVED' && poProductIds.length > 0
-      ? !!(await prisma.stockMovement.findFirst({
-          where: {
-            type: 'PURCHASE',
-            productId: { in: poProductIds },
-            OR: [{ reference: po.id }, { reference: po.poNumber }],
-          },
-        }))
-      : false
-
-    if (newStatus === 'RECEIVED' && !alreadyRestocked) {
+    // Per-item guard so every item in a multi-item PO gets its stock updated.
+    if (newStatus === 'RECEIVED') {
       try {
         // Resolve productId for items where it wasn't linked at PO creation time
         const resolvedItems = await Promise.all(
@@ -167,6 +152,17 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
         if (itemsWithProduct.length > 0) {
           await Promise.all(
             itemsWithProduct.map(async (item: any) => {
+              // Per-item guard: check if THIS specific item was already restocked
+              // using both po.id reference AND productId so we don't double-stock
+              const alreadyDone = !!(await prisma.stockMovement.findFirst({
+                where: {
+                  type:      'PURCHASE',
+                  productId: item.productId,
+                  OR: [{ reference: po.id }, { reference: po.poNumber }],
+                },
+              }))
+              if (alreadyDone) return  // skip if this item was already restocked
+
               const p = await prisma.product.findUnique({ where: { id: item.productId } })
               if (!p) return
 
@@ -182,26 +178,27 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
                 })
               }
 
-              return prisma.product.update({
+              await prisma.product.update({
                 where: { id: item.productId },
                 data: {
                   stock: { increment: item.quantity },
-                  ...(updatedVariations ? { storageVariations: updatedVariations } : {})
+                  ...(updatedVariations ? { storageVariations: updatedVariations } : {}),
+                },
+              })
+
+              await prisma.stockMovement.create({
+                data: {
+                  productId:   item.productId,
+                  branchId:    item.branchId,
+                  type:        'PURCHASE' as const,
+                  quantity:    item.quantity,
+                  reference:   po.id,
+                  note:        `Received via PO ${po.poNumber}`,
+                  performedBy: req.user?.userId ?? 'system',
                 },
               })
             })
           )
-          await prisma.stockMovement.createMany({
-            data: itemsWithProduct.map((item: any) => ({
-              productId:   item.productId,
-              branchId:    item.branchId,
-              type:        'PURCHASE' as const,
-              quantity:    item.quantity,
-              reference:   po.id,
-              note:        `Received via PO ${po.poNumber}`,
-              performedBy: req.user?.userId ?? 'system',
-            })),
-          })
         }
       } catch (stockErr) {
         // Stock update failed — log but don't block the PO status update
