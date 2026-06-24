@@ -283,7 +283,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
   const [lowStock,      setLowStock]      = useState(true)
   const [minStock,      setMinStock]      = useState('5')
   const [pricing, setPricing] = useState({ tax: 'None', taxType: 'Exclusive', purchaseEx: '', purchaseInc: '', sellingEx: '', margin: '' })
-  const [extra,   setExtra]   = useState({ supplierId: '', warranty: 'None', hsCode: '', tags: '' })
+  const [extra,   setExtra]   = useState({ supplierId: '', warranty: '1 Year', hsCode: '', tags: '' })
   const [variants, setVariants] = useState<VariantRow[]>([])
 
   const f = useCallback((k: string, v: string) => setForm(p => ({ ...p, [k]: v })), [])
@@ -595,8 +595,19 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
               <Checkbox checked={trackImei} onChange={setTrackImei} label="Track IMEI / Serial Number"
                 desc="Enable IMEI or Serial number tracking for this product" tip="Each unit must have a unique IMEI/Serial" />
               <div style={{ borderTop: '1px solid var(--border-subtle)', marginBottom: 10 }} />
-              <Checkbox checked={warrantyTrack} onChange={setWarrantyTrack} label="Warranty Tracking"
+              <Checkbox checked={warrantyTrack} onChange={checked => {
+                setWarrantyTrack(checked)
+                if (checked && extra.warranty === 'None') setExtra(p => ({ ...p, warranty: '1 Year' }))
+              }} label="Warranty Tracking"
                 desc="Enable warranty tracking for this product" tip="Auto-create warranty on sale" />
+              {warrantyTrack && (
+                <div style={{ paddingLeft: 26, marginBottom: 10 }}>
+                  <Lbl req tip="Shown on POS bill and warranty certificate">Warranty Period</Lbl>
+                  <Sel value={extra.warranty} onChange={v => setExtra(p => ({ ...p, warranty: v }))}>
+                    {WARRANTY_OPTS.filter(w => w !== 'None').map(w => <option key={w}>{w}</option>)}
+                  </Sel>
+                </div>
+              )}
               <div style={{ borderTop: '1px solid var(--border-subtle)', marginBottom: 10 }} />
               <Checkbox checked={lowStock} onChange={setLowStock} label="Low Stock Alert"
                 desc="Get notified when stock quantity goes below" />
@@ -806,17 +817,11 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
               Additional Information <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 12 }}>(Optional)</span>
             </p>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
             <div>
               <Lbl>Supplier</Lbl>
               <Sel value={extra.supplierId} onChange={v => setExtra(p => ({ ...p, supplierId: v }))} placeholder="Select supplier">
                 {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </Sel>
-            </div>
-            <div>
-              <Lbl>Warranty Period</Lbl>
-              <Sel value={extra.warranty} onChange={v => setExtra(p => ({ ...p, warranty: v }))}>
-                {WARRANTY_OPTS.map(w => <option key={w}>{w}</option>)}
               </Sel>
             </div>
             <div>
