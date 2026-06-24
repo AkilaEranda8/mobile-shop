@@ -161,11 +161,28 @@ router.post('/adjustment', authorize('OWNER', 'MANAGER'), validate(adjustmentSch
   } catch (e) { next(e) }
 })
 
+router.get('/period-summary', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const branchId = req.query.branchId as string
+    const from = req.query.from as string
+    const to = req.query.to as string
+    if (!branchId || !from || !to) throw new AppError('branchId, from and to are required', 400)
+    sendSuccess(res, await profitAllocationService.getPeriodSummary(req.tenantId!, branchId, from, to))
+  } catch (e) { next(e) }
+})
+
 router.get('/monthly-summary', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const branchId = req.query.branchId as string
     const month = req.query.month as string
-    if (!branchId || !month) throw new AppError('branchId and month (YYYY-MM) are required', 400)
+    const from = req.query.from as string | undefined
+    const to = req.query.to as string | undefined
+    if (!branchId) throw new AppError('branchId is required', 400)
+    if (from && to) {
+      sendSuccess(res, await profitAllocationService.getPeriodSummary(req.tenantId!, branchId, from, to))
+      return
+    }
+    if (!month) throw new AppError('month (YYYY-MM) or from/to range is required', 400)
     sendSuccess(res, await profitAllocationService.getMonthlySummary(req.tenantId!, branchId, month))
   } catch (e) { next(e) }
 })

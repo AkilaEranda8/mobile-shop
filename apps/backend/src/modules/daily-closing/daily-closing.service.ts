@@ -245,7 +245,10 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
     const amt = Number(r.amount)
     reloadSalesFromRecords += amt
     const provider = resolveReloadProvider(r.connectionNo, r.provider) ?? 'Other'
-    const commission = calcReloadCommission(amt, reloadSettings!, r.connectionNo, r.provider)
+    const commission = calcReloadCommission(
+      amt, reloadSettings!, r.connectionNo, r.provider,
+      r.reloadType === 'RECHARGE_CARD' ? 'RECHARGE_CARD' : 'RELOAD',
+    )
     reloadCommission += commission
     if (RELOAD_PROVIDER_IDS.includes(provider as typeof RELOAD_PROVIDER_IDS[number])) {
       reloadBreakdown[provider].amount += amt

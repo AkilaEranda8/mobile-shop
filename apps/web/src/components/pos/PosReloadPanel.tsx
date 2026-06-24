@@ -1,9 +1,10 @@
 'use client'
 
 import React, { useState } from 'react'
-import { PhoneCall, Plus } from 'lucide-react'
+import { CreditCard, PhoneCall, Plus, Smartphone } from 'lucide-react'
 import { POS_THEME } from './HexaPosLayout'
 import { formatCurrency } from '@/lib/utils'
+import type { ReloadServiceType } from '@/lib/reloadSettings'
 
 export const RELOAD_PRESET_AMOUNTS = [50, 100, 200, 500, 1000, 2000, 5000]
 
@@ -16,21 +17,28 @@ export const RELOAD_PROVIDERS = [
 
 export type ReloadProvider = typeof RELOAD_PROVIDERS[number]['id']
 
+const SERVICE_TYPES: { id: ReloadServiceType; label: string; icon: typeof PhoneCall }[] = [
+  { id: 'RELOAD', label: 'Reload', icon: Smartphone },
+  { id: 'RECHARGE_CARD', label: 'Recharge Card', icon: CreditCard },
+]
+
 interface PosReloadPanelProps {
-  onAdd: (provider: ReloadProvider, amount: number) => void
+  onAdd: (provider: ReloadProvider, amount: number, serviceType: ReloadServiceType) => void
   compact?: boolean
 }
 
 export function PosReloadPanel({ onAdd, compact = false }: PosReloadPanelProps) {
+  const [serviceType, setServiceType] = useState<ReloadServiceType>('RELOAD')
   const [provider, setProvider] = useState<ReloadProvider | null>(null)
   const [amount, setAmount] = useState<number | null>(null)
   const [customAmt, setCustomAmt] = useState('')
 
   const resolvedAmount = amount ?? (customAmt ? parseFloat(customAmt) : 0)
+  const serviceLabel = serviceType === 'RECHARGE_CARD' ? 'Recharge Card' : 'Reload'
 
   const submit = () => {
     if (!provider || !resolvedAmount || resolvedAmount <= 0) return false
-    onAdd(provider, resolvedAmount)
+    onAdd(provider, resolvedAmount, serviceType)
     setAmount(null)
     setCustomAmt('')
     return true
@@ -44,9 +52,30 @@ export function PosReloadPanel({ onAdd, compact = false }: PosReloadPanelProps) 
             <PhoneCall size={18} style={{ color: POS_THEME.teal }} />
           </div>
           <div>
-            <p className="text-sm font-bold text-white">Mobile Reload</p>
-            <p className="text-[11px]" style={{ color: POS_THEME.muted }}>Select network provider and reload amount</p>
+            <p className="text-sm font-bold text-white">Reload / Recharge Card</p>
+            <p className="text-[11px]" style={{ color: POS_THEME.muted }}>Select type, network provider and amount</p>
           </div>
+        </div>
+
+        <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: POS_THEME.muted }}>Service type</p>
+        <div className="grid grid-cols-2 gap-2 mb-5">
+          {SERVICE_TYPES.map(s => {
+            const Icon = s.icon
+            const active = serviceType === s.id
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setServiceType(s.id)}
+                className="h-12 rounded-xl text-xs font-bold border-2 transition-all flex items-center justify-center gap-2"
+                style={active
+                  ? { background: `${POS_THEME.purple}33`, borderColor: POS_THEME.purple, color: POS_THEME.text }
+                  : { background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.muted }}>
+                <Icon size={14} />
+                {s.label}
+              </button>
+            )
+          })}
         </div>
 
         <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: POS_THEME.muted }}>Network provider</p>
@@ -65,7 +94,7 @@ export function PosReloadPanel({ onAdd, compact = false }: PosReloadPanelProps) 
           ))}
         </div>
 
-        <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: POS_THEME.muted }}>Reload amount</p>
+        <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: POS_THEME.muted }}>Amount</p>
         <div className="grid grid-cols-4 gap-2 mb-3">
           {RELOAD_PRESET_AMOUNTS.map(amt => (
             <button
@@ -103,8 +132,8 @@ export function PosReloadPanel({ onAdd, compact = false }: PosReloadPanelProps) 
           style={{ background: `linear-gradient(135deg, ${POS_THEME.teal}, ${POS_THEME.tealDark})` }}>
           <Plus size={16} />
           {provider && resolvedAmount > 0
-            ? `Add ${provider} ${formatCurrency(resolvedAmount)} to Cart`
-            : 'Add Reload to Cart'}
+            ? `Add ${provider} ${serviceLabel} ${formatCurrency(resolvedAmount)} to Cart`
+            : `Add ${serviceLabel} to Cart`}
         </button>
       </div>
     </div>

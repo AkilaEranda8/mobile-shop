@@ -11,6 +11,7 @@ import {
   fetchTenantReloadSettings,
   getCommissionRate,
   resolveReloadProvider,
+  type ReloadServiceType,
 } from './reload-settings.util'
 import { buildProviderBreakdown, summarizeProviderBreakdown } from './reload-provider.util'
 
@@ -41,16 +42,23 @@ function buildDateFilter(date?: string) {
   return { reloadDate: { gte: start, lte: end } }
 }
 
+function reloadServiceType(reload: { reloadType?: string | null }): ReloadServiceType {
+  return reload.reloadType === 'RECHARGE_CARD' ? 'RECHARGE_CARD' : 'RELOAD'
+}
+
 function enrichReload(reload: any, settings: Awaited<ReturnType<typeof fetchTenantReloadSettings>>) {
-  const commissionRate = getCommissionRate(settings, reload.connectionNo, reload.provider)
-  const commission = calcReloadCommission(reload.amount, settings, reload.connectionNo, reload.provider)
+  const svc = reloadServiceType(reload)
+  const commissionRate = getCommissionRate(settings, reload.connectionNo, reload.provider, svc)
+  const commission = calcReloadCommission(reload.amount, settings, reload.connectionNo, reload.provider, svc)
   const provider = resolveReloadProvider(reload.connectionNo, reload.provider)
   return { ...reload, provider: provider ?? reload.provider ?? null, commissionRate, commission }
 }
 
 function sumCommission(reloads: any[], settings: Awaited<ReturnType<typeof fetchTenantReloadSettings>>) {
   return Math.round(
-    reloads.reduce((s, r) => s + calcReloadCommission(r.amount, settings, r.connectionNo, r.provider), 0) * 100,
+    reloads.reduce((s, r) => s + calcReloadCommission(
+      r.amount, settings, r.connectionNo, r.provider, reloadServiceType(r),
+    ), 0) * 100,
   ) / 100
 }
 
@@ -130,10 +138,11 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
-    const { connectionNo, provider, transactionId, executedBy, reloadDate, status, amount } = req.body
+    const { connectionNo, provider, transactionId, executedBy, reloadDate, status, amount, reloadType } = req.body
     if (!connectionNo || amount === undefined) throw new AppError('connectionNo and amount are required', 400)
 
     const resolvedProvider = resolveReloadProvider(String(connectionNo), provider ? String(provider) : null)
+    const svc: ReloadServiceType = reloadType === 'RECHARGE_CARD' ? 'RECHARGE_CARD' : 'RELOAD'
     const reload = await prisma.dailyReload.create({
       data: {
         tenantId,
@@ -143,6 +152,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
         executedBy:    executedBy    ? String(executedBy)    : undefined,
         reloadDate:    reloadDate    ? new Date(reloadDate)  : new Date(),
         status:        status        ? String(status)        : 'Success',
+        reloadType:    svc,
         amount:        parseFloat(String(amount)),
       },
     })
@@ -243,7 +253,9 @@ router.get('/report', async (req: Request, res: Response, next: NextFunction) =>
       if (!byDate[d]) byDate[d] = { date: d, count: 0, totalAmount: 0, commission: 0, successCount: 0 }
       byDate[d].count++
       byDate[d].totalAmount += Number(r.amount)
-      byDate[d].commission += calcReloadCommission(r.amount, settings, r.connectionNo, r.provider)
+      byDate[d].commission += calcReloadCommission(
+        r.amount, settings, r.connectionNo, r.provider, reloadServiceType(r),
+      )
       if (r.status === 'Success') byDate[d].successCount++
     }
     for (const d of Object.values(byDate)) {

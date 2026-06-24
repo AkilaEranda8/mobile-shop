@@ -47,6 +47,7 @@ interface CartItem {
   isService?: boolean
   isReload?: boolean
   reloadProvider?: string
+  reloadType?: 'RELOAD' | 'RECHARGE_CARD'
   cost?: number
   serviceId?: string
   variationLabel?: string  // e.g. "256GB / Black"
@@ -1272,19 +1273,21 @@ function POSContent({ onClose }: { onClose: () => void }) {
     return matchCat && matchSearch
   })
 
-  const addReloadToCart = useCallback((provider: ReloadProvider, amount: number) => {
+  const addReloadToCart = useCallback((provider: ReloadProvider, amount: number, serviceType: 'RELOAD' | 'RECHARGE_CARD' = 'RELOAD') => {
+    const label = serviceType === 'RECHARGE_CARD' ? 'Recharge Card' : 'Reload'
     setCart(prev => [...prev, {
       cartId: `reload-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       productId: null,
-      name: `${provider} Reload`,
-      sku: `RELOAD-${provider.toUpperCase()}`,
+      name: `${provider} ${label}`,
+      sku: serviceType === 'RECHARGE_CARD' ? `RCARD-${provider.toUpperCase()}` : `RELOAD-${provider.toUpperCase()}`,
       price: amount,
       originalPrice: amount,
       quantity: 1,
       isReload: true,
       reloadProvider: provider,
+      reloadType: serviceType,
     }])
-    toast.success(`${provider} reload ${formatCurrency(amount)} added to cart`, { icon: '📱' })
+    toast.success(`${provider} ${label.toLowerCase()} ${formatCurrency(amount)} added to cart`, { icon: '📱' })
   }, [])
 
   const displayItems = selectedCategory === 'SERVICES' ? filteredServices
@@ -1746,6 +1749,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
             await dailyReloadApi.create({
               connectionNo: item.reloadProvider!,
               provider: item.reloadProvider!,
+              reloadType: item.reloadType ?? 'RELOAD',
               amount: item.price * item.quantity,
               executedBy: user?.name || 'POS',
               transactionId: invoiceNo || undefined,
@@ -2676,7 +2680,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold truncate" style={{ color: POS_THEME.text }}>{item.name}</p>
                       {item.isReload && item.reloadProvider && (
-                        <p className="text-[10px] font-semibold" style={{ color: POS_THEME.teal }}>{item.reloadProvider}</p>
+                        <p className="text-[10px] font-semibold" style={{ color: POS_THEME.teal }}>
+                          {item.reloadProvider}
+                          {item.reloadType === 'RECHARGE_CARD' ? ' · Recharge Card' : ' · Reload'}
+                        </p>
                       )}
                       {item.isService && (
                         <p className="text-[9px]" style={{ color: POS_THEME.muted }}>

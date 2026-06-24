@@ -357,6 +357,8 @@ export const profitAllocationApi = {
   adjustment: (body: unknown) => api.post('/profit-allocation/adjustment', body),
   monthlySummary: (params: Record<string, string>) =>
     api.get(`/profit-allocation/monthly-summary?${new URLSearchParams(params)}`),
+  periodSummary: (params: Record<string, string>) =>
+    api.get(`/profit-allocation/period-summary?${new URLSearchParams(params)}`),
 }
 
 export const imeiApi = {

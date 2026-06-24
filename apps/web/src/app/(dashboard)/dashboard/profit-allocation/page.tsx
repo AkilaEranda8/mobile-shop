@@ -86,6 +86,25 @@ const TYPE_FILTER_OPTIONS = [
   { id: 'MANUAL', label: 'Manual' },
 ] as const
 
+const PERIOD_PRESETS = [
+  { id: 'today', label: 'Today' },
+  { id: '7', label: '7 Days' },
+  { id: '30', label: '30 Days' },
+  { id: 'month', label: 'This Month' },
+] as const
+
+function computePresetRange(preset: string, today: string): { from: string; to: string } {
+  if (preset === 'today') return { from: today, to: today }
+  if (preset === 'month') {
+    const [y, m] = today.split('-')
+    return { from: `${y}-${m}-01`, to: today }
+  }
+  const days = parseInt(preset, 10)
+  const d = new Date(`${today}T12:00:00`)
+  d.setDate(d.getDate() - (days - 1))
+  return { from: d.toISOString().slice(0, 10), to: today }
+}
+
 function SectionTitle({ title, sub }: { title: string; sub?: string }) {
   return (
     <div className="flex items-center gap-2 mb-4">
@@ -195,7 +214,13 @@ export default function ProfitAllocationPage() {
   const { data: branchesRaw } = useBranches()
   const branches = (branchesRaw as { id: string; name: string }[] | null) ?? []
   const [branchId, setBranchId] = useState('')
-  const [date, setDate] = useState(businessToday())
+  const todayStr = useMemo(() => businessToday(), [])
+  const [periodPreset, setPeriodPreset] = useState<string>('today')
+  const [isCustomRange, setIsCustomRange] = useState(false)
+  const [dateFrom, setDateFrom] = useState(todayStr)
+  const [dateTo, setDateTo] = useState(todayStr)
+  const isSingleDay = dateFrom === dateTo
+  const viewDate = dateTo
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('ALL')
   const [fundTab, setFundTab] = useState('ALL')
@@ -203,8 +228,12 @@ export default function ProfitAllocationPage() {
   const [transactions, setTransactions] = useState<TxRow[]>([])
   const [txTotal, setTxTotal] = useState(0)
   const [txLoading, setTxLoading] = useState(false)
-  const [monthlyMonth, setMonthlyMonth] = useState(() => businessToday().slice(0, 7))
-  const [monthlyData, setMonthlyData] = useState<unknown[]>([])
+  const [periodData, setPeriodData] = useState<{
+    totals: { sales: number; profit: number; allocated: number; remaining: number; savedDays: number }
+    fundLines: FundLine[]
+    summaries: unknown[]
+  } | null>(null)
+  const [periodLoading, setPeriodLoading] = useState(false)
   const [calcLoading, setCalcLoading] = useState(false)
   const [saveLoading, setSaveLoading] = useState(false)
   const [dashboardOverride, setDashboardOverride] = useState<DashboardData | null>(null)
@@ -221,9 +250,17 @@ export default function ProfitAllocationPage() {
 
   useEffect(() => {
     setDashboardOverride(null)
-  }, [branchId, date])
+  }, [branchId, viewDate])
 
-  const { data: dashRaw, loading, refetch } = useProfitAllocationDashboard(branchId, date, hasAccess && !!branchId)
+  const applyPreset = (preset: string) => {
+    setPeriodPreset(preset)
+    setIsCustomRange(false)
+    const { from, to } = computePresetRange(preset, todayStr)
+    setDateFrom(from)
+    setDateTo(to)
+  }
+
+  const { data: dashRaw, loading, refetch } = useProfitAllocationDashboard(branchId, viewDate, hasAccess && !!branchId && isSingleDay)
   const dashboard = (dashboardOverride ?? dashRaw) as DashboardData | null
   const { data: fundsRaw, refetch: refetchFunds } = useProfitFunds(branchId, hasAccess && !!branchId)
   const funds = (fundsRaw as Fund[] | null) ?? []
@@ -233,7 +270,7 @@ export default function ProfitAllocationPage() {
     setTxLoading(true)
     try {
       const res = await profitAllocationApi.transactions({
-        branchId, page: String(txPage), limit: '10',
+        branchId, from: dateFrom, to: dateTo, page: String(txPage), limit: '10',
       }) as { data: TxRow[]; meta?: { total: number } }
       setTransactions(res.data ?? [])
       setTxTotal(res.meta?.total ?? res.data?.length ?? 0)
@@ -242,27 +279,60 @@ export default function ProfitAllocationPage() {
     } finally {
       setTxLoading(false)
     }
-  }, [branchId, txPage])
+  }, [branchId, txPage, dateFrom, dateTo])
 
-  const loadMonthly = useCallback(async () => {
-    if (!branchId) return
+  const loadPeriod = useCallback(async () => {
+    if (!branchId || !dateFrom || !dateTo) return
+    setPeriodLoading(true)
     try {
-      const res = await profitAllocationApi.monthlySummary({ branchId, month: monthlyMonth }) as { data: { summaries: unknown[] } }
-      setMonthlyData(res.data?.summaries ?? (res as { summaries?: unknown[] }).summaries ?? [])
-    } catch { /* noop */ }
-  }, [branchId, monthlyMonth])
+      const payload = ((res as { data?: unknown }).data ?? res) as {
+        totals: { sales: number; profit: number; allocated: number; remaining: number; savedDays: number }
+        fundLines: FundLine[]
+        summaries: unknown[]
+      }
+      setPeriodData({
+        totals: payload.totals,
+        fundLines: payload.fundLines ?? [],
+        summaries: payload.summaries ?? [],
+      })
+    } catch {
+      setPeriodData(null)
+    } finally {
+      setPeriodLoading(false)
+    }
+  }, [branchId, dateFrom, dateTo])
 
   useEffect(() => { loadTransactions() }, [loadTransactions])
-  useEffect(() => { loadMonthly() }, [loadMonthly])
+  useEffect(() => { loadPeriod() }, [loadPeriod])
+  useEffect(() => { setTxPage(1) }, [dateFrom, dateTo, branchId])
+
+  const activeDashboard: DashboardData | null = isSingleDay
+    ? (dashboardOverride ?? dashboard)
+    : periodData ? {
+        date: `${dateFrom} → ${dateTo}`,
+        todaySales: periodData.totals.sales,
+        todayProfit: periodData.totals.profit,
+        totalAllocated: periodData.totals.allocated,
+        remainingProfit: periodData.totals.remaining,
+        percentageTotal: 0,
+        percentageValid: true,
+        lines: periodData.fundLines,
+        saved: periodData.totals.savedDays > 0,
+        allocationId: null,
+        dataSource: `period_summary · ${periodData.totals.savedDays} saved day(s)`,
+      } : null
+
+  const tableLoading = isSingleDay ? loading : periodLoading
 
   const filteredLines = useMemo(() => {
-    if (!dashboard?.lines) return []
-    return dashboard.lines.filter(l => {
+    const lines = activeDashboard?.lines
+    if (!lines) return []
+    return lines.filter(l => {
       if (typeFilter !== 'ALL' && l.fundType !== typeFilter) return false
       if (search && !l.fundName.toLowerCase().includes(search.toLowerCase())) return false
       return true
     })
-  }, [dashboard, search, typeFilter])
+  }, [activeDashboard, search, typeFilter])
 
   const filteredFundsForSettings = useMemo(() => {
     return funds.filter(f => {
@@ -278,7 +348,7 @@ export default function ProfitAllocationPage() {
     setDashboardOverride(null)
     setCalcLoading(true)
     try {
-      const res = await profitAllocationApi.calculate({ branchId, date }) as { data: DashboardData }
+      const res = await profitAllocationApi.calculate({ branchId, date: viewDate }) as { data: DashboardData }
       setDashboardOverride(res.data)
       toast.success('Daily data refreshed from system')
     } catch (e: unknown) {
@@ -292,7 +362,7 @@ export default function ProfitAllocationPage() {
     if (!branchId) return
     setCalcLoading(true)
     try {
-      const res = await profitAllocationApi.calculate({ branchId, date }) as { data: DashboardData }
+      const res = await profitAllocationApi.calculate({ branchId, date: viewDate }) as { data: DashboardData }
       setDashboardOverride(res.data)
       toast.success('Allocation recalculated')
     } catch (e: unknown) {
@@ -303,18 +373,19 @@ export default function ProfitAllocationPage() {
   }
 
   const handleSave = async () => {
-    if (!branchId || !dashboard) return
-    if (!dashboard.percentageValid) {
-      toast.error(`Percentage funds must total 100%. Current: ${dashboard.percentageTotal}%`)
+    if (!branchId || !activeDashboard) return
+    if (!activeDashboard.percentageValid) {
+      toast.error(`Percentage funds must total 100%. Current: ${activeDashboard.percentageTotal}%`)
       return
     }
     setSaveLoading(true)
     try {
-      await profitAllocationApi.save({ branchId, date })
+      await profitAllocationApi.save({ branchId, date: viewDate })
       toast.success('Allocation saved')
       setDashboardOverride(null)
       refetch()
       refetchFunds()
+      loadPeriod()
       loadTransactions()
     } catch (e: unknown) {
       toast.error((e as { message?: string })?.message ?? 'Save failed')
@@ -379,12 +450,12 @@ export default function ProfitAllocationPage() {
     }
   }
 
-  const exportMeta = dashboard ? {
-    date,
-    todaySales: dashboard.todaySales,
-    todayProfit: dashboard.todayProfit,
-    totalAllocated: dashboard.totalAllocated,
-    remainingProfit: dashboard.remainingProfit,
+  const exportMeta = activeDashboard ? {
+    date: isSingleDay ? viewDate : `${dateFrom} to ${dateTo}`,
+    todaySales: activeDashboard.todaySales,
+    todayProfit: activeDashboard.todayProfit,
+    totalAllocated: activeDashboard.totalAllocated,
+    remainingProfit: activeDashboard.remainingProfit,
   } : null
 
   if (!hasAccess) {
@@ -402,10 +473,10 @@ export default function ProfitAllocationPage() {
   }
 
   const kpiCards = [
-    { label: 'Today\'s Sales', value: formatCurrency(dashboard?.todaySales ?? 0), icon: <Banknote size={16} />, color: '#6d28d9', bg: 'rgba(109,40,217,0.08)', border: 'rgba(109,40,217,0.20)' },
-    { label: 'Today\'s Profit', value: formatCurrency(dashboard?.todayProfit ?? 0), icon: <TrendingUp size={16} />, color: '#15803d', bg: 'rgba(21,128,61,0.08)', border: 'rgba(21,128,61,0.20)' },
-    { label: 'Total Allocated', value: formatCurrency(dashboard?.totalAllocated ?? 0), icon: <PieChartIcon size={16} />, color: '#1d4ed8', bg: 'rgba(29,78,216,0.08)', border: 'rgba(29,78,216,0.20)' },
-    { label: 'Remaining Profit', value: formatCurrency(dashboard?.remainingProfit ?? 0), icon: <Wallet size={16} />, color: '#d97706', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.20)' },
+    { label: isSingleDay ? "Today's Sales" : 'Period Sales', value: formatCurrency(activeDashboard?.todaySales ?? 0), icon: <Banknote size={16} />, color: '#6d28d9', bg: 'rgba(109,40,217,0.08)', border: 'rgba(109,40,217,0.20)' },
+    { label: isSingleDay ? "Today's Profit" : 'Period Profit', value: formatCurrency(activeDashboard?.todayProfit ?? 0), icon: <TrendingUp size={16} />, color: '#15803d', bg: 'rgba(21,128,61,0.08)', border: 'rgba(21,128,61,0.20)' },
+    { label: 'Total Allocated', value: formatCurrency(activeDashboard?.totalAllocated ?? 0), icon: <PieChartIcon size={16} />, color: '#1d4ed8', bg: 'rgba(29,78,216,0.08)', border: 'rgba(29,78,216,0.20)' },
+    { label: 'Remaining Profit', value: formatCurrency(activeDashboard?.remainingProfit ?? 0), icon: <Wallet size={16} />, color: '#d97706', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.20)' },
   ]
 
   return (
@@ -416,38 +487,70 @@ export default function ProfitAllocationPage() {
           <h1 className="page-title">Profit Allocation & Fund Management</h1>
           <p className="page-subtitle flex items-center gap-1.5 flex-wrap">
             <Calendar size={12} />
-            Allocate daily profit to funds · {formatDate(date)}
-            {dashboard?.dataSource && !loading && (
+            {isSingleDay ? formatDate(viewDate) : `${formatDate(dateFrom)} → ${formatDate(dateTo)}`}
+            {activeDashboard?.dataSource && !tableLoading && (
               <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
                 style={{ background: 'rgba(109,40,217,0.10)', color: '#6d28d9', border: '1px solid rgba(109,40,217,0.25)' }}>
-                {DATA_SOURCE_LABEL[dashboard.dataSource] ?? dashboard.dataSource}
-                {dashboard.salesCount != null ? ` · ${dashboard.salesCount} sales` : ''}
+                {DATA_SOURCE_LABEL[activeDashboard.dataSource] ?? activeDashboard.dataSource}
+                {activeDashboard.salesCount != null ? ` · ${activeDashboard.salesCount} sales` : ''}
               </span>
             )}
           </p>
         </div>
+
+        {/* Unified date range filter */}
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
           {branches.length > 1 && (
             <select className="input-field text-sm max-w-[160px]" value={branchId} onChange={e => setBranchId(e.target.value)}>
               {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           )}
-          <input type="date" className="input-field text-sm max-w-[160px]" value={date} onChange={e => setDate(e.target.value)} />
-          <button onClick={handleRefreshFromSystem} disabled={calcLoading || !branchId} className="btn-secondary flex items-center gap-2 text-sm">
-            {calcLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-            Refresh
-          </button>
-          {canManageFunds && (
-            <button onClick={handleRecalculate} disabled={calcLoading || dashboard?.saved} className="btn-secondary flex items-center gap-2 text-sm">
-              {calcLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-              Recalculate
+          <div className="flex gap-1 p-1 rounded-xl flex-wrap" style={{ background: 'var(--bg-subtle)' }}>
+            {PERIOD_PRESETS.map(p => (
+              <button key={p.id} type="button" onClick={() => applyPreset(p.id)}
+                className="px-3 py-1.5 text-xs rounded-lg font-medium whitespace-nowrap transition-colors"
+                style={!isCustomRange && periodPreset === p.id
+                  ? { background: '#6d28d9', color: '#fff' }
+                  : { color: 'var(--text-muted)' }}>
+                {p.label}
+              </button>
+            ))}
+            <button type="button" onClick={() => setIsCustomRange(true)}
+              className="px-3 py-1.5 text-xs rounded-lg font-medium whitespace-nowrap transition-colors flex items-center gap-1"
+              style={isCustomRange ? { background: '#6d28d9', color: '#fff' } : { color: 'var(--text-muted)' }}>
+              <Calendar size={11} /> Custom
             </button>
+          </div>
+          {isCustomRange && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
+              <input type="date" value={dateFrom} max={dateTo || todayStr}
+                onChange={e => { setDateFrom(e.target.value); if (e.target.value > dateTo) setDateTo(e.target.value) }}
+                className="text-xs bg-transparent outline-none cursor-pointer max-w-[130px]" style={{ color: 'var(--text-primary)' }} />
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>→</span>
+              <input type="date" value={dateTo} min={dateFrom} max={todayStr}
+                onChange={e => setDateTo(e.target.value)}
+                className="text-xs bg-transparent outline-none cursor-pointer max-w-[130px]" style={{ color: 'var(--text-primary)' }} />
+            </div>
           )}
-          {isOwner && !dashboard?.saved && (
-            <button onClick={handleSave} disabled={saveLoading || !dashboard} className="btn-primary flex items-center gap-2 text-sm">
-              {saveLoading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-              Save Allocation
-            </button>
+          {isSingleDay && (
+            <>
+              <button onClick={handleRefreshFromSystem} disabled={calcLoading || !branchId} className="btn-secondary flex items-center gap-2 text-sm">
+                {calcLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                Refresh
+              </button>
+              {canManageFunds && (
+                <button onClick={handleRecalculate} disabled={calcLoading || activeDashboard?.saved} className="btn-secondary flex items-center gap-2 text-sm">
+                  {calcLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                  Recalculate
+                </button>
+              )}
+              {isOwner && !activeDashboard?.saved && (
+                <button onClick={handleSave} disabled={saveLoading || !activeDashboard} className="btn-primary flex items-center gap-2 text-sm">
+                  {saveLoading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  Save Allocation
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -468,7 +571,10 @@ export default function ProfitAllocationPage() {
       {/* Allocation Table */}
       <div className="card overflow-hidden">
         <div className="p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-          <SectionTitle title="Allocation Details" sub="Daily fund allocation breakdown" />
+          <SectionTitle
+            title="Allocation Details"
+            sub={isSingleDay ? 'Daily fund allocation breakdown' : `Aggregated allocation · ${formatDate(dateFrom)} → ${formatDate(dateTo)}`}
+          />
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1 max-w-xs">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
@@ -494,7 +600,7 @@ export default function ProfitAllocationPage() {
             )}
           </div>
         </div>
-        {loading ? (
+        {tableLoading ? (
           <div className="flex justify-center py-16"><Loader2 className="animate-spin text-violet-400" size={24} /></div>
         ) : filteredLines.length === 0 ? (
           <div className="py-12 text-center">
@@ -506,7 +612,7 @@ export default function ProfitAllocationPage() {
             <table className="w-full">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  {['Fund', 'Type', 'Value', 'Cost', 'Today', 'Yesterday', 'Total', 'Withdrawn', 'Remaining', 'Actions'].map((h, i) => (
+                  {['Fund', 'Type', 'Value', 'Cost', isSingleDay ? 'Today' : 'Period', 'Yesterday', 'Total', 'Withdrawn', 'Remaining', 'Actions'].map((h, i) => (
                     <th key={h} className={`table-header whitespace-nowrap${i >= 4 && i <= 8 ? ' text-right' : ''}${i === 9 ? ' text-center' : ''}`}>{h}</th>
                   ))}
                 </tr>
@@ -568,12 +674,12 @@ export default function ProfitAllocationPage() {
             </table>
           </div>
         )}
-        {dashboard && (
+        {activeDashboard && isSingleDay && (
           <div className="px-5 py-3 border-t flex flex-wrap items-center justify-between gap-2 text-xs" style={{ borderColor: 'var(--border-subtle)' }}>
-            <span style={{ color: dashboard.percentageValid ? '#15803d' : '#b91c1c' }}>
-              Percentage funds total: {dashboard.percentageTotal}% {dashboard.percentageValid ? '(valid)' : '(must equal 100%)'}
+            <span style={{ color: activeDashboard.percentageValid ? '#15803d' : '#b91c1c' }}>
+              Percentage funds total: {activeDashboard.percentageTotal}% {activeDashboard.percentageValid ? '(valid)' : '(must equal 100%)'}
             </span>
-            {dashboard.saved && <span className="font-semibold" style={{ color: '#15803d' }}>✓ Saved for {formatDate(date)}</span>}
+            {activeDashboard.saved && <span className="font-semibold" style={{ color: '#15803d' }}>✓ Saved for {formatDate(viewDate)}</span>}
           </div>
         )}
       </div>
@@ -733,14 +839,15 @@ export default function ProfitAllocationPage() {
         </div>
       </div>
 
-      {/* Monthly Summary */}
+      {/* Period Summary */}
       <div className="card p-5">
         <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
           <div>
-            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Monthly Summary</h3>
-            <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>Opening, allocated, withdrawn & closing balances</p>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Period Summary</h3>
+            <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              {formatDate(dateFrom)} → {formatDate(dateTo)} · Opening, allocated, withdrawn & closing balances
+            </p>
           </div>
-          <input type="month" className="input-field text-sm max-w-[160px]" value={monthlyMonth} onChange={e => setMonthlyMonth(e.target.value)} />
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -752,7 +859,10 @@ export default function ProfitAllocationPage() {
               </tr>
             </thead>
             <tbody>
-              {(monthlyData as Array<Record<string, unknown>>).map((row, i) => (
+              {periodLoading ? (
+                <tr><td colSpan={6} className="text-center py-8"><Loader2 className="animate-spin text-violet-400 mx-auto" size={22} /></td></tr>
+              ) : (periodData?.summaries as Array<Record<string, unknown>> | undefined)?.length ? (
+                (periodData!.summaries as Array<Record<string, unknown>>).map((row, i) => (
                 <tr key={i} className="transition-colors hover:bg-white/2" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                   <td className="table-cell"><span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{String(row.fundName)}</span></td>
                   <td className="table-cell text-right"><span className="text-sm" style={{ color: 'var(--text-muted)' }}>{formatCurrency(Number(row.openingBalance ?? 0))}</span></td>
@@ -761,7 +871,10 @@ export default function ProfitAllocationPage() {
                   <td className="table-cell text-right"><span className="text-sm font-semibold" style={{ color: '#15803d' }}>{formatCurrency(Number(row.depositedAmount ?? 0))}</span></td>
                   <td className="table-cell text-right"><span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(Number(row.closingBalance ?? 0))}</span></td>
                 </tr>
-              ))}
+              ))
+              ) : (
+                <tr><td colSpan={6} className="text-center py-8 text-xs" style={{ color: 'var(--text-muted)' }}>No data for this period</td></tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -772,9 +885,9 @@ export default function ProfitAllocationPage() {
           mode={movement.mode}
           fund={movement.fund}
           branchId={branchId}
-          date={date}
+          date={viewDate}
           onClose={() => setMovement(null)}
-          onDone={() => { refetch(); refetchFunds(); loadTransactions(); setDashboardOverride(null) }}
+          onDone={() => { refetch(); refetchFunds(); loadTransactions(); loadPeriod(); setDashboardOverride(null) }}
         />
       )}
     </div>

@@ -15,6 +15,7 @@ interface Reload {
   id: string
   connectionNo: string
   provider?: string | null
+  reloadType?: string | null
   transactionId?: string
   executedBy?: string
   reloadDate: string
@@ -81,6 +82,7 @@ export default function DailyReloadPage() {
   const [txId,   setTxId]    = useState('')
   const [agent,  setAgent]   = useState('')
   const [status, setStatus]  = useState('Success')
+  const [reloadType, setReloadType] = useState<'RELOAD' | 'RECHARGE_CARD'>('RELOAD')
   const [saving, setSaving]  = useState(false)
   const [payingProvider, setPayingProvider] = useState<string | null>(null)
 
@@ -128,11 +130,12 @@ export default function DailyReloadPage() {
         transactionId: txId.trim()   || undefined,
         executedBy:    agent.trim()  || undefined,
         reloadDate:    new Date().toISOString(),
+        reloadType,
         status,
         amount:        parseFloat(amount),
       })
       toast.success('Reload added')
-      setPhone(''); setAmount(''); setTxId(''); setAgent(''); setStatus('Success')
+      setPhone(''); setAmount(''); setTxId(''); setAgent(''); setStatus('Success'); setReloadType('RELOAD')
       fetch()
     } catch (e: any) { toast.error(e.message || 'Failed to save') }
     finally { setSaving(false) }
@@ -185,6 +188,19 @@ export default function DailyReloadPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Connection No" />,
       cell: ({ row: { original: r } }) => (
         <span className="font-mono font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{r.connectionNo}</span>
+      ),
+    },
+    {
+      id: 'reloadType',
+      accessorFn: (r) => r.reloadType ?? 'RELOAD',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Type" />,
+      cell: ({ row: { original: r } }) => (
+        <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{
+          background: r.reloadType === 'RECHARGE_CARD' ? 'rgba(139,92,246,0.12)' : 'rgba(20,184,166,0.12)',
+          color: r.reloadType === 'RECHARGE_CARD' ? '#8b5cf6' : '#14b8a6',
+        }}>
+          {r.reloadType === 'RECHARGE_CARD' ? 'Recharge Card' : 'Reload'}
+        </span>
       ),
     },
     {
@@ -255,9 +271,9 @@ export default function DailyReloadPage() {
   /* ── Export CSV ──────────────────────────────────────────────────────────── */
   const handleExport = () => {
     try {
-      const header = 'Connection No,Transaction ID,Executed By,Date & Time,Status,Amount (Rs),Commission'
+      const header = 'Connection No,Type,Transaction ID,Executed By,Date & Time,Status,Amount (Rs),Commission'
       const rows   = summary.data.map(r =>
-        [r.connectionNo, r.transactionId ?? '', r.executedBy ?? '', fmtDate(r.reloadDate), r.status, r.amount, (r.commission ?? 0).toFixed(2)].join(',')
+        [r.connectionNo, r.reloadType === 'RECHARGE_CARD' ? 'Recharge Card' : 'Reload', r.transactionId ?? '', r.executedBy ?? '', fmtDate(r.reloadDate), r.status, r.amount, (r.commission ?? 0).toFixed(2)].join(',')
       )
       rows.push(`,,,,Total,${summary.totalAmount},${summary.commission}`)
       const blob = new Blob([[header, ...rows].join('\n')], { type: 'text/csv' })
@@ -424,6 +440,18 @@ export default function DailyReloadPage() {
                   />
                 </div>
               ))}
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Type</label>
+                <select
+                  value={reloadType}
+                  onChange={e => setReloadType(e.target.value as 'RELOAD' | 'RECHARGE_CARD')}
+                  className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none focus:border-violet-500 transition-colors"
+                  style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
+                >
+                  <option value="RELOAD">Reload</option>
+                  <option value="RECHARGE_CARD">Recharge Card</option>
+                </select>
+              </div>
               <div>
                 <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Status</label>
                 <select

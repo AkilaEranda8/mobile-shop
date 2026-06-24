@@ -1035,6 +1035,7 @@ model DailyReload {
   executedBy    String?
   reloadDate    DateTime @default(now())
   status        String   @default("Success")
+  reloadType    String   @default("RELOAD")
   amount        Float
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

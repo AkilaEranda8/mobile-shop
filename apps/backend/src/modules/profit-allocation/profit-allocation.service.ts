@@ -673,25 +673,19 @@ export async function listTransactions(
   return { data, total }
 }
 
-export async function getMonthlySummary(
+async function buildFundSummariesForRange(
   tenantId: string,
   branchId: string,
-  monthStr: string,
+  start: Date,
+  end: Date,
 ) {
-  const [year, month] = monthStr.split('-').map(Number)
-  const monthPad = String(month).padStart(2, '0')
-  const start = businessDateDb(`${year}-${monthPad}-01`)
-  const lastDay = new Date(year, month, 0).getDate()
-  const end = businessDayRange(`${year}-${monthPad}-${String(lastDay).padStart(2, '0')}`).end
-
   const funds = await listFunds(tenantId, branchId)
-
-  const summaries = await Promise.all(
+  return Promise.all(
     funds.map(async fund => {
       const openingLine = await prisma.profitAllocationLine.findFirst({
         where: {
           fundId: fund.id,
-          allocation: { date: { lt: start } },
+          allocation: { tenantId, branchId, date: { lt: start } },
         },
         orderBy: { allocation: { date: 'desc' } },
       })
@@ -741,6 +735,102 @@ export async function getMonthlySummary(
       }
     }),
   )
+}
 
-  return { month: monthStr, summaries }
+export async function getPeriodSummary(
+  tenantId: string,
+  branchId: string,
+  fromStr: string,
+  toStr: string,
+) {
+  const from = normalizeBusinessDate(fromStr)
+  const to = normalizeBusinessDate(toStr)
+  if (from > to) throw new AppError('Start date must be on or before end date', 400)
+
+  const start = allocationDbDate(from)
+  const end = businessDayRange(to).end
+
+  const allocRecords = await prisma.profitAllocation.findMany({
+    where: { tenantId, branchId, date: { gte: start, lte: end } },
+    orderBy: { date: 'asc' },
+  })
+
+  const totals = {
+    sales: round2(allocRecords.reduce((s, a) => s + a.todaySales, 0)),
+    profit: round2(allocRecords.reduce((s, a) => s + a.todayProfit, 0)),
+    allocated: round2(allocRecords.reduce((s, a) => s + a.totalAllocated, 0)),
+    remaining: round2(allocRecords.length ? allocRecords[allocRecords.length - 1].remainingProfit : 0),
+    savedDays: allocRecords.length,
+  }
+
+  const linesInRange = await prisma.profitAllocationLine.findMany({
+    where: { allocation: { tenantId, branchId, date: { gte: start, lte: end } } },
+    include: { fund: true },
+    orderBy: [{ allocation: { date: 'asc' } }, { fund: { sortOrder: 'asc' } }],
+  })
+
+  const fundLineAgg = new Map<string, {
+    fundId: string
+    fundName: string
+    fundType: string
+    value: number
+    todayAllocation: number
+    yesterdayBalance: number
+    totalBalance: number
+    withdrawn: number
+    remainingBalance: number
+    isActive: boolean
+    sortOrder: number
+    description: string | null
+  }>()
+
+  for (const line of linesInRange) {
+    const fund = line.fund
+    let agg = fundLineAgg.get(line.fundId)
+    if (!agg) {
+      agg = {
+        fundId: line.fundId,
+        fundName: fund.name,
+        fundType: fund.type,
+        value: fund.type === 'FIXED_AMOUNT' ? fund.fixedAmount : fund.type === 'PERCENTAGE' ? fund.percentage : 0,
+        todayAllocation: 0,
+        yesterdayBalance: line.yesterdayBalance,
+        totalBalance: line.totalBalance,
+        withdrawn: line.withdrawn,
+        remainingBalance: line.remainingBalance,
+        isActive: fund.isActive,
+        sortOrder: fund.sortOrder,
+        description: fund.description,
+      }
+      fundLineAgg.set(line.fundId, agg)
+    }
+    agg.todayAllocation = round2(agg.todayAllocation + line.todayAllocation)
+    agg.totalBalance = line.totalBalance
+    agg.withdrawn = line.withdrawn
+    agg.remainingBalance = line.remainingBalance
+  }
+
+  const summaries = await buildFundSummariesForRange(tenantId, branchId, start, end)
+
+  return {
+    from,
+    to,
+    totals,
+    fundLines: [...fundLineAgg.values()].sort((a, b) => a.sortOrder - b.sortOrder),
+    summaries,
+  }
+}
+
+export async function getMonthlySummary(
+  tenantId: string,
+  branchId: string,
+  monthStr: string,
+) {
+  const [year, month] = monthStr.split('-').map(Number)
+  const monthPad = String(month).padStart(2, '0')
+  const lastDay = new Date(year, month, 0).getDate()
+  const from = `${year}-${monthPad}-01`
+  const to = `${year}-${monthPad}-${String(lastDay).padStart(2, '0')}`
+  const period = await getPeriodSummary(tenantId, branchId, from, to)
+  return { month: monthStr, ...period }
 }

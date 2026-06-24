@@ -396,7 +396,7 @@ export default function SettingsPage() {
                       <div>
                         <p className="text-sm font-semibold text-white">Reload Commission Rates</p>
                         <p className="text-[11px] text-slate-500 mt-0.5">
-                          Set commission % per network provider. Used in POS, daily reload reports, and profit calculations.
+                          Mobile reload commission % per network provider.
                         </p>
                       </div>
                       <div className="grid sm:grid-cols-2 gap-3">
@@ -422,7 +422,7 @@ export default function SettingsPage() {
                         ))}
                       </div>
                       <label className="block">
-                        <span className="text-xs font-medium text-slate-400">Default (Excel imports / unknown provider)</span>
+                        <span className="text-xs font-medium text-slate-400">Default Reload (Excel imports / unknown provider)</span>
                         <div className="mt-1 flex items-center gap-2 max-w-xs">
                           <input
                             type="number"
@@ -435,6 +435,53 @@ export default function SettingsPage() {
                             }))}
                             disabled={!canManageFeatures}
                             className="flex-1 h-9 px-3 rounded-lg text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-teal-500/50"
+                          />
+                          <span className="text-xs text-slate-500">%</span>
+                        </div>
+                      </label>
+
+                      <div className="border-t border-white/10 pt-4">
+                        <p className="text-sm font-semibold text-white">Recharge Card Commission Rates</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Recharge card commission % per network provider (used when POS type is Recharge Card).
+                        </p>
+                      </div>
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        {RELOAD_PROVIDER_IDS.map(id => (
+                          <label key={`rc-${id}`} className="block">
+                            <span className="text-xs font-medium text-slate-400">{id}</span>
+                            <div className="mt-1 flex items-center gap-2">
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.1"
+                                value={reloadSettings.rechargeCardCommissions[id] ?? 0}
+                                onChange={e => setReloadSettings(prev => ({
+                                  ...prev,
+                                  rechargeCardCommissions: { ...prev.rechargeCardCommissions, [id]: parseFloat(e.target.value) || 0 },
+                                }))}
+                                disabled={!canManageFeatures}
+                                className="flex-1 h-9 px-3 rounded-lg text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-violet-500/50"
+                              />
+                              <span className="text-xs text-slate-500">%</span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                      <label className="block">
+                        <span className="text-xs font-medium text-slate-400">Default Recharge Card</span>
+                        <div className="mt-1 flex items-center gap-2 max-w-xs">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            value={reloadSettings.defaultRechargeCardCommission}
+                            onChange={e => setReloadSettings(prev => ({
+                              ...prev,
+                              defaultRechargeCardCommission: parseFloat(e.target.value) || 0,
+                            }))}
+                            disabled={!canManageFeatures}
+                            className="flex-1 h-9 px-3 rounded-lg text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-violet-500/50"
                           />
                           <span className="text-xs text-slate-500">%</span>
                         </div>

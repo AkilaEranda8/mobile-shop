@@ -3,6 +3,7 @@ import {
   calcReloadCommission,
   fetchTenantReloadSettings,
   resolveReloadProvider,
+  type ReloadServiceType,
   type ReloadSettings,
 } from './reload-settings.util'
 
@@ -22,7 +23,7 @@ function round2(n: number) {
 }
 
 export function buildProviderBreakdown(
-  reloads: Array<{ amount: number; connectionNo: string; provider?: string | null; status: string }>,
+  reloads: Array<{ amount: number; connectionNo: string; provider?: string | null; status: string; reloadType?: string | null }>,
   settings: ReloadSettings,
   paidByProvider: Record<string, number>,
 ): ProviderReloadStats[] {
@@ -40,7 +41,10 @@ export function buildProviderBreakdown(
     const amt = Number(r.amount)
     map[key].count += 1
     map[key].reloadTotal += amt
-    map[key].commission += calcReloadCommission(amt, settings, r.connectionNo, r.provider)
+    map[key].commission += calcReloadCommission(
+      amt, settings, r.connectionNo, r.provider,
+      (r.reloadType === 'RECHARGE_CARD' ? 'RECHARGE_CARD' : 'RELOAD') as ReloadServiceType,
+    )
   }
 
   const rows: ProviderReloadStats[] = []
