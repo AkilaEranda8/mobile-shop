@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import { ZodError } from 'zod'
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library'
+import { PrismaClientKnownRequestError, PrismaClientValidationError } from '@prisma/client/runtime/library'
 
 export class AppError extends Error {
   constructor(
@@ -48,6 +48,11 @@ export function errorHandler(
       return
     }
     res.status(400).json({ success: false, message: 'Database error' })
+    return
+  }
+
+  if (err instanceof PrismaClientValidationError) {
+    res.status(400).json({ success: false, message: 'Invalid data provided' })
     return
   }
 

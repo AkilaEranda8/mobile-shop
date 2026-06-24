@@ -67,7 +67,7 @@ router.post('/purchase-orders', authorize('OWNER', 'MANAGER'), async (req: Reque
       const firstBranch = await prisma.branch.findFirst({ where: { tenantId: req.tenantId! } })
       branchId = firstBranch?.id
     }
-    if (!branchId) throw new Error('No branch found for this tenant — contact admin')
+    if (!branchId) throw new AppError('No branch found for this tenant — contact admin', 400)
     const po = await prisma.purchaseOrder.create({
       data: {
         tenantId: req.tenantId!,
