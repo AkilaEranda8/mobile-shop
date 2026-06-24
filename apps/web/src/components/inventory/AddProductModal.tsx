@@ -487,22 +487,19 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
 
   /* ── Render ────────────────────────────────────────────────────────────── */
   return (
-    <div className="space-y-6 pb-8">
-      {/* ── Header ─────────────────────────────────────────── */}
-      <div
-        className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 -mx-4 lg:-mx-6 px-4 lg:px-6 py-4 sticky top-0 z-10"
-        style={{ background: 'var(--bg-primary, #0b0f19)', borderBottom: '1px solid var(--border-subtle)' }}
-      >
-        <div className="flex items-start gap-3 min-w-0 flex-1">
-          <button type="button" onClick={onClose} className="btn-ghost p-2 shrink-0 mt-0.5" aria-label="Back to inventory">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="flex items-start gap-3 min-w-0">
+          <button type="button" onClick={onClose} className="btn-ghost p-2 shrink-0 mt-1" aria-label="Back to inventory">
             <ArrowLeft size={18} />
           </button>
           <div className="min-w-0">
-            <h1 className="text-lg sm:text-xl font-bold truncate" style={{ color: 'var(--text-primary)' }}>Create New Product</h1>
-            <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>Add a new product to your inventory.</p>
+            <h1 className="page-title">Create New Product</h1>
+            <p className="page-subtitle">Add a new product to your inventory.</p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 sm:ml-auto shrink-0 pl-11 sm:pl-0">
+        <div className="flex flex-wrap gap-2 sm:ml-auto pl-11 sm:pl-0">
           <button type="button" onClick={onClose} className="btn-secondary text-sm">Cancel</button>
           <button type="button" onClick={submit} disabled={loading || !form.name.trim() || !form.sku.trim()}
             className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
@@ -512,8 +509,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-5 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-5 items-start">
 
             {/* ══ LEFT COLUMN ══════════════════════════════════════════ */}
             <div className="space-y-5 min-w-0">
@@ -888,7 +884,6 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
               </div>
             </div>
           </div>
-        </div>
     </div>
   )
 }
