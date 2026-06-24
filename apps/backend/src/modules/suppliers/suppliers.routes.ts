@@ -124,81 +124,90 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
 
     const newStatus = req.body.status as string | undefined
     // ── Restock inventory when marking as RECEIVED ─────────────────────────
-    // Per-item guard so every item in a multi-item PO gets its stock updated.
+    // Per-item sequential processing to avoid race conditions.
     if (newStatus === 'RECEIVED') {
       try {
-        // Resolve productId for items where it wasn't linked at PO creation time
-        const resolvedItems = await Promise.all(
-          po.items.map(async (item: any) => {
-            let productId = item.productId
-            let branchId  = (item as any).branchId ?? po.branchId
-            if (!productId && item.productName) {
-              const p = await prisma.product.findFirst({
-                where: { tenantId: req.tenantId!, name: { equals: item.productName, mode: 'insensitive' }, isActive: true },
-              })
-              if (p) { productId = p.id; branchId = p.branchId ?? po.branchId }
-            }
-            if (!productId) return null
-            // Ensure branchId is resolved — fall back to first branch of tenant
-            if (!branchId) {
-              const branch = await prisma.branch.findFirst({ where: { tenantId: req.tenantId! } })
-              branchId = branch?.id
-            }
-            return branchId ? { ...item, productId, branchId } : null
-          })
-        )
-        const itemsWithProduct = resolvedItems.filter(Boolean) as any[]
+        console.log(`[PO receive] Processing PO ${po.poNumber} with ${po.items.length} items`)
 
-        if (itemsWithProduct.length > 0) {
-          await Promise.all(
-            itemsWithProduct.map(async (item: any) => {
-              // Per-item guard: check if THIS specific item was already restocked
-              // using both po.id reference AND productId so we don't double-stock
-              const alreadyDone = !!(await prisma.stockMovement.findFirst({
-                where: {
-                  type:      'PURCHASE',
-                  productId: item.productId,
-                  OR: [{ reference: po.id }, { reference: po.poNumber }],
-                },
-              }))
-              if (alreadyDone) return  // skip if this item was already restocked
+        for (const item of po.items) {
+          let productId = item.productId || undefined
+          let branchId  = (item as any).branchId ?? po.branchId
 
-              const p = await prisma.product.findUnique({ where: { id: item.productId } })
-              if (!p) return
-
-              let updatedVariations = p.storageVariations as any[] | null
-              if (updatedVariations && Array.isArray(updatedVariations)) {
-                updatedVariations = updatedVariations.map((v: any) => {
-                  const match = (item.sku && v.sku === item.sku) ||
-                                (item.storage && item.colorName && v.storage === item.storage && v.colorName === item.colorName)
-                  if (match) {
-                    return { ...v, stock: (v.stock || 0) + item.quantity }
-                  }
-                  return v
-                })
-              }
-
-              await prisma.product.update({
-                where: { id: item.productId },
-                data: {
-                  stock: { increment: item.quantity },
-                  ...(updatedVariations ? { storageVariations: updatedVariations } : {}),
-                },
-              })
-
-              await prisma.stockMovement.create({
-                data: {
-                  productId:   item.productId,
-                  branchId:    item.branchId,
-                  type:        'PURCHASE' as const,
-                  quantity:    item.quantity,
-                  reference:   po.id,
-                  note:        `Received via PO ${po.poNumber}`,
-                  performedBy: req.user?.userId ?? 'system',
-                },
-              })
+          // Fallback: resolve by name if productId not supplied
+          if (!productId && item.productName) {
+            const p = await prisma.product.findFirst({
+              where: { tenantId: req.tenantId!, name: { equals: item.productName, mode: 'insensitive' }, isActive: true },
             })
-          )
+            if (p) { productId = p.id; branchId = p.branchId ?? po.branchId }
+          }
+
+          if (!productId) {
+            console.warn(`[PO receive] Skipping item "${item.productName}" — no productId found`)
+            continue
+          }
+
+          // Ensure branchId is resolved — fall back to first branch of tenant
+          if (!branchId) {
+            const branch = await prisma.branch.findFirst({ where: { tenantId: req.tenantId! } })
+            branchId = branch?.id
+          }
+          if (!branchId) {
+            console.warn(`[PO receive] Skipping item "${item.productName}" — no branchId found`)
+            continue
+          }
+
+          // Idempotency guard per item
+          const alreadyDone = !!(await prisma.stockMovement.findFirst({
+            where: {
+              type:      'PURCHASE',
+              productId: productId,
+              reference: po.id,
+            },
+          }))
+          if (alreadyDone) {
+            console.log(`[PO receive] Item "${item.productName}" already restocked — skipping`)
+            continue
+          }
+
+          const p = await prisma.product.findUnique({ where: { id: productId } })
+          if (!p) {
+            console.warn(`[PO receive] Product ${productId} not found in DB — skipping`)
+            continue
+          }
+
+          // Update variation stock if product has variants
+          let updatedVariations = p.storageVariations as any[] | null
+          if (updatedVariations && Array.isArray(updatedVariations)) {
+            updatedVariations = updatedVariations.map((v: any) => {
+              const match = (item.sku && v.sku === item.sku) ||
+                            ((item as any).storage && (item as any).colorName &&
+                             v.storage === (item as any).storage && v.colorName === (item as any).colorName)
+              if (match) return { ...v, stock: (v.stock || 0) + item.quantity }
+              return v
+            })
+          }
+
+          await prisma.product.update({
+            where: { id: productId },
+            data: {
+              stock: { increment: item.quantity },
+              ...(updatedVariations ? { storageVariations: updatedVariations } : {}),
+            },
+          })
+
+          await prisma.stockMovement.create({
+            data: {
+              productId,
+              branchId,
+              type:        'PURCHASE' as const,
+              quantity:    item.quantity,
+              reference:   po.id,
+              note:        `Received via PO ${po.poNumber}`,
+              performedBy: req.user?.userId ?? 'system',
+            },
+          })
+
+          console.log(`[PO receive] ✓ Restocked "${item.productName}" +${item.quantity}`)
         }
       } catch (stockErr) {
         // Stock update failed — log but don't block the PO status update
