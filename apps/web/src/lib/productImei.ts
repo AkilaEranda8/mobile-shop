@@ -28,15 +28,20 @@ export function trackFlagToImeiType(trackImei: boolean): ImeiProductType {
 export function inferImeiProductType(opts: {
   categoryName?: string
   deviceModel?: string
+  productName?: string
   hasVariants?: boolean
 }): ImeiProductType | null {
-  const { categoryName = '', deviceModel = '', hasVariants = false } = opts
+  const { categoryName = '', deviceModel = '', productName = '', hasVariants = false } = opts
 
   if (deviceModel && PHONE_DEVICE_MODELS.has(deviceModel)) return 'device'
   if (deviceModel && NON_IMEI_DEVICE_MODELS.has(deviceModel)) return 'accessory'
 
   if (categoryName && NON_IMEI_CATEGORY_RE.test(categoryName)) return 'accessory'
   if (categoryName && PHONE_CATEGORY_RE.test(categoryName)) return 'device'
+
+  const name = productName.toLowerCase()
+  if (name && NON_IMEI_CATEGORY_RE.test(name)) return 'accessory'
+  if (name && PHONE_CATEGORY_RE.test(name)) return 'device'
 
   if (hasVariants) return 'device'
 
