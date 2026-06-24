@@ -457,7 +457,7 @@ function VariationPickerModal({
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="relative w-full max-w-sm mx-4 rounded-2xl shadow-2xl overflow-hidden border" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
+      <div className="relative w-full max-w-2xl mx-4 rounded-2xl shadow-2xl overflow-hidden border" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
 
         {/* Header — product image + name */}
         <div className="relative overflow-hidden" style={{ height: 130 }}>
@@ -485,7 +485,7 @@ function VariationPickerModal({
         </div>
 
         {/* Body */}
-        <div className="p-4 space-y-4">
+        <div className="p-5 space-y-4">
 
           {/* Storage selection */}
           {storageOptions.length > 0 && (
@@ -605,13 +605,13 @@ function VariationPickerModal({
 
           {/* Selected variant info */}
           {selected && (
-            <div className="rounded-xl p-3 flex items-center justify-between gap-3" style={{ background: POS_THEME.bg, border: `1px solid ${POS_THEME.border}` }}>
+            <div className="rounded-xl p-4 grid grid-cols-3 gap-4" style={{ background: POS_THEME.bg, border: `1px solid ${POS_THEME.border}` }}>
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: POS_THEME.muted }}>Price</p>
                 <p className="pos-price text-lg font-extrabold leading-none">{formatCurrency(selected.sellingPrice)}</p>
               </div>
               {selected.sku && (
-                <div className="text-right">
+                <div className="text-center">
                   <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: POS_THEME.muted }}>SKU</p>
                   <p className="text-[11px] font-mono text-white/70">{selected.sku}</p>
                 </div>
@@ -3630,7 +3630,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       {showRecentInvoices && (
         <div className="fixed inset-0 z-[110] flex" data-pos="dark">
           <div className="flex-1 bg-black/50 backdrop-blur-sm" onClick={() => setShowRecentInvoices(false)} />
-          <div className="w-[480px] flex flex-col shadow-2xl" style={{ background: POS_THEME.card, borderLeft: `1px solid ${POS_THEME.border}` }}>
+          <div className="w-[min(520px,44vw)] flex flex-col shadow-2xl" style={{ background: POS_THEME.card, borderLeft: `1px solid ${POS_THEME.border}` }}>
             <div className="flex items-center justify-between px-5 py-4 border-b flex-shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="flex items-center gap-2">
                 <Receipt size={15} className="text-violet-400" />

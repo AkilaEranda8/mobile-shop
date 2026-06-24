@@ -12,6 +12,7 @@ import { useSuppliers, usePurchaseOrders, useProducts } from '@/lib/hooks'
 import { suppliersApi, branchesApi, imeiApi, productsApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import type { Supplier, PurchaseOrder, POItem } from '@/types'
+import { isImeiHealthBannerDismissed, dismissImeiHealthBanner } from '@/lib/productImei'
 
 type PoProduct = { id: string; trackImei?: boolean; name?: string }
 
@@ -1289,6 +1290,7 @@ export default function SuppliersPage() {
   const [confirmPO,       setConfirmPO]           = useState<PurchaseOrder | null>(null)
   const [registerImeiPO,  setRegisterImeiPO]      = useState<PurchaseOrder | null>(null)
   const [paySupplier,     setPaySupplier]         = useState<Supplier | null>(null)
+  const [imeiBannerHidden, setImeiBannerHidden]   = useState(() => isImeiHealthBannerDismissed())
   const { data: suppliersData, loading: suppliersLoading, refetch: refetchSuppliers } = useSuppliers()
   const { data: ordersData,    loading: ordersLoading,    refetch: refetchOrders    } = usePurchaseOrders()
   const { data: productsData } = useProducts({ limit: '2000' })
@@ -1505,12 +1507,18 @@ export default function SuppliersPage() {
         </div>
       </div>
 
-      {activeTab === 'orders' && incompletePoCount > 0 && (
-        <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 px-4 py-3 flex items-center gap-3">
-          <AlertCircle size={16} className="text-amber-400 flex-shrink-0" />
-          <p className="text-xs text-amber-200">
-            <strong>{incompletePoCount}</strong> received PO(s) still need device IMEI registration — use <strong>Register IMEI</strong> on each PO.
-          </p>
+      {activeTab === 'orders' && incompletePoCount > 0 && !imeiBannerHidden && (
+        <div className="rounded-xl border border-amber-300 dark:border-amber-500/25 bg-amber-50 dark:bg-amber-500/5 px-4 py-3 flex items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-center gap-3 min-w-0">
+            <AlertCircle size={16} className="text-amber-600 dark:text-amber-400 flex-shrink-0" />
+            <p className="text-xs text-amber-900 dark:text-amber-200">
+              <strong>{incompletePoCount}</strong> received PO(s) still need device IMEI registration — use <strong>Register IMEI</strong> on each PO.
+            </p>
+          </div>
+          <button type="button" onClick={() => { dismissImeiHealthBanner(); setImeiBannerHidden(true) }}
+            className="flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg text-gray-600 hover:bg-gray-200/60 dark:text-slate-400 dark:hover:bg-white/5 flex-shrink-0">
+            <X size={13} /> Hide
+          </button>
         </div>
       )}
 

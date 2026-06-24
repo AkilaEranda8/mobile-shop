@@ -51,3 +51,16 @@ export function inferImeiProductType(opts: {
 export function imeiTypeLabel(type: ImeiProductType): string {
   return type === 'device' ? 'Phone / Tablet (has IMEI)' : 'No IMEI (accessory / part)'
 }
+
+export const IMEI_HEALTH_BANNER_DISMISS_KEY = 'hexalyte:dismiss-imei-health-alert'
+
+export function isImeiHealthBannerDismissed(): boolean {
+  if (typeof window === 'undefined') return false
+  return localStorage.getItem(IMEI_HEALTH_BANNER_DISMISS_KEY) === '1'
+}
+
+export function dismissImeiHealthBanner(): void {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(IMEI_HEALTH_BANNER_DISMISS_KEY, '1')
+  }
+}

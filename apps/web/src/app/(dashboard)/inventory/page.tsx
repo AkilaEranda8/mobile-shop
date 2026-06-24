@@ -15,7 +15,7 @@ import toast from 'react-hot-toast'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import { ImeiProductTypeSelector } from '@/components/inventory/ImeiProductTypeSelector'
-import { imeiTypeToTrackFlag, trackFlagToImeiType, inferImeiProductType, type ImeiProductType } from '@/lib/productImei'
+import { imeiTypeToTrackFlag, trackFlagToImeiType, inferImeiProductType, isImeiHealthBannerDismissed, dismissImeiHealthBanner, type ImeiProductType } from '@/lib/productImei'
 
 /* ── CSV Export ─────────────────────────────────────────────────────── */
 function exportProductsCSV(products: Product[]) {
@@ -914,16 +914,22 @@ function ImeiHealthBanner({ onFixed }: { onFixed: () => void }) {
     incompletePurchaseOrders: { id: string; poNumber: string; expected: number; registered: number }[]
   } | null>(null)
   const [fixing, setFixing] = useState(false)
+  const [hidden, setHidden] = useState(() => isImeiHealthBannerDismissed())
 
   const load = () => {
     productsApi.imeiHealth().then((r: any) => setHealth(r.data ?? r)).catch(() => {})
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { if (!hidden) load() }, [hidden])
 
   const mismatches = health?.stockMismatches ?? []
   const incompletePos = health?.incompletePurchaseOrders ?? []
-  if (!mismatches.length && !incompletePos.length) return null
+  if (hidden || (!mismatches.length && !incompletePos.length)) return null
+
+  const handleDismiss = () => {
+    dismissImeiHealthBanner()
+    setHidden(true)
+  }
 
   const handleBulkFix = async () => {
     setFixing(true)
@@ -940,34 +946,40 @@ function ImeiHealthBanner({ onFixed }: { onFixed: () => void }) {
   }
 
   return (
-    <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 space-y-3">
+    <div className="rounded-xl border border-amber-300 dark:border-amber-500/25 bg-amber-50 dark:bg-amber-500/5 p-4 space-y-3 shadow-sm">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
-          <AlertTriangle size={16} className="text-amber-400 flex-shrink-0" />
-          <p className="text-sm font-semibold text-amber-200">IMEI attention needed</p>
+          <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 flex-shrink-0" />
+          <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">IMEI attention needed</p>
         </div>
-        <button type="button" onClick={handleBulkFix} disabled={fixing}
-          className="text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-50">
-          {fixing ? 'Fixing…' : 'Auto-fix product IMEI flags'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={handleBulkFix} disabled={fixing}
+            className="text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-50">
+            {fixing ? 'Fixing…' : 'Auto-fix product IMEI flags'}
+          </button>
+          <button type="button" onClick={handleDismiss} title="Hide this notice"
+            className="flex items-center gap-1 text-[11px] font-medium px-2 py-1.5 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-200/60 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-white/5">
+            <X size={13} /> Hide
+          </button>
+        </div>
       </div>
       {mismatches.length > 0 && (
         <div>
-          <p className="text-xs text-amber-300/90 mb-1">{mismatches.length} phone(s) have stock without enough registered IMEIs:</p>
-          <ul className="text-[11px] text-slate-400 space-y-0.5 max-h-24 overflow-y-auto">
+          <p className="text-xs text-amber-900 dark:text-amber-300/90 mb-1">{mismatches.length} phone(s) have stock without enough registered IMEIs:</p>
+          <ul className="text-[11px] text-gray-700 dark:text-slate-400 space-y-0.5 max-h-24 overflow-y-auto">
             {mismatches.slice(0, 8).map(m => (
-              <li key={m.id}>• {m.name} — stock {m.stock}, IMEI {m.imeiInStock} <span className="text-amber-400">(missing {m.gap})</span></li>
+              <li key={m.id}>• {m.name} — stock {m.stock}, IMEI {m.imeiInStock} <span className="text-amber-700 dark:text-amber-400 font-medium">(missing {m.gap})</span></li>
             ))}
           </ul>
         </div>
       )}
       {incompletePos.length > 0 && (
         <div>
-          <p className="text-xs text-amber-300/90 mb-1">{incompletePos.length} received PO(s) need IMEI registration:</p>
-          <ul className="text-[11px] text-slate-400 space-y-0.5">
+          <p className="text-xs text-amber-900 dark:text-amber-300/90 mb-1">{incompletePos.length} received PO(s) need IMEI registration:</p>
+          <ul className="text-[11px] text-gray-700 dark:text-slate-400 space-y-0.5">
             {incompletePos.slice(0, 5).map(po => (
               <li key={po.id}>
-                • <a href={`/purchase-invoice?id=${po.id}`} className="text-violet-400 hover:underline">{po.poNumber}</a>
+                • <a href={`/purchase-invoice?id=${po.id}`} className="text-violet-700 dark:text-violet-400 hover:underline font-medium">{po.poNumber}</a>
                 {' '}— {po.registered}/{po.expected} IMEIs
               </li>
             ))}
