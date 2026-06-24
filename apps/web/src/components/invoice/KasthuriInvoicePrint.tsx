@@ -110,7 +110,7 @@ const KasthuriInvoicePrint = forwardRef<
   const invoiceRef = (outerRef as React.RefObject<HTMLDivElement>) ?? localRef
 
   const companyName = settings.companyLegalName || settings.shopName || 'KASTHURI MOBILE SOLUTIONS (PVT) LTD'
-  const logo = settings.logo || ''
+  const logo = settings.logo?.trim() || '/invoice-templates/kasthuri-logo.png'
   const website = settings.website || 'www.kasthurimobile.com'
   const qrSrc = settings.qrCodeUrl
     || `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(website.startsWith('http') ? website : `https://${website}`)}`
@@ -153,14 +153,8 @@ const KasthuriInvoicePrint = forwardRef<
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
           <h1 style={{ margin: 0, fontSize: 42, fontWeight: 700, letterSpacing: 1 }}>INVOICE</h1>
-          <div style={{ textAlign: 'right', maxWidth: 280 }}>
-            {logo ? (
-              <img src={logo} alt={settings.shopName} style={{ maxHeight: 72, maxWidth: 260, objectFit: 'contain' }} crossOrigin="anonymous" />
-            ) : (
-              <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.3, letterSpacing: 0.5 }}>
-                KASTHURI<br />MOBILE SOLUTIONS
-              </div>
-            )}
+          <div style={{ textAlign: 'right', maxWidth: 300 }}>
+            <img src={logo} alt={settings.shopName || 'Kasthuri Mobile Solutions'} style={{ maxHeight: 80, maxWidth: 280, objectFit: 'contain' }} crossOrigin="anonymous" />
           </div>
         </div>
 

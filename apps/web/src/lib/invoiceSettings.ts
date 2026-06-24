@@ -49,6 +49,7 @@ export const KASTHURI_INVOICE_PRESET: Partial<InvoiceSettings> = {
   invoiceTemplate: 'kasthuri',
   shopName: 'Kasthuri Mobile Solutions',
   companyLegalName: 'KASTHURI MOBILE SOLUTIONS (PVT) LTD',
+  logo: '/invoice-templates/kasthuri-logo.png',
   slogan: 'Expert In Repairs For iPhone, MacBook, Apple Watch, And AirPods – Delivering Professional, Reliable Solutions For All Your Apple Devices.',
   address: '06, Behind Gimanhala Road, Dambulla, Sri Lanka.',
   website: 'www.kasthurimobile.com',
@@ -121,7 +122,17 @@ export function isKasthuriInvoice(settings: InvoiceSettings, tenantSlug?: string
 
 export function applyKasthuriPreset(settings: InvoiceSettings, tenantSlug?: string): InvoiceSettings {
   if (!isKasthuriInvoice(settings, tenantSlug)) return settings
-  return { ...KASTHURI_INVOICE_PRESET, ...settings, invoiceTemplate: 'kasthuri' }
+  const merged: InvoiceSettings = { ...KASTHURI_INVOICE_PRESET, ...settings, invoiceTemplate: 'kasthuri' }
+  if (!merged.logo?.trim()) merged.logo = KASTHURI_INVOICE_PRESET.logo ?? ''
+  if (!merged.companyLegalName?.trim()) merged.companyLegalName = KASTHURI_INVOICE_PRESET.companyLegalName ?? ''
+  if (!merged.slogan?.trim()) merged.slogan = KASTHURI_INVOICE_PRESET.slogan ?? ''
+  if (!merged.address?.trim()) merged.address = KASTHURI_INVOICE_PRESET.address ?? ''
+  if (!merged.website?.trim()) merged.website = KASTHURI_INVOICE_PRESET.website ?? ''
+  if (!merged.email?.trim()) merged.email = KASTHURI_INVOICE_PRESET.email ?? ''
+  if (!merged.phone?.trim()) merged.phone = KASTHURI_INVOICE_PRESET.phone ?? ''
+  if (!merged.shopName?.trim()) merged.shopName = KASTHURI_INVOICE_PRESET.shopName ?? ''
+  if (!merged.terms?.length) merged.terms = [...(KASTHURI_INVOICE_PRESET.terms ?? [])]
+  return merged
 }
 
 export function mergeReceiptSettings(
