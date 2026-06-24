@@ -241,7 +241,7 @@ export function HexaPosLayout({
             {pagination}
             {bottomActions}
           </div>
-          <div className="w-[min(520px,44vw)] shrink-0 flex flex-col border-l min-h-0" style={{ borderColor: C.border, background: C.card }}>
+          <div className="w-[min(400px,36vw)] shrink-0 flex flex-col border-l min-h-0" style={{ borderColor: C.border, background: C.card }}>
             {cartPanel}
           </div>
         </div>

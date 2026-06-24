@@ -3630,7 +3630,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       {showRecentInvoices && (
         <div className="fixed inset-0 z-[110] flex" data-pos="dark">
           <div className="flex-1 bg-black/50 backdrop-blur-sm" onClick={() => setShowRecentInvoices(false)} />
-          <div className="w-[min(520px,44vw)] flex flex-col shadow-2xl" style={{ background: POS_THEME.card, borderLeft: `1px solid ${POS_THEME.border}` }}>
+          <div className="w-[480px] flex flex-col shadow-2xl" style={{ background: POS_THEME.card, borderLeft: `1px solid ${POS_THEME.border}` }}>
             <div className="flex items-center justify-between px-5 py-4 border-b flex-shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="flex items-center gap-2">
                 <Receipt size={15} className="text-violet-400" />

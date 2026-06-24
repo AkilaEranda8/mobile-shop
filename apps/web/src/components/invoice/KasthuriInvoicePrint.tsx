@@ -2,7 +2,7 @@
 
 import { forwardRef, useRef } from 'react'
 import { Download, Printer, MapPin, Globe, Mail, Phone } from 'lucide-react'
-import type { InvoiceSettings } from '@/lib/invoiceSettings'
+import { KASTHURI_INVOICE_PRESET, type InvoiceSettings } from '@/lib/invoiceSettings'
 
 export interface KasthuriInvoiceItem {
   description: string
@@ -100,7 +100,46 @@ export function buildKasthuriInvoiceData(
 const fmt = (n: number, currency = 'LKR') =>
   new Intl.NumberFormat('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
 
-const MIN_ROWS = 8
+const MIN_ROWS = 6
+
+const BRAND = {
+  dark: '#0f172a',
+  text: '#1e293b',
+  muted: '#64748b',
+  border: '#cbd5e1',
+  borderLight: '#e2e8f0',
+  headerBg: '#0f172a',
+  panelBg: '#f8fafc',
+  accent: '#1d4ed8',
+}
+
+const FONT = {
+  title: 40,
+  subtitle: 12,
+  sectionLabel: 11,
+  body: 13,
+  bodySm: 11.5,
+  tableHead: 11,
+  tableBody: 13,
+  detail: 11.5,
+  termsTitle: 12,
+  termsBody: 11.5,
+  totalRow: 13,
+  totalHighlight: 15,
+  footer: 12,
+  footerTitle: 14,
+  footerSm: 10,
+  slogan: 10,
+}
+
+function MetaRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: 'flex', gap: 8, marginBottom: 8, fontSize: FONT.body, lineHeight: 1.45 }}>
+      <span style={{ color: BRAND.muted, minWidth: 118, flexShrink: 0 }}>{label}</span>
+      <span style={{ color: BRAND.text, fontWeight: 600, flex: 1 }}>{value || '—'}</span>
+    </div>
+  )
+}
 
 const KasthuriInvoicePrint = forwardRef<
   HTMLDivElement,
@@ -143,66 +182,108 @@ const KasthuriInvoicePrint = forwardRef<
     w.close()
   }
 
-  const labelStyle: React.CSSProperties = { fontSize: 11, color: '#111', margin: '0 0 6px' }
-  const thStyle: React.CSSProperties = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.3, padding: '8px 6px', textAlign: 'left', borderBottom: '1px solid #111' }
-  const tdStyle: React.CSSProperties = { fontSize: 11, padding: '7px 6px', verticalAlign: 'top' }
+  const thStyle: React.CSSProperties = {
+    fontSize: FONT.tableHead,
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    padding: '11px 10px',
+    textAlign: 'left',
+    color: '#fff',
+    background: BRAND.headerBg,
+    borderBottom: `2px solid ${BRAND.accent}`,
+  }
+  const tdStyle: React.CSSProperties = { fontSize: FONT.tableBody, padding: '10px 10px', verticalAlign: 'top', color: BRAND.text, borderBottom: `1px solid ${BRAND.borderLight}` }
+  const terms = settings.terms?.length ? settings.terms : KASTHURI_INVOICE_PRESET.terms ?? []
 
   const invoiceBody = (
-    <div ref={invoiceRef} style={{ width: 794, minHeight: 1123, margin: hideControls ? 0 : '0 auto', background: '#fff', color: '#111', fontFamily: 'Arial, Helvetica, sans-serif', padding: '36px 40px 28px', boxSizing: 'border-box' }}>
+    <div
+      ref={invoiceRef}
+      style={{
+        width: 794,
+        minHeight: 1123,
+        margin: hideControls ? 0 : '0 auto',
+        background: '#fff',
+        color: BRAND.text,
+        fontFamily: "'Segoe UI', system-ui, -apple-system, Arial, sans-serif",
+        padding: '0 0 24px',
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      {/* Top accent */}
+      <div style={{ height: 4, background: `linear-gradient(90deg, ${BRAND.headerBg} 0%, ${BRAND.accent} 100%)` }} />
 
+      <div style={{ padding: '32px 44px 0', flex: 1, display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
-          <h1 style={{ margin: 0, fontSize: 42, fontWeight: 700, letterSpacing: 1 }}>INVOICE</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28, paddingBottom: 20, borderBottom: `2px solid ${BRAND.borderLight}` }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: FONT.title, fontWeight: 800, letterSpacing: 2, color: BRAND.dark }}>INVOICE</h1>
+            <p style={{ margin: '6px 0 0', fontSize: FONT.subtitle, color: BRAND.muted, letterSpacing: 1.2, textTransform: 'uppercase' }}>Tax Invoice / Sales Receipt</p>
+          </div>
           <div style={{ textAlign: 'right', maxWidth: 300 }}>
-            <img src={logo} alt={settings.shopName || 'Kasthuri Mobile Solutions'} style={{ maxHeight: 80, maxWidth: 280, objectFit: 'contain' }} crossOrigin="anonymous" />
+            <img
+              src={logo}
+              alt={settings.shopName || 'Kasthuri Mobile Solutions'}
+              style={{ maxHeight: 72, maxWidth: 260, objectFit: 'contain' }}
+              crossOrigin="anonymous"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+            />
           </div>
         </div>
 
         {/* Customer / Invoice meta */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 22, gap: 24 }}>
-          <div style={{ flex: 1 }}>
-            <p style={labelStyle}><strong>Customer Name :</strong> {data.customerName}</p>
-            <p style={labelStyle}><strong>Mobile Number :</strong> {data.customerPhone || '—'}</p>
-            <p style={labelStyle}><strong>Vat Reg. No. :</strong> {data.customerVatRegNo || '—'}</p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+          <div style={{ background: BRAND.panelBg, border: `1px solid ${BRAND.borderLight}`, borderRadius: 8, padding: '14px 16px' }}>
+            <p style={{ margin: '0 0 10px', fontSize: FONT.sectionLabel, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: BRAND.accent }}>Bill To</p>
+            <MetaRow label="Customer" value={data.customerName} />
+            <MetaRow label="Mobile" value={data.customerPhone || '—'} />
+            <MetaRow label="Customer VAT" value={data.customerVatRegNo || '—'} />
           </div>
-          <div style={{ flex: 1, textAlign: 'right' }}>
-            <p style={labelStyle}><strong>Invoice No. :</strong> {data.invoiceNumber}</p>
-            <p style={labelStyle}><strong>Date :</strong> {data.date}</p>
-            <p style={labelStyle}><strong>Vat Reg. No. :</strong> {data.companyVatRegNo || '—'}</p>
+          <div style={{ background: BRAND.panelBg, border: `1px solid ${BRAND.borderLight}`, borderRadius: 8, padding: '14px 16px' }}>
+            <p style={{ margin: '0 0 10px', fontSize: FONT.sectionLabel, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: BRAND.accent }}>Invoice Details</p>
+            <MetaRow label="Invoice No." value={data.invoiceNumber} />
+            <MetaRow label="Date" value={data.date} />
+            <MetaRow label="Company VAT" value={data.companyVatRegNo || '—'} />
           </div>
         </div>
 
         {/* Items table */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 8 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 0, border: `1px solid ${BRAND.borderLight}`, borderRadius: 8, overflow: 'hidden' }}>
           <thead>
             <tr>
-              <th style={{ ...thStyle, width: 36 }}>NO.</th>
-              <th style={thStyle}>DESCRIPTION</th>
-              <th style={{ ...thStyle, width: 48, textAlign: 'right' }}>QTY.</th>
-              <th style={{ ...thStyle, width: 88, textAlign: 'right' }}>UNIT PRICE</th>
-              <th style={{ ...thStyle, width: 56, textAlign: 'right' }}>DIS. %</th>
-              <th style={{ ...thStyle, width: 88, textAlign: 'right' }}>AMOUNT</th>
+              <th style={{ ...thStyle, width: 40, textAlign: 'center' }}>No.</th>
+              <th style={thStyle}>Description</th>
+              <th style={{ ...thStyle, width: 52, textAlign: 'center' }}>Qty</th>
+              <th style={{ ...thStyle, width: 96, textAlign: 'right' }}>Unit Price</th>
+              <th style={{ ...thStyle, width: 60, textAlign: 'center' }}>Disc %</th>
+              <th style={{ ...thStyle, width: 96, textAlign: 'right' }}>Amount</th>
             </tr>
           </thead>
           <tbody>
             {data.items.map((item, idx) => (
-              <tr key={idx}>
-                <td style={tdStyle}>{idx + 1}</td>
+              <tr key={idx} style={{ background: idx % 2 === 0 ? '#fff' : '#fcfdff' }}>
+                <td style={{ ...tdStyle, textAlign: 'center', color: BRAND.muted, fontWeight: 600 }}>{idx + 1}</td>
                 <td style={tdStyle}>
-                  <div>{item.description}</div>
-                  {item.imei && <div style={{ fontSize: 9, color: '#444', marginTop: 2 }}>IMEI: {item.imei}</div>}
-                  {item.warrantyCode && <div style={{ fontSize: 9, color: '#444' }}>Warranty: {item.warrantyCode}</div>}
-                  {item.warrantyExpiry && <div style={{ fontSize: 9, color: '#444' }}>Expires: {item.warrantyExpiry}</div>}
+                  <div style={{ fontWeight: 600, color: BRAND.dark }}>{item.description}</div>
+                  {(item.imei || item.warrantyCode || item.warrantyExpiry) && (
+                    <div style={{ marginTop: 6, padding: '7px 10px', background: BRAND.panelBg, borderLeft: `3px solid ${BRAND.accent}`, borderRadius: '0 4px 4px 0', fontSize: FONT.detail, lineHeight: 1.55, color: BRAND.muted }}>
+                      {item.imei && <div><span style={{ fontWeight: 700, color: BRAND.text }}>IMEI:</span> {item.imei}</div>}
+                      {item.warrantyCode && <div><span style={{ fontWeight: 700, color: BRAND.text }}>Warranty:</span> {item.warrantyCode}</div>}
+                      {item.warrantyExpiry && <div><span style={{ fontWeight: 700, color: BRAND.text }}>Valid until:</span> {item.warrantyExpiry}</div>}
+                    </div>
+                  )}
                 </td>
-                <td style={{ ...tdStyle, textAlign: 'right' }}>{item.qty}</td>
-                <td style={{ ...tdStyle, textAlign: 'right' }}>{fmt(item.unitPrice)}</td>
-                <td style={{ ...tdStyle, textAlign: 'right' }}>{item.discountPct > 0 ? item.discountPct.toFixed(2) : '—'}</td>
-                <td style={{ ...tdStyle, textAlign: 'right' }}>{fmt(item.amount)}</td>
+                <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 600 }}>{item.qty}</td>
+                <td style={{ ...tdStyle, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(item.unitPrice)}</td>
+                <td style={{ ...tdStyle, textAlign: 'center', color: BRAND.muted }}>{item.discountPct > 0 ? item.discountPct.toFixed(2) : '—'}</td>
+                <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{fmt(item.amount)}</td>
               </tr>
             ))}
             {Array.from({ length: emptyRows }).map((_, i) => (
               <tr key={`e-${i}`}>
-                <td style={tdStyle}>&nbsp;</td>
+                <td style={{ ...tdStyle, height: 28 }}>&nbsp;</td>
                 <td style={tdStyle} />
                 <td style={tdStyle} />
                 <td style={tdStyle} />
@@ -212,82 +293,85 @@ const KasthuriInvoicePrint = forwardRef<
             ))}
           </tbody>
         </table>
-        <div style={{ borderBottom: '1px solid #111', marginBottom: 16 }} />
 
-        {/* Totals */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 28 }}>
-          <div style={{ width: 240, fontSize: 11 }}>
+        {/* Totals + Terms row */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 32, marginTop: 22, marginBottom: 24 }}>
+          <div style={{ flex: 1, maxWidth: 380 }}>
+            <p style={{ margin: '0 0 8px', fontSize: FONT.termsTitle, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: BRAND.dark }}>Terms &amp; Conditions</p>
+            <ul style={{ margin: 0, paddingLeft: 14, fontSize: FONT.termsBody, lineHeight: 1.65, color: BRAND.muted }}>
+              {terms.map((t, i) => (
+                <li key={i} style={{ marginBottom: 5 }}>{t}</li>
+              ))}
+            </ul>
+          </div>
+          <div style={{ width: 280, border: `1px solid ${BRAND.borderLight}`, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
             {[
-              ['Total Value :', fmt(data.totalValue)],
-              ['Disc. Total :', fmt(data.discountTotal)],
-              ['VAT :', fmt(data.vat)],
-              ['Total :', fmt(data.total)],
+              ['Total Value', fmt(data.totalValue)],
+              ['Discount', fmt(data.discountTotal)],
+              ['VAT', fmt(data.vat)],
             ].map(([label, value]) => (
-              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                <span>{label}</span><span>{value}</span>
+              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 14px', fontSize: FONT.totalRow, borderBottom: `1px solid ${BRAND.borderLight}`, background: '#fff' }}>
+                <span style={{ color: BRAND.muted }}>{label}</span>
+                <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
               </div>
             ))}
-            <div style={{ borderTop: '1px solid #111', margin: '8px 0 6px', paddingTop: 6, display: 'flex', justifyContent: 'space-between' }}>
-              <span>Advance :</span><span>{fmt(data.advance)}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '11px 14px', fontSize: FONT.totalHighlight, fontWeight: 800, background: BRAND.headerBg, color: '#fff' }}>
+              <span>Total</span>
+              <span style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt(data.total)}</span>
             </div>
-            <div style={{ borderBottom: '3px double #111', paddingBottom: 4, display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
-              <span>Balance :</span><span>{fmt(data.balance)}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 14px', fontSize: FONT.totalRow, borderBottom: `1px solid ${BRAND.borderLight}` }}>
+              <span style={{ color: BRAND.muted }}>Advance Paid</span>
+              <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmt(data.advance)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '11px 14px', fontSize: FONT.totalHighlight, fontWeight: 800, background: data.balance > 0 ? '#fef3c7' : BRAND.panelBg, color: BRAND.dark }}>
+              <span>Balance Due</span>
+              <span style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt(data.balance)}</span>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Terms */}
-        <div style={{ marginBottom: 20 }}>
-          <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700 }}>Terms &amp; Conditions</p>
-          <ul style={{ margin: 0, paddingLeft: 16, fontSize: 10, lineHeight: 1.6 }}>
-            {(settings.terms?.length ? settings.terms : [
-              'Checking warranty does not apply if the warranty sticker is broken or removed.',
-              'Goods / Parts / Accessories once sold will not be taken back.',
-            ]).map((t, i) => (
-              <li key={i} style={{ marginBottom: 4 }}>* {t}</li>
-            ))}
-          </ul>
-        </div>
-
-        <div style={{ borderTop: '1px solid #111', marginBottom: 14 }} />
-
-        {/* Footer */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
-          <div style={{ flex: 1, fontSize: 10, lineHeight: 1.7 }}>
-            <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700 }}>{companyName}</p>
+      {/* Footer band */}
+      <div style={{ marginTop: 'auto', borderTop: `2px solid ${BRAND.borderLight}`, background: BRAND.panelBg, padding: '18px 44px 14px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 20 }}>
+          <div style={{ flex: 1, fontSize: FONT.footer, lineHeight: 1.75 }}>
+            <p style={{ margin: '0 0 8px', fontSize: FONT.footerTitle, fontWeight: 800, color: BRAND.dark, letterSpacing: 0.3 }}>{companyName}</p>
             {settings.address && (
-              <p style={{ margin: '0 0 4px', display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-                <MapPin size={12} style={{ flexShrink: 0, marginTop: 2 }} />
+              <p style={{ margin: '0 0 4px', display: 'flex', alignItems: 'flex-start', gap: 8, color: BRAND.muted }}>
+                <MapPin size={14} style={{ flexShrink: 0, marginTop: 2, color: BRAND.accent }} />
                 <span>{settings.address}</span>
               </p>
             )}
             {settings.website && (
-              <p style={{ margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Globe size={12} />
+              <p style={{ margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 8, color: BRAND.muted }}>
+                <Globe size={14} style={{ color: BRAND.accent }} />
                 <span>{settings.website}</span>
               </p>
             )}
             {settings.email && (
-              <p style={{ margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Mail size={12} />
+              <p style={{ margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 8, color: BRAND.muted }}>
+                <Mail size={14} style={{ color: BRAND.accent }} />
                 <span>{settings.email}</span>
               </p>
             )}
             {settings.phone && (
-              <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Phone size={12} />
+              <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8, color: BRAND.muted }}>
+                <Phone size={14} style={{ color: BRAND.accent }} />
                 <span>{settings.phone}</span>
               </p>
             )}
           </div>
-          <img src={qrSrc} alt="QR" width={88} height={88} style={{ flexShrink: 0 }} crossOrigin="anonymous" />
+          <div style={{ textAlign: 'center', flexShrink: 0 }}>
+            <img src={qrSrc} alt="QR" width={80} height={80} style={{ display: 'block', border: `1px solid ${BRAND.borderLight}`, borderRadius: 6, background: '#fff', padding: 4 }} crossOrigin="anonymous" />
+            <p style={{ margin: '6px 0 0', fontSize: FONT.footerSm, color: BRAND.muted }}>Scan to visit</p>
+          </div>
         </div>
-
         {settings.slogan && (
-          <p style={{ margin: '18px 0 0', fontSize: 8.5, color: '#444', textAlign: 'center', lineHeight: 1.5 }}>
+          <p style={{ margin: '14px 0 0', paddingTop: 12, borderTop: `1px solid ${BRAND.borderLight}`, fontSize: FONT.slogan, color: BRAND.muted, textAlign: 'center', lineHeight: 1.55, fontStyle: 'italic' }}>
             {settings.slogan}
           </p>
         )}
+      </div>
     </div>
   )
 

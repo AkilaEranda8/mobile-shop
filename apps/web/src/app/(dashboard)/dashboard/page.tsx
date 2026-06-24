@@ -1,15 +1,13 @@
 'use client'
 
-import { useMemo, useEffect, useState } from 'react'
+import { useMemo, useEffect } from 'react'
 import {
   ShoppingCart, TrendingUp, Package, Wrench, AlertTriangle,
   Users, ArrowUpRight, ArrowRight, Receipt, Activity,
-  BarChart2, DollarSign, ChevronRight, TrendingDown, Star, Lock, Smartphone, X
+  BarChart2, DollarSign, ChevronRight, TrendingDown, Star, Lock
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePos } from '@/lib/use-pos'
-import { productsApi } from '@/lib/api'
-import { isImeiHealthBannerDismissed, dismissImeiHealthBanner } from '@/lib/productImei'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell
@@ -94,18 +92,6 @@ export default function DashboardPage() {
   const { data: stats, refetch: refetchDashboard } = useAnalyticsDashboard()
   const { data: rawTopProducts, refetch: refetchTopProducts } = useTopProducts()
   const hasDailyClosing = useFeatureFlag('DAILY_CLOSING')
-  const [imeiAlerts, setImeiAlerts] = useState<{ stock: number; pos: number }>({ stock: 0, pos: 0 })
-  const [imeiBannerHidden, setImeiBannerHidden] = useState(() => isImeiHealthBannerDismissed())
-
-  useEffect(() => {
-    productsApi.imeiHealth().then((r: any) => {
-      const d = r.data ?? r
-      setImeiAlerts({
-        stock: (d.stockMismatches ?? []).length,
-        pos: (d.incompletePurchaseOrders ?? []).length,
-      })
-    }).catch(() => {})
-  }, [])
 
   useEffect(() => {
     const onSale = () => {
@@ -206,30 +192,6 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-black text-gray-900 dark:text-white">Dashboard</h1>
         <p className="text-sm text-gray-500 mt-0.5">Welcome back! Here&apos;s what&apos;s happening with your business today.</p>
       </div>
-
-      {(imeiAlerts.stock > 0 || imeiAlerts.pos > 0) && !imeiBannerHidden && (
-        <div className={`${CARD} p-4 border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/5`}>
-          <div className="flex items-start gap-3 flex-wrap">
-            <Smartphone size={18} className="text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">IMEI registration needed</p>
-              <p className="text-xs text-amber-900/90 dark:text-amber-300/80 mt-1">
-                {imeiAlerts.stock > 0 && `${imeiAlerts.stock} phone product(s) have stock without enough IMEIs. `}
-                {imeiAlerts.pos > 0 && `${imeiAlerts.pos} purchase order(s) need device IMEI registration.`}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link href="/inventory" className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-violet-600 text-white hover:bg-violet-500">
-                Fix in Inventory
-              </Link>
-              <button type="button" onClick={() => { dismissImeiHealthBanner(); setImeiBannerHidden(true) }}
-                className="flex items-center gap-1 text-xs font-medium px-2 py-1.5 rounded-lg text-gray-600 hover:bg-gray-100 dark:text-slate-400 dark:hover:bg-white/5">
-                <X size={13} /> Hide
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── KPI Strip (6 cards) ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">

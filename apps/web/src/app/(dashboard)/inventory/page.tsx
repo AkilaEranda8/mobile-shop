@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useRef, useMemo, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, RotateCcw, ChevronDown, ChevronUp, GripVertical, Smartphone } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
@@ -15,6 +14,7 @@ import toast from 'react-hot-toast'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import { ImeiProductTypeSelector } from '@/components/inventory/ImeiProductTypeSelector'
+import { AddProductModal } from '@/components/inventory/AddProductModal'
 import { imeiTypeToTrackFlag, trackFlagToImeiType, inferImeiProductType, isImeiHealthBannerDismissed, dismissImeiHealthBanner, type ImeiProductType } from '@/lib/productImei'
 
 /* ── CSV Export ─────────────────────────────────────────────────────── */
@@ -1006,8 +1006,8 @@ interface FlatRow {
 }
 
 export default function InventoryPage() {
-  const router = useRouter()
   const [showImport, setShowImport]   = useState(false)
+  const [showAddProduct, setShowAddProduct] = useState(false)
   const [showAddCat, setShowAddCat]   = useState(false)
   const [showManageCat, setShowManageCat] = useState(false)
   const [editProduct, setEditProduct] = useState<Product | null>(null)
@@ -1251,6 +1251,7 @@ export default function InventoryPage() {
   return (
     <div className="space-y-6">
       {showImport  && <ImportModal onClose={() => setShowImport(false)} onSaved={refetch} />}
+      {showAddProduct && <AddProductModal onClose={() => setShowAddProduct(false)} onSaved={() => { setShowAddProduct(false); refetch() }} />}
       {showAddCat    && <AddCategoryModal onClose={() => setShowAddCat(false)} onSaved={() => refetchCats()} />}
       {showManageCat && <ManageCategoriesModal onClose={() => setShowManageCat(false)} onChanged={() => { refetchCats(); refetch() }} />}
       {editProduct && <EditProductModal product={editProduct} onClose={() => setEditProduct(null)} onSaved={refetch} />}
@@ -1276,7 +1277,7 @@ export default function InventoryPage() {
           <button onClick={() => exportProductsCSV(filteredProducts)} disabled={filteredProducts.length === 0} className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40">
             <Download size={14} />Export
           </button>
-          <button onClick={() => router.push('/inventory/add-product')} className="btn-secondary text-sm flex items-center gap-2">
+          <button onClick={() => setShowAddProduct(true)} className="btn-secondary text-sm flex items-center gap-2">
             <Plus size={14} />Add Product
           </button>
           <button onClick={() => setShowManageCat(true)} className="btn-secondary text-sm flex items-center gap-2">

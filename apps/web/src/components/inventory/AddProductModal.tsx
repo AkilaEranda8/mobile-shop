@@ -454,34 +454,42 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
 
   /* ── Render ────────────────────────────────────────────────────────────── */
   return (
-    <div className="space-y-6 pb-8">
-      {/* ── Header ──────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <div className="flex items-center gap-3">
-          <button onClick={onClose} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 transition-colors">
-            <ArrowLeft size={18} />
-          </button>
-          <div>
-            <h1 className="page-title">Add New Product</h1>
-            <p className="page-subtitle">Variants optional — buy &amp; sell price in section 3</p>
+    <div className="fixed inset-0 z-50 flex items-start justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-sm overflow-y-auto">
+      <div
+        className="relative w-full max-w-6xl my-2 sm:my-4 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* ── Sticky header ─────────────────────────────────────────── */}
+        <div
+          className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-4 sm:px-6 py-4 sticky top-0 z-10"
+          style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border-subtle)' }}
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <button type="button" onClick={onClose} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 transition-colors shrink-0">
+              <ArrowLeft size={18} />
+            </button>
+            <div className="min-w-0">
+              <h1 className="page-title truncate">Add New Product</h1>
+              <p className="page-subtitle">Variants optional — buy &amp; sell price in section 3</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 sm:ml-auto shrink-0">
+            <button type="button" onClick={onClose} className="btn-secondary text-sm">Cancel</button>
+            <button type="button" onClick={submit} disabled={loading || !form.name.trim() || !form.sku.trim()}
+              className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
+              {loading ? <Loader2 size={14} className="animate-spin" /> : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                  <polyline points="17,21 17,13 7,13 7,21" /><polyline points="7,3 7,8 15,8" />
+                </svg>
+              )}
+              Save Product
+            </button>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 sm:ml-auto">
-          <button onClick={onClose} className="btn-secondary text-sm">Cancel</button>
-          <button onClick={submit} disabled={loading || !form.name.trim() || !form.sku.trim()}
-            className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
-            {loading ? <Loader2 size={14} className="animate-spin" /> : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                <polyline points="17,21 17,13 7,13 7,21" /><polyline points="7,3 7,8 15,8" />
-              </svg>
-            )}
-            Save Product
-          </button>
-        </div>
-      </div>
 
-      <div className="flex flex-col gap-6">
+        <div className="p-4 sm:p-6 space-y-6 overflow-y-auto">
 
         {/* ══ 1. Basic Information ══════════════════════════════════════ */}
         <div style={card}>
@@ -490,12 +498,12 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
             <p style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa', margin: 0 }}>Basic Information</p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '185px 1fr', gap: 28 }}>
+          <div className="grid grid-cols-1 lg:grid-cols-[185px_1fr] gap-6 lg:gap-7">
             <ImageUploader imageUrl={form.imageUrl} onUploaded={url => f('imageUrl', url)} />
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {/* Row 1 */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 14 }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
                 <div>
                   <Lbl req>Product Name</Lbl>
                   <input style={inputStyle} placeholder="Enter product name" value={form.name} onChange={e => f('name', e.target.value)} />
@@ -518,7 +526,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
               </div>
 
               {/* Row 2 — Brand, Category, Sub Category */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
                 {/* Brand — real dropdown from DB */}
                 <div style={{ position: 'relative' }}>
                   <Lbl req>Brand</Lbl>
@@ -562,7 +570,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
               </div>
 
               {/* Row 3 — Unit, Device Model */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <Lbl req>Unit</Lbl>
                   <Sel value={form.unit} onChange={v => f('unit', v)}>
@@ -580,7 +588,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
           </div>
 
           {/* Description + Settings */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 290px', gap: 24, marginTop: 20 }}>
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_290px] gap-6 mt-5">
             <div>
               <Lbl>Description</Lbl>
               <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 8, overflow: 'hidden' }}>
@@ -643,7 +651,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
         </div>
 
         {/* ══ 2 + 3 ════════════════════════════════════════════════════ */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 290px', gap: 20 }}>
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_290px] gap-5">
 
           {/* 2. Variant Combinations */}
           <div style={card}>
@@ -663,8 +671,8 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
 
             {variants.length > 0 ? (
               <>
-                <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <div className="overflow-x-auto -mx-1 px-1 rounded-lg border" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
                       <tr style={{ background: 'var(--bg-subtle)' }}>
                         {['#','','Storage (Model) *','Color *','SKU (Optional)','Default Selling Price (LKR) *','Cost Price (LKR) Optional','Action'].map((h,i) => (
@@ -765,7 +773,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {variants.length === 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
                     <Lbl req>Buying Price (LKR)</Lbl>
                     <input type="number" min={0} style={inputStyle} placeholder="0.00"
@@ -778,7 +786,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                   </div>
                 </div>
               ) : null}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
                   <Lbl>Applicable Tax</Lbl>
                   <Sel value={pricing.tax} onChange={applyTaxToPricing}>
@@ -838,7 +846,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
               Additional Information <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 12 }}>(Optional)</span>
             </p>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <Lbl>Supplier</Lbl>
               <Sel value={extra.supplierId} onChange={v => setExtra(p => ({ ...p, supplierId: v }))} placeholder="Select supplier">
@@ -857,8 +865,8 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
           </div>
         </div>
 
+        </div>
       </div>
-
     </div>
   )
 }
