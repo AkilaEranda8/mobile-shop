@@ -100,6 +100,9 @@ router.post('/purchase-orders', authorize('OWNER', 'MANAGER'), async (req: Reque
               unitCost:         Number(item.unitCost)         || 0,
               total:            Number(item.total)            || 0,
               receivedQuantity: Number(item.receivedQuantity) || 0,
+              storage:          item.storage   || undefined,
+              colorName:        item.colorName || undefined,
+              sku:              item.sku       || undefined,
             }
           })),
         },

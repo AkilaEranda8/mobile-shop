@@ -11,22 +11,28 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import { useSuppliers, usePurchaseOrders, useProducts } from '@/lib/hooks'
 import { suppliersApi, branchesApi, imeiApi } from '@/lib/api'
 import toast from 'react-hot-toast'
-import type { Supplier, PurchaseOrder } from '@/types'
+import type { Supplier, PurchaseOrder, POItem } from '@/types'
 
 /* ── IMEI Register Modal ─────────────────────────────────────────── */
 function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClose: () => void; onSaved: (poId: string) => void }) {
   const [branches, setBranches] = useState<any[]>([])
   const [defaultBranch, setDefaultBranch] = useState('')
-  // imeis[productId] = string[] (one per unit)
+  const [loading, setLoading] = useState(false)
+  const [scanValue, setScanValue] = useState('')
+
+  // Build item sections keyed by "productId::storage::colorName"
+  const itemsWithId = po.items.filter(i => i.productId)
+  const itemKey = (item: POItem) =>
+    `${item.productId}::${item.storage ?? ''}::${item.colorName ?? ''}`
+
+  // imeis[itemKey] = string[] (one per unit)
   const [imeis, setImeis] = useState<Record<string, string[]>>(() => {
     const init: Record<string, string[]> = {}
-    for (const item of po.items) {
-      if (item.productId) init[item.productId] = Array(item.quantity).fill('')
+    for (const item of itemsWithId) {
+      init[itemKey(item)] = Array(item.quantity).fill('')
     }
     return init
   })
-  const [loading, setLoading] = useState(false)
-  const [scanValue, setScanValue] = useState('')
 
   useEffect(() => {
     branchesApi.list().then((r: any) => {
@@ -36,8 +42,8 @@ function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClos
     }).catch(() => {})
   }, [])
 
-  const setImei = (productId: string, idx: number, val: string) =>
-    setImeis(prev => ({ ...prev, [productId]: prev[productId].map((v, i) => i === idx ? val : v) }))
+  const setImei = (key: string, idx: number, val: string) =>
+    setImeis(prev => ({ ...prev, [key]: prev[key].map((v, i) => i === idx ? val : v) }))
 
   // Fill next empty IMEI slot from scanner
   const handleScan = (scanned: string) => {
@@ -46,10 +52,10 @@ function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClos
     let filled = false
     setImeis(prev => {
       const next = { ...prev }
-      outer: for (const productId of Object.keys(next)) {
-        const arr = [...next[productId]]
+      outer: for (const key of Object.keys(next)) {
+        const arr = [...next[key]]
         for (let i = 0; i < arr.length; i++) {
-          if (!arr[i]) { arr[i] = trimmed; next[productId] = arr; filled = true; break outer }
+          if (!arr[i]) { arr[i] = trimmed; next[key] = arr; filled = true; break outer }
         }
       }
       return next
@@ -58,29 +64,31 @@ function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClos
     if (!filled) toast('All slots filled — scroll down to check')
   }
 
-  const handlePaste = (productId: string, idx: number, text: string) => {
+  const handlePaste = (key: string, idx: number, text: string) => {
     const lines = text.split(/[\n,;\s]+/).map(s => s.trim()).filter(Boolean)
     if (lines.length > 1) {
       setImeis(prev => {
-        const arr = [...prev[productId]]
+        const arr = [...prev[key]]
         lines.forEach((line, i) => { if (idx + i < arr.length) arr[idx + i] = line })
-        return { ...prev, [productId]: arr }
+        return { ...prev, [key]: arr }
       })
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const items: { productId: string; branchId: string; imei: string }[] = []
-    for (const [productId, imeiList] of Object.entries(imeis)) {
-      for (const imei of imeiList) {
-        if (imei.trim()) items.push({ productId, branchId: defaultBranch, imei: imei.trim() })
+    const entries: { productId: string; branchId: string; imei: string }[] = []
+    // Map key back to productId
+    for (const item of itemsWithId) {
+      const key = itemKey(item)
+      for (const imei of (imeis[key] ?? [])) {
+        if (imei.trim()) entries.push({ productId: item.productId, branchId: defaultBranch, imei: imei.trim() })
       }
     }
-    if (!items.length) { toast.error('Enter at least one IMEI'); return }
+    if (!entries.length) { toast.error('Enter at least one IMEI'); return }
     setLoading(true)
     try {
-      const r: any = await suppliersApi.registerPoImei(po.id, items)
+      const r: any = await suppliersApi.registerPoImei(po.id, entries)
       toast.success(r.message ?? `${r.data?.created ?? 0} IMEI(s) registered`)
       if ((r.data?.errors?.length ?? 0) > 0) toast.error(`Errors: ${r.data.errors.join(', ')}`)
       onSaved(po.id)
@@ -92,11 +100,30 @@ function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClos
     }
   }
 
-  const itemsWithId = po.items.filter(i => i.productId)
+  // Color dot helper
+  const colorDot = (name: string) => {
+    const n = name.toLowerCase()
+    if (n.includes('black'))                                 return '#1a1a1a'
+    if (n.includes('white') || n.includes('silver') || n.includes('star')) return '#e2e8f0'
+    if (n.includes('gold')  || n.includes('yellow'))        return '#f59e0b'
+    if (n.includes('red')   || n.includes('rose'))          return '#ef4444'
+    if (n.includes('blue')  || n.includes('sky'))           return '#3b82f6'
+    if (n.includes('green') || n.includes('midnight'))      return '#10b981'
+    if (n.includes('purple')|| n.includes('violet'))        return '#8b5cf6'
+    if (n.includes('pink'))                                  return '#ec4899'
+    if (n.includes('orange'))                                return '#f97316'
+    return '#6b7280'
+  }
+
+  // Filled count
+  const totalSlots  = Object.values(imeis).flat().length
+  const filledSlots = Object.values(imeis).flat().filter(v => v.length === 15).length
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
+
+        {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)] flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
@@ -104,12 +131,16 @@ function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClos
             </div>
             <div>
               <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Register IMEIs</h3>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>PO {po.poNumber} — enter IMEI for each unit received</p>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                PO {po.poNumber} — {filledSlots}/{totalSlots} slots filled
+              </p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/5 text-slate-500 hover:text-white"><X size={16} /></button>
         </div>
-        <form onSubmit={handleSubmit} className="overflow-y-auto p-5 space-y-5 flex-1">
+
+        <form onSubmit={handleSubmit} className="overflow-y-auto p-5 space-y-4 flex-1">
+
           {/* Scan bar */}
           <div className="flex gap-2 items-center p-3 rounded-xl border border-violet-500/20 bg-violet-500/5">
             <Hash size={13} className="text-violet-400 flex-shrink-0" />
@@ -123,8 +154,10 @@ function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClos
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleScan(scanValue) } }}
               maxLength={15}
             />
-            {scanValue.length === 15 && <span className="text-[10px] text-green-400">✓</span>}
+            {scanValue.length === 15 && <span className="text-[10px] text-green-400 font-bold">✓ VALID</span>}
           </div>
+
+          {/* Branch selector */}
           {branches.length > 1 && (
             <div>
               <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Branch</label>
@@ -133,44 +166,113 @@ function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClos
               </select>
             </div>
           )}
+
           {itemsWithId.length === 0 && (
             <p className="text-xs text-amber-400 text-center py-4">No linked products in this PO. Assign products first.</p>
           )}
-          {itemsWithId.map(item => (
-            <div key={item.productId} className="rounded-xl border p-4 space-y-3" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{item.productName}</p>
-                <span className="text-[11px] px-2 py-0.5 rounded bg-violet-500/10 border border-violet-500/20 text-violet-400">{item.quantity} units</span>
-              </div>
-              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Paste multiple IMEIs separated by newlines or enter one per field</p>
-              <div className="grid grid-cols-2 gap-2">
-                {(imeis[item.productId] ?? []).map((val, idx) => (
-                  <div key={idx}>
-                    <label className="block text-[10px] mb-1" style={{ color: 'var(--text-muted)' }}>Unit {idx + 1}</label>
-                    <input
-                      className={`input-field font-mono text-xs tracking-wider ${
-                        val.length === 15 ? 'border-green-500/40' : val.length > 0 ? 'border-red-500/40' : ''
-                      }`}
-                      placeholder="000000000000000"
-                      maxLength={15}
-                      value={val}
-                      onChange={e => setImei(item.productId, idx, e.target.value)}
-                      onPaste={e => {
-                        const text = e.clipboardData.getData('text')
-                        if (text.includes('\n') || text.includes(',')) {
-                          e.preventDefault()
-                          handlePaste(item.productId, idx, text)
-                        }
-                      }}
-                    />
+
+          {/* One card per variation line item */}
+          {itemsWithId.map(item => {
+            const key = itemKey(item)
+            const slots = imeis[key] ?? []
+            const filled = slots.filter(v => v.length === 15).length
+            return (
+              <div key={key} className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
+
+                {/* Card header */}
+                <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{item.productName}</p>
+                    {/* Variation badges */}
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                      {item.storage && (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md border"
+                          style={{ background: 'rgba(139,92,246,0.15)', borderColor: 'rgba(139,92,246,0.35)', color: '#c4b5fd' }}>
+                          {item.storage}
+                        </span>
+                      )}
+                      {item.colorName && (
+                        <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md border"
+                          style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)', color: '#94a3b8' }}>
+                          <span className="w-2 h-2 rounded-full border border-white/20 flex-shrink-0"
+                            style={{ background: colorDot(item.colorName) }} />
+                          {item.colorName}
+                        </span>
+                      )}
+                      {item.sku && (
+                        <span className="text-[10px] font-mono text-violet-400"
+                          style={{ background: 'rgba(139,92,246,0.08)', padding: '1px 6px', borderRadius: 4, border: '1px solid rgba(139,92,246,0.2)' }}>
+                          {item.sku}
+                        </span>
+                      )}
+                      {!item.storage && !item.colorName && (
+                        <span className="text-[10px] text-slate-600">No variation</span>
+                      )}
+                    </div>
                   </div>
-                ))}
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-[11px] px-2 py-0.5 rounded bg-violet-500/10 border border-violet-500/20 text-violet-400">
+                      {item.quantity} units
+                    </span>
+                    <span className={`text-[10px] font-semibold ${filled === item.quantity ? 'text-green-400' : 'text-slate-500'}`}>
+                      {filled}/{item.quantity} filled
+                    </span>
+                  </div>
+                </div>
+
+                {/* IMEI input grid */}
+                <div className="p-4 space-y-3">
+                  <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                    Paste multiple IMEIs separated by newlines or enter one per field
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {slots.map((val, idx) => (
+                      <div key={idx}>
+                        <label className="block text-[10px] mb-1" style={{ color: 'var(--text-muted)' }}>Unit {idx + 1}</label>
+                        <input
+                          className={`input-field font-mono text-xs tracking-wider w-full ${
+                            val.length === 15 ? 'border-green-500/40' : val.length > 0 ? 'border-red-500/40' : ''
+                          }`}
+                          placeholder="000000000000000"
+                          maxLength={15}
+                          value={val}
+                          onChange={e => setImei(key, idx, e.target.value)}
+                          onPaste={e => {
+                            const text = e.clipboardData.getData('text')
+                            if (text.includes('\n') || text.includes(',')) {
+                              e.preventDefault()
+                              handlePaste(key, idx, text)
+                            }
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+
+          {/* Progress bar */}
+          {totalSlots > 0 && (
+            <div className="rounded-xl p-3 border" style={{ background: 'rgba(139,92,246,0.05)', borderColor: 'rgba(139,92,246,0.15)' }}>
+              <div className="flex justify-between text-[10px] mb-1.5">
+                <span style={{ color: 'var(--text-muted)' }}>Overall progress</span>
+                <span className={filledSlots === totalSlots ? 'text-green-400 font-bold' : 'text-violet-400'}>
+                  {filledSlots} / {totalSlots} IMEIs
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                <div className="h-full rounded-full transition-all duration-300"
+                  style={{ width: `${(filledSlots / totalSlots) * 100}%`, background: filledSlots === totalSlots ? '#22c55e' : '#8b5cf6' }} />
               </div>
             </div>
-          ))}
+          )}
+
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
-            <button type="submit" disabled={loading || itemsWithId.length === 0} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+            <button type="submit" disabled={loading || itemsWithId.length === 0}
+              className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
               {loading ? <Loader2 size={14} className="animate-spin" /> : <Smartphone size={14} />}
               Register IMEIs
             </button>
@@ -180,6 +282,7 @@ function IMEIRegisterModal({ po, onClose, onSaved }: { po: PurchaseOrder; onClos
     </div>
   )
 }
+
 
 /* ── Record Payment Modal ────────────────────────────────────────── */
 const PAYMENT_METHODS = ['CASH', 'BANK_TRANSFER', 'CHEQUE', 'UPI', 'CARD'] as const

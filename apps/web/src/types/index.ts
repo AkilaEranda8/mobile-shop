@@ -331,12 +331,16 @@ export interface PurchaseOrder {
 }
 
 export interface POItem {
+  id?: string
   productId: string
   productName: string
   quantity: number
   receivedQuantity: number
   unitCost: number
   total: number
+  storage?: string
+  colorName?: string
+  sku?: string
 }
 
 // ---- Finance ----

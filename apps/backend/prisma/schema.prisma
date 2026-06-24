@@ -750,6 +750,9 @@ model POItem {
   receivedQuantity Int     @default(0)
   unitCost         Float
   total            Float
+  storage          String?
+  colorName        String?
+  sku              String?
 
   purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
   product       Product?      @relation(fields: [productId], references: [id])
