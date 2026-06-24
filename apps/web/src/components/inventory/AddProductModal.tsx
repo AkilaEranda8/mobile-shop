@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Plus, Trash2, Upload, Loader2, ChevronDown, Info, GripVertical, Box, Eye, Lock } from 'lucide-react'
+import { Plus, Trash2, Upload, Loader2, ChevronDown, Info, GripVertical, Box, Eye, Lock, ArrowLeft } from 'lucide-react'
 import { productsApi, suppliersApi, uploadApi } from '@/lib/api'
 import { useCategories, useBrands, useSuppliers } from '@/lib/hooks'
 import type { Category } from '@/types'
@@ -487,33 +487,33 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
 
   /* ── Render ────────────────────────────────────────────────────────────── */
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center p-2 sm:p-4 bg-black/75 backdrop-blur-sm overflow-y-auto">
+    <div className="space-y-6 pb-8">
+      {/* ── Header ─────────────────────────────────────────── */}
       <div
-        className="relative w-full max-w-7xl my-2 sm:my-4 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
-        style={{ background: 'var(--bg-primary, #0b0f19)', border: '1px solid var(--border-default)' }}
-        onClick={e => e.stopPropagation()}
+        className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 -mx-4 lg:-mx-6 px-4 lg:px-6 py-4 sticky top-0 z-10"
+        style={{ background: 'var(--bg-primary, #0b0f19)', borderBottom: '1px solid var(--border-subtle)' }}
       >
-        {/* ── Header ─────────────────────────────────────────── */}
-        <div
-          className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-4 sm:px-6 py-4 sticky top-0 z-10"
-          style={{ background: 'var(--bg-primary, #0b0f19)', borderBottom: '1px solid var(--border-subtle)' }}
-        >
+        <div className="flex items-start gap-3 min-w-0 flex-1">
+          <button type="button" onClick={onClose} className="btn-ghost p-2 shrink-0 mt-0.5" aria-label="Back to inventory">
+            <ArrowLeft size={18} />
+          </button>
           <div className="min-w-0">
             <h1 className="text-lg sm:text-xl font-bold truncate" style={{ color: 'var(--text-primary)' }}>Create New Product</h1>
             <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>Add a new product to your inventory.</p>
           </div>
-          <div className="flex flex-wrap gap-2 sm:ml-auto shrink-0">
-            <button type="button" onClick={onClose} className="btn-secondary text-sm">Cancel</button>
-            <button type="button" onClick={submit} disabled={loading || !form.name.trim() || !form.sku.trim()}
-              className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
-              {loading ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
-              Create Product
-            </button>
-          </div>
         </div>
+        <div className="flex flex-wrap gap-2 sm:ml-auto shrink-0 pl-11 sm:pl-0">
+          <button type="button" onClick={onClose} className="btn-secondary text-sm">Cancel</button>
+          <button type="button" onClick={submit} disabled={loading || !form.name.trim() || !form.sku.trim()}
+            className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
+            Create Product
+          </button>
+        </div>
+      </div>
 
-        <div className="p-4 sm:p-6 overflow-y-auto">
-          <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-5 items-start">
+      <div className="max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-5 items-start">
 
             {/* ══ LEFT COLUMN ══════════════════════════════════════════ */}
             <div className="space-y-5 min-w-0">
@@ -889,7 +889,6 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
             </div>
           </div>
         </div>
-      </div>
     </div>
   )
 }
