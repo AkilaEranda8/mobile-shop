@@ -154,6 +154,15 @@ async function bindSocket(tenantId: string, sock: any) {
   })
 }
 
+async function waitForQr(rt: TenantRuntime, timeoutMs = 20000): Promise<void> {
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    if (rt.qr) return
+    if (rt.status === 'connected') return
+    await new Promise((r) => setTimeout(r, 250))
+  }
+}
+
 export async function startQrSession(
   tenantId: string,
   opts: { force?: boolean } = {},
@@ -164,17 +173,28 @@ export async function startQrSession(
     return getQrState(tenantId)
   }
 
-  if (rt.starting) return getQrState(tenantId)
+  if (rt.starting) {
+    await waitForQr(rt)
+    return getQrState(tenantId)
+  }
 
   if (opts.force) {
     try { await rt.socket?.logout?.() } catch {}
+    try { rt.socket?.end?.() } catch {}
     rt.socket = undefined
     clearAuthFiles(tenantId)
     rt.status = 'disconnected'
     rt.qr = undefined
   }
 
-  if (rt.socket && !opts.force) return getQrState(tenantId)
+  if (rt.socket && !opts.force) {
+    if (rt.status === 'connected' || rt.status === 'qr_pending' || rt.status === 'connecting') {
+      if (!rt.qr && rt.status === 'qr_pending') await waitForQr(rt, 5000)
+      return getQrState(tenantId)
+    }
+    try { rt.socket?.end?.() } catch {}
+    rt.socket = undefined
+  }
 
   rt.starting = true
   try {
@@ -185,7 +205,15 @@ export async function startQrSession(
     fs.mkdirSync(dir, { recursive: true })
 
     const { state, saveCreds } = await useMultiFileAuthState(dir)
-    const { version } = await fetchLatestBaileysVersion()
+
+    let version: [number, number, number]
+    try {
+      const latest = await fetchLatestBaileysVersion()
+      version = latest.version
+    } catch (err) {
+      console.warn('[whatsapp] fetchLatestBaileysVersion failed, using default:', (err as Error)?.message)
+      version = [2, 3000, 0]
+    }
 
     const sock = makeWASocket({
       version,
@@ -198,13 +226,24 @@ export async function startQrSession(
       browser: ['Hexalyte POS', 'Chrome', '1.0.0'],
       syncFullHistory: false,
       markOnlineOnConnect: false,
+      generateHighQualityLinkPreview: false,
     })
 
     sock.ev.on('creds.update', saveCreds)
-    await bindSocket(tenantId, sock)
+    bindSocket(tenantId, sock)
 
-    if (state.creds?.registered) rt.status = 'connecting'
-    else rt.status = 'qr_pending'
+    rt.status = state.creds?.registered ? 'connecting' : 'qr_pending'
+    await waitForQr(rt)
+
+    if (!rt.qr && (rt.status === 'qr_pending' || rt.status === 'connecting')) {
+      throw new Error('Could not generate QR code. Check server internet and try again.')
+    }
+  } catch (err) {
+    rt.status = 'disconnected'
+    rt.qr = undefined
+    try { rt.socket?.end?.() } catch {}
+    rt.socket = undefined
+    throw err
   } finally {
     rt.starting = false
   }

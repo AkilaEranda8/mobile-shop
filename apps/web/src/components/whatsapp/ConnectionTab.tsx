@@ -39,6 +39,7 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
   const [qrLoading, setQrLoading] = useState(false)
   const [qrRefreshing, setQrRefreshing] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const autoStartedRef = useRef(false)
 
   const [form, setForm] = useState({
     accessToken:   config.accessToken   ?? '',
@@ -85,11 +86,15 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
       const data: WAStatusInfo = res?.data ?? res
       if (data.qr) await renderQr(data.qr)
       applySession(data)
-      if (data.status === 'connected' || data.status === 'disconnected') {
+      if (data.status === 'connected') {
         if (pollRef.current) clearInterval(pollRef.current)
         pollRef.current = null
       }
-    } catch {}
+    } catch (err: any) {
+      if (pollRef.current) clearInterval(pollRef.current)
+      pollRef.current = null
+      toast.error(err?.message ?? 'QR session error')
+    }
   }, [applySession, renderQr])
 
   const startPolling = useCallback(() => {
@@ -102,6 +107,33 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
     if (config.connectionMode) setMode(config.connectionMode)
   }, [config.connectionMode])
 
+  const handleStartQr = useCallback(async () => {
+    if (qrLoading || qrRefreshing) return
+    setQrLoading(true)
+    try {
+      const res: any = await whatsappApi.startQrConnect()
+      const data: WAStatusInfo = res?.data ?? res
+      onConfigChange({ connectionMode: 'qr', enabled })
+      saveLocalWAConfig({ connectionMode: 'qr', enabled }, tenantId)
+      if (data.qr) await renderQr(data.qr)
+      applySession(data)
+      startPolling()
+      if (data.qr) toast.success('QR code ready — scan with your phone')
+      else if (data.status === 'qr_pending' || data.status === 'connecting') toast.success('Generating QR code…')
+      else toast.error('QR not ready yet. Try again or click New QR.')
+    } catch (err: any) {
+      const msg = err?.message ?? 'Failed to start QR session'
+      toast.error(msg.includes('Forbidden') ? 'Only Owner/Manager can connect WhatsApp' : msg)
+    } finally { setQrLoading(false) }
+  }, [applySession, enabled, onConfigChange, qrLoading, qrRefreshing, renderQr, startPolling, tenantId])
+
+  const selectMode = useCallback(async (key: WAConnectionMode) => {
+    setMode(key)
+    if (key === 'qr' && currentStatus !== 'connected') {
+      await handleStartQr()
+    }
+  }, [currentStatus, handleStartQr])
+
   useEffect(() => {
     if (!isQrMode) return
     if (currentStatus === 'qr_pending' || currentStatus === 'connecting') startPolling()
@@ -112,27 +144,10 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
   }, [isQrMode, currentStatus, status?.qr, startPolling, renderQr])
 
   useEffect(() => {
-    if (isQrMode && isConnected && config.connectionMode === 'qr') {
-      whatsappApi.startQrConnect().catch(() => {})
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  const handleStartQr = async () => {
-    setQrLoading(true)
-    try {
-      const res: any = await whatsappApi.startQrConnect()
-      const data: WAStatusInfo = res?.data ?? res
-      onConfigChange({ connectionMode: 'qr', enabled })
-      saveLocalWAConfig({ connectionMode: 'qr', enabled }, tenantId)
-      if (data.qr) await renderQr(data.qr)
-      applySession(data)
-      startPolling()
-      toast.success('QR code ready — scan with your phone')
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Failed to start QR session')
-    } finally { setQrLoading(false) }
-  }
+    if (!isQrMode || isConnected || autoStartedRef.current) return
+    autoStartedRef.current = true
+    handleStartQr()
+  }, [isQrMode, isConnected, handleStartQr])
 
   const handleRefreshQr = async () => {
     setQrRefreshing(true)
@@ -274,8 +289,9 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
           { key: 'qr' as const, label: 'QR Connect', Icon: QrCode },
           { key: 'meta' as const, label: 'Meta API (Advanced)', Icon: Key },
         ]).map(({ key, label, Icon }) => (
-          <button key={key} onClick={() => setMode(key)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+          <button key={key} onClick={() => selectMode(key)}
+            disabled={key === 'qr' && qrLoading}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-60 ${
               mode === key ? 'bg-green-600 text-white shadow-lg shadow-green-500/20' : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}>
             <Icon size={14} /> {label}
@@ -310,8 +326,17 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
                 </div>
               ) : (
                 <div className="w-[260px] h-[260px] rounded-2xl border border-dashed border-white/10 flex flex-col items-center justify-center gap-3 text-slate-500">
-                  <QrCode size={48} className="opacity-30" />
-                  <p className="text-xs text-center px-6">Connect බොත්තම එබුවොත් QR code එක පෙන්වයි</p>
+                  {qrLoading ? (
+                    <>
+                      <Loader2 size={40} className="opacity-50 animate-spin" />
+                      <p className="text-xs text-center px-6 text-blue-400">QR code generate වෙමින්…</p>
+                    </>
+                  ) : (
+                    <>
+                      <QrCode size={48} className="opacity-30" />
+                      <p className="text-xs text-center px-6">QR Connect එබුවොත් හෝ Show QR Code එබුවොත් scan කරන්න</p>
+                    </>
+                  )}
                 </div>
               )}
 
