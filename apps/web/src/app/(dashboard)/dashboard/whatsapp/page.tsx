@@ -147,7 +147,7 @@ export default function WhatsAppPage() {
           </div>
           <div>
             <h1 className="page-title">WhatsApp Integration</h1>
-            <p className="page-subtitle">සෑම shop එකකටම වෙනම WhatsApp number එකක් connect කරන්න</p>
+            <p className="page-subtitle">Connect a dedicated WhatsApp number for each shop</p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -175,14 +175,6 @@ export default function WhatsAppPage() {
         </div>
       </div>
 
-      <div className="flex items-start gap-3 p-4 rounded-xl bg-violet-500/5 border border-violet-500/15">
-        <Store size={15} className="text-violet-400 mt-0.5 flex-shrink-0" />
-        <p className="text-sm text-slate-400">
-          <strong className="text-slate-300 font-medium">{shopName || 'මෙම shop'}</strong> සඳහා වෙනම WhatsApp connect වෙනවා.
-          වෙන shop එකකට login වුණාම ඒ shop එකේ WhatsApp settings පෙන්වයි — tenants අතර mix වෙන්නේ නැහැ.
-        </p>
-      </div>
-
       <AnimatePresence>
         {!initialLoad && currentStatus === 'disconnected' && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
@@ -190,8 +182,8 @@ export default function WhatsAppPage() {
             className="flex items-start gap-3 p-4 rounded-xl bg-blue-500/5 border border-blue-500/15 overflow-hidden">
             <MessageSquare size={15} className="text-blue-400 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-slate-400">
-              {shopName ? `${shopName} ` : ''}සඳහා QR scan කරන්න හෝ Meta API credentials දාන්න.
-              <button onClick={() => setActiveTab('connection')} className="text-blue-400 hover:underline ml-1">Connection tab</button> එකට යන්න.
+              Scan the QR code or enter Meta API credentials to connect WhatsApp.
+              Open the <button onClick={() => setActiveTab('connection')} className="text-blue-400 hover:underline">Connection</button> tab to get started.
             </p>
           </motion.div>
         )}

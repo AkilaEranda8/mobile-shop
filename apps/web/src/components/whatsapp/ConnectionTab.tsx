@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Eye, EyeOff, CheckCircle2, WifiOff, AlertTriangle,
   Loader2, Send, Zap, Shield, Key, Phone, Hash,
-  RefreshCw, Copy, Check, ChevronRight, QrCode, Smartphone,
+  RefreshCw, Copy, Check, ChevronRight, QrCode,
 } from 'lucide-react'
 import QRCode from 'qrcode'
 import toast from 'react-hot-toast'
@@ -306,7 +306,7 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
             <div className="border-b border-white/5 pb-3">
               <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>QR Code Connect</h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                {shopName ? `${shopName} — ` : ''}ඔබේ shop phone එකෙන් scan කරලා connect කරන්න
+                {shopName ? `${shopName} — ` : ''}Scan with your shop phone to connect
               </p>
             </div>
 
@@ -329,12 +329,12 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
                   {qrLoading ? (
                     <>
                       <Loader2 size={40} className="opacity-50 animate-spin" />
-                      <p className="text-xs text-center px-6 text-blue-400">QR code generate වෙමින්…</p>
+                      <p className="text-xs text-center px-6 text-blue-400">Generating QR code…</p>
                     </>
                   ) : (
                     <>
                       <QrCode size={48} className="opacity-30" />
-                      <p className="text-xs text-center px-6">QR Connect එබුවොත් හෝ Show QR Code එබුවොත් scan කරන්න</p>
+                      <p className="text-xs text-center px-6">Click QR Connect or Show QR Code, then scan with your phone</p>
                     </>
                   )}
                 </div>
@@ -343,7 +343,7 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
               {(currentStatus === 'qr_pending' || currentStatus === 'connecting') && (
                 <p className="text-xs text-blue-400 flex items-center gap-1.5">
                   <Loader2 size={12} className="animate-spin" />
-                  {currentStatus === 'connecting' ? 'Phone එකෙන් connect වෙමින්…' : 'QR scan කරන්න…'}
+                  {currentStatus === 'connecting' ? 'Connecting on your phone…' : 'Scan the QR code…'}
                 </p>
               )}
             </div>
@@ -409,10 +409,10 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
             <div className="card p-4 space-y-3">
               <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">How to connect</h3>
               {[
-                'Phone එකේ WhatsApp app එක open කරන්න',
-                'Settings → Linked Devices → Link a Device',
-                'QR code එක scan කරන්න',
-                'Connected වුණාම invoices send කරන්න පුළුවන්',
+                'Open WhatsApp on your phone',
+                'Go to Settings → Linked Devices → Link a Device',
+                'Scan the QR code shown here',
+                'Once connected, you can send invoices and messages',
               ].map((text, i) => (
                 <div key={i} className="flex items-center gap-2.5">
                   <span className="w-5 h-5 rounded-full bg-green-500/15 border border-green-500/25 text-green-400 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
@@ -421,12 +421,6 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
                   <span className="text-xs text-slate-400">{text}</span>
                 </div>
               ))}
-            </div>
-            <div className="card p-4 flex items-start gap-3">
-              <Smartphone size={16} className="text-green-400 mt-0.5 flex-shrink-0" />
-              <p className="text-xs text-slate-500 leading-relaxed">
-                {shopName ? `${shopName} ` : 'මෙම shop '}සඳහා වෙනම WhatsApp session එකක්. වෙන tenant එකක number එක මෙතන connect වෙන්නේ නැහැ.
-              </p>
             </div>
           </motion.div>
         </div>
