@@ -114,14 +114,13 @@ export interface ShopContext {
   branchEmail?: string
 }
 
-/** Invoice Customize first; tenant/branch only when invoice fields are blank */
-export function isKasthuriInvoice(settings: InvoiceSettings, tenantSlug?: string): boolean {
-  if (settings.invoiceTemplate === 'kasthuri') return true
+/** Kasthuri custom A4 layout — only for the Kasthuri Mobile Solutions tenant */
+export function isKasthuriInvoice(_settings: InvoiceSettings, tenantSlug?: string): boolean {
   return tenantSlug === KASTHURI_TENANT_SLUG
 }
 
 export function applyKasthuriPreset(settings: InvoiceSettings, tenantSlug?: string): InvoiceSettings {
-  if (!isKasthuriInvoice(settings, tenantSlug)) return settings
+  if (tenantSlug !== KASTHURI_TENANT_SLUG) return settings
   const merged: InvoiceSettings = { ...KASTHURI_INVOICE_PRESET, ...settings, invoiceTemplate: 'kasthuri' }
   if (!merged.logo?.trim()) merged.logo = KASTHURI_INVOICE_PRESET.logo ?? ''
   if (!merged.companyLegalName?.trim()) merged.companyLegalName = KASTHURI_INVOICE_PRESET.companyLegalName ?? ''

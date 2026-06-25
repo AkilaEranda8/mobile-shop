@@ -97,6 +97,51 @@ export function buildKasthuriInvoiceData(
   }
 }
 
+export function buildKasthuriRepairInvoiceData(
+  repair: {
+    ticketNumber: string
+    createdAt: string
+    customerName: string
+    customerPhone?: string
+    deviceBrand: string
+    deviceModel: string
+    reportedIssue?: string
+    estimatedCost?: number | string | null
+    actualCost?: number | string | null
+    status?: string
+  },
+  settings: InvoiceSettings,
+): KasthuriInvoiceData {
+  const serviceFee = Number(repair.estimatedCost ?? 0) || 0
+  const subtotal = serviceFee
+  const discount = repair.actualCost != null && Number(repair.actualCost) < subtotal
+    ? subtotal - Number(repair.actualCost)
+    : 0
+  const total = Math.max(0, subtotal - discount)
+  const isPaid = repair.status === 'DELIVERED'
+
+  return buildKasthuriInvoiceData({
+    invoiceNumber: repair.ticketNumber,
+    createdAt: repair.createdAt,
+    customerName: repair.customerName,
+    customerPhone: repair.customerPhone,
+    items: serviceFee > 0 ? [{
+      productName: `Repair Service – ${repair.deviceBrand} ${repair.deviceModel}`,
+      description: repair.reportedIssue,
+      quantity: 1,
+      unitPrice: serviceFee,
+      discount,
+      total,
+    }] : [],
+    subtotal,
+    discount,
+    tax: 0,
+    total,
+    paidAmount: isPaid ? total : 0,
+    dueAmount: isPaid ? 0 : total,
+  }, settings, { subtotal, discountAmount: discount })
+}
+
 const fmt = (n: number) =>
   new Intl.NumberFormat('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
 

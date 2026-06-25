@@ -17,8 +17,9 @@ import { formatCurrency, formatDate, getRepairStatusColor } from '@/lib/utils'
 import { useRepairs, useProducts, useFeatureFlag } from '@/lib/hooks'
 import { repairsApi, customersApi, deviceCatalogApi, usersApi, uploadApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
-import { getInvoiceSettings, type InvoiceSettings } from '@/lib/invoiceSettings'
+import { getInvoiceSettings, fetchInvoiceSettings, isKasthuriInvoice, type InvoiceSettings } from '@/lib/invoiceSettings'
 import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrint'
+import KasthuriInvoicePrint, { buildKasthuriRepairInvoiceData } from '@/components/invoice/KasthuriInvoicePrint'
 import type { Customer } from '@/types'
 import toast from 'react-hot-toast'
 import type { RepairTicket } from '@/types'
@@ -908,10 +909,22 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
   const quoteRef    = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [downloading,   setDownloading]   = useState(false)
-  const [invSettings]                     = useState<InvoiceSettings>(() => getInvoiceSettings())
+  const [invSettings, setInvSettings]   = useState<InvoiceSettings>(() => getInvoiceSettings())
+  const [tenantSlug, setTenantSlug]     = useState<string | undefined>()
   const [photos,        setPhotos]        = useState<string[]>(repair.photos ?? [])
   const [uploading,     setUploading]     = useState(false)
   const [lightboxUrl,   setLightboxUrl]   = useState<string | null>(null)
+
+  useEffect(() => {
+    const user = authStorage.getUser()
+    if (!user?.tenantId) return
+    fetchInvoiceSettings(user.tenantId, user.branchIds?.[0]).then(setInvSettings).catch(() => {})
+    import('@/lib/api').then(({ tenantApi }) => {
+      tenantApi.get(user.tenantId).then((res: any) => {
+        setTenantSlug((res?.data ?? res)?.slug)
+      }).catch(() => {})
+    })
+  }, [])
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
@@ -1128,6 +1141,8 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
   }
 
   const { serviceFee, partsTotal, estimatedCost, subtotal } = calcRepairTotals(repair)
+  const useKasthuri = isKasthuriInvoice(invSettings, tenantSlug)
+  const kasthuriData = useKasthuri ? buildKasthuriRepairInvoiceData(repair, invSettings) : null
   const discountAmt  = Number(discount) || 0
   const finalAmount  = Math.max(0, subtotal - discountAmt)
   const payNow = (() => {
@@ -1809,7 +1824,9 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
 
         {/* Hidden PDF template */}
         <div style={{ position: 'fixed', left: '-9999px', top: 0, pointerEvents: 'none', zIndex: -1, width: 794 }}>
-          <InvoicePrint ref={quoteRef} hideControls data={{
+          {useKasthuri && kasthuriData
+            ? <KasthuriInvoicePrint ref={quoteRef} data={kasthuriData} settings={invSettings} hideControls />
+            : <InvoicePrint ref={quoteRef} hideControls data={{
             companyName:    invSettings.shopName || 'Our Shop',
             companySlogan:  invSettings.slogan   || 'Repair Services',
             companyLogo:    invSettings.logo,
@@ -1839,7 +1856,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
             signatoryName:  repair.technicianName || invSettings.signatoryName || '',
             signatoryTitle: invSettings.signatoryTitle || 'Authorised Signature',
             currency:       invSettings.currency || 'LKR',
-          } satisfies InvoiceData} />
+          } satisfies InvoiceData} />}
         </div>
       </div>
     </div>
