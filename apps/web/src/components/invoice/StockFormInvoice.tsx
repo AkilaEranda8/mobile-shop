@@ -135,9 +135,13 @@ export function printStockFormInvoice(
       ${sale.dueAmount && sale.dueAmount > 0 ? `<div class="kv due"><span>Outstanding</span><span>${f(sale.dueAmount)}</span></div>` : ''}`
   }
 
-  const warrantyLines = sale.warranties?.length
+  type WarrantyLine = NonNullable<StockFormSale['warranties']>[number]
+  const warrantyLines: WarrantyLine[] = sale.warranties?.length
     ? sale.warranties
-    : (sale.warrantyNumbers ?? []).map(code => ({ warrantyCode: code, monthsDuration: sale.warrantyMonths }))
+    : (sale.warrantyNumbers ?? []).map(code => ({
+        warrantyCode: code,
+        monthsDuration: sale.warrantyMonths,
+      }))
 
   const fmtExpiry = (endDate?: string, months?: number) => {
     if (endDate) return new Date(endDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
