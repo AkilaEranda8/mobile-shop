@@ -753,7 +753,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
               {/* 7. Preview Summary */}
               <div style={card}>
                 <SectionHeader n={7} title="Preview Summary" />
-                <div className="grid grid-cols-1 md:grid-cols-[1fr_140px] gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_minmax(220px,320px)] gap-5 items-start">
                   <div>
                     <PreviewRow label="Product Name" value={form.name} />
                     <PreviewRow label="SKU" value={form.sku} />
@@ -768,16 +768,27 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                     <PreviewRow label="Variants" value={variants.length ? String(variants.length) : 'None'} />
                     <PreviewRow label="Supplier" value={supplierName} />
                   </div>
-                  <div className="flex flex-col items-center justify-center rounded-xl border p-4 min-h-[140px]"
-                    style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                  <div
+                    className="relative w-full aspect-[4/3] rounded-xl border overflow-hidden flex flex-col items-center justify-center"
+                    style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}
+                  >
                     {form.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={form.imageUrl} alt="" className="w-full h-28 object-contain rounded-lg" />
+                      <img
+                        src={form.imageUrl}
+                        alt={form.name || 'Product preview'}
+                        className="absolute inset-0 w-full h-full object-contain p-3"
+                      />
                     ) : (
-                      <>
-                        <Eye size={22} style={{ color: 'var(--text-muted)', marginBottom: 8 }} />
-                        <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>No image selected</p>
-                      </>
+                      <div className="flex flex-col items-center justify-center px-4 py-6 text-center">
+                        <div
+                          className="w-14 h-14 rounded-full flex items-center justify-center mb-3"
+                          style={{ background: 'rgba(37,99,235,0.1)' }}
+                        >
+                          <Eye size={24} style={{ color: 'var(--text-muted)' }} />
+                        </div>
+                        <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>No image selected</p>
+                      </div>
                     )}
                   </div>
                 </div>
