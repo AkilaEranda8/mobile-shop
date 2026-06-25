@@ -38,7 +38,7 @@ function buildInvoiceFromSale(sale: any, settings: InvoiceSettings): InvoiceData
   return {
     companyName:     settings.shopName || 'Shop',
     companySlogan:   settings.slogan,
-    companyLogo:     settings.logoUrl,
+    companyLogo:     settings.logo,
     companyAddress:  settings.address || '',
     companyPhone:    settings.phone || '',
     companyEmail:    settings.email || '',
