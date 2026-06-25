@@ -3,7 +3,7 @@
 import { forwardRef, useRef } from 'react'
 import { Download, Printer, MapPin, Globe, Mail, Phone } from 'lucide-react'
 import { KASTHURI_INVOICE_PRESET, HEXALYTE_SOFTWARE_FOOTER, type InvoiceSettings } from '@/lib/invoiceSettings'
-import { formatWarrantyMonths } from '@/components/pos/cart-rules'
+import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
 
 export interface KasthuriInvoiceItem {
   description: string
@@ -63,7 +63,7 @@ export function buildKasthuriInvoiceData(
       description: i.productName ?? i.description ?? 'Item',
       imei: i.imei,
       warrantyCode: matched?.warrantyCode,
-      warrantyPeriod: months > 0 ? formatWarrantyMonths(months) : undefined,
+      warrantyPeriod: months > 0 ? formatWarrantyPeriodLabel(months) : undefined,
       warrantyExpiry: matched ? fmtExpiry(matched.endDate, matched.monthsDuration ?? i.warrantyMonths) : (months > 0 && sale.createdAt ? fmtExpiry(undefined, months) : undefined),
       qty: i.quantity ?? 0,
       unitPrice: i.unitPrice ?? 0,

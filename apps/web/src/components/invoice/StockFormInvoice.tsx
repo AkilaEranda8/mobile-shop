@@ -2,7 +2,7 @@
 
 /**
  * StockFormInvoice — 9.5" × 11" continuous stock form (241 mm × 279 mm)
- * Dot-matrix / tractor-feed layout matching the Ashoka-style invoice design.
+ * Compact professional invoice for dot-matrix / tractor-feed printers.
  */
 
 import type { InvoiceSettings, ShopContext } from '@/lib/invoiceSettings'
@@ -11,7 +11,8 @@ import {
   HEXALYTE_SOFTWARE_CREDIT,
   HEXALYTE_SUPPORT_PHONE,
 } from '@/lib/invoiceSettings'
-import { formatWarrantyMonths } from '@/components/pos/cart-rules'
+import { formatWarrantyPeriodLabel, matchWarrantyMonths } from '@/components/pos/cart-rules'
+import { productConditionLabel } from '@/lib/productCondition'
 
 export interface StockFormSale {
   invoiceNumber: string
@@ -28,6 +29,7 @@ export interface StockFormSale {
     sku?: string
     imei?: string
     warrantyMonths?: number
+    condition?: 'BRAND_NEW' | 'USED'
   }[]
   subtotal: number
   discountAmount: number
@@ -49,8 +51,6 @@ export interface StockFormSale {
 }
 
 const PAGE_W = '241mm'
-const PAGE_H = '279mm'
-const BODY_W = '215mm'
 
 function esc(s: string): string {
   return s
@@ -73,12 +73,23 @@ function fmtOrderDate(iso?: string): string {
   const d = iso ? new Date(iso) : new Date()
   const date = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
   const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
-  return `${date} ${time}`
+  return `${date}  ${time}`
 }
 
 function discountPct(subtotal: number, discount: number): string {
   if (subtotal <= 0 || discount <= 0) return '0'
   return (discount / subtotal * 100).toFixed(1)
+}
+
+function itemMetaLines(item: StockFormSale['items'][number]): string {
+  const lines: string[] = []
+  if (item.condition) lines.push(`Condition: ${productConditionLabel(item.condition)}`)
+  if (item.sku) lines.push(`SKU: ${item.sku}`)
+  if (item.imei) lines.push(`IMEI: ${item.imei}`)
+  if ((item.warrantyMonths ?? 0) > 0) {
+    lines.push(`Warranty: ${formatWarrantyPeriodLabel(item.warrantyMonths!)}`)
+  }
+  return lines.map(l => esc(l)).join('<br/>')
 }
 
 export function printStockFormInvoice(
@@ -91,48 +102,43 @@ export function printStockFormInvoice(
   const currency = settings.currency || 'LKR'
   const f = (n: number) => esc(fmtRs(n, currency))
   const orderDate = esc(fmtOrderDate(sale.createdAt))
-  const shopName = esc((settings.shopName || 'My Shop').toUpperCase())
+  const shopTitle = esc(
+    (settings.companyLegalName?.trim() || settings.shopName || 'My Shop').toUpperCase(),
+  )
   const customerName = esc(sale.customerName || 'Walk-in Customer')
-  const customerPhone = sale.customerPhone ? esc(sale.customerPhone) : '—'
-  const customerCity = sale.customerAddress ? esc(sale.customerAddress) : '—'
+  const customerPhone = sale.customerPhone?.trim() ? esc(sale.customerPhone.trim()) : ''
+  const customerCity = sale.customerAddress?.trim() ? esc(sale.customerAddress.trim()) : ''
   const discPctStr = discountPct(sale.subtotal, sale.discountAmount)
 
-  const itemRows = sale.items.map(item => {
-    const extras = [
-      item.sku ? `SKU: ${esc(item.sku)}` : '',
-      item.imei ? `IMEI: ${esc(item.imei)}` : '',
-      (item.warrantyMonths ?? 0) > 0 ? `Warranty Period: ${esc(formatWarrantyMonths(item.warrantyMonths!))}` : '',
-    ].filter(Boolean).join(' · ')
-    return `
-      <tr>
-        <td class="desc">
-          <span class="name">${esc(item.productName)}</span>
-          ${extras ? `<span class="sub">${extras}</span>` : ''}
-        </td>
-        <td class="num">${item.quantity}</td>
-        <td class="num">${f(item.unitPrice)}</td>
-        <td class="num">${f(item.total)}</td>
-      </tr>`
-  }).join('')
+  const itemRows = sale.items.map(item => `
+    <tr>
+      <td class="desc">
+        <div class="name">${esc(item.productName)}</div>
+        ${itemMetaLines(item) ? `<div class="meta">${itemMetaLines(item)}</div>` : ''}
+      </td>
+      <td class="qty">${item.quantity}</td>
+      <td class="money">${f(item.unitPrice)}</td>
+      <td class="money"><strong>${f(item.total)}</strong></td>
+    </tr>`).join('')
 
-  let paymentHtml = ''
-  if (sale.payments?.length) {
-    const rows = sale.payments.map(p =>
-      `<div class="kv"><span>Payment</span><span>${esc(p.method.toUpperCase())} : ${f(p.amount)}</span></div>`
-    ).join('')
-    paymentHtml = `
-      <div class="sep-dash"></div>
-      <div class="section-title">PAYMENT</div>
-      ${rows}
-      ${sale.cashReceived && sale.cashReceived > 0 ? `<div class="kv"><span>Cash Received</span><span>${f(sale.cashReceived)}</span></div>` : ''}
-      ${sale.changeAmount && sale.changeAmount > 0 ? `<div class="kv"><span>Change</span><span>${f(sale.changeAmount)}</span></div>` : ''}
-      ${sale.dueAmount && sale.dueAmount > 0 ? `<div class="kv due"><span>Outstanding</span><span>${f(sale.dueAmount)}</span></div>` : ''}`
-  } else if (sale.paymentMethod) {
-    paymentHtml = `
-      <div class="sep-dash"></div>
-      <div class="section-title">PAYMENT</div>
-      <div class="kv"><span>Method</span><span>${esc(sale.paymentMethod.toUpperCase())}</span></div>
-      ${sale.dueAmount && sale.dueAmount > 0 ? `<div class="kv due"><span>Outstanding</span><span>${f(sale.dueAmount)}</span></div>` : ''}`
+  const payMethod = sale.payments?.length
+    ? sale.payments.map(p => `${esc(p.method.toUpperCase())} ${f(p.amount)}`).join(' + ')
+    : sale.paymentMethod
+      ? `${esc(sale.paymentMethod.toUpperCase())} ${f(sale.total)}`
+      : ''
+
+  let paymentLines = ''
+  if (payMethod) {
+    paymentLines += `<div class="pay-row"><span>Paid</span><span>${payMethod}</span></div>`
+  }
+  if (sale.cashReceived && sale.cashReceived > 0) {
+    paymentLines += `<div class="pay-row"><span>Cash Received</span><span>${f(sale.cashReceived)}</span></div>`
+  }
+  if (sale.changeAmount && sale.changeAmount > 0) {
+    paymentLines += `<div class="pay-row"><span>Change</span><span>${f(sale.changeAmount)}</span></div>`
+  }
+  if (sale.dueAmount && sale.dueAmount > 0) {
+    paymentLines += `<div class="pay-row due"><span>Outstanding</span><span>${f(sale.dueAmount)}</span></div>`
   }
 
   type WarrantyLine = NonNullable<StockFormSale['warranties']>[number]
@@ -144,7 +150,11 @@ export function printStockFormInvoice(
       }))
 
   const fmtExpiry = (endDate?: string, months?: number) => {
-    if (endDate) return new Date(endDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    if (endDate) {
+      return new Date(endDate).toLocaleDateString('en-GB', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+      })
+    }
     if (sale.createdAt && months) {
       const d = new Date(sale.createdAt)
       d.setMonth(d.getMonth() + months)
@@ -155,28 +165,38 @@ export function printStockFormInvoice(
 
   let warrantyHtml = ''
   if ((warrantyLines?.length ?? 0) > 0) {
-    const rows = (warrantyLines ?? []).map((w, i) => `
-      <div class="warranty-row">
-        ${w.productName ? `<div>${esc(w.productName)}</div>` : ''}
-        ${w.imei ? `<div>IMEI: ${esc(w.imei)}</div>` : ''}
-        <div class="kv"><span>Warranty ${(warrantyLines ?? []).length > 1 ? i + 1 : ''}</span><span class="mono">${esc(w.warrantyCode)}</span></div>
-        ${(w.monthsDuration ?? 0) > 0 ? `<div class="kv"><span>Period</span><span>${esc(formatWarrantyMonths(w.monthsDuration!))}</span></div>` : ''}
-        <div class="kv"><span>Expires</span><span>${esc(fmtExpiry(w.endDate, w.monthsDuration))}</span></div>
-      </div>`).join('')
+    const rows = (warrantyLines ?? []).map((w, i) => {
+      const months = matchWarrantyMonths(w, sale.items, sale.warrantyMonths)
+      return `
+        <div class="warranty-item">
+          ${w.productName ? `<div class="w-name">${esc(w.productName)}</div>` : ''}
+          <div class="w-row"><span>Code</span><span>${esc(w.warrantyCode)}</span></div>
+          ${months > 0 ? `<div class="w-row"><span>Period</span><span>${esc(formatWarrantyPeriodLabel(months))}</span></div>` : ''}
+          <div class="w-row"><span>Valid Until</span><span>${esc(fmtExpiry(w.endDate, months))}</span></div>
+          ${w.imei ? `<div class="w-row"><span>IMEI</span><span>${esc(w.imei)}</span></div>` : ''}
+        </div>`
+    }).join('')
     warrantyHtml = `
-      <div class="sep-dash"></div>
-      <div class="section-title">WARRANTY</div>
-      ${rows}`
+      <div class="block">
+        <div class="block-title">Warranty</div>
+        ${rows}
+      </div>`
   }
 
-  const telLine = [
-    settings.phone ? `Tel: ${esc(settings.phone)}` : '',
-    settings.email ? esc(settings.email) : '',
-  ].filter(Boolean).join(' | ')
+  const tel = settings.phone ? `Tel: ${esc(settings.phone)}` : ''
+  const email = settings.email ? esc(settings.email) : ''
+  const contactLine = [tel, email].filter(Boolean).join('  ·  ')
+  const footerNote = esc((settings.footerNote || 'Thank you for your business!').toUpperCase())
 
-  const footerNote = esc((settings.footerNote || 'THANK YOU FOR YOUR BUSINESS!').toUpperCase())
-  const softwareLine = esc(`Software Powered by: ${HEXALYTE_SOFTWARE_CREDIT}`)
-  const contactLine = esc(`Contact: ${HEXALYTE_SUPPORT_PHONE}${settings.email ? ` | ${settings.email}` : ''}`)
+  const billToRows = [
+    `<div class="bill-row"><span class="lbl">Customer</span><span class="val">${customerName}</span></div>`,
+    customerPhone
+      ? `<div class="bill-row"><span class="lbl">Phone</span><span class="val">${customerPhone}</span></div>`
+      : '',
+    customerCity
+      ? `<div class="bill-row"><span class="lbl">City</span><span class="val">${customerCity}</span></div>`
+      : '',
+  ].filter(Boolean).join('')
 
   const html = `<!DOCTYPE html>
 <html>
@@ -184,203 +204,277 @@ export function printStockFormInvoice(
   <meta charset="UTF-8"/>
   <title>Invoice ${esc(sale.invoiceNumber)}</title>
   <style>
-    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 12px;
-      line-height: 1.55;
+      font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+      font-size: 11px;
+      line-height: 1.4;
       color: #000;
       background: #fff;
-      width: ${BODY_W};
+      width: 100%;
+      max-width: 190mm;
       margin: 0 auto;
-      padding: 8mm 0;
+      padding: 0;
     }
 
-    .center { text-align: center; }
-    .shop-name { font-size: 16px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 2px; }
-    .shop-line { font-size: 11px; }
+    .sheet { padding: 0; }
 
-    .sep-eq, .sep-dash {
+    .header { text-align: center; padding-bottom: 8px; }
+    .logo { max-height: 48px; max-width: 70%; object-fit: contain; margin-bottom: 6px; }
+    .shop-title {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+      line-height: 1.25;
+      margin-bottom: 4px;
+    }
+    .shop-sub {
+      font-size: 9.5px;
+      line-height: 1.45;
+      color: #222;
+      max-width: 92%;
+      margin: 0 auto 3px;
+    }
+
+    hr.rule { border: none; border-top: 1px solid #000; margin: 7px 0; }
+    hr.rule-thick { border: none; border-top: 2px solid #000; margin: 8px 0; }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 16px;
       font-size: 11px;
-      letter-spacing: 0;
-      white-space: nowrap;
-      overflow: hidden;
-      color: #000;
-      margin: 8px 0;
-      line-height: 1;
     }
-    .sep-eq::before  { content: '${'='.repeat(72)}'; }
-    .sep-dash::before { content: '${'-'.repeat(72)}'; }
+    .meta-grid .full { grid-column: 1 / -1; }
+    .meta-grid span { color: #444; }
+    .meta-grid strong { font-weight: 700; color: #000; }
 
-    .meta { font-size: 12px; }
-    .meta div { margin: 2px 0; }
-
-    .section-title {
-      font-weight: 700;
-      font-size: 12px;
-      letter-spacing: 0.5px;
-      margin: 4px 0 6px;
+    .block { margin: 8px 0; }
+    .block-title {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+      padding-bottom: 3px;
+      border-bottom: 1px solid #000;
     }
 
-    .kv {
+    .bill-row, .pay-row, .w-row {
       display: flex;
-      gap: 8px;
-      font-size: 12px;
-      margin: 2px 0;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 11px;
+      padding: 2px 0;
     }
-    .kv span:first-child { min-width: 72px; }
-    .kv span:last-child { flex: 1; }
+    .bill-row .lbl, .pay-row span:first-child, .w-row span:first-child {
+      color: #444;
+      min-width: 72px;
+    }
+    .bill-row .val, .pay-row span:last-child, .w-row span:last-child {
+      text-align: right;
+      font-weight: 600;
+      word-break: break-word;
+    }
 
     table.items {
       width: 100%;
       border-collapse: collapse;
-      font-size: 11px;
-      margin-top: 4px;
+      font-size: 10.5px;
+      margin-top: 2px;
     }
-    table.items th {
-      text-align: left;
-      font-weight: 700;
-      padding: 4px 0;
+    table.items thead th {
+      font-size: 9.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      padding: 5px 4px;
+      border-top: 2px solid #000;
       border-bottom: 1px solid #000;
+      vertical-align: bottom;
+    }
+    table.items tbody td {
+      padding: 6px 4px;
+      vertical-align: top;
+      border-bottom: 1px solid #ccc;
+    }
+    table.items tbody tr:last-child td { border-bottom: 1px solid #000; }
+    table.items .desc { width: 48%; }
+    table.items .qty { width: 8%; text-align: center; }
+    table.items .money {
+      width: 22%;
+      text-align: right;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+    table.items .name { font-weight: 700; font-size: 11px; }
+    table.items .meta {
+      font-size: 9.5px;
+      color: #333;
+      margin-top: 3px;
+      line-height: 1.45;
+    }
+
+    .totals {
+      margin-top: 8px;
+      margin-left: auto;
+      width: 58%;
       font-size: 11px;
     }
-    table.items th.num,
-    table.items td.num { text-align: right; white-space: nowrap; width: 14%; }
-    table.items th:nth-child(2),
-    table.items td:nth-child(2) { width: 8%; }
-    table.items td.desc { vertical-align: top; padding: 5px 8px 5px 0; }
-    table.items td.num { vertical-align: top; padding: 5px 0; }
-    table.items .name { display: block; }
-    table.items .sub { display: block; font-size: 10px; color: #333; margin-top: 2px; }
-
-    .totals { margin-top: 8px; font-size: 12px; }
     .totals .row {
       display: flex;
-      justify-content: flex-end;
-      gap: 16px;
-      margin: 3px 0;
+      justify-content: space-between;
+      padding: 3px 0;
+      gap: 12px;
     }
-    .totals .row span:first-child { min-width: 160px; text-align: right; }
-    .totals .row span:last-child { min-width: 120px; text-align: right; white-space: nowrap; }
-    .totals .discount span:last-child { color: #000; }
+    .totals .row span:last-child {
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .grand {
+      margin-top: 4px;
+      padding: 6px 0;
+      border-top: 2px solid #000;
+      border-bottom: 2px solid #000;
+      font-size: 12px;
+      font-weight: 800;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .grand span:last-child { font-variant-numeric: tabular-nums; }
 
-    .grand-total {
+    .pay-block { margin-top: 8px; width: 58%; margin-left: auto; }
+    .pay-row.due span:last-child { font-weight: 800; }
+
+    .warranty-item {
+      padding: 5px 0;
+      border-bottom: 1px dashed #999;
+    }
+    .warranty-item:last-child { border-bottom: none; }
+    .w-name { font-weight: 700; margin-bottom: 2px; }
+
+    .signatures {
+      display: flex;
+      gap: 24px;
+      margin-top: 12px;
+      page-break-inside: avoid;
+    }
+    .sig {
+      flex: 1;
       text-align: center;
-      font-size: 13px;
-      font-weight: 700;
-      margin: 6px 0;
+      font-size: 10px;
+    }
+    .sig-line {
+      border-top: 1px solid #000;
+      height: 28px;
+      margin-bottom: 4px;
+    }
+
+    .footer {
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 2px solid #000;
+      text-align: center;
+      font-size: 9.5px;
+      line-height: 1.55;
+      page-break-inside: avoid;
+    }
+    .footer .thanks {
+      font-weight: 800;
+      font-size: 10.5px;
+      margin-bottom: 4px;
       letter-spacing: 0.3px;
     }
 
-    .signatures { margin-top: 14px; }
-    .sig-grid {
-      display: flex;
-      justify-content: space-between;
-      gap: 40px;
-      margin-top: 10px;
-    }
-    .sig-box { flex: 1; text-align: center; font-size: 11px; }
-    .sig-line {
-      border-top: 1px dashed #000;
-      margin-bottom: 6px;
-      height: 36px;
-    }
-
-    .footer { margin-top: 4px; font-size: 11px; line-height: 1.7; }
-    .footer .thanks { font-weight: 700; margin-bottom: 4px; }
-    .mono { font-family: 'Courier New', Courier, monospace; }
-    .due span:last-child { font-weight: 700; }
-    .warranty-row { margin-bottom: 8px; font-size: 11px; }
-
     @media print {
       @page {
-        size: ${PAGE_W} ${PAGE_H};
-        margin: 8mm 13mm;
+        size: ${PAGE_W} auto;
+        margin: 8mm 10mm;
       }
-      body { padding: 0; width: 100%; }
+      html, body { width: 100%; height: auto; }
+      .sheet { padding: 0; }
     }
   </style>
 </head>
 <body>
+  <div class="sheet">
 
-  <div class="center">
-    <div class="shop-name">${shopName}</div>
-    ${settings.slogan ? `<div class="shop-line">${esc(settings.slogan)}</div>` : ''}
-    ${settings.address ? `<div class="shop-line">${esc(settings.address)}</div>` : ''}
-    ${telLine ? `<div class="shop-line">${telLine}</div>` : ''}
-  </div>
+    <div class="header">
+      ${settings.logo ? `<img class="logo" src="${esc(settings.logo)}" alt="" />` : ''}
+      <div class="shop-title">${shopTitle}</div>
+      ${settings.slogan ? `<div class="shop-sub">${esc(settings.slogan)}</div>` : ''}
+      ${settings.address ? `<div class="shop-sub">${esc(settings.address)}</div>` : ''}
+      ${contactLine ? `<div class="shop-sub">${contactLine}</div>` : ''}
+    </div>
 
-  <div class="sep-eq"></div>
+    <hr class="rule-thick" />
 
-  <div class="meta">
-    <div>Invoice No &nbsp;: ${esc(sale.invoiceNumber)}</div>
-    <div>Order Date : ${orderDate}</div>
-    ${sale.cashierName ? `<div>Cashier &nbsp;&nbsp;&nbsp;: ${esc(sale.cashierName)}</div>` : ''}
-  </div>
+    <div class="meta-grid">
+      <div><span>Invoice No: </span><strong>${esc(sale.invoiceNumber)}</strong></div>
+      <div><span>Date: </span><strong>${orderDate}</strong></div>
+      ${sale.cashierName ? `<div class="full"><span>Cashier: </span><strong>${esc(sale.cashierName)}</strong></div>` : ''}
+    </div>
 
-  <div class="sep-dash"></div>
+    <hr class="rule" />
 
-  <div class="section-title">BILL TO</div>
-  <div class="kv"><span>Company</span><span>: ${customerName}</span></div>
-  <div class="kv"><span>Phone</span><span>: ${customerPhone}</span></div>
-  <div class="kv"><span>City</span><span>: ${customerCity}</span></div>
+    <div class="block">
+      <div class="block-title">Bill To</div>
+      ${billToRows}
+    </div>
 
-  <div class="sep-dash"></div>
+    <hr class="rule" />
 
-  <div class="section-title">ITEM DETAILS</div>
-  <table class="items">
-    <thead>
-      <tr>
-        <th>Product / Description</th>
-        <th class="num">Qty</th>
-        <th class="num">Unit Price</th>
-        <th class="num">Amount</th>
-      </tr>
-    </thead>
-    <tbody>${itemRows}</tbody>
-  </table>
+    <div class="block">
+      <div class="block-title">Item Details</div>
+      <table class="items">
+        <thead>
+          <tr>
+            <th class="desc">Product / Description</th>
+            <th class="qty">Qty</th>
+            <th class="money">Unit Price</th>
+            <th class="money">Amount</th>
+          </tr>
+        </thead>
+        <tbody>${itemRows}</tbody>
+      </table>
+    </div>
 
-  <div class="sep-dash"></div>
+    <div class="totals">
+      <div class="row"><span>Subtotal</span><span>${f(sale.subtotal)}</span></div>
+      ${sale.discountAmount > 0
+        ? `<div class="row"><span>Discount (${discPctStr}%)</span><span>-${f(sale.discountAmount)}</span></div>`
+        : ''}
+      <div class="grand"><span>Grand Total</span><span>${f(sale.total)}</span></div>
+    </div>
 
-  <div class="totals">
-    <div class="row"><span>SUBTOTAL</span><span>${f(sale.subtotal)}</span></div>
-    ${sale.discountAmount > 0 ? `<div class="row discount"><span>DISCOUNT (${discPctStr}%)</span><span>-${f(sale.discountAmount)}</span></div>` : ''}
-  </div>
+    ${paymentLines ? `<div class="pay-block">${paymentLines}</div>` : ''}
 
-  <div class="sep-eq"></div>
-  <div class="grand-total">GRAND TOTAL : ${f(sale.total)}</div>
-  <div class="sep-eq"></div>
+    ${warrantyHtml}
 
-  ${paymentHtml}
-  ${warrantyHtml}
-
-  <div class="signatures">
-    <div class="section-title">SIGNATURES</div>
-    <div class="sig-grid">
-      <div class="sig-box">
+    <div class="signatures">
+      <div class="sig">
         <div class="sig-line"></div>
         Customer Signature
       </div>
-      <div class="sig-box">
+      <div class="sig">
         <div class="sig-line"></div>
         ${esc(settings.signatoryName || 'Authorized Signature')}
       </div>
     </div>
-  </div>
 
-  <div class="sep-eq"></div>
-  <div class="footer center">
-    <div class="thanks">${footerNote}</div>
-    <div>${softwareLine}</div>
-    <div>${contactLine}</div>
-    ${settings.website ? `<div>${esc(settings.website)}</div>` : ''}
-  </div>
+    <div class="footer">
+      <div class="thanks">${footerNote}</div>
+      <div>${esc(HEXALYTE_SOFTWARE_CREDIT)} · ${esc(HEXALYTE_SUPPORT_PHONE)}</div>
+      ${settings.website ? `<div>${esc(settings.website)}</div>` : ''}
+    </div>
 
+  </div>
 </body>
 </html>`
 
-  const win = window.open('', '_blank', 'width=960,height=740')
+  const win = window.open('', '_blank', 'width=800,height=900')
   if (!win) {
     alert('Please allow pop-ups to print the stock form invoice.')
     return
@@ -389,7 +483,9 @@ export function printStockFormInvoice(
   win.document.close()
   win.onload = () => {
     win.focus()
-    win.print()
-    win.close()
+    setTimeout(() => {
+      win.print()
+      win.close()
+    }, 300)
   }
 }

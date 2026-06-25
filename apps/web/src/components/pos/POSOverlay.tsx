@@ -43,6 +43,23 @@ import { printStockFormInvoice } from '@/components/invoice/StockFormInvoice'
 import { whatsappApi } from '@/lib/whatsapp-api'
 import { Switch } from '@/components/ui/Switch'
 
+function receiptCustomerCity(customer?: { city?: string; address?: string } | null): string {
+  return customer?.city?.trim() || customer?.address?.trim() || ''
+}
+
+function cartToReceiptItems(cart: CartItem[]) {
+  return cart.map(i => ({
+    productName: i.name,
+    sku: i.sku,
+    imei: i.imei,
+    quantity: i.quantity,
+    unitPrice: i.price,
+    total: i.price * i.quantity,
+    warrantyMonths: i.warrantyMonths ?? 0,
+    condition: i.condition,
+  }))
+}
+
 type PosReceiptSale = Parameters<typeof printStockFormInvoice>[0]
 
 function printPosReceipt(sale: PosReceiptSale, settings: InvoiceSettings, ctx?: ShopContext) {
@@ -1137,6 +1154,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         createdAt: saleData.createdAt,
         customerName: saleData.customerName ?? 'Walk-in Customer',
         customerPhone: saleData.customerPhone ?? '',
+        customerAddress: saleData.customerAddress ?? saleData.customerCity ?? '',
         items: (saleData.items ?? []).map((i: any) => ({
           productName: i.productName,
           quantity: i.quantity,
@@ -1388,6 +1406,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         variationLabel: variation ? `${variation.storage}::${variation.colorName}` : undefined,
         warrantyMonths: isService ? 0 : Number(product.warrantyMonths ?? 0),
         trackImei,
+        condition: isService ? undefined : (product.condition === 'USED' ? 'USED' : product.condition === 'BRAND_NEW' ? 'BRAND_NEW' : undefined),
       }]
     })
   }
@@ -1716,16 +1735,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
           createdAt: new Date().toISOString(),
           customerName: selectedCustomer?.name || 'Walk-in Customer',
           customerPhone: selectedCustomer?.phone || '',
+          customerAddress: receiptCustomerCity(selectedCustomer),
           cashierName: user?.name || 'Staff',
-          items: cart.map(i => ({
-            productName: i.name,
-            sku: i.sku,
-            imei: i.imei,
-            quantity: i.quantity,
-            unitPrice: i.price,
-            total: i.price * i.quantity,
-            warrantyMonths: i.warrantyMonths ?? 0,
-          })),
+          items: cartToReceiptItems(cart),
           subtotal,
           discountAmount,
           total: saleTotal,
@@ -1796,16 +1808,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
         createdAt: res.data?.createdAt ?? new Date().toISOString(),
         customerName: selectedCustomer?.name || 'Walk-in Customer',
         customerPhone: selectedCustomer?.phone || '',
+        customerAddress: receiptCustomerCity(selectedCustomer),
         cashierName: user?.name || 'Staff',
-        items: cart.map(i => ({
-          productName: i.name,
-          sku: i.sku,
-          imei: i.imei,
-          quantity: i.quantity,
-          unitPrice: i.price,
-          total: i.price * i.quantity,
-          warrantyMonths: i.warrantyMonths ?? 0,
-        })),
+        items: cartToReceiptItems(cart),
         subtotal,
         discountAmount,
         total: res.data?.total ?? saleTotal,

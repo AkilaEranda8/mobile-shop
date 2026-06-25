@@ -18,6 +18,7 @@ export interface CartItem {
   variationLabel?: string
   warrantyMonths?: number
   trackImei?: boolean
+  condition?: 'BRAND_NEW' | 'USED'
 }
 
 export interface PosFeatureFlags {

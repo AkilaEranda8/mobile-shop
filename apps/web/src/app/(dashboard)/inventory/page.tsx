@@ -16,6 +16,7 @@ import { OpenPosButton } from '@/components/pos/OpenPosButton'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import { ImeiProductTypeSelector } from '@/components/inventory/ImeiProductTypeSelector'
 import { imeiTypeToTrackFlag, trackFlagToImeiType, inferImeiProductType, isImeiHealthBannerDismissed, dismissImeiHealthBanner, type ImeiProductType } from '@/lib/productImei'
+import { PRODUCT_CONDITION_OPTS, type ProductCondition } from '@/lib/productCondition'
 
 /* ── CSV Export ─────────────────────────────────────────────────────── */
 function exportProductsCSV(products: Product[]) {
@@ -459,6 +460,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
     buyingPrice: String(product.buyingPrice), sellingPrice: String(product.sellingPrice),
     stock: String(product.stock), minStock: String(product.minStock),
     imageUrl: product.imageUrl ?? '',
+    condition: (product.condition ?? 'BRAND_NEW') as ProductCondition,
   })
   const [imeiType, setImeiType] = useState<ImeiProductType>(trackFlagToImeiType(product.trackImei))
   const [warrantyMonths, setWarrantyMonths] = useState(product.warrantyMonths ?? 12)
@@ -496,6 +498,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
         mrp: Number(form.sellingPrice), stock: Number(form.stock), minStock: Number(form.minStock),
         trackImei: imeiTypeToTrackFlag(imeiType),
         warrantyMonths: Number(warrantyMonths) || 0,
+        condition: form.condition,
         imageUrl: form.imageUrl || undefined,
         storageVariations: variants.map(v => ({
           id: v.id,
@@ -578,6 +581,14 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
             <div>
               <label className="block text-xs text-slate-400 mb-1.5">Min Stock Alert</label>
               <input type="number" min="0" className="input-field" value={form.minStock} onChange={f('minStock')} />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs text-slate-400 mb-1.5">Condition *</label>
+              <select className="input-field" value={form.condition} onChange={f('condition')}>
+                {PRODUCT_CONDITION_OPTS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
             </div>
           </div>
 

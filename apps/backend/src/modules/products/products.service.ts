@@ -47,6 +47,11 @@ export const productsService = {
 
     if (body.mrp === undefined || body.mrp === null) body.mrp = body.sellingPrice
 
+    if (body.condition !== undefined && body.condition !== 'BRAND_NEW' && body.condition !== 'USED') {
+      throw new AppError('Invalid product condition', 400)
+    }
+    if (!body.condition) body.condition = 'BRAND_NEW'
+
     if (!body.branchId) {
       const branch = await prisma.branch.findFirst({ where: { tenantId } })
       if (!branch) throw new AppError('No branch found for tenant', 400)
@@ -108,6 +113,12 @@ export const productsService = {
     if (colorVariations   !== undefined) data.colorVariations   = colorVariations
     if (body.subCategory  !== undefined) data.subCategory       = body.subCategory
     if (body.deviceModel  !== undefined) data.deviceModel       = body.deviceModel
+    if (body.condition    !== undefined) {
+      if (body.condition !== 'BRAND_NEW' && body.condition !== 'USED') {
+        throw new AppError('Invalid product condition', 400)
+      }
+      data.condition = body.condition
+    }
     if (stock             !== undefined) {
       const n = Number(stock)
       if (Number.isNaN(n) || n < 0) throw new AppError('Stock cannot be negative', 400)

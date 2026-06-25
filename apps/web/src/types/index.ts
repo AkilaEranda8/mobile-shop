@@ -113,6 +113,7 @@ export interface Product {
   mrp: number
   trackImei: boolean
   warrantyMonths: number
+  condition?: 'BRAND_NEW' | 'USED'
   imeiInStock?: number
   imeiGap?: number
   imageUrl?: string

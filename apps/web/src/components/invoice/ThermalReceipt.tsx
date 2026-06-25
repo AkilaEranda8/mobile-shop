@@ -3,7 +3,7 @@
 import React, { forwardRef } from 'react'
 import type { InvoiceSettings, ShopContext } from '@/lib/invoiceSettings'
 import { mergeReceiptSettings, HEXALYTE_SOFTWARE_FOOTER } from '@/lib/invoiceSettings'
-import { formatWarrantyMonths } from '@/components/pos/cart-rules'
+import { formatWarrantyPeriodLabel, matchWarrantyMonths } from '@/components/pos/cart-rules'
 
 export interface ThermalWarrantyLine {
   warrantyCode: string
@@ -207,9 +207,9 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
             <div style={{ fontWeight: 'bold' }}>{item.productName}</div>
             {show.sku && item.sku && <div style={{ fontSize: fs.small, color: '#333' }}>SKU: {item.sku}</div>}
             {show.imei && item.imei && <div style={{ fontSize: fs.small, color: '#333' }}>IMEI: {item.imei}</div>}
-            {show.warranty && (item.warrantyMonths ?? 0) > 0 && (
+            {(item.warrantyMonths ?? 0) > 0 && (
               <div style={{ fontSize: fs.small, color: '#333' }}>
-                Warranty Period: {formatWarrantyMonths(item.warrantyMonths!)}
+                Warranty Period: {formatWarrantyPeriodLabel(item.warrantyMonths!)}
               </div>
             )}
             <div style={{ ...rowStyle, marginTop: 2 }}>
@@ -246,24 +246,28 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
           <>
             <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }} />
             <div style={{ textAlign: 'center', fontWeight: 'bold' }}>WARRANTY</div>
-            {resolveWarrantyLines(sale).map((w, i) => (
+            {resolveWarrantyLines(sale).map((w, i) => {
+              const months = matchWarrantyMonths(w, sale.items, sale.warrantyMonths)
+              return (
               <div key={i} style={{ marginBottom: 6, fontSize: fs.small }}>
                 {w.productName && <div style={{ fontWeight: 'bold' }}>{w.productName}</div>}
                 {w.imei && <div>IMEI: {w.imei}</div>}
                 <div style={rowStyle}>
-                  <span>Warranty:</span>
+                  <span>Code:</span>
                   <span style={{ fontWeight: 'bold', wordBreak: 'break-all' }}>{w.warrantyCode}</span>
                 </div>
+                {months > 0 && (
+                  <div style={rowStyle}>
+                    <span>Warranty Period:</span>
+                    <span>{formatWarrantyPeriodLabel(months)}</span>
+                  </div>
+                )}
                 <div style={rowStyle}>
-                  <span>Period:</span>
-                  <span>{(w.monthsDuration ?? 0) > 0 ? formatWarrantyMonths(w.monthsDuration!) : '—'}</span>
-                </div>
-                <div style={rowStyle}>
-                  <span>Expires:</span>
-                  <span>{fmtWarrantyDate(w.endDate, sale.createdAt, w.monthsDuration)}</span>
+                  <span>Valid Until:</span>
+                  <span>{fmtWarrantyDate(w.endDate, sale.createdAt, months)}</span>
                 </div>
               </div>
-            ))}
+            )})}
           </>
         )}
 
@@ -331,7 +335,7 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
       <div class="item-name">${esc(item.productName)}</div>
       ${show.sku && item.sku ? `<div class="item-meta">SKU: ${esc(item.sku)}</div>` : ''}
       ${show.imei && item.imei ? `<div class="item-meta">IMEI: ${esc(item.imei)}</div>` : ''}
-      ${show.warranty && (item.warrantyMonths ?? 0) > 0 ? `<div class="item-meta">Warranty Period: ${esc(formatWarrantyMonths(item.warrantyMonths!))}</div>` : ''}
+      ${(item.warrantyMonths ?? 0) > 0 ? `<div class="item-meta">Warranty Period: ${esc(formatWarrantyPeriodLabel(item.warrantyMonths!))}</div>` : ''}
       <div class="row item-line">
         <span class="item-meta">${item.quantity} x ${f(item.unitPrice)}</span>
         <span class="bold nowrap">${f(item.total)}</span>
@@ -343,15 +347,17 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
   const warrantyBlock = show.warranty && warrantyLines.length > 0 ? `
   <div class="dash"></div>
   <div class="center bold">WARRANTY</div>
-  ${warrantyLines.map(w => `
+  ${warrantyLines.map(w => {
+    const months = matchWarrantyMonths(w, sale.items, sale.warrantyMonths)
+    return `
     <div class="item">
       ${w.productName ? `<div class="item-name">${esc(w.productName)}</div>` : ''}
       ${w.imei ? `<div class="item-meta">IMEI: ${esc(w.imei)}</div>` : ''}
-      <div class="row"><span>Warranty:</span><span class="bold wrap">${esc(w.warrantyCode)}</span></div>
-      ${(w.monthsDuration ?? 0) > 0 ? `<div class="row"><span>Period:</span><span class="nowrap">${esc(formatWarrantyMonths(w.monthsDuration!))}</span></div>` : ''}
-      <div class="row"><span>Expires:</span><span class="nowrap">${esc(fmtWarrantyDate(w.endDate, sale.createdAt, w.monthsDuration))}</span></div>
-    </div>
-  `).join('')}
+      <div class="row"><span>Code:</span><span class="bold wrap">${esc(w.warrantyCode)}</span></div>
+      ${months > 0 ? `<div class="row"><span>Warranty Period:</span><span class="nowrap">${esc(formatWarrantyPeriodLabel(months))}</span></div>` : ''}
+      <div class="row"><span>Valid Until:</span><span class="nowrap">${esc(fmtWarrantyDate(w.endDate, sale.createdAt, months))}</span></div>
+    </div>`
+  }).join('')}
   ` : ''
 
   const html = `<!DOCTYPE html>

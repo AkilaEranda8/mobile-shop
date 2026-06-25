@@ -55,3 +55,25 @@ export function formatWarrantyMonths(months: number): string {
   if (months % 12 === 0) return `${months / 12} yr`
   return `${months} mo`
 }
+
+/** Full text for invoices and receipts (e.g. "12 months", "1 year"). */
+export function formatWarrantyPeriodLabel(months: number): string {
+  if (months <= 0) return ''
+  if (months < 12) return `${months} month${months === 1 ? '' : 's'}`
+  if (months % 12 === 0) {
+    const years = months / 12
+    return `${years} year${years === 1 ? '' : 's'}`
+  }
+  return `${months} months`
+}
+
+export function matchWarrantyMonths(
+  w: { imei?: string; productName?: string; monthsDuration?: number },
+  items: Array<{ productName?: string; imei?: string; warrantyMonths?: number }>,
+  fallback?: number,
+): number {
+  if ((w.monthsDuration ?? 0) > 0) return w.monthsDuration!
+  const byImei = w.imei ? items.find(i => i.imei === w.imei) : undefined
+  const byName = w.productName ? items.find(i => i.productName === w.productName) : undefined
+  return byImei?.warrantyMonths ?? byName?.warrantyMonths ?? fallback ?? 0
+}

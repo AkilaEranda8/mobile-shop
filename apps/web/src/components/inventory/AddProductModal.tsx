@@ -8,6 +8,7 @@ import type { Category } from '@/types'
 import toast from 'react-hot-toast'
 import { ImeiProductTypeSelector } from './ImeiProductTypeSelector'
 import { inferImeiProductType, imeiTypeToTrackFlag, type ImeiProductType } from '@/lib/productImei'
+import { PRODUCT_CONDITION_OPTS, type ProductCondition } from '@/lib/productCondition'
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 
@@ -309,6 +310,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
     categoryName: '', subCategory: '', unit: 'Piece (Pc)',
     deviceModel: '', description: '', imageUrl: '',
   })
+  const [condition,     setCondition]     = useState<ProductCondition>('BRAND_NEW')
   const [imeiType,      setImeiType]      = useState<ImeiProductType>('accessory')
   const [imeiTouched,   setImeiTouched]   = useState(false)
   const [warrantyTrack, setWarrantyTrack] = useState(true)
@@ -361,6 +363,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
     name: string; sku: string; barcode?: string; brandName: string; categoryName: string
     buyingPrice: number; sellingPrice: number; trackImei: boolean
     subCategory?: string; deviceModel?: string; description?: string; imageUrl?: string
+    condition?: ProductCondition
     variantRows?: VariantRow[]
   }) => {
     const rows = opts.variantRows ?? []
@@ -373,6 +376,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
       deviceModel:  opts.deviceModel  || undefined,
       description:  opts.description  || undefined,
       imageUrl:     opts.imageUrl     || undefined,
+      condition:    opts.condition ?? 'BRAND_NEW',
       barcode:      opts.barcode?.trim() || opts.sku.trim() || undefined,
       buyingPrice:  opts.buyingPrice,
       sellingPrice: opts.sellingPrice,
@@ -475,6 +479,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
         buyingPrice, sellingPrice, trackImei,
         subCategory: form.subCategory, deviceModel: form.deviceModel,
         description: form.description, imageUrl: form.imageUrl,
+        condition,
         variantRows: resolvedVariants,
       }))
       toast.success(`"${form.name}" created!`)
@@ -619,6 +624,19 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                 </div>
               </div>
 
+              {/* Product Condition */}
+              <div style={card}>
+                <SectionHeader n={2} title="Product Condition" sub="Whether this item is brand new or pre-owned." />
+                <div className="max-w-xs">
+                  <Lbl req>Condition</Lbl>
+                  <Sel value={condition} onChange={v => setCondition(v as ProductCondition)}>
+                    {PRODUCT_CONDITION_OPTS.map(o => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </Sel>
+                </div>
+              </div>
+
               {/* 5. Variant Combinations */}
               <div style={card}>
                 <SectionHeader n={5} title="Variant Combinations" optional
@@ -741,6 +759,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                     <PreviewRow label="SKU" value={form.sku} />
                     <PreviewRow label="Brand" value={form.brandName} />
                     <PreviewRow label="Category" value={form.categoryName} />
+                    <PreviewRow label="Condition" value={PRODUCT_CONDITION_OPTS.find(o => o.value === condition)?.label} />
                     <PreviewRow label="Buying Price" value={pricing.purchaseEx ? `LKR ${pricing.purchaseEx}` : undefined} />
                     <PreviewRow label="Selling Price" value={pricing.sellingEx ? `LKR ${pricing.sellingEx}` : undefined} />
                     <PreviewRow label="IMEI Type" value={trackImei ? 'Phone / Tablet' : 'No IMEI'} />
