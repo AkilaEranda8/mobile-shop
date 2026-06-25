@@ -72,8 +72,33 @@ function variationLabel(storage?: string | null, color?: string | null): string 
 
 function parseVariation(variation?: string | null): { storage?: string; color?: string } {
   if (!variation?.includes('::')) return {}
-  const [storage, color] = variation.split('::')
-  return { storage, color }
+  const [storage, color] = variation.split('::').map(s => s.trim())
+  return {
+    storage: storage || undefined,
+    color: color || undefined,
+  }
+}
+
+function resolveVariantDetails(
+  product: { storageVariations?: unknown },
+  variation?: string | null,
+): { storage?: string; color?: string } {
+  const v = variation?.trim()
+  if (!v) return {}
+
+  const explicit = parseVariation(v)
+  if (explicit.storage && explicit.color) return explicit
+
+  const vars = product.storageVariations as any[]
+  if (!Array.isArray(vars)) return {}
+
+  const match = vars.find(row => row.sku === v || `${row.storage}::${row.colorName}` === v)
+  if (!match) return {}
+
+  return {
+    storage: match.storage,
+    color: match.colorName,
+  }
 }
 
 function resolveSellPrice(product: { sellingPrice: number; storageVariations?: unknown }, variation?: string | null): number {
@@ -311,7 +336,7 @@ export const exchangesService = {
     })
 
     return records.map(r => {
-      const parsed = parseVariation(r.variation)
+      const parsed = resolveVariantDetails(r.product, r.variation)
       return {
         imeiRecordId: r.id,
         imei:         r.imei,
@@ -373,7 +398,10 @@ export const exchangesService = {
     const balanceDirection = balance >= 0 ? 'CUSTOMER_PAYS' : 'SHOP_REFUNDS'
     const paidAmount = input.paidAmount ?? balance
 
-    const soldParsed = parseVariation(soldImeiRecord.variation ?? input.soldVariation)
+    const soldParsed = resolveVariantDetails(
+      soldImeiRecord.product,
+      soldImeiRecord.variation ?? input.soldVariation,
+    )
     const tradeInVariation = variationLabel(input.oldStorage, input.oldColor)
 
     const result = await prisma.$transaction(async (tx) => {

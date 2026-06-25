@@ -55,16 +55,26 @@ function variantKey(storage?: string, color?: string): string {
   return `${storage ?? ''}::${color ?? ''}`
 }
 
-function itemMatchesVariant(item: ExchangeStockItem, storage: string, color: string): boolean {
-  const recVar = (item.variation ?? '').trim()
-  if (!recVar) {
-    const iStorage = item.storage ?? 'Default'
-    const iColor = item.color ?? 'Default'
-    return iStorage === storage && iColor === color
+function itemVariant(item: ExchangeStockItem): { storage: string; color: string } {
+  if (item.storage || item.color) {
+    return {
+      storage: item.storage?.trim() || 'Standard',
+      color: item.color?.trim() || 'Standard',
+    }
   }
-  if (recVar === variantKey(storage, color)) return true
-  const [rStorage, rColor] = recVar.split('::').map(s => s.trim())
-  return rStorage === storage && rColor === color
+  if (item.variation?.includes('::')) {
+    const [storage, color] = item.variation.split('::').map(s => s.trim())
+    return {
+      storage: storage || 'Standard',
+      color: color || 'Standard',
+    }
+  }
+  return { storage: 'Standard', color: 'Standard' }
+}
+
+function itemMatchesVariant(item: ExchangeStockItem, storage: string, color: string): boolean {
+  const { storage: iStorage, color: iColor } = itemVariant(item)
+  return iStorage === storage && iColor === color
 }
 
 function colorDot(name: string): string {
@@ -118,8 +128,7 @@ function VariantImeiPicker({
   const variants = useMemo(() => {
     const keys = new Map<string, { storage: string; color: string; count: number; price: number }>()
     for (const item of group.items) {
-      const storage = item.storage ?? item.variation?.split('::')[0]?.trim() ?? 'Default'
-      const color = item.color ?? item.variation?.split('::')[1]?.trim() ?? 'Default'
+      const { storage, color } = itemVariant(item)
       const key = variantKey(storage, color)
       const existing = keys.get(key)
       if (existing) {
@@ -134,12 +143,12 @@ function VariantImeiPicker({
 
   const storageOptions = [...new Set(variants.map(v => v.storage))]
   const [selStorage, setSelStorage] = useState(() => {
-    if (selected) return selected.storage ?? selected.variation?.split('::')[0]?.trim() ?? storageOptions[0] ?? ''
+    if (selected) return itemVariant(selected).storage
     return storageOptions[0] ?? ''
   })
   const colorOptions = variants.filter(v => v.storage === selStorage)
   const [selColor, setSelColor] = useState(() => {
-    if (selected) return selected.color ?? selected.variation?.split('::')[1]?.trim() ?? colorOptions[0]?.color ?? ''
+    if (selected) return itemVariant(selected).color
     return colorOptions[0]?.color ?? ''
   })
   const [selImei, setSelImei] = useState(selected?.imei ?? '')
@@ -230,11 +239,11 @@ function VariantImeiPicker({
         </div>
       </div>
 
-      {storageOptions.length > 1 && (
+      {storageOptions.some(s => s !== 'Standard') && (
         <div>
           <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>Storage</p>
           <div className="flex flex-wrap gap-2">
-            {storageOptions.map(s => (
+            {storageOptions.filter(s => s !== 'Standard').map(s => (
               <PillButton key={s} active={selStorage === s} onClick={() => { setSelStorage(s); clearImei() }}>
                 {s}
               </PillButton>
@@ -243,13 +252,13 @@ function VariantImeiPicker({
         </div>
       )}
 
-      {colorOptions.length > 0 && (
+      {colorOptions.some(v => v.color !== 'Standard') && (
         <div>
           <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>Color</p>
           <div className="flex flex-wrap gap-2">
-            {colorOptions.map(v => (
+            {colorOptions.filter(v => v.color !== 'Standard').map(v => (
               <PillButton
-                key={v.color}
+                key={variantKey(v.storage, v.color)}
                 active={selColor === v.color}
                 onClick={() => { setSelColor(v.color); clearImei() }}
               >
@@ -269,7 +278,9 @@ function VariantImeiPicker({
 
       <div className="space-y-2">
         <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-          Select IMEI * {selectedVariant ? `(${selectedVariant.storage} / ${selectedVariant.color})` : ''}
+          Select IMEI * {selectedVariant && selectedVariant.storage !== 'Standard'
+            ? `(${selectedVariant.storage}${selectedVariant.color !== 'Standard' ? ` / ${selectedVariant.color}` : ''})`
+            : ''}
         </p>
 
         {availableImeis.length === 0 ? (
@@ -385,7 +396,10 @@ export function ExchangeStockPicker({
       ) : (
         <div className="space-y-2 max-h-72 overflow-y-auto pr-0.5">
           {groups.map(group => {
-            const variantCount = new Set(group.items.map(i => variantKey(i.storage, i.color))).size
+            const variantCount = new Set(group.items.map(i => {
+              const { storage, color } = itemVariant(i)
+              return variantKey(storage, color)
+            })).size
             return (
               <button
                 key={group.productId}
