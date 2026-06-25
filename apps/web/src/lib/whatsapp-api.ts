@@ -60,10 +60,22 @@ export interface RecentMessage {
   id: string
   to: string
   customerName: string
-  type: 'invoice' | 'test' | 'custom'
+  type: 'invoice' | 'quote' | 'repair' | 'test' | 'custom'
   preview: string
   status: 'sent' | 'delivered' | 'read' | 'failed'
   timestamp: string
+}
+
+export type WAMessageType = 'invoice' | 'quote' | 'repair' | 'custom'
+
+/** Format a local/Sri Lanka phone number for WhatsApp API (+94…). */
+export function formatWhatsAppPhone(phone: string): string | null {
+  const digits = phone.replace(/\D/g, '')
+  if (!digits) return null
+  if (digits.startsWith('94') && digits.length >= 11) return `+${digits}`
+  if (digits.startsWith('0') && digits.length >= 10) return `+94${digits.slice(1)}`
+  if (digits.length >= 9) return `+94${digits}`
+  return null
 }
 
 const BASE = '/whatsapp'
@@ -95,8 +107,23 @@ export const whatsappApi = {
   getInvoiceHistory: (params?: Record<string, string>) =>
     api.get<{ data: InvoiceHistoryItem[] }>(`${BASE}/invoice-history${params ? '?' + new URLSearchParams(params) : ''}`),
   getRecentMessages: ()                              => api.get<{ data: RecentMessage[] }>(`${BASE}/messages/recent`),
-  sendInvoice:       (orderId: string, phone: string) =>
-    api.post<{ data: { success: boolean; messageId: string } }>(`${BASE}/send-invoice`, { orderId, phone }),
+  sendInvoice:       (body: {
+    orderId: string
+    phone: string
+    customerName?: string
+    amount?: number
+    message?: string
+  }) =>
+    api.post<{ data: { success: boolean; messageId: string } }>(`${BASE}/send-invoice`, body),
+  sendMessage:       (body: {
+    phone: string
+    message: string
+    customerName?: string
+    referenceId?: string
+    type?: WAMessageType
+    amount?: number
+  }) =>
+    api.post<{ data: { success: boolean; messageId: string } }>(`${BASE}/send-message`, body),
 }
 
 export function getLocalWAConfig(tenantId?: string | null): Partial<WAConfig> {

@@ -397,6 +397,14 @@ export const exchangesApi = {
   list: (params?: Record<string, string>) =>
     api.get(`/exchanges${params ? '?' + new URLSearchParams(params) : ''}`),
   create: (body: unknown) => api.post('/exchanges', body),
+  complete: (body: unknown) => api.post('/exchanges/complete', body),
+  listAvailableStock: (params?: { search?: string; excludeImei?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.search) q.set('search', params.search)
+    if (params?.excludeImei) q.set('excludeImei', params.excludeImei)
+    const qs = q.toString()
+    return api.get(`/exchanges/available-stock${qs ? `?${qs}` : ''}`)
+  },
   getById: (id: string) => api.get(`/exchanges/${id}`),
   update: (id: string, body: unknown) => api.put(`/exchanges/${id}`, body),
   remove: (id: string) => api.delete(`/exchanges/${id}`),

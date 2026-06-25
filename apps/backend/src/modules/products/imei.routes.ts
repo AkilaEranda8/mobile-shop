@@ -79,7 +79,7 @@ router.get('/lookup/:imei', async (req: Request, res: Response, next: NextFuncti
     const imei = req.params.imei
     const tenantId = req.tenantId!
 
-    const [record, repairs] = await Promise.all([
+    const [record, repairs, exchanges] = await Promise.all([
       prisma.imeiRecord.findFirst({
         where: { imei, product: { tenantId } },
         include: {
@@ -107,9 +107,23 @@ router.get('/lookup/:imei', async (req: Request, res: Response, next: NextFuncti
           deviceBrand: true, deviceModel: true,
         },
       }),
+      prisma.deviceExchange.findMany({
+        where: {
+          tenantId,
+          OR: [{ oldImei: imei }, { newImei: imei }],
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+        select: {
+          id: true, exchangeNumber: true, customerName: true,
+          oldBrand: true, oldModel: true, newBrand: true, newModel: true,
+          exchangeValue: true, newDevicePrice: true, balanceAmount: true,
+          balanceDirection: true, invoiceNumber: true, createdAt: true,
+        },
+      }),
     ])
 
-    if (!record && repairs.length === 0) throw new AppError('IMEI not found', 404)
+    if (!record && repairs.length === 0 && exchanges.length === 0) throw new AppError('IMEI not found', 404)
 
     let saleDetails: any = null
     let customerDetails: any = null
@@ -130,7 +144,7 @@ router.get('/lookup/:imei', async (req: Request, res: Response, next: NextFuncti
       }).catch(() => null)
     }
 
-    sendSuccess(res, { record, repairs, saleDetails, customerDetails })
+    sendSuccess(res, { record, repairs, saleDetails, customerDetails, exchanges })
   } catch (e) { next(e) }
 })
 

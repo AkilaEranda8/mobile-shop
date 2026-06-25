@@ -100,6 +100,7 @@ enum StockMovementType {
   ADJUSTMENT
   REPAIR_USE
   RETURN
+  EXCHANGE_IN
 }
 
 enum ImeiStatus {
@@ -635,15 +636,28 @@ model DeviceExchange {
   customerId     String?
   customerName   String
   customerPhone  String
+  customerAddress String?
+  oldProductName String?
   oldBrand       String
   oldModel       String
   oldImei        String?
+  oldColor       String?
+  oldStorage     String?
   oldCondition   String   @default("GOOD")
   exchangeValue  Float    @default(0)
+  oldProductId   String?
+  tradeInImeiRecordId String?
   newBrand       String?
   newModel       String?
   newImei        String?
+  newColor       String?
+  newStorage     String?
   newDevicePrice Float?
+  soldProductId  String?
+  soldVariation  String?
+  balanceAmount  Float?
+  balanceDirection String?
+  invoiceNumber  String?
   saleId         String?
   notes          String?
   status         String   @default("COMPLETED")

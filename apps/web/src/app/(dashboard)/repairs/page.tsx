@@ -16,6 +16,7 @@ import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency, formatDate, getRepairStatusColor } from '@/lib/utils'
 import { useRepairs, useProducts, useFeatureFlag } from '@/lib/hooks'
 import { repairsApi, customersApi, deviceCatalogApi, usersApi, uploadApi } from '@/lib/api'
+import { whatsappApi, formatWhatsAppPhone } from '@/lib/whatsapp-api'
 import { authStorage } from '@/lib/auth'
 import { getInvoiceSettings, fetchInvoiceSettings, isKasthuriInvoice, type InvoiceSettings } from '@/lib/invoiceSettings'
 import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrint'
@@ -909,6 +910,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
   const quoteRef    = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [downloading,   setDownloading]   = useState(false)
+  const [waSending,     setWaSending]     = useState<'quote' | 'invoice' | null>(null)
   const [invSettings, setInvSettings]   = useState<InvoiceSettings>(() => getInvoiceSettings())
   const [tenantSlug, setTenantSlug]     = useState<string | undefined>()
   const [photos,        setPhotos]        = useState<string[]>(repair.photos ?? [])
@@ -952,8 +954,11 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
     } catch { toast.error('Delete failed') }
   }
 
-  const sendQuoteWhatsApp = () => {
-    const { serviceFee, partsTotal, estimatedCost } = calcRepairTotals(repair)
+  const sendQuoteWhatsApp = async () => {
+    const phone = formatWhatsAppPhone(repair.customerPhone ?? '')
+    if (!phone) { toast.error('Customer phone required to send quote via WhatsApp'); return }
+
+    const { serviceFee, estimatedCost } = calcRepairTotals(repair)
     const fmt = (n: number) => `LKR ${n.toLocaleString('en-LK')}`
     const partsLines = (repair.spareParts ?? []).length > 0
       ? `\n\n*Parts used (inventory):*\n` + repair.spareParts!.map((p: any) => `  - ${p.productName} x${p.quantity}`).join('\n')
@@ -976,14 +981,29 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
       `_For any queries, please contact us._`,
       invSettings.phone ? `Tel: ${invSettings.phone}` : null,
     ].filter(Boolean).join('\n')
-    const phone = repair.customerPhone?.replace(/\D/g, '')
-    const url = phone
-      ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
-      : `https://wa.me/?text=${encodeURIComponent(msg)}`
-    window.open(url, '_blank')
+
+    setWaSending('quote')
+    try {
+      await whatsappApi.sendMessage({
+        phone,
+        message:      msg,
+        customerName: repair.customerName,
+        referenceId:  repair.ticketNumber,
+        type:         'quote',
+        amount:       estimatedCost,
+      })
+      toast.success('Quote sent via WhatsApp')
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to send quote — connect WhatsApp in Settings first')
+    } finally {
+      setWaSending(null)
+    }
   }
 
-  const sendInvoiceWhatsApp = () => {
+  const sendInvoiceWhatsApp = async () => {
+    const phone = formatWhatsAppPhone(repair.customerPhone ?? '')
+    if (!phone) { toast.error('Customer phone required to send invoice via WhatsApp'); return }
+
     const fmt = (n: number) => `LKR ${n.toLocaleString('en-LK')}`
     const { serviceFee, subtotal } = calcRepairTotals(repair)
     const discount   = repair.actualCost != null && repair.actualCost < subtotal ? subtotal - Number(repair.actualCost) : 0
@@ -1020,11 +1040,22 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
       ...(invSettings.terms?.length ? invSettings.terms.map((t: string) => `_${t}_`) : [`_Thank you for choosing our repair services!_`]),
     ].filter(v => v !== null && v !== undefined).join('\n')
 
-    const phone = repair.customerPhone?.replace(/\D/g, '')
-    const url = phone
-      ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
-      : `https://wa.me/?text=${encodeURIComponent(msg)}`
-    window.open(url, '_blank')
+    setWaSending('invoice')
+    try {
+      await whatsappApi.sendMessage({
+        phone,
+        message:      msg,
+        customerName: repair.customerName,
+        referenceId:  repair.ticketNumber,
+        type:         'invoice',
+        amount:       grandTotal,
+      })
+      toast.success('Invoice sent via WhatsApp')
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to send invoice — connect WhatsApp in Settings first')
+    } finally {
+      setWaSending(null)
+    }
   }
 
   const downloadQuote = async () => {
@@ -1197,11 +1228,11 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
             <button onClick={downloadQuote} disabled={downloading} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-colors disabled:opacity-50" style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-subtle)' }}>
               {downloading ? <Loader2 size={11} className="animate-spin" /> : <FileText size={11} />} PDF
             </button>
-            <button onClick={sendQuoteWhatsApp} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors">
-              <MessageSquare size={11} /> Quote
+            <button onClick={sendQuoteWhatsApp} disabled={waSending !== null} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-50">
+              {waSending === 'quote' ? <Loader2 size={11} className="animate-spin" /> : <MessageSquare size={11} />} Quote
             </button>
-            <button onClick={sendInvoiceWhatsApp} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-green-700 hover:bg-green-600 text-white transition-colors">
-              <MessageSquare size={11} /> Invoice
+            <button onClick={sendInvoiceWhatsApp} disabled={waSending !== null} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-green-700 hover:bg-green-600 text-white transition-colors disabled:opacity-50">
+              {waSending === 'invoice' ? <Loader2 size={11} className="animate-spin" /> : <MessageSquare size={11} />} Invoice
             </button>
             <button className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors" style={{ borderColor: 'var(--border-default)', color: 'var(--text-muted)', background: 'var(--bg-subtle)' }}>
               <MoreVertical size={14} />

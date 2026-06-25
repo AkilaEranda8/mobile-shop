@@ -1,6 +1,6 @@
 import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
-import type { ConnectInput, UpdateConfigInput, SendInvoiceInput } from './whatsapp.schema'
+import type { ConnectInput, UpdateConfigInput, SendInvoiceInput, SendMessageInput } from './whatsapp.schema'
 import {
   startQrSession,
   getQrState,
@@ -395,7 +395,7 @@ export const whatsappService = {
 
     const template = cfg.invoiceTemplate || `Hello {{customer_name}},\n\nThank you for your purchase! 🎉\n\nOrder: {{order_id}}\nAmount: LKR {{amount}}\n\nThank you for choosing us!`
 
-    const messageBody = formatTemplate(template, {
+    const messageBody = input.message ?? formatTemplate(template, {
       customer_name: input.customerName ?? 'Customer',
       order_id:      input.orderId,
       amount:        input.amount ? input.amount.toLocaleString() : '0',
@@ -430,6 +430,34 @@ export const whatsappService = {
         preview,
         status:       'sent',
         metaMessageId: result?.messages?.[0]?.id,
+        amount:       input.amount,
+      },
+    })
+
+    return { success: true, messageId: msg.id }
+  },
+
+  async sendMessage(tenantId: string, input: SendMessageInput) {
+    const cfg = await prisma.whatsAppConfig.findUnique({ where: { tenantId } })
+    if (!cfg) throw new AppError('WhatsApp not configured for this shop', 400)
+    if (!cfg.enabled) throw new AppError('WhatsApp integration is disabled for this shop', 400)
+
+    await whatsappService.sendTextMessage(tenantId, input.phone, input.message)
+
+    const preview = input.message.length > 80
+      ? `${input.message.slice(0, 80)}…`
+      : input.message
+
+    const msg = await prisma.whatsAppMessage.create({
+      data: {
+        tenantId,
+        configId:     cfg.id,
+        orderId:      input.referenceId,
+        to:           input.phone,
+        customerName: input.customerName,
+        type:         input.type ?? 'custom',
+        preview,
+        status:       'sent',
         amount:       input.amount,
       },
     })

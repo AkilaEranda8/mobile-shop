@@ -40,7 +40,7 @@ import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrin
 import KasthuriInvoicePrint, { buildKasthuriInvoiceData } from '@/components/invoice/KasthuriInvoicePrint'
 import { printThermalReceipt } from '@/components/invoice/ThermalReceipt'
 import { printStockFormInvoice } from '@/components/invoice/StockFormInvoice'
-import { whatsappApi } from '@/lib/whatsapp-api'
+import { whatsappApi, formatWhatsAppPhone } from '@/lib/whatsapp-api'
 import { Switch } from '@/components/ui/Switch'
 
 function receiptCustomerCity(customer?: { city?: string; address?: string } | null): string {
@@ -2184,20 +2184,48 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
   const sendWhatsAppInvoice = useCallback(async () => {
     if (!completedSale?.id) return
-    const phone = (completedSale.customerPhone ?? selectedCustomer?.phone ?? '').replace(/\D/g, '')
+    const phone = formatWhatsAppPhone(completedSale.customerPhone ?? selectedCustomer?.phone ?? '')
     if (!phone) { toast.error('Customer phone required for WhatsApp invoice'); return }
-    const formatted = phone.startsWith('94') ? `+${phone}` : phone.startsWith('0') ? `+94${phone.slice(1)}` : `+94${phone}`
+
+    const total = completedSale.total ?? saleTotal
+    const itemLines = (completedSale.items ?? []).map((item: any) => {
+      const name = item.name ?? item.productName ?? 'Item'
+      const qty = item.quantity ?? 1
+      const lineTotal = item.total ?? item.lineTotal ?? (Number(item.price ?? item.unitPrice ?? 0) * qty)
+      return `  - ${name} x${qty} — ${formatCurrency(lineTotal)}`
+    }).join('\n')
+
+    const message = [
+      `*INVOICE — ${invoiceSettings.shopName || storeName}*`,
+      invoiceSettings.phone ? `Tel: ${invoiceSettings.phone}` : null,
+      ``,
+      `*Invoice:* ${completedSale.invoiceNumber}`,
+      completedSale.customerName ? `*Customer:* ${completedSale.customerName}` : null,
+      ``,
+      itemLines ? `*Items:*\n${itemLines}` : null,
+      ``,
+      `*Total: ${formatCurrency(total)}*`,
+      (completedSale.dueAmount ?? 0) > 0 ? `*Credit (outstanding):* ${formatCurrency(completedSale.dueAmount)}` : null,
+      ``,
+      `_Thank you for your purchase!_`,
+    ].filter(v => v != null && v !== '').join('\n')
+
     setWaSending(true)
     try {
-      await whatsappApi.sendInvoice(completedSale.id, formatted)
+      await whatsappApi.sendInvoice({
+        orderId:      completedSale.invoiceNumber ?? completedSale.id,
+        phone,
+        customerName: completedSale.customerName,
+        amount:       total,
+        message,
+      })
       toast.success('Invoice sent via WhatsApp')
     } catch (e: any) {
-      toast.error(e.message || 'WhatsApp send failed — try manual share')
-      shareWhatsApp()
+      toast.error(e.message || 'WhatsApp send failed — connect WhatsApp in Settings first')
     } finally {
       setWaSending(false)
     }
-  }, [completedSale, selectedCustomer, shareWhatsApp])
+  }, [completedSale, selectedCustomer, saleTotal, invoiceSettings, storeName])
 
   const finishCustomerRegister = useCallback((c: any) => {
     handleCustomerCreated(c)

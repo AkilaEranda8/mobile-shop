@@ -61,6 +61,13 @@ export const whatsappController = {
     } catch (e) { next(e) }
   },
 
+  async sendMessage(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await whatsappService.sendMessage(req.user!.tenantId, req.body)
+      sendSuccess(res, data, 'Message sent via WhatsApp')
+    } catch (e) { next(e) }
+  },
+
   async getStats(req: Request, res: Response, next: NextFunction) {
     try {
       const data = await whatsappService.getStats(req.user!.tenantId)

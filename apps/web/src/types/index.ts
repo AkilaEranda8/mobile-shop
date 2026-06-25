@@ -25,7 +25,7 @@ export type SubscriptionPlan = 'STARTER' | 'PRO' | 'ENTERPRISE'
 
 export type TenantStatus = 'ACTIVE' | 'TRIAL' | 'SUSPENDED' | 'CANCELLED'
 
-export type StockMovementType = 'PURCHASE' | 'SALE' | 'TRANSFER_IN' | 'TRANSFER_OUT' | 'ADJUSTMENT' | 'REPAIR_USE' | 'RETURN'
+export type StockMovementType = 'PURCHASE' | 'SALE' | 'TRANSFER_IN' | 'TRANSFER_OUT' | 'ADJUSTMENT' | 'REPAIR_USE' | 'RETURN' | 'EXCHANGE_IN'
 
 // ---- Auth ----
 

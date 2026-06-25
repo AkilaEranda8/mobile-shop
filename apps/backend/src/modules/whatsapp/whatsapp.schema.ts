@@ -29,8 +29,19 @@ export const sendInvoiceSchema = z.object({
   phone:        z.string().regex(/^\+?[0-9]\d{6,14}$/, 'Invalid phone number'),
   customerName: z.string().optional(),
   amount:       z.number().optional(),
+  message:      z.string().min(1).max(4096).optional(),
+})
+
+export const sendMessageSchema = z.object({
+  phone:        z.string().regex(/^\+?[0-9]\d{6,14}$/, 'Invalid phone number'),
+  message:      z.string().min(1, 'Message is required').max(4096),
+  customerName: z.string().optional(),
+  referenceId:  z.string().optional(),
+  type:         z.enum(['invoice', 'quote', 'repair', 'custom']).optional().default('custom'),
+  amount:       z.number().optional(),
 })
 
 export type ConnectInput       = z.infer<typeof connectSchema>
 export type UpdateConfigInput  = z.infer<typeof updateConfigSchema>
 export type SendInvoiceInput   = z.infer<typeof sendInvoiceSchema>
+export type SendMessageInput   = z.infer<typeof sendMessageSchema>

@@ -7,6 +7,7 @@ import {
   updateConfigSchema,
   sendTestMessageSchema,
   sendInvoiceSchema,
+  sendMessageSchema,
 } from './whatsapp.schema'
 
 const router = Router()
@@ -34,5 +35,6 @@ router.put('/config',              authorize('OWNER', 'MANAGER'), validate(updat
 router.post('/test',               authorize('OWNER', 'MANAGER'),                                   whatsappController.testConnection)
 router.post('/test-message',       authorize('OWNER', 'MANAGER'), validate(sendTestMessageSchema),  whatsappController.sendTestMessage)
 router.post('/send-invoice',       validate(sendInvoiceSchema),                                     whatsappController.sendInvoice)
+router.post('/send-message',       validate(sendMessageSchema),                                     whatsappController.sendMessage)
 
 export default router
