@@ -24,6 +24,10 @@ router.get('/stats',               whatsappController.getStats)
 router.get('/invoice-history',     whatsappController.getInvoiceHistory)
 router.get('/messages/recent',     whatsappController.getRecentMessages)
 
+router.get('/qr',                 authorize('OWNER', 'MANAGER'),                                   whatsappController.getQrSession)
+router.post('/qr/start',          authorize('OWNER', 'MANAGER'),                                   whatsappController.startQrConnect)
+router.post('/qr/refresh',        authorize('OWNER', 'MANAGER'),                                   whatsappController.refreshQrConnect)
+
 router.post('/connect',            authorize('OWNER', 'MANAGER'), validate(connectSchema),          whatsappController.connect)
 router.post('/disconnect',         authorize('OWNER', 'MANAGER'),                                   whatsappController.disconnect)
 router.put('/config',              authorize('OWNER', 'MANAGER'), validate(updateConfigSchema),     whatsappController.updateConfig)

@@ -1,6 +1,17 @@
 import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import type { ConnectInput, UpdateConfigInput, SendInvoiceInput } from './whatsapp.schema'
+import {
+  startQrSession,
+  getQrState,
+  disconnectQrSession,
+  sendQrText,
+  isQrConnected,
+  restoreQrSessions,
+  type QrSessionState,
+} from './whatsapp-session.manager'
+
+export { restoreQrSessions }
 
 const META_API = 'https://graph.facebook.com/v25.0'
 
@@ -27,7 +38,7 @@ async function metaPost(path: string, token: string, body: Record<string, any>) 
 }
 
 function maskToken(token: string): string {
-  if (token.length <= 12) return '***'
+  if (!token || token.length <= 12) return token ? '***' : ''
   return token.slice(0, 8) + '***' + token.slice(-4)
 }
 
@@ -44,21 +55,73 @@ export const whatsappService = {
 
   async getStatus(tenantId: string) {
     const cfg = await prisma.whatsAppConfig.findUnique({ where: { tenantId } })
-    if (!cfg) return { status: 'disconnected' as const }
-    return {
-      status:        cfg.status as 'connected' | 'disconnected' | 'token_expired',
-      phoneNumber:   cfg.phoneNumber   ?? undefined,
-      displayName:   cfg.displayName   ?? undefined,
-      qualityRating: cfg.qualityRating ?? undefined,
-      lastChecked:   cfg.lastCheckedAt?.toISOString(),
+    if (!cfg) return { status: 'disconnected' as const, connectionMode: 'qr' as const }
+
+    if (cfg.connectionMode === 'qr') {
+      const qr = getQrState(tenantId)
+      if (qr.status === 'connected' || isQrConnected(tenantId)) {
+        return {
+          status:         'connected' as const,
+          connectionMode: 'qr' as const,
+          phoneNumber:    qr.phoneNumber ?? cfg.phoneNumber ?? undefined,
+          displayName:    qr.displayName ?? cfg.displayName ?? undefined,
+          lastChecked:    qr.lastChecked,
+        }
+      }
+      if (qr.status === 'qr_pending' || qr.status === 'connecting') {
+        return {
+          status:         qr.status,
+          connectionMode: 'qr' as const,
+          qr:             qr.qr,
+          phoneNumber:    cfg.phoneNumber ?? undefined,
+          displayName:    cfg.displayName ?? undefined,
+          lastChecked:    qr.lastChecked,
+        }
+      }
+      if (cfg.status === 'connected') {
+        if (!isQrConnected(tenantId)) {
+          startQrSession(tenantId).catch(() => {})
+        }
+        return {
+          status:         isQrConnected(tenantId) ? 'connected' as const : 'connecting' as const,
+          connectionMode: 'qr' as const,
+          phoneNumber:    cfg.phoneNumber ?? undefined,
+          displayName:    cfg.displayName ?? undefined,
+          lastChecked:    cfg.lastCheckedAt?.toISOString(),
+        }
+      }
     }
+
+    return {
+      status:         cfg.status as 'connected' | 'disconnected' | 'token_expired',
+      connectionMode: (cfg.connectionMode ?? 'meta') as 'meta' | 'qr',
+      phoneNumber:    cfg.phoneNumber   ?? undefined,
+      displayName:    cfg.displayName   ?? undefined,
+      qualityRating:  cfg.qualityRating ?? undefined,
+      lastChecked:    cfg.lastCheckedAt?.toISOString(),
+    }
+  },
+
+  async getQrSession(tenantId: string): Promise<QrSessionState & { connectionMode: 'qr' }> {
+    return { ...getQrState(tenantId), connectionMode: 'qr' }
+  },
+
+  async startQrConnect(tenantId: string) {
+    const state = await startQrSession(tenantId, { force: false })
+    return { ...state, connectionMode: 'qr' as const }
+  },
+
+  async refreshQrConnect(tenantId: string) {
+    const state = await startQrSession(tenantId, { force: true })
+    return { ...state, connectionMode: 'qr' as const }
   },
 
   async getConfig(tenantId: string) {
     const cfg = await prisma.whatsAppConfig.findUnique({ where: { tenantId } })
     if (!cfg) return null
     return {
-      accessToken:     maskToken(cfg.accessToken),
+      connectionMode:  (cfg.connectionMode ?? 'qr') as 'meta' | 'qr',
+      accessToken:     cfg.accessToken ? maskToken(cfg.accessToken) : '',
       phoneNumberId:   cfg.phoneNumberId,
       wabaId:          cfg.wabaId,
       verifyToken:     cfg.verifyToken,
@@ -71,6 +134,8 @@ export const whatsappService = {
   },
 
   async connect(tenantId: string, input: ConnectInput) {
+    await disconnectQrSession(tenantId).catch(() => {})
+
     // Verify credentials with Meta API
     let phoneNumber: string | undefined
     let displayName: string | undefined
@@ -99,6 +164,7 @@ export const whatsappService = {
       where:  { tenantId },
       create: {
         tenantId,
+        connectionMode: 'meta',
         accessToken:   input.accessToken,
         phoneNumberId: input.phoneNumberId,
         wabaId:        input.wabaId,
@@ -111,6 +177,7 @@ export const whatsappService = {
         lastCheckedAt: new Date(),
       },
       update: {
+        connectionMode: 'meta',
         accessToken:   input.accessToken,
         phoneNumberId: input.phoneNumberId,
         wabaId:        input.wabaId,
@@ -125,24 +192,59 @@ export const whatsappService = {
     })
 
     return {
-      status:      cfg.status as 'connected' | 'disconnected' | 'token_expired',
-      phoneNumber: cfg.phoneNumber   ?? undefined,
-      displayName: cfg.displayName   ?? undefined,
-      lastChecked: cfg.lastCheckedAt?.toISOString(),
+      status:         cfg.status as 'connected' | 'disconnected' | 'token_expired',
+      connectionMode: 'meta' as const,
+      phoneNumber:    cfg.phoneNumber   ?? undefined,
+      displayName:    cfg.displayName   ?? undefined,
+      lastChecked:    cfg.lastCheckedAt?.toISOString(),
     }
   },
 
   async disconnect(tenantId: string) {
-    await prisma.whatsAppConfig.updateMany({
-      where: { tenantId },
-      data:  { status: 'disconnected', enabled: false },
-    })
+    const cfg = await prisma.whatsAppConfig.findUnique({ where: { tenantId } })
+    if (cfg?.connectionMode === 'qr') {
+      await disconnectQrSession(tenantId)
+    } else {
+      await prisma.whatsAppConfig.updateMany({
+        where: { tenantId },
+        data:  { status: 'disconnected', enabled: false },
+      })
+    }
     return { success: true }
   },
 
   async updateConfig(tenantId: string, input: UpdateConfigInput) {
     const existing = await prisma.whatsAppConfig.findUnique({ where: { tenantId } })
-    if (!existing) throw new Error('WhatsApp not configured. Please connect first.')
+    if (!existing) {
+      const cfg = await prisma.whatsAppConfig.create({
+        data: {
+          tenantId,
+          connectionMode: 'qr',
+          accessToken:     input.accessToken     ?? '',
+          phoneNumberId:   input.phoneNumberId   ?? '',
+          wabaId:          input.wabaId          ?? '',
+          verifyToken:     input.verifyToken     ?? '',
+          enabled:         input.enabled         ?? false,
+          autoSendInvoice: input.autoSendInvoice ?? false,
+          sendPdfInvoice:  input.sendPdfInvoice  ?? false,
+          validatePhones:  input.validatePhones  ?? true,
+          invoiceTemplate: input.invoiceTemplate ?? '',
+          status:          'disconnected',
+        },
+      })
+      return {
+        connectionMode:  'qr' as const,
+        accessToken:     '',
+        phoneNumberId:   cfg.phoneNumberId,
+        wabaId:          cfg.wabaId,
+        verifyToken:     cfg.verifyToken,
+        enabled:         cfg.enabled,
+        autoSendInvoice: cfg.autoSendInvoice,
+        sendPdfInvoice:  cfg.sendPdfInvoice,
+        validatePhones:  cfg.validatePhones,
+        invoiceTemplate: cfg.invoiceTemplate,
+      }
+    }
     const cfg = await prisma.whatsAppConfig.update({
       where: { tenantId },
       data:  {
@@ -158,7 +260,8 @@ export const whatsappService = {
       },
     })
     return {
-      accessToken:     maskToken(cfg.accessToken),
+      connectionMode:  (cfg.connectionMode ?? 'qr') as 'meta' | 'qr',
+      accessToken:     cfg.accessToken ? maskToken(cfg.accessToken) : '',
       phoneNumberId:   cfg.phoneNumberId,
       wabaId:          cfg.wabaId,
       verifyToken:     cfg.verifyToken,
@@ -173,6 +276,21 @@ export const whatsappService = {
   async testConnection(tenantId: string) {
     const cfg = await prisma.whatsAppConfig.findUnique({ where: { tenantId } })
     if (!cfg) throw new Error('WhatsApp not configured')
+
+    if (cfg.connectionMode === 'qr') {
+      if (!isQrConnected(tenantId)) {
+        await startQrSession(tenantId).catch(() => {})
+      }
+      if (!isQrConnected(tenantId)) {
+        throw new Error('WhatsApp QR session is not connected. Scan the QR code on your phone.')
+      }
+      await prisma.whatsAppConfig.update({
+        where: { tenantId },
+        data:  { status: 'connected', lastCheckedAt: new Date() },
+      })
+      return { success: true, message: 'WhatsApp QR connection is active.' }
+    }
+
     try {
       await metaGet(
         `/${cfg.phoneNumberId}?fields=display_phone_number,verified_name`,
@@ -195,29 +313,44 @@ export const whatsappService = {
 
   async sendTestMessage(tenantId: string, phone: string) {
     const cfg = await prisma.whatsAppConfig.findUnique({ where: { tenantId } })
-    if (!cfg || !cfg.accessToken || !cfg.phoneNumberId)
-      throw new AppError('WhatsApp not configured. Please save your credentials first.', 400)
+    if (!cfg) throw new AppError('WhatsApp not configured. Please connect first.', 400)
 
-    const normalizedPhone = phone.startsWith('+') ? phone.slice(1) : phone
-
+    const body = '\u2705 This is a test message from your Hexalyte POS. WhatsApp integration is working!'
     let result: any
     let msgStatus = 'sent'
-    let metaErr: string | undefined
-    try {
-      result = await metaPost(`/${cfg.phoneNumberId}/messages`, cfg.accessToken, {
-        messaging_product: 'whatsapp',
-        to:                normalizedPhone,
-        type:              'text',
-        text:              { body: '\u2705 This is a test message from your Hexalyte POS. WhatsApp integration is working!' },
-      })
-      // Update DB status to connected since send succeeded
-      await prisma.whatsAppConfig.update({
-        where: { tenantId },
-        data:  { status: 'connected', lastCheckedAt: new Date() },
-      }).catch(() => {})
-    } catch (err: any) {
-      msgStatus = 'failed'
-      metaErr   = err?.message ?? 'Meta API error'
+    let sendErr: string | undefined
+
+    if (cfg.connectionMode === 'qr') {
+      try {
+        await sendQrText(tenantId, phone, body)
+        await prisma.whatsAppConfig.update({
+          where: { tenantId },
+          data:  { status: 'connected', lastCheckedAt: new Date() },
+        }).catch(() => {})
+      } catch (err: any) {
+        msgStatus = 'failed'
+        sendErr   = err?.message ?? 'WhatsApp send failed'
+      }
+    } else {
+      if (!cfg.accessToken || !cfg.phoneNumberId)
+        throw new AppError('WhatsApp not configured. Please save your credentials first.', 400)
+
+      const normalizedPhone = phone.startsWith('+') ? phone.slice(1) : phone
+      try {
+        result = await metaPost(`/${cfg.phoneNumberId}/messages`, cfg.accessToken, {
+          messaging_product: 'whatsapp',
+          to:                normalizedPhone,
+          type:              'text',
+          text:              { body },
+        })
+        await prisma.whatsAppConfig.update({
+          where: { tenantId },
+          data:  { status: 'connected', lastCheckedAt: new Date() },
+        }).catch(() => {})
+      } catch (err: any) {
+        msgStatus = 'failed'
+        sendErr   = err?.message ?? 'Meta API error'
+      }
     }
 
     await prisma.whatsAppMessage.create({
@@ -233,8 +366,8 @@ export const whatsappService = {
       },
     }).catch(() => {})
 
-    if (metaErr) {
-      // Map common Meta error codes to helpful messages
+    if (sendErr) {
+      const metaErr = sendErr
       const friendly =
         metaErr.includes('131047') || metaErr.includes('Re-engagement') ?
           'Cannot send to this number: the customer must message your WhatsApp number first (within 24 h).' :
@@ -254,9 +387,11 @@ export const whatsappService = {
     const cfg = await prisma.whatsAppConfig.findUnique({ where: { tenantId } })
     if (!cfg) throw new Error('WhatsApp not configured')
     if (!cfg.enabled) throw new Error('WhatsApp integration is disabled')
-    if (cfg.status !== 'connected') throw new Error('WhatsApp is not connected')
 
-    const normalizedPhone = input.phone.startsWith('+') ? input.phone.slice(1) : input.phone
+    const isConnected = cfg.connectionMode === 'qr'
+      ? isQrConnected(tenantId) || cfg.status === 'connected'
+      : cfg.status === 'connected'
+    if (!isConnected) throw new Error('WhatsApp is not connected')
 
     const template = cfg.invoiceTemplate || `Hello {{customer_name}},\n\nThank you for your purchase! 🎉\n\nOrder: {{order_id}}\nAmount: LKR {{amount}}\n\nThank you for choosing us!`
 
@@ -269,12 +404,18 @@ export const whatsappService = {
       shop_name:     'Hexalyte',
     })
 
-    const result = await metaPost(`/${cfg.phoneNumberId}/messages`, cfg.accessToken, {
-      messaging_product: 'whatsapp',
-      to:                normalizedPhone,
-      type:              'text',
-      text:              { body: messageBody },
-    })
+    let result: any
+    if (cfg.connectionMode === 'qr') {
+      await sendQrText(tenantId, input.phone, messageBody)
+    } else {
+      const normalizedPhone = input.phone.startsWith('+') ? input.phone.slice(1) : input.phone
+      result = await metaPost(`/${cfg.phoneNumberId}/messages`, cfg.accessToken, {
+        messaging_product: 'whatsapp',
+        to:                normalizedPhone,
+        type:              'text',
+        text:              { body: messageBody },
+      })
+    }
 
     const preview = `Invoice #${input.orderId}${input.amount ? ` · LKR ${input.amount.toLocaleString()}` : ''}`
 
@@ -374,5 +515,38 @@ export const whatsappService = {
       status:       m.status as 'sent' | 'delivered' | 'read' | 'failed',
       timestamp:    m.createdAt.toISOString(),
     }))
+  },
+
+  /** Send a plain text WhatsApp message for the given tenant (QR or Meta). */
+  async sendTextMessage(tenantId: string, phone: string, text: string) {
+    const cfg = await prisma.whatsAppConfig.findUnique({ where: { tenantId } })
+    if (!cfg) throw new AppError('WhatsApp not configured for this shop', 400)
+    if (!cfg.enabled) throw new AppError('WhatsApp integration is disabled for this shop', 400)
+
+    if (cfg.connectionMode === 'qr') {
+      if (!isQrConnected(tenantId)) {
+        await startQrSession(tenantId).catch(() => {})
+      }
+      if (!isQrConnected(tenantId)) {
+        throw new AppError('WhatsApp is not connected for this shop. Scan the QR code first.', 400)
+      }
+      await sendQrText(tenantId, phone, text)
+      return
+    }
+
+    if (!cfg.accessToken || !cfg.phoneNumberId) {
+      throw new AppError('WhatsApp Meta API is not configured for this shop', 400)
+    }
+    if (cfg.status !== 'connected') {
+      throw new AppError('WhatsApp is not connected for this shop', 400)
+    }
+
+    const normalizedPhone = phone.startsWith('+') ? phone.slice(1) : phone
+    await metaPost(`/${cfg.phoneNumberId}/messages`, cfg.accessToken, {
+      messaging_product: 'whatsapp',
+      to:                normalizedPhone,
+      type:              'text',
+      text:              { body: text },
+    })
   },
 }

@@ -1,8 +1,11 @@
 import { api } from './api'
+import { authStorage } from './auth'
 
-export type WAStatus = 'connected' | 'disconnected' | 'token_expired'
+export type WAStatus = 'connected' | 'disconnected' | 'token_expired' | 'qr_pending' | 'connecting'
+export type WAConnectionMode = 'qr' | 'meta'
 
 export interface WAConfig {
+  connectionMode?: WAConnectionMode
   accessToken: string
   phoneNumberId: string
   wabaId: string
@@ -16,10 +19,21 @@ export interface WAConfig {
 
 export interface WAStatusInfo {
   status: WAStatus
+  connectionMode?: WAConnectionMode
+  qr?: string
   phoneNumber?: string
   displayName?: string
   lastChecked?: string
   qualityRating?: 'GREEN' | 'YELLOW' | 'RED' | 'UNKNOWN'
+}
+
+export interface WAQrSession {
+  status: 'disconnected' | 'qr_pending' | 'connecting' | 'connected'
+  connectionMode: 'qr'
+  qr?: string
+  phoneNumber?: string
+  displayName?: string
+  lastChecked?: string
 }
 
 export interface WAStats {
@@ -53,10 +67,25 @@ export interface RecentMessage {
 }
 
 const BASE = '/whatsapp'
+const WA_CONFIG_KEY = 'hx_wa_config'
+const WA_STATUS_KEY = 'hx_wa_status'
+
+/** Resolve tenant id so each shop's WhatsApp cache stays isolated in localStorage. */
+export function getWhatsAppTenantId(): string | null {
+  return authStorage.getUser()?.tenantId ?? null
+}
+
+function scopedKey(base: string, tenantId?: string | null): string | null {
+  const tid = tenantId ?? getWhatsAppTenantId()
+  return tid ? `${base}_${tid}` : null
+}
 
 export const whatsappApi = {
   getStatus:         ()                              => api.get<{ data: WAStatusInfo }>(`${BASE}/status`),
   getConfig:         ()                              => api.get<{ data: WAConfig }>(`${BASE}/config`),
+  getQrSession:      ()                              => api.get<{ data: WAQrSession }>(`${BASE}/qr`),
+  startQrConnect:    ()                              => api.post<{ data: WAQrSession }>(`${BASE}/qr/start`, {}),
+  refreshQrConnect:  ()                              => api.post<{ data: WAQrSession }>(`${BASE}/qr/refresh`, {}),
   connect:           (body: Partial<WAConfig>)       => api.post<{ data: WAStatusInfo }>(`${BASE}/connect`, body),
   disconnect:        ()                              => api.post<{ data: { success: boolean } }>(`${BASE}/disconnect`, {}),
   updateConfig:      (body: Partial<WAConfig>)       => api.put<{ data: WAConfig }>(`${BASE}/config`, body),
@@ -70,28 +99,35 @@ export const whatsappApi = {
     api.post<{ data: { success: boolean; messageId: string } }>(`${BASE}/send-invoice`, { orderId, phone }),
 }
 
-export const WA_CONFIG_KEY = 'hx_wa_config'
-export const WA_STATUS_KEY = 'hx_wa_status'
-
-export function getLocalWAConfig(): Partial<WAConfig> {
+export function getLocalWAConfig(tenantId?: string | null): Partial<WAConfig> {
   if (typeof window === 'undefined') return {}
-  try { return JSON.parse(localStorage.getItem(WA_CONFIG_KEY) ?? '{}') } catch { return {} }
+  const key = scopedKey(WA_CONFIG_KEY, tenantId)
+  if (!key) return {}
+  try { return JSON.parse(localStorage.getItem(key) ?? '{}') } catch { return {} }
 }
 
-export function saveLocalWAConfig(cfg: Partial<WAConfig>) {
-  localStorage.setItem(WA_CONFIG_KEY, JSON.stringify(cfg))
+export function saveLocalWAConfig(cfg: Partial<WAConfig>, tenantId?: string | null) {
+  const key = scopedKey(WA_CONFIG_KEY, tenantId)
+  if (!key) return
+  localStorage.setItem(key, JSON.stringify(cfg))
 }
 
-export function getLocalWAStatus(): WAStatusInfo | null {
+export function getLocalWAStatus(tenantId?: string | null): WAStatusInfo | null {
   if (typeof window === 'undefined') return null
-  try { return JSON.parse(localStorage.getItem(WA_STATUS_KEY) ?? 'null') } catch { return null }
+  const key = scopedKey(WA_STATUS_KEY, tenantId)
+  if (!key) return null
+  try { return JSON.parse(localStorage.getItem(key) ?? 'null') } catch { return null }
 }
 
-export function saveLocalWAStatus(s: WAStatusInfo) {
-  localStorage.setItem(WA_STATUS_KEY, JSON.stringify(s))
+export function saveLocalWAStatus(s: WAStatusInfo, tenantId?: string | null) {
+  const key = scopedKey(WA_STATUS_KEY, tenantId)
+  if (!key) return
+  localStorage.setItem(key, JSON.stringify(s))
 }
 
-export function clearLocalWAData() {
-  localStorage.removeItem(WA_STATUS_KEY)
-  localStorage.removeItem(WA_CONFIG_KEY)
+export function clearLocalWAData(tenantId?: string | null) {
+  const cfgKey = scopedKey(WA_CONFIG_KEY, tenantId)
+  const statusKey = scopedKey(WA_STATUS_KEY, tenantId)
+  if (cfgKey) localStorage.removeItem(cfgKey)
+  if (statusKey) localStorage.removeItem(statusKey)
 }

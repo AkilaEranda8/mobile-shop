@@ -2,6 +2,7 @@ import { env } from './config/env'
 import { connectDatabase, disconnectDatabase } from './config/database'
 import { connectRedis, redis } from './config/redis'
 import { refreshRateLimitSettings } from './config/rate-limit-settings'
+import { restoreQrSessions } from './modules/whatsapp/whatsapp.service'
 import app from './app'
 
 async function bootstrap() {
@@ -9,6 +10,9 @@ async function bootstrap() {
     await connectDatabase()
     await connectRedis()
     await refreshRateLimitSettings()
+    restoreQrSessions().catch(err => {
+      console.warn('[whatsapp] session restore skipped:', err?.message)
+    })
 
     const server = app.listen(parseInt(env.PORT), () => {
       console.log(`🚀 Hexalyte API running on port ${env.PORT}`)

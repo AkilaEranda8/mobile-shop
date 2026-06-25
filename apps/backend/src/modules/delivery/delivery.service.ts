@@ -1,5 +1,6 @@
 import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
+import { whatsappService } from '../whatsapp/whatsapp.service'
 import { generateInvoiceNumber } from '../../utils/counters'
 import type {
   CreateDeliveryOrderInput,
@@ -126,22 +127,7 @@ async function sendTrackingNotification(tenantId: string, orderId: string) {
   })
 
   try {
-    const normalizedPhone = order.customerPhone.startsWith('+')
-      ? order.customerPhone.slice(1)
-      : order.customerPhone
-
-    const res = await fetch(`https://graph.facebook.com/v19.0/${cfg.phoneNumberId}/messages`, {
-      method:  'POST',
-      headers: { Authorization: `Bearer ${cfg.accessToken}`, 'Content-Type': 'application/json' },
-      body:    JSON.stringify({
-        messaging_product: 'whatsapp',
-        to:   normalizedPhone,
-        type: 'text',
-        text: { body: message },
-      }),
-    })
-    const json = await res.json() as any
-    if (!res.ok) throw new Error(json?.error?.message ?? 'Meta API error')
+    await whatsappService.sendTextMessage(tenantId, order.customerPhone, message)
 
     await prisma.deliveryNotification.update({
       where: { id: notif.id },

@@ -815,10 +815,11 @@ model DailySummary {
 model WhatsAppConfig {
   id               String    @id @default(cuid())
   tenantId         String    @unique
-  accessToken      String
-  phoneNumberId    String
-  wabaId           String
-  verifyToken      String
+  connectionMode   String    @default("qr")
+  accessToken      String    @default("")
+  phoneNumberId    String    @default("")
+  wabaId           String    @default("")
+  verifyToken      String    @default("")
   enabled          Boolean   @default(false)
   autoSendInvoice  Boolean   @default(false)
   sendPdfInvoice   Boolean   @default(false)

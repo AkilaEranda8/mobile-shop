@@ -82,6 +82,27 @@ export const whatsappController = {
     } catch (e) { next(e) }
   },
 
+  async getQrSession(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await whatsappService.getQrSession(req.user!.tenantId)
+      sendSuccess(res, data)
+    } catch (e) { next(e) }
+  },
+
+  async startQrConnect(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await whatsappService.startQrConnect(req.user!.tenantId)
+      sendSuccess(res, data, 'QR session started')
+    } catch (e) { next(e) }
+  },
+
+  async refreshQrConnect(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await whatsappService.refreshQrConnect(req.user!.tenantId)
+      sendSuccess(res, data, 'QR code refreshed')
+    } catch (e) { next(e) }
+  },
+
   // ── Meta webhook verification (public) ──────────────────────────────────────
   async webhookVerify(req: Request, res: Response) {
     const mode      = req.query['hub.mode']

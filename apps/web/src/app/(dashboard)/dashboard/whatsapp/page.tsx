@@ -1,15 +1,18 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Wifi, WifiOff, AlertTriangle, Settings2, RefreshCw,
-  BarChart2, History, FileText, Loader2, MessageSquare,
+  BarChart2, History, FileText, Loader2, MessageSquare, Store,
 } from 'lucide-react'
 import {
   whatsappApi, getLocalWAConfig, getLocalWAStatus, saveLocalWAStatus, clearLocalWAData,
+  getWhatsAppTenantId,
   type WAStatusInfo, type WAConfig,
 } from '@/lib/whatsapp-api'
+import { authStorage } from '@/lib/auth'
+import { tenantApi } from '@/lib/api'
 import ConnectionTab     from '@/components/whatsapp/ConnectionTab'
 import InvoiceTab        from '@/components/whatsapp/InvoiceTab'
 import StatsTab          from '@/components/whatsapp/StatsTab'
@@ -28,84 +31,112 @@ const STATUS_BADGE: Record<string, { label: string; color: string; bg: string; b
   connected:     { label: 'Connected',     color: 'text-green-400',  bg: 'bg-green-500/10',  border: 'border-green-500/20',  Icon: Wifi          },
   disconnected:  { label: 'Disconnected',  color: 'text-slate-400',  bg: 'bg-slate-500/10',  border: 'border-slate-500/20',  Icon: WifiOff       },
   token_expired: { label: 'Token Expired', color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20', Icon: AlertTriangle  },
+  qr_pending:    { label: 'Scan QR',       color: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/20',   Icon: MessageSquare },
+  connecting:    { label: 'Connecting',    color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20', Icon: Loader2       },
 }
 
 export default function WhatsAppPage() {
+  const tenantId = getWhatsAppTenantId()
   const [activeTab,   setActiveTab]   = useState<Tab>('connection')
   const [status,      setStatus]      = useState<WAStatusInfo | null>(null)
-  const [config,      setConfig]      = useState<Partial<WAConfig>>(getLocalWAConfig)
+  const [config,      setConfig]      = useState<Partial<WAConfig>>({})
+  const [shopName,    setShopName]    = useState<string>('')
   const [initialLoad, setInitialLoad] = useState(true)
 
-  const silentReconnect = async (savedConfig: Partial<WAConfig>): Promise<WAStatusInfo | null> => {
+  const silentMetaReconnect = useCallback(async (
+    tid: string,
+    savedConfig: Partial<WAConfig>,
+  ): Promise<WAStatusInfo | null> => {
+    if (savedConfig.connectionMode === 'qr') return null
     if (!savedConfig.accessToken || !savedConfig.phoneNumberId || !savedConfig.wabaId) return null
     try {
       const r: any = await whatsappApi.connect(savedConfig)
       const info: WAStatusInfo = r?.data ?? r
-      if (info?.status === 'connected') { saveLocalWAStatus(info); return info }
+      if (info?.status === 'connected') {
+        saveLocalWAStatus(info, tid)
+        return info
+      }
     } catch {}
     return null
-  }
-
-  useEffect(() => {
-    const load = async () => {
-      const localStatus = getLocalWAStatus()
-      const localConfig = getLocalWAConfig()
-      const [s, c] = await Promise.all([
-        whatsappApi.getStatus().then((r: any) => r?.data ?? r).catch(() => null),
-        whatsappApi.getConfig().then((r: any) => r?.data ?? r).catch(() => null),
-      ])
-      let resolved: WAStatusInfo | null = s ?? localStatus
-      // Auto-reconnect: API says disconnected but we have saved credentials
-      if (
-        resolved?.status !== 'connected' &&
-        localStatus?.status === 'connected' &&
-        localConfig?.accessToken
-      ) {
-        const reconnected = await silentReconnect(localConfig)
-        if (reconnected) resolved = reconnected
-      }
-      setStatus(resolved)
-      if (c) setConfig(c)
-      setInitialLoad(false)
-    }
-    load()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Poll every 5 min — refresh status and auto-reconnect if needed
+  const loadTenantWhatsApp = useCallback(async () => {
+    const tid = authStorage.getUser()?.tenantId
+    if (!tid) {
+      setStatus(null)
+      setConfig({})
+      setInitialLoad(false)
+      return
+    }
+
+    setInitialLoad(true)
+    const localStatus = getLocalWAStatus(tid)
+    const localConfig = getLocalWAConfig(tid)
+
+    const [s, c, tenantRes] = await Promise.all([
+      whatsappApi.getStatus().then((r: any) => r?.data ?? r).catch(() => null),
+      whatsappApi.getConfig().then((r: any) => r?.data ?? r).catch(() => null),
+      tenantApi.get(tid).catch(() => null),
+    ])
+
+    const tenant = (tenantRes as any)?.data ?? tenantRes
+    setShopName(tenant?.name ?? tenant?.businessName ?? 'Your shop')
+
+    let resolved: WAStatusInfo | null = s ?? localStatus
+    if (
+      resolved?.status !== 'connected' &&
+      localConfig.connectionMode !== 'qr' &&
+      localStatus?.status === 'connected' &&
+      localConfig?.accessToken
+    ) {
+      const reconnected = await silentMetaReconnect(tid, localConfig)
+      if (reconnected) resolved = reconnected
+    }
+
+    setStatus(resolved)
+    setConfig(c ?? localConfig ?? {})
+    if (resolved?.status === 'connected') saveLocalWAStatus(resolved, tid)
+    setInitialLoad(false)
+  }, [silentMetaReconnect])
+
+  useEffect(() => {
+    loadTenantWhatsApp()
+  }, [loadTenantWhatsApp, tenantId])
+
   useEffect(() => {
     const poll = async () => {
-      const localConfig = getLocalWAConfig()
+      const tid = authStorage.getUser()?.tenantId
+      if (!tid) return
+      const localConfig = getLocalWAConfig(tid)
       const s: any = await whatsappApi.getStatus().then((r: any) => r?.data ?? r).catch(() => null)
-      if (s) {
-        if (s.status === 'connected') {
-          setStatus(s); saveLocalWAStatus(s)
-        } else if (localConfig?.accessToken) {
-          const reconnected = await silentReconnect(localConfig)
-          if (reconnected) setStatus(reconnected)
-          else setStatus(s)
-        } else {
-          setStatus(s)
-        }
+      if (!s) return
+      if (s.status === 'connected') {
+        setStatus(s)
+        saveLocalWAStatus(s, tid)
+      } else if (localConfig.connectionMode !== 'qr' && localConfig?.accessToken) {
+        const reconnected = await silentMetaReconnect(tid, localConfig)
+        setStatus(reconnected ?? s)
+      } else {
+        setStatus(s)
       }
     }
     const id = setInterval(poll, 5 * 60 * 1000)
     return () => clearInterval(id)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [silentMetaReconnect])
 
   const handleStatusChange = (s: WAStatusInfo) => {
+    const tid = authStorage.getUser()?.tenantId
     setStatus(s)
-    if (s.status === 'connected') saveLocalWAStatus(s)
-    else clearLocalWAData()
+    if (!tid) return
+    if (s.status === 'connected') saveLocalWAStatus(s, tid)
+    else clearLocalWAData(tid)
   }
 
   const currentStatus = status?.status ?? 'disconnected'
-  const badge         = STATUS_BADGE[currentStatus]
+  const badge         = STATUS_BADGE[currentStatus] ?? STATUS_BADGE.disconnected
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-green-500/15 border border-green-500/20 flex items-center justify-center">
@@ -116,35 +147,42 @@ export default function WhatsAppPage() {
           </div>
           <div>
             <h1 className="page-title">WhatsApp Integration</h1>
-            <p className="page-subtitle">Connect and manage your WhatsApp Business Cloud API</p>
+            <p className="page-subtitle">සෑම shop එකකටම වෙනම WhatsApp number එකක් connect කරන්න</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {initialLoad ? (
             <span className="flex items-center gap-1.5 text-xs text-slate-500">
               <Loader2 size={12} className="animate-spin" /> Checking status…
             </span>
           ) : (
             <span className={`badge-status ${badge.bg} border ${badge.border} ${badge.color}`}>
-              <badge.Icon size={11} />
+              <badge.Icon size={11} className={currentStatus === 'connecting' ? 'animate-spin' : ''} />
               {badge.label}
               {status?.phoneNumber && (
                 <span className="ml-1 opacity-70">· {status.phoneNumber}</span>
               )}
             </span>
           )}
-          {currentStatus === 'connected' && (
-            <span className="text-xs px-2 py-1 rounded-lg border text-green-400 bg-green-500/10 border-green-500/20 font-medium flex items-center gap-1">
-              <RefreshCw size={10} /> Auto-reconnect
+          {shopName && (
+            <span className="text-xs px-2 py-1 rounded-lg border text-slate-300 bg-white/5 border-white/10 font-medium flex items-center gap-1">
+              <Store size={10} /> {shopName}
             </span>
           )}
           <span className="text-xs px-2 py-1 rounded-lg border text-violet-400 bg-violet-500/10 border-violet-500/20 font-medium">
-            Multi-Tenant
+            Per-tenant
           </span>
         </div>
       </div>
 
-      {/* Info banner for disconnected */}
+      <div className="flex items-start gap-3 p-4 rounded-xl bg-violet-500/5 border border-violet-500/15">
+        <Store size={15} className="text-violet-400 mt-0.5 flex-shrink-0" />
+        <p className="text-sm text-slate-400">
+          <strong className="text-slate-300 font-medium">{shopName || 'මෙම shop'}</strong> සඳහා වෙනම WhatsApp connect වෙනවා.
+          වෙන shop එකකට login වුණාම ඒ shop එකේ WhatsApp settings පෙන්වයි — tenants අතර mix වෙන්නේ නැහැ.
+        </p>
+      </div>
+
       <AnimatePresence>
         {!initialLoad && currentStatus === 'disconnected' && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
@@ -152,14 +190,13 @@ export default function WhatsAppPage() {
             className="flex items-start gap-3 p-4 rounded-xl bg-blue-500/5 border border-blue-500/15 overflow-hidden">
             <MessageSquare size={15} className="text-blue-400 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-slate-400">
-              Connect your WhatsApp Business API to start sending invoices and messages to customers automatically.
-              Go to the <button onClick={() => setActiveTab('connection')} className="text-blue-400 hover:underline">Connection tab</button> to get started.
+              {shopName ? `${shopName} ` : ''}සඳහා QR scan කරන්න හෝ Meta API credentials දාන්න.
+              <button onClick={() => setActiveTab('connection')} className="text-blue-400 hover:underline ml-1">Connection tab</button> එකට යන්න.
             </p>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Tabs */}
       <div className="flex items-center gap-1 overflow-x-auto pb-1">
         {TABS.map(({ key, label, Icon }) => (
           <button key={key} onClick={() => setActiveTab(key)}
@@ -173,13 +210,13 @@ export default function WhatsAppPage() {
         ))}
       </div>
 
-      {/* Tab Content */}
       <AnimatePresence mode="wait">
-        <motion.div key={activeTab}
+        <motion.div key={`${tenantId ?? 'none'}-${activeTab}`}
           initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
           transition={{ duration: 0.15 }}>
           {activeTab === 'connection' && (
             <ConnectionTab
+              shopName={shopName}
               status={status}
               config={config}
               onStatusChange={handleStatusChange}

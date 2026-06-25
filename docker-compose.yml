@@ -65,6 +65,7 @@ services:
     volumes:
       - ./apps/backend/src:/app/src
       - uploads_data:/app/uploads
+      - whatsapp_sessions:/app/data/whatsapp-sessions
 
   admin:
     build:
@@ -110,6 +111,7 @@ volumes:
   postgres_data:
   redis_data:
   uploads_data:
+  whatsapp_sessions:
 
 networks:
   hexalyte-network:
