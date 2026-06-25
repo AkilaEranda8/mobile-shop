@@ -12,7 +12,7 @@ import {
 import toast from 'react-hot-toast'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday } from '@/lib/business-date'
-import { useFeatureFlag, useBranches, useDailyClosingPreview } from '@/lib/hooks'
+import { useFeatureFlag, useBranches, useDailyClosingPreview, useProfitAllocationDashboard } from '@/lib/hooks'
 import { dailyClosingApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { DailyClosingCharts } from '@/components/daily-closing/DailyClosingCharts'
@@ -36,9 +36,15 @@ const DENOMS: Array<{ key: string; label: string; value: number }> = [
   { key: 'd50',   label: 'Rs 50',   value: 50 },
   { key: 'd20',   label: 'Rs 20',   value: 20 },
   { key: 'd10',   label: 'Rs 10',   value: 10 },
+  { key: 'd5',    label: 'Rs 5',    value: 5 },
+  { key: 'd2',    label: 'Rs 2',    value: 2 },
+  { key: 'd1',    label: 'Rs 1',    value: 1 },
 ]
 
-const emptyCash = () => ({ d5000: 0, d2000: 0, d1000: 0, d500: 0, d100: 0, d50: 0, d20: 0, d10: 0, coins: 0 })
+const emptyCash = () => ({
+  d5000: 0, d2000: 0, d1000: 0, d500: 0, d100: 0, d50: 0, d20: 0, d10: 0,
+  d5: 0, d2: 0, d1: 0, coins: 0,
+})
 
 function KpiCard({ icon: Icon, label, value, sub, color, bg }: {
   icon: typeof ShoppingCart; label: string; value: string; sub?: string; color: string; bg: string
@@ -89,6 +95,7 @@ export default function DailyClosingPage() {
   const searchParams = useSearchParams()
   const hasAccess = useFeatureFlag('DAILY_CLOSING')
   const hasDailyReload = useFeatureFlag('DAILY_RELOAD')
+  const hasProfitAllocation = useFeatureFlag('PROFIT_ALLOCATION')
   const user = authStorage.getUser()
   const role = user?.role ?? 'CASHIER'
   const canClose = role === 'OWNER' || role === 'MANAGER'
@@ -114,6 +121,8 @@ export default function DailyClosingPage() {
   const printRef = useRef<HTMLDivElement>(null)
 
   const { data: raw, loading, refetch, error } = useDailyClosingPreview(branchId, date, hasAccess && !!branchId)
+  const { data: allocRaw } = useProfitAllocationDashboard(branchId, date, hasProfitAllocation && !!branchId)
+  const allocation = allocRaw as any
   const d = raw as any
 
   const showReload = useMemo(() => {
@@ -122,6 +131,13 @@ export default function DailyClosingPage() {
     }
     return hasDailyReload
   }, [d?.features?.dailyReload, hasDailyReload])
+
+  const showProfitAllocation = useMemo(() => {
+    if (d?.features && typeof d.features.profitAllocation === 'boolean') {
+      return d.features.profitAllocation
+    }
+    return hasProfitAllocation
+  }, [d?.features?.profitAllocation, hasProfitAllocation])
 
   const visibleInsights = useMemo(() => {
     const list: string[] = d?.insights ?? []
@@ -162,6 +178,9 @@ export default function DailyClosingPage() {
         d50:   d.cashCount.d50   ?? 0,
         d20:   d.cashCount.d20   ?? 0,
         d10:   d.cashCount.d10   ?? 0,
+        d5:    d.cashCount.d5    ?? 0,
+        d2:    d.cashCount.d2    ?? 0,
+        d1:    d.cashCount.d1    ?? 0,
         coins: d.cashCount.coins ?? 0,
       })
     } else {
@@ -427,6 +446,50 @@ export default function DailyClosingPage() {
             </div>
           )}
 
+          {/* ── Daily Balance Sheet (Excel-style) — Profit Allocation enabled only ── */}
+          {showProfitAllocation && (d?.categoryProfitTable?.length > 0 || d?.cashReconciliation) && (
+            <div className="card rounded-2xl p-4 space-y-4">
+              <SectionTitle title="Daily Balance" sub="Sales &amp; profit by category · cash locker reconciliation" />
+              {d?.categoryProfitTable?.length > 0 && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-[11px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                        <th className="pb-2 pr-3 font-semibold">Category</th>
+                        <th className="pb-2 pr-3 font-semibold text-right">Cost</th>
+                        <th className="pb-2 pr-3 font-semibold text-right">Sales</th>
+                        <th className="pb-2 pr-3 font-semibold text-right">Profit</th>
+                        <th className="pb-2 font-semibold text-right">Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {d.categoryProfitTable.map((row: any) => (
+                        <tr key={row.category} className="border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                          <td className="py-2 pr-3 font-medium" style={{ color: 'var(--text-primary)' }}>{row.category}</td>
+                          <td className="py-2 pr-3 text-right" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(row.cost)}</td>
+                          <td className="py-2 pr-3 text-right" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(row.sales)}</td>
+                          <td className="py-2 pr-3 text-right font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(row.profit)}</td>
+                          <td className="py-2 text-right" style={{ color: 'var(--text-muted)' }}>{formatCurrency(row.balance)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {d?.cashReconciliation && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <MetricCard label="Locker (Cash)" value={formatCurrency(d.cashReconciliation.lockerTotal)} />
+                  <MetricCard label="Expected Cash" value={formatCurrency(d.cashReconciliation.expectedCash)} />
+                  <MetricCard label="Variance" value={formatCurrency(d.cashReconciliation.variance)}
+                    tone={d.cashReconciliation.variance === 0 ? 'green' : 'amber'} />
+                  <MetricCard label="Cash In Bank" value={formatCurrency(d.cashReconciliation.cashInBank)} />
+                  <MetricCard label="Total Position" value={formatCurrency(d.cashReconciliation.totalCashPosition)} tone="green" />
+                  <MetricCard label="Net Profit" value={formatCurrency(d.cashReconciliation.netProfit)} tone="green" />
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ── Business summary sections ── */}
           <div className={`grid grid-cols-1 gap-4 ${showReload ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
             {showReload && (
@@ -522,6 +585,34 @@ export default function DailyClosingPage() {
                       <MetricCard label="Refunds" value={formatCurrency(d?.sales?.refundsTotal ?? 0)} tone="red" sub="Returns module" />
                     )}
                   </div>
+
+                  {(showProfitAllocation && (d?.categoryProfitTable?.length ?? 0) > 0) && (
+                    <>
+                      <SectionTitle title="Category Profit" sub="Cost · Sales · Profit per category" />
+                      <div className="overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--border-subtle)' }}>
+                        <table className="w-full text-sm">
+                          <thead style={{ background: 'var(--bg-subtle)' }}>
+                            <tr className="text-left text-[11px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                              <th className="px-3 py-2 font-semibold">Item</th>
+                              <th className="px-3 py-2 font-semibold text-right">Cost</th>
+                              <th className="px-3 py-2 font-semibold text-right">Sales</th>
+                              <th className="px-3 py-2 font-semibold text-right">Profit</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {d.categoryProfitTable.map((row: any) => (
+                              <tr key={row.category} className="border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                                <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>{row.category}</td>
+                                <td className="px-3 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(row.cost)}</td>
+                                <td className="px-3 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(row.sales)}</td>
+                                <td className="px-3 py-2 text-right font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(row.profit)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
 
@@ -627,6 +718,17 @@ export default function DailyClosingPage() {
                       </div>
                     )}
 
+                    {showProfitAllocation && d?.cashReconciliation && (
+                      <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                        <SectionTitle title="Cash Reconciliation" sub="Locker total vs expected · bank balance" />
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          <MetricCard label="Physical Cash (Locker)" value={formatCurrency(cashTotal || d.cashReconciliation.physicalCash)} tone="green" />
+                          <MetricCard label="Cash In Bank" value={formatCurrency(d.cashReconciliation.cashInBank)} />
+                          <MetricCard label="Total Cash Position" value={formatCurrency((cashTotal || d.cashReconciliation.physicalCash) + (d.cashReconciliation.cashInBank ?? 0))} tone="green" />
+                        </div>
+                      </div>
+                    )}
+
                     {!d?.isClosed && (
                       <button onClick={saveCashCount} disabled={saving}
                         className="btn-primary mt-4 text-sm flex items-center gap-2">
@@ -682,6 +784,30 @@ export default function DailyClosingPage() {
                     <MetricCard label="Pending IMEIs" value={String(d?.imei?.pendingImeis ?? 0)} tone="amber" />
                     <MetricCard label="Warranties Active" value={String(d?.imei?.warrantiesActivated ?? 0)} tone="green" />
                   </div>
+
+                  {showProfitAllocation && allocation && (
+                    <>
+                      <SectionTitle title="Profit Allocation" sub={allocation.saved ? 'Saved allocation' : 'Live preview · saved on day close'} />
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                        <MetricCard label="Total Allocated" value={formatCurrency(allocation.totalAllocated ?? 0)} />
+                        <MetricCard label="Remaining Profit" value={formatCurrency(allocation.remainingProfit ?? 0)}
+                          tone={(allocation.remainingProfit ?? 0) >= 0 ? 'green' : 'red'} />
+                        <MetricCard label="Funds" value={String(allocation.lines?.length ?? 0)} />
+                        <MetricCard label="Status" value={allocation.saved ? 'Saved' : 'Draft'} tone={allocation.saved ? 'green' : 'amber'} />
+                      </div>
+                      {(allocation.lines ?? []).filter((l: any) => l.todayAllocation > 0).slice(0, 8).map((l: any) => (
+                        <div key={l.fundId} className="flex items-center justify-between text-sm py-1.5 border-b last:border-0"
+                          style={{ borderColor: 'var(--border-subtle)' }}>
+                          <span style={{ color: 'var(--text-primary)' }}>{l.fundName}</span>
+                          <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(l.todayAllocation)}</span>
+                        </div>
+                      ))}
+                      <Link href={`/dashboard/profit-allocation?date=${date}`}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium mt-3 text-violet-600 dark:text-violet-400 hover:underline">
+                        View full allocation <ExternalLink size={12} />
+                      </Link>
+                    </>
+                  )}
                 </>
               )}
 
@@ -698,6 +824,11 @@ export default function DailyClosingPage() {
                         <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                           By {d.closedByName} · {d.closedAt ? new Date(d.closedAt).toLocaleString('en-LK') : ''}
                         </p>
+                        {showProfitAllocation && allocation?.saved && (
+                          <p className="text-xs mt-1 text-emerald-600 dark:text-emerald-400">
+                            Profit allocation saved automatically
+                          </p>
+                        )}
                       </div>
                     </div>
                   ) : (

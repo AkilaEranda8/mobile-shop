@@ -7,6 +7,8 @@ import {
   RELOAD_PROVIDER_IDS,
   resolveReloadProvider,
 } from '../daily-reload/reload-settings.util'
+import { buildCategoryProfitTable } from '../finance/category-profit.util'
+import { isTenantFeatureEnabled } from '../../utils/tenant-feature.util'
 
 export interface CashCountInput {
   d5000?: number
@@ -17,12 +19,16 @@ export interface CashCountInput {
   d50?: number
   d20?: number
   d10?: number
+  d5?: number
+  d2?: number
+  d1?: number
   coins?: number
 }
 
 const DENOM_VALUES: Array<[keyof CashCountInput, number]> = [
   ['d5000', 5000], ['d2000', 2000], ['d1000', 1000], ['d500', 500],
   ['d100', 100], ['d50', 50], ['d20', 20], ['d10', 10],
+  ['d5', 5], ['d2', 2], ['d1', 1],
 ]
 
 export function calcCashCountTotal(input: CashCountInput): number {
@@ -51,10 +57,7 @@ function isMobileProduct(product: { trackImei?: boolean; category?: { name?: str
 }
 
 async function isDailyReloadEnabled(tenantId: string): Promise<boolean> {
-  const feat = await prisma.tenantFeature.findFirst({
-    where: { tenantId, feature: 'DAILY_RELOAD', enabled: true },
-  })
-  return !!feat
+  return isTenantFeatureEnabled(tenantId, 'DAILY_RELOAD')
 }
 
 async function getOpeningCash(tenantId: string, branchId: string, dateStr: string): Promise<number> {
@@ -70,6 +73,7 @@ async function getOpeningCash(tenantId: string, branchId: string, dateStr: strin
 export async function buildDailyClosingPreview(tenantId: string, branchId: string, dateStr: string) {
   const dateKey = normalizeBusinessDate(dateStr)
   const dailyReloadEnabled = await isDailyReloadEnabled(tenantId)
+  const profitAllocationEnabled = await isTenantFeatureEnabled(tenantId, 'PROFIT_ALLOCATION')
   const { start, end } = parseDateRange(dateKey)
   const branchFilter = { tenantId, branchId }
   const imeiWhere = { branchId }
@@ -383,6 +387,23 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
       : [],
   }
 
+  const categoryProfitTable = profitAllocationEnabled
+    ? await buildCategoryProfitTable(tenantId, branchId, dateKey)
+    : []
+  const actualCashForRecon = existingClosing?.actualCash ?? 0
+  const expectedCashRounded = Math.round(expectedCash * 100) / 100
+  const cashReconciliation = profitAllocationEnabled
+    ? {
+        physicalCash: Math.round(actualCashForRecon * 100) / 100,
+        expectedCash: expectedCashRounded,
+        variance: existingClosing?.cashVariance ?? Math.round((expectedCashRounded - actualCashForRecon) * 100) / 100,
+        cashInBank: Math.round(cashInBank * 100) / 100,
+        lockerTotal: Math.round(actualCashForRecon * 100) / 100,
+        totalCashPosition: Math.round((actualCashForRecon + cashInBank) * 100) / 100,
+        netProfit: Math.round(netProfit * 100) / 100,
+      }
+    : null
+
   return {
     date: dateKey,
     branchId,
@@ -402,7 +423,7 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
         ? ['POS Sales', 'Finance', 'Daily Reload', 'Repairs', 'IMEI', 'Warranty', 'Customers']
         : ['POS Sales', 'Finance', 'Repairs', 'IMEI', 'Warranty', 'Customers'],
     },
-    features: { dailyReload: dailyReloadEnabled },
+    features: { dailyReload: dailyReloadEnabled, profitAllocation: profitAllocationEnabled },
     sales: {
       totalSales: Math.round(totalSales * 100) / 100,
       mobileSales: Math.round(mobileSales * 100) / 100,
@@ -457,6 +478,8 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
     repairs: { repairsCompleted },
     insights,
     charts,
+    categoryProfitTable,
+    cashReconciliation,
     cashCount: existingClosing?.cashCount ?? null,
     notes: existingClosing?.notes ?? '',
     closedAt: existingClosing?.closedAt ?? null,

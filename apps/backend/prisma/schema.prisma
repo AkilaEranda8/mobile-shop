@@ -1173,6 +1173,9 @@ model DailyClosingCashCount {
   d50       Int    @default(0)
   d20       Int    @default(0)
   d10       Int    @default(0)
+  d5        Int    @default(0)
+  d2        Int    @default(0)
+  d1        Int    @default(0)
   coins     Float  @default(0)
   total     Float  @default(0)
 

@@ -66,6 +66,42 @@ router.post('/save', authorize('OWNER'), validate(saveAllocationSchema), async (
   } catch (e) { next(e) }
 })
 
+router.delete('/allocations/:date', authorize('OWNER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const branchId = req.query.branchId as string
+    if (!branchId) throw new AppError('branchId is required', 400)
+    await profitAllocationService.deleteAllocation(req.tenantId!, branchId, req.params.date)
+    sendSuccess(res, null, 'Allocation deleted')
+  } catch (e) { next(e) }
+})
+
+router.post('/resave', authorize('OWNER'), validate(saveAllocationSchema), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { branchId, date, notes } = req.body
+    sendSuccess(
+      res,
+      await profitAllocationService.resaveAllocation(
+        req.tenantId!,
+        branchId,
+        date,
+        req.user!.userId,
+        req.user!.email,
+        notes,
+      ),
+      'Allocation recalculated and saved',
+    )
+  } catch (e) { next(e) }
+})
+
+router.get('/category-table', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const branchId = req.query.branchId as string
+    const date = (req.query.date as string) || businessDateFromInstant()
+    if (!branchId) throw new AppError('branchId is required', 400)
+    sendSuccess(res, await profitAllocationService.buildCategoryProfitTable(req.tenantId!, branchId, date))
+  } catch (e) { next(e) }
+})
+
 router.get('/funds', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const branchId = req.query.branchId as string

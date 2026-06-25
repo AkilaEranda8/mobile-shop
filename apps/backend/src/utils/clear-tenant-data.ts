@@ -41,6 +41,13 @@ export async function clearTenantTrialData(tenantId: string): Promise<ClearTenan
     counts.dailyClosings = (await tx.dailyClosing.deleteMany({ where: { tenantId } })).count
     counts.dailyReloads = (await tx.dailyReload.deleteMany({ where: { tenantId } })).count
     counts.dailySummaries = (await tx.dailySummary.deleteMany({ where: { tenantId } })).count
+    counts.profitTransactions = (await tx.profitTransaction.deleteMany({ where: { tenantId } })).count
+    counts.profitWithdrawals = (await tx.profitWithdrawal.deleteMany({ where: { tenantId } })).count
+    counts.profitAllocationLines = (await tx.profitAllocationLine.deleteMany({
+      where: { allocation: { tenantId } },
+    })).count
+    counts.profitAllocations = (await tx.profitAllocation.deleteMany({ where: { tenantId } })).count
+    counts.profitFunds = (await tx.profitFund.deleteMany({ where: { tenantId } })).count
     counts.transactions = (await tx.transaction.deleteMany({ where: { tenantId } })).count
     counts.repairs = (await tx.repairTicket.deleteMany({ where: { tenantId } })).count
     counts.purchaseOrders = (await tx.purchaseOrder.deleteMany({ where: { tenantId } })).count

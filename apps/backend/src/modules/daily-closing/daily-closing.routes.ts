@@ -12,7 +12,9 @@ import {
   startBusinessDay,
   saveOpeningCash,
 } from './daily-closing.service'
-import { normalizeBusinessDate } from '../../utils/date-range'
+import { normalizeBusinessDate, businessDateDb } from '../../utils/date-range'
+import { isTenantFeatureEnabled } from '../../utils/tenant-feature.util'
+import { saveAllocation } from '../profit-allocation/profit-allocation.service'
 
 function resolveBusinessDate(input?: string): string {
   return normalizeBusinessDate(input)
@@ -131,11 +133,31 @@ router.post('/close', authorize('OWNER', 'MANAGER'), async (req: Request, res: R
     if (!branchId || !date || !cashCount) throw new AppError('branchId, date, and cashCount are required', 400)
     const user = req.user!
     const dateKey = resolveBusinessDate(date)
-    sendSuccess(
-      res,
-      await closeBusinessDay(req.tenantId!, branchId, dateKey, user.userId, user.email, { openingCash, cashCount, notes }),
-      'Business day closed',
-    )
+    const preview = await closeBusinessDay(req.tenantId!, branchId, dateKey, user.userId, user.email, { openingCash, cashCount, notes })
+
+    const profitFeat = await isTenantFeatureEnabled(req.tenantId!, 'PROFIT_ALLOCATION')
+    if (profitFeat) {
+      try {
+        const allocDate = businessDateDb(dateKey)
+        const existingAlloc = await prisma.profitAllocation.findUnique({
+          where: { tenantId_branchId_date: { tenantId: req.tenantId!, branchId, date: allocDate } },
+        })
+        if (!existingAlloc) {
+          await saveAllocation(
+            req.tenantId!,
+            branchId,
+            dateKey,
+            user.userId,
+            user.email,
+            'Auto-saved on day close',
+          )
+        }
+      } catch {
+        // Day close succeeds even if allocation auto-save fails
+      }
+    }
+
+    sendSuccess(res, preview, 'Business day closed')
   } catch (e) { next(e) }
 })
 

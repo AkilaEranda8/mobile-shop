@@ -3,12 +3,22 @@ import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import { buildDailyClosingPreview } from '../daily-closing/daily-closing.service'
 import { financialsFromPreview } from '../finance/business-financials.service'
+import { buildCategoryCostMap, buildCategoryProfitTable } from '../finance/category-profit.util'
+import {
+  calcReloadCommission,
+  fetchTenantReloadSettings,
+  RELOAD_PROVIDER_IDS,
+  resolveReloadProvider,
+} from '../daily-reload/reload-settings.util'
 import { businessDayRange, businessDateDb, businessDateKeyFromInstant, listBusinessDays, normalizeBusinessDate } from '../../utils/date-range'
+import { isTenantFeatureEnabled } from '../../utils/tenant-feature.util'
 import type { createFundSchema, updateFundSchema } from './profit-allocation.schema'
 import type { z } from 'zod'
 
 type CreateFundInput = z.infer<typeof createFundSchema>
 type UpdateFundInput = z.infer<typeof updateFundSchema>
+
+export { buildCategoryProfitTable }
 
 const DEFAULT_FUNDS: Array<{
   name: string
@@ -22,54 +32,44 @@ const DEFAULT_FUNDS: Array<{
   { name: 'Shop Bills', type: 'FIXED_AMOUNT', fixedAmount: 200, sortOrder: 3 },
   { name: 'Bill Payment', type: 'MANUAL', sortOrder: 10 },
   { name: 'Dialog Reload', type: 'MANUAL', sortOrder: 11 },
-  { name: 'Mobitel Reload', type: 'MANUAL', sortOrder: 12 },
-  { name: 'Airtel Reload', type: 'MANUAL', sortOrder: 13 },
-  { name: 'Hutch Reload', type: 'MANUAL', sortOrder: 14 },
-  { name: 'Mobile Items', type: 'MANUAL', sortOrder: 15 },
-  { name: 'Mobile Profit', type: 'MANUAL', sortOrder: 16 },
-  { name: 'Anu Art\'s', type: 'MANUAL', sortOrder: 17 },
-  { name: 'Savings', type: 'PERCENTAGE', percentage: 20, sortOrder: 20 },
-  { name: 'Emergency Fund', type: 'PERCENTAGE', percentage: 10, sortOrder: 21 },
-  { name: 'Repair', type: 'PERCENTAGE', percentage: 5, sortOrder: 22 },
-  { name: 'Print', type: 'PERCENTAGE', percentage: 10, sortOrder: 23 },
-  { name: 'Accessories', type: 'PERCENTAGE', percentage: 20, sortOrder: 24 },
-  { name: 'Puja', type: 'PERCENTAGE', percentage: 2, sortOrder: 25 },
-  { name: 'Other Loan', type: 'PERCENTAGE', percentage: 3, sortOrder: 26 },
-  { name: 'Salary', type: 'PERCENTAGE', percentage: 30, sortOrder: 27 },
+  { name: 'Dialog Card', type: 'MANUAL', sortOrder: 12 },
+  { name: 'Mobitel Reload', type: 'MANUAL', sortOrder: 13 },
+  { name: 'Mobitel Card', type: 'MANUAL', sortOrder: 14 },
+  { name: 'Airtel Reload', type: 'MANUAL', sortOrder: 15 },
+  { name: 'Airtel Card', type: 'MANUAL', sortOrder: 16 },
+  { name: 'Hutch Reload', type: 'MANUAL', sortOrder: 17 },
+  { name: 'Hutch Card', type: 'MANUAL', sortOrder: 18 },
+  { name: 'Mobile Items', type: 'MANUAL', sortOrder: 20 },
+  { name: 'Mobile Profit', type: 'MANUAL', sortOrder: 21 },
+  { name: 'Anu Art\'s', type: 'MANUAL', sortOrder: 22 },
+  { name: 'Savings', type: 'PERCENTAGE', percentage: 20, sortOrder: 30 },
+  { name: 'Emergency Fund', type: 'PERCENTAGE', percentage: 10, sortOrder: 31 },
+  { name: 'Repair', type: 'PERCENTAGE', percentage: 5, sortOrder: 32 },
+  { name: 'Print', type: 'PERCENTAGE', percentage: 10, sortOrder: 33 },
+  { name: 'Accessories', type: 'PERCENTAGE', percentage: 20, sortOrder: 34 },
+  { name: 'Puja', type: 'PERCENTAGE', percentage: 2, sortOrder: 35 },
+  { name: 'Other Loan', type: 'PERCENTAGE', percentage: 3, sortOrder: 36 },
+  { name: 'Salary', type: 'PERCENTAGE', percentage: 30, sortOrder: 37 },
 ]
+
+function defaultFundsForTenant(dailyReloadEnabled: boolean) {
+  return DEFAULT_FUNDS.filter(f => dailyReloadEnabled || !f.name.endsWith(' Card'))
+}
 
 function round2(n: number) {
   return Math.round(n * 100) / 100
 }
 
-function isReloadSaleItem(item: { sku?: string | null; productName?: string }) {
-  const sku = (item.sku ?? '').toUpperCase()
-  const name = (item.productName ?? '').toLowerCase()
-  return sku.startsWith('RELOAD-') || name.includes('reload')
-}
-
-function isMobileProduct(product: { trackImei?: boolean; category?: { name?: string; slug?: string } | null } | null) {
-  if (!product) return false
-  if (product.trackImei) return true
-  const cat = `${product.category?.name ?? ''} ${product.category?.slug ?? ''}`.toLowerCase()
-  return /mobile|phone|smartphone|handset/.test(cat)
-}
-
 const FUND_COST_ALIASES: Record<string, string[]> = {
   accessories: ['accessories'],
   print: ['print', 'printing', 'printout', 'print out'],
-}
-
-function isPrintRelated(category: string, productName: string) {
-  const c = category.toLowerCase()
-  const n = productName.toLowerCase()
-  return /print|laminate|photocopy|xerox/.test(c) || /print|laminate/.test(n)
+  printer: ['printer'],
 }
 
 function fundCategoryCost(fundName: string, costMap: Record<string, { cogs: number }>) {
   const normalized = fundName.trim().toLowerCase()
   if (normalized === 'print') {
-    return round2(costMap.Print?.cogs ?? 0)
+    return round2((costMap.Print?.cogs ?? 0) + (costMap.Printer?.cogs ?? 0))
   }
   const aliases = FUND_COST_ALIASES[normalized] ?? [normalized]
   let total = 0
@@ -81,65 +81,67 @@ function fundCategoryCost(fundName: string, costMap: Record<string, { cogs: numb
   return round2(total)
 }
 
-async function buildCategoryCostMap(tenantId: string, branchId: string, dateStr: string) {
+async function getReloadCommissionByFund(tenantId: string, branchId: string, dateStr: string) {
   const { start, end } = businessDayRange(normalizeBusinessDate(dateStr))
-  const [sales, services] = await Promise.all([
-    prisma.sale.findMany({
-      where: {
-        tenantId,
-        branchId,
-        status: { not: 'RETURNED' },
-        createdAt: { gte: start, lte: end },
-        source: { not: 'REPAIR' },
-      },
-      include: {
-        items: { include: { product: { include: { category: true } } } },
-      },
-    }),
-    prisma.service.findMany({
-      where: { tenantId },
-      select: { name: true, category: true, cost: true },
-    }),
-  ])
+  const reloadSettings = await fetchTenantReloadSettings(tenantId)
+  const sales = await prisma.sale.findMany({
+    where: { tenantId, branchId, createdAt: { gte: start, lte: end } },
+    select: { invoiceNumber: true },
+  })
+  const branchInvoiceNos = sales.map(s => s.invoiceNumber)
+  const reloads = await prisma.dailyReload.findMany({
+    where: {
+      tenantId,
+      reloadDate: { gte: start, lte: end },
+      OR: [
+        { transactionId: { in: branchInvoiceNos.length ? branchInvoiceNos : ['__none__'] } },
+        { connectionNo: { in: [...RELOAD_PROVIDER_IDS] } },
+      ],
+    },
+  })
+  const map: Record<string, number> = {}
+  for (const r of reloads) {
+    const provider = resolveReloadProvider(r.connectionNo, r.provider)
+    if (!provider || !RELOAD_PROVIDER_IDS.includes(provider)) continue
+    const serviceType = r.reloadType === 'RECHARGE_CARD' ? 'RECHARGE_CARD' : 'RELOAD'
+    const fundName = serviceType === 'RECHARGE_CARD' ? `${provider} Card` : `${provider} Reload`
+    const commission = calcReloadCommission(
+      Number(r.amount),
+      reloadSettings,
+      r.connectionNo,
+      r.provider,
+      serviceType,
+    )
+    map[fundName] = round2((map[fundName] ?? 0) + commission)
+  }
+  return map
+}
 
-  const serviceMap = new Map(services.map(s => [s.name, s]))
-  const map: Record<string, { revenue: number; cogs: number }> = {}
+async function getManualFundIncomeMap(tenantId: string, branchId: string, dateStr: string) {
+  const dateKey = normalizeBusinessDate(dateStr)
+  const dailyReloadEnabled = await isTenantFeatureEnabled(tenantId, 'DAILY_RELOAD')
 
-  const add = (key: string, revenue: number, cogs: number) => {
-    const k = key.trim() || 'Other'
-    if (!map[k]) map[k] = { revenue: 0, cogs: 0 }
-    map[k].revenue += revenue
-    map[k].cogs += cogs
+  const map: Record<string, number> = {}
+  if (dailyReloadEnabled) {
+    Object.assign(map, await getReloadCommissionByFund(tenantId, branchId, dateKey))
   }
 
-  for (const sale of sales) {
-    for (const item of sale.items) {
-      if (isReloadSaleItem(item)) continue
-      const revenue = Number(item.total)
-      if (item.productId && item.product) {
-        const cogs = item.quantity * Number(item.product.buyingPrice ?? 0)
-        const catName = item.product.category?.name ?? 'Uncategorised'
-        add(catName, revenue, cogs)
-        if (isMobileProduct(item.product)) add('Mobile', revenue, cogs)
-        else add('Accessories', revenue, cogs)
-        if (isPrintRelated(catName, item.productName)) add('Print', revenue, cogs)
-      } else {
-        const svc = serviceMap.get(item.productName)
-        const cogs = item.quantity * Number(svc?.cost ?? 0)
-        const catName = svc?.category?.trim() || 'Service'
-        add(catName, revenue, cogs)
-        add('Service', revenue, cogs)
-        if (/print/i.test(item.productName) || /print/i.test(catName)) add('Print', revenue, cogs)
-      }
+  const [preview, categoryCostMap] = await Promise.all([
+    buildDailyClosingPreview(tenantId, branchId, dateKey),
+    buildCategoryCostMap(tenantId, branchId, dateKey),
+  ])
+
+  map['Bill Payment'] = round2(preview.sales.billPaymentIncome)
+  map['Mobile Items'] = round2(categoryCostMap.Mobile?.revenue ?? 0)
+  map['Mobile Profit'] = round2(categoryCostMap.Mobile?.profit ?? 0)
+
+  for (const [catName, val] of Object.entries(categoryCostMap)) {
+    if (/anu\s*art/i.test(catName)) {
+      map["Anu Art's"] = round2(val.profit)
     }
   }
 
-  return Object.fromEntries(
-    Object.entries(map).map(([k, v]) => [
-      k,
-      { revenue: round2(v.revenue), cogs: round2(v.cogs), profit: round2(v.revenue - v.cogs) },
-    ]),
-  )
+  return map
 }
 
 function allocationDbDate(dateStr: string) {
@@ -162,8 +164,33 @@ async function getDayProfit(tenantId: string, branchId: string, dateStr: string)
 export async function ensureDefaultFunds(tenantId: string, branchId: string) {
   const count = await prisma.profitFund.count({ where: { tenantId, branchId } })
   if (count > 0) return
+  const dailyReloadEnabled = await isTenantFeatureEnabled(tenantId, 'DAILY_RELOAD')
+  const funds = defaultFundsForTenant(dailyReloadEnabled)
   await prisma.profitFund.createMany({
-    data: DEFAULT_FUNDS.map(f => ({
+    data: funds.map(f => ({
+      tenantId,
+      branchId,
+      name: f.name,
+      type: f.type,
+      fixedAmount: f.fixedAmount ?? 0,
+      percentage: f.percentage ?? 0,
+      sortOrder: f.sortOrder,
+    })),
+  })
+}
+
+async function ensureExtendedFunds(tenantId: string, branchId: string) {
+  await ensureDefaultFunds(tenantId, branchId)
+  const dailyReloadEnabled = await isTenantFeatureEnabled(tenantId, 'DAILY_RELOAD')
+  const existing = await prisma.profitFund.findMany({
+    where: { tenantId, branchId },
+    select: { name: true },
+  })
+  const names = new Set(existing.map(f => f.name))
+  const missing = defaultFundsForTenant(dailyReloadEnabled).filter(f => !names.has(f.name))
+  if (missing.length === 0) return
+  await prisma.profitFund.createMany({
+    data: missing.map(f => ({
       tenantId,
       branchId,
       name: f.name,
@@ -176,7 +203,7 @@ export async function ensureDefaultFunds(tenantId: string, branchId: string) {
 }
 
 export async function listFunds(tenantId: string, branchId: string) {
-  await ensureDefaultFunds(tenantId, branchId)
+  await ensureExtendedFunds(tenantId, branchId)
   return prisma.profitFund.findMany({
     where: { tenantId, branchId },
     orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
@@ -279,7 +306,7 @@ export async function calculateAllocationLines(
   branchId: string,
   dateStr: string,
 ) {
-  await ensureDefaultFunds(tenantId, branchId)
+  await ensureExtendedFunds(tenantId, branchId)
   const funds = await prisma.profitFund.findMany({
     where: { tenantId, branchId, isActive: true },
     orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
@@ -308,6 +335,10 @@ export async function calculateAllocationLines(
   }> = []
 
   const categoryCostMap = await buildCategoryCostMap(tenantId, branchId, dateStr)
+  const profitAllocationExcel = await isTenantFeatureEnabled(tenantId, 'PROFIT_ALLOCATION')
+  const manualIncomeMap = profitAllocationExcel
+    ? await getManualFundIncomeMap(tenantId, branchId, dateStr)
+    : {}
 
   const fixedFunds = funds.filter(f => f.type === 'FIXED_AMOUNT')
   const pctFunds = funds.filter(f => f.type === 'PERCENTAGE')
@@ -327,6 +358,31 @@ export async function calculateAllocationLines(
       value: fund.fixedAmount,
       categoryCost: 0,
       pctAllocation: todayAllocation,
+      todayAllocation,
+      yesterdayBalance,
+      totalBalance,
+      withdrawn,
+      remainingBalance,
+      sortOrder: fund.sortOrder,
+      isActive: fund.isActive,
+      description: fund.description,
+    })
+  }
+
+  for (const fund of manualFunds) {
+    const yesterdayBalance = await getYesterdayBalance(fund.id, dateStr)
+    const withdrawn = await getDayWithdrawn(fund.id, dateStr)
+    const todayAllocation = round2(manualIncomeMap[fund.name] ?? 0)
+    remainingProfit = round2(remainingProfit - todayAllocation)
+    const totalBalance = round2(yesterdayBalance + todayAllocation)
+    const remainingBalance = round2(totalBalance - withdrawn)
+    lines.push({
+      fundId: fund.id,
+      fundName: fund.name,
+      fundType: fund.type,
+      value: todayAllocation,
+      categoryCost: 0,
+      pctAllocation: 0,
       todayAllocation,
       yesterdayBalance,
       totalBalance,
@@ -365,28 +421,7 @@ export async function calculateAllocationLines(
     })
   }
 
-  for (const fund of manualFunds) {
-    const yesterdayBalance = await getYesterdayBalance(fund.id, dateStr)
-    const withdrawn = await getDayWithdrawn(fund.id, dateStr)
-    const totalBalance = round2(yesterdayBalance)
-    const remainingBalance = round2(totalBalance - withdrawn)
-    lines.push({
-      fundId: fund.id,
-      fundName: fund.name,
-      fundType: fund.type,
-      value: 0,
-      categoryCost: 0,
-      pctAllocation: 0,
-      todayAllocation: 0,
-      yesterdayBalance,
-      totalBalance,
-      withdrawn,
-      remainingBalance,
-      sortOrder: fund.sortOrder,
-      isActive: fund.isActive,
-      description: fund.description,
-    })
-  }
+  lines.sort((a, b) => a.sortOrder - b.sortOrder || a.fundName.localeCompare(b.fundName))
 
   const totalAllocated = round2(
     lines.reduce((s, l) => s + l.todayAllocation, 0),
@@ -463,6 +498,47 @@ export async function getDashboard(tenantId: string, branchId: string, dateStr: 
 
   const calc = await calculateAllocationLines(tenantId, branchId, dateStr)
   return { ...calc, allocationId: null }
+}
+
+export async function deleteAllocation(tenantId: string, branchId: string, dateStr: string) {
+  const date = allocationDbDate(dateStr)
+  const existing = await prisma.profitAllocation.findUnique({
+    where: { tenantId_branchId_date: { tenantId, branchId, date } },
+    include: { lines: true },
+  })
+  if (!existing) throw new AppError('No saved allocation for this date', 404)
+
+  await prisma.$transaction(async tx => {
+    for (const line of existing.lines) {
+      if (line.todayAllocation > 0) {
+        await tx.profitFund.update({
+          where: { id: line.fundId },
+          data: { balance: { decrement: line.todayAllocation } },
+        })
+      }
+    }
+    await tx.profitTransaction.deleteMany({
+      where: { tenantId, branchId, date, type: 'ALLOCATION' },
+    })
+    await tx.profitAllocationLine.deleteMany({ where: { allocationId: existing.id } })
+    await tx.profitAllocation.delete({ where: { id: existing.id } })
+  })
+}
+
+export async function resaveAllocation(
+  tenantId: string,
+  branchId: string,
+  dateStr: string,
+  userId: string,
+  userName: string,
+  notes?: string,
+) {
+  const date = allocationDbDate(dateStr)
+  const existing = await prisma.profitAllocation.findUnique({
+    where: { tenantId_branchId_date: { tenantId, branchId, date } },
+  })
+  if (existing) await deleteAllocation(tenantId, branchId, dateStr)
+  return saveAllocation(tenantId, branchId, dateStr, userId, userName, notes)
 }
 
 export async function saveAllocation(

@@ -400,6 +400,48 @@ export default function ProfitAllocationPage() {
     }
   }
 
+  const handleResave = async () => {
+    if (!branchId || !activeDashboard) return
+    if (!activeDashboard.percentageValid) {
+      toast.error(`Percentage funds must total 100%. Current: ${activeDashboard.percentageTotal}%`)
+      return
+    }
+    if (!confirm('Recalculate and replace the saved allocation for this date?')) return
+    setSaveLoading(true)
+    try {
+      await profitAllocationApi.resave({ branchId, date: viewDate })
+      toast.success('Allocation recalculated and saved')
+      setDashboardOverride(null)
+      refetch()
+      refetchFunds()
+      loadPeriod()
+      loadTransactions()
+    } catch (e: unknown) {
+      toast.error((e as { message?: string })?.message ?? 'Resave failed')
+    } finally {
+      setSaveLoading(false)
+    }
+  }
+
+  const handleDeleteAllocation = async () => {
+    if (!branchId) return
+    if (!confirm('Delete saved allocation for this date? Fund balances will be reversed.')) return
+    setSaveLoading(true)
+    try {
+      await profitAllocationApi.deleteAllocation(viewDate, branchId)
+      toast.success('Allocation deleted')
+      setDashboardOverride(null)
+      refetch()
+      refetchFunds()
+      loadPeriod()
+      loadTransactions()
+    } catch (e: unknown) {
+      toast.error((e as { message?: string })?.message ?? 'Delete failed')
+    } finally {
+      setSaveLoading(false)
+    }
+  }
+
   const openEditFund = (f: Fund) => {
     setEditingFund(f)
     setFundForm({
@@ -555,6 +597,17 @@ export default function ProfitAllocationPage() {
                   {saveLoading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                   Save Allocation
                 </button>
+              )}
+              {isOwner && activeDashboard?.saved && (
+                <>
+                  <button onClick={handleResave} disabled={saveLoading} className="btn-primary flex items-center gap-2 text-sm">
+                    {saveLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                    Recalculate &amp; Save
+                  </button>
+                  <button onClick={handleDeleteAllocation} disabled={saveLoading} className="btn-secondary flex items-center gap-2 text-sm text-red-600">
+                    <Trash2 size={14} /> Delete
+                  </button>
+                </>
               )}
             </>
           )}

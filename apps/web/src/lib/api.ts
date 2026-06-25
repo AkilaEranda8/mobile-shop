@@ -363,6 +363,11 @@ export const profitAllocationApi = {
     api.get(`/profit-allocation/dashboard?${new URLSearchParams(params)}`),
   calculate: (body: unknown) => api.post('/profit-allocation/calculate', body),
   save: (body: unknown) => api.post('/profit-allocation/save', body),
+  resave: (body: unknown) => api.post('/profit-allocation/resave', body),
+  deleteAllocation: (date: string, branchId: string) =>
+    api.delete(`/profit-allocation/allocations/${date}?branchId=${encodeURIComponent(branchId)}`),
+  categoryTable: (params: Record<string, string>) =>
+    api.get(`/profit-allocation/category-table?${new URLSearchParams(params)}`),
   funds: (params: Record<string, string>) =>
     api.get(`/profit-allocation/funds?${new URLSearchParams(params)}`),
   createFund: (body: unknown) => api.post('/profit-allocation/funds', body),

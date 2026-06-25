@@ -1,0 +1,4 @@
+-- Add Rs 5, 2, 1 denomination fields to daily closing cash count
+ALTER TABLE "DailyClosingCashCount" ADD COLUMN IF NOT EXISTS "d5" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "DailyClosingCashCount" ADD COLUMN IF NOT EXISTS "d2" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "DailyClosingCashCount" ADD COLUMN IF NOT EXISTS "d1" INTEGER NOT NULL DEFAULT 0;
