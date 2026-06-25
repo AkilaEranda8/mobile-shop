@@ -15,7 +15,7 @@ import { exchangesApi, salesApi, tenantApi } from '@/lib/api'
 import { ExchangeWizard } from '@/components/exchanges/ExchangeWizard'
 import { getInvoiceSettings, fetchInvoiceSettings, shopContextFromTenant, type InvoiceSettings, type ShopContext } from '@/lib/invoiceSettings'
 import { buildReceiptFromApiSale, printReceipt, receiptPrintLabel } from '@/lib/printReceipt'
-import { tradeInFromExchange } from '@/lib/exchangeBill'
+import { tradeInFromExchange, soldVariantFromExchange } from '@/lib/exchangeBill'
 import { authStorage } from '@/lib/auth'
 import toast from 'react-hot-toast'
 
@@ -66,6 +66,7 @@ function ExchangeDetailModal({
         buildReceiptFromApiSale(sale, {
           customerAddress: exchange.customerAddress,
           tradeIn: tradeInFromExchange(exchange),
+          soldVariant: soldVariantFromExchange(exchange),
         }),
         invSettings,
         shopCtx,

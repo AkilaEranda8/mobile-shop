@@ -454,6 +454,9 @@ export const exchangesService = {
           notes:         [
             `Exchange ${exchangeNumber}`,
             `Trade-in: ${input.oldBrand} ${input.oldModel} (IMEI ${input.oldImei}) — LKR ${buyPrice.toLocaleString()}`,
+            (soldParsed.storage || soldParsed.color)
+              ? `Sold variant: ${soldParsed.storage ?? ''} / ${soldParsed.color ?? ''}`
+              : null,
             input.notes,
           ].filter(Boolean).join('\n'),
           items: {

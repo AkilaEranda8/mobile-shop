@@ -81,3 +81,56 @@ export function tradeInDetailLines(tradeIn: ExchangeTradeInBill): string[] {
   if (tradeIn.condition) lines.push(`Condition: ${tradeIn.condition}`)
   return lines
 }
+
+export function parseVariationString(variation?: string | null): { storage?: string; color?: string } {
+  if (!variation?.includes('::')) return {}
+  const [storage, color] = variation.split('::').map(s => s.trim())
+  return {
+    storage: storage || undefined,
+    color: color || undefined,
+  }
+}
+
+export function soldVariantFromSale(sale: {
+  notes?: string | null
+  items?: { sku?: string | null }[] | null
+} | null | undefined): { storage?: string; color?: string } {
+  if (!sale) return {}
+  const line = sale.notes?.split('\n').find(l => l.trim().toLowerCase().startsWith('sold variant:'))
+  if (line) {
+    const body = line.replace(/^sold variant:\s*/i, '').trim()
+    const [storage, color] = body.split('/').map(s => s.trim())
+    if (storage || color) return { storage: storage || undefined, color: color || undefined }
+  }
+  const sku = sale.items?.[0]?.sku
+  return parseVariationString(sku)
+}
+
+export function soldVariantFromExchange(exchange: {
+  newStorage?: string | null
+  newColor?: string | null
+  soldVariation?: string | null
+} | null | undefined): { storage?: string; color?: string } {
+  if (!exchange) return {}
+  const storage = exchange.newStorage?.trim() || undefined
+  const color = exchange.newColor?.trim() || undefined
+  if (storage || color) return { storage, color }
+  return parseVariationString(exchange.soldVariation)
+}
+
+export function variantLabel(storage?: string, color?: string): string | undefined {
+  const line = [storage, color].filter(Boolean).join(' · ')
+  return line || undefined
+}
+
+export function soldItemDetailLines(opts: {
+  storage?: string
+  color?: string
+  imei?: string
+}): string[] {
+  const lines: string[] = []
+  const variant = variantLabel(opts.storage, opts.color)
+  if (variant) lines.push(variant)
+  if (opts.imei) lines.push(`IMEI: ${opts.imei}`)
+  return lines
+}

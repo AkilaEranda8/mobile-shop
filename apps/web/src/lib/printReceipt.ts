@@ -4,6 +4,8 @@ import type { InvoiceSettings, ShopContext } from '@/lib/invoiceSettings'
 import {
   tradeInFromSale,
   tradeInLineLabel,
+  parseVariationString,
+  soldVariantFromSale,
   type ExchangeTradeInBill,
 } from '@/lib/exchangeBill'
 
@@ -48,19 +50,26 @@ export function buildReceiptFromApiSale(
     customerAddress?: string
     cashierName?: string
     tradeIn?: ExchangeTradeInBill | null
+    soldVariant?: { storage?: string; color?: string } | null
   },
 ): ReceiptSale {
   const tradeIn = opts?.tradeIn ?? tradeInFromSale(sale)
+  const soldVar = opts?.soldVariant ?? soldVariantFromSale(sale)
 
-  let items = (sale.items ?? []).map((i: any) => ({
-    productName: i.productName,
-    quantity: Number(i.quantity ?? 1),
-    unitPrice: Number(i.unitPrice),
-    total: Number(i.total),
-    sku: i.sku ?? undefined,
-    imei: i.imei ?? undefined,
-    warrantyMonths: i.warrantyMonths ?? undefined,
-  }))
+  let items = (sale.items ?? []).map((i: any) => {
+    const fromSku = parseVariationString(i.sku)
+    return {
+      productName: i.productName,
+      quantity: Number(i.quantity ?? 1),
+      unitPrice: Number(i.unitPrice),
+      total: Number(i.total),
+      sku: i.sku ?? undefined,
+      imei: i.imei ?? undefined,
+      warrantyMonths: i.warrantyMonths ?? undefined,
+      storage: soldVar.storage ?? fromSku.storage,
+      color: soldVar.color ?? fromSku.color,
+    }
+  })
 
   if (tradeIn) {
     items = appendTradeInItem(items, tradeIn)

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import {
-  X, Loader2, ArrowLeftRight, User, Smartphone, Search, ChevronRight, ChevronLeft,
+  X, Loader2, ArrowLeftRight, User, Smartphone, ChevronRight, ChevronLeft,
   CheckCircle, Receipt, Printer, Check, CreditCard,
 } from 'lucide-react'
 import { exchangesApi, customersApi, deviceCatalogApi, imeiApi, tenantApi } from '@/lib/api'
@@ -15,9 +15,13 @@ import {
   tradeInFromSale,
   tradeInDetailLines,
   tradeInLineLabel,
+  soldVariantFromExchange,
+  soldVariantFromSale,
+  soldItemDetailLines,
   type ExchangeTradeInBill,
 } from '@/lib/exchangeBill'
 import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrint'
+import { ExchangeStockPicker, type ExchangeStockItem } from '@/components/exchanges/ExchangeStockPicker'
 import toast from 'react-hot-toast'
 
 const CONDITIONS = [
@@ -54,28 +58,20 @@ function SectionCard({ icon: Icon, title, children }: { icon: typeof User; title
   )
 }
 
-type StockItem = {
-  imeiRecordId: string
-  imei: string
-  productId: string
-  productName: string
-  brand: string
-  model: string
-  storage?: string
-  color?: string
-  sellPrice: number
-  variation?: string
-}
+type StockItem = ExchangeStockItem
 
 function buildInvoiceFromSale(
   sale: any,
   settings: InvoiceSettings,
   tradeIn?: ExchangeTradeInBill | null,
+  exchange?: { newStorage?: string | null; newColor?: string | null; soldVariation?: string | null } | null,
 ): InvoiceData {
   const resolvedTradeIn = tradeIn ?? tradeInFromSale(sale)
+  const fromExchange = soldVariantFromExchange(exchange)
+  const soldVar = (fromExchange.storage || fromExchange.color) ? fromExchange : soldVariantFromSale(sale)
   const soldItems = (sale.items ?? []).map((i: any) => ({
     description: i.productName,
-    details:     i.imei ? `IMEI: ${i.imei}` : undefined,
+    details: soldItemDetailLines({ storage: soldVar.storage, color: soldVar.color, imei: i.imei }).join(' · ') || undefined,
     price:       i.unitPrice,
     qty:         i.quantity,
   }))
@@ -311,7 +307,7 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
   }
 
   const tradeIn = result?.exchange ? tradeInFromExchange(result.exchange) : null
-  const invoiceData = result?.sale ? buildInvoiceFromSale(result.sale, invSettings, tradeIn) : null
+  const invoiceData = result?.sale ? buildInvoiceFromSale(result.sale, invSettings, tradeIn, result.exchange) : null
 
   const handlePrintReceipt = () => {
     if (!result?.sale) return
@@ -320,6 +316,7 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
         warranties: result.warranties,
         customerAddress: form.customerAddress || undefined,
         tradeIn,
+        soldVariant: soldVariantFromExchange(result.exchange),
       }),
       invSettings,
       thermalShopCtx,
@@ -508,43 +505,14 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
           {/* Step 2: Select new phone */}
           {step === 2 && (
             <SectionCard icon={Smartphone} title="Select New Phone from Stock">
-              <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
-                <input className="input-field w-full pl-9" placeholder="Search IMEI, name, model..."
-                  value={stockSearch} onChange={e => setStockSearch(e.target.value)} />
-              </div>
-              {stockLoading ? (
-                <div className="flex justify-center py-10"><Loader2 className="animate-spin text-amber-500" size={24} /></div>
-              ) : stock.length === 0 ? (
-                <p className="text-center text-sm py-10" style={{ color: 'var(--text-muted)' }}>No phones in stock</p>
-              ) : (
-                <div className="space-y-2 max-h-72 overflow-y-auto pr-0.5">
-                  {stock.map(item => (
-                    <button key={item.imeiRecordId} type="button"
-                      onClick={() => setSelectedStock(item)}
-                      className={`w-full text-left p-3 rounded-xl border transition-all ${
-                        selectedStock?.imeiRecordId === item.imeiRecordId
-                          ? 'border-amber-500/50 bg-amber-500/10 ring-1 ring-amber-500/20'
-                          : 'hover:border-amber-500/30'
-                      }`}
-                      style={selectedStock?.imeiRecordId !== item.imeiRecordId
-                        ? { background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }
-                        : undefined}>
-                      <div className="flex justify-between items-start gap-2">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{item.productName}</p>
-                          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{item.brand} {item.model}</p>
-                          <p className="text-[10px] font-mono mt-0.5" style={{ color: 'var(--text-muted)' }}>{item.imei}</p>
-                          {(item.color || item.storage) && (
-                            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{[item.storage, item.color].filter(Boolean).join(' · ')}</p>
-                          )}
-                        </div>
-                        <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 flex-shrink-0">{formatCurrency(item.sellPrice)}</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
+              <ExchangeStockPicker
+                stock={stock}
+                loading={stockLoading}
+                search={stockSearch}
+                onSearchChange={setStockSearch}
+                selected={selectedStock}
+                onSelect={setSelectedStock}
+              />
             </SectionCard>
           )}
 
