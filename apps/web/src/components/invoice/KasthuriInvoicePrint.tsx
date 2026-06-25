@@ -1,7 +1,7 @@
 'use client'
 
 import { forwardRef, useRef } from 'react'
-import { Download, Printer } from 'lucide-react'
+import { Download, Printer, MapPin, Globe, Mail, Phone } from 'lucide-react'
 import { KASTHURI_INVOICE_PRESET, type InvoiceSettings } from '@/lib/invoiceSettings'
 
 export interface KasthuriInvoiceItem {
@@ -100,33 +100,40 @@ export function buildKasthuriInvoiceData(
 const fmt = (n: number) =>
   new Intl.NumberFormat('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
 
-const MIN_ROWS = 6
+const MIN_ROWS = 8
 
 const C = {
-  text: '#111827',
-  muted: '#4b5563',
-  line: '#9ca3af',
-  lineDark: '#374151',
+  text: '#000000',
+  muted: '#333333',
+  line: '#000000',
+  lineDark: '#000000',
 }
 
 const FONT = "'Segoe UI', Arial, Helvetica, sans-serif"
 
-function MetaField({ label, value, last }: { label: string; value: string; last?: boolean }) {
+function WhatsAppIcon({ size = 14 }: { size?: number }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: last ? 0 : 10 }}>
-      <span style={{ fontSize: 15, color: C.text, fontWeight: 500, whiteSpace: 'nowrap', minWidth: 132 }}>{label}</span>
-      <span style={{
-        flex: 1,
-        fontSize: 16,
-        fontWeight: 700,
-        color: C.text,
-        borderBottom: `1.5px solid ${C.lineDark}`,
-        paddingBottom: 2,
-        minHeight: 20,
-        lineHeight: 1.2,
-      }}>
-        {value || '\u00A0'}
-      </span>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+      <path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.126 1.529 5.86L0 24l6.335-1.662A11.95 11.95 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.82a9.78 9.78 0 0 1-4.99-1.365l-.358-.213-3.76.987 1.004-3.66-.233-.375A9.82 9.82 0 0 1 2.18 12c0-5.422 4.398-9.82 9.82-9.82 5.422 0 9.82 4.398 9.82 9.82 0 5.422-4.398 9.82-9.82 9.82z" />
+    </svg>
+  )
+}
+
+function ContactLine({ icon, text }: { icon: React.ReactNode; text: string }) {
+  return (
+    <p style={{ display: 'flex', alignItems: 'flex-start', gap: 8, margin: '0 0 5px', fontSize: 12, color: C.muted, lineHeight: 1.45 }}>
+      <span style={{ flexShrink: 0, marginTop: 1, color: C.text }}>{icon}</span>
+      <span>{text}</span>
+    </p>
+  )
+}
+
+function HeaderField({ label, value, last }: { label: string; value: string; last?: boolean }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: last ? 0 : 11, fontSize: 15, color: C.text, lineHeight: 1.35 }}>
+      <span style={{ whiteSpace: 'nowrap', fontWeight: 400 }}>{label}</span>
+      <span style={{ marginLeft: 6, fontWeight: 600, flex: 1 }}>{value || ''}</span>
     </div>
   )
 }
@@ -135,12 +142,11 @@ function TotalRow({ label, value, bold, highlight }: { label: string; value: str
   return (
     <div style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-      padding: '6px 0', fontSize: highlight ? 17 : bold ? 15 : 14,
-      fontWeight: bold || highlight ? 700 : 500, color: C.text,
-      borderBottom: highlight ? `2px double ${C.lineDark}` : undefined,
+      padding: '4px 0', fontSize: highlight ? 16 : bold ? 15 : 14,
+      fontWeight: bold || highlight ? 700 : 400, color: C.text,
     }}>
       <span>{label}</span>
-      <span style={{ fontVariantNumeric: 'tabular-nums', minWidth: 100, textAlign: 'right' }}>{value}</span>
+      <span style={{ fontVariantNumeric: 'tabular-nums', minWidth: 110, textAlign: 'right' }}>{value}</span>
     </div>
   )
 }
@@ -188,12 +194,11 @@ const KasthuriInvoicePrint = forwardRef<
   }
 
   const th: React.CSSProperties = {
-    fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4,
-    padding: '9px 6px', textAlign: 'left', color: C.text, borderBottom: `1.5px solid ${C.lineDark}`,
+    fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.3,
+    padding: '10px 6px', textAlign: 'left', color: C.text, border: 'none',
   }
   const td: React.CSSProperties = {
-    fontSize: 14, padding: '9px 6px', verticalAlign: 'top', color: C.text,
-    borderBottom: `1px solid ${C.line}`,
+    fontSize: 14, padding: '8px 6px', verticalAlign: 'top', color: C.text, border: 'none',
   }
 
   const invoiceBody = (
@@ -213,52 +218,51 @@ const KasthuriInvoicePrint = forwardRef<
       }}
     >
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-        <h1 style={{ margin: 0, fontSize: 40, fontWeight: 800, letterSpacing: 1, color: C.text }}>INVOICE</h1>
-        <img
-          src={logo}
-          alt={settings.shopName || 'Logo'}
-          style={{ maxHeight: 64, maxWidth: 240, objectFit: 'contain' }}
-          crossOrigin="anonymous"
-          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-        />
-      </div>
-
-      {/* Customer / Invoice meta */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        marginBottom: 14,
-        border: `1.5px solid ${C.lineDark}`,
-      }}>
-        <div style={{ padding: '10px 14px', borderRight: `1.5px solid ${C.lineDark}` }}>
-          <MetaField label="Customer Name :" value={data.customerName} />
-          <MetaField label="Mobile Number :" value={data.customerPhone || ''} />
-          <MetaField label="Vat Reg. No. :" value={data.customerVatRegNo || ''} last />
+      <div style={{ marginBottom: 0, paddingBottom: 12, borderBottom: `1.5px solid ${C.lineDark}` }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <h1 style={{ margin: 0, fontSize: 38, fontWeight: 800, letterSpacing: 0.5, color: C.text }}>INVOICE</h1>
+          <img
+            src={logo}
+            alt={settings.shopName || 'Logo'}
+            style={{ maxHeight: 72, maxWidth: 260, objectFit: 'contain' }}
+            crossOrigin="anonymous"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+          />
         </div>
-        <div style={{ padding: '10px 14px' }}>
-          <MetaField label="Invoice No. :" value={data.invoiceNumber} />
-          <MetaField label="Date :" value={data.date} />
-          <MetaField label="Vat Reg. No. :" value={data.companyVatRegNo || ''} last />
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 64 }}>
+          <div>
+            <HeaderField label="Customer Name :" value={data.customerName} />
+            <HeaderField label="Mobile Number :" value={data.customerPhone || ''} />
+            <HeaderField label="Vat Reg. No. :" value={data.customerVatRegNo || ''} last />
+          </div>
+          <div>
+            <HeaderField label="Invoice No. :" value={data.invoiceNumber} />
+            <HeaderField label="Date :" value={data.date} />
+            <HeaderField label="Vat Reg. No. :" value={data.companyVatRegNo || ''} last />
+          </div>
         </div>
       </div>
 
       {/* Items table */}
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 0, borderTop: `1.5px solid ${C.lineDark}` }}>
+      <table style={{
+        width: '100%', borderCollapse: 'collapse', marginTop: 14,
+        borderTop: `1.5px solid ${C.lineDark}`, borderBottom: `1.5px solid ${C.lineDark}`,
+      }}>
         <thead>
-          <tr>
-            <th style={{ ...th, width: 36, textAlign: 'center' }}>No.</th>
+          <tr style={{ borderBottom: `1.5px solid ${C.lineDark}` }}>
+            <th style={{ ...th, width: 40, textAlign: 'center' }}>No.</th>
             <th style={th}>Description</th>
-            <th style={{ ...th, width: 48, textAlign: 'center' }}>Qty.</th>
-            <th style={{ ...th, width: 88, textAlign: 'right' }}>Unit Price</th>
-            <th style={{ ...th, width: 56, textAlign: 'center' }}>Dis. %</th>
-            <th style={{ ...th, width: 88, textAlign: 'right' }}>Amount</th>
+            <th style={{ ...th, width: 52, textAlign: 'center' }}>Qty.</th>
+            <th style={{ ...th, width: 92, textAlign: 'right' }}>Unit Price</th>
+            <th style={{ ...th, width: 58, textAlign: 'center' }}>Dis. %</th>
+            <th style={{ ...th, width: 92, textAlign: 'right' }}>Amount</th>
           </tr>
         </thead>
         <tbody>
           {data.items.map((item, idx) => (
             <tr key={idx}>
-              <td style={{ ...td, textAlign: 'center', color: C.muted }}>{idx + 1}</td>
+              <td style={{ ...td, textAlign: 'center' }}>{idx + 1}</td>
               <td style={td}>
                 <div style={{ fontWeight: 600 }}>{item.description}</div>
                 {(item.imei || item.warrantyCode || item.warrantyExpiry) && (
@@ -271,13 +275,13 @@ const KasthuriInvoicePrint = forwardRef<
               </td>
               <td style={{ ...td, textAlign: 'center' }}>{item.qty}</td>
               <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(item.unitPrice)}</td>
-              <td style={{ ...td, textAlign: 'center', color: C.muted }}>{item.discountPct > 0 ? item.discountPct.toFixed(2) : ''}</td>
+              <td style={{ ...td, textAlign: 'center' }}>{item.discountPct > 0 ? item.discountPct.toFixed(2) : ''}</td>
               <td style={{ ...td, textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmt(item.amount)}</td>
             </tr>
           ))}
           {Array.from({ length: emptyRows }).map((_, i) => (
             <tr key={`e-${i}`}>
-              <td style={{ ...td, height: 26 }}>&nbsp;</td>
+              <td style={{ ...td, height: 28 }}>&nbsp;</td>
               <td style={td} />
               <td style={td} />
               <td style={td} />
@@ -288,61 +292,74 @@ const KasthuriInvoicePrint = forwardRef<
         </tbody>
       </table>
 
-      {/* Totals + Terms */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 40, marginTop: 20, flex: 1 }}>
-        <div style={{ flex: 1, maxWidth: 400, paddingTop: 8 }}>
-          <p style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700, color: C.text }}>Terms &amp; Conditions</p>
-          <ul style={{ margin: 0, paddingLeft: 14, fontSize: 13, lineHeight: 1.65, color: C.muted }}>
-            {terms.map((t, i) => (
-              <li key={i} style={{ marginBottom: 4 }}>{t}</li>
-            ))}
-          </ul>
+      {/* Terms + Totals */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 18, flex: 1 }}>
+        <div style={{ paddingTop: 6 }}>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: C.text }}>Terms &amp; Conditions</p>
         </div>
-        <div style={{ width: 280, flexShrink: 0, borderTop: `1.5px solid ${C.lineDark}`, paddingTop: 8 }}>
+        <div style={{ width: 300, flexShrink: 0 }}>
           <TotalRow label="Total Value :" value={fmt(data.totalValue)} />
           <TotalRow label="Disc. Total :" value={fmt(data.discountTotal)} />
           <TotalRow label="VAT :" value={fmt(data.vat)} />
           <TotalRow label="Total :" value={fmt(data.total)} bold />
           <TotalRow label="Advance :" value={fmt(data.advance)} />
-          <div style={{ borderTop: `1px solid ${C.lineDark}`, marginTop: 4, paddingTop: 4 }}>
+          <div style={{ borderTop: `1px solid ${C.lineDark}`, marginTop: 4, paddingTop: 4, borderBottom: `3px double ${C.lineDark}`, paddingBottom: 4 }}>
             <TotalRow label="Balance :" value={fmt(data.total)} bold highlight />
           </div>
         </div>
       </div>
 
       {/* Footer */}
-      <div style={{ marginTop: 'auto', paddingTop: 20, borderTop: `1.5px solid ${C.lineDark}` }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 24 }}>
-          <div style={{ flex: 1, fontSize: 14, lineHeight: 1.7, color: C.muted }}>
-            <p style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 800, color: C.text }}>{companyName}</p>
-            {settings.address && <p style={{ margin: '0 0 3px' }}>{settings.address}</p>}
-            {settings.website && <p style={{ margin: '0 0 3px' }}>{settings.website}</p>}
-            {settings.email && <p style={{ margin: 0 }}>{settings.email}</p>}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 20, flexShrink: 0 }}>
-            {settings.phone && (
-              <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: C.text, textAlign: 'right', lineHeight: 1.6 }}>
-                {settings.phone}
+      <div style={{ marginTop: 'auto', paddingTop: 28 }}>
+        <p style={{ margin: '0 0 12px', fontSize: 11, lineHeight: 1.55, color: C.muted }}>
+          {terms.map((t, i) => (
+            <span key={i}>
+              {i > 0 ? '  ' : ''}* {t}
+            </span>
+          ))}
+        </p>
+        <div style={{ borderTop: `1.5px solid ${C.lineDark}`, paddingTop: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 20 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{
+                margin: '0 0 10px',
+                fontSize: 14,
+                fontWeight: 800,
+                letterSpacing: 0.4,
+                textTransform: 'uppercase',
+                color: C.text,
+                lineHeight: 1.25,
+              }}>
+                {companyName}
               </p>
-            )}
-            <img
-              src={qrSrc}
-              alt="QR"
-              width={72}
-              height={72}
-              style={{ display: 'block', border: `1px solid ${C.line}` }}
-              crossOrigin="anonymous"
-            />
+              {settings.address && <ContactLine icon={<MapPin size={13} />} text={settings.address} />}
+              {settings.website && <ContactLine icon={<Globe size={13} />} text={settings.website} />}
+              {settings.email && <ContactLine icon={<Mail size={13} />} text={settings.email} />}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0 }}>
+              <img
+                src={qrSrc}
+                alt="QR"
+                width={76}
+                height={76}
+                style={{ display: 'block' }}
+                crossOrigin="anonymous"
+              />
+              {settings.phone && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 12, fontWeight: 600, color: C.text }}>
+                  <Phone size={13} />
+                  <WhatsAppIcon size={13} />
+                  <span>{settings.phone}</span>
+                </div>
+              )}
+            </div>
           </div>
+          {settings.slogan && (
+            <p style={{ margin: '12px 0 0', fontSize: 10, color: C.muted, lineHeight: 1.55 }}>
+              {settings.slogan}
+            </p>
+          )}
         </div>
-        {settings.slogan && (
-          <p style={{
-            margin: '16px 0 0', paddingTop: 12, borderTop: `1px solid ${C.line}`,
-            fontSize: 12, color: C.muted, textAlign: 'center', lineHeight: 1.55,
-          }}>
-            {settings.slogan}
-          </p>
-        )}
       </div>
     </div>
   )
