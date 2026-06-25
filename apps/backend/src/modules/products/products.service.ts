@@ -93,7 +93,7 @@ export const productsService = {
     const p = await prisma.product.findFirst({ where: { id, tenantId } })
     if (!p) throw new AppError('Product not found', 404)
     const { name, description, sku, barcode, categoryId, brandId,
-            buyingPrice, sellingPrice, mrp, trackImei, warrantyMonths,
+            buyingPrice, sellingPrice, mrp, trackImei, warrantyMonths, warrantyNote,
             imageUrl, stock, minStock, isActive,
             storageVariations, colorVariations } = body
     const data: any = {}
@@ -108,6 +108,7 @@ export const productsService = {
     if (mrp               !== undefined) data.mrp               = Number(mrp)
     if (trackImei         !== undefined) data.trackImei         = Boolean(trackImei)
     if (warrantyMonths    !== undefined) data.warrantyMonths    = Number(warrantyMonths)
+    if (warrantyNote      !== undefined) data.warrantyNote      = warrantyNote?.trim() || null
     if (imageUrl          !== undefined) data.imageUrl          = imageUrl
     if (storageVariations !== undefined) data.storageVariations = storageVariations
     if (colorVariations   !== undefined) data.colorVariations   = colorVariations

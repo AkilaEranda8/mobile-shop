@@ -319,7 +319,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
   const [manageStock,   setManageStock]   = useState('Yes')
   const [initialQty,    setInitialQty]    = useState('0')
   const [pricing, setPricing] = useState({ tax: 'None', taxType: 'Exclusive', purchaseEx: '', purchaseInc: '', sellingEx: '', margin: '' })
-  const [extra,   setExtra]   = useState({ supplierId: '', warranty: '1 Year', hsCode: '', tags: '' })
+  const [extra,   setExtra]   = useState({ supplierId: '', warranty: '1 Year', warrantyNote: '', hsCode: '', tags: '' })
   const [variants, setVariants] = useState<VariantRow[]>([])
 
   const f = useCallback((k: string, v: string) => setForm(p => ({ ...p, [k]: v })), [])
@@ -385,6 +385,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
       minStock:     lowStock ? Number(minStock) || 5 : 0,
       trackImei:    opts.trackImei,
       warrantyMonths: warrantyTrack ? (warrantyLabelToMonths(extra.warranty) || 12) : 0,
+      warrantyNote: warrantyTrack && extra.warrantyNote.trim() ? extra.warrantyNote.trim() : undefined,
       isActive:     true,
       storageVariations: rows.map(v => ({
         storage: v.storage, colorName: v.colorName, colorHex: v.colorHex,
@@ -394,7 +395,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
       })),
       colorVariations: rows.map(v => ({ name: v.colorName, hex: v.colorHex })),
     }
-  }, [lowStock, minStock, warrantyTrack, extra.warranty, manageStock, initialQty])
+  }, [lowStock, minStock, warrantyTrack, extra.warranty, extra.warrantyNote, manageStock, initialQty])
 
   const addVariant = () => setVariants(p => [...p, {
     id: genId(), storage: '128GB', colorName: 'Black', colorHex: '#1a1a1a',
@@ -764,6 +765,9 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                     <PreviewRow label="Selling Price" value={pricing.sellingEx ? `LKR ${pricing.sellingEx}` : undefined} />
                     <PreviewRow label="IMEI Type" value={trackImei ? 'Phone / Tablet' : 'No IMEI'} />
                     <PreviewRow label="Warranty" value={warrantyTrack ? extra.warranty : 'None'} />
+                    {warrantyTrack && extra.warrantyNote.trim() && (
+                      <PreviewRow label="Warranty note" value={extra.warrantyNote.trim()} />
+                    )}
                     <PreviewRow label="Stock" value={manageStock === 'Yes' ? initialQty || '0' : '0'} />
                     <PreviewRow label="Variants" value={variants.length ? String(variants.length) : 'None'} />
                     <PreviewRow label="Supplier" value={supplierName} />
@@ -890,14 +894,33 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                 }} label="Enable warranty tracking"
                   desc="Auto-create warranty certificate on sale" />
                 {warrantyTrack && (
-                  <div style={{ paddingLeft: 26 }}>
-                    <Lbl req>Warranty Period</Lbl>
-                    <Sel value={extra.warranty} onChange={v => setExtra(p => ({ ...p, warranty: v }))}>
-                      {WARRANTY_OPTS.filter(w => w !== 'None').map(w => <option key={w}>{w}</option>)}
-                    </Sel>
-                    <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 8, lineHeight: 1.45 }}>
-                      This product&apos;s warranty length on sale (certificate &amp; bill line). Shop-wide policy text — e.g. software warranty, repair discount — is edited under Settings → Invoice → Warranty &amp; Service Terms and prints on bills only.
-                    </p>
+                  <div style={{ paddingLeft: 26 }} className="space-y-3">
+                    <div>
+                      <Lbl req>Warranty Period</Lbl>
+                      <Sel value={extra.warranty} onChange={v => setExtra(p => ({ ...p, warranty: v }))}>
+                        {WARRANTY_OPTS.filter(w => w !== 'None').map(w => <option key={w}>{w}</option>)}
+                      </Sel>
+                    </div>
+                    <div>
+                      <Lbl>Warranty note</Lbl>
+                      <textarea
+                        rows={3}
+                        placeholder="e.g. 3 months phone-to-phone warranty; software updates included"
+                        value={extra.warrantyNote}
+                        onChange={e => setExtra(p => ({ ...p, warrantyNote: e.target.value }))}
+                        style={{
+                          ...inputStyle,
+                          height: 'auto',
+                          minHeight: 72,
+                          padding: '8px 12px',
+                          resize: 'vertical',
+                          lineHeight: 1.45,
+                        }}
+                      />
+                      <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.45 }}>
+                        Optional text for this product — prints on the bill under warranty. Shop-wide policy lines: Settings → Invoice → Warranty &amp; Service Terms.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>

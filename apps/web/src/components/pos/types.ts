@@ -17,6 +17,7 @@ export interface CartItem {
   serviceId?: string
   variationLabel?: string
   warrantyMonths?: number
+  warrantyNote?: string
   trackImei?: boolean
   condition?: 'BRAND_NEW' | 'USED'
 }

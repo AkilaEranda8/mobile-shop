@@ -56,6 +56,7 @@ function cartToReceiptItems(cart: CartItem[]) {
     unitPrice: i.price,
     total: i.price * i.quantity,
     warrantyMonths: i.warrantyMonths ?? 0,
+    warrantyNote: i.warrantyNote,
     condition: i.condition,
   }))
 }
@@ -1405,6 +1406,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         isService,
         variationLabel: variation ? `${variation.storage}::${variation.colorName}` : undefined,
         warrantyMonths: isService ? 0 : Number(product.warrantyMonths ?? 0),
+        warrantyNote: isService ? undefined : (product.warrantyNote?.trim() || undefined),
         trackImei,
         condition: isService ? undefined : (product.condition === 'USED' ? 'USED' : product.condition === 'BRAND_NEW' ? 'BRAND_NEW' : undefined),
       }]

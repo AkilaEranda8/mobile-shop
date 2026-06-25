@@ -332,6 +332,7 @@ model Product {
   mrp             Float
   trackImei       Boolean  @default(false)
   warrantyMonths  Int      @default(0)
+  warrantyNote    String?
   imageUrl        String?
   stock           Int      @default(0)
   minStock        Int      @default(5)

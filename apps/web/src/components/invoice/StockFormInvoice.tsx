@@ -29,6 +29,7 @@ export interface StockFormSale {
     sku?: string
     imei?: string
     warrantyMonths?: number
+    warrantyNote?: string
     condition?: 'BRAND_NEW' | 'USED'
   }[]
   subtotal: number
@@ -102,6 +103,7 @@ function itemMetaLines(item: StockFormSale['items'][number], saleDate?: string):
     const until = fmtExpiryDate(saleDate, item.warrantyMonths)
     if (until) lines.push(`Valid until: ${until}`)
   }
+  if (item.warrantyNote?.trim()) lines.push(item.warrantyNote.trim())
   return lines.map(l => esc(l)).join('<br/>')
 }
 

@@ -464,6 +464,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
   })
   const [imeiType, setImeiType] = useState<ImeiProductType>(trackFlagToImeiType(product.trackImei))
   const [warrantyMonths, setWarrantyMonths] = useState(product.warrantyMonths ?? 12)
+  const [warrantyNote, setWarrantyNote] = useState(product.warrantyNote ?? '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -498,6 +499,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
         mrp: Number(form.sellingPrice), stock: Number(form.stock), minStock: Number(form.minStock),
         trackImei: imeiTypeToTrackFlag(imeiType),
         warrantyMonths: Number(warrantyMonths) || 0,
+        warrantyNote: warrantyNote.trim() || null,
         condition: form.condition,
         imageUrl: form.imageUrl || undefined,
         storageVariations: variants.map(v => ({
@@ -611,6 +613,16 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
               <option value={12}>1 Year</option>
               <option value={24}>2 Years</option>
             </select>
+          </div>
+
+          <div>
+            <label className="block text-xs text-slate-400 mb-1.5">Warranty note</label>
+            <textarea
+              className="input-field min-h-[72px] py-2 resize-y"
+              placeholder="Optional text printed on the bill under warranty"
+              value={warrantyNote}
+              onChange={e => setWarrantyNote(e.target.value)}
+            />
           </div>
 
           {/* ── Variants Section ────────────────────────────────────── */}
