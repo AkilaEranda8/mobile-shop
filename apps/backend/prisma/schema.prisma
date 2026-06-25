@@ -263,6 +263,7 @@ model User {
   salesAssCashier Sale[]     @relation("SaleCashier")
   repairs        RepairTicket[] @relation("RepairTechnician")
   refreshTokens  RefreshToken[]
+  announcementDismissals AnnouncementDismissal[]
 
   @@unique([tenantId, email])
 }
@@ -1331,4 +1332,20 @@ model PlatformAnnouncement {
   createdBy   String    @default("Admin")
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  dismissals AnnouncementDismissal[]
+}
+
+model AnnouncementDismissal {
+  id             String   @id @default(cuid())
+  userId         String
+  announcementId String
+  dismissedAt    DateTime @default(now())
+
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  announcement PlatformAnnouncement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, announcementId])
+  @@index([userId])
+  @@index([announcementId])
 }

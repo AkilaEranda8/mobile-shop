@@ -453,9 +453,22 @@ export const analyticsApi = {
     api.get(`/analytics/category-products${params ? '?' + new URLSearchParams(params) : ''}`),
 }
 
+export type PlatformAnnouncement = {
+  id: string
+  title: string
+  body: string
+  type: string
+  sentAt: string | null
+}
+
 export type PlatformStatus = {
   maintenance: { enabled: boolean; message: string }
-  announcements: Array<{ id: string; title: string; body: string; type: string; sentAt: string | null }>
+  announcements: PlatformAnnouncement[]
+}
+
+export const platformApi = {
+  listAnnouncements: () => api.get('/platform/announcements'),
+  dismissAnnouncement: (id: string) => api.post(`/platform/announcements/${id}/dismiss`),
 }
 
 export async function fetchPlatformStatus(): Promise<PlatformStatus> {
