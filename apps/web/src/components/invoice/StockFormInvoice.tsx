@@ -257,8 +257,6 @@ export function printStockFormInvoice(
       letter-spacing: 1px;
       text-transform: uppercase;
       margin-bottom: 5px;
-      padding-bottom: 3px;
-      border-bottom: 1px solid #000;
     }
 
     .bill-row, .pay-row, .w-row {
@@ -335,8 +333,6 @@ export function printStockFormInvoice(
     .grand {
       margin-top: 4px;
       padding: 6px 0;
-      border-top: 2px solid #000;
-      border-bottom: 2px solid #000;
       font-size: 12px;
       font-weight: 800;
       display: flex;
@@ -367,7 +363,6 @@ export function printStockFormInvoice(
       font-size: 10px;
     }
     .sig-line {
-      border-top: 1px solid #000;
       height: 28px;
       margin-bottom: 4px;
     }
@@ -423,8 +418,6 @@ export function printStockFormInvoice(
       <div class="block-title">Bill To</div>
       ${billToRows}
     </div>
-
-    <hr class="rule" />
 
     <div class="block">
       <div class="block-title">Item Details</div>
