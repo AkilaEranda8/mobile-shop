@@ -1,7 +1,7 @@
 'use client'
 
 import { forwardRef, useRef } from 'react'
-import { Download, Printer, MapPin, Globe, Mail, Phone } from 'lucide-react'
+import { Download, Printer } from 'lucide-react'
 import { KASTHURI_INVOICE_PRESET, type InvoiceSettings } from '@/lib/invoiceSettings'
 
 export interface KasthuriInvoiceItem {
@@ -97,46 +97,41 @@ export function buildKasthuriInvoiceData(
   }
 }
 
-const fmt = (n: number, currency = 'LKR') =>
+const fmt = (n: number) =>
   new Intl.NumberFormat('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
 
 const MIN_ROWS = 6
 
-const BRAND = {
-  dark: '#0f172a',
-  text: '#1e293b',
-  muted: '#64748b',
-  border: '#cbd5e1',
-  borderLight: '#e2e8f0',
-  headerBg: '#0f172a',
-  panelBg: '#f8fafc',
-  accent: '#1d4ed8',
+const C = {
+  text: '#111827',
+  muted: '#4b5563',
+  line: '#9ca3af',
+  lineDark: '#374151',
 }
 
-const FONT = {
-  title: 40,
-  subtitle: 12,
-  sectionLabel: 11,
-  body: 13,
-  bodySm: 11.5,
-  tableHead: 11,
-  tableBody: 13,
-  detail: 11.5,
-  termsTitle: 12,
-  termsBody: 11.5,
-  totalRow: 13,
-  totalHighlight: 15,
-  footer: 12,
-  footerTitle: 14,
-  footerSm: 10,
-  slogan: 10,
-}
+const FONT = "'Segoe UI', Arial, Helvetica, sans-serif"
 
-function MetaRow({ label, value }: { label: string; value: string }) {
+function FieldRow({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ display: 'flex', gap: 8, marginBottom: 8, fontSize: FONT.body, lineHeight: 1.45 }}>
-      <span style={{ color: BRAND.muted, minWidth: 118, flexShrink: 0 }}>{label}</span>
-      <span style={{ color: BRAND.text, fontWeight: 600, flex: 1 }}>{value || '—'}</span>
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 12, color: C.muted, marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 13, color: C.text, fontWeight: 600, borderBottom: `1px solid ${C.line}`, paddingBottom: 4, minHeight: 18 }}>
+        {value || '\u00A0'}
+      </div>
+    </div>
+  )
+}
+
+function TotalRow({ label, value, bold, highlight }: { label: string; value: string; bold?: boolean; highlight?: boolean }) {
+  return (
+    <div style={{
+      display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+      padding: '5px 0', fontSize: bold ? 14 : 12,
+      fontWeight: bold ? 700 : 500, color: C.text,
+      borderBottom: highlight ? `2px double ${C.lineDark}` : undefined,
+    }}>
+      <span>{label}</span>
+      <span style={{ fontVariantNumeric: 'tabular-nums', minWidth: 100, textAlign: 'right' }}>{value}</span>
     </div>
   )
 }
@@ -152,9 +147,10 @@ const KasthuriInvoicePrint = forwardRef<
   const logo = settings.logo?.trim() || '/invoice-templates/kasthuri-logo.png'
   const website = settings.website || 'www.kasthurimobile.com'
   const qrSrc = settings.qrCodeUrl
-    || `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(website.startsWith('http') ? website : `https://${website}`)}`
+    || `https://api.qrserver.com/v1/create-qr-code/?size=88x88&data=${encodeURIComponent(website.startsWith('http') ? website : `https://${website}`)}`
 
   const emptyRows = Math.max(0, MIN_ROWS - data.items.length)
+  const terms = settings.terms?.length ? settings.terms : KASTHURI_INVOICE_PRESET.terms ?? []
 
   const handleDownloadPDF = async () => {
     if (!invoiceRef.current) return
@@ -182,19 +178,14 @@ const KasthuriInvoicePrint = forwardRef<
     w.close()
   }
 
-  const thStyle: React.CSSProperties = {
-    fontSize: FONT.tableHead,
-    fontWeight: 700,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    padding: '11px 10px',
-    textAlign: 'left',
-    color: '#fff',
-    background: BRAND.headerBg,
-    borderBottom: `2px solid ${BRAND.accent}`,
+  const th: React.CSSProperties = {
+    fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4,
+    padding: '8px 6px', textAlign: 'left', color: C.text, borderBottom: `1.5px solid ${C.lineDark}`,
   }
-  const tdStyle: React.CSSProperties = { fontSize: FONT.tableBody, padding: '10px 10px', verticalAlign: 'top', color: BRAND.text, borderBottom: `1px solid ${BRAND.borderLight}` }
-  const terms = settings.terms?.length ? settings.terms : KASTHURI_INVOICE_PRESET.terms ?? []
+  const td: React.CSSProperties = {
+    fontSize: 12, padding: '8px 6px', verticalAlign: 'top', color: C.text,
+    borderBottom: `1px solid ${C.line}`,
+  }
 
   const invoiceBody = (
     <div
@@ -204,170 +195,137 @@ const KasthuriInvoicePrint = forwardRef<
         minHeight: 1123,
         margin: hideControls ? 0 : '0 auto',
         background: '#fff',
-        color: BRAND.text,
-        fontFamily: "'Segoe UI', system-ui, -apple-system, Arial, sans-serif",
-        padding: '0 0 24px',
+        color: C.text,
+        fontFamily: FONT,
+        padding: '36px 48px 28px',
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
       }}
     >
-      {/* Top accent */}
-      <div style={{ height: 4, background: `linear-gradient(90deg, ${BRAND.headerBg} 0%, ${BRAND.accent} 100%)` }} />
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+        <h1 style={{ margin: 0, fontSize: 34, fontWeight: 800, letterSpacing: 1, color: C.text }}>INVOICE</h1>
+        <img
+          src={logo}
+          alt={settings.shopName || 'Logo'}
+          style={{ maxHeight: 64, maxWidth: 240, objectFit: 'contain' }}
+          crossOrigin="anonymous"
+          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+        />
+      </div>
 
-      <div style={{ padding: '32px 44px 0', flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28, paddingBottom: 20, borderBottom: `2px solid ${BRAND.borderLight}` }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: FONT.title, fontWeight: 800, letterSpacing: 2, color: BRAND.dark }}>INVOICE</h1>
-            <p style={{ margin: '6px 0 0', fontSize: FONT.subtitle, color: BRAND.muted, letterSpacing: 1.2, textTransform: 'uppercase' }}>Tax Invoice / Sales Receipt</p>
-          </div>
-          <div style={{ textAlign: 'right', maxWidth: 300 }}>
-            <img
-              src={logo}
-              alt={settings.shopName || 'Kasthuri Mobile Solutions'}
-              style={{ maxHeight: 72, maxWidth: 260, objectFit: 'contain' }}
-              crossOrigin="anonymous"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-            />
-          </div>
+      {/* Customer / Invoice meta */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, marginBottom: 24 }}>
+        <div>
+          <FieldRow label="Customer Name :" value={data.customerName} />
+          <FieldRow label="Mobile Number :" value={data.customerPhone || ''} />
+          <FieldRow label="Vat Reg. No. :" value={data.customerVatRegNo || ''} />
         </div>
-
-        {/* Customer / Invoice meta */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
-          <div style={{ background: BRAND.panelBg, border: `1px solid ${BRAND.borderLight}`, borderRadius: 8, padding: '14px 16px' }}>
-            <p style={{ margin: '0 0 10px', fontSize: FONT.sectionLabel, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: BRAND.accent }}>Bill To</p>
-            <MetaRow label="Customer" value={data.customerName} />
-            <MetaRow label="Mobile" value={data.customerPhone || '—'} />
-            <MetaRow label="Customer VAT" value={data.customerVatRegNo || '—'} />
-          </div>
-          <div style={{ background: BRAND.panelBg, border: `1px solid ${BRAND.borderLight}`, borderRadius: 8, padding: '14px 16px' }}>
-            <p style={{ margin: '0 0 10px', fontSize: FONT.sectionLabel, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: BRAND.accent }}>Invoice Details</p>
-            <MetaRow label="Invoice No." value={data.invoiceNumber} />
-            <MetaRow label="Date" value={data.date} />
-            <MetaRow label="Company VAT" value={data.companyVatRegNo || '—'} />
-          </div>
+        <div>
+          <FieldRow label="Invoice No. :" value={data.invoiceNumber} />
+          <FieldRow label="Date :" value={data.date} />
+          <FieldRow label="Vat Reg. No. :" value={data.companyVatRegNo || ''} />
         </div>
+      </div>
 
-        {/* Items table */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 0, border: `1px solid ${BRAND.borderLight}`, borderRadius: 8, overflow: 'hidden' }}>
-          <thead>
-            <tr>
-              <th style={{ ...thStyle, width: 40, textAlign: 'center' }}>No.</th>
-              <th style={thStyle}>Description</th>
-              <th style={{ ...thStyle, width: 52, textAlign: 'center' }}>Qty</th>
-              <th style={{ ...thStyle, width: 96, textAlign: 'right' }}>Unit Price</th>
-              <th style={{ ...thStyle, width: 60, textAlign: 'center' }}>Disc %</th>
-              <th style={{ ...thStyle, width: 96, textAlign: 'right' }}>Amount</th>
+      {/* Items table */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 0, borderTop: `1.5px solid ${C.lineDark}` }}>
+        <thead>
+          <tr>
+            <th style={{ ...th, width: 36, textAlign: 'center' }}>No.</th>
+            <th style={th}>Description</th>
+            <th style={{ ...th, width: 48, textAlign: 'center' }}>Qty.</th>
+            <th style={{ ...th, width: 88, textAlign: 'right' }}>Unit Price</th>
+            <th style={{ ...th, width: 56, textAlign: 'center' }}>Dis. %</th>
+            <th style={{ ...th, width: 88, textAlign: 'right' }}>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.items.map((item, idx) => (
+            <tr key={idx}>
+              <td style={{ ...td, textAlign: 'center', color: C.muted }}>{idx + 1}</td>
+              <td style={td}>
+                <div style={{ fontWeight: 600 }}>{item.description}</div>
+                {(item.imei || item.warrantyCode || item.warrantyExpiry) && (
+                  <div style={{ marginTop: 4, fontSize: 11, lineHeight: 1.5, color: C.muted }}>
+                    {item.imei && <div>IMEI: {item.imei}</div>}
+                    {item.warrantyCode && <div>Warranty: {item.warrantyCode}</div>}
+                    {item.warrantyExpiry && <div>Valid until: {item.warrantyExpiry}</div>}
+                  </div>
+                )}
+              </td>
+              <td style={{ ...td, textAlign: 'center' }}>{item.qty}</td>
+              <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(item.unitPrice)}</td>
+              <td style={{ ...td, textAlign: 'center', color: C.muted }}>{item.discountPct > 0 ? item.discountPct.toFixed(2) : ''}</td>
+              <td style={{ ...td, textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmt(item.amount)}</td>
             </tr>
-          </thead>
-          <tbody>
-            {data.items.map((item, idx) => (
-              <tr key={idx} style={{ background: idx % 2 === 0 ? '#fff' : '#fcfdff' }}>
-                <td style={{ ...tdStyle, textAlign: 'center', color: BRAND.muted, fontWeight: 600 }}>{idx + 1}</td>
-                <td style={tdStyle}>
-                  <div style={{ fontWeight: 600, color: BRAND.dark }}>{item.description}</div>
-                  {(item.imei || item.warrantyCode || item.warrantyExpiry) && (
-                    <div style={{ marginTop: 6, padding: '7px 10px', background: BRAND.panelBg, borderLeft: `3px solid ${BRAND.accent}`, borderRadius: '0 4px 4px 0', fontSize: FONT.detail, lineHeight: 1.55, color: BRAND.muted }}>
-                      {item.imei && <div><span style={{ fontWeight: 700, color: BRAND.text }}>IMEI:</span> {item.imei}</div>}
-                      {item.warrantyCode && <div><span style={{ fontWeight: 700, color: BRAND.text }}>Warranty:</span> {item.warrantyCode}</div>}
-                      {item.warrantyExpiry && <div><span style={{ fontWeight: 700, color: BRAND.text }}>Valid until:</span> {item.warrantyExpiry}</div>}
-                    </div>
-                  )}
-                </td>
-                <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 600 }}>{item.qty}</td>
-                <td style={{ ...tdStyle, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(item.unitPrice)}</td>
-                <td style={{ ...tdStyle, textAlign: 'center', color: BRAND.muted }}>{item.discountPct > 0 ? item.discountPct.toFixed(2) : '—'}</td>
-                <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{fmt(item.amount)}</td>
-              </tr>
-            ))}
-            {Array.from({ length: emptyRows }).map((_, i) => (
-              <tr key={`e-${i}`}>
-                <td style={{ ...tdStyle, height: 28 }}>&nbsp;</td>
-                <td style={tdStyle} />
-                <td style={tdStyle} />
-                <td style={tdStyle} />
-                <td style={tdStyle} />
-                <td style={tdStyle} />
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          ))}
+          {Array.from({ length: emptyRows }).map((_, i) => (
+            <tr key={`e-${i}`}>
+              <td style={{ ...td, height: 26 }}>&nbsp;</td>
+              <td style={td} />
+              <td style={td} />
+              <td style={td} />
+              <td style={td} />
+              <td style={td} />
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
-        {/* Totals + Terms row */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 32, marginTop: 22, marginBottom: 24 }}>
-          <div style={{ flex: 1, maxWidth: 380 }}>
-            <p style={{ margin: '0 0 8px', fontSize: FONT.termsTitle, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: BRAND.dark }}>Terms &amp; Conditions</p>
-            <ul style={{ margin: 0, paddingLeft: 14, fontSize: FONT.termsBody, lineHeight: 1.65, color: BRAND.muted }}>
-              {terms.map((t, i) => (
-                <li key={i} style={{ marginBottom: 5 }}>{t}</li>
-              ))}
-            </ul>
-          </div>
-          <div style={{ width: 280, border: `1px solid ${BRAND.borderLight}`, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
-            {[
-              ['Total Value', fmt(data.totalValue)],
-              ['Discount', fmt(data.discountTotal)],
-              ['VAT', fmt(data.vat)],
-            ].map(([label, value]) => (
-              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 14px', fontSize: FONT.totalRow, borderBottom: `1px solid ${BRAND.borderLight}`, background: '#fff' }}>
-                <span style={{ color: BRAND.muted }}>{label}</span>
-                <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
-              </div>
+      {/* Totals + Terms */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 40, marginTop: 20, flex: 1 }}>
+        <div style={{ flex: 1, maxWidth: 400, paddingTop: 8 }}>
+          <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 700, color: C.text }}>Terms &amp; Conditions</p>
+          <ul style={{ margin: 0, paddingLeft: 14, fontSize: 11, lineHeight: 1.65, color: C.muted }}>
+            {terms.map((t, i) => (
+              <li key={i} style={{ marginBottom: 4 }}>{t}</li>
             ))}
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '11px 14px', fontSize: FONT.totalHighlight, fontWeight: 800, background: BRAND.headerBg, color: '#fff' }}>
-              <span>Total</span>
-              <span style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt(data.total)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 14px', fontSize: FONT.totalRow, borderBottom: `1px solid ${BRAND.borderLight}` }}>
-              <span style={{ color: BRAND.muted }}>Advance Paid</span>
-              <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmt(data.advance)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '11px 14px', fontSize: FONT.totalHighlight, fontWeight: 800, background: data.balance > 0 ? '#fef3c7' : BRAND.panelBg, color: BRAND.dark }}>
-              <span>Balance Due</span>
-              <span style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt(data.balance)}</span>
-            </div>
+          </ul>
+        </div>
+        <div style={{ width: 260, flexShrink: 0, borderTop: `1.5px solid ${C.lineDark}`, paddingTop: 8 }}>
+          <TotalRow label="Total Value :" value={fmt(data.totalValue)} />
+          <TotalRow label="Disc. Total :" value={fmt(data.discountTotal)} />
+          <TotalRow label="VAT :" value={fmt(data.vat)} />
+          <TotalRow label="Total :" value={fmt(data.total)} bold />
+          <TotalRow label="Advance :" value={fmt(data.advance)} />
+          <div style={{ borderTop: `1px solid ${C.lineDark}`, marginTop: 4, paddingTop: 4 }}>
+            <TotalRow label="Balance :" value={fmt(data.balance)} bold highlight />
           </div>
         </div>
       </div>
 
-      {/* Footer band */}
-      <div style={{ marginTop: 'auto', borderTop: `2px solid ${BRAND.borderLight}`, background: BRAND.panelBg, padding: '18px 44px 14px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 20 }}>
-          <div style={{ flex: 1, fontSize: FONT.footer, lineHeight: 1.75 }}>
-            <p style={{ margin: '0 0 8px', fontSize: FONT.footerTitle, fontWeight: 800, color: BRAND.dark, letterSpacing: 0.3 }}>{companyName}</p>
-            {settings.address && (
-              <p style={{ margin: '0 0 4px', display: 'flex', alignItems: 'flex-start', gap: 8, color: BRAND.muted }}>
-                <MapPin size={14} style={{ flexShrink: 0, marginTop: 2, color: BRAND.accent }} />
-                <span>{settings.address}</span>
-              </p>
-            )}
-            {settings.website && (
-              <p style={{ margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 8, color: BRAND.muted }}>
-                <Globe size={14} style={{ color: BRAND.accent }} />
-                <span>{settings.website}</span>
-              </p>
-            )}
-            {settings.email && (
-              <p style={{ margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 8, color: BRAND.muted }}>
-                <Mail size={14} style={{ color: BRAND.accent }} />
-                <span>{settings.email}</span>
-              </p>
-            )}
-            {settings.phone && (
-              <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8, color: BRAND.muted }}>
-                <Phone size={14} style={{ color: BRAND.accent }} />
-                <span>{settings.phone}</span>
-              </p>
-            )}
+      {/* Footer */}
+      <div style={{ marginTop: 'auto', paddingTop: 20, borderTop: `1.5px solid ${C.lineDark}` }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 24 }}>
+          <div style={{ flex: 1, fontSize: 12, lineHeight: 1.7, color: C.muted }}>
+            <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 800, color: C.text }}>{companyName}</p>
+            {settings.address && <p style={{ margin: '0 0 3px' }}>{settings.address}</p>}
+            {settings.website && <p style={{ margin: '0 0 3px' }}>{settings.website}</p>}
+            {settings.email && <p style={{ margin: 0 }}>{settings.email}</p>}
           </div>
-          <div style={{ textAlign: 'center', flexShrink: 0 }}>
-            <img src={qrSrc} alt="QR" width={80} height={80} style={{ display: 'block', border: `1px solid ${BRAND.borderLight}`, borderRadius: 6, background: '#fff', padding: 4 }} crossOrigin="anonymous" />
-            <p style={{ margin: '6px 0 0', fontSize: FONT.footerSm, color: BRAND.muted }}>Scan to visit</p>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 20, flexShrink: 0 }}>
+            {settings.phone && (
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: C.text, textAlign: 'right', lineHeight: 1.6 }}>
+                {settings.phone}
+              </p>
+            )}
+            <img
+              src={qrSrc}
+              alt="QR"
+              width={72}
+              height={72}
+              style={{ display: 'block', border: `1px solid ${C.line}` }}
+              crossOrigin="anonymous"
+            />
           </div>
         </div>
         {settings.slogan && (
-          <p style={{ margin: '14px 0 0', paddingTop: 12, borderTop: `1px solid ${BRAND.borderLight}`, fontSize: FONT.slogan, color: BRAND.muted, textAlign: 'center', lineHeight: 1.55, fontStyle: 'italic' }}>
+          <p style={{
+            margin: '16px 0 0', paddingTop: 12, borderTop: `1px solid ${C.line}`,
+            fontSize: 10, color: C.muted, textAlign: 'center', lineHeight: 1.55,
+          }}>
             {settings.slogan}
           </p>
         )}
@@ -378,12 +336,12 @@ const KasthuriInvoicePrint = forwardRef<
   return (
     <>
       {!hideControls && (
-        <div style={{ background: '#f1f5f9', minHeight: '100vh', padding: 24 }}>
+        <div style={{ background: '#f3f4f6', minHeight: '100vh', padding: 24 }}>
           <div style={{ maxWidth: 794, margin: '0 auto 16px', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', fontSize: 13 }}>
+            <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 6, border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer', fontSize: 13 }}>
               <Printer size={14} /> Print
             </button>
-            <button onClick={handleDownloadPDF} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: 'none', background: '#111', color: '#fff', cursor: 'pointer', fontSize: 13 }}>
+            <button onClick={handleDownloadPDF} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 6, border: 'none', background: '#111', color: '#fff', cursor: 'pointer', fontSize: 13 }}>
               <Download size={14} /> Download PDF
             </button>
           </div>
