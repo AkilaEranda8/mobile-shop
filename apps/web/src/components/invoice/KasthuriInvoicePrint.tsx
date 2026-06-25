@@ -73,7 +73,7 @@ export function buildKasthuriInvoiceData(
   const vat = sale.tax ?? 0
   const total = sale.total ?? totalValue - discountTotal + vat
   const advance = sale.paidAmount ?? (total - (sale.dueAmount ?? 0))
-  const balance = sale.dueAmount ?? Math.max(0, total - advance)
+  const balance = total
 
   const date = sale.createdAt
     ? new Date(sale.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -111,13 +111,22 @@ const C = {
 
 const FONT = "'Segoe UI', Arial, Helvetica, sans-serif"
 
-function FieldRow({ label, value }: { label: string; value: string }) {
+function MetaField({ label, value, last }: { label: string; value: string; last?: boolean }) {
   return (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{ fontSize: 12, color: C.muted, marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: 13, color: C.text, fontWeight: 600, borderBottom: `1px solid ${C.line}`, paddingBottom: 4, minHeight: 18 }}>
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: last ? 0 : 10 }}>
+      <span style={{ fontSize: 15, color: C.text, fontWeight: 500, whiteSpace: 'nowrap', minWidth: 132 }}>{label}</span>
+      <span style={{
+        flex: 1,
+        fontSize: 16,
+        fontWeight: 700,
+        color: C.text,
+        borderBottom: `1.5px solid ${C.lineDark}`,
+        paddingBottom: 2,
+        minHeight: 20,
+        lineHeight: 1.2,
+      }}>
         {value || '\u00A0'}
-      </div>
+      </span>
     </div>
   )
 }
@@ -126,8 +135,8 @@ function TotalRow({ label, value, bold, highlight }: { label: string; value: str
   return (
     <div style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-      padding: '5px 0', fontSize: bold ? 14 : 12,
-      fontWeight: bold ? 700 : 500, color: C.text,
+      padding: '6px 0', fontSize: highlight ? 17 : bold ? 15 : 14,
+      fontWeight: bold || highlight ? 700 : 500, color: C.text,
       borderBottom: highlight ? `2px double ${C.lineDark}` : undefined,
     }}>
       <span>{label}</span>
@@ -179,11 +188,11 @@ const KasthuriInvoicePrint = forwardRef<
   }
 
   const th: React.CSSProperties = {
-    fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4,
-    padding: '8px 6px', textAlign: 'left', color: C.text, borderBottom: `1.5px solid ${C.lineDark}`,
+    fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4,
+    padding: '9px 6px', textAlign: 'left', color: C.text, borderBottom: `1.5px solid ${C.lineDark}`,
   }
   const td: React.CSSProperties = {
-    fontSize: 12, padding: '8px 6px', verticalAlign: 'top', color: C.text,
+    fontSize: 14, padding: '9px 6px', verticalAlign: 'top', color: C.text,
     borderBottom: `1px solid ${C.line}`,
   }
 
@@ -204,8 +213,8 @@ const KasthuriInvoicePrint = forwardRef<
       }}
     >
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
-        <h1 style={{ margin: 0, fontSize: 34, fontWeight: 800, letterSpacing: 1, color: C.text }}>INVOICE</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+        <h1 style={{ margin: 0, fontSize: 40, fontWeight: 800, letterSpacing: 1, color: C.text }}>INVOICE</h1>
         <img
           src={logo}
           alt={settings.shopName || 'Logo'}
@@ -216,16 +225,21 @@ const KasthuriInvoicePrint = forwardRef<
       </div>
 
       {/* Customer / Invoice meta */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, marginBottom: 24 }}>
-        <div>
-          <FieldRow label="Customer Name :" value={data.customerName} />
-          <FieldRow label="Mobile Number :" value={data.customerPhone || ''} />
-          <FieldRow label="Vat Reg. No. :" value={data.customerVatRegNo || ''} />
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        marginBottom: 14,
+        border: `1.5px solid ${C.lineDark}`,
+      }}>
+        <div style={{ padding: '10px 14px', borderRight: `1.5px solid ${C.lineDark}` }}>
+          <MetaField label="Customer Name :" value={data.customerName} />
+          <MetaField label="Mobile Number :" value={data.customerPhone || ''} />
+          <MetaField label="Vat Reg. No. :" value={data.customerVatRegNo || ''} last />
         </div>
-        <div>
-          <FieldRow label="Invoice No. :" value={data.invoiceNumber} />
-          <FieldRow label="Date :" value={data.date} />
-          <FieldRow label="Vat Reg. No. :" value={data.companyVatRegNo || ''} />
+        <div style={{ padding: '10px 14px' }}>
+          <MetaField label="Invoice No. :" value={data.invoiceNumber} />
+          <MetaField label="Date :" value={data.date} />
+          <MetaField label="Vat Reg. No. :" value={data.companyVatRegNo || ''} last />
         </div>
       </div>
 
@@ -248,7 +262,7 @@ const KasthuriInvoicePrint = forwardRef<
               <td style={td}>
                 <div style={{ fontWeight: 600 }}>{item.description}</div>
                 {(item.imei || item.warrantyCode || item.warrantyExpiry) && (
-                  <div style={{ marginTop: 4, fontSize: 11, lineHeight: 1.5, color: C.muted }}>
+                  <div style={{ marginTop: 4, fontSize: 12, lineHeight: 1.5, color: C.muted }}>
                     {item.imei && <div>IMEI: {item.imei}</div>}
                     {item.warrantyCode && <div>Warranty: {item.warrantyCode}</div>}
                     {item.warrantyExpiry && <div>Valid until: {item.warrantyExpiry}</div>}
@@ -277,21 +291,21 @@ const KasthuriInvoicePrint = forwardRef<
       {/* Totals + Terms */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 40, marginTop: 20, flex: 1 }}>
         <div style={{ flex: 1, maxWidth: 400, paddingTop: 8 }}>
-          <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 700, color: C.text }}>Terms &amp; Conditions</p>
-          <ul style={{ margin: 0, paddingLeft: 14, fontSize: 11, lineHeight: 1.65, color: C.muted }}>
+          <p style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700, color: C.text }}>Terms &amp; Conditions</p>
+          <ul style={{ margin: 0, paddingLeft: 14, fontSize: 13, lineHeight: 1.65, color: C.muted }}>
             {terms.map((t, i) => (
               <li key={i} style={{ marginBottom: 4 }}>{t}</li>
             ))}
           </ul>
         </div>
-        <div style={{ width: 260, flexShrink: 0, borderTop: `1.5px solid ${C.lineDark}`, paddingTop: 8 }}>
+        <div style={{ width: 280, flexShrink: 0, borderTop: `1.5px solid ${C.lineDark}`, paddingTop: 8 }}>
           <TotalRow label="Total Value :" value={fmt(data.totalValue)} />
           <TotalRow label="Disc. Total :" value={fmt(data.discountTotal)} />
           <TotalRow label="VAT :" value={fmt(data.vat)} />
           <TotalRow label="Total :" value={fmt(data.total)} bold />
           <TotalRow label="Advance :" value={fmt(data.advance)} />
           <div style={{ borderTop: `1px solid ${C.lineDark}`, marginTop: 4, paddingTop: 4 }}>
-            <TotalRow label="Balance :" value={fmt(data.balance)} bold highlight />
+            <TotalRow label="Balance :" value={fmt(data.total)} bold highlight />
           </div>
         </div>
       </div>
@@ -299,15 +313,15 @@ const KasthuriInvoicePrint = forwardRef<
       {/* Footer */}
       <div style={{ marginTop: 'auto', paddingTop: 20, borderTop: `1.5px solid ${C.lineDark}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 24 }}>
-          <div style={{ flex: 1, fontSize: 12, lineHeight: 1.7, color: C.muted }}>
-            <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 800, color: C.text }}>{companyName}</p>
+          <div style={{ flex: 1, fontSize: 14, lineHeight: 1.7, color: C.muted }}>
+            <p style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 800, color: C.text }}>{companyName}</p>
             {settings.address && <p style={{ margin: '0 0 3px' }}>{settings.address}</p>}
             {settings.website && <p style={{ margin: '0 0 3px' }}>{settings.website}</p>}
             {settings.email && <p style={{ margin: 0 }}>{settings.email}</p>}
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 20, flexShrink: 0 }}>
             {settings.phone && (
-              <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: C.text, textAlign: 'right', lineHeight: 1.6 }}>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: C.text, textAlign: 'right', lineHeight: 1.6 }}>
                 {settings.phone}
               </p>
             )}
@@ -324,7 +338,7 @@ const KasthuriInvoicePrint = forwardRef<
         {settings.slogan && (
           <p style={{
             margin: '16px 0 0', paddingTop: 12, borderTop: `1px solid ${C.line}`,
-            fontSize: 10, color: C.muted, textAlign: 'center', lineHeight: 1.55,
+            fontSize: 12, color: C.muted, textAlign: 'center', lineHeight: 1.55,
           }}>
             {settings.slogan}
           </p>
