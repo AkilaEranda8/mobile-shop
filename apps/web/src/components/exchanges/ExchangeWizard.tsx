@@ -124,6 +124,10 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
     } else setModels([])
   }, [form.oldBrandId])
 
+  const sellPrice = selectedStock?.sellPrice ?? 0
+  const buyPrice  = parseFloat(form.buyPrice) || 0
+  const balance   = sellPrice - buyPrice
+
   useEffect(() => {
     if (step !== 2) return
     setStockLoading(true)
@@ -175,10 +179,6 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
     }, 400)
     return () => clearTimeout(t)
   }, [form.oldImei])
-
-  const sellPrice = selectedStock?.sellPrice ?? 0
-  const buyPrice  = parseFloat(form.buyPrice) || 0
-  const balance   = sellPrice - buyPrice
 
   const searchCustomers = (q: string) => {
     setForm(p => ({ ...p, customerName: q }))
