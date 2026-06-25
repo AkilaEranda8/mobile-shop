@@ -3,12 +3,13 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
   X, Loader2, ArrowLeftRight, User, Smartphone, Search, ChevronRight, ChevronLeft,
-  CheckCircle, Receipt,
+  CheckCircle, Receipt, Printer,
 } from 'lucide-react'
-import { exchangesApi, customersApi, deviceCatalogApi, imeiApi } from '@/lib/api'
+import { exchangesApi, customersApi, deviceCatalogApi, imeiApi, tenantApi } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
-import { getInvoiceSettings, fetchInvoiceSettings, type InvoiceSettings } from '@/lib/invoiceSettings'
+import { getInvoiceSettings, fetchInvoiceSettings, shopContextFromTenant, type InvoiceSettings, type ShopContext } from '@/lib/invoiceSettings'
 import { authStorage } from '@/lib/auth'
+import { buildReceiptFromApiSale, printReceipt, receiptPrintLabel } from '@/lib/printReceipt'
 import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrint'
 import toast from 'react-hot-toast'
 
@@ -83,6 +84,7 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
   const [selectedStock, setSelectedStock] = useState<StockItem | null>(null)
   const [result, setResult] = useState<any>(null)
   const [invSettings, setInvSettings] = useState<InvoiceSettings>(() => getInvoiceSettings())
+  const [thermalShopCtx, setThermalShopCtx] = useState<ShopContext | undefined>(undefined)
   const [showInvoice, setShowInvoice] = useState(false)
 
   const [custResults, setCustResults] = useState<any[]>([])
@@ -115,7 +117,21 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
   useEffect(() => {
     deviceCatalogApi.listBrands().then((r: any) => setBrands(r.data ?? r ?? [])).catch(() => {})
     const user = authStorage.getUser()
-    if (user?.tenantId) fetchInvoiceSettings(user.tenantId, user.branchIds?.[0]).then(setInvSettings).catch(() => {})
+    if (!user?.tenantId) return
+    const branchId = user.branchIds?.[0]
+    const loadSettings = () => {
+      Promise.all([
+        fetchInvoiceSettings(user.tenantId, branchId),
+        tenantApi.get(user.tenantId).catch(() => null),
+      ]).then(([settings, tenantRes]) => {
+        setInvSettings(settings)
+        const tenant = (tenantRes as any)?.data ?? tenantRes
+        setThermalShopCtx(shopContextFromTenant(tenant, branchId))
+      }).catch(() => {})
+    }
+    loadSettings()
+    window.addEventListener('invoice-settings-updated', loadSettings)
+    return () => window.removeEventListener('invoice-settings-updated', loadSettings)
   }, [])
 
   useEffect(() => {
@@ -249,20 +265,36 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
 
   const invoiceData = result?.sale ? buildInvoiceFromSale(result.sale, invSettings) : null
 
+  const handlePrintReceipt = () => {
+    if (!result?.sale) return
+    printReceipt(
+      buildReceiptFromApiSale(result.sale, {
+        warranties: result.warranties,
+        customerAddress: form.customerAddress || undefined,
+      }),
+      invSettings,
+      thermalShopCtx,
+    )
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl max-h-[92vh] flex flex-col">
-        <div className="flex items-center justify-between p-5 border-b border-white/5 flex-shrink-0">
+      <div className="w-full max-w-2xl rounded-2xl shadow-2xl max-h-[92vh] flex flex-col overflow-hidden"
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+        <div className="h-1 w-full bg-gradient-to-r from-amber-500 to-orange-500 flex-shrink-0" />
+
+        <div className="flex items-center justify-between p-5 flex-shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/20 flex items-center justify-center">
-              <ArrowLeftRight size={16} className="text-amber-400" />
+            <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+              <ArrowLeftRight size={16} className="text-amber-500" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white">Device Exchange</h3>
-              <p className="text-xs text-slate-500">{STEPS[step]}</p>
+              <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Device Exchange</h3>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{STEPS[step]}</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5">
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg transition-colors hover:opacity-80"
+            style={{ color: 'var(--text-muted)' }}>
             <X size={16} />
           </button>
         </div>
@@ -271,7 +303,8 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
         {step < 4 && (
           <div className="px-5 pt-4 flex gap-1">
             {STEPS.slice(0, 4).map((s, i) => (
-              <div key={s} className={`h-1 flex-1 rounded-full transition-colors ${i <= step ? 'bg-amber-500' : 'bg-white/10'}`} />
+              <div key={s} className="h-1 flex-1 rounded-full transition-colors"
+                style={{ background: i <= step ? '#f59e0b' : 'var(--border-subtle)' }} />
             ))}
           </div>
         )}
@@ -280,34 +313,36 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
           {/* Step 0: Customer */}
           {step === 0 && (
             <div className="space-y-3">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
                 <User size={9} /> Customer Details
               </p>
               <div className="relative">
-                <label className="block text-xs text-slate-400 mb-1.5">Name *</label>
+                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-secondary)' }}>Name *</label>
                 <input className="input-field" placeholder="Customer name" value={form.customerName}
                   onChange={e => searchCustomers(e.target.value)}
                   onFocus={() => custResults.length > 0 && setShowCustDrop(true)} />
-                {searching && <Loader2 size={12} className="absolute right-3 top-9 animate-spin text-slate-500" />}
+                {searching && <Loader2 size={12} className="absolute right-3 top-9 animate-spin" style={{ color: 'var(--text-muted)' }} />}
                 {showCustDrop && custResults.length > 0 && (
-                  <div className="absolute z-30 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden border border-white/10 bg-[#0f1623]">
+                  <div className="absolute z-30 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden"
+                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
                     {custResults.map((c: any) => (
                       <button key={c.id} type="button" onMouseDown={() => selectCustomer(c)}
-                        className="w-full px-3 py-2.5 hover:bg-violet-500/10 text-left border-b border-white/5">
-                        <p className="text-xs text-white">{c.name}</p>
-                        <p className="text-[10px] text-slate-500">{c.phone}</p>
+                        className="w-full px-3 py-2.5 hover:bg-violet-500/10 text-left"
+                        style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                        <p className="text-xs" style={{ color: 'var(--text-primary)' }}>{c.name}</p>
+                        <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{c.phone}</p>
                       </button>
                     ))}
                   </div>
                 )}
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1.5">Mobile No *</label>
+                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-secondary)' }}>Mobile No *</label>
                 <input className="input-field" placeholder="07XXXXXXXX" value={form.customerPhone}
                   onChange={e => setForm(p => ({ ...p, customerPhone: e.target.value }))} />
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1.5">Address</label>
+                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-secondary)' }}>Address</label>
                 <textarea rows={2} className="input-field resize-none" placeholder="Customer address"
                   value={form.customerAddress}
                   onChange={e => setForm(p => ({ ...p, customerAddress: e.target.value }))} />
@@ -318,19 +353,19 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
           {/* Step 1: Trade-in */}
           {step === 1 && (
             <div className="space-y-3">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
                 <Smartphone size={9} /> Buy Phone (from customer)
               </p>
-              <p className="text-[11px] text-amber-400/80">This phone will be added to stock as Exchange Purchase</p>
+              <p className="text-[11px] text-amber-600 dark:text-amber-400">This phone will be added to stock as Exchange Purchase</p>
               <div>
-                <label className="block text-xs text-slate-400 mb-1.5">Product Name</label>
+                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-secondary)' }}>Product Name</label>
                 <input className="input-field" placeholder="e.g. Samsung Galaxy A14"
                   value={form.oldProductName}
                   onChange={e => setForm(p => ({ ...p, oldProductName: e.target.value }))} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1.5">Brand *</label>
+                  <label className="block text-xs mb-1.5" style={{ color: 'var(--text-secondary)' }}>Brand *</label>
                   <select className="input-field" value={form.oldBrand}
                     onChange={e => {
                       const b = brands.find((x: any) => x.name === e.target.value)
@@ -341,7 +376,7 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1.5">Model *</label>
+                  <label className="block text-xs mb-1.5" style={{ color: 'var(--text-secondary)' }}>Model *</label>
                   <select className="input-field" value={form.oldModel}
                     onChange={e => setForm(p => ({ ...p, oldModel: e.target.value }))} disabled={!form.oldBrand}>
                     <option value="">Select model</option>
@@ -349,10 +384,10 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1.5">IMEI *</label>
+                  <label className="block text-xs mb-1.5" style={{ color: 'var(--text-secondary)' }}>IMEI *</label>
                   <input className="input-field font-mono" placeholder="15 digits" maxLength={15}
                     value={form.oldImei} onChange={e => setForm(p => ({ ...p, oldImei: e.target.value.replace(/\D/g, '') }))} />
-                  {oldImeiChecking && <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1"><Loader2 size={10} className="animate-spin" /> Checking IMEI…</p>}
+                  {oldImeiChecking && <p className="text-[10px] mt-1 flex items-center gap-1" style={{ color: 'var(--text-muted)' }}><Loader2 size={10} className="animate-spin" /> Checking IMEI…</p>}
                   {oldImeiWarning && (
                     <p className={`text-[10px] mt-1 ${oldImeiWarning.includes('already') ? 'text-red-400' : 'text-amber-400'}`}>
                       {oldImeiWarning}
@@ -360,24 +395,24 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
                   )}
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1.5">Condition</label>
+                  <label className="block text-xs mb-1.5" style={{ color: 'var(--text-secondary)' }}>Condition</label>
                   <select className="input-field" value={form.oldCondition}
                     onChange={e => setForm(p => ({ ...p, oldCondition: e.target.value }))}>
                     {CONDITIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1.5">Colour</label>
+                  <label className="block text-xs mb-1.5" style={{ color: 'var(--text-secondary)' }}>Colour</label>
                   <input className="input-field" placeholder="e.g. Black" value={form.oldColor}
                     onChange={e => setForm(p => ({ ...p, oldColor: e.target.value }))} />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1.5">Storage</label>
+                  <label className="block text-xs mb-1.5" style={{ color: 'var(--text-secondary)' }}>Storage</label>
                   <input className="input-field" placeholder="e.g. 128GB" value={form.oldStorage}
                     onChange={e => setForm(p => ({ ...p, oldStorage: e.target.value }))} />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-xs text-slate-400 mb-1.5">Buy Price (LKR) *</label>
+                  <label className="block text-xs mb-1.5" style={{ color: 'var(--text-secondary)' }}>Buy Price (LKR) *</label>
                   <input type="number" min="0" className="input-field" placeholder="Valuation amount"
                     value={form.buyPrice} onChange={e => setForm(p => ({ ...p, buyPrice: e.target.value }))} />
                 </div>
@@ -388,18 +423,18 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
           {/* Step 2: Select new phone */}
           {step === 2 && (
             <div className="space-y-3">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
                 <Smartphone size={9} /> Select New Phone from Stock
               </p>
               <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
                 <input className="input-field pl-9" placeholder="Search IMEI, name, model..."
                   value={stockSearch} onChange={e => setStockSearch(e.target.value)} />
               </div>
               {stockLoading ? (
                 <div className="flex justify-center py-8"><Loader2 className="animate-spin text-amber-400" /></div>
               ) : stock.length === 0 ? (
-                <p className="text-center text-sm text-slate-500 py-8">No phones in stock</p>
+                <p className="text-center text-sm py-8" style={{ color: 'var(--text-muted)' }}>No phones in stock</p>
               ) : (
                 <div className="space-y-2 max-h-64 overflow-y-auto">
                   {stock.map(item => (
@@ -408,18 +443,21 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
                       className={`w-full text-left p-3 rounded-xl border transition-colors ${
                         selectedStock?.imeiRecordId === item.imeiRecordId
                           ? 'border-amber-500/50 bg-amber-500/10'
-                          : 'border-white/10 bg-white/3 hover:bg-white/5'
-                      }`}>
+                          : 'hover:opacity-90'
+                      }`}
+                      style={selectedStock?.imeiRecordId !== item.imeiRecordId
+                        ? { background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }
+                        : undefined}>
                       <div className="flex justify-between items-start gap-2">
                         <div>
-                          <p className="text-sm font-semibold text-white">{item.productName}</p>
-                          <p className="text-xs text-slate-400">{item.brand} {item.model}</p>
-                          <p className="text-[10px] font-mono text-slate-500 mt-0.5">{item.imei}</p>
+                          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{item.productName}</p>
+                          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{item.brand} {item.model}</p>
+                          <p className="text-[10px] font-mono mt-0.5" style={{ color: 'var(--text-muted)' }}>{item.imei}</p>
                           {(item.color || item.storage) && (
-                            <p className="text-[10px] text-slate-500">{[item.storage, item.color].filter(Boolean).join(' · ')}</p>
+                            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{[item.storage, item.color].filter(Boolean).join(' · ')}</p>
                           )}
                         </div>
-                        <span className="text-sm font-bold text-emerald-400">{formatCurrency(item.sellPrice)}</span>
+                        <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(item.sellPrice)}</span>
                       </div>
                     </button>
                   ))}
@@ -431,14 +469,14 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
           {/* Step 3: Payment */}
           {step === 3 && selectedStock && (
             <div className="space-y-4">
-              <div className="rounded-xl border border-white/10 bg-white/3 p-4 space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-slate-400">New phone sell price</span><span className="text-white font-semibold">{formatCurrency(sellPrice)}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Trade-in buy price</span><span className="text-amber-400 font-semibold">− {formatCurrency(buyPrice)}</span></div>
-                <div className="flex justify-between pt-2 border-t border-white/10">
-                  <span className="text-slate-300 font-bold">Balance</span>
-                  <span className={`font-bold ${balance >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              <div className="rounded-xl p-4 space-y-2 text-sm" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+                <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>New phone sell price</span><span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(sellPrice)}</span></div>
+                <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>Trade-in buy price</span><span className="text-amber-600 dark:text-amber-400 font-semibold">− {formatCurrency(buyPrice)}</span></div>
+                <div className="flex justify-between pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                  <span className="font-bold" style={{ color: 'var(--text-primary)' }}>Balance</span>
+                  <span className={`font-bold ${balance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                     {formatCurrency(Math.abs(balance))}
-                    <span className="text-xs font-normal text-slate-500 ml-1">
+                    <span className="text-xs font-normal ml-1" style={{ color: 'var(--text-muted)' }}>
                       {balance >= 0 ? '(customer pays)' : '(shop refunds)'}
                     </span>
                   </span>
@@ -446,7 +484,7 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1.5">Payment Method</label>
+                  <label className="block text-xs mb-1.5" style={{ color: 'var(--text-secondary)' }}>Payment Method</label>
                   <select className="input-field" value={form.paymentMethod}
                     onChange={e => setForm(p => ({ ...p, paymentMethod: e.target.value as any }))}>
                     <option value="CASH">Cash</option>
@@ -456,14 +494,14 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1.5">Amount</label>
+                  <label className="block text-xs mb-1.5" style={{ color: 'var(--text-secondary)' }}>Amount</label>
                   <input type="number" className="input-field" placeholder={String(balance)}
                     value={form.paidAmount}
                     onChange={e => setForm(p => ({ ...p, paidAmount: e.target.value }))} />
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1.5">Notes</label>
+                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-secondary)' }}>Notes</label>
                 <textarea rows={2} className="input-field resize-none" value={form.notes}
                   onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} />
               </div>
@@ -473,32 +511,38 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
           {/* Step 4: Success */}
           {step === 4 && result && (
             <div className="text-center space-y-4 py-4">
-              <CheckCircle size={48} className="mx-auto text-emerald-400" />
+              <CheckCircle size={48} className="mx-auto text-emerald-500" />
               <div>
-                <p className="text-lg font-bold text-white">Exchange Complete</p>
-                <p className="text-xs font-mono text-amber-400 mt-1">{result.exchange?.exchangeNumber}</p>
-                <p className="text-xs text-slate-500 mt-1">Invoice: {result.sale?.invoiceNumber}</p>
+                <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Exchange Complete</p>
+                <p className="text-xs font-mono text-amber-600 dark:text-amber-400 mt-1">{result.exchange?.exchangeNumber}</p>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Invoice: {result.sale?.invoiceNumber}</p>
               </div>
-              <div className="rounded-xl border border-white/10 bg-white/3 p-3 text-left text-xs space-y-1">
-                <p className="text-slate-400">Trade-in added to stock · New phone marked sold</p>
-                <p className="text-slate-300">
-                  Balance: <span className="font-bold text-white">{formatCurrency(Math.abs(result.balance ?? result.exchange?.balanceAmount ?? 0))}</span>
+              <div className="rounded-xl p-3 text-left text-xs space-y-1" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+                <p style={{ color: 'var(--text-muted)' }}>Trade-in added to stock · New phone marked sold</p>
+                <p style={{ color: 'var(--text-secondary)' }}>
+                  Balance: <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(Math.abs(result.balance ?? result.exchange?.balanceAmount ?? 0))}</span>
                   {' '}{(result.balanceDirection ?? result.exchange?.balanceDirection) === 'SHOP_REFUNDS' ? 'refunded to customer' : 'paid by customer'}
                 </p>
               </div>
-              <div className="flex gap-2 justify-center">
-                <button type="button" onClick={() => setShowInvoice(true)}
-                  className="btn-secondary text-sm flex items-center gap-2">
-                  <Receipt size={14} /> View Invoice
-                </button>
-                <button type="button" onClick={onClose} className="btn-primary text-sm">Done</button>
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => setShowInvoice(true)}
+                    className="btn-secondary text-sm flex items-center justify-center gap-2">
+                    <Receipt size={14} /> View Invoice
+                  </button>
+                  <button type="button" onClick={handlePrintReceipt}
+                    className="text-sm flex items-center justify-center gap-2 rounded-xl py-2.5 font-semibold border transition-colors bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20">
+                    <Printer size={14} /> {receiptPrintLabel(invSettings)}
+                  </button>
+                </div>
+                <button type="button" onClick={onClose} className="btn-primary text-sm w-full">Done</button>
               </div>
             </div>
           )}
         </div>
 
         {step < 4 && (
-          <div className="flex gap-3 p-5 border-t border-white/5 flex-shrink-0">
+          <div className="flex gap-3 p-5 flex-shrink-0" style={{ borderTop: '1px solid var(--border-subtle)' }}>
             {step > 0 ? (
               <button type="button" onClick={() => setStep(s => s - 1)} className="btn-secondary flex items-center gap-1 text-sm">
                 <ChevronLeft size={14} /> Back

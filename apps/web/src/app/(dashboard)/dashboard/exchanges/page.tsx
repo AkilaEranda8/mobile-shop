@@ -1,29 +1,77 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
-  Plus, X, Loader2, ArrowLeftRight, Trash2, Eye,
+  Plus, X, Loader2, ArrowLeftRight, Trash2, Phone, RefreshCw,
+  Receipt, Smartphone, Package, ArrowDownLeft, ArrowUpRight, Printer,
 } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
+import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { exchangesApi } from '@/lib/api'
+import { exchangesApi, salesApi, tenantApi } from '@/lib/api'
 import { ExchangeWizard } from '@/components/exchanges/ExchangeWizard'
+import { getInvoiceSettings, fetchInvoiceSettings, shopContextFromTenant, type InvoiceSettings, type ShopContext } from '@/lib/invoiceSettings'
+import { buildReceiptFromApiSale, printReceipt, receiptPrintLabel } from '@/lib/printReceipt'
+import { authStorage } from '@/lib/auth'
 import toast from 'react-hot-toast'
 
 const CONDITIONS = [
-  { value: 'EXCELLENT', label: 'Excellent', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
-  { value: 'GOOD',      label: 'Good',      color: 'text-green-400',   bg: 'bg-green-500/10',   border: 'border-green-500/20'   },
-  { value: 'FAIR',      label: 'Fair',      color: 'text-yellow-400',  bg: 'bg-yellow-500/10',  border: 'border-yellow-500/20'  },
-  { value: 'POOR',      label: 'Poor',      color: 'text-red-400',     bg: 'bg-red-500/10',     border: 'border-red-500/20'     },
+  { value: 'EXCELLENT', label: 'Excellent', badge: 'bg-emerald-100 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/25 text-emerald-700 dark:text-emerald-300' },
+  { value: 'GOOD',      label: 'Good',      badge: 'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/25 text-green-700 dark:text-green-300' },
+  { value: 'FAIR',      label: 'Fair',      badge: 'bg-amber-100 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/25 text-amber-700 dark:text-amber-300' },
+  { value: 'POOR',      label: 'Poor',      badge: 'bg-rose-100 dark:bg-rose-500/10 border-rose-300 dark:border-rose-500/25 text-rose-700 dark:text-rose-300' },
 ]
 
+function InfoCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+      <p className="text-[10px] uppercase tracking-wide mb-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
+      <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{value}</p>
+    </div>
+  )
+}
+
 /* ── Exchange Detail Modal ───────────────────────────────────────────── */
-function ExchangeDetailModal({ exchange, onClose, onDeleted }: { exchange: any; onClose: () => void; onDeleted: () => void }) {
+function ExchangeDetailModal({
+  exchange,
+  invSettings,
+  shopCtx,
+  onClose,
+  onDeleted,
+}: {
+  exchange: any
+  invSettings: InvoiceSettings
+  shopCtx?: ShopContext
+  onClose: () => void
+  onDeleted: () => void
+}) {
   const [deleting, setDeleting] = useState(false)
+  const [printing, setPrinting] = useState(false)
   const cond = CONDITIONS.find(c => c.value === exchange.oldCondition) ?? CONDITIONS[1]
+
+  const handlePrint = async () => {
+    if (!exchange.saleId) {
+      toast.error('No invoice linked to this exchange')
+      return
+    }
+    setPrinting(true)
+    try {
+      const res: any = await salesApi.getById(exchange.saleId)
+      const sale = res.data ?? res
+      printReceipt(
+        buildReceiptFromApiSale(sale, { customerAddress: exchange.customerAddress }),
+        invSettings,
+        shopCtx,
+      )
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to print receipt')
+    } finally {
+      setPrinting(false)
+    }
+  }
 
   const handleDelete = async () => {
     if (!confirm('Delete this exchange record?')) return
@@ -34,117 +82,119 @@ function ExchangeDetailModal({ exchange, onClose, onDeleted }: { exchange: any; 
       onDeleted(); onClose()
     } catch (err: any) {
       toast.error(err?.message ?? 'Delete failed')
-    }
-    finally { setDeleting(false) }
+    } finally { setDeleting(false) }
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-white/5">
-          <div>
-            <p className="text-xs font-mono text-amber-400">{exchange.exchangeNumber}</p>
-            <h3 className="text-sm font-bold text-white">{exchange.customerName}</h3>
+      <div className="w-full max-w-lg rounded-2xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col"
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+        <div className="h-1 w-full bg-gradient-to-r from-amber-500 to-orange-500 flex-shrink-0" />
+
+        <div className="flex items-center justify-between p-5 flex-shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-amber-500/10 border border-amber-500/20">
+              <ArrowLeftRight size={15} className="text-amber-500" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{exchange.exchangeNumber}</h3>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                {exchange.customerName} · {formatDate(exchange.createdAt)}
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={handleDelete} disabled={deleting}
-              className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50">
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={handleDelete} disabled={deleting}
+              className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10 transition-colors disabled:opacity-50">
               {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
             </button>
-            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
+            <button type="button" onClick={onClose} className="p-1.5 rounded-lg transition-colors hover:opacity-80"
+              style={{ color: 'var(--text-muted)' }}>
+              <X size={16} />
+            </button>
           </div>
         </div>
 
-        <div className="p-5 space-y-4">
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            {[
-              { label: 'Customer',  value: exchange.customerName },
-              { label: 'Phone',     value: exchange.customerPhone },
-              { label: 'Date',      value: formatDate(exchange.createdAt) },
-              { label: 'Exchange #', value: exchange.exchangeNumber },
-            ].map(r => (
-              <div key={r.label} className="bg-white/3 rounded-xl p-3 border border-white/5">
-                <p className="text-[10px] text-slate-500 mb-0.5">{r.label}</p>
-                <p className="font-semibold text-white">{r.value}</p>
-              </div>
-            ))}
+        <div className="p-5 overflow-y-auto flex-1 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <InfoCard label="Customer" value={exchange.customerName} />
+            <InfoCard label="Phone" value={exchange.customerPhone} />
+            {exchange.invoiceNumber && <InfoCard label="Invoice" value={exchange.invoiceNumber} />}
+            {exchange.balanceAmount != null && (
+              <InfoCard
+                label={exchange.balanceDirection === 'SHOP_REFUNDS' ? 'Shop Refunded' : 'Customer Paid'}
+                value={formatCurrency(exchange.balanceAmount)}
+              />
+            )}
           </div>
 
-          {/* Old Device */}
-          <div className="bg-white/3 rounded-xl p-4 border border-white/5">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Device Received (Old)</p>
-            <div className="space-y-1">
+          <div className="rounded-xl p-4 space-y-2" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+              <ArrowDownLeft size={10} className="text-amber-500" /> Device Received (Trade-in)
+            </p>
+            <div className="flex justify-between text-xs">
+              <span style={{ color: 'var(--text-muted)' }}>Device</span>
+              <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{exchange.oldBrand} {exchange.oldModel}</span>
+            </div>
+            {exchange.oldImei && (
               <div className="flex justify-between text-xs">
-                <span className="text-slate-500">Device</span>
-                <span className="text-white font-semibold">{exchange.oldBrand} {exchange.oldModel}</span>
+                <span style={{ color: 'var(--text-muted)' }}>IMEI</span>
+                <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>{exchange.oldImei}</span>
               </div>
-              {exchange.oldImei && (
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-500">IMEI</span>
-                  <span className="font-mono text-slate-300">{exchange.oldImei}</span>
-                </div>
-              )}
-              {(exchange.oldColor || exchange.oldStorage) && (
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-500">Colour / Storage</span>
-                  <span className="text-slate-300">{[exchange.oldStorage, exchange.oldColor].filter(Boolean).join(' · ')}</span>
-                </div>
-              )}
+            )}
+            {(exchange.oldColor || exchange.oldStorage) && (
               <div className="flex justify-between text-xs">
-                <span className="text-slate-500">Condition</span>
-                <span className={`font-semibold ${cond.color}`}>{cond.label}</span>
+                <span style={{ color: 'var(--text-muted)' }}>Colour / Storage</span>
+                <span style={{ color: 'var(--text-secondary)' }}>{[exchange.oldStorage, exchange.oldColor].filter(Boolean).join(' · ')}</span>
               </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-slate-500">Buy Price</span>
-                <span className="font-bold text-amber-400">{formatCurrency(exchange.exchangeValue)}</span>
-              </div>
-              {exchange.invoiceNumber && (
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-500">Invoice</span>
-                  <span className="font-mono text-violet-400">{exchange.invoiceNumber}</span>
-                </div>
-              )}
-              {exchange.balanceAmount != null && (
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-500">Balance</span>
-                  <span className={`font-bold ${exchange.balanceDirection === 'SHOP_REFUNDS' ? 'text-red-400' : 'text-emerald-400'}`}>
-                    {formatCurrency(exchange.balanceAmount)} ({exchange.balanceDirection === 'SHOP_REFUNDS' ? 'refund' : 'paid'})
-                  </span>
-                </div>
-              )}
+            )}
+            <div className="flex justify-between items-center text-xs">
+              <span style={{ color: 'var(--text-muted)' }}>Condition</span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${cond.badge}`}>{cond.label}</span>
+            </div>
+            <div className="flex justify-between text-xs pt-1" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Buy Price</span>
+              <span className="font-bold text-amber-600 dark:text-amber-400">{formatCurrency(exchange.exchangeValue)}</span>
             </div>
           </div>
 
-          {/* New Device */}
           {(exchange.newBrand || exchange.newModel) && (
-            <div className="bg-white/3 rounded-xl p-4 border border-white/5">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Device Given (New)</p>
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-500">Device</span>
-                  <span className="text-white font-semibold">{exchange.newBrand} {exchange.newModel}</span>
-                </div>
-                {exchange.newImei && (
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500">IMEI</span>
-                    <span className="font-mono text-slate-300">{exchange.newImei}</span>
-                  </div>
-                )}
-                {exchange.newDevicePrice != null && (
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500">Selling Price</span>
-                    <span className="font-bold text-green-400">{formatCurrency(exchange.newDevicePrice)}</span>
-                  </div>
-                )}
+            <div className="rounded-xl p-4 space-y-2" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                <ArrowUpRight size={10} className="text-emerald-500" /> Device Sold (New)
+              </p>
+              <div className="flex justify-between text-xs">
+                <span style={{ color: 'var(--text-muted)' }}>Device</span>
+                <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{exchange.newBrand} {exchange.newModel}</span>
               </div>
+              {exchange.newImei && (
+                <div className="flex justify-between text-xs">
+                  <span style={{ color: 'var(--text-muted)' }}>IMEI</span>
+                  <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>{exchange.newImei}</span>
+                </div>
+              )}
+              {exchange.newDevicePrice != null && (
+                <div className="flex justify-between text-xs pt-1" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Sell Price</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(exchange.newDevicePrice)}</span>
+                </div>
+              )}
             </div>
           )}
 
           {exchange.notes && (
-            <div className="bg-white/3 rounded-xl p-3 border border-white/5">
-              <p className="text-[10px] text-slate-500 mb-1">Notes</p>
-              <p className="text-xs text-slate-300">{exchange.notes}</p>
+            <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+              <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Notes</p>
+              <p className="text-xs italic" style={{ color: 'var(--text-secondary)' }}>{exchange.notes}</p>
             </div>
+          )}
+
+          {exchange.saleId && (
+            <button type="button" onClick={handlePrint} disabled={printing}
+              className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-xl border transition-colors disabled:opacity-50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20">
+              {printing ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
+              {printing ? 'Loading…' : receiptPrintLabel(invSettings)}
+            </button>
           )}
         </div>
       </div>
@@ -154,148 +204,204 @@ function ExchangeDetailModal({ exchange, onClose, onDeleted }: { exchange: any; 
 
 /* ── Main Page ────────────────────────────────────────────────────────── */
 export default function ExchangesPage() {
-  const [records, setRecords]         = useState<any[]>([])
-  const [loading, setLoading]         = useState(true)
-  const [showNew, setShowNew]         = useState(false)
-  const [selected, setSelected]       = useState<any | null>(null)
+  const [records, setRecords]   = useState<any[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [showNew, setShowNew]   = useState(false)
+  const [selected, setSelected] = useState<any | null>(null)
+  const [invSettings, setInvSettings] = useState<InvoiceSettings>(() => getInvoiceSettings())
+  const [shopCtx, setShopCtx] = useState<ShopContext | undefined>(undefined)
 
-  const fetchExchanges = () => {
+  const fetchExchanges = useCallback(() => {
     setLoading(true)
     exchangesApi.list({ limit: '200' })
       .then((r: any) => setRecords(r.data ?? []))
-      .catch(() => {})
+      .catch(() => toast.error('Failed to load exchanges'))
       .finally(() => setLoading(false))
-  }
+  }, [])
 
-  useEffect(() => { fetchExchanges() }, [])
+  useEffect(() => { fetchExchanges() }, [fetchExchanges])
 
-  const stats = useMemo(() => ({
-    total:        records.length,
-    totalValue:   records.reduce((s, r) => s + (r.exchangeValue ?? 0), 0),
-    withNewDevice: records.filter(r => r.newBrand).length,
-  }), [records])
+  useEffect(() => {
+    const user = authStorage.getUser()
+    if (!user?.tenantId) return
+    const branchId = user.branchIds?.[0]
+    const loadSettings = () => {
+      Promise.all([
+        fetchInvoiceSettings(user.tenantId, branchId),
+        tenantApi.get(user.tenantId).catch(() => null),
+      ]).then(([settings, tenantRes]) => {
+        setInvSettings(settings)
+        const tenant = (tenantRes as any)?.data ?? tenantRes
+        setShopCtx(shopContextFromTenant(tenant, branchId))
+      }).catch(() => {})
+    }
+    loadSettings()
+    window.addEventListener('invoice-settings-updated', loadSettings)
+    return () => window.removeEventListener('invoice-settings-updated', loadSettings)
+  }, [])
+
+  const stats = useMemo(() => {
+    const withInvoice = records.filter(r => r.invoiceNumber).length
+    const refunds = records.filter(r => r.balanceDirection === 'SHOP_REFUNDS').length
+    const totalBuy = records.reduce((s, r) => s + (r.exchangeValue ?? 0), 0)
+    const totalSold = records.reduce((s, r) => s + (r.newDevicePrice ?? 0), 0)
+    return { total: records.length, withInvoice, refunds, totalBuy, totalSold }
+  }, [records])
 
   const columns = useMemo<ColumnDef<any>[]>(() => [
     {
       accessorKey: 'exchangeNumber',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Exchange #" />,
-      cell: ({ row }) => <span className="text-xs font-mono text-amber-400">{row.original.exchangeNumber}</span>,
+      cell: ({ row }) => (
+        <button type="button" onClick={() => setSelected(row.original)}
+          className="text-xs font-mono font-semibold text-amber-600 dark:text-amber-400 hover:underline text-left">
+          {row.original.exchangeNumber}
+        </button>
+      ),
     },
     {
       accessorKey: 'customerName',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Customer" />,
       cell: ({ row }) => (
-        <div>
-          <p className="text-sm font-semibold text-slate-100">{row.original.customerName}</p>
-          <p className="text-xs text-slate-500">{row.original.customerPhone}</p>
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-full bg-amber-500/15 flex items-center justify-center text-[11px] font-bold text-amber-600 dark:text-amber-300 flex-shrink-0">
+            {row.original.customerName?.charAt(0) ?? '?'}
+          </div>
+          <div>
+            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{row.original.customerName}</p>
+            <p className="text-[10px] flex items-center gap-0.5" style={{ color: 'var(--text-muted)' }}>
+              <Phone size={9} />{row.original.customerPhone}
+            </p>
+          </div>
         </div>
       ),
     },
     {
       id: 'oldDevice',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Old Device" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Trade-in" />,
       cell: ({ row }) => {
         const cond = CONDITIONS.find(c => c.value === row.original.oldCondition) ?? CONDITIONS[1]
         return (
           <div>
-            <p className="text-sm text-slate-200">{row.original.oldBrand} {row.original.oldModel}</p>
-            <span className={`text-[10px] font-semibold ${cond.color}`}>{cond.label}</span>
-            {row.original.oldImei && <p className="text-[10px] font-mono text-slate-500">{row.original.oldImei}</p>}
+            <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{row.original.oldBrand} {row.original.oldModel}</p>
+            <span className={`inline-block mt-0.5 text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${cond.badge}`}>{cond.label}</span>
+            {row.original.oldImei && <p className="text-[10px] font-mono mt-0.5" style={{ color: 'var(--text-muted)' }}>{row.original.oldImei}</p>}
           </div>
         )
       },
     },
     {
       id: 'newDevice',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="New Device" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Sold Phone" />,
       cell: ({ row }) => row.original.newBrand ? (
         <div>
-          <p className="text-sm text-slate-200">{row.original.newBrand} {row.original.newModel}</p>
-          {row.original.newImei && <p className="text-[10px] font-mono text-slate-500">{row.original.newImei}</p>}
+          <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{row.original.newBrand} {row.original.newModel}</p>
+          {row.original.newImei && <p className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>{row.original.newImei}</p>}
         </div>
-      ) : <span className="text-xs text-slate-600">—</span>,
+      ) : <span className="text-xs" style={{ color: 'var(--text-muted)' }}>—</span>,
+    },
+    {
+      accessorKey: 'exchangeValue',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Buy Price" />,
+      cell: ({ row }) => <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(row.original.exchangeValue)}</span>,
     },
     {
       id: 'balance',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Balance" />,
       cell: ({ row }) => row.original.balanceAmount != null ? (
         <div>
-          <span className={`text-sm font-bold ${row.original.balanceDirection === 'SHOP_REFUNDS' ? 'text-red-400' : 'text-emerald-400'}`}>
+          <span className={`text-sm font-bold ${row.original.balanceDirection === 'SHOP_REFUNDS' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
             {formatCurrency(row.original.balanceAmount)}
           </span>
-          <p className="text-[10px] text-slate-500">
+          <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
             {row.original.balanceDirection === 'SHOP_REFUNDS' ? 'Shop refunds' : 'Customer pays'}
           </p>
         </div>
-      ) : <span className="text-xs text-slate-600">—</span>,
+      ) : <span className="text-xs" style={{ color: 'var(--text-muted)' }}>—</span>,
     },
     {
       accessorKey: 'invoiceNumber',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Invoice" />,
       cell: ({ row }) => row.original.invoiceNumber
-        ? <span className="text-xs font-mono text-violet-400">{row.original.invoiceNumber}</span>
-        : <span className="text-xs text-slate-600">—</span>,
+        ? <span className="text-xs font-mono text-violet-600 dark:text-violet-400">{row.original.invoiceNumber}</span>
+        : <span className="text-xs" style={{ color: 'var(--text-muted)' }}>—</span>,
     },
     {
       accessorKey: 'createdAt',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
-      cell: ({ row }) => <span className="text-xs text-slate-400">{formatDate(row.original.createdAt)}</span>,
+      cell: ({ row }) => <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(row.original.createdAt)}</span>,
     },
     {
       id: 'actions',
       cell: ({ row }) => (
-        <button onClick={() => setSelected(row.original)}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
-          <Eye size={14} />
-        </button>
+        <TableActionsRow showAction={{ action: () => setSelected(row.original) }} />
       ),
     },
   ], [])
 
   return (
     <div className="space-y-6">
-      {showNew   && <ExchangeWizard onClose={() => setShowNew(false)} onSaved={fetchExchanges} />}
-      {selected  && <ExchangeDetailModal exchange={selected} onClose={() => setSelected(null)} onDeleted={fetchExchanges} />}
+      {showNew && <ExchangeWizard onClose={() => setShowNew(false)} onSaved={fetchExchanges} />}
+      {selected && (
+        <ExchangeDetailModal
+          exchange={selected}
+          invSettings={invSettings}
+          shopCtx={shopCtx}
+          onClose={() => setSelected(null)}
+          onDeleted={fetchExchanges}
+        />
+      )}
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
           <h1 className="page-title">Device Exchanges</h1>
-          <p className="page-subtitle">Track trade-in and exchange transactions</p>
+          <p className="page-subtitle">Trade-in purchases, stock updates, and exchange invoices</p>
         </div>
-        <button onClick={() => setShowNew(true)} className="btn-primary text-sm flex items-center gap-2 sm:ml-auto">
-          <Plus size={14} />New Exchange
-        </button>
+        <div className="flex gap-2 sm:ml-auto">
+          <button type="button" onClick={fetchExchanges} disabled={loading}
+            className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-50">
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+          <button type="button" onClick={() => setShowNew(true)} className="btn-primary text-sm flex items-center gap-2">
+            <Plus size={14} />New Exchange
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: 'Total Exchanges', value: String(stats.total),               color: 'amber'  },
-          { label: 'Total Value Given', value: formatCurrency(stats.totalValue), color: 'violet' },
-          { label: 'With Invoice',      value: String(records.filter(r => r.invoiceNumber).length), color: 'green'  },
-        ].map(s => (
-          <div key={s.label} className="card p-4">
-            <p className="text-lg font-bold" style={{ color: `var(--color-${s.color}-400, #f59e0b)` }}>{s.value}</p>
-            <p className="text-xs text-slate-500 mt-0.5">{s.label}</p>
+          { label: 'Total Exchanges', value: String(stats.total),       icon: <ArrowLeftRight size={15} />, color: '#d97706', bg: 'rgba(217,119,6,0.08)',  border: 'rgba(217,119,6,0.22)'  },
+          { label: 'Trade-in Value',  value: formatCurrency(stats.totalBuy),  icon: <Package size={15} />,      color: '#7c3aed', bg: 'rgba(124,58,237,0.08)', border: 'rgba(124,58,237,0.22)' },
+          { label: 'With Invoice',    value: String(stats.withInvoice), icon: <Receipt size={15} />,      color: '#15803d', bg: 'rgba(21,128,61,0.08)',  border: 'rgba(21,128,61,0.22)'  },
+          { label: 'Shop Refunds',    value: String(stats.refunds),     icon: <Smartphone size={15} />,   color: '#e11d48', bg: 'rgba(225,29,72,0.08)',  border: 'rgba(225,29,72,0.22)'  },
+        ].map(({ label, value, icon, color, bg, border }) => (
+          <div key={label} className="card p-4" style={{ borderColor: border, background: bg }}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{label}</span>
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ color, background: bg, border: `1px solid ${border}` }}>
+                {icon}
+              </div>
+            </div>
+            <p className="text-xl font-bold truncate" style={{ color: 'var(--text-primary)' }}>{value}</p>
           </div>
         ))}
       </div>
 
-      {/* Table or Empty State */}
+      {/* Table or Empty */}
       {!loading && records.length === 0 ? (
         <EmptyState
           icon={ArrowLeftRight}
           title="No exchange records yet"
-          description="Device exchanges let you accept trade-ins and issue upgraded devices. Start by logging your first exchange transaction."
+          description="Accept customer trade-ins, sell a phone from stock, and generate an exchange invoice in one flow."
           accentColor="amber"
-          actions={[
-            { label: 'Record First Exchange', onClick: () => setShowNew(true), primary: true },
-          ]}
+          actions={[{ label: 'Start First Exchange', onClick: () => setShowNew(true), primary: true }]}
           hints={[
-            'Customer brings old phone — you enter buy price (valuation).',
-            'Select a new phone from shop stock with IMEI.',
-            'System adds trade-in to stock, sells new phone, and generates invoice.',
+            'Trade-in phone is added to inventory with EXCHANGE_IN stock movement.',
+            'Sold phone IMEI is marked SOLD and linked to the invoice.',
+            'Balance = sell price minus buy price (customer pays or shop refunds).',
           ]}
         />
       ) : (
@@ -305,9 +411,17 @@ export default function ExchangesPage() {
           isLoading={loading}
           pageCount={Math.ceil((records.length || 1) / 20)}
           searchableColumns={[
-            { id: 'customerName',   title: 'Customer'   },
-            { id: 'exchangeNumber', title: 'Exchange #'  },
+            { id: 'customerName',   title: 'Customer' },
+            { id: 'exchangeNumber', title: 'Exchange #' },
           ]}
+          filterableColumns={[{
+            id: 'balanceDirection',
+            title: 'Balance Type',
+            options: [
+              { label: 'Customer Pays', value: 'CUSTOMER_PAYS' },
+              { label: 'Shop Refunds',  value: 'SHOP_REFUNDS' },
+            ],
+          }]}
         />
       )}
     </div>
