@@ -34,6 +34,7 @@ export interface StockFormSale {
     itemNotes?: string
     warrantyMonths?: number
     warrantyNote?: string
+    warrantyEndDate?: string
     condition?: 'BRAND_NEW' | 'USED'
   }[]
   subtotal: number
@@ -122,7 +123,8 @@ function fmtExpiryDate(iso?: string, months?: number): string | null {
 
 function itemMetaLines(item: StockFormSale['items'][number], saleDate?: string): string {
   const lines: string[] = []
-  if (item.storage || item.color) {
+  const variantInName = item.productName.includes(' · ')
+  if (!variantInName && (item.storage || item.color)) {
     lines.push([item.storage, item.color].filter(Boolean).join(' · '))
   }
   if (item.condition) lines.push(`Condition: ${productConditionLabel(item.condition)}`)
@@ -130,7 +132,9 @@ function itemMetaLines(item: StockFormSale['items'][number], saleDate?: string):
   if (item.imei) lines.push(`IMEI: ${item.imei}`)
   if ((item.warrantyMonths ?? 0) > 0) {
     lines.push(`Warranty: ${formatWarrantyPeriodLabel(item.warrantyMonths!)}`)
-    const until = fmtExpiryDate(saleDate, item.warrantyMonths)
+    const until = item.warrantyEndDate
+      ? new Date(item.warrantyEndDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      : fmtExpiryDate(saleDate, item.warrantyMonths)
     if (until) lines.push(`Valid until: ${until}`)
   }
   if (item.warrantyNote?.trim()) lines.push(item.warrantyNote.trim())

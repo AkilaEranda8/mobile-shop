@@ -18,6 +18,8 @@ import {
   soldVariantFromExchange,
   soldVariantFromSale,
   soldItemDetailLines,
+  soldConditionFromSale,
+  productNameWithVariant,
   type ExchangeTradeInBill,
 } from '@/lib/exchangeBill'
 import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrint'
@@ -65,16 +67,33 @@ function buildInvoiceFromSale(
   settings: InvoiceSettings,
   tradeIn?: ExchangeTradeInBill | null,
   exchange?: { newStorage?: string | null; newColor?: string | null; soldVariation?: string | null } | null,
+  warranties?: any[],
 ): InvoiceData {
   const resolvedTradeIn = tradeIn ?? tradeInFromSale(sale)
   const fromExchange = soldVariantFromExchange(exchange)
   const soldVar = (fromExchange.storage || fromExchange.color) ? fromExchange : soldVariantFromSale(sale)
-  const soldItems = (sale.items ?? []).map((i: any) => ({
-    description: i.productName,
-    details: soldItemDetailLines({ storage: soldVar.storage, color: soldVar.color, imei: i.imei }).join(' · ') || undefined,
-    price:       i.unitPrice,
-    qty:         i.quantity,
-  }))
+  const soldCondition = soldConditionFromSale(sale) ?? 'BRAND_NEW'
+  const warrantyList = warranties ?? sale.warranties ?? []
+
+  const soldItems = (sale.items ?? []).map((i: any) => {
+    const warranty = warrantyList.find((w: any) => w.imei === i.imei) ?? warrantyList[0]
+    const warrantyMonths = Number(i.warrantyMonths ?? warranty?.monthsDuration ?? 0) || undefined
+    return {
+      description: productNameWithVariant(i.productName, soldVar.storage, soldVar.color),
+      details: soldItemDetailLines({
+        storage: soldVar.storage,
+        color: soldVar.color,
+        imei: i.imei,
+        condition: soldCondition,
+        warrantyMonths,
+        warrantyEndDate: warranty?.endDate,
+        saleDate: sale.createdAt,
+        includeVariant: false,
+      }).join(' · ') || undefined,
+      price:       i.unitPrice,
+      qty:         i.quantity,
+    }
+  })
 
   const tradeInItems = resolvedTradeIn
     ? [{
@@ -307,7 +326,9 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
   }
 
   const tradeIn = result?.exchange ? tradeInFromExchange(result.exchange) : null
-  const invoiceData = result?.sale ? buildInvoiceFromSale(result.sale, invSettings, tradeIn, result.exchange) : null
+  const invoiceData = result?.sale
+    ? buildInvoiceFromSale(result.sale, invSettings, tradeIn, result.exchange, result.warranties)
+    : null
 
   const handlePrintReceipt = () => {
     if (!result?.sale) return
@@ -317,6 +338,7 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
         customerAddress: form.customerAddress || undefined,
         tradeIn,
         soldVariant: soldVariantFromExchange(result.exchange),
+        soldCondition: selectedStock?.condition ?? soldConditionFromSale(result.sale) ?? 'BRAND_NEW',
       }),
       invSettings,
       thermalShopCtx,

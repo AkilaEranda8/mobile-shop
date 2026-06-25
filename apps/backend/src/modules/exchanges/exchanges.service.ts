@@ -327,6 +327,7 @@ export const exchangesService = {
             storageVariations: true,
             deviceModel: true,
             warrantyMonths: true,
+            condition: true,
             brand: { select: { name: true } },
           },
         },
@@ -347,6 +348,7 @@ export const exchangesService = {
         variation:    r.variation,
         storage:      parsed.storage,
         color:        parsed.color,
+        condition:    r.product.condition ?? 'BRAND_NEW',
         sellPrice:    resolveSellPrice(r.product, r.variation),
         warrantyMonths: r.product.warrantyMonths,
       }
@@ -373,7 +375,7 @@ export const exchangesService = {
 
     const soldImeiRecord = await prisma.imeiRecord.findUnique({
       where: { imei: input.soldImei },
-      include: { product: { select: { id: true, tenantId: true, name: true, sku: true, sellingPrice: true, storageVariations: true, warrantyMonths: true, trackImei: true, brand: { select: { name: true } }, deviceModel: true } } },
+      include: { product: { select: { id: true, tenantId: true, name: true, sku: true, sellingPrice: true, storageVariations: true, warrantyMonths: true, trackImei: true, condition: true, brand: { select: { name: true } }, deviceModel: true } } },
     })
     if (!soldImeiRecord || soldImeiRecord.product.tenantId !== tenantId) {
       throw new AppError('Selected phone IMEI not found in your inventory', 404)
@@ -485,6 +487,7 @@ export const exchangesService = {
             (soldParsed.storage || soldParsed.color)
               ? `Sold variant: ${soldParsed.storage ?? ''} / ${soldParsed.color ?? ''}`
               : null,
+            `Sold condition: ${soldImeiRecord.product.condition ?? 'BRAND_NEW'}`,
             input.notes,
           ].filter(Boolean).join('\n'),
           items: {

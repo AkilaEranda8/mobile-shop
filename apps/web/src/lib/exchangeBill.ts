@@ -1,3 +1,6 @@
+import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
+import { productConditionLabel } from '@/lib/productCondition'
+
 export type ExchangeTradeInBill = {
   productName: string
   imei?: string
@@ -119,18 +122,62 @@ export function soldVariantFromExchange(exchange: {
 }
 
 export function variantLabel(storage?: string, color?: string): string | undefined {
-  const line = [storage, color].filter(Boolean).join(' · ')
+  const line = [storage, color].filter(Boolean).join(' / ')
   return line || undefined
+}
+
+export function productNameWithVariant(name: string, storage?: string, color?: string): string {
+  const variant = variantLabel(storage, color)
+  if (!variant) return name
+  return `${name} · ${variant}`
+}
+
+export function soldConditionFromSale(sale: {
+  notes?: string | null
+} | null | undefined): 'BRAND_NEW' | 'USED' | undefined {
+  const line = sale?.notes?.split('\n').find(l => l.trim().toLowerCase().startsWith('sold condition:'))
+  if (!line) return undefined
+  const val = line.replace(/^sold condition:\s*/i, '').trim().toUpperCase().replace(/\s+/g, '_')
+  if (val === 'USED') return 'USED'
+  if (val === 'BRAND_NEW') return 'BRAND_NEW'
+  return undefined
+}
+
+export function fmtReceiptValidUntil(saleDate?: string, months?: number, endDate?: string): string | undefined {
+  if (endDate) {
+    return new Date(endDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  }
+  if (saleDate && months && months > 0) {
+    const d = new Date(saleDate)
+    d.setMonth(d.getMonth() + months)
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  }
+  return undefined
 }
 
 export function soldItemDetailLines(opts: {
   storage?: string
   color?: string
   imei?: string
+  condition?: 'BRAND_NEW' | 'USED' | string
+  warrantyMonths?: number
+  warrantyEndDate?: string
+  saleDate?: string
+  includeVariant?: boolean
 }): string[] {
   const lines: string[] = []
-  const variant = variantLabel(opts.storage, opts.color)
-  if (variant) lines.push(variant)
+  if (opts.includeVariant !== false) {
+    const variant = variantLabel(opts.storage, opts.color)
+    if (variant) lines.push(variant)
+  }
+  if (opts.condition) {
+    lines.push(`Condition: ${productConditionLabel(opts.condition)}`)
+  }
   if (opts.imei) lines.push(`IMEI: ${opts.imei}`)
+  if ((opts.warrantyMonths ?? 0) > 0) {
+    lines.push(`Warranty: ${formatWarrantyPeriodLabel(opts.warrantyMonths!)}`)
+    const until = fmtReceiptValidUntil(opts.saleDate, opts.warrantyMonths, opts.warrantyEndDate)
+    if (until) lines.push(`Valid until: ${until}`)
+  }
   return lines
 }

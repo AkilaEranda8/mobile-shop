@@ -16,6 +16,7 @@ export type ExchangeStockItem = {
   color?: string
   sellPrice: number
   variation?: string
+  condition?: 'BRAND_NEW' | 'USED'
 }
 
 type ProductGroup = {

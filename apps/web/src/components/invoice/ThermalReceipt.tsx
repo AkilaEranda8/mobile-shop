@@ -4,6 +4,7 @@ import React, { forwardRef } from 'react'
 import type { InvoiceSettings, ShopContext } from '@/lib/invoiceSettings'
 import { mergeReceiptSettings, HEXALYTE_SOFTWARE_FOOTER } from '@/lib/invoiceSettings'
 import { formatWarrantyPeriodLabel, matchWarrantyMonths } from '@/components/pos/cart-rules'
+import { productConditionLabel } from '@/lib/productCondition'
 
 export interface ThermalWarrantyLine {
   warrantyCode: string
@@ -29,6 +30,8 @@ export interface ThermalSale {
     color?: string
     itemNotes?: string
     warrantyMonths?: number
+    warrantyEndDate?: string
+    condition?: 'BRAND_NEW' | 'USED'
   }[]
   subtotal: number
   discountAmount: number
@@ -209,17 +212,25 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
           <div key={i} style={{ marginBottom: 6 }}>
             <div style={{ fontWeight: 'bold' }}>{item.productName}</div>
             {show.sku && item.sku && <div style={{ fontSize: fs.small, color: '#333' }}>SKU: {item.sku}</div>}
-            {(item.storage || item.color) && (
+            {!item.productName.includes(' · ') && (item.storage || item.color) && (
               <div style={{ fontSize: fs.small, color: '#333' }}>
                 {[item.storage, item.color].filter(Boolean).join(' · ')}
               </div>
             )}
+            {item.condition && (
+              <div style={{ fontSize: fs.small, color: '#333' }}>Condition: {productConditionLabel(item.condition)}</div>
+            )}
             {item.itemNotes && <div style={{ fontSize: fs.small, color: '#333' }}>{item.itemNotes}</div>}
             {show.imei && item.imei && <div style={{ fontSize: fs.small, color: '#333' }}>IMEI: {item.imei}</div>}
             {(item.warrantyMonths ?? 0) > 0 && (
-              <div style={{ fontSize: fs.small, color: '#333' }}>
-                Warranty Period: {formatWarrantyPeriodLabel(item.warrantyMonths!)}
-              </div>
+              <>
+                <div style={{ fontSize: fs.small, color: '#333' }}>
+                  Warranty: {formatWarrantyPeriodLabel(item.warrantyMonths!)}
+                </div>
+                <div style={{ fontSize: fs.small, color: '#333' }}>
+                  Valid until: {fmtWarrantyDate(item.warrantyEndDate, sale.createdAt, item.warrantyMonths)}
+                </div>
+              </>
             )}
             <div style={{ ...rowStyle, marginTop: 2 }}>
               <span style={{ fontSize: fs.small }}>{item.quantity} x {f(item.unitPrice)}</span>
@@ -343,10 +354,12 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
     <div class="item">
       <div class="item-name">${esc(item.productName)}</div>
       ${show.sku && item.sku ? `<div class="item-meta">SKU: ${esc(item.sku)}</div>` : ''}
-      ${(item.storage || item.color) ? `<div class="item-meta">${esc([item.storage, item.color].filter(Boolean).join(' · '))}</div>` : ''}
+      ${!item.productName.includes(' · ') && (item.storage || item.color) ? `<div class="item-meta">${esc([item.storage, item.color].filter(Boolean).join(' · '))}</div>` : ''}
+      ${item.condition ? `<div class="item-meta">Condition: ${esc(productConditionLabel(item.condition))}</div>` : ''}
       ${item.itemNotes ? `<div class="item-meta">${esc(item.itemNotes)}</div>` : ''}
       ${show.imei && item.imei ? `<div class="item-meta">IMEI: ${esc(item.imei)}</div>` : ''}
-      ${(item.warrantyMonths ?? 0) > 0 ? `<div class="item-meta">Warranty Period: ${esc(formatWarrantyPeriodLabel(item.warrantyMonths!))}</div>` : ''}
+      ${(item.warrantyMonths ?? 0) > 0 ? `<div class="item-meta">Warranty: ${esc(formatWarrantyPeriodLabel(item.warrantyMonths!))}</div>` : ''}
+      ${(item.warrantyMonths ?? 0) > 0 ? `<div class="item-meta">Valid until: ${esc(fmtWarrantyDate(item.warrantyEndDate, sale.createdAt, item.warrantyMonths))}</div>` : ''}
       <div class="row item-line">
         <span class="item-meta">${item.quantity} x ${f(item.unitPrice)}</span>
         <span class="bold nowrap">${f(item.total)}</span>
