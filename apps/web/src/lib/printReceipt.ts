@@ -117,8 +117,8 @@ export function buildReceiptFromApiSale(
 
   const maxWarrantyMonths = Math.max(
     0,
-    ...items.map(i => i.warrantyMonths ?? 0),
-    ...warranties.map(w => w.monthsDuration ?? 0),
+    ...items.map((i: StockFormSale['items'][number]) => i.warrantyMonths ?? 0),
+    ...warranties.map((w: { monthsDuration?: number }) => w.monthsDuration ?? 0),
   )
 
   return {
