@@ -319,10 +319,12 @@ function InvoicePrint({ data = SAMPLE_INVOICE, hideControls = false }, outerRef)
                     <td className="py-2 pr-4 text-right text-gray-500 uppercase tracking-wider font-medium">Tax {data.taxRate}%</td>
                     <td className="py-2 text-right font-semibold text-gray-700">{fmt(tax)}</td>
                   </tr>
-                  <tr className="border-b border-gray-200">
-                    <td className="py-2 pr-4 text-right text-gray-500 uppercase tracking-wider font-medium">Disc. {data.discountRate}%</td>
-                    <td className="py-2 text-right font-semibold text-gray-700">{fmt(discount)}</td>
-                  </tr>
+                  {data.discountRate > 0 && (
+                    <tr className="border-b border-gray-200">
+                      <td className="py-2 pr-4 text-right text-gray-500 uppercase tracking-wider font-medium">Disc. {data.discountRate}%</td>
+                      <td className="py-2 text-right font-semibold text-gray-700">{fmt(discount)}</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

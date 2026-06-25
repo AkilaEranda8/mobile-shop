@@ -1,6 +1,11 @@
 import { printThermalReceipt } from '@/components/invoice/ThermalReceipt'
 import { printStockFormInvoice, type StockFormSale } from '@/components/invoice/StockFormInvoice'
 import type { InvoiceSettings, ShopContext } from '@/lib/invoiceSettings'
+import {
+  tradeInFromSale,
+  tradeInLineLabel,
+  type ExchangeTradeInBill,
+} from '@/lib/exchangeBill'
 
 export type ReceiptSale = StockFormSale
 
@@ -17,15 +22,37 @@ export function printReceipt(sale: ReceiptSale, settings: InvoiceSettings, ctx?:
   }
 }
 
+function appendTradeInItem(
+  items: StockFormSale['items'],
+  tradeIn: ExchangeTradeInBill,
+): StockFormSale['items'] {
+  return [
+    ...items,
+    {
+      productName: tradeInLineLabel(tradeIn),
+      quantity: 1,
+      unitPrice: -tradeIn.creditAmount,
+      total: -tradeIn.creditAmount,
+      imei: tradeIn.imei,
+      storage: tradeIn.storage,
+      color: tradeIn.color,
+      itemNotes: tradeIn.condition ? `Condition: ${tradeIn.condition}` : undefined,
+    },
+  ]
+}
+
 export function buildReceiptFromApiSale(
   sale: any,
   opts?: {
     warranties?: any[]
     customerAddress?: string
     cashierName?: string
+    tradeIn?: ExchangeTradeInBill | null
   },
 ): ReceiptSale {
-  const items = (sale.items ?? []).map((i: any) => ({
+  const tradeIn = opts?.tradeIn ?? tradeInFromSale(sale)
+
+  let items = (sale.items ?? []).map((i: any) => ({
     productName: i.productName,
     quantity: Number(i.quantity ?? 1),
     unitPrice: Number(i.unitPrice),
@@ -34,6 +61,10 @@ export function buildReceiptFromApiSale(
     imei: i.imei ?? undefined,
     warrantyMonths: i.warrantyMonths ?? undefined,
   }))
+
+  if (tradeIn) {
+    items = appendTradeInItem(items, tradeIn)
+  }
 
   const payments = (sale.payments ?? []).map((p: any) => ({
     method: String(p.method),
@@ -61,7 +92,7 @@ export function buildReceiptFromApiSale(
     cashierName: opts?.cashierName ?? sale.cashierName,
     items,
     subtotal: Number(sale.subtotal ?? 0),
-    discountAmount: Number(sale.discount ?? sale.discountAmount ?? 0),
+    discountAmount: tradeIn ? 0 : Number(sale.discount ?? sale.discountAmount ?? 0),
     total: Number(sale.total ?? 0),
     paymentMethod: sale.paymentMethod ?? payments[0]?.method ?? 'CASH',
     payments: payments.length ? payments : undefined,
@@ -71,5 +102,6 @@ export function buildReceiptFromApiSale(
     warrantyMonths: sale.warrantyMonths ?? warranties[0]?.monthsDuration,
     warranties: warranties.length ? warranties : undefined,
     dueAmount: sale.dueAmount != null ? Number(sale.dueAmount) : undefined,
+    tradeIn: tradeIn ?? undefined,
   }
 }

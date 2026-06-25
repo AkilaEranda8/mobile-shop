@@ -13,6 +13,7 @@ import {
 } from '@/lib/invoiceSettings'
 import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
 import { productConditionLabel } from '@/lib/productCondition'
+import type { ExchangeTradeInBill } from '@/lib/exchangeBill'
 
 export interface StockFormSale {
   invoiceNumber: string
@@ -28,6 +29,9 @@ export interface StockFormSale {
     total: number
     sku?: string
     imei?: string
+    storage?: string
+    color?: string
+    itemNotes?: string
     warrantyMonths?: number
     warrantyNote?: string
     condition?: 'BRAND_NEW' | 'USED'
@@ -49,6 +53,7 @@ export interface StockFormSale {
     monthsDuration?: number
   }[]
   dueAmount?: number
+  tradeIn?: ExchangeTradeInBill | null
 }
 
 const PAGE_W = '241mm'
@@ -67,7 +72,28 @@ function fmtAmt(n: number): string {
 
 function fmtRs(n: number, currency = 'LKR'): string {
   const sym = currency === 'LKR' ? 'Rs' : currency
-  return `${sym} ${fmtAmt(n)}`
+  const abs = Math.abs(n)
+  const formatted = fmtAmt(abs)
+  if (n < 0) return `-${sym} ${formatted}`
+  return `${sym} ${formatted}`
+}
+
+function isTradeInLineItem(item: StockFormSale['items'][number]): boolean {
+  return item.productName.trim().toLowerCase().startsWith('trade-in:')
+}
+
+function tradeInFromItems(items: StockFormSale['items']): ExchangeTradeInBill | null {
+  const item = items.find(isTradeInLineItem)
+  if (!item) return null
+  const condition = item.itemNotes?.replace(/^Condition:\s*/i, '').trim()
+  return {
+    productName: item.productName.replace(/^Trade-in:\s*/i, '').trim() || 'Trade-in device',
+    imei: item.imei,
+    storage: item.storage,
+    color: item.color,
+    condition: condition || undefined,
+    creditAmount: Math.abs(Number(item.total)),
+  }
 }
 
 function fmtOrderDate(iso?: string): string {
@@ -96,7 +122,11 @@ function fmtExpiryDate(iso?: string, months?: number): string | null {
 
 function itemMetaLines(item: StockFormSale['items'][number], saleDate?: string): string {
   const lines: string[] = []
+  if (item.storage || item.color) {
+    lines.push([item.storage, item.color].filter(Boolean).join(' · '))
+  }
   if (item.condition) lines.push(`Condition: ${productConditionLabel(item.condition)}`)
+  if (item.itemNotes?.trim()) lines.push(item.itemNotes.trim())
   if (item.imei) lines.push(`IMEI: ${item.imei}`)
   if ((item.warrantyMonths ?? 0) > 0) {
     lines.push(`Warranty: ${formatWarrantyPeriodLabel(item.warrantyMonths!)}`)
@@ -136,11 +166,32 @@ export function printStockFormInvoice(
   const customerPhone = sale.customerPhone?.trim() ? esc(sale.customerPhone.trim()) : ''
   const customerCity = sale.customerAddress?.trim() ? esc(sale.customerAddress.trim()) : ''
   const discPctStr = discountPct(sale.subtotal, sale.discountAmount)
+  const resolvedTradeIn = sale.tradeIn ?? tradeInFromItems(sale.items)
+
+  const tradeInBlock = resolvedTradeIn
+    ? `
+    <div class="block trade-in-section">
+      <div class="block-title">Trade-in Device</div>
+      <div class="bill-row"><span class="lbl">Device</span><span class="val">${esc(resolvedTradeIn.productName)}</span></div>
+      ${resolvedTradeIn.storage || resolvedTradeIn.color
+        ? `<div class="bill-row"><span class="lbl">Variant</span><span class="val">${esc([resolvedTradeIn.storage, resolvedTradeIn.color].filter(Boolean).join(' · '))}</span></div>`
+        : ''}
+      ${resolvedTradeIn.imei
+        ? `<div class="bill-row"><span class="lbl">IMEI</span><span class="val" style="font-family:monospace">${esc(resolvedTradeIn.imei)}</span></div>`
+        : ''}
+      ${resolvedTradeIn.condition
+        ? `<div class="bill-row"><span class="lbl">Condition</span><span class="val">${esc(resolvedTradeIn.condition)}</span></div>`
+        : ''}
+      <div class="bill-row"><span class="lbl">Trade-in Value</span><span class="val trade-in-credit">${f(-resolvedTradeIn.creditAmount)}</span></div>
+    </div>
+    <hr class="rule" />`
+    : ''
 
   const itemRows = sale.items.map(item => {
     const meta = itemMetaLines(item, sale.createdAt)
+    const tradeInRow = isTradeInLineItem(item)
     return `
-    <tr>
+    <tr class="${tradeInRow ? 'trade-in-row' : ''}">
       <td class="desc">
         <div class="name">${esc(item.productName)}</div>
         ${meta ? `<div class="meta">${meta}</div>` : ''}
@@ -183,6 +234,13 @@ export function printStockFormInvoice(
                 <td colspan="2"></td>
                 <td class="money total-label">Discount (${discPctStr}%)</td>
                 <td class="money">-${f(sale.discountAmount)}</td>
+              </tr>`
+            : ''}
+          ${resolvedTradeIn
+            ? `<tr>
+                <td colspan="2"></td>
+                <td class="money total-label">Trade-in Credit</td>
+                <td class="money">${f(-resolvedTradeIn.creditAmount)}</td>
               </tr>`
             : ''}
           <tr class="grand-row">
@@ -354,6 +412,16 @@ export function printStockFormInvoice(
       line-height: 1.45;
     }
 
+    .trade-in-section {
+      border: 1px solid #000;
+      padding: 6px 8px;
+      margin: 4px 0;
+    }
+    .trade-in-section .block-title { margin-bottom: 4px; }
+    .trade-in-credit { font-weight: 800; }
+    tr.trade-in-row td { background: #f5f5f5; }
+    tr.trade-in-row .name { font-style: italic; }
+
     .terms-block { margin-top: 10px; page-break-inside: avoid; }
     .terms-list {
       margin: 0;
@@ -430,6 +498,8 @@ export function printStockFormInvoice(
       <div class="block-title">Bill To</div>
       ${billToRows}
     </div>
+
+    ${tradeInBlock}
 
     <div class="block">
       <div class="block-title">Item Details</div>

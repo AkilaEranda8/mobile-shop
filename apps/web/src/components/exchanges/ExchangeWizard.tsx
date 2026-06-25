@@ -10,6 +10,13 @@ import { formatCurrency } from '@/lib/utils'
 import { getInvoiceSettings, fetchInvoiceSettings, shopContextFromTenant, type InvoiceSettings, type ShopContext } from '@/lib/invoiceSettings'
 import { authStorage } from '@/lib/auth'
 import { buildReceiptFromApiSale, printReceipt, receiptPrintLabel } from '@/lib/printReceipt'
+import {
+  tradeInFromExchange,
+  tradeInFromSale,
+  tradeInDetailLines,
+  tradeInLineLabel,
+  type ExchangeTradeInBill,
+} from '@/lib/exchangeBill'
 import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrint'
 import toast from 'react-hot-toast'
 
@@ -60,7 +67,35 @@ type StockItem = {
   variation?: string
 }
 
-function buildInvoiceFromSale(sale: any, settings: InvoiceSettings): InvoiceData {
+function buildInvoiceFromSale(
+  sale: any,
+  settings: InvoiceSettings,
+  tradeIn?: ExchangeTradeInBill | null,
+): InvoiceData {
+  const resolvedTradeIn = tradeIn ?? tradeInFromSale(sale)
+  const soldItems = (sale.items ?? []).map((i: any) => ({
+    description: i.productName,
+    details:     i.imei ? `IMEI: ${i.imei}` : undefined,
+    price:       i.unitPrice,
+    qty:         i.quantity,
+  }))
+
+  const tradeInItems = resolvedTradeIn
+    ? [{
+        description: tradeInLineLabel(resolvedTradeIn),
+        details: tradeInDetailLines(resolvedTradeIn).join(' · ') || undefined,
+        price: -resolvedTradeIn.creditAmount,
+        qty: 1,
+      }]
+    : sale.discount > 0
+      ? [{
+          description: 'Trade-in credit',
+          details: sale.notes?.split('\n').find((l: string) => l.startsWith('Trade-in:')) ?? undefined,
+          price: -sale.discount,
+          qty: 1,
+        }]
+      : []
+
   return {
     companyName:     settings.shopName || 'Shop',
     companySlogan:   settings.slogan,
@@ -74,26 +109,13 @@ function buildInvoiceFromSale(sale: any, settings: InvoiceSettings): InvoiceData
     customerName:    sale.customerName || 'Customer',
     customerEmail:   '',
     customerAddress: sale.customerPhone ? `Phone: ${sale.customerPhone}` : '',
-    items: [
-      ...(sale.items ?? []).map((i: any) => ({
-        description: i.productName,
-        details:     i.imei ? `IMEI: ${i.imei}` : undefined,
-        price:       i.unitPrice,
-        qty:         i.quantity,
-      })),
-      ...(sale.discount > 0 ? [{
-        description: 'Trade-in credit',
-        details:     sale.notes?.split('\n').find((l: string) => l.startsWith('Trade-in:')) ?? undefined,
-        price:       -sale.discount,
-        qty:         1,
-      }] : []),
-    ],
+    items: [...soldItems, ...tradeInItems],
     bankName:       settings.bankName || '',
     accNumber:      settings.accNumber || '',
     accHolder:      settings.accHolder || '',
     swiftCode:      settings.swiftCode || '',
     taxRate:        0,
-    discountRate:   sale.subtotal > 0 ? (sale.discount / sale.subtotal) * 100 : 0,
+    discountRate: resolvedTradeIn ? 0 : sale.subtotal > 0 ? (sale.discount / sale.subtotal) * 100 : 0,
     terms:          settings.terms?.length ? settings.terms : ['Thank you for your business!'],
     signatoryName:  settings.signatoryName || settings.shopName || '',
     signatoryTitle: settings.signatoryTitle || 'Authorised Signatory',
@@ -288,7 +310,8 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
     }
   }
 
-  const invoiceData = result?.sale ? buildInvoiceFromSale(result.sale, invSettings) : null
+  const tradeIn = result?.exchange ? tradeInFromExchange(result.exchange) : null
+  const invoiceData = result?.sale ? buildInvoiceFromSale(result.sale, invSettings, tradeIn) : null
 
   const handlePrintReceipt = () => {
     if (!result?.sale) return
@@ -296,6 +319,7 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
       buildReceiptFromApiSale(result.sale, {
         warranties: result.warranties,
         customerAddress: form.customerAddress || undefined,
+        tradeIn,
       }),
       invSettings,
       thermalShopCtx,

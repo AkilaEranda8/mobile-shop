@@ -25,6 +25,9 @@ export interface ThermalSale {
     total: number
     sku?: string
     imei?: string
+    storage?: string
+    color?: string
+    itemNotes?: string
     warrantyMonths?: number
   }[]
   subtotal: number
@@ -206,6 +209,12 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
           <div key={i} style={{ marginBottom: 6 }}>
             <div style={{ fontWeight: 'bold' }}>{item.productName}</div>
             {show.sku && item.sku && <div style={{ fontSize: fs.small, color: '#333' }}>SKU: {item.sku}</div>}
+            {(item.storage || item.color) && (
+              <div style={{ fontSize: fs.small, color: '#333' }}>
+                {[item.storage, item.color].filter(Boolean).join(' · ')}
+              </div>
+            )}
+            {item.itemNotes && <div style={{ fontSize: fs.small, color: '#333' }}>{item.itemNotes}</div>}
             {show.imei && item.imei && <div style={{ fontSize: fs.small, color: '#333' }}>IMEI: {item.imei}</div>}
             {(item.warrantyMonths ?? 0) > 0 && (
               <div style={{ fontSize: fs.small, color: '#333' }}>
@@ -334,6 +343,8 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
     <div class="item">
       <div class="item-name">${esc(item.productName)}</div>
       ${show.sku && item.sku ? `<div class="item-meta">SKU: ${esc(item.sku)}</div>` : ''}
+      ${(item.storage || item.color) ? `<div class="item-meta">${esc([item.storage, item.color].filter(Boolean).join(' · '))}</div>` : ''}
+      ${item.itemNotes ? `<div class="item-meta">${esc(item.itemNotes)}</div>` : ''}
       ${show.imei && item.imei ? `<div class="item-meta">IMEI: ${esc(item.imei)}</div>` : ''}
       ${(item.warrantyMonths ?? 0) > 0 ? `<div class="item-meta">Warranty Period: ${esc(formatWarrantyPeriodLabel(item.warrantyMonths!))}</div>` : ''}
       <div class="row item-line">
