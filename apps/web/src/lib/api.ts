@@ -468,7 +468,7 @@ export type PlatformStatus = {
 
 export const platformApi = {
   listAnnouncements: () => api.get('/platform/announcements'),
-  dismissAnnouncement: (id: string) => api.post(`/platform/announcements/${id}/dismiss`),
+  dismissAnnouncement: (id: string) => api.post(`/platform/announcements/${id}/dismiss`, {}),
 }
 
 export async function fetchPlatformStatus(): Promise<PlatformStatus> {
