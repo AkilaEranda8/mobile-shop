@@ -237,11 +237,11 @@ export default function SettingsPage() {
   useEffect(() => {
     if (!currentUser?.tenantId) return
     setInvoiceLoading(true)
-    fetchInvoiceCustomizeSettings(currentUser.tenantId)
+    fetchInvoiceCustomizeSettings(currentUser.tenantId, tenant?.slug)
       .then(s => setInvoiceForm(s))
       .catch(() => {})
       .finally(() => setInvoiceLoading(false))
-  }, [currentUser?.tenantId])
+  }, [currentUser?.tenantId, tenant?.slug])
 
   const saveInvoice = async () => {
     if (!currentUser?.tenantId) return
@@ -275,6 +275,12 @@ export default function SettingsPage() {
   const removeTerm = (i: number) => setInv({ terms: invoiceForm.terms.filter((_, idx) => idx !== i) })
   const updateTerm = (i: number, val: string) => {
     const t = [...invoiceForm.terms]; t[i] = val; setInv({ terms: t })
+  }
+
+  const addWarrantyTerm    = () => setInv({ warrantyServiceTerms: [...(invoiceForm.warrantyServiceTerms ?? []), ''] })
+  const removeWarrantyTerm = (i: number) => setInv({ warrantyServiceTerms: (invoiceForm.warrantyServiceTerms ?? []).filter((_, idx) => idx !== i) })
+  const updateWarrantyTerm = (i: number, val: string) => {
+    const t = [...(invoiceForm.warrantyServiceTerms ?? [])]; t[i] = val; setInv({ warrantyServiceTerms: t })
   }
 
   const ROLES = ['OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN']
@@ -713,7 +719,10 @@ export default function SettingsPage() {
               {/* ── 4. Terms & Conditions ── */}
               <div className="card p-5 space-y-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Terms &amp; Conditions</p>
+                  <div>
+                    <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Terms &amp; Conditions</p>
+                    <p className="text-[11px] text-slate-500 mt-1">Printed on stock form invoices below warranty terms.</p>
+                  </div>
                   <button onClick={addTerm} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-violet-500/30 text-violet-400 hover:bg-violet-500/10 transition-colors">
                     <Plus size={11} /> Add Line
                   </button>
@@ -732,6 +741,35 @@ export default function SettingsPage() {
                   ))}
                   {(invoiceForm.terms ?? []).length === 0 && (
                     <p className="text-xs text-slate-600 italic">No terms added. Click &quot;Add Line&quot; to add one.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* ── 4b. Warranty & Service Terms ── */}
+              <div className="card p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Warranty &amp; Service Terms</p>
+                    <p className="text-[11px] text-slate-500 mt-1">Shown on POS stock form bills (e.g. phone warranty, software coverage).</p>
+                  </div>
+                  <button onClick={addWarrantyTerm} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-violet-500/30 text-violet-400 hover:bg-violet-500/10 transition-colors">
+                    <Plus size={11} /> Add Line
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {(invoiceForm.warrantyServiceTerms ?? []).map((t, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-xs text-slate-600 w-5 text-right flex-shrink-0">{i + 1}.</span>
+                      <input className="input-field flex-1 text-xs py-2"
+                        value={t} placeholder={`Warranty term ${i + 1}`}
+                        onChange={e => updateWarrantyTerm(i, e.target.value)} />
+                      <button onClick={() => removeWarrantyTerm(i)} className="p-1.5 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                  {(invoiceForm.warrantyServiceTerms ?? []).length === 0 && (
+                    <p className="text-xs text-slate-600 italic">No warranty terms added. Click &quot;Add Line&quot; to add one.</p>
                   )}
                 </div>
               </div>

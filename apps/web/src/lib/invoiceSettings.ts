@@ -28,6 +28,7 @@ export interface InvoiceSettings {
   taxRate:        number
   discountRate:   number
   terms:          string[]
+  warrantyServiceTerms?: string[]
   signatoryName:    string
   signatoryTitle:   string
   footerNote:       string
@@ -63,6 +64,11 @@ export const KASTHURI_INVOICE_PRESET: Partial<InvoiceSettings> = {
     'Checking warranty does not apply if the warranty sticker is broken or removed.',
     'Goods / Parts / Accessories once sold will not be taken back.',
   ],
+  warrantyServiceTerms: [
+    '3 months coverage for phone to phone warranty.',
+    'Software Warranty: 2 years coverage, including free software updates.',
+    'Post-Warranty Discount: After the initial 3 months, customers receive 30% off any repair service charges.',
+  ],
 }
 
 export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
@@ -86,6 +92,7 @@ export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
     'All sales are final unless otherwise agreed.',
     'Thank you for your business!',
   ],
+  warrantyServiceTerms: [],
   signatoryName:     '',
   signatoryTitle:    'Authorized Signatory',
   footerNote:        'Thank you for your business!',
@@ -135,6 +142,9 @@ export function applyKasthuriPreset(settings: InvoiceSettings, tenantSlug?: stri
   if (!merged.phone?.trim()) merged.phone = KASTHURI_INVOICE_PRESET.phone ?? ''
   if (!merged.shopName?.trim()) merged.shopName = KASTHURI_INVOICE_PRESET.shopName ?? ''
   if (!merged.terms?.length) merged.terms = [...(KASTHURI_INVOICE_PRESET.terms ?? [])]
+  if (!merged.warrantyServiceTerms?.length) {
+    merged.warrantyServiceTerms = [...(KASTHURI_INVOICE_PRESET.warrantyServiceTerms ?? [])]
+  }
   return merged
 }
 
@@ -206,14 +216,17 @@ export async function fetchInvoiceSettings(tenantId: string, branchId?: string):
 }
 
 /** Raw invoice customize values (Invoice tab) without shop/branch overlay */
-export async function fetchInvoiceCustomizeSettings(tenantId: string): Promise<InvoiceSettings> {
+export async function fetchInvoiceCustomizeSettings(
+  tenantId: string,
+  tenantSlug?: string,
+): Promise<InvoiceSettings> {
   try {
     const { tenantApi } = await import('./api')
     const res: any = await tenantApi.getInvoiceSettings(tenantId)
     const data = res?.data ?? res
-    return { ...DEFAULT_INVOICE_SETTINGS, ...data }
+    return applyKasthuriPreset({ ...DEFAULT_INVOICE_SETTINGS, ...data }, tenantSlug)
   } catch {
-    return getInvoiceSettings()
+    return applyKasthuriPreset(getInvoiceSettings(), tenantSlug)
   }
 }
 

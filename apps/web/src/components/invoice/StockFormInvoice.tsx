@@ -11,7 +11,7 @@ import {
   HEXALYTE_SOFTWARE_CREDIT,
   HEXALYTE_SUPPORT_PHONE,
 } from '@/lib/invoiceSettings'
-import { formatWarrantyPeriodLabel, matchWarrantyMonths } from '@/components/pos/cart-rules'
+import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
 import { productConditionLabel } from '@/lib/productCondition'
 
 export interface StockFormSale {
@@ -81,15 +81,40 @@ function discountPct(subtotal: number, discount: number): string {
   return (discount / subtotal * 100).toFixed(1)
 }
 
-function itemMetaLines(item: StockFormSale['items'][number]): string {
+function fmtExpiryDate(iso?: string, months?: number): string | null {
+  if (iso && months) {
+    const d = new Date(iso)
+    d.setMonth(d.getMonth() + months)
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  }
+  if (iso && !months) {
+    return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  }
+  return null
+}
+
+function itemMetaLines(item: StockFormSale['items'][number], saleDate?: string): string {
   const lines: string[] = []
   if (item.condition) lines.push(`Condition: ${productConditionLabel(item.condition)}`)
-  if (item.sku) lines.push(`SKU: ${item.sku}`)
   if (item.imei) lines.push(`IMEI: ${item.imei}`)
   if ((item.warrantyMonths ?? 0) > 0) {
     lines.push(`Warranty: ${formatWarrantyPeriodLabel(item.warrantyMonths!)}`)
+    const until = fmtExpiryDate(saleDate, item.warrantyMonths)
+    if (until) lines.push(`Valid until: ${until}`)
   }
   return lines.map(l => esc(l)).join('<br/>')
+}
+
+function termsBlockHtml(title: string, items: string[]): string {
+  const lines = items.filter(t => t.trim())
+  if (!lines.length) return ''
+  return `
+    <div class="block terms-block">
+      <div class="block-title">${esc(title)}</div>
+      <ul class="terms-list">
+        ${lines.map(t => `<li>${esc(t)}</li>`).join('')}
+      </ul>
+    </div>`
 }
 
 export function printStockFormInvoice(
@@ -110,16 +135,19 @@ export function printStockFormInvoice(
   const customerCity = sale.customerAddress?.trim() ? esc(sale.customerAddress.trim()) : ''
   const discPctStr = discountPct(sale.subtotal, sale.discountAmount)
 
-  const itemRows = sale.items.map(item => `
+  const itemRows = sale.items.map(item => {
+    const meta = itemMetaLines(item, sale.createdAt)
+    return `
     <tr>
       <td class="desc">
         <div class="name">${esc(item.productName)}</div>
-        ${itemMetaLines(item) ? `<div class="meta">${itemMetaLines(item)}</div>` : ''}
+        ${meta ? `<div class="meta">${meta}</div>` : ''}
       </td>
       <td class="qty">${item.quantity}</td>
       <td class="money">${f(item.unitPrice)}</td>
       <td class="money"><strong>${f(item.total)}</strong></td>
-    </tr>`).join('')
+    </tr>`
+  }).join('')
 
   const payMethod = sale.payments?.length
     ? sale.payments.map(p => `${esc(p.method.toUpperCase())} ${f(p.amount)}`).join(' + ')
@@ -127,66 +155,55 @@ export function printStockFormInvoice(
       ? `${esc(sale.paymentMethod.toUpperCase())} ${f(sale.total)}`
       : ''
 
-  let paymentLines = ''
+  let paymentRows = ''
   if (payMethod) {
-    paymentLines += `<div class="pay-row"><span>Paid</span><span>${payMethod}</span></div>`
+    paymentRows += `<tr><td colspan="2"></td><td class="money total-label">Paid</td><td class="money">${payMethod}</td></tr>`
   }
   if (sale.cashReceived && sale.cashReceived > 0) {
-    paymentLines += `<div class="pay-row"><span>Cash Received</span><span>${f(sale.cashReceived)}</span></div>`
+    paymentRows += `<tr><td colspan="2"></td><td class="money total-label">Cash Received</td><td class="money">${f(sale.cashReceived)}</td></tr>`
   }
   if (sale.changeAmount && sale.changeAmount > 0) {
-    paymentLines += `<div class="pay-row"><span>Change</span><span>${f(sale.changeAmount)}</span></div>`
+    paymentRows += `<tr><td colspan="2"></td><td class="money total-label">Change</td><td class="money">${f(sale.changeAmount)}</td></tr>`
   }
   if (sale.dueAmount && sale.dueAmount > 0) {
-    paymentLines += `<div class="pay-row due"><span>Outstanding</span><span>${f(sale.dueAmount)}</span></div>`
+    paymentRows += `<tr><td colspan="2"></td><td class="money total-label due">Outstanding</td><td class="money due"><strong>${f(sale.dueAmount)}</strong></td></tr>`
   }
 
-  type WarrantyLine = NonNullable<StockFormSale['warranties']>[number]
-  const warrantyLines: WarrantyLine[] = sale.warranties?.length
-    ? sale.warranties
-    : (sale.warrantyNumbers ?? []).map(code => ({
-        warrantyCode: code,
-        monthsDuration: sale.warrantyMonths,
-      }))
-
-  const fmtExpiry = (endDate?: string, months?: number) => {
-    if (endDate) {
-      return new Date(endDate).toLocaleDateString('en-GB', {
-        day: '2-digit', month: '2-digit', year: 'numeric',
-      })
-    }
-    if (sale.createdAt && months) {
-      const d = new Date(sale.createdAt)
-      d.setMonth(d.getMonth() + months)
-      return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
-    }
-    return '—'
-  }
-
-  let warrantyHtml = ''
-  if ((warrantyLines?.length ?? 0) > 0) {
-    const rows = (warrantyLines ?? []).map((w, i) => {
-      const months = matchWarrantyMonths(w, sale.items, sale.warrantyMonths)
-      return `
-        <div class="warranty-item">
-          ${w.productName ? `<div class="w-name">${esc(w.productName)}</div>` : ''}
-          <div class="w-row"><span>Code</span><span>${esc(w.warrantyCode)}</span></div>
-          ${months > 0 ? `<div class="w-row"><span>Period</span><span>${esc(formatWarrantyPeriodLabel(months))}</span></div>` : ''}
-          <div class="w-row"><span>Valid Until</span><span>${esc(fmtExpiry(w.endDate, months))}</span></div>
-          ${w.imei ? `<div class="w-row"><span>IMEI</span><span>${esc(w.imei)}</span></div>` : ''}
-        </div>`
-    }).join('')
-    warrantyHtml = `
-      <div class="block">
-        <div class="block-title">Warranty</div>
-        ${rows}
-      </div>`
-  }
+  const totalsFooter = `
+        <tfoot>
+          <tr>
+            <td colspan="2"></td>
+            <td class="money total-label">Subtotal</td>
+            <td class="money">${f(sale.subtotal)}</td>
+          </tr>
+          ${sale.discountAmount > 0
+            ? `<tr>
+                <td colspan="2"></td>
+                <td class="money total-label">Discount (${discPctStr}%)</td>
+                <td class="money">-${f(sale.discountAmount)}</td>
+              </tr>`
+            : ''}
+          <tr class="grand-row">
+            <td colspan="2"></td>
+            <td class="money total-label grand">Grand Total</td>
+            <td class="money grand"><strong>${f(sale.total)}</strong></td>
+          </tr>
+          ${paymentRows}
+        </tfoot>`
 
   const tel = settings.phone ? `Tel: ${esc(settings.phone)}` : ''
   const email = settings.email ? esc(settings.email) : ''
   const contactLine = [tel, email].filter(Boolean).join('  ·  ')
   const footerNote = esc((settings.footerNote || 'Thank you for your business!').toUpperCase())
+
+  const warrantyTermsHtml = termsBlockHtml(
+    'Warranty & Service Terms',
+    settings.warrantyServiceTerms ?? [],
+  )
+  const generalTermsHtml = termsBlockHtml(
+    'Terms & Conditions',
+    settings.terms ?? [],
+  )
 
   const billToRows = [
     `<div class="bill-row"><span class="lbl">Customer</span><span class="val">${customerName}</span></div>`,
@@ -259,18 +276,18 @@ export function printStockFormInvoice(
       margin-bottom: 5px;
     }
 
-    .bill-row, .pay-row, .w-row {
+    .bill-row {
       display: flex;
       justify-content: space-between;
       gap: 12px;
       font-size: 11px;
       padding: 2px 0;
     }
-    .bill-row .lbl, .pay-row span:first-child, .w-row span:first-child {
+    .bill-row .lbl {
       color: #444;
       min-width: 72px;
     }
-    .bill-row .val, .pay-row span:last-child, .w-row span:last-child {
+    .bill-row .val {
       text-align: right;
       font-weight: 600;
       word-break: break-word;
@@ -298,6 +315,27 @@ export function printStockFormInvoice(
       border-bottom: 1px solid #ccc;
     }
     table.items tbody tr:last-child td { border-bottom: 1px solid #000; }
+    table.items tfoot td {
+      padding: 4px 4px;
+      vertical-align: top;
+      border: none;
+    }
+    table.items tfoot tr:first-child td {
+      padding-top: 8px;
+      border-top: 1px solid #ccc;
+    }
+    table.items tfoot .total-label {
+      text-align: right;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    table.items tfoot .grand {
+      font-size: 12px;
+      font-weight: 800;
+      padding-top: 4px;
+      padding-bottom: 4px;
+    }
+    table.items tfoot .due { font-weight: 800; }
     table.items .desc { width: 48%; }
     table.items .qty { width: 8%; text-align: center; }
     table.items .money {
@@ -314,42 +352,15 @@ export function printStockFormInvoice(
       line-height: 1.45;
     }
 
-    .totals {
-      margin-top: 8px;
-      margin-left: auto;
-      width: 58%;
-      font-size: 11px;
+    .terms-block { margin-top: 10px; page-break-inside: avoid; }
+    .terms-list {
+      margin: 0;
+      padding-left: 16px;
+      font-size: 9.5px;
+      line-height: 1.5;
+      color: #222;
     }
-    .totals .row {
-      display: flex;
-      justify-content: space-between;
-      padding: 3px 0;
-      gap: 12px;
-    }
-    .totals .row span:last-child {
-      font-variant-numeric: tabular-nums;
-      white-space: nowrap;
-    }
-    .grand {
-      margin-top: 4px;
-      padding: 6px 0;
-      font-size: 12px;
-      font-weight: 800;
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-    }
-    .grand span:last-child { font-variant-numeric: tabular-nums; }
-
-    .pay-block { margin-top: 8px; width: 58%; margin-left: auto; }
-    .pay-row.due span:last-child { font-weight: 800; }
-
-    .warranty-item {
-      padding: 5px 0;
-      border-bottom: 1px dashed #999;
-    }
-    .warranty-item:last-child { border-bottom: none; }
-    .w-name { font-weight: 700; margin-bottom: 2px; }
+    .terms-list li { margin-bottom: 3px; }
 
     .signatures {
       display: flex;
@@ -409,7 +420,6 @@ export function printStockFormInvoice(
     <div class="meta-grid">
       <div><span>Invoice No: </span><strong>${esc(sale.invoiceNumber)}</strong></div>
       <div><span>Date: </span><strong>${orderDate}</strong></div>
-      ${sale.cashierName ? `<div class="full"><span>Cashier: </span><strong>${esc(sale.cashierName)}</strong></div>` : ''}
     </div>
 
     <hr class="rule" />
@@ -431,20 +441,12 @@ export function printStockFormInvoice(
           </tr>
         </thead>
         <tbody>${itemRows}</tbody>
+        ${totalsFooter}
       </table>
     </div>
 
-    <div class="totals">
-      <div class="row"><span>Subtotal</span><span>${f(sale.subtotal)}</span></div>
-      ${sale.discountAmount > 0
-        ? `<div class="row"><span>Discount (${discPctStr}%)</span><span>-${f(sale.discountAmount)}</span></div>`
-        : ''}
-      <div class="grand"><span>Grand Total</span><span>${f(sale.total)}</span></div>
-    </div>
-
-    ${paymentLines ? `<div class="pay-block">${paymentLines}</div>` : ''}
-
-    ${warrantyHtml}
+    ${warrantyTermsHtml}
+    ${generalTermsHtml}
 
     <div class="signatures">
       <div class="sig">
