@@ -895,6 +895,9 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                     <Sel value={extra.warranty} onChange={v => setExtra(p => ({ ...p, warranty: v }))}>
                       {WARRANTY_OPTS.filter(w => w !== 'None').map(w => <option key={w}>{w}</option>)}
                     </Sel>
+                    <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 8, lineHeight: 1.45 }}>
+                      This product&apos;s warranty length on sale (certificate &amp; bill line). Shop-wide policy text — e.g. software warranty, repair discount — is edited under Settings → Invoice → Warranty &amp; Service Terms and prints on bills only.
+                    </p>
                   </div>
                 )}
               </div>
