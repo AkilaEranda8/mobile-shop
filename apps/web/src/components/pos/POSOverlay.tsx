@@ -32,7 +32,7 @@ import { authStorage } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday } from '@/lib/business-date'
 import toast from 'react-hot-toast'
-import { getInvoiceSettings, fetchInvoiceSettings, shopContextFromTenant, isKasthuriInvoice, type InvoiceSettings, type ShopContext } from '@/lib/invoiceSettings'
+import { getInvoiceSettings, fetchInvoiceSettings, shopContextFromTenant, isKasthuriInvoice, HEXALYTE_SOFTWARE_FOOTER, type InvoiceSettings, type ShopContext } from '@/lib/invoiceSettings'
 import { cacheProductsForOffline, cacheCategoriesForOffline, getCachedProducts, getCachedCategories } from '@/lib/offline/products-cache'
 import { buildOfflineInvoiceNumber, queueOfflineSale } from '@/lib/offline/queue-sale'
 import { isBrowserOnline, isNetworkError } from '@/lib/offline/sync'
@@ -42,6 +42,20 @@ import { printThermalReceipt } from '@/components/invoice/ThermalReceipt'
 import { printStockFormInvoice } from '@/components/invoice/StockFormInvoice'
 import { whatsappApi } from '@/lib/whatsapp-api'
 import { Switch } from '@/components/ui/Switch'
+
+type PosReceiptSale = Parameters<typeof printStockFormInvoice>[0]
+
+function printPosReceipt(sale: PosReceiptSale, settings: InvoiceSettings, ctx?: ShopContext) {
+  if (settings.thermalWidthPOS === 'stockForm') {
+    printStockFormInvoice(sale, settings, ctx)
+  } else {
+    printThermalReceipt(sale, settings, ctx)
+  }
+}
+
+function autoPrintPosReceipt(sale: PosReceiptSale, settings: InvoiceSettings, ctx?: ShopContext) {
+  printPosReceipt(sale, settings, ctx)
+}
 
 import type { ProductVariation } from '@/types'
 
@@ -247,7 +261,7 @@ function InvoiceTemplate({ sale, shopName, settings }: { sale: any; shopName: st
         <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
           {settings.website && <p style={{ margin: 0, fontSize: 9.5, color: '#3d6b5a' }}>{settings.website}</p>}
           {settings.phone   && <p style={{ margin: 0, fontSize: 9.5, color: '#3d6b5a' }}>{settings.phone}</p>}
-          <p style={{ margin: 0, fontSize: 9, color: '#1e4035' }}>Powered by Hexalyte</p>
+          <p style={{ margin: 0, fontSize: 9, color: '#1e4035' }}>{HEXALYTE_SOFTWARE_FOOTER}</p>
         </div>
       </div>
 
@@ -1149,11 +1163,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           monthsDuration: w.monthsDuration,
         })),
       }
-      if (invoiceSettings.thermalWidthPOS === 'stockForm') {
-        printStockFormInvoice(reprintData, invoiceSettings, thermalShopCtx)
-      } else {
-        printThermalReceipt(reprintData, invoiceSettings, thermalShopCtx)
-      }
+      printPosReceipt(reprintData, invoiceSettings, thermalShopCtx)
       toast.success('Receipt sent to printer')
     } catch {
       toast.error('Could not print invoice')
@@ -1701,30 +1711,37 @@ function POSContent({ onClose }: { onClose: () => void }) {
       const finishOfflineSale = async (invoiceNumber: string, localId: string) => {
         toast.success('Sale saved offline — will sync when connected', { icon: '📴' })
         setMobileView('cart')
-        setCompletedSale({
-          id: localId,
+        const receiptData: PosReceiptSale = {
           invoiceNumber,
-          offline: true,
-          total: saleTotal,
-          items: cart.map(i => ({
-          productName: i.name,
-          sku: i.sku,
-          imei: i.imei,
-          quantity: i.quantity,
-          unitPrice: i.price,
-          total: i.price * i.quantity,
-          warrantyMonths: i.warrantyMonths ?? 0,
-        })),
-          payments,
-          paidAmount: payNowForSale,
-          dueAmount: saleDueAmount,
+          createdAt: new Date().toISOString(),
           customerName: selectedCustomer?.name || 'Walk-in Customer',
           customerPhone: selectedCustomer?.phone || '',
           cashierName: user?.name || 'Staff',
+          items: cart.map(i => ({
+            productName: i.name,
+            sku: i.sku,
+            imei: i.imei,
+            quantity: i.quantity,
+            unitPrice: i.price,
+            total: i.price * i.quantity,
+            warrantyMonths: i.warrantyMonths ?? 0,
+          })),
+          subtotal,
+          discountAmount,
+          total: saleTotal,
+          payments,
           paymentMethod,
           cashReceived: cashReceivedAmount,
           changeAmount,
+          dueAmount: saleDueAmount,
+        }
+        setCompletedSale({
+          id: localId,
+          offline: true,
+          ...receiptData,
+          paidAmount: payNowForSale,
         })
+        autoPrintPosReceipt(receiptData, invoiceSettings, thermalShopCtx)
         setCart([])
         setDiscountPct(0)
         setDiscountFlat(0)
@@ -1774,9 +1791,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
       refetchProducts()
       window.dispatchEvent(new CustomEvent('pos:sale-complete'))
       setMobileView('cart')
-      setCompletedSale({
-        ...res.data,
-        total: res.data?.total ?? saleTotal,
+      const receiptData: PosReceiptSale = {
+        invoiceNumber: res.data?.invoiceNumber ?? buildOfflineInvoiceNumber(),
+        createdAt: res.data?.createdAt ?? new Date().toISOString(),
+        customerName: selectedCustomer?.name || 'Walk-in Customer',
+        customerPhone: selectedCustomer?.phone || '',
+        cashierName: user?.name || 'Staff',
         items: cart.map(i => ({
           productName: i.name,
           sku: i.sku,
@@ -1786,21 +1806,26 @@ function POSContent({ onClose }: { onClose: () => void }) {
           total: i.price * i.quantity,
           warrantyMonths: i.warrantyMonths ?? 0,
         })),
+        subtotal,
+        discountAmount,
+        total: res.data?.total ?? saleTotal,
         payments,
-        paidAmount: payNowForSale,
-        dueAmount: res.data?.dueAmount ?? saleDueAmount,
-        customerName:  selectedCustomer?.name || 'Walk-in Customer',
-        customerPhone: selectedCustomer?.phone || '',
-        cashierName:   user?.name || 'Staff',
         paymentMethod,
         cashReceived: cashReceivedAmount,
         changeAmount,
         warrantyNumbers: createdWarrantyCodes,
         warranties: createdWarranties,
-        warrantyMonths:  createdWarrantyCodes.length > 0
+        warrantyMonths: createdWarrantyCodes.length > 0
           ? Math.max(...warrantyCartItems.map(i => i.warrantyMonths ?? 0), 0) || undefined
           : undefined,
+        dueAmount: res.data?.dueAmount ?? saleDueAmount,
+      }
+      setCompletedSale({
+        ...res.data,
+        ...receiptData,
+        paidAmount: payNowForSale,
       })
+      autoPrintPosReceipt(receiptData, invoiceSettings, thermalShopCtx)
     } catch (e: any) {
       if (settledOutstanding > 0) {
         if (selectedCustomer?.id) await refreshCustomerBalance(selectedCustomer.id)
@@ -1925,7 +1950,23 @@ function POSContent({ onClose }: { onClose: () => void }) {
         if (e.key === 'F5') {
           e.preventDefault()
           if (completedSale) {
-            printThermalReceipt({ invoiceNumber: completedSale.invoiceNumber, createdAt: completedSale.createdAt, customerName: completedSale.customerName, customerPhone: completedSale.customerPhone, items: completedSale.items ?? [], subtotal, discountAmount, total: completedSale.total ?? saleTotal, paymentMethod: completedSale.paymentMethod, cashReceived: completedSale.cashReceived, changeAmount: completedSale.changeAmount, warrantyNumbers: completedSale.warrantyNumbers, warrantyMonths: completedSale.warrantyMonths, warranties: completedSale.warranties }, invoiceSettings, thermalShopCtx)
+            const saleData: PosReceiptSale = {
+              invoiceNumber: completedSale.invoiceNumber,
+              createdAt: completedSale.createdAt,
+              customerName: completedSale.customerName,
+              customerPhone: completedSale.customerPhone,
+              items: completedSale.items ?? [],
+              subtotal,
+              discountAmount,
+              total: completedSale.total ?? saleTotal,
+              paymentMethod: completedSale.paymentMethod,
+              cashReceived: completedSale.cashReceived,
+              changeAmount: completedSale.changeAmount,
+              warrantyNumbers: completedSale.warrantyNumbers,
+              warrantyMonths: completedSale.warrantyMonths,
+              warranties: completedSale.warranties,
+            }
+            printPosReceipt(saleData, invoiceSettings, thermalShopCtx)
           } else openRecentSales()
         }
         if (e.key === 'F6') {
@@ -2598,12 +2639,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     <Receipt size={12} /> A4 Invoice
                   </button>
                   <button onClick={() => {
-                    const saleData = { invoiceNumber: completedSale.invoiceNumber, createdAt: completedSale.createdAt, customerName: completedSale.customerName, customerPhone: completedSale.customerPhone, cashierName: completedSale.cashierName, items: completedSale.items ?? [], subtotal, discountAmount, total: completedSale.total ?? saleTotal, payments: completedSale.payments, paymentMethod: completedSale.paymentMethod, cashReceived: completedSale.cashReceived, changeAmount: completedSale.changeAmount, warrantyNumbers: completedSale.warrantyNumbers, warrantyMonths: completedSale.warrantyMonths, warranties: completedSale.warranties, dueAmount: completedSale.dueAmount }
-                    if (invoiceSettings.thermalWidthPOS === 'stockForm') {
-                      printStockFormInvoice(saleData, invoiceSettings, thermalShopCtx)
-                    } else {
-                      printThermalReceipt(saleData, invoiceSettings, thermalShopCtx)
-                    }
+                    const saleData: PosReceiptSale = { invoiceNumber: completedSale.invoiceNumber, createdAt: completedSale.createdAt, customerName: completedSale.customerName, customerPhone: completedSale.customerPhone, cashierName: completedSale.cashierName, items: completedSale.items ?? [], subtotal, discountAmount, total: completedSale.total ?? saleTotal, payments: completedSale.payments, paymentMethod: completedSale.paymentMethod, cashReceived: completedSale.cashReceived, changeAmount: completedSale.changeAmount, warrantyNumbers: completedSale.warrantyNumbers, warrantyMonths: completedSale.warrantyMonths, warranties: completedSale.warranties, dueAmount: completedSale.dueAmount }
+                    printPosReceipt(saleData, invoiceSettings, thermalShopCtx)
                   }} className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors">
                     <Printer size={12} /> {invoiceSettings.thermalWidthPOS === 'stockForm' ? 'Stock Form Print' : 'Thermal Print'}
                   </button>

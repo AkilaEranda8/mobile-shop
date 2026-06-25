@@ -2,12 +2,14 @@
 
 import { forwardRef, useRef } from 'react'
 import { Download, Printer, MapPin, Globe, Mail, Phone } from 'lucide-react'
-import { KASTHURI_INVOICE_PRESET, type InvoiceSettings } from '@/lib/invoiceSettings'
+import { KASTHURI_INVOICE_PRESET, HEXALYTE_SOFTWARE_FOOTER, type InvoiceSettings } from '@/lib/invoiceSettings'
+import { formatWarrantyMonths } from '@/components/pos/cart-rules'
 
 export interface KasthuriInvoiceItem {
   description: string
   imei?: string
   warrantyCode?: string
+  warrantyPeriod?: string
   warrantyExpiry?: string
   qty: number
   unitPrice: number
@@ -56,11 +58,13 @@ export function buildKasthuriInvoiceData(
     const discountPct = lineSub > 0 ? Math.round((lineDisc / lineSub) * 10000) / 100 : 0
     const matched = warranties.find(w => w.imei && i.imei && w.imei === i.imei)
       ?? warranties.find(w => w.productName && i.productName && w.productName === i.productName)
+    const months = matched?.monthsDuration ?? i.warrantyMonths ?? 0
     return {
       description: i.productName ?? i.description ?? 'Item',
       imei: i.imei,
       warrantyCode: matched?.warrantyCode,
-      warrantyExpiry: matched ? fmtExpiry(matched.endDate, matched.monthsDuration ?? i.warrantyMonths) : undefined,
+      warrantyPeriod: months > 0 ? formatWarrantyMonths(months) : undefined,
+      warrantyExpiry: matched ? fmtExpiry(matched.endDate, matched.monthsDuration ?? i.warrantyMonths) : (months > 0 && sale.createdAt ? fmtExpiry(undefined, months) : undefined),
       qty: i.quantity ?? 0,
       unitPrice: i.unitPrice ?? 0,
       discountPct,
@@ -310,10 +314,11 @@ const KasthuriInvoicePrint = forwardRef<
               <td style={{ ...td, textAlign: 'center' }}>{idx + 1}</td>
               <td style={td}>
                 <div style={{ fontWeight: 600 }}>{item.description}</div>
-                {(item.imei || item.warrantyCode || item.warrantyExpiry) && (
+                {(item.imei || item.warrantyCode || item.warrantyPeriod || item.warrantyExpiry) && (
                   <div style={{ marginTop: 4, fontSize: 12, lineHeight: 1.5, color: C.muted }}>
                     {item.imei && <div>IMEI: {item.imei}</div>}
                     {item.warrantyCode && <div>Warranty: {item.warrantyCode}</div>}
+                    {item.warrantyPeriod && <div>Warranty Period: {item.warrantyPeriod}</div>}
                     {item.warrantyExpiry && <div>Valid until: {item.warrantyExpiry}</div>}
                   </div>
                 )}
@@ -404,6 +409,9 @@ const KasthuriInvoicePrint = forwardRef<
               {settings.slogan}
             </p>
           )}
+          <p style={{ margin: '10px 0 0', fontSize: 9, color: C.muted, textAlign: 'center' }}>
+            {HEXALYTE_SOFTWARE_FOOTER}
+          </p>
         </div>
       </div>
     </div>

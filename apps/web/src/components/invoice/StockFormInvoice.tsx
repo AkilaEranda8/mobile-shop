@@ -2,18 +2,16 @@
 
 /**
  * StockFormInvoice — 9.5" × 11" continuous stock form (241 mm × 279 mm)
- * Designed for dot-matrix printers with tractor-feed paper.
- *
- * ⚠️  ZERO changes to existing code.  This file is purely additive.
- *     – No changes to database schema, API, controllers, or services.
- *     – No changes to ThermalReceipt, InvoicePrint, or WarrantyCertificate.
- *     – Existing 58mm / 80mm print paths are completely unaffected.
+ * Dot-matrix / tractor-feed layout matching the Ashoka-style invoice design.
  */
 
 import type { InvoiceSettings, ShopContext } from '@/lib/invoiceSettings'
-import { mergeReceiptSettings } from '@/lib/invoiceSettings'
-
-// ─── Data shape (mirrors ThermalSale so it can be fed the same data) ──────────
+import {
+  mergeReceiptSettings,
+  HEXALYTE_SOFTWARE_CREDIT,
+  HEXALYTE_SUPPORT_PHONE,
+} from '@/lib/invoiceSettings'
+import { formatWarrantyMonths } from '@/components/pos/cart-rules'
 
 export interface StockFormSale {
   invoiceNumber: string
@@ -50,14 +48,9 @@ export interface StockFormSale {
   dueAmount?: number
 }
 
-// ─── Dimensions ───────────────────────────────────────────────────────────────
-
-/** Printable width on 9.5" stock form with 0.5" margins = 241 mm total width */
 const PAGE_W = '241mm'
-const PAGE_H = '279mm'     // 11 inches
-const BODY_W = '215mm'     // 8.5" printable area (0.5" each side)
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+const PAGE_H = '279mm'
+const BODY_W = '215mm'
 
 function esc(s: string): string {
   return s
@@ -71,24 +64,23 @@ function fmtAmt(n: number): string {
   return new Intl.NumberFormat('en-LK', { minimumFractionDigits: 2 }).format(n)
 }
 
-function fmtCur(n: number, currency = 'LKR'): string {
-  return currency + ' ' + fmtAmt(n)
+function fmtRs(n: number, currency = 'LKR'): string {
+  const sym = currency === 'LKR' ? 'Rs' : currency
+  return `${sym} ${fmtAmt(n)}`
 }
 
-function fmtDate(iso?: string): { date: string; time: string } {
+function fmtOrderDate(iso?: string): string {
   const d = iso ? new Date(iso) : new Date()
-  return {
-    date: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-    time: d.toLocaleTimeString('en-LK', { hour: '2-digit', minute: '2-digit' }),
-  }
+  const date = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+  return `${date} ${time}`
 }
 
-// ─── Main print function ───────────────────────────────────────────────────────
+function discountPct(subtotal: number, discount: number): string {
+  if (subtotal <= 0 || discount <= 0) return '0'
+  return (discount / subtotal * 100).toFixed(1)
+}
 
-/**
- * Opens a new window and prints a 9.5" × 11" stock form invoice.
- * Call exactly like `printThermalReceipt(sale, settings, ctx)`.
- */
 export function printStockFormInvoice(
   sale: StockFormSale,
   settings: InvoiceSettings,
@@ -97,49 +89,56 @@ export function printStockFormInvoice(
   settings = mergeReceiptSettings(settings, ctx)
 
   const currency = settings.currency || 'LKR'
-  const f = (n: number) => esc(fmtCur(n, currency))
-  const { date: dateStr, time: timeStr } = fmtDate(sale.createdAt)
-  const shopName = esc(settings.shopName || 'My Shop')
-  const isPaid = !sale.dueAmount || sale.dueAmount === 0
+  const f = (n: number) => esc(fmtRs(n, currency))
+  const orderDate = esc(fmtOrderDate(sale.createdAt))
+  const shopName = esc((settings.shopName || 'My Shop').toUpperCase())
+  const customerName = esc(sale.customerName || 'Walk-in Customer')
+  const customerPhone = sale.customerPhone ? esc(sale.customerPhone) : '—'
+  const customerCity = sale.customerAddress ? esc(sale.customerAddress) : '—'
+  const discPctStr = discountPct(sale.subtotal, sale.discountAmount)
 
-  // ── Items rows ────────────────────────────────────────────────────────────
-  let itemRows = ''
-  sale.items.forEach((item, idx) => {
-    const bg = idx % 2 === 0 ? '#ffffff' : '#f5f5f5'
-    itemRows += `
-      <tr style="background:${bg};">
-        <td style="padding:4px 8px;border-bottom:1px solid #ccc;">
-          <b>${esc(item.productName)}</b>
-          ${item.sku  ? `<br><span style="font-size:10px;color:#555;">SKU: ${esc(item.sku)}</span>` : ''}
-          ${item.imei ? `<br><span style="font-size:10px;color:#555;">IMEI: ${esc(item.imei)}</span>` : ''}
-          ${(item.warrantyMonths ?? 0) > 0 ? `<br><span style="font-size:10px;color:#555;">Warranty: ${item.warrantyMonths} mo</span>` : ''}
+  const itemRows = sale.items.map(item => {
+    const extras = [
+      item.sku ? `SKU: ${esc(item.sku)}` : '',
+      item.imei ? `IMEI: ${esc(item.imei)}` : '',
+      (item.warrantyMonths ?? 0) > 0 ? `Warranty Period: ${esc(formatWarrantyMonths(item.warrantyMonths!))}` : '',
+    ].filter(Boolean).join(' · ')
+    return `
+      <tr>
+        <td class="desc">
+          <span class="name">${esc(item.productName)}</span>
+          ${extras ? `<span class="sub">${extras}</span>` : ''}
         </td>
-        <td style="padding:4px 8px;border-bottom:1px solid #ccc;text-align:center;">${item.quantity}</td>
-        <td style="padding:4px 8px;border-bottom:1px solid #ccc;text-align:right;white-space:nowrap;">${f(item.unitPrice)}</td>
-        <td style="padding:4px 8px;border-bottom:1px solid #ccc;text-align:right;white-space:nowrap;"><b>${f(item.total)}</b></td>
+        <td class="num">${item.quantity}</td>
+        <td class="num">${f(item.unitPrice)}</td>
+        <td class="num">${f(item.total)}</td>
       </tr>`
-  })
+  }).join('')
 
-  // ── Payment rows ──────────────────────────────────────────────────────────
-  let payRows = ''
-  if (sale.payments && sale.payments.length > 0) {
-    sale.payments.forEach(p => {
-      payRows += `<tr>
-        <td style="padding:3px 6px;text-transform:uppercase;font-size:11px;">${esc(p.method)}</td>
-        <td style="padding:3px 6px;text-align:right;font-size:11px;">${f(p.amount)}</td>
-      </tr>`
-    })
+  let paymentHtml = ''
+  if (sale.payments?.length) {
+    const rows = sale.payments.map(p =>
+      `<div class="kv"><span>Payment</span><span>${esc(p.method.toUpperCase())} : ${f(p.amount)}</span></div>`
+    ).join('')
+    paymentHtml = `
+      <div class="sep-dash"></div>
+      <div class="section-title">PAYMENT</div>
+      ${rows}
+      ${sale.cashReceived && sale.cashReceived > 0 ? `<div class="kv"><span>Cash Received</span><span>${f(sale.cashReceived)}</span></div>` : ''}
+      ${sale.changeAmount && sale.changeAmount > 0 ? `<div class="kv"><span>Change</span><span>${f(sale.changeAmount)}</span></div>` : ''}
+      ${sale.dueAmount && sale.dueAmount > 0 ? `<div class="kv due"><span>Outstanding</span><span>${f(sale.dueAmount)}</span></div>` : ''}`
   } else if (sale.paymentMethod) {
-    payRows += `<tr>
-      <td style="padding:3px 6px;text-transform:uppercase;font-size:11px;">${esc(sale.paymentMethod)}</td>
-      <td style="padding:3px 6px;text-align:right;font-size:11px;">${f(sale.total)}</td>
-    </tr>`
+    paymentHtml = `
+      <div class="sep-dash"></div>
+      <div class="section-title">PAYMENT</div>
+      <div class="kv"><span>Method</span><span>${esc(sale.paymentMethod.toUpperCase())}</span></div>
+      ${sale.dueAmount && sale.dueAmount > 0 ? `<div class="kv due"><span>Outstanding</span><span>${f(sale.dueAmount)}</span></div>` : ''}`
   }
 
-  // ── Warranty block ────────────────────────────────────────────────────────
-  const warrantyLines: StockFormSale['warranties'] = sale.warranties?.length
+  const warrantyLines = sale.warranties?.length
     ? sale.warranties
     : (sale.warrantyNumbers ?? []).map(code => ({ warrantyCode: code, monthsDuration: sale.warrantyMonths }))
+
   const fmtExpiry = (endDate?: string, months?: number) => {
     if (endDate) return new Date(endDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
     if (sale.createdAt && months) {
@@ -149,233 +148,235 @@ export function printStockFormInvoice(
     }
     return '—'
   }
+
   let warrantyHtml = ''
   if ((warrantyLines?.length ?? 0) > 0) {
+    const rows = (warrantyLines ?? []).map((w, i) => `
+      <div class="warranty-row">
+        ${w.productName ? `<div>${esc(w.productName)}</div>` : ''}
+        ${w.imei ? `<div>IMEI: ${esc(w.imei)}</div>` : ''}
+        <div class="kv"><span>Warranty ${(warrantyLines ?? []).length > 1 ? i + 1 : ''}</span><span class="mono">${esc(w.warrantyCode)}</span></div>
+        ${(w.monthsDuration ?? 0) > 0 ? `<div class="kv"><span>Period</span><span>${esc(formatWarrantyMonths(w.monthsDuration!))}</span></div>` : ''}
+        <div class="kv"><span>Expires</span><span>${esc(fmtExpiry(w.endDate, w.monthsDuration))}</span></div>
+      </div>`).join('')
     warrantyHtml = `
-      <div style="border-top:2px dashed #000;margin-top:14px;padding-top:10px;">
-        <b style="font-size:12px;text-transform:uppercase;letter-spacing:1px;">Warranty Information</b>
-        ${(warrantyLines ?? []).map((w, i) => `
-          <div style="margin-top:8px;font-size:11px;">
-            ${w.productName ? `<div><b>${esc(w.productName)}</b></div>` : ''}
-            ${w.imei ? `<div>IMEI: <span class="mono">${esc(w.imei)}</span></div>` : ''}
-            <div style="display:flex;justify-content:space-between;margin-top:3px;">
-              <span>Warranty ${(warrantyLines ?? []).length > 1 ? i + 1 : ''}:</span>
-              <b style="font-family:monospace;">${esc(w.warrantyCode)}</b>
-            </div>
-            <div style="display:flex;justify-content:space-between;margin-top:2px;">
-              <span>Expires:</span>
-              <b>${esc(fmtExpiry(w.endDate, w.monthsDuration))}</b>
-            </div>
-          </div>`).join('')}
-      </div>`
+      <div class="sep-dash"></div>
+      <div class="section-title">WARRANTY</div>
+      ${rows}`
   }
 
-  // ── Full HTML document ────────────────────────────────────────────────────
+  const telLine = [
+    settings.phone ? `Tel: ${esc(settings.phone)}` : '',
+    settings.email ? esc(settings.email) : '',
+  ].filter(Boolean).join(' | ')
+
+  const footerNote = esc((settings.footerNote || 'THANK YOU FOR YOUR BUSINESS!').toUpperCase())
+  const softwareLine = esc(`Software Powered by: ${HEXALYTE_SOFTWARE_CREDIT}`)
+  const contactLine = esc(`Contact: ${HEXALYTE_SUPPORT_PHONE}${settings.email ? ` | ${settings.email}` : ''}`)
+
   const html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8"/>
   <title>Invoice ${esc(sale.invoiceNumber)}</title>
   <style>
-    /* ── Reset ── */
     *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 
-    /* ── Base ── */
     body {
       font-family: 'Courier New', Courier, monospace;
       font-size: 12px;
-      line-height: 1.5;
+      line-height: 1.55;
       color: #000;
       background: #fff;
       width: ${BODY_W};
       margin: 0 auto;
-      padding: 10mm 0;
+      padding: 8mm 0;
     }
 
-    table { width:100%; border-collapse:collapse; }
-    th    { font-weight:700; text-transform:uppercase; font-size:10px; letter-spacing:.8px; }
+    .center { text-align: center; }
+    .shop-name { font-size: 16px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 2px; }
+    .shop-line { font-size: 11px; }
 
-    .divider-solid  { border-top:2px solid #000; margin:8px 0; }
-    .divider-dashed { border-top:1px dashed #000; margin:6px 0; }
-    .text-right  { text-align:right; }
-    .text-center { text-align:center; }
-    .mono        { font-family: 'Courier New', Courier, monospace; }
-
-    /* ── Header band ── */
-    .hdr {
-      display:flex; justify-content:space-between; align-items:flex-start;
-      border-bottom:3px solid #000; padding-bottom:8px; margin-bottom:8px;
+    .sep-eq, .sep-dash {
+      font-size: 11px;
+      letter-spacing: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      color: #000;
+      margin: 8px 0;
+      line-height: 1;
     }
-    .hdr-shop  { font-size:18px; font-weight:900; letter-spacing:.5px; }
-    .hdr-sub   { font-size:10px; color:#444; margin-top:2px; }
-    .hdr-inv   { text-align:right; }
-    .hdr-inv-label { font-size:22px; font-weight:900; letter-spacing:2px; }
-    .hdr-inv-num   { font-size:13px; font-family:monospace; margin-top:2px; }
-    .hdr-inv-date  { font-size:10px; color:#555; }
+    .sep-eq::before  { content: '${'='.repeat(72)}'; }
+    .sep-dash::before { content: '${'-'.repeat(72)}'; }
 
-    /* ── Meta grid ── */
-    .meta { display:flex; gap:40px; font-size:11px; margin-bottom:8px; border-bottom:1px solid #ccc; padding-bottom:6px; }
-    .meta-block label { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:#666; display:block; }
-    .meta-block span  { font-weight:600; }
+    .meta { font-size: 12px; }
+    .meta div { margin: 2px 0; }
 
-    /* ── Parties ── */
-    .parties { display:flex; gap:0; border:1px solid #ccc; margin-bottom:8px; }
-    .party { flex:1; padding:8px 12px; border-right:1px solid #ccc; font-size:11px; }
-    .party:last-child { border-right:none; }
-    .party-label { font-size:9px; font-weight:900; text-transform:uppercase; letter-spacing:1px; color:#666; margin-bottom:3px; }
-    .party-name  { font-size:13px; font-weight:700; }
-
-    /* ── Items table ── */
-    .items-table th { background:#000; color:#fff; padding:5px 8px; text-align:left; }
-    .items-table th.r { text-align:right; }
-    .items-table th.c { text-align:center; }
-    .items-table td   { vertical-align:top; }
-
-    /* ── Totals ── */
-    .totals { display:flex; justify-content:flex-end; margin-top:8px; }
-    .totals-box { width:220px; font-size:12px; }
-    .totals-row { display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #eee; }
-    .totals-grand { display:flex; justify-content:space-between; padding:5px 0; font-size:16px; font-weight:900; border-top:2px solid #000; margin-top:4px; }
-
-    /* ── Payment ── */
-    .payment-section { margin-top:10px; border-top:1px dashed #000; padding-top:8px; }
-
-    /* ── Status stamp ── */
-    .stamp {
-      display:inline-block; border:3px solid #000;
-      padding:3px 14px; font-size:13px; font-weight:900;
-      letter-spacing:2px; text-transform:uppercase;
-      transform:rotate(-5deg); margin-top:6px;
+    .section-title {
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      margin: 4px 0 6px;
     }
-    .stamp-paid { color:#1a7a1a; border-color:#1a7a1a; }
-    .stamp-partial { color:#b45309; border-color:#b45309; }
 
-    /* ── Footer ── */
-    .footer { margin-top:12px; border-top:2px solid #000; padding-top:8px; font-size:10px; color:#555; display:flex; justify-content:space-between; }
+    .kv {
+      display: flex;
+      gap: 8px;
+      font-size: 12px;
+      margin: 2px 0;
+    }
+    .kv span:first-child { min-width: 72px; }
+    .kv span:last-child { flex: 1; }
 
-    /* ── Signature lines ── */
-    .sig-line { border-top:1px solid #000; width:160px; margin-top:30px; text-align:center; font-size:10px; padding-top:3px; }
+    table.items {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      margin-top: 4px;
+    }
+    table.items th {
+      text-align: left;
+      font-weight: 700;
+      padding: 4px 0;
+      border-bottom: 1px solid #000;
+      font-size: 11px;
+    }
+    table.items th.num,
+    table.items td.num { text-align: right; white-space: nowrap; width: 14%; }
+    table.items th:nth-child(2),
+    table.items td:nth-child(2) { width: 8%; }
+    table.items td.desc { vertical-align: top; padding: 5px 8px 5px 0; }
+    table.items td.num { vertical-align: top; padding: 5px 0; }
+    table.items .name { display: block; }
+    table.items .sub { display: block; font-size: 10px; color: #333; margin-top: 2px; }
 
-    /* ── @page for print ── */
+    .totals { margin-top: 8px; font-size: 12px; }
+    .totals .row {
+      display: flex;
+      justify-content: flex-end;
+      gap: 16px;
+      margin: 3px 0;
+    }
+    .totals .row span:first-child { min-width: 160px; text-align: right; }
+    .totals .row span:last-child { min-width: 120px; text-align: right; white-space: nowrap; }
+    .totals .discount span:last-child { color: #000; }
+
+    .grand-total {
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+      margin: 6px 0;
+      letter-spacing: 0.3px;
+    }
+
+    .signatures { margin-top: 14px; }
+    .sig-grid {
+      display: flex;
+      justify-content: space-between;
+      gap: 40px;
+      margin-top: 10px;
+    }
+    .sig-box { flex: 1; text-align: center; font-size: 11px; }
+    .sig-line {
+      border-top: 1px dashed #000;
+      margin-bottom: 6px;
+      height: 36px;
+    }
+
+    .footer { margin-top: 4px; font-size: 11px; line-height: 1.7; }
+    .footer .thanks { font-weight: 700; margin-bottom: 4px; }
+    .mono { font-family: 'Courier New', Courier, monospace; }
+    .due span:last-child { font-weight: 700; }
+    .warranty-row { margin-bottom: 8px; font-size: 11px; }
+
     @media print {
       @page {
         size: ${PAGE_W} ${PAGE_H};
-        margin: 8mm 13mm;  /* 0.5" side margins for tractor holes */
+        margin: 8mm 13mm;
       }
-      body { padding:0; width:100%; }
+      body { padding: 0; width: 100%; }
     }
   </style>
 </head>
 <body>
 
-  <!-- ═══ HEADER ══════════════════════════════════════════════════════════ -->
-  <div class="hdr">
-    <div>
-      <div class="hdr-shop">${shopName}</div>
-      ${settings.slogan ? `<div class="hdr-sub">${esc(settings.slogan)}</div>` : ''}
-      ${settings.address ? `<div class="hdr-sub">${esc(settings.address)}</div>` : ''}
-      ${settings.phone   ? `<div class="hdr-sub">Tel: ${esc(settings.phone)}</div>` : ''}
-      ${settings.email   ? `<div class="hdr-sub">${esc(settings.email)}</div>` : ''}
-    </div>
-    <div class="hdr-inv">
-      <div class="hdr-inv-label">INVOICE</div>
-      <div class="hdr-inv-num mono">${esc(sale.invoiceNumber)}</div>
-      <div class="hdr-inv-date">${dateStr} &bull; ${timeStr}</div>
-      <div style="margin-top:8px;">
-        <span class="stamp ${isPaid ? 'stamp-paid' : 'stamp-partial'}">${isPaid ? 'PAID' : 'PARTIAL'}</span>
-      </div>
-    </div>
+  <div class="center">
+    <div class="shop-name">${shopName}</div>
+    ${settings.slogan ? `<div class="shop-line">${esc(settings.slogan)}</div>` : ''}
+    ${settings.address ? `<div class="shop-line">${esc(settings.address)}</div>` : ''}
+    ${telLine ? `<div class="shop-line">${telLine}</div>` : ''}
   </div>
 
-  <!-- ═══ META STRIP ══════════════════════════════════════════════════════ -->
+  <div class="sep-eq"></div>
+
   <div class="meta">
-    <div class="meta-block"><label>Date</label><span>${dateStr}</span></div>
-    <div class="meta-block"><label>Time</label><span>${timeStr}</span></div>
-    <div class="meta-block"><label>Cashier</label><span>${esc(sale.cashierName || '—')}</span></div>
-    <div class="meta-block"><label>Payment</label><span>${esc(sale.payments?.map(p => p.method).join(' + ') || sale.paymentMethod || '—')}</span></div>
+    <div>Invoice No &nbsp;: ${esc(sale.invoiceNumber)}</div>
+    <div>Order Date : ${orderDate}</div>
+    ${sale.cashierName ? `<div>Cashier &nbsp;&nbsp;&nbsp;: ${esc(sale.cashierName)}</div>` : ''}
   </div>
 
-  <!-- ═══ BILL FROM / BILL TO ═════════════════════════════════════════════ -->
-  <div class="parties">
-    <div class="party">
-      <div class="party-label">Bill From</div>
-      <div class="party-name">${shopName}</div>
-      ${settings.address ? `<div style="font-size:10px;color:#555;">${esc(settings.address)}</div>` : ''}
-      ${settings.phone   ? `<div style="font-size:10px;color:#555;">${esc(settings.phone)}</div>` : ''}
-    </div>
-    <div class="party">
-      <div class="party-label">Bill To</div>
-      <div class="party-name">${esc(sale.customerName || 'Walk-in Customer')}</div>
-      ${sale.customerPhone   ? `<div style="font-size:10px;color:#555;">${esc(sale.customerPhone)}</div>` : ''}
-      ${sale.customerAddress ? `<div style="font-size:10px;color:#555;">${esc(sale.customerAddress)}</div>` : ''}
-    </div>
-  </div>
+  <div class="sep-dash"></div>
 
-  <!-- ═══ ITEMS TABLE ══════════════════════════════════════════════════════ -->
-  <table class="items-table" style="border:1px solid #ccc;">
+  <div class="section-title">BILL TO</div>
+  <div class="kv"><span>Company</span><span>: ${customerName}</span></div>
+  <div class="kv"><span>Phone</span><span>: ${customerPhone}</span></div>
+  <div class="kv"><span>City</span><span>: ${customerCity}</span></div>
+
+  <div class="sep-dash"></div>
+
+  <div class="section-title">ITEM DETAILS</div>
+  <table class="items">
     <thead>
       <tr>
-        <th style="width:55%;padding:6px 8px;">Description</th>
-        <th class="c" style="width:8%;padding:6px 8px;">Qty</th>
-        <th class="r" style="width:18%;padding:6px 8px;">Unit Price</th>
-        <th class="r" style="width:19%;padding:6px 8px;">Amount</th>
+        <th>Product / Description</th>
+        <th class="num">Qty</th>
+        <th class="num">Unit Price</th>
+        <th class="num">Amount</th>
       </tr>
     </thead>
     <tbody>${itemRows}</tbody>
   </table>
 
-  <!-- ═══ TOTALS ══════════════════════════════════════════════════════════ -->
+  <div class="sep-dash"></div>
+
   <div class="totals">
-    <div class="totals-box">
-      <div class="totals-row"><span>Subtotal</span><span>${f(sale.subtotal)}</span></div>
-      ${sale.discountAmount > 0 ? `<div class="totals-row" style="color:#c00;"><span>Discount</span><span>- ${f(sale.discountAmount)}</span></div>` : ''}
-      <div class="totals-grand"><span>TOTAL</span><span>${f(sale.total)}</span></div>
-      ${sale.dueAmount && sale.dueAmount > 0 ? `<div class="totals-row" style="color:#b45309;font-weight:700;"><span>Outstanding</span><span>${f(sale.dueAmount)}</span></div>` : ''}
+    <div class="row"><span>SUBTOTAL</span><span>${f(sale.subtotal)}</span></div>
+    ${sale.discountAmount > 0 ? `<div class="row discount"><span>DISCOUNT (${discPctStr}%)</span><span>-${f(sale.discountAmount)}</span></div>` : ''}
+  </div>
+
+  <div class="sep-eq"></div>
+  <div class="grand-total">GRAND TOTAL : ${f(sale.total)}</div>
+  <div class="sep-eq"></div>
+
+  ${paymentHtml}
+  ${warrantyHtml}
+
+  <div class="signatures">
+    <div class="section-title">SIGNATURES</div>
+    <div class="sig-grid">
+      <div class="sig-box">
+        <div class="sig-line"></div>
+        Customer Signature
+      </div>
+      <div class="sig-box">
+        <div class="sig-line"></div>
+        ${esc(settings.signatoryName || 'Authorized Signature')}
+      </div>
     </div>
   </div>
 
-  <!-- ═══ PAYMENT INFO ═════════════════════════════════════════════════════ -->
-  ${payRows ? `
-  <div class="payment-section">
-    <b style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;">Payment Details</b>
-    <table style="width:auto;margin-top:4px;">${payRows}</table>
-    ${sale.cashReceived && sale.cashReceived > 0 ? `
-      <div style="display:flex;justify-content:space-between;width:180px;margin-top:4px;font-size:11px;">
-        <span>Cash Received:</span><span>${f(sale.cashReceived)}</span>
-      </div>` : ''}
-    ${sale.changeAmount && sale.changeAmount > 0 ? `
-      <div style="display:flex;justify-content:space-between;width:180px;font-size:11px;font-weight:700;">
-        <span>Change:</span><span>${f(sale.changeAmount)}</span>
-      </div>` : ''}
-  </div>` : ''}
-
-  <!-- ═══ WARRANTY ════════════════════════════════════════════════════════ -->
-  ${warrantyHtml}
-
-  <!-- ═══ BANK DETAILS ════════════════════════════════════════════════════ -->
-  ${(settings.bankName || settings.accNumber) ? `
-  <div style="margin-top:12px;font-size:10px;color:#555;border-top:1px dashed #000;padding-top:8px;">
-    ${settings.bankName  ? `<div>Bank: ${esc(settings.bankName)}</div>` : ''}
-    ${settings.accNumber ? `<div>A/C: ${esc(settings.accNumber)}</div>` : ''}
-    ${settings.accHolder ? `<div>Name: ${esc(settings.accHolder)}</div>` : ''}
-  </div>` : ''}
-
-  <!-- ═══ SIGNATURE LINES ══════════════════════════════════════════════════ -->
-  <div style="display:flex;justify-content:space-between;margin-top:20px;">
-    <div class="sig-line">Customer Signature</div>
-    <div class="sig-line">${esc(settings.signatoryName || 'Authorized Signatory')}</div>
-  </div>
-
-  <!-- ═══ FOOTER ══════════════════════════════════════════════════════════ -->
-  <div class="footer">
-    <span>${esc(settings.footerNote || 'Thank you for your business!')}</span>
-    <span>${settings.website ? esc(settings.website) : ''}</span>
+  <div class="sep-eq"></div>
+  <div class="footer center">
+    <div class="thanks">${footerNote}</div>
+    <div>${softwareLine}</div>
+    <div>${contactLine}</div>
+    ${settings.website ? `<div>${esc(settings.website)}</div>` : ''}
   </div>
 
 </body>
 </html>`
 
-  const win = window.open('', '_blank', `width=960,height=740`)
+  const win = window.open('', '_blank', 'width=960,height=740')
   if (!win) {
     alert('Please allow pop-ups to print the stock form invoice.')
     return

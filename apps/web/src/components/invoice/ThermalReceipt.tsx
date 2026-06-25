@@ -2,7 +2,7 @@
 
 import React, { forwardRef } from 'react'
 import type { InvoiceSettings, ShopContext } from '@/lib/invoiceSettings'
-import { mergeReceiptSettings } from '@/lib/invoiceSettings'
+import { mergeReceiptSettings, HEXALYTE_SOFTWARE_FOOTER } from '@/lib/invoiceSettings'
 import { formatWarrantyMonths } from '@/components/pos/cart-rules'
 
 export interface ThermalWarrantyLine {
@@ -209,7 +209,7 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
             {show.imei && item.imei && <div style={{ fontSize: fs.small, color: '#333' }}>IMEI: {item.imei}</div>}
             {show.warranty && (item.warrantyMonths ?? 0) > 0 && (
               <div style={{ fontSize: fs.small, color: '#333' }}>
-                Warranty: {formatWarrantyMonths(item.warrantyMonths!)}
+                Warranty Period: {formatWarrantyMonths(item.warrantyMonths!)}
               </div>
             )}
             <div style={{ ...rowStyle, marginTop: 2 }}>
@@ -255,6 +255,10 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
                   <span style={{ fontWeight: 'bold', wordBreak: 'break-all' }}>{w.warrantyCode}</span>
                 </div>
                 <div style={rowStyle}>
+                  <span>Period:</span>
+                  <span>{(w.monthsDuration ?? 0) > 0 ? formatWarrantyMonths(w.monthsDuration!) : '—'}</span>
+                </div>
+                <div style={rowStyle}>
                   <span>Expires:</span>
                   <span>{fmtWarrantyDate(w.endDate, sale.createdAt, w.monthsDuration)}</span>
                 </div>
@@ -279,6 +283,7 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
         {show.website && settings.website && (
           <div style={{ textAlign: 'center', fontSize: fs.small, wordBreak: 'break-all' }}>{settings.website}</div>
         )}
+        <div style={{ textAlign: 'center', fontSize: fs.small, color: '#666', marginTop: 4 }}>{HEXALYTE_SOFTWARE_FOOTER}</div>
       </div>
     )
   }
@@ -326,7 +331,7 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
       <div class="item-name">${esc(item.productName)}</div>
       ${show.sku && item.sku ? `<div class="item-meta">SKU: ${esc(item.sku)}</div>` : ''}
       ${show.imei && item.imei ? `<div class="item-meta">IMEI: ${esc(item.imei)}</div>` : ''}
-      ${show.warranty && (item.warrantyMonths ?? 0) > 0 ? `<div class="item-meta">Warranty: ${esc(formatWarrantyMonths(item.warrantyMonths!))}</div>` : ''}
+      ${show.warranty && (item.warrantyMonths ?? 0) > 0 ? `<div class="item-meta">Warranty Period: ${esc(formatWarrantyMonths(item.warrantyMonths!))}</div>` : ''}
       <div class="row item-line">
         <span class="item-meta">${item.quantity} x ${f(item.unitPrice)}</span>
         <span class="bold nowrap">${f(item.total)}</span>
@@ -343,6 +348,7 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
       ${w.productName ? `<div class="item-name">${esc(w.productName)}</div>` : ''}
       ${w.imei ? `<div class="item-meta">IMEI: ${esc(w.imei)}</div>` : ''}
       <div class="row"><span>Warranty:</span><span class="bold wrap">${esc(w.warrantyCode)}</span></div>
+      ${(w.monthsDuration ?? 0) > 0 ? `<div class="row"><span>Period:</span><span class="nowrap">${esc(formatWarrantyMonths(w.monthsDuration!))}</span></div>` : ''}
       <div class="row"><span>Expires:</span><span class="nowrap">${esc(fmtWarrantyDate(w.endDate, sale.createdAt, w.monthsDuration))}</span></div>
     </div>
   `).join('')}
@@ -437,6 +443,7 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
   <div class="dash"></div>
   <div class="center">${esc(settings.footerNote || 'Thank you for your business!')}</div>
   ${show.website && settings.website ? `<div class="center small email">${esc(settings.website)}</div>` : ''}
+  <div class="center small" style="margin-top:4px;color:#666;">${esc(HEXALYTE_SOFTWARE_FOOTER)}</div>
 </body>
 </html>`
 

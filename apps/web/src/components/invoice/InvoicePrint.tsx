@@ -2,6 +2,7 @@
 
 import { useRef, forwardRef } from 'react'
 import { Download, Printer, Phone, Mail, Globe, MapPin } from 'lucide-react'
+import { HEXALYTE_SOFTWARE_FOOTER } from '@/lib/invoiceSettings'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -365,6 +366,7 @@ function InvoicePrint({ data = SAMPLE_INVOICE, hideControls = false }, outerRef)
           <p className="text-[10px] text-gray-400 tracking-widest uppercase">
             Thank you for your business · {data.companyEmail} · {data.companyWebsite}
           </p>
+          <p className="text-[9px] text-gray-400 mt-2">{HEXALYTE_SOFTWARE_FOOTER}</p>
         </div>
       </div>
     </div>

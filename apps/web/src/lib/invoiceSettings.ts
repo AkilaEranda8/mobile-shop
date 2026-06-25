@@ -4,6 +4,10 @@ export type InvoiceTemplateId = 'default' | 'kasthuri'
 
 export const KASTHURI_TENANT_SLUG = 'kasthuri-mobile-solutions'
 
+export const HEXALYTE_SOFTWARE_CREDIT = 'Software by Hexalyte Innovation'
+export const HEXALYTE_SUPPORT_PHONE = '0703130100'
+export const HEXALYTE_SOFTWARE_FOOTER = `${HEXALYTE_SOFTWARE_CREDIT} · ${HEXALYTE_SUPPORT_PHONE}`
+
 export interface InvoiceSettings {
   invoiceTemplate?: InvoiceTemplateId
   shopName:       string
