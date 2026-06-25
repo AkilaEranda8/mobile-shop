@@ -1,6 +1,7 @@
 import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import { normalizeReloadSettings } from '../daily-reload/reload-settings.util'
+import { normalizeProductVariantSettings } from '../products/product-variant-settings.util'
 
 export const tenantsService = {
   async list() {
@@ -54,6 +55,22 @@ export const tenantsService = {
       select: { reloadSettings: true },
     })
     return normalizeReloadSettings(t.reloadSettings)
+  },
+
+  async getProductVariantSettings(tenantId: string) {
+    const t = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { productVariantSettings: true } })
+    if (!t) throw new AppError('Tenant not found', 404)
+    return normalizeProductVariantSettings(t.productVariantSettings)
+  },
+
+  async updateProductVariantSettings(tenantId: string, settings: Record<string, unknown>) {
+    const normalized = normalizeProductVariantSettings(settings)
+    const t = await prisma.tenant.update({
+      where: { id: tenantId },
+      data: { productVariantSettings: normalized as any },
+      select: { productVariantSettings: true },
+    })
+    return normalizeProductVariantSettings(t.productVariantSettings)
   },
 
   // Branch CRUD

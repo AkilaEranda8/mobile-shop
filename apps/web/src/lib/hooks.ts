@@ -157,6 +157,23 @@ export function useProfitFunds(branchId: string, enabled = true) {
   )
 }
 
+export function useProductVariantSettings(enabled = true) {
+  return useApi<import('./productVariantSettings').ProductVariantSettings>(
+    async () => {
+      if (!enabled) {
+        const { DEFAULT_PRODUCT_VARIANT_SETTINGS } = await import('./productVariantSettings')
+        return { data: DEFAULT_PRODUCT_VARIANT_SETTINGS }
+      }
+      const { authStorage } = await import('./auth')
+      const { fetchProductVariantSettings, DEFAULT_PRODUCT_VARIANT_SETTINGS } = await import('./productVariantSettings')
+      const tenantId = authStorage.getUser()?.tenantId
+      if (!tenantId) return { data: DEFAULT_PRODUCT_VARIANT_SETTINGS }
+      return { data: await fetchProductVariantSettings(tenantId) }
+    },
+    [enabled],
+  )
+}
+
 export function useApi<T>(
   fetcher: () => Promise<{ data: T }>,
   deps: unknown[] = [],

@@ -8,7 +8,8 @@ import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency } from '@/lib/utils'
-import { useProducts, useCategories } from '@/lib/hooks'
+import { useProducts, useCategories, useProductVariantSettings } from '@/lib/hooks'
+import { DEFAULT_PRODUCT_VARIANT_SETTINGS } from '@/lib/productVariantSettings'
 import { productsApi, uploadApi } from '@/lib/api'
 import type { Product, Category, ProductVariation } from '@/types'
 import toast from 'react-hot-toast'
@@ -429,18 +430,6 @@ function ProductImagePicker({ imageUrl, onUploaded }: { imageUrl: string; onUplo
 
 // AddProductModal is imported from @/components/inventory/AddProductModal
 
-/* ── Variant constants (for Edit modal) ─────────────────────────────── */
-const EDIT_STORAGE_OPTS = ['16GB','32GB','64GB','128GB','256GB','512GB','1TB','2TB','Basic','Standard','Pro','Max','Plus','Lite']
-const EDIT_COLOR_OPTS = [
-  { name:'Black', hex:'#1a1a1a' }, { name:'White', hex:'#e5e5e5' },
-  { name:'Silver', hex:'#c0c0c0' }, { name:'Gold', hex:'#d4af6e' },
-  { name:'Blue', hex:'#2563eb' }, { name:'Red', hex:'#dc2626' },
-  { name:'Green', hex:'#16a34a' }, { name:'Purple', hex:'#7c3aed' },
-  { name:'Pink', hex:'#db2777' }, { name:'Yellow', hex:'#ca8a04' },
-  { name:'Orange', hex:'#ea580c' }, { name:'Titanium', hex:'#8a8a8a' },
-  { name:'Midnight', hex:'#1e1b4b' }, { name:'Starlight', hex:'#f0ebe3'},
-  { name:'Graphite', hex:'#374151' },
-]
 const genEditId = () => Math.random().toString(36).slice(2, 9)
 
 interface EditVariantRow {
@@ -450,6 +439,9 @@ interface EditVariantRow {
 
 function EditProductModal({ product, onClose, onSaved }: { product: Product; onClose: () => void; onSaved: () => void }) {
   const { data: cats, refetch: refetchCats } = useCategories()
+  const { data: variantSettings } = useProductVariantSettings()
+  const storageOpts = variantSettings?.storageOptions ?? DEFAULT_PRODUCT_VARIANT_SETTINGS.storageOptions
+  const colorOpts = variantSettings?.colorOptions ?? DEFAULT_PRODUCT_VARIANT_SETTINGS.colorOptions
   const categories: Category[] = (cats ?? []) as Category[]
   const [showAddCat, setShowAddCat] = useState(false)
   const [showVariants, setShowVariants] = useState(true)
@@ -482,7 +474,13 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
     }))
   )
 
-  const addVariant = () => setVariants(p => [...p, { id: genEditId(), storage: '128GB', colorName: 'Black', colorHex: '#1a1a1a', sku: '', stock: 0, sellingPrice: '', costPrice: '' }])
+  const addVariant = () => setVariants(p => [...p, {
+    id: genEditId(),
+    storage: storageOpts.find(s => s === '128GB') ?? storageOpts[0] ?? '128GB',
+    colorName: colorOpts[0]?.name ?? 'Black',
+    colorHex: colorOpts[0]?.hex ?? '#1a1a1a',
+    sku: '', stock: 0, sellingPrice: '', costPrice: '',
+  }])
   const delVariant = (id: string) => setVariants(p => p.filter(v => v.id !== id))
   const updVariant = (id: string, k: keyof EditVariantRow, val: string) => setVariants(p => p.map(v => v.id === id ? { ...v, [k]: val } : v))
   const updColor = (id: string, name: string, hex: string) => setVariants(p => p.map(v => v.id === id ? { ...v, colorName: name, colorHex: hex } : v))
@@ -680,8 +678,8 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
                             <td style={{ padding: '6px 4px' }}>
                               <div style={{ position: 'relative' }}>
                                 <select value={v.storage} onChange={e => updVariant(v.id, 'storage', e.target.value)} style={selSt}>
-                                  {EDIT_STORAGE_OPTS.map(s => <option key={s}>{s}</option>)}
-                                  {!EDIT_STORAGE_OPTS.includes(v.storage) && <option value={v.storage}>{v.storage}</option>}
+                                  {storageOpts.map(s => <option key={s}>{s}</option>)}
+                                  {!storageOpts.includes(v.storage) && <option value={v.storage}>{v.storage}</option>}
                                 </select>
                                 <ChevronDown size={10} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
                               </div>
@@ -692,8 +690,11 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
                               <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                                 <span style={{ width: 12, height: 12, borderRadius: '50%', background: v.colorHex, border: '1px solid rgba(255,255,255,0.2)', flexShrink: 0, display: 'inline-block' }} />
                                 <div style={{ position: 'relative', flex: 1 }}>
-                                  <select value={v.colorName} onChange={e => { const found = EDIT_COLOR_OPTS.find(c => c.name === e.target.value); if (found) updColor(v.id, found.name, found.hex) }} style={selSt}>
-                                    {EDIT_COLOR_OPTS.map(c => <option key={c.name}>{c.name}</option>)}
+                                  <select value={v.colorName} onChange={e => { const found = colorOpts.find(c => c.name === e.target.value); if (found) updColor(v.id, found.name, found.hex) }} style={selSt}>
+                                    {colorOpts.map(c => <option key={c.name}>{c.name}</option>)}
+                                    {!colorOpts.some(c => c.name === v.colorName) && (
+                                      <option value={v.colorName}>{v.colorName}</option>
+                                    )}
                                   </select>
                                   <ChevronDown size={10} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
                                 </div>

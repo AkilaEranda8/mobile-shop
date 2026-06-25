@@ -3,7 +3,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { Plus, Trash2, Upload, Loader2, ChevronDown, Info, GripVertical, Box, Eye, Lock, ArrowLeft } from 'lucide-react'
 import { productsApi, suppliersApi, uploadApi } from '@/lib/api'
-import { useCategories, useBrands, useSuppliers } from '@/lib/hooks'
+import { useCategories, useBrands, useSuppliers, useProductVariantSettings } from '@/lib/hooks'
+import { DEFAULT_PRODUCT_VARIANT_SETTINGS } from '@/lib/productVariantSettings'
 import type { Category } from '@/types'
 import toast from 'react-hot-toast'
 import { ImeiProductTypeSelector } from './ImeiProductTypeSelector'
@@ -24,17 +25,6 @@ interface Supplier { id: string; name: string }
 
 const genId = () => Math.random().toString(36).slice(2, 9)
 
-const STORAGE_OPTS = ['16GB','32GB','64GB','128GB','256GB','512GB','1TB','2TB','Basic','Standard','Pro','Max','Plus','Lite']
-const COLOR_OPTS = [
-  { name:'Black',   hex:'#1a1a1a' }, { name:'White',   hex:'#e5e5e5' },
-  { name:'Silver',  hex:'#c0c0c0' }, { name:'Gold',    hex:'#d4af6e' },
-  { name:'Blue',    hex:'#2563eb' }, { name:'Red',     hex:'#dc2626' },
-  { name:'Green',   hex:'#16a34a' }, { name:'Purple',  hex:'#7c3aed' },
-  { name:'Pink',    hex:'#db2777' }, { name:'Yellow',  hex:'#ca8a04' },
-  { name:'Orange',  hex:'#ea580c' }, { name:'Titanium',hex:'#8a8a8a' },
-  { name:'Midnight',hex:'#1e1b4b' }, { name:'Starlight',hex:'#f0ebe3'},
-  { name:'Graphite',hex:'#374151' },
-]
 const UNIT_OPTS    = ['Piece (Pc)','Box','Set','Pair','Pack','Dozen','Kg','Gram','Litre','Meter']
 const BARCODE_OPTS = ['Code 128 (C128)','Code 39','EAN-13','EAN-8','UPC-A','QR Code']
 const WARRANTY_OPTS= ['None','1 Month','3 Months','6 Months','1 Year','2 Years']
@@ -293,6 +283,10 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
   const { data: catsData, refetch: refetchCats } = useCategories()
   const { data: brandsData, refetch: refetchBrands } = useBrands()
   const { data: suppliersRaw } = useSuppliers()
+  const { data: variantSettings } = useProductVariantSettings()
+
+  const storageOpts = variantSettings?.storageOptions ?? DEFAULT_PRODUCT_VARIANT_SETTINGS.storageOptions
+  const colorOpts = variantSettings?.colorOptions ?? DEFAULT_PRODUCT_VARIANT_SETTINGS.colorOptions
 
   const cats: Category[]  = (catsData ?? []) as Category[]
   const brands: Brand[]   = (brandsData ?? []) as Brand[]
@@ -398,7 +392,10 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
   }, [lowStock, minStock, warrantyTrack, extra.warranty, extra.warrantyNote, manageStock, initialQty])
 
   const addVariant = () => setVariants(p => [...p, {
-    id: genId(), storage: '128GB', colorName: 'Black', colorHex: '#1a1a1a',
+    id: genId(),
+    storage: storageOpts.find(s => s === '128GB') ?? storageOpts[0] ?? '128GB',
+    colorName: colorOpts[0]?.name ?? 'Black',
+    colorHex: colorOpts[0]?.hex ?? '#1a1a1a',
     sku: '', sellingPrice: pricing.sellingEx, costPrice: pricing.purchaseEx,
   }])
   const delVariant = (id: string) => setVariants(p => p.filter(v => v.id !== id))
@@ -672,8 +669,8 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                                 <div style={{ position: 'relative' }}>
                                   <select value={v.storage} onChange={e => updVariant(v.id, 'storage', e.target.value)}
                                     style={{ ...selectStyle, height: 32, fontSize: 12 }}>
-                                    {STORAGE_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
-                                    {!STORAGE_OPTS.includes(v.storage) && <option value={v.storage}>{v.storage}</option>}
+                                    {storageOpts.map(s => <option key={s} value={s}>{s}</option>)}
+                                    {!storageOpts.includes(v.storage) && <option value={v.storage}>{v.storage}</option>}
                                   </select>
                                   <ChevronDown size={11} style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
                                 </div>
@@ -683,10 +680,13 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                                   <ColorDot hex={v.colorHex} />
                                   <div style={{ position: 'relative', flex: 1 }}>
                                     <select value={v.colorName} onChange={e => {
-                                      const found = COLOR_OPTS.find(c => c.name === e.target.value)
+                                      const found = colorOpts.find(c => c.name === e.target.value)
                                       if (found) updColor(v.id, found.name, found.hex)
                                     }} style={{ ...selectStyle, height: 32, fontSize: 12 }}>
-                                      {COLOR_OPTS.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                                      {colorOpts.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                                      {!colorOpts.some(c => c.name === v.colorName) && (
+                                        <option value={v.colorName}>{v.colorName}</option>
+                                      )}
                                     </select>
                                     <ChevronDown size={11} style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
                                   </div>

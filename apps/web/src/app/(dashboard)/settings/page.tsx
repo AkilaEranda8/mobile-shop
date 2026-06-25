@@ -18,6 +18,12 @@ import {
   fetchReloadSettings,
   pushReloadSettings,
 } from '@/lib/reloadSettings'
+import {
+  type ProductVariantSettings,
+  DEFAULT_PRODUCT_VARIANT_SETTINGS,
+  fetchProductVariantSettings,
+  pushProductVariantSettings,
+} from '@/lib/productVariantSettings'
 import { ImageIcon, Trash2 as TrashIcon } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -1301,7 +1307,8 @@ function DevicesTab() {
   if (loading) return <div className="flex justify-center py-12"><Loader2 size={22} className="animate-spin text-violet-400" /></div>
 
   return (
-    <div className="grid sm:grid-cols-2 gap-4">
+    <div className="space-y-4">
+      <div className="grid sm:grid-cols-2 gap-4">
       {/* Left — Brands */}
       <div className="card p-5 space-y-4">
         <div className="flex items-center gap-2 border-b border-white/5 pb-3">
@@ -1395,6 +1402,177 @@ function DevicesTab() {
             </div>
           </>
         )}
+      </div>
+      </div>
+
+      <ProductVariantOptionsSection />
+    </div>
+  )
+}
+
+/* ─────────────── Product Variant Options ─────────────── */
+function ProductVariantOptionsSection() {
+  const tenantId = authStorage.getUser()?.tenantId
+  const [settings, setSettings] = useState<ProductVariantSettings>(DEFAULT_PRODUCT_VARIANT_SETTINGS)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [newStorage, setNewStorage] = useState('')
+  const [newColorName, setNewColorName] = useState('')
+  const [newColorHex, setNewColorHex] = useState('#1a1a1a')
+
+  useEffect(() => {
+    if (!tenantId) { setLoading(false); return }
+    fetchProductVariantSettings(tenantId)
+      .then(setSettings)
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [tenantId])
+
+  const save = async () => {
+    if (!tenantId) return
+    setSaving(true)
+    try {
+      const saved = await pushProductVariantSettings(tenantId, settings)
+      setSettings(saved)
+      toast.success('Variant options saved')
+    } catch {
+      toast.error('Failed to save variant options')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const addStorage = () => {
+    const v = newStorage.trim()
+    if (!v) return
+    if (settings.storageOptions.some(s => s.toLowerCase() === v.toLowerCase())) {
+      toast.error('Storage option already exists')
+      return
+    }
+    setSettings(p => ({ ...p, storageOptions: [...p.storageOptions, v] }))
+    setNewStorage('')
+  }
+
+  const removeStorage = (value: string) => {
+    setSettings(p => ({ ...p, storageOptions: p.storageOptions.filter(s => s !== value) }))
+  }
+
+  const addColor = () => {
+    const name = newColorName.trim()
+    if (!name) return
+    if (settings.colorOptions.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+      toast.error('Color already exists')
+      return
+    }
+    setSettings(p => ({ ...p, colorOptions: [...p.colorOptions, { name, hex: newColorHex }] }))
+    setNewColorName('')
+    setNewColorHex('#1a1a1a')
+  }
+
+  const removeColor = (name: string) => {
+    setSettings(p => ({ ...p, colorOptions: p.colorOptions.filter(c => c.name !== name) }))
+  }
+
+  const updateColorHex = (name: string, hex: string) => {
+    setSettings(p => ({
+      ...p,
+      colorOptions: p.colorOptions.map(c => c.name === name ? { ...c, hex } : c),
+    }))
+  }
+
+  if (loading) {
+    return (
+      <div className="card p-5 flex justify-center">
+        <Loader2 size={20} className="animate-spin text-violet-400" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="card p-5 space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/5 pb-3">
+        <div>
+          <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Product Variant Options</h3>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+            Storage (Model) and Color lists used in Create New Product → Variant Combinations.
+          </p>
+        </div>
+        <button onClick={save} disabled={saving} className="btn-primary text-xs flex items-center gap-1.5">
+          {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+          Save Options
+        </button>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-5">
+        <div className="space-y-3">
+          <h4 className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Storage (Model)</h4>
+          <div className="flex gap-2">
+            <input
+              className="input-field text-xs flex-1"
+              placeholder="e.g. 256GB, Pro Max"
+              value={newStorage}
+              onChange={e => setNewStorage(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addStorage()}
+            />
+            <button onClick={addStorage} disabled={!newStorage.trim()} className="btn-primary text-xs px-3 flex items-center gap-1 disabled:opacity-50">
+              <Plus size={11} /> Add
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {settings.storageOptions.map(s => (
+              <span key={s} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs border"
+                style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}>
+                {s}
+                <button type="button" onClick={() => removeStorage(s)} className="text-slate-500 hover:text-red-400">
+                  <X size={11} />
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <h4 className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Colors</h4>
+          <div className="flex gap-2">
+            <input
+              className="input-field text-xs flex-1"
+              placeholder="Color name"
+              value={newColorName}
+              onChange={e => setNewColorName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addColor()}
+            />
+            <input
+              type="color"
+              value={newColorHex}
+              onChange={e => setNewColorHex(e.target.value)}
+              className="w-10 h-9 rounded-lg border cursor-pointer shrink-0"
+              style={{ borderColor: 'var(--border-subtle)', background: 'transparent' }}
+              title="Pick color"
+            />
+            <button onClick={addColor} disabled={!newColorName.trim()} className="btn-primary text-xs px-3 flex items-center gap-1 disabled:opacity-50">
+              <Plus size={11} /> Add
+            </button>
+          </div>
+          <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+            {settings.colorOptions.map(c => (
+              <div key={c.name} className="flex items-center gap-2 px-3 py-2 rounded-xl border"
+                style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                <span className="w-4 h-4 rounded-full border shrink-0" style={{ background: c.hex, borderColor: 'rgba(255,255,255,0.2)' }} />
+                <span className="text-sm flex-1 truncate" style={{ color: 'var(--text-primary)' }}>{c.name}</span>
+                <input
+                  type="color"
+                  value={c.hex}
+                  onChange={e => updateColorHex(c.name, e.target.value)}
+                  className="w-8 h-7 rounded border-0 cursor-pointer bg-transparent"
+                  title="Edit swatch"
+                />
+                <button type="button" onClick={() => removeColor(c.name)} className="text-slate-500 hover:text-red-400">
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )

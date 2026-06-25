@@ -57,4 +57,10 @@ export const tenantsController = {
   async updateReloadSettings(req: Request, res: Response, next: NextFunction) {
     try { assertTenantAccess(req); sendSuccess(res, await tenantsService.updateReloadSettings(req.params.id, req.body)) } catch (e) { next(e) }
   },
+  async getProductVariantSettings(req: Request, res: Response, next: NextFunction) {
+    try { assertTenantAccess(req); sendSuccess(res, await tenantsService.getProductVariantSettings(req.params.id)) } catch (e) { next(e) }
+  },
+  async updateProductVariantSettings(req: Request, res: Response, next: NextFunction) {
+    try { assertTenantAccess(req); sendSuccess(res, await tenantsService.updateProductVariantSettings(req.params.id, req.body)) } catch (e) { next(e) }
+  },
 }

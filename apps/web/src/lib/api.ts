@@ -203,6 +203,8 @@ export const tenantApi = {
   updateInvoiceSettings: (id: string, body: unknown) => api.patch(`/tenants/${id}/invoice-settings`, body),
   getReloadSettings: (id: string) => api.get(`/tenants/${id}/reload-settings`),
   updateReloadSettings: (id: string, body: unknown) => api.patch(`/tenants/${id}/reload-settings`, body),
+  getProductVariantSettings: (id: string) => api.get(`/tenants/${id}/product-variant-settings`),
+  updateProductVariantSettings: (id: string, body: unknown) => api.patch(`/tenants/${id}/product-variant-settings`, body),
   myFeatures: () => api.get<{ data: { features: Record<string, boolean>; prices: Record<string, number | null> } }>('/tenants/my-features'),
   updateMyFeatures: (features: Record<string, boolean>) =>
     api.patch<{ data: { features: Record<string, boolean>; prices: Record<string, number | null> } }>('/tenants/my-features', { features }),
