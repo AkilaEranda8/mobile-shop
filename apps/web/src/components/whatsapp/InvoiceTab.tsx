@@ -130,7 +130,7 @@ export default function InvoiceTab({ config, onConfigChange }: Props) {
               <Switch
                 checked={form[key] as boolean}
                 onChange={v => setToggle(key, v)}
-                disabled={key !== 'autoSendInvoice' && !form.autoSendInvoice}
+                disabled={key === 'validatePhones' && !form.autoSendInvoice}
                 variant="green"
               />
             </div>

@@ -21,10 +21,72 @@ import {
 import { RATE_LIMIT_CONFIG_KEYS, refreshRateLimitSettings } from '../../config/rate-limit-settings'
 import { getClientIp, logPlatformActivity } from '../../utils/activity-log'
 import { clearTenantTrialData } from '../../utils/clear-tenant-data'
+import { whatsappService } from '../whatsapp/whatsapp.service'
+import { validate } from '../../middleware/validate.middleware'
+import {
+  connectSchema,
+  updateConfigSchema,
+  sendTestMessageSchema,
+  sendInvoiceSchema,
+} from '../whatsapp/whatsapp.schema'
 
 const router = Router()
 router.use(authenticate)
 router.use(authorize('PLATFORM_ADMIN'))
+
+const BILLING_TENANT_SLUG = 'hexalyte-billing-internal'
+
+async function ensureBillingWhatsAppTenant(): Promise<string> {
+  const fromEnv = process.env.BILLING_WHATSAPP_TENANT_ID?.trim()
+  if (fromEnv) {
+    const t = await prisma.tenant.findUnique({ where: { id: fromEnv } })
+    if (t) return fromEnv
+  }
+
+  const row = await prisma.platformConfig.findUnique({ where: { key: 'billing_whatsapp_tenant_id' } })
+  if (row?.value?.trim()) {
+    const t = await prisma.tenant.findUnique({ where: { id: row.value.trim() } })
+    if (t) return row.value.trim()
+  }
+
+  let tenant = await prisma.tenant.findUnique({ where: { slug: BILLING_TENANT_SLUG } })
+  if (!tenant) {
+    tenant = await prisma.tenant.create({
+      data: {
+        name:       'Hexalyte Billing',
+        slug:       BILLING_TENANT_SLUG,
+        plan:       'ENTERPRISE',
+        status:     'ACTIVE',
+        ownerEmail: 'billing@hexalyte.internal',
+        ownerName:  'Hexalyte Platform',
+        mrr:        0,
+      },
+    })
+  }
+
+  await prisma.whatsAppConfig.upsert({
+    where:  { tenantId: tenant.id },
+    create: { tenantId: tenant.id, connectionMode: 'qr', enabled: true, status: 'disconnected' },
+    update: { enabled: true },
+  })
+
+  await prisma.platformConfig.upsert({
+    where:  { key: 'billing_whatsapp_tenant_id' },
+    create: { key: 'billing_whatsapp_tenant_id', value: tenant.id },
+    update: { value: tenant.id },
+  })
+
+  return tenant.id
+}
+
+function normalizeBillingPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '')
+  if (!digits) return ''
+  if (digits.startsWith('94') && digits.length >= 11) return `+${digits}`
+  if (digits.startsWith('0') && digits.length >= 10) return `+94${digits.slice(1)}`
+  if (digits.length >= 9) return `+94${digits}`
+  return phone.startsWith('+') ? phone : `+${digits}`
+}
 
 // ── Dashboard Stats ──────────────────────────────────────────────────────────
 router.get('/stats', async (_req: Request, res: Response, next: NextFunction) => {
@@ -243,6 +305,150 @@ router.get('/tenants/:id/sales', async (req: Request, res: Response, next: NextF
   } catch (e) { next(e) }
 })
 
+// ── Tenant WhatsApp (platform admin connects on behalf of shop) ───────────────
+async function assertTenantExists(tenantId: string) {
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { id: true, name: true } })
+  if (!tenant) throw new AppError('Tenant not found', 404)
+  return tenant
+}
+
+router.get('/tenants/:id/whatsapp/status', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await assertTenantExists(req.params.id)
+    const data = await whatsappService.getStatus(req.params.id)
+    sendSuccess(res, data)
+  } catch (e) { next(e) }
+})
+
+router.get('/tenants/:id/whatsapp/config', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await assertTenantExists(req.params.id)
+    const data = await whatsappService.getConfig(req.params.id)
+    sendSuccess(res, data)
+  } catch (e) { next(e) }
+})
+
+router.get('/tenants/:id/whatsapp/qr', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await assertTenantExists(req.params.id)
+    const data = await whatsappService.getQrSession(req.params.id)
+    sendSuccess(res, data)
+  } catch (e) { next(e) }
+})
+
+router.post('/tenants/:id/whatsapp/qr/start', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await assertTenantExists(req.params.id)
+    const data = await whatsappService.startQrConnect(req.params.id)
+    sendSuccess(res, data, 'QR session started')
+  } catch (e) { next(e) }
+})
+
+router.post('/tenants/:id/whatsapp/qr/refresh', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await assertTenantExists(req.params.id)
+    const data = await whatsappService.refreshQrConnect(req.params.id)
+    sendSuccess(res, data, 'QR refreshed')
+  } catch (e) { next(e) }
+})
+
+router.post('/tenants/:id/whatsapp/connect', validate(connectSchema), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await assertTenantExists(req.params.id)
+    const data = await whatsappService.connect(req.params.id, req.body)
+    sendSuccess(res, data, 'WhatsApp connected')
+  } catch (e) { next(e) }
+})
+
+router.post('/tenants/:id/whatsapp/disconnect', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await assertTenantExists(req.params.id)
+    const data = await whatsappService.disconnect(req.params.id)
+    sendSuccess(res, data, 'WhatsApp disconnected')
+  } catch (e) { next(e) }
+})
+
+router.put('/tenants/:id/whatsapp/config', validate(updateConfigSchema), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await assertTenantExists(req.params.id)
+    const data = await whatsappService.updateConfig(req.params.id, req.body)
+    sendSuccess(res, data, 'Config updated')
+  } catch (e) { next(e) }
+})
+
+router.post('/tenants/:id/whatsapp/test', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await assertTenantExists(req.params.id)
+    const data = await whatsappService.testConnection(req.params.id)
+    sendSuccess(res, data)
+  } catch (e) { next(e) }
+})
+
+router.post('/tenants/:id/whatsapp/test-message', validate(sendTestMessageSchema), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await assertTenantExists(req.params.id)
+    const data = await whatsappService.sendTestMessage(req.params.id, req.body.phone)
+    sendSuccess(res, data)
+  } catch (e) { next(e) }
+})
+
+// ── Platform billing WhatsApp (Hexalyte's number — shops do NOT need WhatsApp) ─
+function billingWhatsappRoutes(
+  method: 'get' | 'post' | 'put',
+  path: string,
+  handler: (tenantId: string, req: Request, res: Response) => Promise<void>,
+) {
+  const run = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const tenantId = await ensureBillingWhatsAppTenant()
+      await handler(tenantId, req, res)
+    } catch (e) { next(e) }
+  }
+  if (method === 'get') router.get(path, run)
+  else if (method === 'post') router.post(path, run)
+  else router.put(path, run)
+}
+
+billingWhatsappRoutes('get', '/billing/whatsapp/status', async (tenantId, _req, res) => {
+  sendSuccess(res, await whatsappService.getStatus(tenantId))
+})
+billingWhatsappRoutes('get', '/billing/whatsapp/config', async (tenantId, _req, res) => {
+  sendSuccess(res, await whatsappService.getConfig(tenantId))
+})
+billingWhatsappRoutes('get', '/billing/whatsapp/qr', async (tenantId, _req, res) => {
+  sendSuccess(res, await whatsappService.getQrSession(tenantId))
+})
+billingWhatsappRoutes('post', '/billing/whatsapp/qr/start', async (tenantId, _req, res) => {
+  sendSuccess(res, await whatsappService.startQrConnect(tenantId), 'QR session started')
+})
+billingWhatsappRoutes('post', '/billing/whatsapp/qr/refresh', async (tenantId, _req, res) => {
+  sendSuccess(res, await whatsappService.refreshQrConnect(tenantId), 'QR refreshed')
+})
+router.post('/billing/whatsapp/connect', validate(connectSchema), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenantId = await ensureBillingWhatsAppTenant()
+    sendSuccess(res, await whatsappService.connect(tenantId, req.body), 'WhatsApp connected')
+  } catch (e) { next(e) }
+})
+billingWhatsappRoutes('post', '/billing/whatsapp/disconnect', async (tenantId, _req, res) => {
+  sendSuccess(res, await whatsappService.disconnect(tenantId), 'WhatsApp disconnected')
+})
+router.put('/billing/whatsapp/config', validate(updateConfigSchema), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenantId = await ensureBillingWhatsAppTenant()
+    sendSuccess(res, await whatsappService.updateConfig(tenantId, req.body), 'Config updated')
+  } catch (e) { next(e) }
+})
+billingWhatsappRoutes('post', '/billing/whatsapp/test', async (tenantId, _req, res) => {
+  sendSuccess(res, await whatsappService.testConnection(tenantId))
+})
+router.post('/billing/whatsapp/test-message', validate(sendTestMessageSchema), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenantId = await ensureBillingWhatsAppTenant()
+    sendSuccess(res, await whatsappService.sendTestMessage(tenantId, req.body.phone))
+  } catch (e) { next(e) }
+})
+
 // ── Subscriptions ─────────────────────────────────────────────────────────────
 router.get('/subscriptions', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -260,11 +466,63 @@ router.get('/subscriptions', async (req: Request, res: Response, next: NextFunct
         id: true, name: true, plan: true, status: true,
         mrr: true, subscriptionEndsAt: true, trialEndsAt: true,
         ownerEmail: true, ownerName: true,
+        branches: {
+          select: { phone: true, isHeadquarters: true },
+          orderBy: { isHeadquarters: 'desc' },
+          take: 1,
+        },
       },
       orderBy: { mrr: 'desc' },
     })
-    const mrrTotal = tenants.reduce((s: number, t: { mrr: number | null }) => s + (t.mrr ?? 0), 0)
-    sendSuccess(res, { data: tenants, mrrTotal })
+    const data = tenants.map(t => ({
+      id: t.id,
+      name: t.name,
+      plan: t.plan,
+      status: t.status,
+      mrr: t.mrr,
+      subscriptionEndsAt: t.subscriptionEndsAt,
+      trialEndsAt: t.trialEndsAt,
+      ownerEmail: t.ownerEmail,
+      ownerName: t.ownerName,
+      ownerPhone: t.branches[0]?.phone ?? null,
+    }))
+    const mrrTotal = data.reduce((s: number, t: { mrr: number | null }) => s + (t.mrr ?? 0), 0)
+    sendSuccess(res, { data, mrrTotal })
+  } catch (e) { next(e) }
+})
+
+router.post('/subscriptions/:tenantId/send-invoice', validate(sendInvoiceSchema), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const billingTenantId = await ensureBillingWhatsAppTenant()
+    const billingStatus = await whatsappService.getStatus(billingTenantId)
+    if (billingStatus.status !== 'connected') {
+      throw new AppError(
+        'Hexalyte billing WhatsApp is not connected. Go to Admin → Settings → WhatsApp and scan the QR code (shop tenants do not need WhatsApp).',
+        400,
+      )
+    }
+
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: req.params.tenantId },
+      include: {
+        branches: { select: { phone: true, isHeadquarters: true }, orderBy: { isHeadquarters: 'desc' }, take: 1 },
+      },
+    })
+    if (!tenant) throw new AppError('Tenant not found', 404)
+
+    const rawPhone = req.body.phone || tenant.branches[0]?.phone
+    if (!rawPhone) throw new AppError('Owner phone number is required. Enter a phone number or add one on the tenant branch.', 400)
+
+    const phone = normalizeBillingPhone(rawPhone)
+    if (!/^\+[1-9]\d{6,14}$/.test(phone)) throw new AppError('Invalid phone number format', 400)
+
+    const data = await whatsappService.sendInvoice(billingTenantId, {
+      ...req.body,
+      phone,
+      customerName: req.body.customerName ?? tenant.ownerName,
+      attachPdf:    true,
+    })
+    sendSuccess(res, data, 'Subscription invoice sent via WhatsApp')
   } catch (e) { next(e) }
 })
 
@@ -992,6 +1250,7 @@ const CONFIG_DEFAULTS: Record<string, string> = {
   'security.enforce2FA':        'true',
   'maintenance.enabled':        'false',
   'maintenance.message':        'Hexalyte is currently in maintenance mode. New logins are disabled and some features may be unavailable.',
+  'billing_whatsapp_tenant_id': '',
 }
 
 router.get('/settings/config', async (_req: Request, res: Response, next: NextFunction) => {

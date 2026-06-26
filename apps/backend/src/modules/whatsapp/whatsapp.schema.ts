@@ -30,6 +30,9 @@ export const sendInvoiceSchema = z.object({
   customerName: z.string().optional(),
   amount:       z.number().optional(),
   message:      z.string().min(1).max(4096).optional(),
+  /** Raw base64 or data-URL of invoice PDF */
+  pdfBase64:    z.string().max(22_000_000).optional(),
+  pdfFilename:  z.string().max(200).optional(),
 })
 
 export const sendMessageSchema = z.object({

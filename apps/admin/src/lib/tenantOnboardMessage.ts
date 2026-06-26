@@ -19,30 +19,41 @@ export function buildTenantOnboardShareMessage(input: TenantOnboardShareInput): 
   const loginUrl = tenantLoginUrl()
 
   const lines = [
-    `Hello ${input.ownerName}!`,
+    `*Welcome to Hexalyte*`,
     '',
-    `Your Hexalyte account for *${input.shopName}* is ready.`,
-    `ඔබගේ *${input.shopName}* shop එකට Hexalyte account එක සූදානම්.`,
+    `Hi *${input.ownerName}*,`,
     '',
-    `Plan: ${planLabel}`,
+    `Your shop account has been created and is ready to use.`,
     '',
-    'Login Details / Login තොරතුරු:',
-    `• Login URL: ${loginUrl}`,
-    `• Email: ${input.email}`,
-    `• Password: ${input.password}`,
+    `🏪 *Shop:* ${input.shopName}`,
+    `📦 *Plan:* ${planLabel}`,
+    '',
+    `─────────────────`,
+    `*LOGIN CREDENTIALS*`,
+    `─────────────────`,
+    '',
+    `🔗 *Login URL*`,
+    loginUrl,
+    '',
+    `📧 *Email*`,
+    input.email,
+    '',
+    `🔑 *Password*`,
+    input.password,
   ]
 
   if (input.subdomain) {
-    lines.push(`• Shop URL: ${input.subdomain}`)
+    lines.push('', `🌐 *Shop URL*`, input.subdomain)
   }
 
   lines.push(
     '',
-    'Please sign in and change your password after the first login.',
-    'කරුණාකර login වී පළමු වරට password එක change කරන්න.',
+    `─────────────────`,
     '',
-    'Thank you for choosing Hexalyte!',
-    '— Hexalyte Team',
+    `_Please sign in and change your password after your first login._`,
+    '',
+    `Thank you for choosing Hexalyte!`,
+    `— *Hexalyte Team*`,
   )
 
   return lines.join('\n')

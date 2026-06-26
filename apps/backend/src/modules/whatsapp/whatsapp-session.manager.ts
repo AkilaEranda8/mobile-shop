@@ -276,6 +276,26 @@ export async function sendQrText(tenantId: string, phone: string, text: string) 
   await rt.socket.sendMessage(jid, { text })
 }
 
+export async function sendQrDocument(
+  tenantId: string,
+  phone: string,
+  buffer: Buffer,
+  filename: string,
+  caption?: string,
+) {
+  const rt = getRuntime(tenantId)
+  if (!rt.socket || rt.status !== 'connected') {
+    throw new Error('WhatsApp QR session is not connected. Scan the QR code first.')
+  }
+  const jid = toJid(phone)
+  await rt.socket.sendMessage(jid, {
+    document: buffer,
+    mimetype: 'application/pdf',
+    fileName: filename,
+    caption:  caption || undefined,
+  })
+}
+
 export async function disconnectQrSession(tenantId: string) {
   const rt = getRuntime(tenantId)
   try {

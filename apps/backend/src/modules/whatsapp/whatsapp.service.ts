@@ -6,6 +6,7 @@ import {
   getQrState,
   disconnectQrSession,
   sendQrText,
+  sendQrDocument,
   isQrConnected,
   restoreQrSessions,
   type QrSessionState,
@@ -47,6 +48,38 @@ function formatTemplate(template: string, vars: Record<string, string>): string 
     (t, [k, v]) => t.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v),
     template,
   )
+}
+
+function decodePdfBase64(input: string): Buffer {
+  const raw = input.includes(',') ? input.split(',')[1]! : input
+  return Buffer.from(raw, 'base64')
+}
+
+function sanitizePdfFilename(name: string, fallback: string): string {
+  const base = (name || fallback).replace(/[^\w.\-() ]+/g, '_').trim() || fallback
+  return base.toLowerCase().endsWith('.pdf') ? base : `${base}.pdf`
+}
+
+async function metaUploadDocument(
+  phoneNumberId: string,
+  token: string,
+  buffer: Buffer,
+  filename: string,
+): Promise<string> {
+  const form = new FormData()
+  form.append('messaging_product', 'whatsapp')
+  form.append('type', 'application/pdf')
+  form.append('file', new Blob([new Uint8Array(buffer)], { type: 'application/pdf' }), filename)
+
+  const res = await fetch(`${META_API}/${phoneNumberId}/media`, {
+    method:  'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body:    form,
+  })
+  const json = await res.json() as Record<string, any>
+  if (!res.ok) throw new Error(json?.error?.message ?? 'Failed to upload PDF to WhatsApp')
+  if (!json.id) throw new Error('Media upload did not return an ID')
+  return String(json.id)
 }
 
 // ── Service ───────────────────────────────────────────────────────────────────
@@ -404,8 +437,34 @@ export const whatsappService = {
       shop_name:     'Hexalyte',
     })
 
+    const sendPdf = cfg.sendPdfInvoice && !!input.pdfBase64
+    const pdfFilename = sendPdf
+      ? sanitizePdfFilename(input.pdfFilename ?? '', `Invoice-${input.orderId}.pdf`)
+      : ''
+
     let result: any
-    if (cfg.connectionMode === 'qr') {
+    if (sendPdf) {
+      const pdfBuffer = decodePdfBase64(input.pdfBase64!)
+      if (pdfBuffer.length < 100) throw new Error('Invalid PDF data')
+      if (pdfBuffer.length > 16 * 1024 * 1024) throw new Error('PDF is too large (max 16 MB)')
+
+      if (cfg.connectionMode === 'qr') {
+        await sendQrDocument(tenantId, input.phone, pdfBuffer, pdfFilename, messageBody)
+      } else {
+        const mediaId = await metaUploadDocument(cfg.phoneNumberId, cfg.accessToken, pdfBuffer, pdfFilename)
+        const normalizedPhone = input.phone.startsWith('+') ? input.phone.slice(1) : input.phone
+        result = await metaPost(`/${cfg.phoneNumberId}/messages`, cfg.accessToken, {
+          messaging_product: 'whatsapp',
+          to:                normalizedPhone,
+          type:              'document',
+          document:          {
+            id:       mediaId,
+            caption:  messageBody,
+            filename: pdfFilename,
+          },
+        })
+      }
+    } else if (cfg.connectionMode === 'qr') {
       await sendQrText(tenantId, input.phone, messageBody)
     } else {
       const normalizedPhone = input.phone.startsWith('+') ? input.phone.slice(1) : input.phone
@@ -417,7 +476,7 @@ export const whatsappService = {
       })
     }
 
-    const preview = `Invoice #${input.orderId}${input.amount ? ` · LKR ${input.amount.toLocaleString()}` : ''}`
+    const preview = `Invoice #${input.orderId}${input.amount ? ` · LKR ${input.amount.toLocaleString()}` : ''}${sendPdf ? ' (PDF)' : ''}`
 
     const msg = await prisma.whatsAppMessage.create({
       data: {

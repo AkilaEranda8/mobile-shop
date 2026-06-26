@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -12,9 +12,11 @@ import {
   fetchTenant, fetchTenantSales, fetchActivityLogs,
   updateTenantStatus, updateTenant, deleteTenant, clearTenantTrialData,
   fetchTenantFeatures, updateTenantFeatures,
+  whatsappApiForTenant,
   type TenantRow, type TenantSale,
 } from '@/lib/api'
 import { Switch } from '@/components/ui/Switch'
+import TenantWhatsAppPanel from '@/components/tenants/TenantWhatsAppPanel'
 
 const STATUS_BADGE: Record<string, string> = {
   ACTIVE: 'badge-green', TRIAL: 'badge-blue', SUSPENDED: 'badge-yellow', CANCELLED: 'badge-gray',
@@ -29,7 +31,7 @@ function fmtDateTime(s: string) {
   return new Date(s).toLocaleString('en-LK', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
-const TABS = ['Overview', 'Features', 'Users', 'Sales', 'Audit Log', 'Danger Zone']
+const TABS = ['Overview', 'Features', 'WhatsApp', 'Users', 'Sales', 'Audit Log', 'Danger Zone']
 
 const FEATURE_DEFS = [
   { key: 'POS',          label: 'Point of Sale',     desc: 'POS billing & invoicing',             optIn: false, priced: true, defaultPrice: 0 },
@@ -79,6 +81,11 @@ export default function TenantDetailPage() {
   const [priceModalErr, setPriceModalErr] = useState('')
   const [deleteInput, setDeleteInput] = useState('')
   const [editPlan, setEditPlan]       = useState<{ plan: string; mrr: string; clearTrialData: boolean } | null>(null)
+
+  const shopWhatsappApi = useMemo(
+    () => (tenant ? whatsappApiForTenant(tenant.id) : null),
+    [tenant?.id],
+  )
 
   const loadTenant = useCallback(() => {
     setLoading(true)
@@ -538,6 +545,16 @@ export default function TenantDetailPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* ── WhatsApp ── */}
+      {tab === 'WhatsApp' && tenant && shopWhatsappApi && (
+        <TenantWhatsAppPanel
+          api={shopWhatsappApi}
+          tenantId={tenant.id}
+          shopName={tenant.name}
+          whatsappEnabled={!!features.WHATSAPP}
+        />
       )}
 
       {/* ── Users ── */}

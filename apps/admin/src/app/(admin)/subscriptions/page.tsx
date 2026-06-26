@@ -5,6 +5,7 @@ import {
   DollarSign, TrendingUp, Users, AlertTriangle, CreditCard,
   Send, ArrowUpDown, XCircle, CheckCircle, Clock, Search,
   RefreshCw, ChevronRight, X, Loader2, FileText, Printer, Pencil, Plus, Trash2,
+  MessageCircle,
 } from 'lucide-react'
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis,
@@ -15,7 +16,9 @@ import {
   fetchPlatformConfig, savePlatformConfig,
   type SubscriptionRow, type PlatformStats, type MrrPoint,
 } from '@/lib/api'
-import { LOGO_BASE64 } from '@/lib/logo-base64'
+import { buildSubscriptionInvoice } from '@/lib/subscription-invoice'
+import SubscriptionInvoicePrint from '@/components/subscriptions/SubscriptionInvoicePrint'
+import SendSubscriptionInvoiceModal from '@/components/subscriptions/SendSubscriptionInvoiceModal'
 
 /* ── helpers ─────────────────────────────────────────────────── */
 const PLAN_BADGE: Record<string, string> = {
@@ -133,22 +136,7 @@ function ChangePlanModal({ sub, onClose, onSaved, planMrr, planFeatures }: {
 
 /* ── Invoice Modal ───────────────────────────────────────────── */
 function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => void }) {
-  const invoiceNo = `HX-${new Date().getFullYear()}-${String(sub.id).slice(-5).toUpperCase()}`
-  const now       = new Date()
-  const issueDate = now.toLocaleDateString('en-LK', { day: 'numeric', month: 'long', year: 'numeric' })
-  const endDate   = sub.subscriptionEndsAt ? new Date(sub.subscriptionEndsAt) : null
-  const dueDate   = endDate
-    ? endDate.toLocaleDateString('en-LK', { day: 'numeric', month: 'long', year: 'numeric' })
-    : '—'
-
-  // Calculate months covered by this subscription period
-  const months = endDate
-    ? Math.max(1, Math.round((endDate.getTime() - now.getTime()) / (30.44 * 24 * 60 * 60 * 1000)))
-    : 1
-  const mrr       = sub.mrr ?? 0
-  const total     = mrr * months
-  const planLabel = sub.plan.charAt(0) + sub.plan.slice(1).toLowerCase()
-  const periodLabel = months === 12 ? '1 Year' : months === 1 ? '1 Month' : `${months} Months`
+  const inv = buildSubscriptionInvoice(sub)
 
   const handlePrint = () => {
     const el = document.getElementById('hx-invoice-print')
@@ -156,7 +144,7 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
     const w = window.open('', '_blank', 'width=900,height=1100')
     if (!w) return
     // Use innerHTML so we bypass the fixed-595px wrapper
-    w.document.write(`<html><head><title>Invoice ${invoiceNo}</title>
+    w.document.write(`<html><head><title>Invoice ${inv.invoiceNo}</title>
       <style>
         @page { size: A4 portrait; margin: 0; }
         *, *::before, *::after { box-sizing: border-box; }
@@ -186,7 +174,7 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50">
           <div className="flex items-center gap-2">
             <FileText size={16} className="text-gray-600" />
-            <span className="text-sm font-bold text-gray-800">Subscription Invoice — {invoiceNo}</span>
+            <span className="text-sm font-bold text-gray-800">Subscription Invoice — {inv.invoiceNo}</span>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={handlePrint} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-gray-900 text-white hover:bg-gray-700 transition-colors font-medium">
@@ -198,108 +186,7 @@ function InvoiceModal({ sub, onClose }: { sub: SubscriptionRow; onClose: () => v
 
         {/* Printable invoice body */}
         <div className="overflow-y-auto flex-1 bg-gray-100 p-6">
-        <div id="hx-invoice-print" style={{ width: 595, margin: '0 auto', background: '#fff', boxShadow: '0 2px 16px rgba(0,0,0,0.10)', padding: '40px 48px' }}>
-          <div style={{ fontFamily: 'system-ui, sans-serif', width: '100%', background: '#fff', color: '#111' }}>
-            {/* Top: logo + invoice label */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 36 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={LOGO_BASE64} alt="Hexalyte Innovation" style={{ height: 100, objectFit: 'contain', flexShrink: 0 }} />
-                <div style={{ borderLeft: '1px solid #e5e7eb', paddingLeft: 16 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#111' }}>Hexalyte Innovation (Pvt) Ltd</div>
-                  <div style={{ fontSize: 10, color: '#6b7280', marginTop: 3 }}>www.hexalyte.com</div>
-                  <div style={{ fontSize: 10, color: '#6b7280', marginTop: 1 }}>info@hexalyte.com</div>
-                  <div style={{ fontSize: 10, color: '#6b7280', marginTop: 1 }}>+94 70 3130100</div>
-                </div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 28, fontWeight: 900, color: '#111', letterSpacing: -1 }}>INVOICE</div>
-                <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>#{invoiceNo}</div>
-              </div>
-            </div>
-
-            {/* Divider */}
-            <div style={{ height: 2, background: '#f3f4f6', marginBottom: 28 }} />
-
-            {/* Bill to + dates */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 32 }}>
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Bill To</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{sub.name}</div>
-                <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{sub.ownerEmail}</div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ marginBottom: 6 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1 }}>Issue Date</div>
-                  <div style={{ fontSize: 12, color: '#374151', fontWeight: 600 }}>{issueDate}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1 }}>Valid Until</div>
-                  <div style={{ fontSize: 12, color: '#374151', fontWeight: 600 }}>{dueDate}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Line items table */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
-              <thead>
-                <tr style={{ background: '#f9fafb' }}>
-                  <th style={{ textAlign: 'left', padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, borderBottom: '2px solid #e5e7eb' }}>Description</th>
-                  <th style={{ textAlign: 'center', padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, borderBottom: '2px solid #e5e7eb' }}>Qty</th>
-                  <th style={{ textAlign: 'right', padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, borderBottom: '2px solid #e5e7eb' }}>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td style={{ padding: '14px', borderBottom: '1px solid #f3f4f6' }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>Hexalyte {planLabel} Plan</div>
-                    <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>{periodLabel} subscription · Rs. {mrr.toLocaleString()} / month</div>
-                  </td>
-                  <td style={{ textAlign: 'center', padding: '14px', fontSize: 13, color: '#374151', borderBottom: '1px solid #f3f4f6' }}>{months}</td>
-                  <td style={{ textAlign: 'right', padding: '14px', fontSize: 13, fontWeight: 700, color: '#111', borderBottom: '1px solid #f3f4f6' }}>Rs. {total.toLocaleString()}</td>
-                </tr>
-              </tbody>
-            </table>
-
-            {/* Totals */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 32 }}>
-              <div style={{ width: 220 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 12, color: '#6b7280' }}>
-                  <span>Subtotal ({months} × Rs. {mrr.toLocaleString()})</span><span>Rs. {total.toLocaleString()}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 12, color: '#6b7280' }}>
-                  <span>Tax (0%)</span><span>Rs. 0</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', marginTop: 4, background: '#111', borderRadius: 8, fontSize: 14, fontWeight: 800, color: '#fff' }}>
-                  <span>Total ({periodLabel})</span><span>Rs. {total.toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Bank Details */}
-            <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10, padding: '16px 20px', marginBottom: 28 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Bank Transfer Details</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 20px' }}>
-                {[
-                  ['Bank',           'Commercial Bank'],
-                  ['Account Name',   'Akila Eranda Gankewela'],
-                  ['Account Number', '2000124779'],
-                  ['SWIFT Code',     'CCEYLKLX'],
-                ].map(([label, value]) => (
-                  <div key={label} style={{ display: 'flex', gap: 6 }}>
-                    <span style={{ fontSize: 10, color: '#9ca3af', minWidth: 110 }}>{label}:</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: '#111' }}>{value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 20, fontSize: 11, color: '#9ca3af', textAlign: 'center' }}>
-              Thank you for choosing Hexalyte Innovation (Pvt) Ltd · info@hexalyte.com · +94 70 3130100 · www.hexalyte.com
-            </div>
-          </div>
-        </div>
+          <SubscriptionInvoicePrint sub={sub} inv={inv} />
         </div>
       </div>
     </div>
@@ -426,6 +313,8 @@ export default function SubscriptionsPage() {
   const [changePlan, setChangePlan] = useState<SubscriptionRow | null>(null)
   const [extendSub, setExtendSub]   = useState<SubscriptionRow | null>(null)
   const [invoiceSub, setInvoiceSub] = useState<SubscriptionRow | null>(null)
+  const [sendWaSub, setSendWaSub]     = useState<SubscriptionRow | null>(null)
+  const [waSentMsg, setWaSentMsg]     = useState<string | null>(null)
   const [editingPlan, setEditingPlan] = useState<string | null>(null)
   const [planMrr, setPlanMrr]         = useState<Record<string, number>>({ ...DEFAULT_MRR })
   const [planFeatures, setPlanFeatures] = useState<Record<string, string[]>>({ ...DEFAULT_FEATURES })
@@ -487,6 +376,16 @@ export default function SubscriptionsPage() {
       {changePlan && <ChangePlanModal sub={changePlan} onClose={() => setChangePlan(null)} onSaved={load} planMrr={planMrr} planFeatures={planFeatures} />}
       {extendSub  && <ExtendModal    sub={extendSub}  onClose={() => setExtendSub(null)}  onSaved={load} />}
       {invoiceSub && <InvoiceModal   sub={invoiceSub} onClose={() => setInvoiceSub(null)} />}
+      {sendWaSub && (
+        <SendSubscriptionInvoiceModal
+          sub={sendWaSub}
+          onClose={() => setSendWaSub(null)}
+          onSent={() => {
+            setWaSentMsg(`Invoice sent to ${sendWaSub.name} via WhatsApp`)
+            setTimeout(() => setWaSentMsg(null), 4000)
+          }}
+        />
+      )}
       {editingPlan && (
         <EditPlanModal
           plan={editingPlan}
@@ -514,6 +413,12 @@ export default function SubscriptionsPage() {
           </button>
         </div>
       </div>
+
+      {waSentMsg && (
+        <div className="text-sm px-4 py-2.5 rounded-lg border bg-green-50 border-green-200 text-green-800">
+          {waSentMsg}
+        </div>
+      )}
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
@@ -720,6 +625,10 @@ export default function SubscriptionsPage() {
                             className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg text-emerald-600 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-colors font-medium">
                             <FileText size={11} /> Invoice
                           </button>
+                          <button onClick={() => setSendWaSub(s)} title="Send invoice + message via WhatsApp"
+                            className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg text-green-700 hover:bg-green-50 border border-transparent hover:border-green-200 transition-colors font-medium">
+                            <MessageCircle size={11} /> WhatsApp
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -849,9 +758,9 @@ export default function SubscriptionsPage() {
                                 className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors font-medium">
                                 <ArrowUpDown size={11} /> Plan
                               </button>
-                              <button title="Send reminder"
-                                className="p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:text-emerald-600 hover:border-emerald-200 hover:bg-emerald-50 transition-colors">
-                                <Send size={12} />
+                              <button onClick={() => setSendWaSub(s)} title="Send invoice reminder via WhatsApp"
+                                className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors font-medium">
+                                <MessageCircle size={11} /> Send Invoice
                               </button>
                             </div>
                           </td>

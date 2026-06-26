@@ -88,8 +88,8 @@ export interface TenantRow {
 }
 
 export interface SubscriptionRow {
-  id: string; name: string; ownerEmail: string; plan: string
-  status: string; mrr: number | null; subscriptionEndsAt: string | null; trialEndsAt: string | null
+  id: string; name: string; ownerEmail: string; ownerName?: string; ownerPhone?: string | null
+  plan: string; status: string; mrr: number | null; subscriptionEndsAt: string | null; trialEndsAt: string | null
 }
 
 export interface GmvMonth      { month: string; gmv: number; invoices: number }
@@ -185,6 +185,95 @@ export async function updateTenantFeatures(
   })
 }
 
+// ─── Tenant WhatsApp (platform admin) ─────────────────────────────────────────
+export type WAStatus = 'connected' | 'disconnected' | 'token_expired' | 'qr_pending' | 'connecting'
+export type WAConnectionMode = 'qr' | 'meta'
+
+export interface WAStatusInfo {
+  status: WAStatus
+  connectionMode?: WAConnectionMode
+  qr?: string
+  phoneNumber?: string
+  displayName?: string
+  lastChecked?: string
+  qualityRating?: 'GREEN' | 'YELLOW' | 'RED' | 'UNKNOWN'
+}
+
+export interface WAConfig {
+  connectionMode?: WAConnectionMode
+  accessToken: string
+  phoneNumberId: string
+  wabaId: string
+  verifyToken: string
+  enabled: boolean
+  autoSendInvoice: boolean
+  sendPdfInvoice: boolean
+  invoiceTemplate: string
+  validatePhones: boolean
+}
+
+function tenantWhatsappPath(tenantId: string, suffix: string) {
+  return `/tenants/${tenantId}/whatsapp${suffix}`
+}
+
+export interface AdminWhatsappApi {
+  getStatus:        () => Promise<WAStatusInfo>
+  getConfig:        () => Promise<WAConfig>
+  getQrSession:     () => Promise<WAStatusInfo>
+  startQrConnect:   () => Promise<WAStatusInfo>
+  refreshQrConnect: () => Promise<WAStatusInfo>
+  connect:          (body: Partial<WAConfig>) => Promise<WAStatusInfo>
+  disconnect:       () => Promise<{ success: boolean }>
+  updateConfig:     (body: Partial<WAConfig>) => Promise<WAConfig>
+  testConnection:   () => Promise<{ success: boolean; message: string }>
+  sendTestMessage:  (phone: string) => Promise<{ success: boolean; message: string }>
+}
+
+export function whatsappApiForTenant(tenantId: string): AdminWhatsappApi {
+  return {
+    getStatus:        () => req<WAStatusInfo>(ADMIN_BASE, tenantWhatsappPath(tenantId, '/status')),
+    getConfig:        () => req<WAConfig>(ADMIN_BASE, tenantWhatsappPath(tenantId, '/config')),
+    getQrSession:     () => req<WAStatusInfo>(ADMIN_BASE, tenantWhatsappPath(tenantId, '/qr')),
+    startQrConnect:   () => req<WAStatusInfo>(ADMIN_BASE, tenantWhatsappPath(tenantId, '/qr/start'), { method: 'POST', body: '{}' }),
+    refreshQrConnect: () => req<WAStatusInfo>(ADMIN_BASE, tenantWhatsappPath(tenantId, '/qr/refresh'), { method: 'POST', body: '{}' }),
+    connect:          (body) => req<WAStatusInfo>(ADMIN_BASE, tenantWhatsappPath(tenantId, '/connect'), { method: 'POST', body: JSON.stringify(body) }),
+    disconnect:       () => req<{ success: boolean }>(ADMIN_BASE, tenantWhatsappPath(tenantId, '/disconnect'), { method: 'POST', body: '{}' }),
+    updateConfig:     (body) => req<WAConfig>(ADMIN_BASE, tenantWhatsappPath(tenantId, '/config'), { method: 'PUT', body: JSON.stringify(body) }),
+    testConnection:   () => req<{ success: boolean; message: string }>(ADMIN_BASE, tenantWhatsappPath(tenantId, '/test'), { method: 'POST', body: '{}' }),
+    sendTestMessage:  (phone) => req<{ success: boolean; message: string }>(ADMIN_BASE, tenantWhatsappPath(tenantId, '/test-message'), { method: 'POST', body: JSON.stringify({ phone }) }),
+  }
+}
+
+/** @deprecated use whatsappApiForTenant */
+export const tenantWhatsappApi = {
+  getStatus:        (tenantId: string) => whatsappApiForTenant(tenantId).getStatus(),
+  getConfig:        (tenantId: string) => whatsappApiForTenant(tenantId).getConfig(),
+  getQrSession:     (tenantId: string) => whatsappApiForTenant(tenantId).getQrSession(),
+  startQrConnect:   (tenantId: string) => whatsappApiForTenant(tenantId).startQrConnect(),
+  refreshQrConnect: (tenantId: string) => whatsappApiForTenant(tenantId).refreshQrConnect(),
+  connect:          (tenantId: string, body: Partial<WAConfig>) => whatsappApiForTenant(tenantId).connect(body),
+  disconnect:       (tenantId: string) => whatsappApiForTenant(tenantId).disconnect(),
+  updateConfig:     (tenantId: string, body: Partial<WAConfig>) => whatsappApiForTenant(tenantId).updateConfig(body),
+  testConnection:   (tenantId: string) => whatsappApiForTenant(tenantId).testConnection(),
+  sendTestMessage:  (tenantId: string, phone: string) => whatsappApiForTenant(tenantId).sendTestMessage(phone),
+}
+
+const BILLING_WA = '/billing/whatsapp'
+
+/** Platform billing WhatsApp — Hexalyte's own number for subscription invoices (shops need not connect). */
+export const billingWhatsappApi: AdminWhatsappApi = {
+  getStatus:        () => req<WAStatusInfo>(ADMIN_BASE, `${BILLING_WA}/status`),
+  getConfig:        () => req<WAConfig>(ADMIN_BASE, `${BILLING_WA}/config`),
+  getQrSession:     () => req<WAStatusInfo>(ADMIN_BASE, `${BILLING_WA}/qr`),
+  startQrConnect:   () => req<WAStatusInfo>(ADMIN_BASE, `${BILLING_WA}/qr/start`, { method: 'POST', body: '{}' }),
+  refreshQrConnect: () => req<WAStatusInfo>(ADMIN_BASE, `${BILLING_WA}/qr/refresh`, { method: 'POST', body: '{}' }),
+  connect:          (body) => req<WAStatusInfo>(ADMIN_BASE, `${BILLING_WA}/connect`, { method: 'POST', body: JSON.stringify(body) }),
+  disconnect:       () => req<{ success: boolean }>(ADMIN_BASE, `${BILLING_WA}/disconnect`, { method: 'POST', body: '{}' }),
+  updateConfig:     (body) => req<WAConfig>(ADMIN_BASE, `${BILLING_WA}/config`, { method: 'PUT', body: JSON.stringify(body) }),
+  testConnection:   () => req<{ success: boolean; message: string }>(ADMIN_BASE, `${BILLING_WA}/test`, { method: 'POST', body: '{}' }),
+  sendTestMessage:  (phone) => req<{ success: boolean; message: string }>(ADMIN_BASE, `${BILLING_WA}/test-message`, { method: 'POST', body: JSON.stringify({ phone }) }),
+}
+
 export async function createTenant(data: { shopName: string; ownerName: string; email: string; phone?: string; plan: string; password?: string }) {
   return req<{ tenant: TenantRow; subdomain: string; ownerEmail: string; tempPassword?: string }>(
     ADMIN_BASE, '/tenants', { method: 'POST', body: JSON.stringify(data) },
@@ -201,6 +290,25 @@ export async function updateSubscription(id: string, data: { plan?: string; stat
   return req<SubscriptionRow>(ADMIN_BASE, `/tenants/${id}`, {
     method: 'PATCH', body: JSON.stringify(data),
   })
+}
+
+export async function sendSubscriptionInvoice(
+  tenantId: string,
+  body: {
+    phone: string
+    orderId: string
+    customerName?: string
+    amount?: number
+    message?: string
+    pdfBase64?: string
+    pdfFilename?: string
+  },
+) {
+  return req<{ success: boolean; messageId: string }>(
+    ADMIN_BASE,
+    `/subscriptions/${tenantId}/send-invoice`,
+    { method: 'POST', body: JSON.stringify(body) },
+  )
 }
 
 // ─── Users (cross-tenant) ────────────────────────────────────────────────────

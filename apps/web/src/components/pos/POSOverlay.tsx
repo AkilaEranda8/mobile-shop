@@ -41,6 +41,7 @@ import KasthuriInvoicePrint, { buildKasthuriInvoiceData } from '@/components/inv
 import { printThermalReceipt } from '@/components/invoice/ThermalReceipt'
 import { printStockFormInvoice } from '@/components/invoice/StockFormInvoice'
 import { whatsappApi, formatWhatsAppPhone } from '@/lib/whatsapp-api'
+import { captureElementAsPdfBase64 } from '@/lib/invoice-pdf'
 import { Switch } from '@/components/ui/Switch'
 
 function receiptCustomerCity(customer?: { city?: string; address?: string } | null): string {
@@ -759,6 +760,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
   const [activeNavId, setActiveNavId]             = useState('products')
   const [waSending, setWaSending]                 = useState(false)
+  const [waSendPdf, setWaSendPdf]                 = useState(false)
   const [cartView, setCartView]                       = useState<'items' | 'checkout'>('items')
   const [manualTotalMode, setManualTotalMode]     = useState(false)
   const [manualTotal, setManualTotal]             = useState('')
@@ -772,6 +774,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const hasFinance = useFeatureFlag('FINANCE')
   const hasWhatsApp = useFeatureFlag('WHATSAPP')
   const hasDailyReload = useFeatureFlag('DAILY_RELOAD')
+  useEffect(() => {
+    if (!hasWhatsApp) return
+    whatsappApi.getConfig()
+      .then((r: any) => setWaSendPdf(!!(r?.data ?? r)?.sendPdfInvoice))
+      .catch(() => {})
+  }, [hasWhatsApp])
   const hasServices = useFeatureFlag('SERVICES')
   const hasDailyClosing = useFeatureFlag('DAILY_CLOSING')
   const hasWarranty = useFeatureFlag('WARRANTY')
@@ -2212,20 +2220,38 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
     setWaSending(true)
     try {
+      let pdfBase64: string | undefined
+      let pdfFilename: string | undefined
+      if (waSendPdf && a4Ref.current) {
+        await new Promise(r => setTimeout(r, 150))
+        try {
+          const pdf = await captureElementAsPdfBase64(
+            a4Ref.current,
+            `Invoice_${completedSale.invoiceNumber ?? completedSale.id}.pdf`,
+          )
+          pdfBase64 = pdf.base64
+          pdfFilename = pdf.filename
+        } catch {
+          toast.error('PDF generation failed — sending text only')
+        }
+      }
+
       await whatsappApi.sendInvoice({
         orderId:      completedSale.invoiceNumber ?? completedSale.id,
         phone,
         customerName: completedSale.customerName,
         amount:       total,
         message,
+        pdfBase64,
+        pdfFilename,
       })
-      toast.success('Invoice sent via WhatsApp')
+      toast.success(pdfBase64 ? 'Invoice PDF sent via WhatsApp' : 'Invoice sent via WhatsApp')
     } catch (e: any) {
       toast.error(e.message || 'WhatsApp send failed — connect WhatsApp in Settings first')
     } finally {
       setWaSending(false)
     }
-  }, [completedSale, selectedCustomer, saleTotal, invoiceSettings, storeName])
+  }, [completedSale, selectedCustomer, saleTotal, invoiceSettings, storeName, waSendPdf])
 
   const finishCustomerRegister = useCallback((c: any) => {
     handleCustomerCreated(c)
@@ -2689,7 +2715,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-semibold rounded-xl border transition-colors disabled:opacity-50"
                     style={{ borderColor: `${POS_THEME.green}40`, background: `${POS_THEME.green}10`, color: POS_THEME.green }}>
                     {waSending ? <Loader2 size={13} className="animate-spin" /> : <MessageCircle size={13} />}
-                    {waSending ? 'Sending…' : 'Send WhatsApp Invoice'}
+                    {waSending ? 'Sending…' : waSendPdf ? 'Send WhatsApp Invoice (PDF)' : 'Send WhatsApp Invoice'}
                   </button>
                 )}
                 <button onClick={handleNewSale} className="w-full py-3 rounded-2xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[.99]" style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: '0 4px 20px rgba(124,58,237,.4)' }}>+ New Sale (F10)</button>

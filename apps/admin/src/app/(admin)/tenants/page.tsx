@@ -14,9 +14,47 @@ import {
 } from '@/lib/api'
 import {
   buildTenantOnboardShareMessage,
-  tenantLoginUrl,
   whatsAppShareUrl,
 } from '@/lib/tenantOnboardMessage'
+
+function WhatsAppFormattedLine({ line }: { line: string }) {
+  const parts = line.split(/(\*[^*]+\*|_[^_]+_)/g)
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith('*') && part.endsWith('*')) {
+          return <strong key={i} className="font-semibold text-gray-900">{part.slice(1, -1)}</strong>
+        }
+        if (part.startsWith('_') && part.endsWith('_')) {
+          return <em key={i} className="text-gray-600 not-italic text-[12px]">{part.slice(1, -1)}</em>
+        }
+        return <span key={i}>{part}</span>
+      })}
+    </>
+  )
+}
+
+function WhatsAppMessagePreview({ message }: { message: string }) {
+  return (
+    <div className="space-y-1">
+      {message.split('\n').map((line, i) => {
+        if (!line.trim()) return <div key={i} className="h-1.5" />
+        if (line.startsWith('─')) {
+          return (
+            <div key={i} className="text-[10px] tracking-widest text-gray-300 font-medium py-0.5">
+              {line}
+            </div>
+          )
+        }
+        return (
+          <p key={i} className="text-[13px] text-gray-800 leading-[1.55] m-0">
+            <WhatsAppFormattedLine line={line} />
+          </p>
+        )
+      })}
+    </div>
+  )
+}
 
 const STATUS_BADGE: Record<string, string> = {
   ACTIVE:    'badge-green',
@@ -489,42 +527,25 @@ function OnboardModal({ onClose, onCreated }: { onClose: () => void; onCreated?:
               <p className="text-sm text-gray-500">{form.shopName} is now active on {form.plan} plan.</p>
             </div>
 
-            <div className="bg-gray-50 rounded-xl p-4 text-left space-y-3 border border-gray-100">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div>
-                  <p className="text-gray-500 mb-0.5">Login URL</p>
-                  <p className="font-mono text-blue-600 break-all">{tenantLoginUrl()}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 mb-0.5">Email</p>
-                  <p className="font-medium text-gray-900 break-all">{result?.ownerEmail || form.email}</p>
-                </div>
-                {loginPassword && (
-                  <div>
-                    <p className="text-gray-500 mb-0.5">Password</p>
-                    <p className="font-mono font-semibold text-gray-900 bg-white border border-gray-200 rounded px-2 py-1">{loginPassword}</p>
+            {shareMessage && (
+              <div className="rounded-xl border border-[#b8e6b0] overflow-hidden shadow-sm">
+                <div className="flex items-center justify-between gap-2 px-4 py-2.5 bg-[#075e54] text-white">
+                  <div className="flex items-center gap-2 text-xs font-medium">
+                    <MessageCircle size={14} />
+                    Share with owner
                   </div>
-                )}
-                {result?.subdomain && (
-                  <div>
-                    <p className="text-gray-500 mb-0.5">Shop URL</p>
-                    <p className="font-mono text-gray-700 break-all">{result.subdomain}</p>
-                  </div>
-                )}
-              </div>
+                  <span className="text-[10px] text-white/70">WhatsApp ready</span>
+                </div>
 
-              {shareMessage && (
-                <div>
-                  <p className="text-xs font-medium text-gray-700 mb-2">Share message (WhatsApp / copy)</p>
-                  <textarea
-                    readOnly
-                    value={shareMessage}
-                    rows={10}
-                    className="w-full text-xs text-gray-700 bg-white border border-gray-200 rounded-lg p-3 font-sans leading-relaxed resize-none"
-                  />
+                <div className="bg-[#e5ddd5] p-4">
+                  <div className="bg-[#dcf8c6] rounded-2xl rounded-tr-sm shadow-sm border border-[#c8e8b0] p-4 max-h-72 overflow-y-auto ml-6 relative">
+                    <div className="absolute -right-1 top-3 w-0 h-0 border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent border-l-[8px] border-l-[#dcf8c6]" />
+                    <WhatsAppMessagePreview message={shareMessage} />
+                    <p className="text-[10px] text-gray-500 text-right mt-3 mb-0">Just now ✓✓</p>
+                  </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {shareMessage && (
               <div className="flex flex-col sm:flex-row gap-2 mt-4">

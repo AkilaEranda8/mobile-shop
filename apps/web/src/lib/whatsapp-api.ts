@@ -113,6 +113,8 @@ export const whatsappApi = {
     customerName?: string
     amount?: number
     message?: string
+    pdfBase64?: string
+    pdfFilename?: string
   }) =>
     api.post<{ data: { success: boolean; messageId: string } }>(`${BASE}/send-invoice`, body),
   sendMessage:       (body: {
