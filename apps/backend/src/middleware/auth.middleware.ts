@@ -3,8 +3,10 @@ import { createPublicKey } from 'crypto'
 import jwt from 'jsonwebtoken'
 import { verifyToken, JwtPayload } from '../utils/jwt'
 import { sendError } from '../utils/response'
+import { AppError } from './error.middleware'
 import { redis } from '../config/redis'
 import { env } from '../config/env'
+import { ensureTenantAccess } from '../utils/tenant-access'
 
 declare global {
   namespace Express {
@@ -65,6 +67,18 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
       req.user = verifyToken(token)
     }
     req.tenantId = req.user.tenantId
+    if (req.user.role !== 'PLATFORM_ADMIN' && req.user.tenantId) {
+      try {
+        await ensureTenantAccess(req.user.tenantId)
+      } catch (err) {
+        if (err instanceof AppError) {
+          sendError(res, err.message, err.statusCode)
+          return
+        }
+        sendError(res, 'Account access denied', 403)
+        return
+      }
+    }
     next()
   } catch {
     sendError(res, 'Invalid or expired token', 401)

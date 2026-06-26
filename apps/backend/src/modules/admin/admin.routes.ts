@@ -182,6 +182,12 @@ router.patch('/tenants/:id/status', async (req: Request, res: Response, next: Ne
       throw new AppError('Invalid status', 400)
     }
     const tenant = await prisma.tenant.update({ where: { id: req.params.id }, data: { status } })
+    if (status === 'ACTIVE') {
+      await prisma.user.updateMany({ where: { tenantId: tenant.id }, data: { isActive: true } })
+    } else if (status === 'SUSPENDED' || status === 'CANCELLED') {
+      await prisma.user.updateMany({ where: { tenantId: tenant.id }, data: { isActive: false } })
+      await prisma.refreshToken.deleteMany({ where: { user: { tenantId: tenant.id } } })
+    }
     sendSuccess(res, tenant, `Tenant ${status.toLowerCase()}`)
   } catch (e) { next(e) }
 })
