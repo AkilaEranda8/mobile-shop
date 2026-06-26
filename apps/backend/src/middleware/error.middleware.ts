@@ -56,6 +56,12 @@ export function errorHandler(
     return
   }
 
+  const parseErr = err as Error & { type?: string; statusCode?: number }
+  if (parseErr.type === 'entity.parse.failed') {
+    res.status(400).json({ success: false, message: 'Invalid JSON body' })
+    return
+  }
+
   console.error('[Unhandled]', err)
   res.status(500).json({ success: false, message: 'Internal server error' })
 }

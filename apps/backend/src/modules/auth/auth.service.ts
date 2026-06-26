@@ -8,10 +8,12 @@ import { env } from '../../config/env'
 import { createOrGetGroup, createKcUser } from '../../utils/keycloakAdmin'
 import { sendMail } from '../../utils/mailer'
 import { getMaintenanceStatus } from '../../utils/platform-config'
+import { ensureTenantAccess } from '../../utils/tenant-access'
 
 export const authService = {
   async login(email: string, password: string, tenantSlug?: string) {
-    const where: any = { email, isActive: true }
+    const normalizedEmail = email.trim().toLowerCase()
+    const where: any = { email: normalizedEmail, isActive: true }
     if (tenantSlug) {
       const tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug } })
       if (!tenant) throw new AppError('Invalid email or password', 401)
@@ -23,6 +25,9 @@ export const authService = {
     })
     if (!user || !(await bcrypt.compare(password, user.password))) {
       throw new AppError('Invalid email or password', 401)
+    }
+    if (user.role !== 'PLATFORM_ADMIN') {
+      await ensureTenantAccess(user.tenantId)
     }
     const maintenance = await getMaintenanceStatus()
     if (maintenance.enabled && user.role !== 'PLATFORM_ADMIN') {
@@ -153,6 +158,10 @@ export const authService = {
   async refresh(refreshTokenStr: string) {
     const stored = await prisma.refreshToken.findUnique({ where: { token: refreshTokenStr }, include: { user: true } })
     if (!stored || stored.expiresAt < new Date()) throw new AppError('Invalid refresh token', 401)
+    if (!stored.user.isActive) throw new AppError('Account is inactive', 403)
+    if (stored.user.role !== 'PLATFORM_ADMIN') {
+      await ensureTenantAccess(stored.user.tenantId)
+    }
     const { iat: _iat, exp: _exp, ...payload } = verifyToken(refreshTokenStr) as any
     const accessToken = signAccessToken(payload)
     return { accessToken }

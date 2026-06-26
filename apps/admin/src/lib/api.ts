@@ -122,7 +122,9 @@ export async function adminLogin(email: string, password: string) {
   const data = await req<{ accessToken: string; user: { role: string } }>(
     API_BASE, '/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) },
   )
-  if (data.user.role !== 'PLATFORM_ADMIN') throw new Error('Not a platform admin')
+  if (data.user.role !== 'PLATFORM_ADMIN') {
+    throw new Error('This account is not a platform admin. Use your platform admin email, not a shop login.')
+  }
   adminAuth.setToken(data.accessToken)
   return data
 }
