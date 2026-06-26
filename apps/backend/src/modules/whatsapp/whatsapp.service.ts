@@ -437,10 +437,13 @@ export const whatsappService = {
       shop_name:     'Hexalyte',
     })
 
-    const sendPdf = cfg.sendPdfInvoice && !!input.pdfBase64
+    const sendPdf = !!input.pdfBase64 && (input.attachPdf === true || cfg.sendPdfInvoice)
     const pdfFilename = sendPdf
       ? sanitizePdfFilename(input.pdfFilename ?? '', `Invoice-${input.orderId}.pdf`)
       : ''
+
+    const WA_DOC_CAPTION_MAX = 1024
+    const docCaption = sendPdf && messageBody.length <= WA_DOC_CAPTION_MAX ? messageBody : undefined
 
     let result: any
     if (sendPdf) {
@@ -449,7 +452,10 @@ export const whatsappService = {
       if (pdfBuffer.length > 16 * 1024 * 1024) throw new Error('PDF is too large (max 16 MB)')
 
       if (cfg.connectionMode === 'qr') {
-        await sendQrDocument(tenantId, input.phone, pdfBuffer, pdfFilename, messageBody)
+        await sendQrDocument(tenantId, input.phone, pdfBuffer, pdfFilename, docCaption)
+        if (!docCaption) {
+          await sendQrText(tenantId, input.phone, messageBody)
+        }
       } else {
         const mediaId = await metaUploadDocument(cfg.phoneNumberId, cfg.accessToken, pdfBuffer, pdfFilename)
         const normalizedPhone = input.phone.startsWith('+') ? input.phone.slice(1) : input.phone
@@ -459,10 +465,18 @@ export const whatsappService = {
           type:              'document',
           document:          {
             id:       mediaId,
-            caption:  messageBody,
+            ...(docCaption ? { caption: docCaption } : {}),
             filename: pdfFilename,
           },
         })
+        if (!docCaption) {
+          await metaPost(`/${cfg.phoneNumberId}/messages`, cfg.accessToken, {
+            messaging_product: 'whatsapp',
+            to:                normalizedPhone,
+            type:              'text',
+            text:              { body: messageBody },
+          })
+        }
       }
     } else if (cfg.connectionMode === 'qr') {
       await sendQrText(tenantId, input.phone, messageBody)

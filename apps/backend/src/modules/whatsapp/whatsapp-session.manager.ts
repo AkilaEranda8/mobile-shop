@@ -289,7 +289,7 @@ export async function sendQrDocument(
   }
   const jid = toJid(phone)
   await rt.socket.sendMessage(jid, {
-    document: buffer,
+    document: new Uint8Array(buffer),
     mimetype: 'application/pdf',
     fileName: filename,
     caption:  caption || undefined,

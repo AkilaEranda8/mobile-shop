@@ -311,6 +311,19 @@ export async function sendSubscriptionInvoice(
   )
 }
 
+export interface SubscriptionContact {
+  id: string
+  name: string
+  ownerEmail: string
+  ownerName: string
+  ownerPhone: string | null
+  phoneSource: 'branch' | 'invoice_settings' | 'customer' | null
+}
+
+export async function fetchSubscriptionContact(tenantId: string) {
+  return req<SubscriptionContact>(ADMIN_BASE, `/subscriptions/${tenantId}/contact`)
+}
+
 // ─── Users (cross-tenant) ────────────────────────────────────────────────────
 export interface UserRow {
   id: string; name: string; email: string; role: string

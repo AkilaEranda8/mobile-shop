@@ -33,6 +33,8 @@ export const sendInvoiceSchema = z.object({
   /** Raw base64 or data-URL of invoice PDF */
   pdfBase64:    z.string().max(22_000_000).optional(),
   pdfFilename:  z.string().max(200).optional(),
+  /** Platform billing: attach PDF even when sendPdfInvoice is off */
+  attachPdf:    z.boolean().optional(),
 })
 
 export const sendMessageSchema = z.object({

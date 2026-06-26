@@ -1,12 +1,18 @@
 'use client'
 
-import { useRef, useState, useMemo } from 'react'
+import { useRef, useState, useMemo, useEffect } from 'react'
 import { X, Loader2, MessageCircle, FileText } from 'lucide-react'
 import type { SubscriptionRow } from '@/lib/api'
-import { sendSubscriptionInvoice } from '@/lib/api'
+import { sendSubscriptionInvoice, fetchSubscriptionContact } from '@/lib/api'
 import { buildSubscriptionInvoice, buildSubscriptionInvoiceMessage } from '@/lib/subscription-invoice'
 import { captureElementAsPdfBase64 } from '@/lib/invoice-pdf'
 import SubscriptionInvoicePrint from './SubscriptionInvoicePrint'
+
+const PHONE_SOURCE_LABEL: Record<string, string> = {
+  branch: 'branch phone',
+  invoice_settings: 'invoice settings',
+  customer: 'customer record',
+}
 
 export default function SendSubscriptionInvoiceModal({
   sub,
@@ -21,9 +27,33 @@ export default function SendSubscriptionInvoiceModal({
   const inv = useMemo(() => buildSubscriptionInvoice(sub), [sub])
   const defaultMessage = useMemo(() => buildSubscriptionInvoiceMessage(sub, inv), [sub, inv])
   const [phone, setPhone] = useState(sub.ownerPhone ?? '')
+  const [phoneSource, setPhoneSource] = useState<string | null>(null)
+  const [phoneLoading, setPhoneLoading] = useState(true)
   const [message, setMessage] = useState(defaultMessage)
   const [sending, setSending] = useState(false)
   const [err, setErr] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    setPhoneLoading(true)
+    fetchSubscriptionContact(sub.id)
+      .then(contact => {
+        if (cancelled) return
+        if (contact.ownerPhone) {
+          setPhone(contact.ownerPhone)
+          setPhoneSource(contact.phoneSource)
+        } else if (sub.ownerPhone) {
+          setPhone(sub.ownerPhone)
+        }
+      })
+      .catch(() => {
+        if (!cancelled && sub.ownerPhone) setPhone(sub.ownerPhone)
+      })
+      .finally(() => {
+        if (!cancelled) setPhoneLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [sub.id, sub.ownerPhone])
 
   const handleSend = async () => {
     if (!phone.trim()) { setErr('Enter owner WhatsApp number'); return }
@@ -33,8 +63,11 @@ export default function SendSubscriptionInvoiceModal({
       const el = printRef.current?.querySelector('#hx-invoice-send-capture') as HTMLElement | null
       if (!el) throw new Error('Invoice preview not ready')
 
-      await new Promise(r => setTimeout(r, 200))
+      await new Promise(r => setTimeout(r, 400))
       const pdf = await captureElementAsPdfBase64(el, `Subscription-${inv.invoiceNo}.pdf`)
+      if (!pdf.base64 || pdf.base64.length < 200) {
+        throw new Error('Could not generate invoice PDF. Try again.')
+      }
 
       await sendSubscriptionInvoice(sub.id, {
         phone: phone.trim(),
@@ -71,15 +104,27 @@ export default function SendSubscriptionInvoiceModal({
         <div className="p-5 space-y-4">
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">Owner WhatsApp Number</label>
-            <input
-              type="tel"
-              className="input w-full text-sm"
-              placeholder="0771234567 or +94771234567"
-              value={phone}
-              onChange={e => setPhone(e.target.value)}
-            />
+            <div className="relative">
+              <input
+                type="tel"
+                className="input w-full text-sm pr-24"
+                placeholder="0771234567 or +94771234567"
+                value={phone}
+                onChange={e => { setPhone(e.target.value); setPhoneSource(null) }}
+                disabled={phoneLoading}
+              />
+              {phoneLoading && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 flex items-center gap-1">
+                  <Loader2 size={12} className="animate-spin" /> Loading…
+                </span>
+              )}
+            </div>
             <p className="text-[10px] text-gray-400 mt-1">
-              Sent from Hexalyte business WhatsApp (Settings → WhatsApp). Shop does not need WhatsApp connected.
+              {phoneSource
+                ? `Loaded from ${PHONE_SOURCE_LABEL[phoneSource] ?? phoneSource} on file. You can edit before sending.`
+                : phone
+                  ? 'Number from subscription list. You can edit before sending.'
+                  : 'No phone on file — enter owner WhatsApp number.'}
             </p>
           </div>
 
@@ -102,14 +147,13 @@ export default function SendSubscriptionInvoiceModal({
 
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose} className="btn-secondary flex-1 justify-center">Cancel</button>
-            <button type="button" onClick={handleSend} disabled={sending} className="btn-primary flex-1 justify-center disabled:opacity-50">
+            <button type="button" onClick={handleSend} disabled={sending || phoneLoading} className="btn-primary flex-1 justify-center disabled:opacity-50">
               {sending ? <Loader2 size={13} className="animate-spin" /> : <MessageCircle size={13} />}
               {sending ? 'Sending…' : 'Send Invoice + PDF'}
             </button>
           </div>
         </div>
 
-        {/* Off-screen invoice for PDF capture */}
         <div ref={printRef} style={{ position: 'fixed', left: -9999, top: 0, pointerEvents: 'none' }} aria-hidden>
           <SubscriptionInvoicePrint sub={sub} inv={inv} id="hx-invoice-send-capture" />
         </div>

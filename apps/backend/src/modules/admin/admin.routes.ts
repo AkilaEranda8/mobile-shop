@@ -21,6 +21,7 @@ import {
 import { RATE_LIMIT_CONFIG_KEYS, refreshRateLimitSettings } from '../../config/rate-limit-settings'
 import { getClientIp, logPlatformActivity } from '../../utils/activity-log'
 import { clearTenantTrialData } from '../../utils/clear-tenant-data'
+import { resolveTenantOwnerPhone, resolveTenantOwnerPhoneSync } from '../../utils/tenant-owner-phone'
 import { whatsappService } from '../whatsapp/whatsapp.service'
 import { validate } from '../../middleware/validate.middleware'
 import {
@@ -66,8 +67,8 @@ async function ensureBillingWhatsAppTenant(): Promise<string> {
 
   await prisma.whatsAppConfig.upsert({
     where:  { tenantId: tenant.id },
-    create: { tenantId: tenant.id, connectionMode: 'qr', enabled: true, status: 'disconnected' },
-    update: { enabled: true },
+    create: { tenantId: tenant.id, connectionMode: 'qr', enabled: true, sendPdfInvoice: true, status: 'disconnected' },
+    update: { enabled: true, sendPdfInvoice: true },
   })
 
   await prisma.platformConfig.upsert({
@@ -121,7 +122,7 @@ router.post('/tenants', async (req: Request, res: Response, next: NextFunction) 
     if (!shopName || !ownerName || !email) throw new AppError('shopName, ownerName and email are required', 400)
     const tempPassword = password || Math.random().toString(36).slice(-10) + 'A1!'
     const result = await authService.registerTenant({
-      shopName, ownerName, ownerEmail: email, password: tempPassword, plan,
+      shopName, ownerName, ownerEmail: email, password: tempPassword, plan, phone,
     })
     sendSuccess(res, {
       tenant: result.tenant,
@@ -466,10 +467,10 @@ router.get('/subscriptions', async (req: Request, res: Response, next: NextFunct
         id: true, name: true, plan: true, status: true,
         mrr: true, subscriptionEndsAt: true, trialEndsAt: true,
         ownerEmail: true, ownerName: true,
+        invoiceSettings: true,
         branches: {
           select: { phone: true, isHeadquarters: true },
           orderBy: { isHeadquarters: 'desc' },
-          take: 1,
         },
       },
       orderBy: { mrr: 'desc' },
@@ -484,10 +485,26 @@ router.get('/subscriptions', async (req: Request, res: Response, next: NextFunct
       trialEndsAt: t.trialEndsAt,
       ownerEmail: t.ownerEmail,
       ownerName: t.ownerName,
-      ownerPhone: t.branches[0]?.phone ?? null,
+      ownerPhone: resolveTenantOwnerPhoneSync(t.branches, t.invoiceSettings),
     }))
     const mrrTotal = data.reduce((s: number, t: { mrr: number | null }) => s + (t.mrr ?? 0), 0)
     sendSuccess(res, { data, mrrTotal })
+  } catch (e) { next(e) }
+})
+
+router.get('/subscriptions/:tenantId/contact', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: req.params.tenantId },
+      select: { id: true, name: true, ownerEmail: true, ownerName: true },
+    })
+    if (!tenant) throw new AppError('Tenant not found', 404)
+    const { phone, source } = await resolveTenantOwnerPhone(tenant.id)
+    sendSuccess(res, {
+      ...tenant,
+      ownerPhone: phone,
+      phoneSource: source,
+    })
   } catch (e) { next(e) }
 })
 
@@ -504,14 +521,13 @@ router.post('/subscriptions/:tenantId/send-invoice', validate(sendInvoiceSchema)
 
     const tenant = await prisma.tenant.findUnique({
       where: { id: req.params.tenantId },
-      include: {
-        branches: { select: { phone: true, isHeadquarters: true }, orderBy: { isHeadquarters: 'desc' }, take: 1 },
-      },
+      select: { id: true, ownerName: true, ownerEmail: true },
     })
     if (!tenant) throw new AppError('Tenant not found', 404)
 
-    const rawPhone = req.body.phone || tenant.branches[0]?.phone
-    if (!rawPhone) throw new AppError('Owner phone number is required. Enter a phone number or add one on the tenant branch.', 400)
+    const resolved = await resolveTenantOwnerPhone(tenant.id)
+    const rawPhone = req.body.phone || resolved.phone
+    if (!rawPhone) throw new AppError('Owner phone number is required. Add branch phone in tenant settings or enter it here.', 400)
 
     const phone = normalizeBillingPhone(rawPhone)
     if (!/^\+[1-9]\d{6,14}$/.test(phone)) throw new AppError('Invalid phone number format', 400)
