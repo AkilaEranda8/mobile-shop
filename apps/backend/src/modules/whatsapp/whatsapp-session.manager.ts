@@ -264,10 +264,30 @@ export function getQrState(tenantId: string): QrSessionState {
 
 export function isQrConnected(tenantId: string): boolean {
   const rt = sessions.get(tenantId)
-  return rt?.status === 'connected' && !!rt.socket
+  return rt?.status === 'connected' && !!rt.socket?.user?.id
+}
+
+/** Wait until QR socket is fully authenticated (needed after server restart). */
+export async function ensureQrSessionReady(tenantId: string, timeoutMs = 30000): Promise<void> {
+  if (isQrConnected(tenantId)) return
+
+  if (!sessions.get(tenantId)?.socket) {
+    await startQrSession(tenantId).catch(() => {})
+  }
+
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    if (isQrConnected(tenantId)) return
+    await new Promise(r => setTimeout(r, 400))
+  }
+
+  throw new Error(
+    'WhatsApp QR session is not ready. Open Admin → Settings → WhatsApp and ensure it shows Connected.',
+  )
 }
 
 export async function sendQrText(tenantId: string, phone: string, text: string) {
+  await ensureQrSessionReady(tenantId)
   const rt = getRuntime(tenantId)
   if (!rt.socket || rt.status !== 'connected') {
     throw new Error('WhatsApp QR session is not connected. Scan the QR code first.')
@@ -283,16 +303,19 @@ export async function sendQrDocument(
   filename: string,
   caption?: string,
 ) {
+  await ensureQrSessionReady(tenantId)
   const rt = getRuntime(tenantId)
   if (!rt.socket || rt.status !== 'connected') {
     throw new Error('WhatsApp QR session is not connected. Scan the QR code first.')
   }
   const jid = toJid(phone)
+  const pdf = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer)
+  const safeName = (filename || 'invoice.pdf').trim() || 'invoice.pdf'
   await rt.socket.sendMessage(jid, {
-    document: new Uint8Array(buffer),
+    document: pdf,
     mimetype: 'application/pdf',
-    fileName: filename,
-    caption:  caption || undefined,
+    fileName: safeName,
+    caption: caption || undefined,
   })
 }
 

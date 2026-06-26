@@ -418,13 +418,20 @@ export const whatsappService = {
 
   async sendInvoice(tenantId: string, input: SendInvoiceInput) {
     const cfg = await prisma.whatsAppConfig.findUnique({ where: { tenantId } })
-    if (!cfg) throw new Error('WhatsApp not configured')
-    if (!cfg.enabled) throw new Error('WhatsApp integration is disabled')
+    if (!cfg) throw new AppError('WhatsApp not configured', 400)
+    if (!cfg.enabled) throw new AppError('WhatsApp integration is disabled', 400)
 
     const isConnected = cfg.connectionMode === 'qr'
-      ? isQrConnected(tenantId) || cfg.status === 'connected'
+      ? isQrConnected(tenantId)
       : cfg.status === 'connected'
-    if (!isConnected) throw new Error('WhatsApp is not connected')
+    if (!isConnected) {
+      throw new AppError(
+        cfg.connectionMode === 'qr'
+          ? 'WhatsApp is not connected. Open Admin → Settings → WhatsApp and scan the QR code.'
+          : 'WhatsApp is not connected',
+        400,
+      )
+    }
 
     const template = cfg.invoiceTemplate || `Hello {{customer_name}},\n\nThank you for your purchase! 🎉\n\nOrder: {{order_id}}\nAmount: LKR {{amount}}\n\nThank you for choosing us!`
 
@@ -448,8 +455,8 @@ export const whatsappService = {
     let result: any
     if (sendPdf) {
       const pdfBuffer = decodePdfBase64(input.pdfBase64!)
-      if (pdfBuffer.length < 100) throw new Error('Invalid PDF data')
-      if (pdfBuffer.length > 16 * 1024 * 1024) throw new Error('PDF is too large (max 16 MB)')
+      if (pdfBuffer.length < 100) throw new AppError('Invalid PDF data', 400)
+      if (pdfBuffer.length > 16 * 1024 * 1024) throw new AppError('PDF is too large (max 16 MB)', 400)
 
       if (cfg.connectionMode === 'qr') {
         await sendQrDocument(tenantId, input.phone, pdfBuffer, pdfFilename, docCaption)
