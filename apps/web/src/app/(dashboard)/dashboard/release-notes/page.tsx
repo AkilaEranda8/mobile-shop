@@ -47,6 +47,14 @@ function fmtDate(s?: string | null) {
   return new Date(s).toLocaleDateString('en-LK', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
+/** Unwrap `{ success, data }` — `data: null` must stay null (not fall back to the envelope). */
+function unwrapApiData<T>(res: unknown): T | null {
+  if (res != null && typeof res === 'object' && 'data' in res) {
+    return ((res as { data: T | null }).data ?? null) as T | null
+  }
+  return (res as T) ?? null
+}
+
 function ItemBadge({ badge }: { badge: string | null }) {
   if (!badge) return null
   return (
@@ -118,11 +126,9 @@ function ReleaseNotesContent() {
       releaseNotesApi.latest(),
     ])
       .then(([listRes, latestRes]: any[]) => {
-        const listData = listRes?.data ?? listRes ?? []
-        const list = Array.isArray(listData) ? listData : listData.data ?? []
+        const list = unwrapApiData<ReleaseNote[]>(listRes) ?? []
         setReleases(list)
-        const lat = latestRes?.data ?? latestRes
-        setLatest(lat ?? null)
+        setLatest(unwrapApiData<ReleaseNote>(latestRes))
 
         const preselect = searchParams.get('release')
         if (preselect) {
@@ -142,7 +148,8 @@ function ReleaseNotesContent() {
     setSelected(release)
     try {
       const res: any = await releaseNotesApi.getById(release.id, filter !== 'all' ? filter : undefined)
-      const detail = res?.data ?? res
+      const detail = unwrapApiData<ReleaseNote>(res)
+      if (!detail) return
       setSelected(detail)
       if (!detail.isRead) {
         await releaseNotesApi.markRead(release.id)
@@ -229,10 +236,10 @@ function ReleaseNotesContent() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { label: 'Features', value: latest.counts.newFeatures, icon: Sparkles, color: 'text-emerald-500' },
-                { label: 'Improvements', value: latest.counts.improvements, icon: Zap, color: 'text-blue-500' },
-                { label: 'Bug Fixes', value: latest.counts.bugFixes, icon: Bug, color: 'text-amber-500' },
-                { label: 'Security', value: latest.counts.securityUpdates, icon: Shield, color: 'text-red-500' },
+                { label: 'Features', value: latest.counts?.newFeatures ?? 0, icon: Sparkles, color: 'text-emerald-500' },
+                { label: 'Improvements', value: latest.counts?.improvements ?? 0, icon: Zap, color: 'text-blue-500' },
+                { label: 'Bug Fixes', value: latest.counts?.bugFixes ?? 0, icon: Bug, color: 'text-amber-500' },
+                { label: 'Security', value: latest.counts?.securityUpdates ?? 0, icon: Shield, color: 'text-red-500' },
               ].map(s => (
                 <div key={s.label} className="text-center p-3 rounded-xl" style={{ background: 'var(--bg-primary)' }}>
                   <s.icon size={16} className={`${s.color} mx-auto mb-1`} />

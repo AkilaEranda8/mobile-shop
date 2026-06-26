@@ -647,7 +647,11 @@ export const whatsappService = {
       customerName: m.customerName ?? '',
       phone:        m.to,
       amount:       m.amount ?? 0,
-      status:       m.status as 'delivered' | 'failed' | 'pending',
+      status:       (m.status === 'delivered' || m.status === 'read'
+        ? 'delivered'
+        : m.status === 'failed'
+          ? 'failed'
+          : 'pending') as 'delivered' | 'failed' | 'pending',
       sentAt:       m.createdAt.toISOString(),
     }))
   },

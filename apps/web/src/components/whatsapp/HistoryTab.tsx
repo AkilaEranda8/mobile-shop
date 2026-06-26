@@ -13,6 +13,22 @@ const STATUS_CFG = {
   delivered: { Icon: CheckCircle2, color: 'text-green-400',  bg: 'bg-green-500/10',  border: 'border-green-500/20',  label: 'Delivered' },
   failed:    { Icon: XCircle,      color: 'text-red-400',    bg: 'bg-red-500/10',    border: 'border-red-500/20',    label: 'Failed'    },
   pending:   { Icon: Clock,        color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20', label: 'Pending'   },
+} as const
+
+type DisplayStatus = keyof typeof STATUS_CFG
+
+/** Backend stores `sent` / `read`; UI buckets into delivered / failed / pending. */
+function normalizeHistoryStatus(status: string): DisplayStatus {
+  if (status === 'delivered' || status === 'read') return 'delivered'
+  if (status === 'failed') return 'failed'
+  return 'pending' // sent, pending, unknown
+}
+
+function unwrapApiData<T>(res: unknown): T | null {
+  if (res != null && typeof res === 'object' && 'data' in res) {
+    return ((res as { data: T | null }).data ?? null) as T | null
+  }
+  return (res as T) ?? null
 }
 
 type FilterStatus = 'all' | 'delivered' | 'failed' | 'pending'
@@ -28,8 +44,8 @@ export default function HistoryTab() {
   const load = async () => {
     setLoading(true)
     try {
-      const res: any = await whatsappApi.getInvoiceHistory()
-      const data = res?.data ?? res
+      const res = await whatsappApi.getInvoiceHistory()
+      const data = unwrapApiData<InvoiceHistoryItem[]>(res)
       setItems(Array.isArray(data) ? data : [])
     } catch { setItems([]) }
     finally { setLoading(false) }
@@ -38,8 +54,12 @@ export default function HistoryTab() {
   useEffect(() => { load() }, [])
 
   const filtered = items.filter(it => {
-    const matchQ = !query || it.customerName.toLowerCase().includes(query.toLowerCase()) || it.orderId.toLowerCase().includes(query.toLowerCase()) || it.phone.includes(query)
-    const matchF = filter === 'all' || it.status === filter
+    const q = query.toLowerCase()
+    const matchQ = !q
+      || (it.customerName ?? '').toLowerCase().includes(q)
+      || (it.orderId ?? '').toLowerCase().includes(q)
+      || (it.phone ?? '').includes(query)
+    const matchF = filter === 'all' || normalizeHistoryStatus(it.status) === filter
     return matchQ && matchF
   })
 
@@ -48,9 +68,9 @@ export default function HistoryTab() {
 
   const counts = {
     all:       items.length,
-    delivered: items.filter(i => i.status === 'delivered').length,
-    failed:    items.filter(i => i.status === 'failed').length,
-    pending:   items.filter(i => i.status === 'pending').length,
+    delivered: items.filter(i => normalizeHistoryStatus(i.status) === 'delivered').length,
+    failed:    items.filter(i => normalizeHistoryStatus(i.status) === 'failed').length,
+    pending:   items.filter(i => normalizeHistoryStatus(i.status) === 'pending').length,
   }
 
   const filterTabs: { key: FilterStatus; label: string }[] = [
@@ -129,7 +149,8 @@ export default function HistoryTab() {
             </thead>
             <tbody className="divide-y divide-white/5">
               {paged.map((item, i) => {
-                const sc = STATUS_CFG[item.status]
+                const displayStatus = normalizeHistoryStatus(item.status)
+                const sc = STATUS_CFG[displayStatus]
                 return (
                   <motion.tr key={item.id}
                     initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
@@ -146,7 +167,7 @@ export default function HistoryTab() {
                     </td>
                     <td className="table-cell text-right">
                       <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
-                        LKR {item.amount.toLocaleString()}
+                        LKR {(item.amount ?? 0).toLocaleString()}
                       </span>
                     </td>
                     <td className="table-cell">
@@ -158,7 +179,7 @@ export default function HistoryTab() {
                       {new Date(item.sentAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}
                     </td>
                     <td className="table-cell">
-                      {item.status === 'failed' && (
+                      {displayStatus === 'failed' && (
                         <button className="flex items-center gap-1 text-[11px] text-violet-400 hover:text-violet-300 transition-colors">
                           <Send size={10} /> Retry
                         </button>
