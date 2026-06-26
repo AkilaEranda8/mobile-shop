@@ -5,12 +5,18 @@ import {
   Search, Plus, MoreHorizontal, Eye, Edit2, Ban,
   RefreshCw, Trash2, KeyRound, ChevronLeft, ChevronRight,
   Building2, Users, TrendingUp, AlertCircle, CheckCircle,
+  Copy, CheckCheck, MessageCircle,
 } from 'lucide-react'
 import Link from 'next/link'
 import {
   fetchTenants, fetchStats, updateTenantStatus, deleteTenant, createTenant,
   type TenantRow, type PlatformStats,
 } from '@/lib/api'
+import {
+  buildTenantOnboardShareMessage,
+  tenantLoginUrl,
+  whatsAppShareUrl,
+} from '@/lib/tenantOnboardMessage'
 
 const STATUS_BADGE: Record<string, string> = {
   ACTIVE:    'badge-green',
@@ -345,14 +351,35 @@ function OnboardModal({ onClose, onCreated }: { onClose: () => void; onCreated?:
   const [showPwd, setShowPwd] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [result, setResult] = useState<{ subdomain: string; tempPassword?: string } | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [result, setResult] = useState<{ subdomain: string; ownerEmail: string; tempPassword?: string } | null>(null)
+
+  const loginPassword = result?.tempPassword ?? form.password
+  const shareMessage = result && loginPassword
+    ? buildTenantOnboardShareMessage({
+        shopName: form.shopName,
+        ownerName: form.ownerName,
+        email: result.ownerEmail || form.email,
+        password: loginPassword,
+        plan: form.plan,
+        phone: form.phone,
+        subdomain: result.subdomain,
+      })
+    : ''
+
+  async function copyShareMessage() {
+    if (!shareMessage) return
+    await navigator.clipboard.writeText(shareMessage)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   async function provision() {
     setLoading(true)
     setError('')
     try {
       const res = await createTenant({ shopName: form.shopName, ownerName: form.ownerName, email: form.email, phone: form.phone, plan: form.plan, password: form.password || undefined })
-      setResult({ subdomain: res.subdomain, tempPassword: res.tempPassword })
+      setResult({ subdomain: res.subdomain, ownerEmail: res.ownerEmail, tempPassword: res.tempPassword })
       setStep(4)
       onCreated?.()
     } catch (e: any) {
@@ -453,24 +480,69 @@ function OnboardModal({ onClose, onCreated }: { onClose: () => void; onCreated?:
         )}
 
         {step === 4 && (
-          <div className="text-center py-4">
-            <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">✅</span>
-            </div>
-            <h3 className="text-base font-semibold text-gray-900 mb-1">Tenant Onboarded!</h3>
-            <p className="text-sm text-gray-500 mb-4">{form.shopName} is now active on {form.plan} plan.</p>
-            <div className="bg-gray-50 rounded-lg p-3 text-left space-y-2">
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Shop URL:</p>
-                <p className="text-xs font-mono text-blue-600">{result?.subdomain}</p>
+          <div className="py-2">
+            <div className="text-center mb-5">
+              <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle size={28} className="text-green-600" />
               </div>
-              {result?.tempPassword && (
+              <h3 className="text-base font-semibold text-gray-900 mb-1">Tenant Onboarded!</h3>
+              <p className="text-sm text-gray-500">{form.shopName} is now active on {form.plan} plan.</p>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-4 text-left space-y-3 border border-gray-100">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div>
-                  <p className="text-xs text-gray-500 mb-1">Temp Password (share with owner):</p>
-                  <p className="text-xs font-mono text-red-600 bg-red-50 p-1 rounded">{result.tempPassword}</p>
+                  <p className="text-gray-500 mb-0.5">Login URL</p>
+                  <p className="font-mono text-blue-600 break-all">{tenantLoginUrl()}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 mb-0.5">Email</p>
+                  <p className="font-medium text-gray-900 break-all">{result?.ownerEmail || form.email}</p>
+                </div>
+                {loginPassword && (
+                  <div>
+                    <p className="text-gray-500 mb-0.5">Password</p>
+                    <p className="font-mono font-semibold text-gray-900 bg-white border border-gray-200 rounded px-2 py-1">{loginPassword}</p>
+                  </div>
+                )}
+                {result?.subdomain && (
+                  <div>
+                    <p className="text-gray-500 mb-0.5">Shop URL</p>
+                    <p className="font-mono text-gray-700 break-all">{result.subdomain}</p>
+                  </div>
+                )}
+              </div>
+
+              {shareMessage && (
+                <div>
+                  <p className="text-xs font-medium text-gray-700 mb-2">Share message (WhatsApp / copy)</p>
+                  <textarea
+                    readOnly
+                    value={shareMessage}
+                    rows={10}
+                    className="w-full text-xs text-gray-700 bg-white border border-gray-200 rounded-lg p-3 font-sans leading-relaxed resize-none"
+                  />
                 </div>
               )}
             </div>
+
+            {shareMessage && (
+              <div className="flex flex-col sm:flex-row gap-2 mt-4">
+                <button type="button" onClick={copyShareMessage}
+                  className="btn-secondary flex-1 justify-center text-sm">
+                  {copied ? <><CheckCheck size={14} className="text-green-600" /> Copied!</> : <><Copy size={14} /> Copy message</>}
+                </button>
+                <a
+                  href={whatsAppShareUrl(shareMessage, form.phone)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn-primary flex-1 justify-center text-sm"
+                  style={{ background: '#25D366', borderColor: '#25D366' }}
+                >
+                  <MessageCircle size={14} /> Share on WhatsApp
+                </a>
+              </div>
+            )}
           </div>
         )}
 

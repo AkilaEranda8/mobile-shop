@@ -74,10 +74,12 @@ services:
       args:
         NEXT_PUBLIC_API_URL: https://api.shop.hexalyte.com/api/v1
         NEXT_PUBLIC_ADMIN_API_URL: https://api.shop.hexalyte.com/admin/v1
+        NEXT_PUBLIC_WEB_URL: https://app.hexalyte.com
     container_name: hexalyte_admin
     environment:
       NEXT_PUBLIC_API_URL: https://api.shop.hexalyte.com/api/v1
       NEXT_PUBLIC_ADMIN_API_URL: https://api.shop.hexalyte.com/admin/v1
+      NEXT_PUBLIC_WEB_URL: https://app.hexalyte.com
       NEXTAUTH_SECRET: hexalyte-admin-nextauth-secret-dev
       NEXTAUTH_URL: https://admin2.hexalyte.com
     ports:
