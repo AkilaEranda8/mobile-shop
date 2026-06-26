@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   CheckCircle2, WifiOff, AlertTriangle, Loader2, RefreshCw, QrCode, Key,
-  Phone, Hash, Shield, Eye, EyeOff, Send,
+  Phone, Hash, Shield, Eye, EyeOff, Send, FileText, CheckSquare,
 } from 'lucide-react'
 import QRCode from 'qrcode'
 import { Switch } from '@/components/ui/Switch'
@@ -22,22 +22,11 @@ const STATUS_CFG: Record<string, { label: string; color: string; bg: string; dot
 
 interface Props {
   api: AdminWhatsappApi
-  variant?: 'shop' | 'platform'
-  tenantId?: string
   shopName?: string
-  whatsappEnabled?: boolean
 }
 
-export default function TenantWhatsAppPanel({
-  api,
-  variant = 'shop',
-  tenantId,
-  shopName,
-  whatsappEnabled = true,
-}: Props) {
-  const isPlatform = variant === 'platform'
-  const canUse = isPlatform || whatsappEnabled
-
+/** Platform billing WhatsApp only — shop tenants manage WhatsApp in their own dashboard. */
+export default function TenantWhatsAppPanel({ api, shopName = 'Hexalyte Billing' }: Props) {
   const [status, setStatus] = useState<WAStatusInfo | null>(null)
   const [config, setConfig] = useState<Partial<WAConfig>>({})
   const [loading, setLoading] = useState(true)
@@ -47,11 +36,12 @@ export default function TenantWhatsAppPanel({
   const [qrLoading, setQrLoading] = useState(false)
   const [qrRefreshing, setQrRefreshing] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const autoStartedRef = useRef(false)
 
   const [form, setForm] = useState({ accessToken: '', phoneNumberId: '', wabaId: '', verifyToken: '' })
   const [showToken, setShowToken] = useState(false)
   const [enabled, setEnabled] = useState(false)
+  const [sendPdfInvoice, setSendPdfInvoice] = useState(false)
+  const [savingInvoice, setSavingInvoice] = useState(false)
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
@@ -112,6 +102,7 @@ export default function TenantWhatsAppPanel({
       setConfig(cfg ?? {})
       setMode(cfg?.connectionMode ?? 'qr')
       setEnabled(cfg?.enabled ?? false)
+      setSendPdfInvoice(cfg?.sendPdfInvoice ?? false)
       setForm({
         accessToken: cfg?.accessToken ?? '',
         phoneNumberId: cfg?.phoneNumberId ?? '',
@@ -144,32 +135,22 @@ export default function TenantWhatsAppPanel({
       if (data.qr) await renderQr(data.qr)
       applySession(data)
       startPolling()
-      flash('ok', data.qr
-        ? (isPlatform ? 'QR ready — scan with Hexalyte business phone' : 'QR code ready — scan with shop phone')
-        : 'Generating QR code…')
+      flash('ok', data.qr ? 'QR ready — scan with Hexalyte business phone' : 'Generating QR code…')
     } catch (e) {
       flash('err', e instanceof Error ? e.message : 'Failed to start QR session')
     } finally {
       setQrLoading(false)
     }
-  }, [api, applySession, isPlatform, qrLoading, qrRefreshing, renderQr, startPolling])
+  }, [api, applySession, qrLoading, qrRefreshing, renderQr, startPolling])
 
   useEffect(() => {
-    if (!canUse || !isQrMode || loading) return
+    if (!isQrMode || loading) return
     if (currentStatus === 'qr_pending' || currentStatus === 'connecting') startPolling()
     if (status?.qr) renderQr(status.qr)
     return () => {
       if (pollRef.current) clearInterval(pollRef.current)
     }
-  }, [canUse, isQrMode, currentStatus, status?.qr, startPolling, renderQr, loading])
-
-  useEffect(() => {
-    if (!canUse || !isQrMode || isConnected || autoStartedRef.current || loading) return
-    if (currentStatus === 'disconnected') {
-      autoStartedRef.current = true
-      handleStartQr()
-    }
-  }, [canUse, isQrMode, isConnected, currentStatus, handleStartQr, loading])
+  }, [isQrMode, currentStatus, status?.qr, startPolling, renderQr, loading])
 
   async function handleRefreshQr() {
     setQrRefreshing(true)
@@ -243,8 +224,7 @@ export default function TenantWhatsAppPanel({
   }
 
   async function handleDisconnect() {
-    const label = isPlatform ? 'Hexalyte billing WhatsApp' : 'this shop WhatsApp'
-    if (!confirm(`Disconnect ${label}? You will need to scan the QR code again.`)) return
+    if (!confirm('Disconnect Hexalyte billing WhatsApp? You will need to scan the QR code again.')) return
     setDisconnecting(true)
     try {
       await api.disconnect()
@@ -270,6 +250,22 @@ export default function TenantWhatsAppPanel({
     }
   }
 
+  async function handlePdfToggle(val: boolean) {
+    const prev = sendPdfInvoice
+    setSendPdfInvoice(val)
+    setSavingInvoice(true)
+    try {
+      const updated = await api.updateConfig({ sendPdfInvoice: val })
+      setSendPdfInvoice(updated.sendPdfInvoice ?? false)
+      flash('ok', 'Invoice settings saved')
+    } catch {
+      setSendPdfInvoice(prev)
+      flash('err', 'Failed to save invoice settings')
+    } finally {
+      setSavingInvoice(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="card p-8 flex items-center justify-center gap-2 text-sm text-gray-500">
@@ -280,18 +276,10 @@ export default function TenantWhatsAppPanel({
 
   return (
     <div className="space-y-4">
-      {isPlatform && (
-        <div className="card p-4 border-blue-200 bg-blue-50 text-sm text-blue-900">
-          <strong>Platform billing WhatsApp.</strong> Connect Hexalyte&apos;s business number here.
-          Shop tenants do <strong>not</strong> need WhatsApp for subscription invoices — messages go from this number via API.
-        </div>
-      )}
-
-      {!isPlatform && !whatsappEnabled && (
-        <div className="card p-4 border-yellow-200 bg-yellow-50 text-sm text-yellow-800">
-          WhatsApp feature is off for this tenant. Enable <strong>WhatsApp</strong> under the Features tab first.
-        </div>
-      )}
+      <div className="card p-4 border-blue-200 bg-blue-50 text-sm text-blue-900">
+        <strong>Platform billing WhatsApp.</strong> Connect Hexalyte&apos;s business number here for subscription invoices.
+        Shop tenants manage their own WhatsApp in the shop app — <strong>Settings → WhatsApp</strong>.
+      </div>
 
       {msg && (
         <div className={`text-sm px-4 py-2.5 rounded-lg border ${
@@ -311,7 +299,7 @@ export default function TenantWhatsAppPanel({
             </div>
             {status?.phoneNumber && (
               <p className="text-xs text-gray-500 mt-0.5">
-                {status.displayName ?? shopName ?? (isPlatform ? 'Hexalyte Billing' : '')} · {status.phoneNumber}
+                {status.displayName ?? shopName} · {status.phoneNumber}
               </p>
             )}
           </div>
@@ -322,7 +310,7 @@ export default function TenantWhatsAppPanel({
               ? `Checked ${new Date(status.lastChecked).toLocaleTimeString()}`
               : 'Not checked'}
           </span>
-          <Switch checked={enabled} onChange={handleToggle} disabled={!canUse} />
+          <Switch checked={enabled} onChange={handleToggle} />
         </div>
       </div>
 
@@ -334,11 +322,8 @@ export default function TenantWhatsAppPanel({
           <button
             key={key}
             type="button"
-            disabled={!canUse || (key === 'qr' && qrLoading)}
-            onClick={() => {
-              setMode(key)
-              if (key === 'qr' && !isConnected) handleStartQr()
-            }}
+            disabled={key === 'qr' && qrLoading}
+            onClick={() => setMode(key)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors disabled:opacity-50 ${
               mode === key
                 ? 'bg-gray-900 text-white border-gray-900'
@@ -352,9 +337,7 @@ export default function TenantWhatsAppPanel({
 
       {isQrMode ? (
         <div className="card p-6">
-          <h3 className="section-title">
-            {isPlatform ? 'Scan with Hexalyte business WhatsApp' : 'Scan with shop WhatsApp'}
-          </h3>
+          <h3 className="section-title">Scan with Hexalyte business WhatsApp</h3>
           <p className="text-xs text-gray-500 mb-4">
             Open WhatsApp on the business phone → Linked devices → Link a device → scan this QR.
           </p>
@@ -376,7 +359,7 @@ export default function TenantWhatsAppPanel({
             <div className="flex flex-col gap-2">
               <button
                 type="button"
-                disabled={!canUse || qrLoading || isConnected}
+                disabled={qrLoading || isConnected}
                 onClick={handleStartQr}
                 className="btn-primary text-sm"
               >
@@ -384,7 +367,7 @@ export default function TenantWhatsAppPanel({
               </button>
               <button
                 type="button"
-                disabled={!canUse || qrRefreshing || isConnected}
+                disabled={qrRefreshing || isConnected}
                 onClick={handleRefreshQr}
                 className="btn-secondary text-sm flex items-center justify-center gap-2"
               >
@@ -412,7 +395,6 @@ export default function TenantWhatsAppPanel({
                   type={secret && !showToken ? 'password' : 'text'}
                   value={form[key]}
                   onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                  disabled={!canUse}
                   className="input w-full text-sm font-mono pr-10"
                   placeholder={key === 'accessToken' ? 'EAAxxxxx…' : ''}
                 />
@@ -430,7 +412,7 @@ export default function TenantWhatsAppPanel({
           ))}
           <button
             type="button"
-            disabled={!canUse || saving}
+            disabled={saving}
             onClick={handleSaveMeta}
             className="btn-primary text-sm"
           >
@@ -438,6 +420,40 @@ export default function TenantWhatsAppPanel({
           </button>
         </div>
       )}
+
+      <div className="card p-5 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h3 className="section-title !mb-0">Subscription invoices</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Control PDF attachments for subscription billing messages.</p>
+          </div>
+          {savingInvoice && (
+            <span className="text-[10px] text-gray-400 flex items-center gap-1">
+              <Loader2 size={12} className="animate-spin" /> Saving…
+            </span>
+          )}
+        </div>
+        <div className="flex items-center justify-between gap-4 px-4 py-3 bg-white rounded-xl border border-gray-100">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <FileText size={14} className="text-gray-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-gray-900">Attach PDF to subscription invoices</p>
+              <p className="text-xs text-gray-500 mt-0.5">Send subscription billing invoices as PDF documents (not text only)</p>
+            </div>
+          </div>
+          <Switch
+            checked={sendPdfInvoice}
+            onChange={handlePdfToggle}
+            disabled={savingInvoice}
+          />
+        </div>
+        <p className="text-[10px] text-gray-400 flex items-start gap-1.5">
+          <CheckSquare size={12} className="mt-0.5 flex-shrink-0" />
+          Shop POS and repair invoices are configured only in the shop app.
+        </p>
+      </div>
 
       {isConnected && (
         <div className="card p-5 space-y-3">
@@ -476,9 +492,9 @@ export default function TenantWhatsAppPanel({
         </div>
       )}
 
-      {!isPlatform && tenantId && config.connectionMode && (
+      {config.connectionMode && (
         <p className="text-[10px] text-gray-400">
-          Mode: {config.connectionMode} · Tenant ID: <span className="font-mono">{tenantId}</span>
+          Mode: {config.connectionMode}
         </p>
       )}
     </div>

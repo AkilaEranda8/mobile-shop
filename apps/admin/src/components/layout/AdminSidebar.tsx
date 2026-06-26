@@ -5,19 +5,21 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Building2, CreditCard, KeyRound, Activity,
   BarChart3, ScrollText, Bell, Megaphone, Wrench, Settings,
-  Shield, ChevronRight, LogOut, X
+  Shield, ChevronRight, LogOut, X, Sparkles, MessageCircle,
 } from 'lucide-react'
 
 const NAV = [
   { href: '/dashboard',       label: 'Dashboard',            icon: LayoutDashboard, badge: null },
   { href: '/tenants',         label: 'Tenants',              icon: Building2,        badge: '214' },
   { href: '/subscriptions',   label: 'Subscriptions',        icon: CreditCard,       badge: '2 overdue' },
+  { href: '/whatsapp',        label: 'WhatsApp',             icon: MessageCircle,    badge: null },
   { href: '/auth-iam',        label: 'Auth / IAM',           icon: KeyRound,         badge: null },
   { href: '/system-health',   label: 'System Health',        icon: Activity,         badge: '2 issues' },
   { href: '/analytics',       label: 'Analytics',            icon: BarChart3,        badge: null },
   { href: '/activity-logs',   label: 'Activity Logs',        icon: ScrollText,       badge: null },
   { href: '/notifications',   label: 'Notifications',        icon: Bell,             badge: '5' },
   { href: '/announcements',   label: 'Announcements',        icon: Megaphone,        badge: null },
+  { href: '/release-notes',  label: 'Release Notes',        icon: Sparkles,         badge: null },
   { href: '/support-tools',   label: 'Support Tools',        icon: Wrench,           badge: null },
   { href: '/settings',        label: 'Settings',             icon: Settings,         badge: null },
 ]

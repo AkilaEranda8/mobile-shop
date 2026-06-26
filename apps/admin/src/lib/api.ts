@@ -194,6 +194,7 @@ export type WAConnectionMode = 'qr' | 'meta'
 export interface WAStatusInfo {
   status: WAStatus
   connectionMode?: WAConnectionMode
+  enabled?: boolean
   qr?: string
   phoneNumber?: string
   displayName?: string
@@ -446,6 +447,98 @@ export async function sendAnnouncement(id: string): Promise<AnnouncementRow> {
 }
 export async function deleteAnnouncement(id: string): Promise<null> {
   return req<null>(ADMIN_BASE, `/announcements/${id}`, { method: 'DELETE' })
+}
+
+// ─── Release Notes ────────────────────────────────────────────────────────────
+export type ReleaseItemInput = {
+  category: string
+  module?: string
+  featureName: string
+  description: string
+  badge?: string
+  displayOrder?: number
+  imageUrl?: string
+  videoUrl?: string
+  docUrl?: string
+}
+
+export interface ReleaseRow {
+  id: string
+  version: string
+  title: string
+  summary: string
+  releaseDate: string
+  status: string
+  popupEnabled: boolean
+  active: boolean
+  targetType: string
+  targetPlans: string[]
+  targetTenants: string[]
+  imageUrl: string | null
+  videoUrl: string | null
+  docUrl: string | null
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+  items?: ReleaseItemInput[]
+  counts?: {
+    newFeatures: number
+    improvements: number
+    bugFixes: number
+    securityUpdates: number
+    comingSoon: number
+  }
+  itemCount?: number
+  readCount?: number
+}
+
+export interface ReleaseListResponse {
+  data: ReleaseRow[]
+  meta: { total: number; page: number; limit: number; totalPages: number }
+}
+
+export async function fetchReleases(params?: { search?: string; status?: string; page?: number }): Promise<{ data: ReleaseRow[]; total: number; page: number; limit: number }> {
+  const p: Record<string, string> = {}
+  if (params?.search) p.search = params.search
+  if (params?.status) p.status = params.status
+  if (params?.page) p.page = String(params.page)
+  const qs = Object.keys(p).length ? '?' + new URLSearchParams(p) : ''
+  const token = adminAuth.getToken()
+  const res = await fetch(`${ADMIN_BASE}/releases${qs}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+  const { json, text } = await parseResponseBody(res)
+  if (!res.ok) throw new Error(responseErrorMessage(json, text))
+  const meta = (json.meta ?? {}) as Record<string, number>
+  return {
+    data: (json.data ?? []) as ReleaseRow[],
+    total: meta.total ?? 0,
+    page: meta.page ?? 1,
+    limit: meta.limit ?? 20,
+  }
+}
+
+export async function fetchRelease(id: string): Promise<ReleaseRow> {
+  return req<ReleaseRow>(ADMIN_BASE, `/releases/${id}`)
+}
+
+export async function createRelease(data: Partial<ReleaseRow> & { items?: ReleaseItemInput[] }): Promise<ReleaseRow> {
+  return req<ReleaseRow>(ADMIN_BASE, '/releases', { method: 'POST', body: JSON.stringify(data) })
+}
+
+export async function updateRelease(id: string, data: Partial<ReleaseRow> & { items?: ReleaseItemInput[] }): Promise<ReleaseRow> {
+  return req<ReleaseRow>(ADMIN_BASE, `/releases/${id}`, { method: 'PUT', body: JSON.stringify(data) })
+}
+
+export async function publishRelease(id: string): Promise<ReleaseRow> {
+  return req<ReleaseRow>(ADMIN_BASE, `/releases/${id}/publish`, { method: 'PATCH' })
+}
+
+export async function deleteRelease(id: string): Promise<null> {
+  return req<null>(ADMIN_BASE, `/releases/${id}`, { method: 'DELETE' })
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────

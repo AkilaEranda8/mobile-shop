@@ -30,6 +30,7 @@ import {
   sendTestMessageSchema,
   sendInvoiceSchema,
 } from '../whatsapp/whatsapp.schema'
+import releaseNotesAdminRoutes from '../release-notes/release-notes-admin.routes'
 
 const router = Router()
 router.use(authenticate)
@@ -520,7 +521,7 @@ router.post('/subscriptions/:tenantId/send-invoice', validate(sendInvoiceSchema)
     const billingStatus = await whatsappService.getStatus(billingTenantId)
     if (billingStatus.status !== 'connected') {
       throw new AppError(
-        'Hexalyte billing WhatsApp is not connected. Go to Admin → Settings → WhatsApp and scan the QR code (shop tenants do not need WhatsApp).',
+        'Hexalyte billing WhatsApp is not connected. Go to Admin → WhatsApp and scan the QR code.',
         400,
       )
     }
@@ -1355,5 +1356,7 @@ router.delete('/settings/admins/:id', async (req: Request, res: Response, next: 
     sendSuccess(res, null, 'Admin deactivated')
   } catch (e) { next(e) }
 })
+
+router.use('/releases', releaseNotesAdminRoutes)
 
 export default router

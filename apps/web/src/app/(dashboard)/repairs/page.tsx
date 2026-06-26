@@ -17,6 +17,7 @@ import { formatCurrency, formatDate, getRepairStatusColor } from '@/lib/utils'
 import { useRepairs, useProducts, useFeatureFlag } from '@/lib/hooks'
 import { repairsApi, customersApi, deviceCatalogApi, usersApi, uploadApi } from '@/lib/api'
 import { whatsappApi, formatWhatsAppPhone } from '@/lib/whatsapp-api'
+import { captureElementAsPdfBase64 } from '@/lib/invoice-pdf'
 import { authStorage } from '@/lib/auth'
 import { getInvoiceSettings, fetchInvoiceSettings, isKasthuriInvoice, type InvoiceSettings } from '@/lib/invoiceSettings'
 import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrint'
@@ -911,6 +912,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [downloading,   setDownloading]   = useState(false)
   const [waSending,     setWaSending]     = useState<'quote' | 'invoice' | null>(null)
+  const [waSendPdf,     setWaSendPdf]     = useState(false)
   const [invSettings, setInvSettings]   = useState<InvoiceSettings>(() => getInvoiceSettings())
   const [tenantSlug, setTenantSlug]     = useState<string | undefined>()
   const [photos,        setPhotos]        = useState<string[]>(repair.photos ?? [])
@@ -926,6 +928,9 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
         setTenantSlug((res?.data ?? res)?.slug)
       }).catch(() => {})
     })
+    whatsappApi.getConfig()
+      .then((r: any) => setWaSendPdf(!!(r?.data ?? r)?.sendPdfInvoice))
+      .catch(() => {})
   }, [])
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1042,15 +1047,32 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
 
     setWaSending('invoice')
     try {
-      await whatsappApi.sendMessage({
+      let pdfBase64: string | undefined
+      let pdfFilename: string | undefined
+      if (waSendPdf && quoteRef.current) {
+        await new Promise(r => setTimeout(r, 150))
+        try {
+          const pdf = await captureElementAsPdfBase64(
+            quoteRef.current,
+            `Repair-${repair.ticketNumber}.pdf`,
+          )
+          pdfBase64 = pdf.base64
+          pdfFilename = pdf.filename
+        } catch {
+          toast.error('PDF generation failed — sending text only')
+        }
+      }
+
+      await whatsappApi.sendInvoice({
+        orderId:      repair.ticketNumber,
         phone,
-        message:      msg,
         customerName: repair.customerName,
-        referenceId:  repair.ticketNumber,
-        type:         'invoice',
         amount:       grandTotal,
+        message:      msg,
+        pdfBase64,
+        pdfFilename,
       })
-      toast.success('Invoice sent via WhatsApp')
+      toast.success(pdfBase64 ? 'Invoice PDF sent via WhatsApp' : 'Invoice sent via WhatsApp')
     } catch (err: any) {
       toast.error(err?.message ?? 'Failed to send invoice — connect WhatsApp in Settings first')
     } finally {
@@ -1232,7 +1254,8 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
               {waSending === 'quote' ? <Loader2 size={11} className="animate-spin" /> : <MessageSquare size={11} />} Quote
             </button>
             <button onClick={sendInvoiceWhatsApp} disabled={waSending !== null} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-green-700 hover:bg-green-600 text-white transition-colors disabled:opacity-50">
-              {waSending === 'invoice' ? <Loader2 size={11} className="animate-spin" /> : <MessageSquare size={11} />} Invoice
+              {waSending === 'invoice' ? <Loader2 size={11} className="animate-spin" /> : <MessageSquare size={11} />}
+              {waSending === 'invoice' ? 'Sending…' : waSendPdf ? 'Invoice PDF' : 'Invoice'}
             </button>
             <button className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors" style={{ borderColor: 'var(--border-default)', color: 'var(--text-muted)', background: 'var(--bg-subtle)' }}>
               <MoreVertical size={14} />

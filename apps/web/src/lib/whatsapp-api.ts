@@ -20,6 +20,7 @@ export interface WAConfig {
 export interface WAStatusInfo {
   status: WAStatus
   connectionMode?: WAConnectionMode
+  enabled?: boolean
   qr?: string
   phoneNumber?: string
   displayName?: string

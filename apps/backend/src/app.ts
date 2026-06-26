@@ -35,6 +35,7 @@ import servicesRoutes from './modules/services/services.routes'
 import dailyReloadRoutes from './modules/daily-reload/daily-reload.routes'
 import dailyClosingRoutes from './modules/daily-closing/daily-closing.routes'
 import profitAllocationRoutes from './modules/profit-allocation/profit-allocation.routes'
+import releaseNotesRoutes from './modules/release-notes/release-notes.routes'
 
 const app = express()
 
@@ -148,6 +149,7 @@ app.use(`${API}/device-catalog`, deviceCatalogRoutes)
 app.use(`${API}/upload`, uploadRoutes)
 app.use(`${API}/exchanges`, exchangesRoutes)
 app.use(`${API}/platform`, platformRoutes)
+app.use(`${API}/release-notes`, releaseNotesRoutes)
 app.use('/admin/v1', adminRoutes)
 
 app.use(notFound)

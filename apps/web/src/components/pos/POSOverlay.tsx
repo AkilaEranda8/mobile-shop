@@ -2220,6 +2220,17 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
     setWaSending(true)
     try {
+      const st: any = await whatsappApi.getStatus()
+      const wa = st?.data ?? st
+      if (wa?.status !== 'connected') {
+        toast.error('WhatsApp not connected — open WhatsApp → Connection and scan QR code')
+        return
+      }
+      if (wa?.enabled === false) {
+        toast.error('WhatsApp is disabled — turn on the switch in WhatsApp → Connection')
+        return
+      }
+
       let pdfBase64: string | undefined
       let pdfFilename: string | undefined
       if (waSendPdf && a4Ref.current) {
@@ -2247,7 +2258,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       })
       toast.success(pdfBase64 ? 'Invoice PDF sent via WhatsApp' : 'Invoice sent via WhatsApp')
     } catch (e: any) {
-      toast.error(e.message || 'WhatsApp send failed — connect WhatsApp in Settings first')
+      toast.error(e.message || 'WhatsApp send failed — check WhatsApp → Connection')
     } finally {
       setWaSending(false)
     }

@@ -5,8 +5,8 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, ShoppingCart, Package, Users, Wrench,
   Shield, Truck, BarChart3, Settings, LogOut,
-  CreditCard, Smartphone, FileText, Building2,
-  UserCheck, ChevronLeft, ChevronRight, Receipt, MessageSquare, PackageCheck, RotateCcw, ArrowLeftRight, Layers, RefreshCw, Lock, PieChart
+  CreditCard, Smartphone,   FileText, Building2,
+  UserCheck, ChevronLeft, ChevronRight, Receipt, MessageSquare, PackageCheck, RotateCcw, ArrowLeftRight, Layers, RefreshCw, Lock, PieChart, Sparkles
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
@@ -93,6 +93,7 @@ const navItems = [
   {
     label: 'System',
     items: [
+      { href: '/dashboard/release-notes', icon: Sparkles, label: 'Release Notes', badge: 'NEW' },
       { href: '/dashboard/branches', icon: Building2, label: 'Branches', badge: 'NEW' },
       { href: '/dashboard/settings', icon: Settings,  label: 'Settings' },
     ],

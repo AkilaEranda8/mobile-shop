@@ -60,6 +60,38 @@ function sanitizePdfFilename(name: string, fallback: string): string {
   return base.toLowerCase().endsWith('.pdf') ? base : `${base}.pdf`
 }
 
+function normalizeWaPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '')
+  if (!digits) return ''
+  if (digits.startsWith('94') && digits.length >= 11) return `+${digits}`
+  if (digits.startsWith('0') && digits.length >= 10) return `+94${digits.slice(1)}`
+  if (digits.length >= 9) return `+94${digits}`
+  return phone.startsWith('+') ? phone.trim() : `+${digits}`
+}
+
+function isValidWaPhone(phone: string): boolean {
+  return /^\+[1-9]\d{6,14}$/.test(phone)
+}
+
+async function ensureWhatsAppConfig(
+  tenantId: string,
+  opts: { connectionMode?: 'qr' | 'meta'; enabled?: boolean } = {},
+) {
+  await prisma.whatsAppConfig.upsert({
+    where:  { tenantId },
+    create: {
+      tenantId,
+      connectionMode: opts.connectionMode ?? 'qr',
+      enabled:        opts.enabled ?? true,
+      status:         'disconnected',
+    },
+    update: {
+      ...(opts.connectionMode !== undefined && { connectionMode: opts.connectionMode }),
+      ...(opts.enabled !== undefined && { enabled: opts.enabled }),
+    },
+  })
+}
+
 async function metaUploadDocument(
   phoneNumberId: string,
   token: string,
@@ -88,14 +120,16 @@ export const whatsappService = {
 
   async getStatus(tenantId: string) {
     const cfg = await prisma.whatsAppConfig.findUnique({ where: { tenantId } })
-    if (!cfg) return { status: 'disconnected' as const, connectionMode: 'qr' as const }
+    if (!cfg) return { status: 'disconnected' as const, connectionMode: 'qr' as const, enabled: false }
+
+    const base = { enabled: cfg.enabled, connectionMode: (cfg.connectionMode ?? 'qr') as 'meta' | 'qr' }
 
     if (cfg.connectionMode === 'qr') {
       const qr = getQrState(tenantId)
       if (qr.status === 'connected' || isQrConnected(tenantId)) {
         return {
+          ...base,
           status:         'connected' as const,
-          connectionMode: 'qr' as const,
           phoneNumber:    qr.phoneNumber ?? cfg.phoneNumber ?? undefined,
           displayName:    qr.displayName ?? cfg.displayName ?? undefined,
           lastChecked:    qr.lastChecked,
@@ -103,8 +137,8 @@ export const whatsappService = {
       }
       if (qr.status === 'qr_pending' || qr.status === 'connecting') {
         return {
+          ...base,
           status:         qr.status,
-          connectionMode: 'qr' as const,
           qr:             qr.qr,
           phoneNumber:    cfg.phoneNumber ?? undefined,
           displayName:    cfg.displayName ?? undefined,
@@ -116,8 +150,8 @@ export const whatsappService = {
           startQrSession(tenantId).catch(() => {})
         }
         return {
+          ...base,
           status:         isQrConnected(tenantId) ? 'connected' as const : 'connecting' as const,
-          connectionMode: 'qr' as const,
           phoneNumber:    cfg.phoneNumber ?? undefined,
           displayName:    cfg.displayName ?? undefined,
           lastChecked:    cfg.lastCheckedAt?.toISOString(),
@@ -126,8 +160,8 @@ export const whatsappService = {
     }
 
     return {
+      ...base,
       status:         cfg.status as 'connected' | 'disconnected' | 'token_expired',
-      connectionMode: (cfg.connectionMode ?? 'meta') as 'meta' | 'qr',
       phoneNumber:    cfg.phoneNumber   ?? undefined,
       displayName:    cfg.displayName   ?? undefined,
       qualityRating:  cfg.qualityRating ?? undefined,
@@ -140,11 +174,13 @@ export const whatsappService = {
   },
 
   async startQrConnect(tenantId: string) {
+    await ensureWhatsAppConfig(tenantId, { connectionMode: 'qr', enabled: true })
     const state = await startQrSession(tenantId, { force: false })
     return { ...state, connectionMode: 'qr' as const }
   },
 
   async refreshQrConnect(tenantId: string) {
+    await ensureWhatsAppConfig(tenantId, { connectionMode: 'qr', enabled: true })
     const state = await startQrSession(tenantId, { force: true })
     return { ...state, connectionMode: 'qr' as const }
   },
@@ -257,7 +293,7 @@ export const whatsappService = {
           phoneNumberId:   input.phoneNumberId   ?? '',
           wabaId:          input.wabaId          ?? '',
           verifyToken:     input.verifyToken     ?? '',
-          enabled:         input.enabled         ?? false,
+          enabled:         input.enabled         ?? true,
           autoSendInvoice: input.autoSendInvoice ?? false,
           sendPdfInvoice:  input.sendPdfInvoice  ?? false,
           validatePhones:  input.validatePhones  ?? true,
@@ -418,8 +454,14 @@ export const whatsappService = {
 
   async sendInvoice(tenantId: string, input: SendInvoiceInput) {
     const cfg = await prisma.whatsAppConfig.findUnique({ where: { tenantId } })
-    if (!cfg) throw new AppError('WhatsApp not configured', 400)
-    if (!cfg.enabled) throw new AppError('WhatsApp integration is disabled', 400)
+    if (!cfg) throw new AppError('WhatsApp not configured. Connect WhatsApp in settings first.', 400)
+    if (!cfg.enabled) throw new AppError('WhatsApp integration is disabled. Turn it on in WhatsApp settings.', 400)
+
+    const phone = normalizeWaPhone(input.phone)
+    if (!phone) throw new AppError('Customer phone number is required', 400)
+    if (cfg.validatePhones && !isValidWaPhone(phone)) {
+      throw new AppError('Invalid customer phone number. Use format 0771234567 or +94771234567.', 400)
+    }
 
     const isConnected = cfg.connectionMode === 'qr'
       ? isQrConnected(tenantId)
@@ -427,7 +469,7 @@ export const whatsappService = {
     if (!isConnected) {
       throw new AppError(
         cfg.connectionMode === 'qr'
-          ? 'WhatsApp is not connected. Open Admin → Settings → WhatsApp and scan the QR code.'
+          ? 'WhatsApp is not connected. Open WhatsApp settings and scan the QR code.'
           : 'WhatsApp is not connected',
         400,
       )
@@ -459,13 +501,13 @@ export const whatsappService = {
       if (pdfBuffer.length > 16 * 1024 * 1024) throw new AppError('PDF is too large (max 16 MB)', 400)
 
       if (cfg.connectionMode === 'qr') {
-        await sendQrDocument(tenantId, input.phone, pdfBuffer, pdfFilename, docCaption)
+        await sendQrDocument(tenantId, phone, pdfBuffer, pdfFilename, docCaption)
         if (!docCaption) {
-          await sendQrText(tenantId, input.phone, messageBody)
+          await sendQrText(tenantId, phone, messageBody)
         }
       } else {
         const mediaId = await metaUploadDocument(cfg.phoneNumberId, cfg.accessToken, pdfBuffer, pdfFilename)
-        const normalizedPhone = input.phone.startsWith('+') ? input.phone.slice(1) : input.phone
+        const normalizedPhone = phone.startsWith('+') ? phone.slice(1) : phone
         result = await metaPost(`/${cfg.phoneNumberId}/messages`, cfg.accessToken, {
           messaging_product: 'whatsapp',
           to:                normalizedPhone,
@@ -486,9 +528,9 @@ export const whatsappService = {
         }
       }
     } else if (cfg.connectionMode === 'qr') {
-      await sendQrText(tenantId, input.phone, messageBody)
+      await sendQrText(tenantId, phone, messageBody)
     } else {
-      const normalizedPhone = input.phone.startsWith('+') ? input.phone.slice(1) : input.phone
+      const normalizedPhone = phone.startsWith('+') ? phone.slice(1) : phone
       result = await metaPost(`/${cfg.phoneNumberId}/messages`, cfg.accessToken, {
         messaging_product: 'whatsapp',
         to:                normalizedPhone,
@@ -504,7 +546,7 @@ export const whatsappService = {
         tenantId,
         configId:     cfg.id,
         orderId:      input.orderId,
-        to:           input.phone,
+        to:           phone,
         customerName: input.customerName,
         type:         'invoice',
         preview,
@@ -519,10 +561,16 @@ export const whatsappService = {
 
   async sendMessage(tenantId: string, input: SendMessageInput) {
     const cfg = await prisma.whatsAppConfig.findUnique({ where: { tenantId } })
-    if (!cfg) throw new AppError('WhatsApp not configured for this shop', 400)
-    if (!cfg.enabled) throw new AppError('WhatsApp integration is disabled for this shop', 400)
+    if (!cfg) throw new AppError('WhatsApp not configured. Connect WhatsApp in settings first.', 400)
+    if (!cfg.enabled) throw new AppError('WhatsApp integration is disabled. Turn it on in WhatsApp settings.', 400)
 
-    await whatsappService.sendTextMessage(tenantId, input.phone, input.message)
+    const phone = normalizeWaPhone(input.phone)
+    if (!phone) throw new AppError('Phone number is required', 400)
+    if (cfg.validatePhones && !isValidWaPhone(phone)) {
+      throw new AppError('Invalid phone number. Use format 0771234567 or +94771234567.', 400)
+    }
+
+    await whatsappService.sendTextMessage(tenantId, phone, input.message)
 
     const preview = input.message.length > 80
       ? `${input.message.slice(0, 80)}…`
@@ -533,7 +581,7 @@ export const whatsappService = {
         tenantId,
         configId:     cfg.id,
         orderId:      input.referenceId,
-        to:           input.phone,
+        to:           phone,
         customerName: input.customerName,
         type:         input.type ?? 'custom',
         preview,

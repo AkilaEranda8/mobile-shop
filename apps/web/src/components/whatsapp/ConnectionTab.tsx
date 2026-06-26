@@ -39,7 +39,6 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
   const [qrLoading, setQrLoading] = useState(false)
   const [qrRefreshing, setQrRefreshing] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const autoStartedRef = useRef(false)
 
   const [form, setForm] = useState({
     accessToken:   config.accessToken   ?? '',
@@ -105,12 +104,15 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
 
   useEffect(() => {
     if (config.connectionMode) setMode(config.connectionMode)
-  }, [config.connectionMode])
+    if (config.enabled !== undefined) setEnabled(config.enabled)
+  }, [config.connectionMode, config.enabled])
 
   const handleStartQr = useCallback(async () => {
     if (qrLoading || qrRefreshing) return
     setQrLoading(true)
     try {
+      await whatsappApi.updateConfig({ connectionMode: 'qr', enabled: true }).catch(() => {})
+      setEnabled(true)
       const res: any = await whatsappApi.startQrConnect()
       const data: WAStatusInfo = res?.data ?? res
       onConfigChange({ connectionMode: 'qr', enabled })
@@ -127,12 +129,9 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
     } finally { setQrLoading(false) }
   }, [applySession, enabled, onConfigChange, qrLoading, qrRefreshing, renderQr, startPolling, tenantId])
 
-  const selectMode = useCallback(async (key: WAConnectionMode) => {
+  const selectMode = useCallback((key: WAConnectionMode) => {
     setMode(key)
-    if (key === 'qr' && currentStatus !== 'connected') {
-      await handleStartQr()
-    }
-  }, [currentStatus, handleStartQr])
+  }, [])
 
   useEffect(() => {
     if (!isQrMode) return
@@ -143,15 +142,11 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
     }
   }, [isQrMode, currentStatus, status?.qr, startPolling, renderQr])
 
-  useEffect(() => {
-    if (!isQrMode || isConnected || autoStartedRef.current) return
-    autoStartedRef.current = true
-    handleStartQr()
-  }, [isQrMode, isConnected, handleStartQr])
-
   const handleRefreshQr = async () => {
     setQrRefreshing(true)
     try {
+      await whatsappApi.updateConfig({ connectionMode: 'qr', enabled: true }).catch(() => {})
+      setEnabled(true)
       const res: any = await whatsappApi.refreshQrConnect()
       const data: WAStatusInfo = res?.data ?? res
       if (data.qr) await renderQr(data.qr)

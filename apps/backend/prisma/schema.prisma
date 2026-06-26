@@ -183,6 +183,7 @@ model Tenant {
   profitAllocations ProfitAllocation[]
   profitTransactions ProfitTransaction[]
   profitWithdrawals  ProfitWithdrawal[]
+  releaseReads       TenantReleaseRead[]
 }
 
 model TenantFeature {
@@ -1352,4 +1353,64 @@ model AnnouncementDismissal {
   @@unique([userId, announcementId])
   @@index([userId])
   @@index([announcementId])
+}
+
+// ─────────────── Release Notes ───────────────
+model Release {
+  id            String   @id @default(cuid())
+  version       String
+  title         String
+  summary       String
+  releaseDate   DateTime
+  status        String   @default("DRAFT")
+  popupEnabled  Boolean  @default(true)
+  active        Boolean  @default(true)
+  targetType    String   @default("ALL")
+  targetPlans   String[] @default([])
+  targetTenants String[] @default([])
+  imageUrl      String?
+  videoUrl      String?
+  docUrl        String?
+  createdBy     String   @default("Admin")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  items ReleaseItem[]
+  reads TenantReleaseRead[]
+
+  @@index([status, releaseDate])
+  @@index([version])
+}
+
+model ReleaseItem {
+  id           String  @id @default(cuid())
+  releaseId    String
+  category     String
+  module       String?
+  featureName  String
+  description  String
+  badge        String?
+  displayOrder Int     @default(0)
+  imageUrl     String?
+  videoUrl     String?
+  docUrl       String?
+
+  release Release @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@index([releaseId, displayOrder])
+}
+
+model TenantReleaseRead {
+  id        String    @id @default(cuid())
+  tenantId  String
+  releaseId String
+  isRead    Boolean   @default(false)
+  readAt    DateTime?
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  release Release @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, releaseId])
+  @@index([tenantId])
+  @@index([releaseId])
 }

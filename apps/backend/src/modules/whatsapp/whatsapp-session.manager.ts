@@ -282,7 +282,7 @@ export async function ensureQrSessionReady(tenantId: string, timeoutMs = 30000):
   }
 
   throw new Error(
-    'WhatsApp QR session is not ready. Open Admin → Settings → WhatsApp and ensure it shows Connected.',
+    'WhatsApp QR session is not ready. Connect WhatsApp in your dashboard and ensure it shows Connected.',
   )
 }
 

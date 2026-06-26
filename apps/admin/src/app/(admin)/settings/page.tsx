@@ -2,20 +2,19 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Save, Plus, Trash2, Mail, MessageSquare, Shield, MessageCircle,
+  Save, Plus, Trash2, Mail, MessageSquare, Shield,
   ToggleLeft, ToggleRight, Send, Loader2, CheckCircle, Eye, EyeOff,
 } from 'lucide-react'
 
 import {
   fetchPlatformConfig, savePlatformConfig,
   fetchAdminUsers, createAdminUser, deleteAdminUser,
-  resetLoginRateLimit, billingWhatsappApi,
+  resetLoginRateLimit,
   type PlatformConfigMap, type AdminUserRow,
 } from '@/lib/api'
 import { Switch } from '@/components/ui/Switch'
-import TenantWhatsAppPanel from '@/components/tenants/TenantWhatsAppPanel'
 
-const TABS = ['Platform', 'Admins', 'Email', 'SMS', 'WhatsApp', 'Security']
+const TABS = ['Platform', 'Admins', 'Email', 'SMS', 'Security']
 
 function SaveFeedback({ show }: { show: boolean }) {
   if (!show) return null
@@ -392,25 +391,6 @@ function SMSTab({ cfg, onChange, onSave, saving }: {
   )
 }
 
-/* ── WhatsApp tab (platform billing) ─────────────────────────────────────────── */
-function WhatsAppTab() {
-  return (
-    <div className="space-y-4">
-      <div className="card p-5">
-        <div className="flex items-center gap-2 mb-1">
-          <MessageCircle size={16} className="text-green-600" />
-          <h3 className="section-title !mb-0">Billing WhatsApp</h3>
-        </div>
-        <p className="text-xs text-gray-500 mb-4">
-          Connect Hexalyte&apos;s business WhatsApp once. Subscription invoices from{' '}
-          <strong>Subscriptions & Billing</strong> are sent from this number. Shop tenants do not need their own WhatsApp for billing.
-        </p>
-        <TenantWhatsAppPanel api={billingWhatsappApi} variant="platform" shopName="Hexalyte Billing" />
-      </div>
-    </div>
-  )
-}
-
 /* ── Security tab ───────────────────────────────────────────────────────────── */
 function SecurityTab({ cfg, onChange, onSave, saving }: {
   cfg: PlatformConfigMap; onChange: (k: string, v: string) => void
@@ -626,7 +606,6 @@ export default function SettingsPage() {
           {tab === 'Admins'   && <AdminsTab />}
           {tab === 'Email'    && <EmailTab cfg={cfg} onChange={handleChange} onSave={handleSave} saving={saving} />}
           {tab === 'SMS'      && <SMSTab cfg={cfg} onChange={handleChange} onSave={handleSave} saving={saving} />}
-          {tab === 'WhatsApp' && <WhatsAppTab />}
           {tab === 'Security' && <SecurityTab cfg={cfg} onChange={handleChange} onSave={handleSave} saving={saving} />}
         </>
       )}

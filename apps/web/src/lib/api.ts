@@ -478,6 +478,69 @@ export const platformApi = {
   dismissAnnouncement: (id: string) => api.post(`/platform/announcements/${id}/dismiss`, {}),
 }
 
+export type ReleaseItem = {
+  id: string
+  category: string
+  module: string | null
+  featureName: string
+  description: string
+  badge: string | null
+  displayOrder: number
+  imageUrl: string | null
+  videoUrl: string | null
+  docUrl: string | null
+}
+
+export type ReleaseNote = {
+  id: string
+  version: string
+  title: string
+  summary: string
+  releaseDate: string
+  status: string
+  popupEnabled: boolean
+  active: boolean
+  imageUrl: string | null
+  videoUrl: string | null
+  docUrl: string | null
+  items: ReleaseItem[]
+  counts: {
+    newFeatures: number
+    improvements: number
+    bugFixes: number
+    securityUpdates: number
+    comingSoon: number
+  }
+  isRead: boolean
+  readAt: string | null
+}
+
+export type ReleasePopup = {
+  id: string
+  version: string
+  title: string
+  summary: string
+  releaseDate: string
+}
+
+export const releaseNotesApi = {
+  list: (params?: { search?: string; category?: string; page?: number }) => {
+    const p = new URLSearchParams()
+    if (params?.search) p.set('search', params.search)
+    if (params?.category) p.set('category', params.category)
+    if (params?.page) p.set('page', String(params.page))
+    const qs = p.toString()
+    return api.get(`/release-notes${qs ? `?${qs}` : ''}`)
+  },
+  latest: () => api.get('/release-notes/latest'),
+  unreadPopup: () => api.get('/release-notes/unread-popup'),
+  getById: (id: string, category?: string) => {
+    const qs = category ? `?category=${category}` : ''
+    return api.get(`/release-notes/${id}${qs}`)
+  },
+  markRead: (id: string) => api.post(`/release-notes/${id}/read`, {}),
+}
+
 export async function fetchPlatformStatus(): Promise<PlatformStatus> {
   const res = await fetch(`${getApiBaseUrl()}/platform/status`)
   const { json, text } = await parseResponseBody(res)

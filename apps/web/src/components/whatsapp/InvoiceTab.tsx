@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Save, Loader2, FileText, Send, CheckSquare, Phone, Info } from 'lucide-react'
+import { Save, Loader2, FileText, CheckSquare, Phone, Info } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { whatsappApi, saveLocalWAConfig, type WAConfig } from '@/lib/whatsapp-api'
 import { Switch } from '@/components/ui/Switch'
@@ -38,40 +38,74 @@ interface Props {
 }
 
 export default function InvoiceTab({ config, onConfigChange }: Props) {
-  const [form, setForm] = useState({
-    autoSendInvoice: config.autoSendInvoice ?? false,
-    sendPdfInvoice:  config.sendPdfInvoice  ?? false,
-    validatePhones:  config.validatePhones  ?? true,
-    invoiceTemplate: config.invoiceTemplate ?? DEFAULT_TEMPLATE,
-  })
+  const [sendPdfInvoice, setSendPdfInvoice] = useState(config.sendPdfInvoice ?? false)
+  const [validatePhones, setValidatePhones] = useState(config.validatePhones ?? true)
+  const [invoiceTemplate, setInvoiceTemplate] = useState(config.invoiceTemplate ?? DEFAULT_TEMPLATE)
   const [saving, setSaving] = useState(false)
-  const [charCount, setCharCount] = useState(form.invoiceTemplate.length)
+  const [savingToggle, setSavingToggle] = useState(false)
+  const [charCount, setCharCount] = useState(invoiceTemplate.length)
 
-  const setToggle = (key: keyof typeof form, val: boolean) => setForm(p => ({ ...p, [key]: val }))
+  useEffect(() => {
+    setSendPdfInvoice(config.sendPdfInvoice ?? false)
+    setValidatePhones(config.validatePhones ?? true)
+    if (config.invoiceTemplate) {
+      setInvoiceTemplate(config.invoiceTemplate)
+      setCharCount(config.invoiceTemplate.length)
+    }
+  }, [config.sendPdfInvoice, config.validatePhones, config.invoiceTemplate])
+
+  async function handleToggle(key: 'sendPdfInvoice' | 'validatePhones', val: boolean) {
+    const prev = { sendPdfInvoice, validatePhones }
+    if (key === 'sendPdfInvoice') setSendPdfInvoice(val)
+    if (key === 'validatePhones') setValidatePhones(val)
+    setSavingToggle(true)
+    try {
+      const updated: any = await whatsappApi.updateConfig({ [key]: val, autoSendInvoice: false })
+      const data = updated?.data ?? updated
+      const next = {
+        sendPdfInvoice: data?.sendPdfInvoice ?? (key === 'sendPdfInvoice' ? val : prev.sendPdfInvoice),
+        validatePhones: data?.validatePhones ?? (key === 'validatePhones' ? val : prev.validatePhones),
+        invoiceTemplate,
+        autoSendInvoice: false,
+      }
+      setSendPdfInvoice(next.sendPdfInvoice)
+      setValidatePhones(next.validatePhones)
+      onConfigChange(next)
+      saveLocalWAConfig(next)
+      toast.success(val ? 'Enabled' : 'Disabled')
+    } catch (err: any) {
+      setSendPdfInvoice(prev.sendPdfInvoice)
+      setValidatePhones(prev.validatePhones)
+      toast.error(err?.message ?? 'Failed to save')
+    } finally {
+      setSavingToggle(false)
+    }
+  }
 
   const handleTemplateChange = (val: string) => {
-    setForm(p => ({ ...p, invoiceTemplate: val }))
+    setInvoiceTemplate(val)
     setCharCount(val.length)
   }
 
   const insertVariable = (v: string) => {
     const textarea = document.getElementById('invoice-template') as HTMLTextAreaElement
-    if (!textarea) { handleTemplateChange(form.invoiceTemplate + v); return }
-    const start = textarea.selectionStart ?? form.invoiceTemplate.length
+    if (!textarea) { handleTemplateChange(invoiceTemplate + v); return }
+    const start = textarea.selectionStart ?? invoiceTemplate.length
     const end   = textarea.selectionEnd   ?? start
-    const next  = form.invoiceTemplate.slice(0, start) + v + form.invoiceTemplate.slice(end)
+    const next  = invoiceTemplate.slice(0, start) + v + invoiceTemplate.slice(end)
     handleTemplateChange(next)
     setTimeout(() => { textarea.selectionStart = textarea.selectionEnd = start + v.length; textarea.focus() }, 0)
   }
 
   const handleSave = async () => {
-    if (form.invoiceTemplate.trim().length < 10) { toast.error('Template is too short'); return }
+    if (invoiceTemplate.trim().length < 10) { toast.error('Template is too short'); return }
     setSaving(true)
     try {
-      await whatsappApi.updateConfig(form)
-      onConfigChange(form)
-      saveLocalWAConfig(form)
-      toast.success('Invoice automation settings saved!')
+      const payload = { sendPdfInvoice, validatePhones, invoiceTemplate, autoSendInvoice: false }
+      await whatsappApi.updateConfig(payload)
+      onConfigChange(payload)
+      saveLocalWAConfig(payload)
+      toast.success('Template saved')
     } catch (err: any) {
       toast.error(err?.message ?? 'Failed to save settings')
     } finally { setSaving(false) }
@@ -79,18 +113,10 @@ export default function InvoiceTab({ config, onConfigChange }: Props) {
 
   const toggleRows = [
     {
-      key:   'autoSendInvoice' as const,
-      Icon:  Send,
-      label: 'Auto-send invoice after order',
-      desc:  'Automatically send a WhatsApp message when an order is completed',
-      color: 'text-green-400',
-      bg:    'bg-green-500/10',
-    },
-    {
       key:   'sendPdfInvoice' as const,
       Icon:  FileText,
       label: 'Attach PDF invoice',
-      desc:  'Send the invoice PDF as a document attachment alongside the message',
+      desc:  'Include PDF when staff tap Send WhatsApp Invoice (POS, Repairs, etc.)',
       color: 'text-blue-400',
       bg:    'bg-blue-500/10',
     },
@@ -110,32 +136,44 @@ export default function InvoiceTab({ config, onConfigChange }: Props) {
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="card p-6 space-y-1">
         <div className="flex items-center justify-between border-b border-white/5 pb-3 mb-4">
           <div>
-            <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Automation Settings</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Control how invoices are automatically sent via WhatsApp</p>
+            <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Invoice on WhatsApp</h2>
+            <p className="text-xs text-slate-500 mt-0.5">POS sends only when you tap Send WhatsApp Invoice — not after checkout</p>
           </div>
+          {savingToggle && (
+            <span className="text-[10px] text-slate-500 flex items-center gap-1">
+              <Loader2 size={12} className="animate-spin" /> Saving…
+            </span>
+          )}
         </div>
-        <div className="space-y-0.5">
-          {toggleRows.map(({ key, Icon, label, desc, color, bg }) => (
-            <div key={key}
-              className="flex items-center justify-between gap-4 p-3.5 rounded-xl transition-colors hover:bg-white/3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className={`w-8 h-8 rounded-lg ${bg} flex items-center justify-center flex-shrink-0`}>
-                  <Icon size={15} className={color} />
+        <div className="divide-y divide-white/5 rounded-xl border border-white/5 overflow-hidden">
+          {toggleRows.map(({ key, Icon, label, desc, color, bg }) => {
+            const checked = key === 'sendPdfInvoice' ? sendPdfInvoice : validatePhones
+            return (
+              <div key={key}
+                className="flex items-center justify-between gap-4 px-4 py-3.5 bg-white/[0.02] transition-colors hover:bg-white/3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-8 h-8 rounded-lg ${bg} flex items-center justify-center flex-shrink-0`}>
+                    <Icon size={15} className={color} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{label}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{desc}</p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{label}</p>
-                  <p className="text-xs text-slate-500 mt-0.5 truncate">{desc}</p>
-                </div>
+                <Switch
+                  checked={checked}
+                  onChange={v => handleToggle(key, v)}
+                  disabled={savingToggle}
+                  variant="green"
+                />
               </div>
-              <Switch
-                checked={form[key] as boolean}
-                onChange={v => setToggle(key, v)}
-                disabled={key === 'validatePhones' && !form.autoSendInvoice}
-                variant="green"
-              />
-            </div>
-          ))}
+            )
+          })}
         </div>
+        <p className="text-[10px] text-slate-500 flex items-start gap-1.5 pt-2">
+          <CheckSquare size={12} className="mt-0.5 flex-shrink-0" />
+          Toggle on or off — saves immediately. When PDF is off, only the text message is sent.
+        </p>
       </motion.div>
 
       {/* Message Template */}
@@ -175,7 +213,7 @@ export default function InvoiceTab({ config, onConfigChange }: Props) {
             id="invoice-template"
             rows={12}
             className="input-field font-mono text-xs resize-none leading-relaxed"
-            value={form.invoiceTemplate}
+            value={invoiceTemplate}
             onChange={e => handleTemplateChange(e.target.value)}
             placeholder="Type your invoice message template..."
           />

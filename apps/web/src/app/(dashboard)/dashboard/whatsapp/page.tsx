@@ -22,7 +22,7 @@ type Tab = 'connection' | 'invoice' | 'statistics' | 'history'
 
 const TABS: { key: Tab; label: string; Icon: any }[] = [
   { key: 'connection',  label: 'Connection',        Icon: Settings2  },
-  { key: 'invoice',     label: 'Invoice Automation', Icon: FileText   },
+  { key: 'invoice',     label: 'Invoice Settings',   Icon: FileText   },
   { key: 'statistics',  label: 'Statistics',         Icon: BarChart2  },
   { key: 'history',     label: 'Send History',       Icon: History    },
 ]
@@ -182,8 +182,8 @@ export default function WhatsAppPage() {
             className="flex items-start gap-3 p-4 rounded-xl bg-blue-500/5 border border-blue-500/15 overflow-hidden">
             <MessageSquare size={15} className="text-blue-400 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-slate-400">
-              Scan the QR code or enter Meta API credentials to connect WhatsApp.
-              Open the <button onClick={() => setActiveTab('connection')} className="text-blue-400 hover:underline">Connection</button> tab to get started.
+              Connect your shop WhatsApp to send invoices from POS and Repairs.
+              Open the <button onClick={() => setActiveTab('connection')} className="text-green-400 hover:underline font-medium">Connection</button> tab → click <strong>Show QR Code</strong> → scan with your phone.
             </p>
           </motion.div>
         )}
