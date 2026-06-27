@@ -2829,7 +2829,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     )}
                   </div>
                 ) : cart.map((item) => (
-                  <div key={item.cartId} className="flex items-center gap-2 p-2.5 rounded-xl border" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
+                  <div key={item.cartId} className="rounded-xl border overflow-hidden" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
+                    <div className="flex items-start gap-2 p-2.5">
                     {(() => {
                       if (item.isReload) {
                         return (
@@ -2850,82 +2851,58 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       )
                     })()}
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold truncate" style={{ color: POS_THEME.text }}>{item.name}</p>
+                      <p className="text-xs font-semibold leading-snug line-clamp-2" style={{ color: POS_THEME.text }}>{item.name}</p>
                       {item.isReload && item.reloadProvider && (
-                        <p className="text-[10px] font-semibold" style={{ color: POS_THEME.teal }}>
+                        <p className="text-[10px] font-semibold mt-0.5" style={{ color: POS_THEME.teal }}>
                           {item.reloadProvider}
                           {item.reloadType === 'RECHARGE_CARD' ? ' · Recharge Card' : ' · Reload'}
                         </p>
                       )}
                       {item.isService && (
-                        <p className="text-[9px]" style={{ color: POS_THEME.muted }}>
+                        <p className="text-[9px] mt-0.5" style={{ color: POS_THEME.muted }}>
                           Cost {formatCurrency((item.cost ?? 0) * item.quantity)}
                           {(item.cost ?? 0) > 0 && <span style={{ color: POS_THEME.green }}> · Margin {formatCurrency((item.price - (item.cost ?? 0)) * item.quantity)}</span>}
                         </p>
                       )}
-                      {item.imei && <p className="text-[10px] font-mono text-white/80">IMEI: {item.imei}</p>}
-                      {hasWarranty && !item.isService && !item.isReload && (
-                        editWarrantyId === item.cartId ? (
-                          <div className="mt-1 space-y-1 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-1.5">
-                            <select
-                              autoFocus
-                              value={editWarrantyMonths}
-                              onChange={e => setEditWarrantyMonths(e.target.value)}
-                              className="w-full bg-white/5 border border-white/10 rounded px-1.5 py-1 text-[10px] text-white focus:outline-none focus:border-emerald-500/50"
-                            >
-                              {POS_WARRANTY_MONTHS_OPTS.map(m => (
-                                <option key={m} value={m}>{posWarrantyMonthsLabel(m)}</option>
-                              ))}
-                            </select>
-                            <input
-                              type="text"
-                              placeholder="Warranty note (optional)"
-                              value={editWarrantyNote}
-                              onChange={e => setEditWarrantyNote(e.target.value)}
-                              onKeyDown={e => {
-                                if (e.key === 'Enter') saveEditWarranty(item.cartId)
-                                if (e.key === 'Escape') setEditWarrantyId(null)
-                              }}
-                              className="w-full bg-white/5 border border-white/10 rounded px-1.5 py-1 text-[10px] text-white placeholder:text-white/30 focus:outline-none focus:border-emerald-500/50"
-                            />
-                            <div className="flex items-center gap-1">
-                              <button type="button" onClick={() => saveEditWarranty(item.cartId)} className="text-emerald-400"><Check size={11} /></button>
-                              <button type="button" onClick={() => setEditWarrantyId(null)} className="text-white/70"><X size={11} /></button>
-                            </div>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => openEditWarranty(item)}
-                            className="text-[10px] font-semibold flex items-center gap-1 hover:text-emerald-300 transition-colors mt-0.5"
-                            style={{ color: (item.warrantyMonths ?? 0) > 0 ? POS_THEME.green : POS_THEME.muted }}
-                          >
-                            <Shield size={9} />
+                      {item.imei && <p className="text-[10px] font-mono mt-0.5 text-white/70 truncate">IMEI: {item.imei}</p>}
+                      {hasWarranty && !item.isService && !item.isReload && editWarrantyId !== item.cartId && (
+                        <button
+                          type="button"
+                          onClick={() => openEditWarranty(item)}
+                          className="mt-1.5 inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold transition-colors hover:bg-white/[0.04]"
+                          style={{
+                            borderColor: (item.warrantyMonths ?? 0) > 0 ? 'rgba(16,185,129,0.35)' : POS_THEME.border,
+                            color: (item.warrantyMonths ?? 0) > 0 ? POS_THEME.green : POS_THEME.muted,
+                            background: (item.warrantyMonths ?? 0) > 0 ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.03)',
+                          }}
+                        >
+                          <Shield size={9} className="shrink-0" />
+                          <span className="truncate">
                             {(item.warrantyMonths ?? 0) > 0
-                              ? `Warranty · ${formatWarrantyMonths(item.warrantyMonths ?? 0)}`
+                              ? `${posWarrantyMonthsLabel(item.warrantyMonths ?? 0)} warranty`
                               : 'Add warranty'}
-                            {item.warrantyNote?.trim() && <span className="text-white/50">· note</span>}
-                            <Edit2 size={9} className="ml-0.5" />
-                          </button>
-                        )
+                          </span>
+                          {item.warrantyNote?.trim() && <span className="shrink-0 opacity-60">· note</span>}
+                          <Edit2 size={9} className="shrink-0 opacity-50" />
+                        </button>
                       )}
                       {editPriceId === item.cartId ? (
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <input autoFocus type="number" min="0" className="w-20 bg-white/5 border border-violet-500/40 rounded px-1.5 py-0.5 text-xs text-white"
+                        <div className="flex items-center gap-1.5 mt-1.5">
+                          <input autoFocus type="number" min="0" className="w-24 h-7 bg-white/5 border border-violet-500/40 rounded-md px-2 text-xs text-white focus:outline-none focus:border-violet-500/70"
                             value={editPriceVal} onChange={e => setEditPriceVal(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') saveEditPrice(item.cartId); if (e.key === 'Escape') setEditPriceId(null) }} />
-                          <button onClick={() => saveEditPrice(item.cartId)} className="text-white"><Check size={11} /></button>
-                          <button onClick={() => setEditPriceId(null)} className="text-white/70"><X size={11} /></button>
+                          <button type="button" onClick={() => saveEditPrice(item.cartId)} className="h-7 px-2 rounded-md text-[10px] font-semibold border border-violet-500/40 text-violet-300 bg-violet-500/10">Save</button>
+                          <button type="button" onClick={() => setEditPriceId(null)} className="h-7 px-2 rounded-md text-[10px] font-semibold border border-white/10 text-white/60 bg-white/5">Cancel</button>
                         </div>
                       ) : (
-                        <button onClick={() => { setEditWarrantyId(null); setEditPriceId(item.cartId); setEditPriceVal(String(item.price)) }}
-                          className="flex items-center gap-0.5 text-[10px] hover:text-violet-400 transition-colors" style={{ color: POS_THEME.muted }}>
+                        <button type="button" onClick={() => { setEditWarrantyId(null); setEditPriceId(item.cartId); setEditPriceVal(String(item.price)) }}
+                          className="flex items-center gap-1 mt-1.5 text-[10px] hover:text-violet-400 transition-colors" style={{ color: POS_THEME.muted }}>
                           {formatCurrency(item.price)} each {item.price !== item.originalPrice && <span className="text-white">✓</span>}
-                          <Edit2 size={9} className="ml-0.5" />
+                          <Edit2 size={9} className="opacity-50" />
                         </button>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
+                    <div className="flex items-center gap-1 flex-shrink-0 pt-0.5">
                       {isQtyLockedLine(item) ? (
                         <span className="w-8 text-center text-xs font-bold" style={{ color: POS_THEME.text }}>{item.quantity}</span>
                       ) : (
@@ -2944,9 +2921,74 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         </>
                       )}
                     </div>
-                    <span className="text-xs font-bold w-16 text-right flex-shrink-0" style={{ color: POS_THEME.text }}>{formatCurrency(item.price * item.quantity)}</span>
-                    <button onClick={() => setCart(prev => prev.filter(i => i.cartId !== item.cartId))}
-                      className="w-5 h-5 rounded flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"><X size={11} /></button>
+                    <span className="text-xs font-bold w-[4.5rem] text-right flex-shrink-0 pt-1" style={{ color: POS_THEME.text }}>{formatCurrency(item.price * item.quantity)}</span>
+                    <button type="button" onClick={() => setCart(prev => prev.filter(i => i.cartId !== item.cartId))}
+                      className="w-6 h-6 rounded-md flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0 mt-0.5"><X size={11} /></button>
+                    </div>
+
+                    {hasWarranty && !item.isService && !item.isReload && editWarrantyId === item.cartId && (
+                      <div
+                        className="mx-2.5 mb-2.5 rounded-lg border p-2.5 space-y-2.5"
+                        style={{ borderColor: POS_THEME.border, background: POS_THEME.panel, colorScheme: 'dark' }}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <Shield size={12} style={{ color: POS_THEME.green }} />
+                            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: POS_THEME.muted }}>Edit warranty</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => saveEditWarranty(item.cartId)}
+                              className="h-7 px-2.5 rounded-md text-[10px] font-semibold border border-emerald-500/40 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditWarrantyId(null)}
+                              className="h-7 px-2.5 rounded-md text-[10px] font-semibold border border-white/10 text-white/60 bg-white/5 hover:bg-white/10 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {POS_WARRANTY_MONTHS_OPTS.map(m => {
+                            const active = editWarrantyMonths === String(m)
+                            return (
+                              <button
+                                key={m}
+                                type="button"
+                                onClick={() => setEditWarrantyMonths(String(m))}
+                                className={`h-7 rounded-md text-[10px] font-semibold border transition-colors ${
+                                  active
+                                    ? 'bg-emerald-500/20 border-emerald-500/45 text-emerald-300'
+                                    : 'bg-white/[0.03] border-white/10 text-white/75 hover:bg-white/[0.06] hover:border-white/20'
+                                }`}
+                              >
+                                {posWarrantyMonthsLabel(m)}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold mb-1" style={{ color: POS_THEME.muted }}>Warranty note</label>
+                          <textarea
+                            rows={2}
+                            placeholder="Optional — prints on bill under warranty"
+                            value={editWarrantyNote}
+                            onChange={e => setEditWarrantyNote(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEditWarranty(item.cartId) }
+                              if (e.key === 'Escape') setEditWarrantyId(null)
+                            }}
+                            className="w-full resize-none rounded-md border px-2 py-1.5 text-[10px] leading-relaxed text-white placeholder:text-white/30 focus:outline-none focus:border-emerald-500/50"
+                            style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
