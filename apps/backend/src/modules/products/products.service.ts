@@ -33,7 +33,10 @@ export const productsService = {
   async getById(tenantId: string, id: string) {
     const raw = await prisma.product.findFirst({ where: { id, tenantId }, include: { category: { select: { name: true } }, brand: { select: { name: true } } } }) as any
     if (!raw) throw new AppError('Product not found', 404)
-    return { ...raw, categoryName: raw.category?.name, brandName: raw.brand?.name }
+    const base = { ...raw, categoryName: raw.category?.name, brandName: raw.brand?.name }
+    if (!raw.trackImei) return base
+    const imeiInStock = await prisma.imeiRecord.count({ where: { productId: id, status: 'IN_STOCK' } })
+    return { ...base, imeiInStock, imeiGap: Math.max(0, raw.stock - imeiInStock) }
   },
 
   async create(tenantId: string, body: any) {

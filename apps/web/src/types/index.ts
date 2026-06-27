@@ -115,6 +115,9 @@ export interface Product {
   warrantyMonths: number
   warrantyNote?: string
   condition?: 'BRAND_NEW' | 'USED'
+  subCategory?: string
+  deviceModel?: string
+  colorVariations?: { name: string; hex: string }[]
   imeiInStock?: number
   imeiGap?: number
   imageUrl?: string

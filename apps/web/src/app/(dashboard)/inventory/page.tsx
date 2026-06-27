@@ -2,7 +2,7 @@
 
 import { useState, useRef, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, RotateCcw, ChevronDown, ChevronUp, GripVertical, Smartphone } from 'lucide-react'
+import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, RotateCcw, ChevronDown, ChevronUp, GripVertical, Smartphone, Shield } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -17,7 +17,8 @@ import { OpenPosButton } from '@/components/pos/OpenPosButton'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import { ImeiProductTypeSelector } from '@/components/inventory/ImeiProductTypeSelector'
 import { imeiTypeToTrackFlag, trackFlagToImeiType, inferImeiProductType, isImeiHealthBannerDismissed, dismissImeiHealthBanner, type ImeiProductType } from '@/lib/productImei'
-import { PRODUCT_CONDITION_OPTS, type ProductCondition } from '@/lib/productCondition'
+import { PRODUCT_CONDITION_OPTS, type ProductCondition, productConditionLabel } from '@/lib/productCondition'
+import { trackFlagToImeiType } from '@/lib/productImei'
 import {
   PRODUCT_CSV_COLUMNS,
   PRODUCT_CSV_TEMPLATE,
@@ -816,24 +817,68 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
   )
 }
 
+// AddProductModal is imported from @/components/inventory/AddProductModal
+
+function warrantyMonthsLabel(months: number): string {
+  const map: Record<number, string> = { 0: 'None', 1: '1 Month', 3: '3 Months', 6: '6 Months', 12: '1 Year', 24: '2 Years' }
+  return map[months] ?? (months > 0 ? `${months} months` : 'None')
+}
+
+function DetailSection({ title, icon, children }: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
+      <div className="px-4 py-2.5 flex items-center gap-2" style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
+        {icon}
+        <span className="text-xs font-semibold text-violet-300 uppercase tracking-wide">{title}</span>
+      </div>
+      <div>{children}</div>
+    </div>
+  )
+}
+
+function DetailRow({ label, value, valueClass }: { label: string; value: React.ReactNode; valueClass?: string }) {
+  return (
+    <div className="flex items-start justify-between gap-4 px-4 py-2.5 text-sm border-b last:border-b-0" style={{ borderColor: 'var(--border-subtle)' }}>
+      <span className="text-slate-500 text-xs flex-shrink-0 pt-0.5">{label}</span>
+      <span className={`font-medium text-xs text-right ${valueClass ?? 'text-slate-200'} max-w-[72%] break-words`}>
+        {value ?? '—'}
+      </span>
+    </div>
+  )
+}
+
 function ProductDetailModal({ product, onClose, onEdit }: { product: Product; onClose: () => void; onEdit?: () => void }) {
-  const p = product as any
-  const margin     = product.sellingPrice - product.buyingPrice
-  const marginPct  = product.buyingPrice > 0 ? ((margin / product.buyingPrice) * 100).toFixed(1) : '0'
-  const stockValue = product.buyingPrice * product.stock
-  const isOut = product.stock === 0
-  const isLow = product.stock < product.minStock && product.stock > 0
-  const variations = Array.isArray(product.storageVariations) ? product.storageVariations : []
+  const [detail, setDetail] = useState<Product>(product)
+  const [loadingDetail, setLoadingDetail] = useState(true)
+
+  useEffect(() => {
+    setLoadingDetail(true)
+    productsApi.getById(product.id)
+      .then((res: any) => setDetail(res.data ?? res))
+      .catch(() => setDetail(product))
+      .finally(() => setLoadingDetail(false))
+  }, [product])
+
+  const p = detail as Product & { subCategory?: string; deviceModel?: string }
+  const margin     = detail.sellingPrice - detail.buyingPrice
+  const marginPct  = detail.buyingPrice > 0 ? ((margin / detail.buyingPrice) * 100).toFixed(1) : '0'
+  const stockValue = detail.buyingPrice * detail.stock
+  const isOut = detail.stock === 0
+  const isLow = detail.stock < detail.minStock && detail.stock > 0
+  const variations = Array.isArray(detail.storageVariations) ? detail.storageVariations : []
   const [showVars, setShowVars] = useState(true)
+  const imeiType = trackFlagToImeiType(detail.trackImei)
+  const mrp = detail.mrp ?? detail.sellingPrice
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-xl shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
+        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623] z-10">
           <div className="flex items-center gap-2">
             <Package size={15} className="text-violet-400" />
             <h3 className="text-sm font-semibold text-white">Product Details</h3>
+            {loadingDetail && <Loader2 size={13} className="animate-spin text-slate-500" />}
           </div>
           <div className="flex items-center gap-2">
             {onEdit && (
@@ -848,26 +893,29 @@ function ProductDetailModal({ product, onClose, onEdit }: { product: Product; on
         <div className="p-5 space-y-5">
           {/* Hero banner */}
           <div className="w-full h-36 rounded-2xl overflow-hidden border border-violet-500/15 relative flex items-center justify-center bg-gradient-to-br from-violet-600/20 via-violet-500/10 to-cyan-500/10">
-            {product.imageUrl ? (
+            {detail.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={product.imageUrl} alt={product.name} className="h-full w-full object-contain" />
+              <img src={detail.imageUrl} alt={detail.name} className="h-full w-full object-contain" />
             ) : (
               <>
                 <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle at 30% 50%, #7c3aed 0%, transparent 60%)' }} />
                 <div className="flex flex-col items-center gap-1">
                   <Package size={32} className="text-violet-400 opacity-80" />
-                  <p className="text-xs text-violet-300 font-mono">{product.sku}</p>
+                  <p className="text-xs text-violet-300 font-mono">{detail.sku}</p>
                 </div>
               </>
             )}
           </div>
 
-          {/* Name + brand */}
+          {/* Name + badges */}
           <div>
-            <h2 className="text-lg font-bold text-white leading-tight">{product.name}</h2>
+            <h2 className="text-lg font-bold text-white leading-tight">{detail.name}</h2>
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
               {p.brandName && <span className="text-[11px] px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300">{p.brandName}</span>}
               {p.categoryName && <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-500/10 border border-slate-500/20 text-slate-400">{p.categoryName}</span>}
+              {p.subCategory && <span className="text-[11px] px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300">{p.subCategory}</span>}
+              {p.deviceModel && <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300">{p.deviceModel}</span>}
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300">{productConditionLabel(detail.condition)}</span>
               {variations.length > 0 && (
                 <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400">
                   {variations.length} variant{variations.length > 1 ? 's' : ''}
@@ -882,14 +930,18 @@ function ProductDetailModal({ product, onClose, onEdit }: { product: Product; on
           </div>
 
           {/* Price cards */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="rounded-xl p-3 text-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
               <div className="flex items-center justify-center gap-1 mb-1"><ArrowDownRight size={11} className="text-slate-500" /><span className="text-[10px] text-slate-500 uppercase tracking-wide">Buying</span></div>
-              <p className="text-sm font-bold text-white">{formatCurrency(product.buyingPrice)}</p>
+              <p className="text-sm font-bold text-white">{formatCurrency(detail.buyingPrice)}</p>
             </div>
             <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)' }}>
               <div className="flex items-center justify-center gap-1 mb-1"><ShoppingCart size={11} className="text-violet-400" /><span className="text-[10px] text-violet-400 uppercase tracking-wide">Selling</span></div>
-              <p className="text-sm font-bold text-violet-300">{formatCurrency(product.sellingPrice)}</p>
+              <p className="text-sm font-bold text-violet-300">{formatCurrency(detail.sellingPrice)}</p>
+            </div>
+            <div className="rounded-xl p-3 text-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+              <div className="flex items-center justify-center gap-1 mb-1"><Tag size={11} className="text-slate-500" /><span className="text-[10px] text-slate-500 uppercase tracking-wide">MRP</span></div>
+              <p className="text-sm font-bold text-white">{formatCurrency(mrp)}</p>
             </div>
             <div className="rounded-xl p-3 text-center" style={{ background: margin >= 0 ? 'rgba(21,128,61,0.08)' : 'rgba(185,28,28,0.08)', border: margin >= 0 ? '1px solid rgba(21,128,61,0.2)' : '1px solid rgba(185,28,28,0.2)' }}>
               <div className="flex items-center justify-center gap-1 mb-1"><ArrowUpRight size={11} className={margin >= 0 ? 'text-green-400' : 'text-red-400'} /><span className={`text-[10px] uppercase tracking-wide ${margin >= 0 ? 'text-green-400' : 'text-red-400'}`}>Margin</span></div>
@@ -905,7 +957,7 @@ function ProductDetailModal({ product, onClose, onEdit }: { product: Product; on
               </div>
               <div>
                 <p className="text-xs text-slate-500">Stock Qty</p>
-                <p className={`text-base font-bold ${isOut ? 'text-red-400' : isLow ? 'text-yellow-400' : 'text-white'}`}>{product.stock}</p>
+                <p className={`text-base font-bold ${isOut ? 'text-red-400' : isLow ? 'text-yellow-400' : 'text-white'}`}>{detail.stock}</p>
               </div>
             </div>
             <div className="rounded-xl p-3 flex items-center gap-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
@@ -919,27 +971,62 @@ function ProductDetailModal({ product, onClose, onEdit }: { product: Product; on
             </div>
           </div>
 
-          {/* Details list */}
-          <div className="space-y-0 rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
-            {([
-              ['SKU',           product.sku,              'font-mono text-xs'],
-              ['Profit / unit', formatCurrency(margin),   margin >= 0 ? 'text-green-400' : 'text-red-400'],
-              ['Min Stock Alert', String(product.minStock), 'text-yellow-400'],
-              ['Description',   p.description ?? '—',    ''],
-            ] as [string, string, string][]).map(([label, value, cls], i, arr) => (
-              <div key={label} className={`flex items-center justify-between px-4 py-2.5 text-sm ${ i < arr.length - 1 ? 'border-b' : '' }`} style={{ borderColor: 'var(--border-subtle)', background: i % 2 === 0 ? 'var(--bg-subtle)' : 'transparent' }}>
-                <span className="text-slate-500 text-xs">{label}</span>
-                <span className={`font-medium text-xs ${cls || 'text-slate-200'} max-w-[60%] text-right truncate`}>{value}</span>
+          <DetailSection title="Product Information" icon={<Package size={12} className="text-violet-400" />}>
+            <DetailRow label="SKU" value={detail.sku} valueClass="font-mono" />
+            <DetailRow label="Barcode" value={detail.barcode || '—'} valueClass="font-mono" />
+            <DetailRow label="Brand" value={p.brandName} />
+            <DetailRow label="Category" value={p.categoryName} />
+            <DetailRow label="Sub Category" value={p.subCategory || '—'} />
+            <DetailRow label="Device Model" value={p.deviceModel || '—'} />
+            <DetailRow label="Condition" value={productConditionLabel(detail.condition)} />
+          </DetailSection>
+
+          <DetailSection title="Pricing" icon={<TrendingUp size={12} className="text-violet-400" />}>
+            <DetailRow label="Buying Price" value={formatCurrency(detail.buyingPrice)} />
+            <DetailRow label="Selling Price" value={formatCurrency(detail.sellingPrice)} />
+            <DetailRow label="MRP" value={formatCurrency(mrp)} />
+            <DetailRow label="Profit / unit" value={formatCurrency(margin)} valueClass={margin >= 0 ? 'text-green-400' : 'text-red-400'} />
+            <DetailRow label="Margin" value={`${marginPct}%`} valueClass={margin >= 0 ? 'text-green-400' : 'text-red-400'} />
+          </DetailSection>
+
+          <DetailSection title="Inventory" icon={<Layers size={12} className="text-violet-400" />}>
+            <DetailRow label="Stock Quantity" value={String(detail.stock)} />
+            <DetailRow label="Min Stock Alert" value={String(detail.minStock)} valueClass="text-yellow-400" />
+            <DetailRow label="Stock Value" value={formatCurrency(stockValue)} />
+            {detail.trackImei && (
+              <>
+                <DetailRow label="IMEI Units In Stock" value={String(detail.imeiInStock ?? '—')} />
+                {detail.imeiGap != null && detail.imeiGap > 0 && (
+                  <DetailRow label="IMEI Gap" value={String(detail.imeiGap)} valueClass="text-amber-400" />
+                )}
+              </>
+            )}
+          </DetailSection>
+
+          <DetailSection title="Warranty & IMEI" icon={<Shield size={12} className="text-violet-400" />}>
+            <DetailRow label="Warranty" value={warrantyMonthsLabel(detail.warrantyMonths ?? 0)} />
+            <DetailRow label="Warranty Note" value={detail.warrantyNote?.trim() || '—'} />
+            <DetailRow
+              label="IMEI Tracking"
+              value={imeiType === 'device' ? 'Phone / Tablet' : 'Accessory (no IMEI)'}
+              valueClass={detail.trackImei ? 'text-cyan-300' : 'text-slate-400'}
+            />
+          </DetailSection>
+
+          {(detail.description?.trim()) && (
+            <DetailSection title="Description" icon={<FileText size={12} className="text-violet-400" />}>
+              <div className="px-4 py-3">
+                <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">{detail.description}</p>
               </div>
-            ))}
-          </div>
+            </DetailSection>
+          )}
 
           {/* ── Variants Panel ─────────────────────────────────────── */}
           {variations.length > 0 && (
             <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
               <button
                 type="button"
-                onClick={() => setShowVars(p => !p)}
+                onClick={() => setShowVars(v => !v)}
                 className="w-full flex items-center justify-between px-4 py-3"
                 style={{ background: 'var(--bg-subtle)' }}
               >
@@ -956,7 +1043,7 @@ function ProductDetailModal({ product, onClose, onEdit }: { product: Product; on
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
                     <thead>
                       <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
-                        {['Storage', 'Color', 'SKU', 'Sell Price', 'Cost'].map((h, i) => (
+                        {['Storage', 'Color', 'SKU', 'Sell Price', 'Cost', 'Stock'].map((h, i) => (
                           <th key={i} style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)', whiteSpace: 'nowrap' }}>{h}</th>
                         ))}
                       </tr>
@@ -981,6 +1068,9 @@ function ProductDetailModal({ product, onClose, onEdit }: { product: Product; on
                           </td>
                           <td style={{ padding: '8px 10px', color: 'var(--text-muted)' }}>
                             {formatCurrency(v.costPrice)}
+                          </td>
+                          <td style={{ padding: '8px 10px', color: 'var(--text-primary)' }}>
+                            {v.stock ?? 0}
                           </td>
                         </tr>
                       ))}
