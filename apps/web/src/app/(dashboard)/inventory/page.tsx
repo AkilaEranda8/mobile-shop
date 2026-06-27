@@ -18,18 +18,40 @@ import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import { ImeiProductTypeSelector } from '@/components/inventory/ImeiProductTypeSelector'
 import { imeiTypeToTrackFlag, trackFlagToImeiType, inferImeiProductType, isImeiHealthBannerDismissed, dismissImeiHealthBanner, type ImeiProductType } from '@/lib/productImei'
 import { PRODUCT_CONDITION_OPTS, type ProductCondition } from '@/lib/productCondition'
+import {
+  PRODUCT_CSV_COLUMNS,
+  PRODUCT_CSV_TEMPLATE,
+  parseProductCsv,
+  validateProductCsvRow,
+  productCsvRowToPayload,
+  productToCsvRow,
+  type ProductCsvRow,
+} from '@/lib/productCsvImport'
 
 /* ── CSV Export ─────────────────────────────────────────────────────── */
 function exportProductsCSV(products: Product[]) {
-  const headers = ['name','sku','brandName','categoryName','buyingPrice','sellingPrice','stock','minStock']
-  const rows = products.map(p => [
-    `"${p.name}"`, p.sku,
-    `"${(p as any).brandName ?? ''}"`,
-    `"${(p as any).categoryName ?? ''}"`,
-    p.buyingPrice, p.sellingPrice, p.stock, p.minStock,
-  ].join(','))
-  const csv = [headers.join(','), ...rows].join('\n')
-  const blob = new Blob([csv], { type: 'text/csv' })
+  const csv = [
+    PRODUCT_CSV_COLUMNS.join(','),
+    ...products.map(p => productToCsvRow({
+      name: p.name,
+      sku: p.sku,
+      brandName: (p as any).brandName,
+      categoryName: (p as any).categoryName,
+      subCategory: (p as any).subCategory,
+      deviceModel: (p as any).deviceModel,
+      barcode: (p as any).barcode,
+      buyingPrice: p.buyingPrice,
+      sellingPrice: p.sellingPrice,
+      stock: p.stock,
+      minStock: p.minStock,
+      condition: (p as any).condition,
+      trackImei: (p as any).trackImei,
+      warrantyMonths: (p as any).warrantyMonths,
+      warrantyNote: (p as any).warrantyNote,
+      description: (p as any).description,
+    })),
+  ].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const url  = URL.createObjectURL(blob)
   const a    = document.createElement('a')
   a.href     = url
@@ -41,155 +63,198 @@ function exportProductsCSV(products: Product[]) {
 /* ── CSV Import Modal ────────────────────────────────────────────────── */
 function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null)
-  const [rows, setRows] = useState<Record<string, string>[]>([])
-  const [errors, setErrors] = useState<string[]>([])
+  const [rows, setRows] = useState<ProductCsvRow[]>([])
+  const [parseWarnings, setParseWarnings] = useState<string[]>([])
+  const [validationErrors, setValidationErrors] = useState<string[]>([])
+  const [importErrors, setImportErrors] = useState<string[]>([])
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const [done, setDone] = useState(false)
-
-  const TEMPLATE = 'name,sku,brandName,categoryName,buyingPrice,sellingPrice,stock,minStock,trackImei'
-  const SAMPLE   = 'iPhone 15 Pro,IP15P-256,Apple,Smartphones,75000,89999,5,2,true'
-
-  const COL_ALIASES: Record<string, string> = {
-    'product name': 'name', 'product': 'name', 'item name': 'name', 'item': 'name',
-    'sku': 'sku', 'sku code': 'sku', 'product code': 'sku',
-    'category': 'categoryName', 'category name': 'categoryName',
-    'brand': 'brandName', 'brand name': 'brandName',
-    'cost price': 'buyingPrice', 'buying price': 'buyingPrice', 'cost': 'buyingPrice', 'purchase price': 'buyingPrice',
-    'selling price': 'sellingPrice', 'sale price': 'sellingPrice', 'price': 'sellingPrice', 'retail price': 'sellingPrice',
-    'stock qty': 'stock', 'stock quantity': 'stock', 'qty': 'stock', 'quantity': 'stock', 'stock': 'stock',
-    'min stock': 'minStock', 'minimum stock': 'minStock', 'min stock alert': 'minStock', 'min qty': 'minStock',
-    'track imei': 'trackImei', 'imei': 'trackImei', 'has imei': 'trackImei',
-  }
+  const [successCount, setSuccessCount] = useState(0)
+  const [dragOver, setDragOver] = useState(false)
 
   const downloadTemplate = () => {
-    const blob = new Blob([[TEMPLATE, SAMPLE].join('\n')], { type: 'text/csv' })
+    const blob = new Blob([PRODUCT_CSV_TEMPLATE], { type: 'text/csv;charset=utf-8;' })
     const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a'); a.href = url; a.download = 'inventory-template.csv'; a.click()
+    const a    = document.createElement('a')
+    a.href = url
+    a.download = 'inventory-import-template.csv'
+    a.click()
     URL.revokeObjectURL(url)
+  }
+
+  const loadCsvText = (text: string) => {
+    const { rows: parsed, warnings } = parseProductCsv(text)
+    setRows(parsed)
+    setParseWarnings(warnings)
+    setValidationErrors(parsed.flatMap((r, i) => validateProductCsvRow(r, i)))
+    setImportErrors([])
+    setDone(false)
+    setSuccessCount(0)
+    setProgress(null)
   }
 
   const parseFile = (file: File) => {
     const reader = new FileReader()
-    reader.onload = (ev) => {
-      const text   = ev.target?.result as string
-      const lines  = text.trim().split('\n').filter(Boolean)
-      const rawHeader = lines[0].split(',')
-      const header = rawHeader.map(h => {
-        const norm = h.trim().toLowerCase().replace(/^"|"$/g, '')
-        return COL_ALIASES[norm] ?? h.trim().replace(/^"|"$/g, '')
-      })
-      const parsed = lines.slice(1).map(line => {
-        const vals: Record<string, string> = {}
-        line.split(',').forEach((v, i) => { vals[header[i]] = v.trim().replace(/^"|"$/g, '') })
-        return vals
-      })
-      setRows(parsed)
-    }
+    reader.onload = (ev) => loadCsvText(ev.target?.result as string)
     reader.readAsText(file)
   }
 
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) parseFile(file)
+  }
+
   const handleImport = async () => {
-    setErrors([])
+    const preErrors = rows.flatMap((r, i) => validateProductCsvRow(r, i))
+    if (preErrors.length > 0) {
+      setValidationErrors(preErrors)
+      toast.error('Fix validation errors before importing')
+      return
+    }
+    setImportErrors([])
     setProgress({ done: 0, total: rows.length })
     const errs: string[] = []
+    let ok = 0
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i]
       try {
-        const explicitImei = r.trackImei?.toLowerCase()
-        let trackImei: boolean | undefined
-        if (explicitImei === 'true' || explicitImei === 'yes' || explicitImei === '1') trackImei = true
-        else if (explicitImei === 'false' || explicitImei === 'no' || explicitImei === '0') trackImei = false
-        else {
-          const inferred = inferImeiProductType({ categoryName: r.categoryName, productName: r.name })
-          if (inferred !== null) trackImei = inferred === 'device'
-        }
-        await productsApi.create({
-          name: r.name, sku: r.sku, brandName: r.brandName, categoryName: r.categoryName,
-          buyingPrice: Number(r.buyingPrice), sellingPrice: Number(r.sellingPrice),
-          stock: Number(r.stock), minStock: Number(r.minStock ?? 3),
-          ...(trackImei !== undefined ? { trackImei } : {}),
-        })
+        await productsApi.create(productCsvRowToPayload(r))
+        ok++
       } catch (e: any) {
-        errs.push(`Row ${i + 2}: ${r.name} — ${e?.message ?? 'failed'}`)
+        errs.push(`Row ${i + 2}: ${r.name || '(no name)'} — ${e?.message ?? 'failed'}`)
       }
       setProgress({ done: i + 1, total: rows.length })
     }
-    setErrors(errs)
+    setSuccessCount(ok)
+    setImportErrors(errs)
     setDone(true)
-    onSaved()
+    if (ok > 0) onSaved()
+    if (errs.length === 0) toast.success(`${ok} product${ok === 1 ? '' : 's'} imported`)
+    else toast.error(`${errs.length} row${errs.length === 1 ? '' : 's'} failed`)
   }
+
+  const canImport = rows.length > 0 && validationErrors.length === 0 && !progress
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl">
-        <div className="flex items-center justify-between p-5 border-b border-white/5">
-          <h3 className="text-base font-semibold text-white">Import Products (CSV)</h3>
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between p-5 border-b border-white/5 flex-shrink-0">
+          <div>
+            <h3 className="text-base font-semibold text-white">Import Products (CSV)</h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">Same fields as Create Product — brand &amp; category auto-created if missing</p>
+          </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
         </div>
-        <div className="p-5 space-y-4">
-          {/* Template */}
-          <div className="flex items-center justify-between p-3 rounded-xl bg-violet-500/5 border border-violet-500/15">
-            <div>
-              <p className="text-sm text-violet-300 font-medium">Required columns</p>
-              <p className="text-[11px] text-slate-500 mt-0.5 font-mono">name, sku, brandName, categoryName, buyingPrice, sellingPrice, stock, minStock</p>
+        <div className="p-5 space-y-4 overflow-y-auto flex-1">
+          <div className="flex items-start justify-between gap-3 p-3 rounded-xl bg-violet-500/5 border border-violet-500/15">
+            <div className="min-w-0">
+              <p className="text-sm text-violet-300 font-medium">CSV columns</p>
+              <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
+                <span className="text-slate-400">Required:</span> name, categoryName &nbsp;·&nbsp;
+                <span className="text-slate-400">Optional:</span> sku, brandName, subCategory, deviceModel, barcode, buyingPrice, sellingPrice, stock, minStock, condition, trackImei, warrantyMonths, warrantyNote, description
+              </p>
             </div>
-            <button onClick={downloadTemplate} className="text-xs text-violet-400 border border-violet-500/20 px-2.5 py-1.5 rounded-lg hover:bg-violet-500/10 flex items-center gap-1.5 flex-shrink-0 ml-3">
+            <button onClick={downloadTemplate} className="text-xs text-violet-400 border border-violet-500/20 px-2.5 py-1.5 rounded-lg hover:bg-violet-500/10 flex items-center gap-1.5 flex-shrink-0">
               <FileText size={12} />Template
             </button>
           </div>
 
-          {/* File picker */}
-          <input ref={inputRef} type="file" accept=".csv" className="hidden" onChange={e => e.target.files?.[0] && parseFile(e.target.files[0])} />
+          <input ref={inputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={e => e.target.files?.[0] && parseFile(e.target.files[0])} />
           <button
+            type="button"
             onClick={() => inputRef.current?.click()}
-            className="w-full border-2 border-dashed border-white/10 rounded-xl p-6 text-center hover:border-violet-500/30 hover:bg-violet-500/3 transition-colors"
+            onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            className={`w-full border-2 border-dashed rounded-xl p-6 text-center transition-colors ${dragOver ? 'border-violet-500/50 bg-violet-500/10' : 'border-white/10 hover:border-violet-500/30 hover:bg-violet-500/3'}`}
           >
-            <Upload size={24} className="text-slate-600 mx-auto mb-2" />
+            <Upload size={24} className={`mx-auto mb-2 ${dragOver ? 'text-violet-400' : 'text-slate-600'}`} />
             {rows.length > 0
-              ? <p className="text-sm text-violet-300">{rows.length} rows loaded — click to change file</p>
-              : <><p className="text-sm text-slate-400">Click to select a CSV file</p><p className="text-xs text-slate-600 mt-1">or drag and drop</p></>}
+              ? <p className="text-sm text-violet-300">{rows.length} rows loaded — click or drop to change file</p>
+              : <><p className="text-sm text-slate-400">Click to select a CSV file</p><p className="text-xs text-slate-600 mt-1">or drag and drop here</p></>}
           </button>
 
-          {/* Preview */}
-          {rows.length > 0 && !done && (
-            <div className="bg-white/3 rounded-xl p-3 border border-white/5 max-h-40 overflow-y-auto">
-              <p className="text-[10px] text-slate-500 mb-2 uppercase tracking-wide">Preview ({rows.length} products)</p>
-              {rows.slice(0, 5).map((r, i) => (
-                <div key={i} className="flex items-center gap-2 py-1 border-b border-white/5 last:border-0">
-                  <span className="text-xs text-slate-400 truncate flex-1">{r.name}</span>
-                  <span className="text-[10px] text-slate-600 flex-shrink-0">{r.sku}</span>
-                </div>
+          {parseWarnings.length > 0 && (
+            <div className="space-y-1">
+              {parseWarnings.map((w, i) => (
+                <p key={i} className="text-xs text-amber-400/90 flex items-start gap-1.5"><AlertCircle size={11} className="mt-0.5 flex-shrink-0" />{w}</p>
               ))}
-              {rows.length > 5 && <p className="text-[10px] text-slate-600 mt-1">+{rows.length - 5} more</p>}
             </div>
           )}
 
-          {/* Progress */}
+          {validationErrors.length > 0 && !done && (
+            <div className="space-y-1 max-h-20 overflow-y-auto rounded-lg border border-amber-500/20 bg-amber-500/5 p-2">
+              {validationErrors.slice(0, 8).map((e, i) => (
+                <p key={i} className="text-xs text-amber-300">{e}</p>
+              ))}
+              {validationErrors.length > 8 && <p className="text-[10px] text-amber-400/70">+{validationErrors.length - 8} more</p>}
+            </div>
+          )}
+
+          {rows.length > 0 && !done && (
+            <div className="bg-white/3 rounded-xl border border-white/5 overflow-hidden">
+              <p className="text-[10px] text-slate-500 px-3 py-2 border-b border-white/5 uppercase tracking-wide">Preview ({rows.length} products)</p>
+              <div className="overflow-x-auto max-h-48">
+                <table className="w-full text-left text-[11px]">
+                  <thead>
+                    <tr className="text-slate-500 border-b border-white/5">
+                      <th className="px-3 py-1.5 font-medium">Name</th>
+                      <th className="px-3 py-1.5 font-medium">SKU</th>
+                      <th className="px-3 py-1.5 font-medium">Brand</th>
+                      <th className="px-3 py-1.5 font-medium">Category</th>
+                      <th className="px-3 py-1.5 font-medium text-right">Buy</th>
+                      <th className="px-3 py-1.5 font-medium text-right">Sell</th>
+                      <th className="px-3 py-1.5 font-medium text-right">Stock</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.slice(0, 8).map((r, i) => (
+                      <tr key={i} className="border-b border-white/5 last:border-0 text-slate-300">
+                        <td className="px-3 py-1.5 max-w-[140px] truncate">{r.name || '—'}</td>
+                        <td className="px-3 py-1.5 text-slate-500">{r.sku || '—'}</td>
+                        <td className="px-3 py-1.5">{r.brandName || 'General'}</td>
+                        <td className="px-3 py-1.5">{r.categoryName || '—'}</td>
+                        <td className="px-3 py-1.5 text-right tabular-nums">{r.buyingPrice || '0'}</td>
+                        <td className="px-3 py-1.5 text-right tabular-nums">{r.sellingPrice || '0'}</td>
+                        <td className="px-3 py-1.5 text-right tabular-nums">{r.stock ?? '0'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {rows.length > 8 && <p className="text-[10px] text-slate-600 px-3 py-1.5">+{rows.length - 8} more rows</p>}
+            </div>
+          )}
+
           {progress && (
             <div className="space-y-2">
               <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
                 <div className="h-full bg-violet-500 rounded-full transition-all" style={{ width: `${(progress.done / progress.total) * 100}%` }} />
               </div>
-              <p className="text-xs text-slate-400 text-center">{progress.done} / {progress.total} imported</p>
+              <p className="text-xs text-slate-400 text-center">{progress.done} / {progress.total} processed</p>
             </div>
           )}
 
-          {/* Errors */}
-          {done && errors.length === 0 && (
-            <div className="flex items-center gap-2 text-green-400 text-sm"><CheckCircle size={16} />All {rows.length} products imported successfully!</div>
+          {done && importErrors.length === 0 && (
+            <div className="flex items-center gap-2 text-green-400 text-sm"><CheckCircle size={16} />{successCount} product{successCount === 1 ? '' : 's'} imported successfully</div>
           )}
-          {errors.length > 0 && (
-            <div className="space-y-1 max-h-24 overflow-y-auto">
-              {errors.map((e, i) => <p key={i} className="text-xs text-red-400 flex items-start gap-1.5"><AlertCircle size={11} className="mt-0.5 flex-shrink-0" />{e}</p>)}
+          {done && importErrors.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-slate-400">{successCount} imported · {importErrors.length} failed</p>
+              <div className="space-y-1 max-h-28 overflow-y-auto">
+                {importErrors.map((e, i) => <p key={i} className="text-xs text-red-400 flex items-start gap-1.5"><AlertCircle size={11} className="mt-0.5 flex-shrink-0" />{e}</p>)}
+              </div>
             </div>
           )}
 
-          <div className="flex gap-3 pt-1">
+          <div className="flex gap-3 pt-1 flex-shrink-0">
             <button onClick={onClose} className="btn-secondary flex-1 text-sm">{done ? 'Close' : 'Cancel'}</button>
             {!done && (
               <button
                 onClick={handleImport}
-                disabled={rows.length === 0 || !!progress}
+                disabled={!canImport}
                 className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {progress ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
