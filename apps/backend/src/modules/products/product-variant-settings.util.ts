@@ -6,9 +6,15 @@ export interface ProductVariantColor {
 export interface ProductVariantSettings {
   storageOptions: string[]
   colorOptions: ProductVariantColor[]
+  subCategoryOptions: string[]
 }
 
+export const DEFAULT_SUB_CATEGORY_OPTIONS = [
+  'Flagship', 'Mid Range', 'Budget', 'Entry Level', 'Premium', 'Ultra', 'Lite', 'Pro', 'Plus', 'Standard',
+]
+
 export const DEFAULT_PRODUCT_VARIANT_SETTINGS: ProductVariantSettings = {
+  subCategoryOptions: [...DEFAULT_SUB_CATEGORY_OPTIONS],
   storageOptions: [
     '16GB', '32GB', '64GB', '128GB', '256GB', '512GB', '1TB', '2TB',
     'Basic', 'Standard', 'Pro', 'Max', 'Plus', 'Lite',
@@ -68,8 +74,17 @@ function dedupeColors(items: ProductVariantColor[]): ProductVariantColor[] {
 
 export function normalizeProductVariantSettings(raw: unknown): ProductVariantSettings {
   const src = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  let subCategoryOptions = [...DEFAULT_PRODUCT_VARIANT_SETTINGS.subCategoryOptions]
   let storageOptions = [...DEFAULT_PRODUCT_VARIANT_SETTINGS.storageOptions]
   let colorOptions = [...DEFAULT_PRODUCT_VARIANT_SETTINGS.colorOptions]
+
+  if (Array.isArray(src.subCategoryOptions) && src.subCategoryOptions.length > 0) {
+    const parsed = src.subCategoryOptions
+      .filter((v): v is string => typeof v === 'string')
+      .map(v => v.trim())
+      .filter(Boolean)
+    if (parsed.length > 0) subCategoryOptions = dedupeStrings(parsed)
+  }
 
   if (Array.isArray(src.storageOptions) && src.storageOptions.length > 0) {
     const parsed = src.storageOptions
@@ -87,5 +102,5 @@ export function normalizeProductVariantSettings(raw: unknown): ProductVariantSet
     if (cleaned.length > 0) colorOptions = cleaned
   }
 
-  return { storageOptions, colorOptions }
+  return { subCategoryOptions, storageOptions, colorOptions }
 }

@@ -2,9 +2,12 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { Plus, Trash2, Upload, Loader2, ChevronDown, Info, GripVertical, Box, Eye, Lock, ArrowLeft } from 'lucide-react'
-import { productsApi, suppliersApi, uploadApi } from '@/lib/api'
+import { productsApi, suppliersApi, uploadApi, deviceCatalogApi, tenantApi } from '@/lib/api'
 import { useCategories, useBrands, useSuppliers, useProductVariantSettings } from '@/lib/hooks'
-import { DEFAULT_PRODUCT_VARIANT_SETTINGS } from '@/lib/productVariantSettings'
+import { DEFAULT_PRODUCT_VARIANT_SETTINGS, pushProductVariantSettings } from '@/lib/productVariantSettings'
+import { authStorage } from '@/lib/auth'
+import { isKasthuriTenant } from '@/lib/invoiceSettings'
+import { getTenantSlugFromHost } from '@/lib/tenant-context'
 import type { Category } from '@/types'
 import toast from 'react-hot-toast'
 import { ImeiProductTypeSelector } from './ImeiProductTypeSelector'
@@ -20,6 +23,8 @@ interface VariantRow {
 interface AddProductModalProps { onClose: () => void; onSaved: () => void }
 interface Brand { id: string; name: string }
 interface Supplier { id: string; name: string }
+interface DeviceBrand { id: string; name: string }
+interface DeviceModel { id: string; name: string; brandId: string }
 
 /* ─── Constants ─────────────────────────────────────────────────────────── */
 
@@ -35,8 +40,7 @@ function warrantyLabelToMonths(label: string): number {
   }
   return map[label] ?? 0
 }
-const SUB_CAT_OPTS = ['Flagship','Mid Range','Budget','Entry Level','Premium','Ultra','Lite','Pro','Plus','Standard']
-const DEVICE_MODEL_OPTS = ['iPhone','iPad','MacBook','Samsung Galaxy','Xiaomi','OnePlus','Google Pixel','Oppo','Vivo','Huawei','Sony','Nokia','Motorola','Laptop','Tablet','Desktop','Smart Watch','Earbuds','Speaker','Other']
+const DEVICE_MODEL_FALLBACK = ['iPhone','iPad','MacBook','Samsung Galaxy','Xiaomi','OnePlus','Google Pixel','Oppo','Vivo','Huawei','Sony','Nokia','Motorola','Laptop','Tablet','Desktop','Smart Watch','Earbuds','Speaker','Other']
 
 /* ─── Style helpers ──────────────────────────────────────────────────────── */
 
@@ -221,6 +225,95 @@ function AddBrandPopup({ onClose, onSaved }: { onClose: () => void; onSaved: (b:
   )
 }
 
+/* ─── Add Sub Category Popup ──────────────────────────────────────────────── */
+function AddSubCatPopup({ settings, onClose, onSaved }: {
+  settings: typeof DEFAULT_PRODUCT_VARIANT_SETTINGS; onClose: () => void; onSaved: (name: string) => void
+}) {
+  const [name, setName] = useState(''); const [loading, setLoading] = useState(false)
+  const options = settings.subCategoryOptions
+  const save = async () => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    if (options.some(o => o.toLowerCase() === trimmed.toLowerCase())) {
+      toast.error('Sub category already exists'); return
+    }
+    const tenantId = authStorage.getUser()?.tenantId
+    if (!tenantId) { toast.error('Not signed in'); return }
+    setLoading(true)
+    try {
+      const next = [...options, trimmed]
+      await pushProductVariantSettings(tenantId, { ...settings, subCategoryOptions: next })
+      toast.success(`"${trimmed}" added`)
+      onSaved(trimmed)
+      onClose()
+    } catch (e: any) { toast.error(e.message || 'Failed') } finally { setLoading(false) }
+  }
+  return (
+    <div style={{ position: 'absolute', right: 0, top: 42, zIndex: 50, width: 200, padding: 12, borderRadius: 10,
+      background: 'var(--bg-card)', border: '1px solid var(--border-default)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>New Sub Category</p>
+      <input autoFocus style={{ ...inputStyle, marginBottom: 8 }} placeholder="Sub category name…" value={name}
+        onChange={e => setName(e.target.value)} onKeyDown={e => e.key === 'Enter' && save()} />
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button type="button" onClick={onClose} style={{ ...btn, flex: 1, fontSize: 11, background: 'var(--bg-subtle)', color: 'var(--text-muted)', border: 'none' }}>Cancel</button>
+        <button type="button" onClick={save} disabled={!name.trim() || loading}
+          style={{ ...btn, flex: 1, fontSize: 11, background: '#2563eb', color: '#fff', border: 'none', opacity: (!name.trim() || loading) ? 0.5 : 1 }}>
+          {loading ? <Loader2 size={11} className="animate-spin" /> : 'Add'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ─── Add Device Model Popup ──────────────────────────────────────────────── */
+function AddDeviceModelPopup({ brandName, deviceBrands, onBrandsChange, onClose, onSaved }: {
+  brandName: string
+  deviceBrands: DeviceBrand[]
+  onBrandsChange: (brands: DeviceBrand[]) => void
+  onClose: () => void
+  onSaved: (name: string, brandId: string) => void
+}) {
+  const [name, setName] = useState(''); const [loading, setLoading] = useState(false)
+  const save = async () => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    if (!brandName.trim()) { toast.error('Select a brand first'); return }
+    setLoading(true)
+    try {
+      const existing = deviceBrands.find(b => b.name.toLowerCase() === brandName.trim().toLowerCase())
+      let brandId: string
+      if (existing) {
+        brandId = existing.id
+      } else {
+        const createdRes: any = await deviceCatalogApi.createBrand(brandName.trim())
+        const created: DeviceBrand = createdRes.data ?? createdRes
+        onBrandsChange([...deviceBrands, created])
+        brandId = created.id
+      }
+      const r: any = await deviceCatalogApi.createModel(brandId, trimmed)
+      const model = r.data ?? r
+      toast.success(`"${trimmed}" added`)
+      onSaved(model.name ?? trimmed, brandId)
+      onClose()
+    } catch (e: any) { toast.error(e.message || 'Failed') } finally { setLoading(false) }
+  }
+  return (
+    <div style={{ position: 'absolute', right: 0, top: 42, zIndex: 50, width: 200, padding: 12, borderRadius: 10,
+      background: 'var(--bg-card)', border: '1px solid var(--border-default)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>New Device Model</p>
+      <input autoFocus style={{ ...inputStyle, marginBottom: 8 }} placeholder="Model name…" value={name}
+        onChange={e => setName(e.target.value)} onKeyDown={e => e.key === 'Enter' && save()} />
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button type="button" onClick={onClose} style={{ ...btn, flex: 1, fontSize: 11, background: 'var(--bg-subtle)', color: 'var(--text-muted)', border: 'none' }}>Cancel</button>
+        <button type="button" onClick={save} disabled={!name.trim() || loading || !brandName.trim()}
+          style={{ ...btn, flex: 1, fontSize: 11, background: '#2563eb', color: '#fff', border: 'none', opacity: (!name.trim() || loading || !brandName.trim()) ? 0.5 : 1 }}>
+          {loading ? <Loader2 size={11} className="animate-spin" /> : 'Add'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /* ─── Image Uploader ──────────────────────────────────────────────────────── */
 function ImageUploader({ imageUrl, onUploaded }: { imageUrl: string; onUploaded: (url: string) => void }) {
   const ref = useRef<HTMLInputElement>(null)
@@ -283,10 +376,12 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
   const { data: catsData, refetch: refetchCats } = useCategories()
   const { data: brandsData, refetch: refetchBrands } = useBrands()
   const { data: suppliersRaw } = useSuppliers()
-  const { data: variantSettings } = useProductVariantSettings()
+  const { data: variantSettings, refetch: refetchVariantSettings } = useProductVariantSettings()
 
-  const storageOpts = variantSettings?.storageOptions ?? DEFAULT_PRODUCT_VARIANT_SETTINGS.storageOptions
-  const colorOpts = variantSettings?.colorOptions ?? DEFAULT_PRODUCT_VARIANT_SETTINGS.colorOptions
+  const variantCfg = variantSettings ?? DEFAULT_PRODUCT_VARIANT_SETTINGS
+  const storageOpts = variantCfg.storageOptions
+  const colorOpts = variantCfg.colorOptions
+  const subCatOpts = variantCfg.subCategoryOptions
 
   const cats: Category[]  = (catsData ?? []) as Category[]
   const brands: Brand[]   = (brandsData ?? []) as Brand[]
@@ -295,7 +390,13 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
   const [loading, setLoading] = useState(false)
   const [showAddCat, setShowAddCat] = useState(false)
   const [showAddBrand, setShowAddBrand] = useState(false)
+  const [showAddSubCat, setShowAddSubCat] = useState(false)
+  const [showAddDeviceModel, setShowAddDeviceModel] = useState(false)
   const [extraBrands, setExtraBrands] = useState<Brand[]>([])
+  const [deviceBrands, setDeviceBrands] = useState<DeviceBrand[]>([])
+  const [deviceModels, setDeviceModels] = useState<DeviceModel[]>([])
+  const [tenantSlug, setTenantSlug] = useState<string | null>(() => getTenantSlugFromHost())
+  const hideSubCatAndDeviceModel = isKasthuriTenant(tenantSlug)
 
   const allBrands = [...brands, ...extraBrands.filter(eb => !brands.find(b => b.id === eb.id))]
 
@@ -322,6 +423,42 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
     if (cats.length > 0 && !form.categoryName) f('categoryName', cats[0].name)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cats.length])
+
+  useEffect(() => {
+    const tenantId = authStorage.getUser()?.tenantId
+    if (!tenantId) return
+    tenantApi.get(tenantId).then((res: any) => {
+      const slug = (res?.data ?? res)?.slug
+      if (slug) setTenantSlug(slug)
+    }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (hideSubCatAndDeviceModel) return
+    deviceCatalogApi.listBrands().then((res: any) => setDeviceBrands(res.data ?? res)).catch(() => {})
+  }, [hideSubCatAndDeviceModel])
+
+  useEffect(() => {
+    if (hideSubCatAndDeviceModel) return
+    const brand = deviceBrands.find(b => b.name.toLowerCase() === form.brandName.trim().toLowerCase())
+    if (!brand) {
+      setDeviceModels([])
+      return
+    }
+    deviceCatalogApi.listModels(brand.id).then((res: any) => setDeviceModels(res.data ?? res)).catch(() => setDeviceModels([]))
+  }, [form.brandName, deviceBrands, hideSubCatAndDeviceModel])
+
+  const deviceModelOpts = (() => {
+    const fromCatalog = deviceModels.map(m => m.name)
+    if (fromCatalog.length === 0) return DEVICE_MODEL_FALLBACK
+    const seen = new Set<string>()
+    return fromCatalog.filter(n => {
+      const key = n.toLowerCase()
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  })()
 
   useEffect(() => {
     if (allBrands.length > 0 && !form.brandName) f('brandName', allBrands[0].name)
@@ -575,25 +712,57 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                         </div>
                       </div>
                     </div>
-                    <div>
-                      <Lbl>Sub Category</Lbl>
-                      <Sel value={form.subCategory} onChange={v => f('subCategory', v)} placeholder="Select sub category">
-                        {SUB_CAT_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
-                      </Sel>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    {!hideSubCatAndDeviceModel && (
+                      <div className="relative">
+                        <Lbl>Sub Category</Lbl>
+                        <div className="flex gap-2">
+                          <Sel value={form.subCategory} onChange={v => f('subCategory', v)} placeholder="Select sub category">
+                            {subCatOpts.map(s => <option key={s} value={s}>{s}</option>)}
+                          </Sel>
+                          <div className="relative">
+                            <PlusBtn onClick={() => setShowAddSubCat(p => !p)} />
+                            {showAddSubCat && (
+                              <AddSubCatPopup settings={variantCfg} onClose={() => setShowAddSubCat(false)}
+                                onSaved={name => { refetchVariantSettings(); f('subCategory', name) }} />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <div className={`grid grid-cols-1 ${hideSubCatAndDeviceModel ? '' : 'sm:grid-cols-2'} gap-3.5`}>
                       <div>
                         <Lbl req>Unit</Lbl>
                         <Sel value={form.unit} onChange={v => f('unit', v)}>
                           {UNIT_OPTS.map(u => <option key={u}>{u}</option>)}
                         </Sel>
                       </div>
-                      <div>
-                        <Lbl>Device Model</Lbl>
-                        <Sel value={form.deviceModel} onChange={v => f('deviceModel', v)} placeholder="Select device model">
-                          {DEVICE_MODEL_OPTS.map(m => <option key={m} value={m}>{m}</option>)}
-                        </Sel>
-                      </div>
+                      {!hideSubCatAndDeviceModel && (
+                        <div className="relative">
+                          <Lbl>Device Model</Lbl>
+                          <div className="flex gap-2">
+                            <Sel value={form.deviceModel} onChange={v => f('deviceModel', v)} placeholder="Select device model">
+                              {deviceModelOpts.map(m => <option key={m} value={m}>{m}</option>)}
+                            </Sel>
+                            <div className="relative">
+                              <PlusBtn onClick={() => setShowAddDeviceModel(p => !p)} />
+                              {showAddDeviceModel && (
+                                <AddDeviceModelPopup
+                                  brandName={form.brandName}
+                                  deviceBrands={deviceBrands}
+                                  onBrandsChange={setDeviceBrands}
+                                  onClose={() => setShowAddDeviceModel(false)}
+                                  onSaved={(name, brandId) => {
+                                    deviceCatalogApi.listModels(brandId)
+                                      .then((res: any) => setDeviceModels(res.data ?? res))
+                                      .catch(() => {})
+                                    f('deviceModel', name)
+                                  }}
+                                />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

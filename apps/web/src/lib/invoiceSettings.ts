@@ -125,9 +125,14 @@ export interface ShopContext {
   branchEmail?: string
 }
 
+/** True for the Kasthuri Mobile Solutions tenant only */
+export function isKasthuriTenant(tenantSlug?: string | null): boolean {
+  return tenantSlug === KASTHURI_TENANT_SLUG
+}
+
 /** Kasthuri custom A4 layout — only for the Kasthuri Mobile Solutions tenant */
 export function isKasthuriInvoice(_settings: InvoiceSettings, tenantSlug?: string): boolean {
-  return tenantSlug === KASTHURI_TENANT_SLUG
+  return isKasthuriTenant(tenantSlug)
 }
 
 export function applyKasthuriPreset(settings: InvoiceSettings, tenantSlug?: string): InvoiceSettings {
