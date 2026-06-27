@@ -15,7 +15,6 @@ import {
 } from '@/lib/api'
 import {
   buildTenantOnboardShareMessage,
-  whatsAppShareUrl,
 } from '@/lib/tenantOnboardMessage'
 
 function WhatsAppFormattedLine({ line }: { line: string }) {
@@ -391,7 +390,7 @@ function OnboardModal({ onClose, onCreated }: { onClose: () => void; onCreated?:
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
-  const [result, setResult] = useState<{ subdomain: string; ownerEmail: string; tempPassword?: string; whatsappSent?: boolean; whatsappError?: string } | null>(null)
+  const [result, setResult] = useState<{ subdomain: string; ownerEmail: string; tempPassword?: string; whatsappSent?: boolean } | null>(null)
   const [sendingWa, setSendingWa] = useState(false)
 
   const loginPassword = result?.tempPassword ?? form.password
@@ -428,10 +427,9 @@ function OnboardModal({ onClose, onCreated }: { onClose: () => void; onCreated?:
         plan: form.plan,
         subdomain: result.subdomain,
       })
-      setResult(prev => prev ? { ...prev, whatsappSent: true, whatsappError: undefined } : prev)
+      setResult(prev => prev ? { ...prev, whatsappSent: true } : prev)
     } catch (e: any) {
       setError(e.message || 'Failed to send WhatsApp message')
-      setResult(prev => prev ? { ...prev, whatsappSent: false, whatsappError: e.message } : prev)
     } finally {
       setSendingWa(false)
     }
@@ -446,8 +444,6 @@ function OnboardModal({ onClose, onCreated }: { onClose: () => void; onCreated?:
         subdomain: res.subdomain,
         ownerEmail: res.ownerEmail,
         tempPassword: res.tempPassword,
-        whatsappSent: res.whatsappSent,
-        whatsappError: res.whatsappError,
       })
       setStep(4)
       onCreated?.()
@@ -534,7 +530,7 @@ function OnboardModal({ onClose, onCreated }: { onClose: () => void; onCreated?:
               { label: 'Keycloak realm', detail: `realm: ${form.shopName.toLowerCase().replace(/\s/g, '-') || 'tenant-xxx'}`, done: true },
               { label: 'Default roles & permissions', detail: 'Owner, Manager, Cashier, Technician', done: true },
               { label: 'Welcome email', detail: `to ${form.email || 'owner@shop.com'}`, done: false },
-              { label: 'WhatsApp credentials', detail: form.phone ? `auto-send to ${form.phone}` : 'add owner phone to enable', done: !!form.phone.trim() },
+              { label: 'WhatsApp credentials', detail: form.phone ? `send manually to ${form.phone} after onboard` : 'add owner phone to enable', done: !!form.phone.trim() },
             ].map(item => (
               <div key={item.label} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${item.done ? 'bg-green-500' : 'bg-gray-300'}`}>
@@ -557,17 +553,9 @@ function OnboardModal({ onClose, onCreated }: { onClose: () => void; onCreated?:
               </div>
               <h3 className="text-base font-semibold text-gray-900 mb-1">Tenant Onboarded!</h3>
               <p className="text-sm text-gray-500">{form.shopName} is now active on {form.plan} plan.</p>
-              {form.phone.trim() && (
-                <div className={`mt-3 inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full ${
-                  result?.whatsappSent
-                    ? 'bg-green-50 text-green-700 border border-green-200'
-                    : 'bg-amber-50 text-amber-700 border border-amber-200'
-                }`}>
-                  {result?.whatsappSent ? (
-                    <><CheckCircle size={13} /> Login credentials sent to {form.phone} via WhatsApp</>
-                  ) : (
-                    <><AlertCircle size={13} /> WhatsApp not sent{result?.whatsappError ? `: ${result.whatsappError}` : ''}</>
-                  )}
+              {result?.whatsappSent && form.phone.trim() && (
+                <div className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-green-50 text-green-700 border border-green-200">
+                  <CheckCircle size={13} /> Login credentials sent to {form.phone} via WhatsApp
                 </div>
               )}
             </div>
@@ -607,17 +595,9 @@ function OnboardModal({ onClose, onCreated }: { onClose: () => void; onCreated?:
                     style={{ background: '#25D366', borderColor: '#25D366' }}
                   >
                     <MessageCircle size={14} />
-                    {sendingWa ? 'Sending…' : result?.whatsappSent ? 'Resend via WhatsApp' : 'Send via WhatsApp API'}
+                    {sendingWa ? 'Sending…' : result?.whatsappSent ? 'Resend via WhatsApp' : 'Send via WhatsApp'}
                   </button>
                 )}
-                <a
-                  href={whatsAppShareUrl(shareMessage, form.phone)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn-secondary flex-1 justify-center text-sm"
-                >
-                  Open in WhatsApp
-                </a>
               </div>
             )}
           </div>

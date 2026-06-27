@@ -294,7 +294,7 @@ export const billingWhatsappApi: BillingWhatsappApi = {
 }
 
 export async function createTenant(data: { shopName: string; ownerName: string; email: string; phone?: string; plan: string; password?: string }) {
-  return req<{ tenant: TenantRow; subdomain: string; ownerEmail: string; tempPassword?: string; whatsappSent?: boolean; whatsappError?: string }>(
+  return req<{ tenant: TenantRow; subdomain: string; ownerEmail: string; tempPassword?: string }>(
     ADMIN_BASE, '/tenants', { method: 'POST', body: JSON.stringify(data) },
   )
 }

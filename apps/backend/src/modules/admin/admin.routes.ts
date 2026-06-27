@@ -127,31 +127,11 @@ router.post('/tenants', async (req: Request, res: Response, next: NextFunction) 
     const result = await authService.registerTenant({
       shopName, ownerName, ownerEmail: email, password: tempPassword, plan, phone,
     })
-
-    let whatsappSent = false
-    let whatsappError: string | undefined
-    if (phone?.trim()) {
-      const billingTenantId = await ensureBillingWhatsAppTenant()
-      const wa = await sendTenantOnboardWhatsApp(billingTenantId, {
-        phone: phone.trim(),
-        shopName,
-        ownerName,
-        email,
-        password: tempPassword,
-        plan: plan || 'STARTER',
-        subdomain: result.subdomain,
-      })
-      whatsappSent = wa.sent
-      whatsappError = wa.error
-    }
-
     sendSuccess(res, {
       tenant: result.tenant,
       subdomain: result.subdomain,
       ownerEmail: email,
       tempPassword: password ? undefined : tempPassword,
-      whatsappSent,
-      whatsappError,
     }, 'Tenant created')
   } catch (e) { next(e) }
 })
