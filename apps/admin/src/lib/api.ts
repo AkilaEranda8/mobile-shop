@@ -275,10 +275,19 @@ export const billingWhatsappApi: AdminWhatsappApi = {
   updateConfig:     (body) => req<WAConfig>(ADMIN_BASE, `${BILLING_WA}/config`, { method: 'PUT', body: JSON.stringify(body) }),
   testConnection:   () => req<{ success: boolean; message: string }>(ADMIN_BASE, `${BILLING_WA}/test`, { method: 'POST', body: '{}' }),
   sendTestMessage:  (phone) => req<{ success: boolean; message: string }>(ADMIN_BASE, `${BILLING_WA}/test-message`, { method: 'POST', body: JSON.stringify({ phone }) }),
+  sendOnboardCredentials: (body: {
+    phone: string
+    shopName: string
+    ownerName: string
+    email: string
+    password: string
+    plan: string
+    subdomain: string
+  }) => req<{ sent: boolean; messageId?: string }>(ADMIN_BASE, `${BILLING_WA}/send-onboard-credentials`, { method: 'POST', body: JSON.stringify(body) }),
 }
 
 export async function createTenant(data: { shopName: string; ownerName: string; email: string; phone?: string; plan: string; password?: string }) {
-  return req<{ tenant: TenantRow; subdomain: string; ownerEmail: string; tempPassword?: string }>(
+  return req<{ tenant: TenantRow; subdomain: string; ownerEmail: string; tempPassword?: string; whatsappSent?: boolean; whatsappError?: string }>(
     ADMIN_BASE, '/tenants', { method: 'POST', body: JSON.stringify(data) },
   )
 }

@@ -10,13 +10,17 @@ export type TenantOnboardShareInput = {
   subdomain?: string
 }
 
-export function tenantLoginUrl(): string {
+export function tenantLoginUrl(subdomain?: string): string {
+  if (subdomain) {
+    const host = subdomain.includes('.') ? subdomain : `${subdomain}.app.hexalyte.com`
+    return `https://${host.replace(/^https?:\/\//, '')}/login`
+  }
   return `${WEB_APP_URL.replace(/\/$/, '')}/login`
 }
 
 export function buildTenantOnboardShareMessage(input: TenantOnboardShareInput): string {
   const planLabel = input.plan.charAt(0) + input.plan.slice(1).toLowerCase()
-  const loginUrl = tenantLoginUrl()
+  const loginUrl = tenantLoginUrl(input.subdomain)
 
   const lines = [
     `*Welcome to Hexalyte*`,
@@ -43,7 +47,10 @@ export function buildTenantOnboardShareMessage(input: TenantOnboardShareInput): 
   ]
 
   if (input.subdomain) {
-    lines.push('', `🌐 *Shop URL*`, input.subdomain)
+    const shopHost = input.subdomain.includes('.')
+      ? input.subdomain
+      : `${input.subdomain}.app.hexalyte.com`
+    lines.push('', `🌐 *Shop URL*`, `https://${shopHost.replace(/^https?:\/\//, '')}`)
   }
 
   lines.push(

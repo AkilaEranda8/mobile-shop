@@ -29,7 +29,9 @@ import {
   updateConfigSchema,
   sendTestMessageSchema,
   sendInvoiceSchema,
+  sendOnboardCredentialsSchema,
 } from '../whatsapp/whatsapp.schema'
+import { sendTenantOnboardWhatsApp } from '../../utils/send-tenant-onboard-whatsapp'
 import releaseNotesAdminRoutes from '../release-notes/release-notes-admin.routes'
 
 const router = Router()
@@ -125,11 +127,31 @@ router.post('/tenants', async (req: Request, res: Response, next: NextFunction) 
     const result = await authService.registerTenant({
       shopName, ownerName, ownerEmail: email, password: tempPassword, plan, phone,
     })
+
+    let whatsappSent = false
+    let whatsappError: string | undefined
+    if (phone?.trim()) {
+      const billingTenantId = await ensureBillingWhatsAppTenant()
+      const wa = await sendTenantOnboardWhatsApp(billingTenantId, {
+        phone: phone.trim(),
+        shopName,
+        ownerName,
+        email,
+        password: tempPassword,
+        plan: plan || 'STARTER',
+        subdomain: result.subdomain,
+      })
+      whatsappSent = wa.sent
+      whatsappError = wa.error
+    }
+
     sendSuccess(res, {
       tenant: result.tenant,
       subdomain: result.subdomain,
       ownerEmail: email,
       tempPassword: password ? undefined : tempPassword,
+      whatsappSent,
+      whatsappError,
     }, 'Tenant created')
   } catch (e) { next(e) }
 })
@@ -454,6 +476,14 @@ router.post('/billing/whatsapp/test-message', validate(sendTestMessageSchema), a
   try {
     const tenantId = await ensureBillingWhatsAppTenant()
     sendSuccess(res, await whatsappService.sendTestMessage(tenantId, req.body.phone))
+  } catch (e) { next(e) }
+})
+router.post('/billing/whatsapp/send-onboard-credentials', validate(sendOnboardCredentialsSchema), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenantId = await ensureBillingWhatsAppTenant()
+    const result = await sendTenantOnboardWhatsApp(tenantId, req.body)
+    if (!result.sent) throw new AppError(result.error ?? 'WhatsApp send failed', 400)
+    sendSuccess(res, result, 'Login credentials sent via WhatsApp')
   } catch (e) { next(e) }
 })
 

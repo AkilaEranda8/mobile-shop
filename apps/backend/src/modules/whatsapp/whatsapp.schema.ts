@@ -46,6 +46,16 @@ export const sendMessageSchema = z.object({
   amount:       z.number().optional(),
 })
 
+export const sendOnboardCredentialsSchema = z.object({
+  phone:      z.string().regex(/^\+?[0-9]\d{6,14}$/, 'Invalid phone number'),
+  shopName:   z.string().min(1),
+  ownerName:  z.string().min(1),
+  email:      z.string().email(),
+  password:   z.string().min(1),
+  plan:       z.string().min(1),
+  subdomain:  z.string().min(1),
+})
+
 export type ConnectInput       = z.infer<typeof connectSchema>
 export type UpdateConfigInput  = z.infer<typeof updateConfigSchema>
 export type SendInvoiceInput   = z.infer<typeof sendInvoiceSchema>
