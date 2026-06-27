@@ -51,9 +51,22 @@ export function extractSaleWarranties(saleResponse: unknown): SaleWarrantyLine[]
 }
 
 export function formatWarrantyMonths(months: number): string {
+  if (months <= 0) return 'None'
   if (months < 12) return `${months} mo`
   if (months % 12 === 0) return `${months / 12} yr`
   return `${months} mo`
+}
+
+export const POS_WARRANTY_MONTHS_OPTS = [0, 1, 3, 6, 12, 24] as const
+
+export function posWarrantyMonthsLabel(months: number): string {
+  if (months <= 0) return 'None'
+  if (months === 1) return '1 Month'
+  if (months === 3) return '3 Months'
+  if (months === 6) return '6 Months'
+  if (months === 12) return '1 Year'
+  if (months === 24) return '2 Years'
+  return formatWarrantyPeriodLabel(months)
 }
 
 /** Full text for invoices and receipts (e.g. "12 months", "1 year"). */

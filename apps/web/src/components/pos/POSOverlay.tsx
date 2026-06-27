@@ -24,6 +24,8 @@ import {
   extractSaleWarrantyCodes,
   extractSaleWarranties,
   formatWarrantyMonths,
+  posWarrantyMonthsLabel,
+  POS_WARRANTY_MONTHS_OPTS,
 } from './cart-rules'
 import { useUIStore } from '@/stores/ui-store'
 import { useProducts, useFeatureFlag } from '@/lib/hooks'
@@ -702,6 +704,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [showRegister, setShowRegister]         = useState(false)
   const [editPriceId, setEditPriceId]           = useState<string | null>(null)
   const [editPriceVal, setEditPriceVal]         = useState('')
+  const [editWarrantyId, setEditWarrantyId]     = useState<string | null>(null)
+  const [editWarrantyMonths, setEditWarrantyMonths] = useState('0')
+  const [editWarrantyNote, setEditWarrantyNote] = useState('')
   const [downloading, setDownloading]           = useState(false)
   const [showA4Invoice, setShowA4Invoice]       = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL')
@@ -1475,6 +1480,22 @@ function POSContent({ onClose }: { onClose: () => void }) {
     setEditPriceId(null)
   }
 
+  const openEditWarranty = (item: CartItem) => {
+    setEditPriceId(null)
+    setEditWarrantyId(item.cartId)
+    setEditWarrantyMonths(String(item.warrantyMonths ?? 0))
+    setEditWarrantyNote(item.warrantyNote ?? '')
+  }
+
+  const saveEditWarranty = (cartId: string) => {
+    const months = Math.max(0, parseInt(editWarrantyMonths, 10) || 0)
+    const note = editWarrantyNote.trim() || undefined
+    setCart(prev => prev.map(i => (
+      i.cartId === cartId ? { ...i, warrantyMonths: months, warrantyNote: note } : i
+    )))
+    setEditWarrantyId(null)
+  }
+
   const subtotal       = cart.reduce((s, i) => s + i.price * i.quantity, 0)
   const serviceCostTotal = cart.filter(i => i.isService).reduce((s, i) => s + (i.cost ?? 0) * i.quantity, 0)
   const serviceRevenue   = cart.filter(i => i.isService).reduce((s, i) => s + i.price * i.quantity, 0)
@@ -1730,6 +1751,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           total:       i.price * i.quantity,
           imei:        i.imei,
           warrantyMonths: i.warrantyMonths ?? 0,
+          warrantyNote: i.warrantyNote?.trim() || undefined,
           ...(i.isReload && i.reloadProvider ? {
             reloadProvider: i.reloadProvider,
             reloadType: i.reloadType ?? 'RELOAD',
@@ -2842,10 +2864,50 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         </p>
                       )}
                       {item.imei && <p className="text-[10px] font-mono text-white/80">IMEI: {item.imei}</p>}
-                      {hasWarranty && !item.isService && !item.isReload && (item.warrantyMonths ?? 0) > 0 && (
-                        <p className="text-[10px] font-semibold flex items-center gap-1" style={{ color: POS_THEME.green }}>
-                          <Shield size={9} /> Warranty · {formatWarrantyMonths(item.warrantyMonths ?? 0)}
-                        </p>
+                      {hasWarranty && !item.isService && !item.isReload && (
+                        editWarrantyId === item.cartId ? (
+                          <div className="mt-1 space-y-1 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-1.5">
+                            <select
+                              autoFocus
+                              value={editWarrantyMonths}
+                              onChange={e => setEditWarrantyMonths(e.target.value)}
+                              className="w-full bg-white/5 border border-white/10 rounded px-1.5 py-1 text-[10px] text-white focus:outline-none focus:border-emerald-500/50"
+                            >
+                              {POS_WARRANTY_MONTHS_OPTS.map(m => (
+                                <option key={m} value={m}>{posWarrantyMonthsLabel(m)}</option>
+                              ))}
+                            </select>
+                            <input
+                              type="text"
+                              placeholder="Warranty note (optional)"
+                              value={editWarrantyNote}
+                              onChange={e => setEditWarrantyNote(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') saveEditWarranty(item.cartId)
+                                if (e.key === 'Escape') setEditWarrantyId(null)
+                              }}
+                              className="w-full bg-white/5 border border-white/10 rounded px-1.5 py-1 text-[10px] text-white placeholder:text-white/30 focus:outline-none focus:border-emerald-500/50"
+                            />
+                            <div className="flex items-center gap-1">
+                              <button type="button" onClick={() => saveEditWarranty(item.cartId)} className="text-emerald-400"><Check size={11} /></button>
+                              <button type="button" onClick={() => setEditWarrantyId(null)} className="text-white/70"><X size={11} /></button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => openEditWarranty(item)}
+                            className="text-[10px] font-semibold flex items-center gap-1 hover:text-emerald-300 transition-colors mt-0.5"
+                            style={{ color: (item.warrantyMonths ?? 0) > 0 ? POS_THEME.green : POS_THEME.muted }}
+                          >
+                            <Shield size={9} />
+                            {(item.warrantyMonths ?? 0) > 0
+                              ? `Warranty · ${formatWarrantyMonths(item.warrantyMonths ?? 0)}`
+                              : 'Add warranty'}
+                            {item.warrantyNote?.trim() && <span className="text-white/50">· note</span>}
+                            <Edit2 size={9} className="ml-0.5" />
+                          </button>
+                        )
                       )}
                       {editPriceId === item.cartId ? (
                         <div className="flex items-center gap-1 mt-0.5">
@@ -2856,7 +2918,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                           <button onClick={() => setEditPriceId(null)} className="text-white/70"><X size={11} /></button>
                         </div>
                       ) : (
-                        <button onClick={() => { setEditPriceId(item.cartId); setEditPriceVal(String(item.price)) }}
+                        <button onClick={() => { setEditWarrantyId(null); setEditPriceId(item.cartId); setEditPriceVal(String(item.price)) }}
                           className="flex items-center gap-0.5 text-[10px] hover:text-violet-400 transition-colors" style={{ color: POS_THEME.muted }}>
                           {formatCurrency(item.price)} each {item.price !== item.originalPrice && <span className="text-white">✓</span>}
                           <Edit2 size={9} className="ml-0.5" />
