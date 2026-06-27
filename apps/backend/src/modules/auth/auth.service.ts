@@ -10,10 +10,19 @@ import { sendMail } from '../../utils/mailer'
 import { getMaintenanceStatus } from '../../utils/platform-config'
 import { ensureTenantAccess } from '../../utils/tenant-access'
 
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase()
+}
+
+/** Emails in DB may retain original casing; login always compares case-insensitively. */
+function emailEquals(normalizedEmail: string) {
+  return { equals: normalizedEmail, mode: 'insensitive' as const }
+}
+
 export const authService = {
   async login(email: string, password: string, tenantSlug?: string) {
-    const normalizedEmail = email.trim().toLowerCase()
-    const where: any = { email: normalizedEmail, isActive: true }
+    const normalizedEmail = normalizeEmail(email)
+    const where: any = { email: emailEquals(normalizedEmail), isActive: true }
     if (tenantSlug) {
       const tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug } })
       if (!tenant) throw new AppError('Invalid email or password', 401)
@@ -62,7 +71,8 @@ export const authService = {
     phone?: string
     city?: string
   }) {
-    const existing = await prisma.user.findFirst({ where: { email: data.ownerEmail } })
+    const ownerEmail = normalizeEmail(data.ownerEmail)
+    const existing = await prisma.user.findFirst({ where: { email: emailEquals(ownerEmail) } })
     if (existing) throw new AppError('Email already in use', 409)
 
     const baseSlug = data.shopName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/^-+|-+$/g, '')
@@ -79,7 +89,7 @@ export const authService = {
         plan: (data.plan as any) || 'TRIAL',
         status: 'TRIAL',
         trialEndsAt,
-        ownerEmail: data.ownerEmail,
+        ownerEmail,
         ownerName: data.ownerName,
         branches: {
           create: {
@@ -100,7 +110,7 @@ export const authService = {
     const user = await prisma.user.create({
       data: {
         tenantId: tenant.id,
-        email: data.ownerEmail,
+        email: ownerEmail,
         name: data.ownerName,
         password: hashedPassword,
         role: 'OWNER',
@@ -121,8 +131,8 @@ export const authService = {
         dbUserId: user.id,
         tenantId: tenant.id,
         tenantSlug: slug,
-        username: data.ownerEmail.split('@')[0],
-        email: data.ownerEmail,
+        username: ownerEmail.split('@')[0],
+        email: ownerEmail,
         name: data.ownerName,
         role: 'OWNER',
         password: data.password,
@@ -193,7 +203,8 @@ export const authService = {
 
   // ── Forgot / Reset Password ─────────────────────────────────────────────────
   async forgotPassword(email: string) {
-    const user = await prisma.user.findFirst({ where: { email, isActive: true } })
+    const normalizedEmail = normalizeEmail(email)
+    const user = await prisma.user.findFirst({ where: { email: emailEquals(normalizedEmail), isActive: true } })
     // Always respond OK to prevent email enumeration
     if (!user) return
 
