@@ -73,6 +73,7 @@ function printPosReceipt(sale: PosReceiptSale, settings: InvoiceSettings, ctx?: 
 }
 
 function autoPrintPosReceipt(sale: PosReceiptSale, settings: InvoiceSettings, ctx?: ShopContext) {
+  if (settings.posAutoPrintBill === false) return
   printPosReceipt(sale, settings, ctx)
 }
 

@@ -54,6 +54,17 @@ export default function ThermalReceiptCustomizer({ settings, onChange, showPrevi
           <p className="text-[11px] text-slate-500 mt-1">Choose paper size, font, and which sections appear on POS thermal prints.</p>
         </div>
 
+        <div className="flex items-center justify-between gap-4 py-3 px-4 rounded-xl border border-white/10 bg-white/[0.03]">
+          <div>
+            <p className="text-sm font-medium text-white">Auto print bill after sale</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">When off, complete the sale without opening the printer — use the receipt button to print manually.</p>
+          </div>
+          <Switch
+            checked={settings.posAutoPrintBill !== false}
+            onChange={v => onChange({ posAutoPrintBill: v })}
+          />
+        </div>
+
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs text-slate-400 mb-2">POS paper width</label>

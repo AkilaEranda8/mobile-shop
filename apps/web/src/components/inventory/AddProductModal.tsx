@@ -122,7 +122,7 @@ function Sel({ value, onChange, children, placeholder }: {
   value: string; onChange: (v: string) => void; children: React.ReactNode; placeholder?: string
 }) {
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'relative', width: '100%' }}>
       <select style={selectStyle} value={value} onChange={e => onChange(e.target.value)}>
         {placeholder && <option value="">{placeholder}</option>}
         {children}
@@ -138,6 +138,15 @@ function PlusBtn({ onClick }: { onClick: () => void }) {
       style={{ ...btn, width: 36, padding: 0, background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-muted)', flexShrink: 0 }}>
       <Plus size={14} />
     </button>
+  )
+}
+
+function FieldWithPlus({ select, popup }: { select: React.ReactNode; popup?: React.ReactNode }) {
+  return (
+    <div className="flex gap-2 items-stretch">
+      <div className="flex-1 min-w-0">{select}</div>
+      {popup != null && <div className="relative flex-shrink-0">{popup}</div>}
+    </div>
   )
 }
 
@@ -686,83 +695,97 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                       <div className="relative">
                         <Lbl req>Brand</Lbl>
-                        <div className="flex gap-2">
-                          <Sel value={form.brandName} onChange={v => f('brandName', v)} placeholder="Select brand">
-                            {allBrands.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
-                          </Sel>
-                          <div className="relative">
-                            <PlusBtn onClick={() => setShowAddBrand(p => !p)} />
-                            {showAddBrand && (
-                              <AddBrandPopup onClose={() => setShowAddBrand(false)}
-                                onSaved={b => { setExtraBrands(p => [...p, b]); refetchBrands(); f('brandName', b.name) }} />
-                            )}
-                          </div>
-                        </div>
+                        <FieldWithPlus
+                          select={
+                            <Sel value={form.brandName} onChange={v => f('brandName', v)} placeholder="Select brand">
+                              {allBrands.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                            </Sel>
+                          }
+                          popup={(
+                            <>
+                              <PlusBtn onClick={() => setShowAddBrand(p => !p)} />
+                              {showAddBrand && (
+                                <AddBrandPopup onClose={() => setShowAddBrand(false)}
+                                  onSaved={b => { setExtraBrands(p => [...p, b]); refetchBrands(); f('brandName', b.name) }} />
+                              )}
+                            </>
+                          )}
+                        />
                       </div>
                       <div className="relative">
                         <Lbl req>Category</Lbl>
-                        <div className="flex gap-2">
-                          <Sel value={form.categoryName} onChange={v => f('categoryName', v)} placeholder="Select category">
-                            {cats.map(c => <option key={c.id} value={c.name}>{c.icon ? `${c.icon} ` : ''}{c.name}</option>)}
-                          </Sel>
-                          <div className="relative">
-                            <PlusBtn onClick={() => setShowAddCat(p => !p)} />
-                            {showAddCat && <AddCatPopup onClose={() => setShowAddCat(false)} onSaved={c => { refetchCats(); f('categoryName', c.name) }} />}
-                          </div>
-                        </div>
+                        <FieldWithPlus
+                          select={
+                            <Sel value={form.categoryName} onChange={v => f('categoryName', v)} placeholder="Select category">
+                              {cats.map(c => <option key={c.id} value={c.name}>{c.icon ? `${c.icon} ` : ''}{c.name}</option>)}
+                            </Sel>
+                          }
+                          popup={(
+                            <>
+                              <PlusBtn onClick={() => setShowAddCat(p => !p)} />
+                              {showAddCat && <AddCatPopup onClose={() => setShowAddCat(false)} onSaved={c => { refetchCats(); f('categoryName', c.name) }} />}
+                            </>
+                          )}
+                        />
                       </div>
-                    </div>
-                    {!hideSubCatAndDeviceModel && (
-                      <div className="relative">
-                        <Lbl>Sub Category</Lbl>
-                        <div className="flex gap-2">
-                          <Sel value={form.subCategory} onChange={v => f('subCategory', v)} placeholder="Select sub category">
-                            {subCatOpts.map(s => <option key={s} value={s}>{s}</option>)}
-                          </Sel>
+                      {!hideSubCatAndDeviceModel && (
+                        <>
                           <div className="relative">
-                            <PlusBtn onClick={() => setShowAddSubCat(p => !p)} />
-                            {showAddSubCat && (
-                              <AddSubCatPopup settings={variantCfg} onClose={() => setShowAddSubCat(false)}
-                                onSaved={name => { refetchVariantSettings(); f('subCategory', name) }} />
-                            )}
+                            <Lbl>Sub Category</Lbl>
+                            <FieldWithPlus
+                              select={
+                                <Sel value={form.subCategory} onChange={v => f('subCategory', v)} placeholder="Select sub category">
+                                  {subCatOpts.map(s => <option key={s} value={s}>{s}</option>)}
+                                </Sel>
+                              }
+                              popup={(
+                                <>
+                                  <PlusBtn onClick={() => setShowAddSubCat(p => !p)} />
+                                  {showAddSubCat && (
+                                    <AddSubCatPopup settings={variantCfg} onClose={() => setShowAddSubCat(false)}
+                                      onSaved={name => { refetchVariantSettings(); f('subCategory', name) }} />
+                                  )}
+                                </>
+                              )}
+                            />
                           </div>
-                        </div>
-                      </div>
-                    )}
-                    <div className={`grid grid-cols-1 ${hideSubCatAndDeviceModel ? '' : 'sm:grid-cols-2'} gap-3.5`}>
+                          <div className="relative">
+                            <Lbl>Device Model</Lbl>
+                            <FieldWithPlus
+                              select={
+                                <Sel value={form.deviceModel} onChange={v => f('deviceModel', v)} placeholder="Select device model">
+                                  {deviceModelOpts.map(m => <option key={m} value={m}>{m}</option>)}
+                                </Sel>
+                              }
+                              popup={(
+                                <>
+                                  <PlusBtn onClick={() => setShowAddDeviceModel(p => !p)} />
+                                  {showAddDeviceModel && (
+                                    <AddDeviceModelPopup
+                                      brandName={form.brandName}
+                                      deviceBrands={deviceBrands}
+                                      onBrandsChange={setDeviceBrands}
+                                      onClose={() => setShowAddDeviceModel(false)}
+                                      onSaved={(name, brandId) => {
+                                        deviceCatalogApi.listModels(brandId)
+                                          .then((res: any) => setDeviceModels(res.data ?? res))
+                                          .catch(() => {})
+                                        f('deviceModel', name)
+                                      }}
+                                    />
+                                  )}
+                                </>
+                              )}
+                            />
+                          </div>
+                        </>
+                      )}
                       <div>
                         <Lbl req>Unit</Lbl>
                         <Sel value={form.unit} onChange={v => f('unit', v)}>
                           {UNIT_OPTS.map(u => <option key={u}>{u}</option>)}
                         </Sel>
                       </div>
-                      {!hideSubCatAndDeviceModel && (
-                        <div className="relative">
-                          <Lbl>Device Model</Lbl>
-                          <div className="flex gap-2">
-                            <Sel value={form.deviceModel} onChange={v => f('deviceModel', v)} placeholder="Select device model">
-                              {deviceModelOpts.map(m => <option key={m} value={m}>{m}</option>)}
-                            </Sel>
-                            <div className="relative">
-                              <PlusBtn onClick={() => setShowAddDeviceModel(p => !p)} />
-                              {showAddDeviceModel && (
-                                <AddDeviceModelPopup
-                                  brandName={form.brandName}
-                                  deviceBrands={deviceBrands}
-                                  onBrandsChange={setDeviceBrands}
-                                  onClose={() => setShowAddDeviceModel(false)}
-                                  onSaved={(name, brandId) => {
-                                    deviceCatalogApi.listModels(brandId)
-                                      .then((res: any) => setDeviceModels(res.data ?? res))
-                                      .catch(() => {})
-                                    f('deviceModel', name)
-                                  }}
-                                />
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>

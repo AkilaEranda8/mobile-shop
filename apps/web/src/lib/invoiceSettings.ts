@@ -48,6 +48,8 @@ export interface InvoiceSettings {
   thermalShowWebsite:   boolean
   thermalShowWarranty:  boolean
   thermalFontSize:      'sm' | 'md' | 'lg'
+  /** When true, POS prints the bill automatically after each completed sale */
+  posAutoPrintBill:     boolean
 }
 
 export const KASTHURI_INVOICE_PRESET: Partial<InvoiceSettings> = {
@@ -112,6 +114,7 @@ export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   thermalShowWebsite:   true,
   thermalShowWarranty:  true,
   thermalFontSize:      'md',
+  posAutoPrintBill:     true,
 }
 
 export interface ShopContext {
