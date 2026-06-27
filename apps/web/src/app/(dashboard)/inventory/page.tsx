@@ -18,7 +18,6 @@ import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import { ImeiProductTypeSelector } from '@/components/inventory/ImeiProductTypeSelector'
 import { imeiTypeToTrackFlag, trackFlagToImeiType, inferImeiProductType, isImeiHealthBannerDismissed, dismissImeiHealthBanner, type ImeiProductType } from '@/lib/productImei'
 import { PRODUCT_CONDITION_OPTS, type ProductCondition, productConditionLabel } from '@/lib/productCondition'
-import { trackFlagToImeiType } from '@/lib/productImei'
 import {
   PRODUCT_CSV_COLUMNS,
   PRODUCT_CSV_TEMPLATE,
