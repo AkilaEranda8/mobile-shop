@@ -58,6 +58,9 @@ export interface StockFormSale {
 }
 
 const PAGE_W = '241mm'
+const PAGE_H = '279mm'
+const PAGE_MARGIN_V = '16mm'
+const PAGE_CONTENT_MIN_H = `calc(${PAGE_H} - ${PAGE_MARGIN_V})`
 
 function esc(s: string): string {
   return s
@@ -137,8 +140,13 @@ function itemMetaLines(item: StockFormSale['items'][number], saleDate?: string):
       : fmtExpiryDate(saleDate, item.warrantyMonths)
     if (until) lines.push(`Valid until: ${until}`)
   }
-  if (item.warrantyNote?.trim()) lines.push(item.warrantyNote.trim())
   return lines.map(l => esc(l)).join('<br/>')
+}
+
+function itemWarrantyNoteHtml(item: StockFormSale['items'][number]): string {
+  const note = item.warrantyNote?.trim()
+  if (!note) return ''
+  return `<div class="warranty-note"><span class="warranty-note-label">Warranty Note:</span> ${esc(note)}</div>`
 }
 
 function termsBlockHtml(title: string, items: string[]): string {
@@ -193,12 +201,14 @@ export function printStockFormInvoice(
 
   const itemRows = sale.items.map(item => {
     const meta = itemMetaLines(item, sale.createdAt)
+    const warrantyNote = itemWarrantyNoteHtml(item)
     const tradeInRow = isTradeInLineItem(item)
     return `
     <tr class="${tradeInRow ? 'trade-in-row' : ''}">
       <td class="desc">
         <div class="name">${esc(item.productName)}</div>
         ${meta ? `<div class="meta">${meta}</div>` : ''}
+        ${warrantyNote}
       </td>
       <td class="qty">${item.quantity}</td>
       <td class="money">${f(item.unitPrice)}</td>
@@ -299,7 +309,19 @@ export function printStockFormInvoice(
       padding: 0;
     }
 
-    .sheet { padding: 0; }
+    .sheet {
+      display: flex;
+      flex-direction: column;
+      min-height: ${PAGE_CONTENT_MIN_H};
+      padding: 0;
+    }
+    .sheet-body { flex: 0 0 auto; }
+    .sheet-bottom {
+      margin-top: auto;
+      flex-shrink: 0;
+      padding-top: 12px;
+    }
+    .sheet-bottom .terms-block + .terms-block { margin-top: 8px; }
 
     .header { text-align: center; padding-bottom: 8px; }
     .logo { max-height: 48px; max-width: 70%; object-fit: contain; margin-bottom: 6px; }
@@ -415,6 +437,20 @@ export function printStockFormInvoice(
       margin-top: 3px;
       line-height: 1.45;
     }
+    table.items .warranty-note {
+      font-size: 9.5px;
+      color: #111;
+      margin-top: 5px;
+      padding-top: 4px;
+      line-height: 1.5;
+      border-top: 1px dotted #888;
+      word-break: break-word;
+    }
+    table.items .warranty-note-label {
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.2px;
+    }
 
     .trade-in-section {
       border: 1px solid #000;
@@ -426,7 +462,7 @@ export function printStockFormInvoice(
     tr.trade-in-row td { background: #f5f5f5; }
     tr.trade-in-row .name { font-style: italic; }
 
-    .terms-block { margin-top: 10px; page-break-inside: avoid; }
+    .terms-block { margin-top: 0; page-break-inside: avoid; }
     .terms-list {
       margin: 0;
       padding-left: 16px;
@@ -439,7 +475,7 @@ export function printStockFormInvoice(
     .signatures {
       display: flex;
       gap: 24px;
-      margin-top: 12px;
+      margin-top: 10px;
       page-break-inside: avoid;
     }
     .sig {
@@ -453,7 +489,7 @@ export function printStockFormInvoice(
     }
 
     .footer {
-      margin-top: 10px;
+      margin-top: 8px;
       padding-top: 8px;
       border-top: 2px solid #000;
       text-align: center;
@@ -470,17 +506,28 @@ export function printStockFormInvoice(
 
     @media print {
       @page {
-        size: ${PAGE_W} auto;
+        size: ${PAGE_W} ${PAGE_H};
         margin: 8mm 10mm;
       }
-      html, body { width: 100%; height: auto; }
-      .sheet { padding: 0; }
+      html, body {
+        width: 100%;
+        height: auto;
+        margin: 0;
+      }
+      .sheet {
+        min-height: ${PAGE_CONTENT_MIN_H};
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+      }
+      .sheet-bottom { margin-top: auto; }
     }
   </style>
 </head>
 <body>
   <div class="sheet">
 
+    <div class="sheet-body">
     <div class="header">
       ${settings.logo ? `<img class="logo" src="${esc(settings.logo)}" alt="" />` : ''}
       <div class="shop-title">${shopTitle}</div>
@@ -520,7 +567,9 @@ export function printStockFormInvoice(
         ${totalsFooter}
       </table>
     </div>
+    </div>
 
+    <div class="sheet-bottom">
     ${warrantyTermsHtml}
     ${generalTermsHtml}
 
@@ -539,6 +588,7 @@ export function printStockFormInvoice(
       <div class="thanks">${footerNote}</div>
       <div>${esc(HEXALYTE_SOFTWARE_CREDIT)} · ${esc(HEXALYTE_SUPPORT_PHONE)}</div>
       ${settings.website ? `<div>${esc(settings.website)}</div>` : ''}
+    </div>
     </div>
 
   </div>
