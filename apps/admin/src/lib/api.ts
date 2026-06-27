@@ -232,6 +232,20 @@ export interface AdminWhatsappApi {
   sendTestMessage:  (phone: string) => Promise<{ success: boolean; message: string }>
 }
 
+export type OnboardCredentialsPayload = {
+  phone: string
+  shopName: string
+  ownerName: string
+  email: string
+  password: string
+  plan: string
+  subdomain: string
+}
+
+export type BillingWhatsappApi = AdminWhatsappApi & {
+  sendOnboardCredentials: (body: OnboardCredentialsPayload) => Promise<{ sent: boolean; messageId?: string }>
+}
+
 export function whatsappApiForTenant(tenantId: string): AdminWhatsappApi {
   return {
     getStatus:        () => req<WAStatusInfo>(ADMIN_BASE, tenantWhatsappPath(tenantId, '/status')),
@@ -264,7 +278,7 @@ export const tenantWhatsappApi = {
 const BILLING_WA = '/billing/whatsapp'
 
 /** Platform billing WhatsApp — Hexalyte's own number for subscription invoices (shops need not connect). */
-export const billingWhatsappApi: AdminWhatsappApi = {
+export const billingWhatsappApi: BillingWhatsappApi = {
   getStatus:        () => req<WAStatusInfo>(ADMIN_BASE, `${BILLING_WA}/status`),
   getConfig:        () => req<WAConfig>(ADMIN_BASE, `${BILLING_WA}/config`),
   getQrSession:     () => req<WAStatusInfo>(ADMIN_BASE, `${BILLING_WA}/qr`),
@@ -275,15 +289,8 @@ export const billingWhatsappApi: AdminWhatsappApi = {
   updateConfig:     (body) => req<WAConfig>(ADMIN_BASE, `${BILLING_WA}/config`, { method: 'PUT', body: JSON.stringify(body) }),
   testConnection:   () => req<{ success: boolean; message: string }>(ADMIN_BASE, `${BILLING_WA}/test`, { method: 'POST', body: '{}' }),
   sendTestMessage:  (phone) => req<{ success: boolean; message: string }>(ADMIN_BASE, `${BILLING_WA}/test-message`, { method: 'POST', body: JSON.stringify({ phone }) }),
-  sendOnboardCredentials: (body: {
-    phone: string
-    shopName: string
-    ownerName: string
-    email: string
-    password: string
-    plan: string
-    subdomain: string
-  }) => req<{ sent: boolean; messageId?: string }>(ADMIN_BASE, `${BILLING_WA}/send-onboard-credentials`, { method: 'POST', body: JSON.stringify(body) }),
+  sendOnboardCredentials: (body: OnboardCredentialsPayload) =>
+    req<{ sent: boolean; messageId?: string }>(ADMIN_BASE, `${BILLING_WA}/send-onboard-credentials`, { method: 'POST', body: JSON.stringify(body) }),
 }
 
 export async function createTenant(data: { shopName: string; ownerName: string; email: string; phone?: string; plan: string; password?: string }) {
