@@ -89,15 +89,17 @@ export default function TrialOnboardingCoach() {
   if (allComplete && celebrated) return null
 
   if (showWelcome) {
-    return (
-      <>
-        <TrialWelcomeModal
-          shopName={tenant?.name}
-          trialDays={trialDays}
-          onStart={handleStartGuide}
-        />
-      </>
+    const welcomeModal = (
+      <TrialWelcomeModal
+        shopName={tenant?.name}
+        trialDays={trialDays}
+        onStart={handleStartGuide}
+      />
     )
+    if (typeof document !== 'undefined') {
+      return createPortal(welcomeModal, document.body)
+    }
+    return welcomeModal
   }
 
   const pageTip = getPageContextTip(pathname, tab, currentStepId)

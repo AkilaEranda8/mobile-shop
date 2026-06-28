@@ -196,6 +196,7 @@ export const uploadApi = {
 }
 
 export const tenantApi = {
+  me: () => api.get('/tenants/me'),
   get: (id: string) => api.get(`/tenants/${id}`),
   update: (id: string, body: unknown) => api.put(`/tenants/${id}`, body),
   getInvoiceSettings: (id: string, branchId?: string) =>

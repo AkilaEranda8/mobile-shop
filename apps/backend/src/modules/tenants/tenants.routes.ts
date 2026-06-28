@@ -38,6 +38,7 @@ router.patch('/my-features', authorize('OWNER', 'MANAGER'), async (req: Request,
 })
 
 router.get('/', authorize('PLATFORM_ADMIN'), tenantsController.list)
+router.get('/me', tenantsController.getMe)
 router.get('/:id', authorize('PLATFORM_ADMIN', 'OWNER'), tenantsController.getById)
 router.put('/:id', authorize('PLATFORM_ADMIN', 'OWNER'), tenantsController.update)
 router.get('/:id/invoice-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'), tenantsController.getInvoiceSettings)

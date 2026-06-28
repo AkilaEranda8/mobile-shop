@@ -17,6 +17,9 @@ export const tenantsController = {
   async getById(req: Request, res: Response, next: NextFunction) {
     try { assertTenantAccess(req); sendSuccess(res, await tenantsService.getById(req.params.id)) } catch (e) { next(e) }
   },
+  async getMe(req: Request, res: Response, next: NextFunction) {
+    try { sendSuccess(res, await tenantsService.getById(req.tenantId!)) } catch (e) { next(e) }
+  },
   async update(req: Request, res: Response, next: NextFunction) {
     try {
       assertTenantAccess(req)

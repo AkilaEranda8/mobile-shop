@@ -50,7 +50,7 @@ export function useTrialOnboarding() {
     if (!opts?.silent) setLoading(true)
     try {
       const [tenantRes, invoiceSettings, productsRes] = await Promise.all([
-        tenantApi.get(tenantId).catch(() => null),
+        tenantApi.me().catch(() => tenantApi.get(tenantId)).catch(() => null),
         fetchInvoiceCustomizeSettings(tenantId).catch(() => null),
         productsApi.list({ limit: '1', page: '1' }).catch(() => null),
       ])
@@ -123,8 +123,12 @@ export function useTrialOnboarding() {
 
   const trialDays = trialDaysRemaining(tenant?.trialEndsAt)
 
+  const setupIncomplete = !allComplete
   const visible = Boolean(
-    tenantId && isTrial && hasLoaded && (!allComplete || !celebrated),
+    tenantId && hasLoaded && (
+      (isTrial && (setupIncomplete || !celebrated)) ||
+      (!isTrial && setupIncomplete && !celebrated)
+    ),
   )
 
   const showWelcome = visible && !welcomeSeen && !allComplete
