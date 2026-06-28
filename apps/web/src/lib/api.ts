@@ -246,14 +246,24 @@ export const productsApi = {
 export const inventoryApi = {
   listTransfers: (params?: Record<string, string>) =>
     api.get(`/inventory/transfers${params ? '?' + new URLSearchParams(params) : ''}`),
-  previewTransfer: (productId: string, toBranchId: string) =>
-    api.get(`/inventory/transfer/preview?productId=${encodeURIComponent(productId)}&toBranchId=${encodeURIComponent(toBranchId)}`),
+  listTransferImeis: (productId: string, fromBranchId: string, variationKey?: string) => {
+    const q = new URLSearchParams({ productId, fromBranchId })
+    if (variationKey) q.set('variationKey', variationKey)
+    return api.get(`/inventory/transfer/imeis?${q}`)
+  },
+  previewTransfer: (productId: string, toBranchId: string, variationKey?: string) => {
+    const q = new URLSearchParams({ productId, toBranchId })
+    if (variationKey) q.set('variationKey', variationKey)
+    return api.get(`/inventory/transfer/preview?${q}`)
+  },
   transfer: (body: {
     productId: string
     fromBranchId: string
     toBranchId: string
     quantity: number
     notes?: string
+    variationKey?: string
+    imeis?: string[]
   }) => api.post('/inventory/transfer', body),
 }
 

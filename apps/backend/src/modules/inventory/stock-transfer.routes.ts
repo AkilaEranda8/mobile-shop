@@ -20,12 +20,29 @@ router.get('/transfers', async (req: Request, res: Response, next: NextFunction)
   } catch (e) { next(e) }
 })
 
+router.get('/transfer/imeis', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const productId = req.query.productId as string
+    const fromBranchId = req.query.fromBranchId as string
+    const variationKey = req.query.variationKey as string | undefined
+    if (!productId || !fromBranchId) throw new AppError('productId and fromBranchId are required', 400)
+    const data = await stockTransferService.listTransferImeis(
+      req.tenantId!,
+      productId,
+      fromBranchId,
+      variationKey,
+    )
+    sendSuccess(res, data)
+  } catch (e) { next(e) }
+})
+
 router.get('/transfer/preview', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const productId = req.query.productId as string
     const toBranchId = req.query.toBranchId as string
+    const variationKey = req.query.variationKey as string | undefined
     if (!productId || !toBranchId) throw new AppError('productId and toBranchId are required', 400)
-    const data = await stockTransferService.preview(req.tenantId!, productId, toBranchId)
+    const data = await stockTransferService.preview(req.tenantId!, productId, toBranchId, variationKey)
     sendSuccess(res, data)
   } catch (e) { next(e) }
 })

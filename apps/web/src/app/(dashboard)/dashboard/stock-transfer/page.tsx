@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   ArrowLeftRight, Building2, Loader2, Search, RefreshCw,
-  CheckCircle, AlertTriangle, Package, ArrowDownRight, ArrowUpRight, Plus, X,
+  CheckCircle, AlertTriangle, Package, ArrowDownRight, ArrowUpRight, Plus, X, Layers, Smartphone,
 } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
@@ -16,8 +16,29 @@ import { inventoryApi, productsApi, branchesApi } from '@/lib/api'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { authStorage } from '@/lib/auth'
 
+import type { ProductVariation } from '@/types'
+
 type Branch = { id: string; name: string; isActive?: boolean }
-type Product = { id: string; name: string; sku: string; stock: number; trackImei?: boolean; branchId: string }
+type Product = {
+  id: string
+  name: string
+  sku: string
+  stock: number
+  trackImei?: boolean
+  branchId: string
+  storageVariations?: ProductVariation[]
+}
+type TransferPreview = {
+  catalogReady: boolean
+  willMerge: boolean
+  willRelocate: boolean
+  trackImei: boolean
+  requiresVariant?: boolean
+  requiresImeiSelection?: boolean
+  availableStock?: number
+  variants?: Array<{ key: string; label: string; stock: number }>
+}
+type TransferImei = { id: string; imei: string; variation: string | null }
 type TransferRow = {
   id: string
   type: string
@@ -50,14 +71,13 @@ function TransferModal({
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
   const [productId, setProductId] = useState('')
+  const [variationKey, setVariationKey] = useState('')
   const [quantity, setQuantity] = useState('1')
+  const [selectedImeis, setSelectedImeis] = useState<string[]>([])
+  const [transferableImeis, setTransferableImeis] = useState<TransferImei[]>([])
+  const [loadingImeis, setLoadingImeis] = useState(false)
   const [notes, setNotes] = useState('')
-  const [preview, setPreview] = useState<{
-    catalogReady: boolean
-    willMerge: boolean
-    willRelocate: boolean
-    trackImei: boolean
-  } | null>(null)
+  const [preview, setPreview] = useState<TransferPreview | null>(null)
 
   const destBranches = branches.filter(b => b.id !== fromBranchId)
   const branchOptions = branches.map(b => ({ value: b.id, label: b.name }))
@@ -80,15 +100,70 @@ function TransferModal({
 
   useEffect(() => {
     if (!productId || !toBranchId) { setPreview(null); return }
-    inventoryApi.previewTransfer(productId, toBranchId)
+    inventoryApi.previewTransfer(productId, toBranchId, variationKey || undefined)
       .then((r: any) => setPreview(r.data ?? r))
       .catch(() => setPreview(null))
-  }, [productId, toBranchId])
+  }, [productId, toBranchId, variationKey])
 
   const selectedProduct = useMemo(
     () => products.find(p => p.id === productId),
     [products, productId],
   )
+
+  const variantOptions = useMemo(() => {
+    const rows = preview?.variants?.length
+      ? preview.variants
+      : (selectedProduct?.storageVariations ?? [])
+          .filter(v => (v.stock ?? 0) > 0)
+          .map(v => ({
+            key: v.id ?? `${v.storage}::${v.colorName}`,
+            label: `${v.storage} · ${v.colorName}`,
+            stock: v.stock ?? 0,
+          }))
+    return rows.map(v => ({
+      value: v.key,
+      label: `${v.label} · ${v.stock} in stock`,
+    }))
+  }, [preview?.variants, selectedProduct])
+
+  const requiresVariant = preview?.requiresVariant ?? variantOptions.length > 0
+  const isImeiProduct = !!selectedProduct?.trackImei
+  const canPickImeis = isImeiProduct && !!productId && !!fromBranchId && (!requiresVariant || !!variationKey)
+
+  useEffect(() => {
+    if (!canPickImeis) {
+      setTransferableImeis([])
+      setSelectedImeis([])
+      return
+    }
+    setLoadingImeis(true)
+    setSelectedImeis([])
+    inventoryApi.listTransferImeis(productId, fromBranchId, variationKey || undefined)
+      .then((r: any) => setTransferableImeis(r.data ?? r ?? []))
+      .catch(() => setTransferableImeis([]))
+      .finally(() => setLoadingImeis(false))
+  }, [canPickImeis, productId, fromBranchId, variationKey])
+
+  useEffect(() => {
+    if (isImeiProduct) setQuantity(selectedImeis.length > 0 ? String(selectedImeis.length) : '')
+  }, [selectedImeis, isImeiProduct])
+
+  const toggleImei = (imei: string) => {
+    setSelectedImeis(prev => (prev.includes(imei) ? prev.filter(x => x !== imei) : [...prev, imei]))
+  }
+
+  const availableStock = useMemo(() => {
+    if (preview?.availableStock != null) return preview.availableStock
+    if (variationKey && selectedProduct?.storageVariations) {
+      const v = selectedProduct.storageVariations.find(row =>
+        row.id === variationKey ||
+        `${row.storage}::${row.colorName}` === variationKey ||
+        row.sku === variationKey,
+      )
+      return v?.stock ?? 0
+    }
+    return selectedProduct?.stock ?? 0
+  }, [preview?.availableStock, variationKey, selectedProduct])
 
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -103,19 +178,37 @@ function TransferModal({
     label: `${p.name} · ${p.stock} in stock${p.trackImei ? ' · IMEI' : ''}`,
   }))
 
+  const handleQuantityChange = (raw: string) => {
+    if (raw === '') { setQuantity(''); return }
+    const digits = raw.replace(/\D/g, '')
+    if (!digits) return
+    const n = parseInt(digits, 10)
+    const max = availableStock
+    if (max > 0 && n > max) {
+      setQuantity(String(max))
+      return
+    }
+    setQuantity(digits)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!canTransfer) { toast.error('Only Owner or Manager can transfer stock'); return }
     if (!fromBranchId || !toBranchId) { toast.error('Select branches'); return }
     if (!productId) { toast.error('Select a product'); return }
-    const qty = parseInt(quantity, 10)
+    if (requiresVariant && !variationKey) { toast.error('Select a variant'); return }
+    let qty = parseInt(quantity, 10)
+    if (isImeiProduct) {
+      if (selectedImeis.length === 0) { toast.error('Select at least one IMEI'); return }
+      qty = selectedImeis.length
+    }
     if (!qty || qty <= 0) { toast.error('Enter valid quantity'); return }
-    if (selectedProduct?.trackImei && qty !== selectedProduct.stock) {
-      toast.error('IMEI products must transfer full quantity')
+    if (!isImeiProduct && qty > availableStock) {
+      toast.error('Quantity exceeds available stock')
       return
     }
-    if (selectedProduct && qty > selectedProduct.stock) {
-      toast.error('Quantity exceeds available stock')
+    if (isImeiProduct && qty > availableStock) {
+      toast.error('Selected IMEIs exceed available stock')
       return
     }
 
@@ -127,6 +220,8 @@ function TransferModal({
         toBranchId,
         quantity: qty,
         notes: notes.trim() || undefined,
+        variationKey: variationKey || undefined,
+        imeis: isImeiProduct ? selectedImeis : undefined,
       })
       toast.success(
         preview?.willMerge
@@ -145,26 +240,25 @@ function TransferModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
-        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-        <div className="flex items-center justify-between px-5 py-4 sticky top-0 z-10"
-          style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border-subtle)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" data-modal="dark">
+      <div className="w-full max-w-lg rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto bg-[#0f1623] border border-white/10">
+        <div className="flex items-center justify-between px-5 py-4 sticky top-0 z-10 bg-[#0f1623] border-b border-white/5">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-              style={{ background: 'rgba(109,40,217,0.10)', border: '1px solid rgba(109,40,217,0.25)' }}>
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-violet-500/10 border border-violet-500/25">
               <ArrowLeftRight size={14} className="text-violet-400" />
             </div>
-            <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>New Stock Transfer</h3>
+            <h3 className="text-sm font-bold text-white">New Stock Transfer</h3>
           </div>
-          <button type="button" onClick={onClose} className="p-1.5 rounded-lg transition-colors"
-            style={{ color: 'var(--text-muted)' }}><X size={15} /></button>
+          <button type="button" onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors">
+            <X size={15} />
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>From Branch</label>
+              <label className="block text-xs font-medium mb-1.5 text-slate-400">From Branch</label>
               <FilterDropdown
                 value={fromBranchId}
                 onChange={v => { setFromBranchId(v); setProductId('') }}
@@ -175,7 +269,7 @@ function TransferModal({
               />
             </div>
             <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>To Branch</label>
+              <label className="block text-xs font-medium mb-1.5 text-slate-400">To Branch</label>
               <FilterDropdown
                 value={toBranchId}
                 onChange={setToBranchId}
@@ -189,68 +283,171 @@ function TransferModal({
           </div>
 
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Product</label>
+            <label className="block text-xs font-medium mb-1.5 text-slate-400">Product</label>
             <div className="relative mb-2">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
-              <input className="input-field pl-9 text-sm" placeholder="Search by name or SKU…"
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input className="input-field pl-9 text-sm text-white" placeholder="Search by name or SKU…"
                 value={search} onChange={e => setSearch(e.target.value)} />
             </div>
             <FilterDropdown
               value={productId}
               onChange={v => {
                 setProductId(v)
+                setVariationKey('')
+                setSelectedImeis([])
                 const p = products.find(x => x.id === v)
-                if (p?.trackImei) setQuantity(String(p.stock))
+                const hasVars = Array.isArray(p?.storageVariations) && p.storageVariations.some(row => (row.stock ?? 0) > 0)
+                if (p && !p.trackImei && !hasVars) setQuantity('1')
+                else if (!p?.trackImei) setQuantity('1')
+                else setQuantity('')
               }}
               options={productOptions}
               icon={Package}
               placeholder={loadingProducts ? 'Loading products…' : 'Select product'}
               active={!!productId}
-              onClear={() => setProductId('')}
+              onClear={() => { setProductId(''); setVariationKey(''); setSelectedImeis([]) }}
             />
           </div>
 
+          {requiresVariant && productId && (
+            <div>
+              <label className="block text-xs font-medium mb-1.5 text-slate-400">Variant</label>
+              <FilterDropdown
+                value={variationKey}
+                onChange={v => {
+                  setVariationKey(v)
+                  setSelectedImeis([])
+                  if (!selectedProduct?.trackImei) setQuantity('1')
+                  else setQuantity('')
+                }}
+                options={variantOptions}
+                icon={Layers}
+                placeholder="Select storage / color variant"
+                active={!!variationKey}
+                onClear={() => setVariationKey('')}
+              />
+            </div>
+          )}
+
+          {canPickImeis && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-medium text-slate-400">Select IMEI units</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="text-[10px] font-semibold text-violet-400 hover:text-violet-300"
+                    onClick={() => setSelectedImeis(transferableImeis.map(r => r.imei))}
+                    disabled={loadingImeis || transferableImeis.length === 0}
+                  >
+                    Select all
+                  </button>
+                  <button
+                    type="button"
+                    className="text-[10px] font-semibold text-slate-500 hover:text-slate-300"
+                    onClick={() => setSelectedImeis([])}
+                    disabled={selectedImeis.length === 0}
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-white/[0.02] max-h-44 overflow-y-auto">
+                {loadingImeis ? (
+                  <p className="text-xs text-slate-500 px-3 py-4 flex items-center gap-2">
+                    <Loader2 size={13} className="animate-spin" /> Loading IMEIs…
+                  </p>
+                ) : transferableImeis.length === 0 ? (
+                  <p className="text-xs text-slate-500 px-3 py-4">No in-stock IMEIs for this selection</p>
+                ) : transferableImeis.map(row => {
+                  const checked = selectedImeis.includes(row.imei)
+                  return (
+                    <label
+                      key={row.id}
+                      className={`flex items-center gap-2.5 px-3 py-2.5 cursor-pointer border-b border-white/5 last:border-0 transition-colors ${
+                        checked ? 'bg-violet-500/10' : 'hover:bg-white/[0.03]'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="rounded border-white/20 bg-transparent text-violet-500 focus:ring-violet-500/40"
+                        checked={checked}
+                        onChange={() => toggleImei(row.imei)}
+                      />
+                      <Smartphone size={12} className={checked ? 'text-violet-400' : 'text-slate-500'} />
+                      <span className="text-xs font-mono text-slate-200">{row.imei}</span>
+                    </label>
+                  )
+                })}
+              </div>
+              <p className="text-[10px] text-slate-500 mt-1.5">
+                {selectedImeis.length} of {transferableImeis.length} IMEI{transferableImeis.length === 1 ? '' : 's'} selected
+              </p>
+            </div>
+          )}
+
+          {!isImeiProduct && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Quantity</label>
-              <input type="number" min={1} className="input-field text-sm" value={quantity}
-                onChange={e => setQuantity(e.target.value)}
-                disabled={!!selectedProduct?.trackImei} />
+              <label className="block text-xs font-medium mb-1.5 text-slate-400">Quantity</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                className="input-field text-sm text-white caret-violet-400"
+                value={quantity}
+                onChange={e => handleQuantityChange(e.target.value)}
+                placeholder="Enter quantity"
+              />
             </div>
             <div className="flex items-end pb-2">
-              {selectedProduct && (
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                  Available: <span className="font-semibold text-violet-400">{selectedProduct.stock}</span>
+              {(selectedProduct && (!requiresVariant || variationKey)) && (
+                <p className="text-xs text-slate-400">
+                  Available: <span className="font-semibold text-violet-300">{availableStock}</span>
+                  {variationKey && variantOptions.find(v => v.value === variationKey) && (
+                    <span className="block text-[10px] text-slate-500 mt-0.5">
+                      {variantOptions.find(v => v.value === variationKey)?.label.split(' · ').slice(0, 2).join(' · ')}
+                    </span>
+                  )}
                 </p>
               )}
             </div>
           </div>
+          )}
+
+          {isImeiProduct && canPickImeis && (
+            <div className="rounded-lg px-3 py-2 text-xs bg-violet-500/10 border border-violet-500/20 text-violet-200">
+              Quantity: <span className="font-semibold text-violet-300">{selectedImeis.length}</span>
+              {' '}unit{selectedImeis.length === 1 ? '' : 's'} (from selected IMEIs)
+            </div>
+          )}
 
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Notes</label>
-            <input className="input-field text-sm" value={notes} onChange={e => setNotes(e.target.value)}
+            <label className="block text-xs font-medium mb-1.5 text-slate-400">Notes</label>
+            <input className="input-field text-sm text-white" value={notes} onChange={e => setNotes(e.target.value)}
               placeholder="Optional reference or reason" />
           </div>
 
-          {selectedProduct?.trackImei && (
-            <p className="text-xs text-amber-400 flex items-center gap-1.5">
-              <AlertTriangle size={12} /> IMEI devices transfer in full with all in-stock units
-            </p>
+          {isImeiProduct && canPickImeis && selectedImeis.length === 0 && (
+            <div className="rounded-lg px-3 py-2 text-xs text-amber-200/90 flex items-center gap-2 bg-amber-500/10 border border-amber-500/20">
+              <AlertTriangle size={13} className="text-amber-400 flex-shrink-0" />
+              Select one or more IMEI units to transfer
+            </div>
           )}
 
           {selectedProduct && toBranchId && preview && (
-            <div className="rounded-xl p-3 text-xs space-y-1"
-              style={{ background: 'rgba(29,78,216,0.06)', border: '1px solid rgba(29,78,216,0.18)' }}>
+            <div className="rounded-lg px-3 py-2.5 text-xs bg-violet-500/10 border border-violet-500/20">
               {preview.catalogReady ? (
-                <p className="text-blue-300 flex items-center gap-1.5">
-                  <CheckCircle size={12} /> Catalog already exists at destination — stock will merge into it
+                <p className="text-violet-200 flex items-center gap-1.5">
+                  <CheckCircle size={12} className="text-violet-400 flex-shrink-0" />
+                  Catalog already exists at destination — stock will merge into it
                 </p>
               ) : preview.willRelocate ? (
-                <p style={{ color: 'var(--text-muted)' }}>
+                <p className="text-slate-300">
                   No catalog at destination yet — full transfer will move this product row to the destination branch
                 </p>
               ) : (
-                <p style={{ color: 'var(--text-muted)' }}>
+                <p className="text-slate-300">
                   A catalog entry will be created at the destination branch when stock is transferred
                 </p>
               )}
@@ -259,7 +456,11 @@ function TransferModal({
 
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
-            <button type="submit" disabled={saving || !canTransfer || !toBranchId}
+            <button type="submit"
+              disabled={
+                saving || !canTransfer || !toBranchId || (requiresVariant && !variationKey)
+                || (isImeiProduct && canPickImeis && selectedImeis.length === 0)
+              }
               className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-50">
               {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
               Transfer Stock
@@ -324,8 +525,6 @@ export default function StockTransferPage() {
   const transferIn = transfers.filter(t => t.type === 'TRANSFER_IN').length
   const transferOut = transfers.filter(t => t.type === 'TRANSFER_OUT').length
   const totalQty = transfers.reduce((s, t) => s + Math.abs(t.quantity), 0)
-
-  const branchOptions = branches.map(b => ({ value: b.id, label: b.name }))
 
   const handleRefresh = () => {
     loadProducts()
@@ -444,35 +643,6 @@ export default function StockTransferPage() {
         />
       )}
 
-      {/* Two-step flow */}
-      <div className="rounded-2xl p-4 grid sm:grid-cols-2 gap-4"
-        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-        <div className="flex gap-3">
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-violet-400"
-            style={{ background: 'rgba(109,40,217,0.10)', border: '1px solid rgba(109,40,217,0.22)' }}>
-            <Package size={14} />
-          </div>
-          <div>
-            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>1. Product Edit — Catalog</p>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              Copy image, prices &amp; details to another branch. Stock stays at the source branch.
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-3">
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-blue-400"
-            style={{ background: 'rgba(29,78,216,0.10)', border: '1px solid rgba(29,78,216,0.22)' }}>
-            <ArrowLeftRight size={14} />
-          </div>
-          <div>
-            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>2. Stock Transfer — Inventory</p>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              Move physical stock &amp; IMEI units between branches. Merges into existing catalog when ready.
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
@@ -491,25 +661,6 @@ export default function StockTransferPage() {
             </button>
           )}
         </div>
-      </div>
-
-      {/* Branch filter + KPI */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        {branches.length > 1 && (
-          <div className="sm:max-w-[220px]">
-            <FilterDropdown
-              value={viewBranchId}
-              onChange={setViewBranchId}
-              options={branchOptions}
-              icon={Building2}
-              placeholder="View branch"
-              active={!!viewBranchId}
-            />
-          </div>
-        )}
-        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-          Showing transfer history for <strong style={{ color: 'var(--text-secondary)' }}>{branches.find(b => b.id === viewBranchId)?.name ?? 'selected branch'}</strong>
-        </p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -540,9 +691,9 @@ export default function StockTransferPage() {
           accentColor="violet"
           actions={canTransfer ? [{ label: 'Create First Transfer', onClick: () => setShowTransfer(true), primary: true }] : []}
           hints={[
-            'Step 1: Edit product → copy catalog to another branch (details only).',
-            'Step 2: Stock Transfer → move units and IMEI to the destination.',
-            'IMEI-tracked devices must transfer in full quantity.',
+            'Products with variants: select storage/color, then transfer that variant qty.',
+            'Step 1: Edit product → copy catalog. Step 2: transfer stock & IMEI here.',
+            'IMEI-tracked variants must transfer in full quantity.',
           ]}
         />
       ) : (
