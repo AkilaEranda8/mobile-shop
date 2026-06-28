@@ -123,12 +123,8 @@ export function useTrialOnboarding() {
 
   const trialDays = trialDaysRemaining(tenant?.trialEndsAt)
 
-  const setupIncomplete = !allComplete
   const visible = Boolean(
-    tenantId && hasLoaded && (
-      (isTrial && (setupIncomplete || !celebrated)) ||
-      (!isTrial && setupIncomplete && !celebrated)
-    ),
+    tenantId && isTrial && hasLoaded && (!allComplete || !celebrated),
   )
 
   const showWelcome = visible && !welcomeSeen && !allComplete
