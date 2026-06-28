@@ -251,8 +251,9 @@ export const inventoryApi = {
     if (variationKey) q.set('variationKey', variationKey)
     return api.get(`/inventory/transfer/imeis?${q}`)
   },
-  previewTransfer: (productId: string, toBranchId: string, variationKey?: string) => {
+  previewTransfer: (productId: string, toBranchId: string, fromBranchId?: string, variationKey?: string) => {
     const q = new URLSearchParams({ productId, toBranchId })
+    if (fromBranchId) q.set('fromBranchId', fromBranchId)
     if (variationKey) q.set('variationKey', variationKey)
     return api.get(`/inventory/transfer/preview?${q}`)
   },

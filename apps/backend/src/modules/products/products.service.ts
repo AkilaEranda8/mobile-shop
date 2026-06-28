@@ -5,6 +5,27 @@ import { Request } from 'express'
 import { inferTrackImeiFromMeta } from '../../utils/productImei'
 import { effectiveBranchId, assertBranchRecordAccess, getUserBranchIds } from '../../utils/active-branch'
 import { buildBranchCatalogData, findBranchCatalogProduct } from '../../utils/branch-catalog'
+import { Prisma } from '@prisma/client'
+
+async function upsertCatalogAtBranch(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  source: { sku: string } & Record<string, unknown>,
+  data: Record<string, unknown>,
+  targetBranchId: string,
+) {
+  const catalog = buildBranchCatalogData(source as any, data, targetBranchId)
+  let dest = await findBranchCatalogProduct(tx, tenantId, source.sku, targetBranchId)
+  if (!dest) {
+    dest = await tx.product.create({
+      data: { tenantId, ...catalog, stock: 0 },
+    })
+  } else {
+    if (dest.branchId !== targetBranchId) throw new AppError('Destination SKU exists at another branch', 409)
+    await tx.product.update({ where: { id: dest.id }, data: catalog })
+  }
+  return dest
+}
 
 export const productsService = {
   async list(tenantId: string, req: Request) {
@@ -18,7 +39,11 @@ export const productsService = {
     const imeiCounts = trackIds.length
       ? await prisma.imeiRecord.groupBy({
           by: ['productId'],
-          where: { productId: { in: trackIds }, status: 'IN_STOCK' },
+          where: {
+            productId: { in: trackIds },
+            status: 'IN_STOCK',
+            ...(branchId && { branchId }),
+          },
           _count: { _all: true },
         })
       : []
@@ -37,7 +62,9 @@ export const productsService = {
     if (!raw) throw new AppError('Product not found', 404)
     const base = { ...raw, categoryName: raw.category?.name, brandName: raw.brand?.name }
     if (!raw.trackImei) return base
-    const imeiInStock = await prisma.imeiRecord.count({ where: { productId: id, status: 'IN_STOCK' } })
+    const imeiInStock = await prisma.imeiRecord.count({
+      where: { productId: id, status: 'IN_STOCK', branchId: raw.branchId },
+    })
     return { ...base, imeiInStock, imeiGap: Math.max(0, raw.stock - imeiInStock) }
   },
 
@@ -101,8 +128,8 @@ export const productsService = {
     const p = await prisma.product.findFirst({ where: { id, tenantId } })
     if (!p) throw new AppError('Product not found', 404)
 
-    let nextBranchId: string | undefined
-    if (body.branchId !== undefined && req) {
+    let catalogTargets: string[] = []
+    if (req) {
       const activeBranches = await prisma.branch.findMany({
         where: { tenantId, isActive: true },
         select: { id: true },
@@ -110,11 +137,41 @@ export const productsService = {
       if (activeBranches.length > 1) {
         const user = req.user!
         const allowed = await getUserBranchIds(user.userId, tenantId, user.role)
-        if (!allowed.includes(body.branchId)) throw new AppError('Branch access denied', 403)
-        const valid = activeBranches.some(b => b.id === body.branchId)
-        if (!valid) throw new AppError('Invalid branch', 400)
-        nextBranchId = body.branchId
+        const activeIds = new Set(activeBranches.map(b => b.id))
+        const requested: string[] = Array.isArray(body.catalogBranchIds)
+          ? body.catalogBranchIds
+          : body.branchId !== undefined
+            ? [body.branchId]
+            : []
+
+        for (const rawId of requested) {
+          const branchId = String(rawId)
+          if (branchId === p.branchId) continue
+          if (!allowed.includes(branchId)) throw new AppError('Branch access denied', 403)
+          if (!activeIds.has(branchId)) throw new AppError('Invalid branch', 400)
+        }
+
+        catalogTargets = [...new Set(
+          requested.map(String).filter(id => id && id !== p.branchId),
+        )]
       }
+    }
+
+    if (!body.categoryId && body.categoryName) {
+      let cat = await prisma.category.findFirst({ where: { tenantId, name: body.categoryName } })
+      if (!cat) {
+        cat = await prisma.category.create({
+          data: { tenantId, name: body.categoryName, slug: body.categoryName.toLowerCase().replace(/\s+/g, '-') },
+        })
+      }
+      body.categoryId = cat.id
+    }
+
+    if (!body.brandId && body.brandName) {
+      const brandName = body.brandName.trim() || 'General'
+      let brand = await prisma.brand.findFirst({ where: { tenantId, name: brandName } })
+      if (!brand) brand = await prisma.brand.create({ data: { tenantId, name: brandName } })
+      body.brandId = brand.id
     }
 
     const { name, description, sku, barcode, categoryId, brandId,
@@ -157,34 +214,30 @@ export const productsService = {
     }
     if (isActive          !== undefined) data.isActive          = Boolean(isActive)
 
+    const inStockImei = await prisma.imeiRecord.count({
+      where: { productId: id, status: 'IN_STOCK' },
+    })
+    const hasInventory = p.stock > 0 || inStockImei > 0
+
     let moveBranch = false
-    if (nextBranchId && nextBranchId !== p.branchId) {
-      const inStockImei = await prisma.imeiRecord.count({
-        where: { productId: id, status: 'IN_STOCK' },
-      })
-      const hasInventory = p.stock > 0 || inStockImei > 0
-      if (!hasInventory) moveBranch = true
-      if (moveBranch) data.branchId = nextBranchId
+    if (catalogTargets.length === 1 && !hasInventory) {
+      moveBranch = true
+      data.branchId = catalogTargets[0]
     }
 
     return prisma.$transaction(async (tx) => {
       const updated = await tx.product.update({ where: { id }, data })
 
-      if (nextBranchId && nextBranchId !== p.branchId && !moveBranch) {
-        const catalog = buildBranchCatalogData(p, data, nextBranchId)
-        let dest = await findBranchCatalogProduct(tx, tenantId, p.sku, nextBranchId)
-        if (!dest) {
-          dest = await tx.product.create({
-            data: { tenantId, ...catalog, stock: 0 },
-          })
-        } else {
-          if (dest.branchId !== nextBranchId) throw new AppError('Destination SKU exists at another branch', 409)
-          await tx.product.update({ where: { id: dest.id }, data: catalog })
-        }
-        return {
-          ...updated,
-          catalogAssigned: { branchId: nextBranchId, productId: dest.id },
-        }
+      const catalogAssigned: { branchId: string; productId: string }[] = []
+      const assignTargets = moveBranch ? [] : catalogTargets
+
+      for (const targetBranchId of assignTargets) {
+        const dest = await upsertCatalogAtBranch(tx, tenantId, p, data, targetBranchId)
+        catalogAssigned.push({ branchId: targetBranchId, productId: dest.id })
+      }
+
+      if (catalogAssigned.length > 0) {
+        return { ...updated, catalogAssigned }
       }
 
       return updated

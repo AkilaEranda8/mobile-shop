@@ -9,14 +9,14 @@ import {
 import { syncImeiTrackedStock } from '../../utils/product-stock'
 import {
   adjustVariantStock,
+  countAvailableStock,
   findVariant,
   hasVariants,
   imeiMatchesVariant,
   imeiVariationFilter,
-  listTransferableVariants,
+  listTransferableVariantsForBranch,
   mergeVariantStock,
   variantLabel,
-  variantStock,
 } from '../../utils/product-variants'
 import { Prisma } from '@prisma/client'
 
@@ -129,11 +129,6 @@ async function recordTransferMovements(
   })
 }
 
-function resolveAvailableStock(product: TransferProduct, variationKey?: string): number {
-  if (variationKey) return variantStock(product.storageVariations, variationKey)
-  return product.stock
-}
-
 export const stockTransferService = {
   async list(tenantId: string, params?: { branchId?: string; limit?: number }) {
     const limit = Math.min(params?.limit ?? 50, 200)
@@ -169,6 +164,7 @@ export const stockTransferService = {
 
     const allowed = await getUserBranchIds(userId, tenantId, role)
     if (!allowed.includes(fromBranchId)) throw new AppError('Branch access denied for source branch', 403)
+    if (!allowed.includes(toBranchId)) throw new AppError('Branch access denied for destination branch', 403)
 
     const [fromBranch, toBranch] = await Promise.all([
       prisma.branch.findFirst({ where: { id: fromBranchId, tenantId, isActive: true } }),
@@ -181,14 +177,27 @@ export const stockTransferService = {
     if (product.branchId !== fromBranchId) throw new AppError('Product is not stocked at the source branch', 400)
 
     const variantMode = hasVariants(product.storageVariations)
-    if (variantMode && !variationKey) {
+    const transferableVariants = variantMode
+      ? await listTransferableVariantsForBranch(prisma, {
+          productId,
+          trackImei: product.trackImei,
+          storageVariations: product.storageVariations,
+          branchId: fromBranchId,
+        })
+      : []
+    if (transferableVariants.length > 0 && !variationKey) {
       throw new AppError('Select a variant to transfer', 400)
     }
 
     const sourceVariant = variationKey ? findVariant(product.storageVariations, variationKey) : null
     if (variationKey && !sourceVariant) throw new AppError('Variant not found on product', 404)
 
-    const available = resolveAvailableStock(product as TransferProduct, variationKey)
+    const available = await countAvailableStock(
+      prisma,
+      product as TransferProduct,
+      fromBranchId,
+      variationKey,
+    )
     if (available <= 0) throw new AppError('No stock available for this selection', 400)
 
     if (product.trackImei) {
@@ -338,6 +347,7 @@ export const stockTransferService = {
     tenantId: string,
     productId: string,
     toBranchId: string,
+    fromBranchId?: string,
     variationKey?: string,
   ) {
     const product = await prisma.product.findFirst({
@@ -353,14 +363,23 @@ export const stockTransferService = {
     })
     if (!product) throw new AppError('Product not found', 404)
 
+    const sourceBranchId = fromBranchId || product.branchId
     const destSku = destBranchSku(product.sku, toBranchId)
     const destCatalog = await findBranchCatalogProduct(prisma, tenantId, product.sku, toBranchId)
     const hasSeparateDest = !!destCatalog && destCatalog.id !== product.id
-    const variants = listTransferableVariants(product.storageVariations)
-    const requiresVariant = hasVariants(product.storageVariations)
-    const availableStock = variationKey
-      ? variantStock(product.storageVariations, variationKey)
-      : product.stock
+    const variants = await listTransferableVariantsForBranch(prisma, {
+      productId: product.id,
+      trackImei: product.trackImei,
+      storageVariations: product.storageVariations,
+      branchId: sourceBranchId,
+    })
+    const requiresVariant = variants.length > 0
+    const availableStock = await countAvailableStock(
+      prisma,
+      product,
+      sourceBranchId,
+      variationKey,
+    )
 
     return {
       destSku,

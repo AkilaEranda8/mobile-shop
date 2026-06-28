@@ -12,8 +12,8 @@ import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import { EmptyState } from '@/components/ui/EmptyState'
 import toast from 'react-hot-toast'
 import { formatDate } from '@/lib/utils'
-import { inventoryApi, productsApi, branchesApi } from '@/lib/api'
-import { getActiveBranchId } from '@/lib/active-branch'
+import { inventoryApi, productsApi } from '@/lib/api'
+import { getActiveBranchId, getVisibleBranches } from '@/lib/active-branch'
 import { authStorage } from '@/lib/auth'
 
 import type { ProductVariation } from '@/types'
@@ -25,8 +25,12 @@ type Product = {
   sku: string
   stock: number
   trackImei?: boolean
+  imeiInStock?: number
   branchId: string
   storageVariations?: ProductVariation[]
+}
+function hasTransferableStock(p: Product) {
+  return p.stock > 0 || (p.trackImei && (p.imeiInStock ?? 0) > 0)
 }
 type TransferPreview = {
   catalogReady: boolean
@@ -88,7 +92,7 @@ function TransferModal({
     setLoadingProducts(true)
     setProductId('')
     productsApi.list({ branchId: fromBranchId, limit: '500' })
-      .then((r: any) => setProducts((r.data?.data ?? r.data ?? []).filter((p: Product) => p.stock > 0)))
+      .then((r: any) => setProducts((r.data?.data ?? r.data ?? []).filter((p: Product) => hasTransferableStock(p))))
       .catch(() => toast.error('Failed to load products'))
       .finally(() => setLoadingProducts(false))
   }, [fromBranchId])
@@ -99,11 +103,11 @@ function TransferModal({
   }, [fromBranchId, destBranches, toBranchId])
 
   useEffect(() => {
-    if (!productId || !toBranchId) { setPreview(null); return }
-    inventoryApi.previewTransfer(productId, toBranchId, variationKey || undefined)
+    if (!productId || !toBranchId || !fromBranchId) { setPreview(null); return }
+    inventoryApi.previewTransfer(productId, toBranchId, fromBranchId, variationKey || undefined)
       .then((r: any) => setPreview(r.data ?? r))
       .catch(() => setPreview(null))
-  }, [productId, toBranchId, variationKey])
+  }, [productId, toBranchId, fromBranchId, variationKey])
 
   const selectedProduct = useMemo(
     () => products.find(p => p.id === productId),
@@ -126,7 +130,7 @@ function TransferModal({
     }))
   }, [preview?.variants, selectedProduct])
 
-  const requiresVariant = preview?.requiresVariant ?? variantOptions.length > 0
+  const requiresVariant = preview ? !!preview.requiresVariant : variantOptions.length > 0
   const isImeiProduct = !!selectedProduct?.trackImei
   const canPickImeis = isImeiProduct && !!productId && !!fromBranchId && (!requiresVariant || !!variationKey)
 
@@ -173,10 +177,13 @@ function TransferModal({
     )
   }, [products, search])
 
-  const productOptions = filteredProducts.map(p => ({
-    value: p.id,
-    label: `${p.name} · ${p.stock} in stock${p.trackImei ? ' · IMEI' : ''}`,
-  }))
+  const productOptions = filteredProducts.map(p => {
+    const qty = p.trackImei ? (p.imeiInStock ?? p.stock) : p.stock
+    return {
+      value: p.id,
+      label: `${p.name} · ${qty} in stock${p.trackImei ? ' · IMEI' : ''}`,
+    }
+  })
 
   const handleQuantityChange = (raw: string) => {
     if (raw === '') { setQuantity(''); return }
@@ -241,24 +248,24 @@ function TransferModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" data-modal="dark">
-      <div className="w-full max-w-lg rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto bg-[#0f1623] border border-white/10">
+      <div className="w-full max-w-2xl rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto bg-[#0f1623] border border-white/10 text-white">
         <div className="flex items-center justify-between px-5 py-4 sticky top-0 z-10 bg-[#0f1623] border-b border-white/5">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-violet-500/10 border border-violet-500/25">
-              <ArrowLeftRight size={14} className="text-violet-400" />
+              <ArrowLeftRight size={14} className="text-white" />
             </div>
             <h3 className="text-sm font-bold text-white">New Stock Transfer</h3>
           </div>
           <button type="button" onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors">
+            className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/5 transition-colors">
             <X size={15} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 text-white">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium mb-1.5 text-slate-400">From Branch</label>
+              <label className="block text-xs font-medium mb-1.5 text-white">From Branch</label>
               <FilterDropdown
                 value={fromBranchId}
                 onChange={v => { setFromBranchId(v); setProductId('') }}
@@ -266,10 +273,11 @@ function TransferModal({
                 icon={Building2}
                 placeholder="Source branch"
                 active={!!fromBranchId}
+                tone="dark"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium mb-1.5 text-slate-400">To Branch</label>
+              <label className="block text-xs font-medium mb-1.5 text-white">To Branch</label>
               <FilterDropdown
                 value={toBranchId}
                 onChange={setToBranchId}
@@ -278,15 +286,16 @@ function TransferModal({
                 placeholder="Destination"
                 active={!!toBranchId}
                 onClear={() => setToBranchId('')}
+                tone="dark"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium mb-1.5 text-slate-400">Product</label>
+            <label className="block text-xs font-medium mb-1.5 text-white">Product</label>
             <div className="relative mb-2">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input className="input-field pl-9 text-sm text-white" placeholder="Search by name or SKU…"
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70" />
+              <input className="input-field pl-9 text-sm text-white placeholder:text-white/50" placeholder="Search by name or SKU…"
                 value={search} onChange={e => setSearch(e.target.value)} />
             </div>
             <FilterDropdown
@@ -306,12 +315,13 @@ function TransferModal({
               placeholder={loadingProducts ? 'Loading products…' : 'Select product'}
               active={!!productId}
               onClear={() => { setProductId(''); setVariationKey(''); setSelectedImeis([]) }}
+              tone="dark"
             />
           </div>
 
           {requiresVariant && productId && (
             <div>
-              <label className="block text-xs font-medium mb-1.5 text-slate-400">Variant</label>
+              <label className="block text-xs font-medium mb-1.5 text-white">Variant</label>
               <FilterDropdown
                 value={variationKey}
                 onChange={v => {
@@ -325,6 +335,7 @@ function TransferModal({
                 placeholder="Select storage / color variant"
                 active={!!variationKey}
                 onClear={() => setVariationKey('')}
+                tone="dark"
               />
             </div>
           )}
@@ -332,11 +343,11 @@ function TransferModal({
           {canPickImeis && (
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-medium text-slate-400">Select IMEI units</label>
+                <label className="block text-xs font-medium text-white">Select IMEI units</label>
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    className="text-[10px] font-semibold text-violet-400 hover:text-violet-300"
+                    className="text-[10px] font-semibold text-white hover:text-white/80 disabled:opacity-40"
                     onClick={() => setSelectedImeis(transferableImeis.map(r => r.imei))}
                     disabled={loadingImeis || transferableImeis.length === 0}
                   >
@@ -344,7 +355,7 @@ function TransferModal({
                   </button>
                   <button
                     type="button"
-                    className="text-[10px] font-semibold text-slate-500 hover:text-slate-300"
+                    className="text-[10px] font-semibold text-white hover:text-white/80 disabled:opacity-40"
                     onClick={() => setSelectedImeis([])}
                     disabled={selectedImeis.length === 0}
                   >
@@ -354,11 +365,11 @@ function TransferModal({
               </div>
               <div className="rounded-lg border border-white/10 bg-white/[0.02] max-h-44 overflow-y-auto">
                 {loadingImeis ? (
-                  <p className="text-xs text-slate-500 px-3 py-4 flex items-center gap-2">
+                  <p className="text-xs text-white px-3 py-4 flex items-center gap-2">
                     <Loader2 size={13} className="animate-spin" /> Loading IMEIs…
                   </p>
                 ) : transferableImeis.length === 0 ? (
-                  <p className="text-xs text-slate-500 px-3 py-4">No in-stock IMEIs for this selection</p>
+                  <p className="text-xs text-white px-3 py-4">No in-stock IMEIs for this selection</p>
                 ) : transferableImeis.map(row => {
                   const checked = selectedImeis.includes(row.imei)
                   return (
@@ -374,13 +385,13 @@ function TransferModal({
                         checked={checked}
                         onChange={() => toggleImei(row.imei)}
                       />
-                      <Smartphone size={12} className={checked ? 'text-violet-400' : 'text-slate-500'} />
-                      <span className="text-xs font-mono text-slate-200">{row.imei}</span>
+                      <Smartphone size={12} className="text-white" />
+                      <span className="text-xs font-mono text-white">{row.imei}</span>
                     </label>
                   )
                 })}
               </div>
-              <p className="text-[10px] text-slate-500 mt-1.5">
+              <p className="text-[10px] text-white mt-1.5">
                 {selectedImeis.length} of {transferableImeis.length} IMEI{transferableImeis.length === 1 ? '' : 's'} selected
               </p>
             </div>
@@ -389,12 +400,12 @@ function TransferModal({
           {!isImeiProduct && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium mb-1.5 text-slate-400">Quantity</label>
+              <label className="block text-xs font-medium mb-1.5 text-white">Quantity</label>
               <input
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                className="input-field text-sm text-white caret-violet-400"
+                className="input-field text-sm text-white placeholder:text-white/50 caret-white"
                 value={quantity}
                 onChange={e => handleQuantityChange(e.target.value)}
                 placeholder="Enter quantity"
@@ -402,10 +413,10 @@ function TransferModal({
             </div>
             <div className="flex items-end pb-2">
               {(selectedProduct && (!requiresVariant || variationKey)) && (
-                <p className="text-xs text-slate-400">
-                  Available: <span className="font-semibold text-violet-300">{availableStock}</span>
+                <p className="text-xs text-white">
+                  Available: <span className="font-semibold text-white">{availableStock}</span>
                   {variationKey && variantOptions.find(v => v.value === variationKey) && (
-                    <span className="block text-[10px] text-slate-500 mt-0.5">
+                    <span className="block text-[10px] text-white/80 mt-0.5">
                       {variantOptions.find(v => v.value === variationKey)?.label.split(' · ').slice(0, 2).join(' · ')}
                     </span>
                   )}
@@ -416,38 +427,38 @@ function TransferModal({
           )}
 
           {isImeiProduct && canPickImeis && (
-            <div className="rounded-lg px-3 py-2 text-xs bg-violet-500/10 border border-violet-500/20 text-violet-200">
-              Quantity: <span className="font-semibold text-violet-300">{selectedImeis.length}</span>
+            <div className="rounded-lg px-3 py-2 text-xs bg-violet-500/10 border border-violet-500/20 text-white">
+              Quantity: <span className="font-semibold text-white">{selectedImeis.length}</span>
               {' '}unit{selectedImeis.length === 1 ? '' : 's'} (from selected IMEIs)
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-medium mb-1.5 text-slate-400">Notes</label>
-            <input className="input-field text-sm text-white" value={notes} onChange={e => setNotes(e.target.value)}
+            <label className="block text-xs font-medium mb-1.5 text-white">Notes</label>
+            <input className="input-field text-sm text-white placeholder:text-white/50" value={notes} onChange={e => setNotes(e.target.value)}
               placeholder="Optional reference or reason" />
           </div>
 
           {isImeiProduct && canPickImeis && selectedImeis.length === 0 && (
-            <div className="rounded-lg px-3 py-2 text-xs text-amber-200/90 flex items-center gap-2 bg-amber-500/10 border border-amber-500/20">
-              <AlertTriangle size={13} className="text-amber-400 flex-shrink-0" />
+            <div className="rounded-lg px-3 py-2 text-xs text-white flex items-center gap-2 bg-amber-500/10 border border-amber-500/20">
+              <AlertTriangle size={13} className="text-white flex-shrink-0" />
               Select one or more IMEI units to transfer
             </div>
           )}
 
           {selectedProduct && toBranchId && preview && (
-            <div className="rounded-lg px-3 py-2.5 text-xs bg-violet-500/10 border border-violet-500/20">
+            <div className="rounded-lg px-3 py-2.5 text-xs bg-violet-500/10 border border-violet-500/20 text-white">
               {preview.catalogReady ? (
-                <p className="text-violet-200 flex items-center gap-1.5">
-                  <CheckCircle size={12} className="text-violet-400 flex-shrink-0" />
+                <p className="text-white flex items-center gap-1.5">
+                  <CheckCircle size={12} className="text-white flex-shrink-0" />
                   Catalog already exists at destination — stock will merge into it
                 </p>
               ) : preview.willRelocate ? (
-                <p className="text-slate-300">
+                <p className="text-white">
                   No catalog at destination yet — full transfer will move this product row to the destination branch
                 </p>
               ) : (
-                <p className="text-slate-300">
+                <p className="text-white">
                   A catalog entry will be created at the destination branch when stock is transferred
                 </p>
               )}
@@ -455,7 +466,7 @@ function TransferModal({
           )}
 
           <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm text-white">Cancel</button>
             <button type="submit"
               disabled={
                 saving || !canTransfer || !toBranchId || (requiresVariant && !variationKey)
@@ -487,13 +498,9 @@ export default function StockTransferPage() {
   const [viewBranchId, setViewBranchId] = useState(activeBranchId)
 
   useEffect(() => {
-    branchesApi.list()
-      .then((r: any) => {
-        const list = (r.data ?? r ?? []).filter((b: Branch) => b.isActive !== false)
-        setBranches(list)
-      })
-      .catch(() => {})
-      .finally(() => setLoadingBranches(false))
+    const visible = getVisibleBranches()
+    setBranches(visible.map(b => ({ id: b.id, name: b.name, isActive: b.isActive })))
+    setLoadingBranches(false)
   }, [])
 
   useEffect(() => {
@@ -504,7 +511,7 @@ export default function StockTransferPage() {
     if (!viewBranchId) return
     setLoadingProducts(true)
     productsApi.list({ branchId: viewBranchId, limit: '500' })
-      .then((r: any) => setProducts((r.data?.data ?? r.data ?? []).filter((p: Product) => p.stock > 0)))
+      .then((r: any) => setProducts((r.data?.data ?? r.data ?? []).filter((p: Product) => hasTransferableStock(p))))
       .catch(() => {})
       .finally(() => setLoadingProducts(false))
   }, [viewBranchId])

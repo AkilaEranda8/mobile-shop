@@ -41,6 +41,76 @@ export function listTransferableVariants(variations: unknown): Array<VariantRow 
     .map(v => ({ ...v, key: variantKey(v), label: variantLabel(v) }))
 }
 
+type VariantStockRow = { key: string; label: string; stock: number }
+
+/** Variants with transferable qty at a branch (IMEI count when trackImei, else variant.stock). */
+export async function listTransferableVariantsForBranch(
+  db: { imeiRecord: { findMany: (args: object) => Promise<Array<{ variation: string | null }>> } },
+  opts: {
+    productId: string
+    trackImei: boolean
+    storageVariations: unknown
+    branchId: string
+  },
+): Promise<VariantStockRow[]> {
+  const { productId, trackImei, storageVariations, branchId } = opts
+  if (!hasVariants(storageVariations)) return []
+
+  const variants = storageVariations as VariantRow[]
+
+  if (!trackImei) {
+    return listTransferableVariants(storageVariations).map(v => ({
+      key: v.key,
+      label: v.label,
+      stock: v.stock ?? 0,
+    }))
+  }
+
+  const rows = await db.imeiRecord.findMany({
+    where: { productId, branchId, status: 'IN_STOCK' },
+    select: { variation: true },
+  })
+
+  const result: VariantStockRow[] = []
+  for (const v of variants) {
+    const key = variantKey(v)
+    const count = rows.filter(r => imeiMatchesVariant(r, key, v)).length
+    if (count > 0) {
+      result.push({ key, label: variantLabel(v), stock: count })
+    }
+  }
+  return result
+}
+
+export async function countAvailableStock(
+  db: { imeiRecord: { count: (args: object) => Promise<number> } },
+  product: { id: string; trackImei: boolean; stock: number; storageVariations: unknown },
+  branchId: string,
+  variationKey?: string,
+): Promise<number> {
+  if (variationKey) {
+    const variant = findVariant(product.storageVariations, variationKey)
+    if (product.trackImei) {
+      if (!variant) return 0
+      return db.imeiRecord.count({
+        where: {
+          productId: product.id,
+          branchId,
+          status: 'IN_STOCK',
+          OR: imeiVariationFilter(variationKey, variant),
+        },
+      })
+    }
+    return variantStock(product.storageVariations, variationKey)
+  }
+  if (product.trackImei) {
+    return db.imeiRecord.count({
+      where: { productId: product.id, branchId, status: 'IN_STOCK' },
+    })
+  }
+  return product.stock
+}
+
 export function adjustVariantStock(variations: unknown, key: string, delta: number): unknown {
   if (!Array.isArray(variations)) return variations
   return (variations as VariantRow[]).map(v => {

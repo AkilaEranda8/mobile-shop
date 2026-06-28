@@ -5,7 +5,7 @@ import { validate } from '../../middleware/validate.middleware'
 import { sendSuccess } from '../../utils/response'
 import { stockTransferSchema } from './stock-transfer.schema'
 import { stockTransferService } from './stock-transfer.service'
-import { effectiveBranchId } from '../../utils/active-branch'
+import { effectiveBranchId, getUserBranchIds } from '../../utils/active-branch'
 import { AppError } from '../../middleware/error.middleware'
 
 const router = Router()
@@ -26,6 +26,9 @@ router.get('/transfer/imeis', async (req: Request, res: Response, next: NextFunc
     const fromBranchId = req.query.fromBranchId as string
     const variationKey = req.query.variationKey as string | undefined
     if (!productId || !fromBranchId) throw new AppError('productId and fromBranchId are required', 400)
+    const user = req.user!
+    const allowed = await getUserBranchIds(user.userId, req.tenantId!, user.role)
+    if (!allowed.includes(fromBranchId)) throw new AppError('Branch access denied', 403)
     const data = await stockTransferService.listTransferImeis(
       req.tenantId!,
       productId,
@@ -40,9 +43,20 @@ router.get('/transfer/preview', async (req: Request, res: Response, next: NextFu
   try {
     const productId = req.query.productId as string
     const toBranchId = req.query.toBranchId as string
+    const fromBranchId = req.query.fromBranchId as string | undefined
     const variationKey = req.query.variationKey as string | undefined
     if (!productId || !toBranchId) throw new AppError('productId and toBranchId are required', 400)
-    const data = await stockTransferService.preview(req.tenantId!, productId, toBranchId, variationKey)
+    const user = req.user!
+    const allowed = await getUserBranchIds(user.userId, req.tenantId!, user.role)
+    if (fromBranchId && !allowed.includes(fromBranchId)) throw new AppError('Branch access denied', 403)
+    if (!allowed.includes(toBranchId)) throw new AppError('Branch access denied', 403)
+    const data = await stockTransferService.preview(
+      req.tenantId!,
+      productId,
+      toBranchId,
+      fromBranchId,
+      variationKey,
+    )
     sendSuccess(res, data)
   } catch (e) { next(e) }
 })

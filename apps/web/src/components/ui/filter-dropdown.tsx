@@ -13,6 +13,8 @@ type FilterDropdownProps = {
   placeholder: string
   active?: boolean
   onClear?: () => void
+  /** White labels on dark modals (e.g. stock transfer) */
+  tone?: 'default' | 'dark'
 }
 
 export function FilterDropdown({
@@ -23,6 +25,7 @@ export function FilterDropdown({
   placeholder,
   active = false,
   onClear,
+  tone = 'default',
 }: FilterDropdownProps) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -37,6 +40,14 @@ export function FilterDropdown({
 
   const selected = options.find(o => o.value === value)
   const label = selected?.label ?? placeholder
+  const isDark = tone === 'dark'
+
+  const labelColor = isDark
+    ? '#ffffff'
+    : (active ? '#8b5cf6' : 'var(--text-primary)')
+  const iconColor = isDark
+    ? '#ffffff'
+    : (active ? '#8b5cf6' : 'var(--text-muted)')
 
   return (
     <div ref={rootRef} className="relative min-w-[170px]">
@@ -45,19 +56,21 @@ export function FilterDropdown({
         onClick={() => setOpen(o => !o)}
         className="flex items-center gap-2 px-3 py-2 rounded-xl w-full text-left transition-colors"
         style={{
-          background: 'var(--bg-subtle)',
-          border: active ? '1px solid rgba(109,40,217,0.35)' : '1px solid var(--border-subtle)',
+          background: isDark ? 'rgba(255,255,255,0.05)' : 'var(--bg-subtle)',
+          border: active
+            ? '1px solid rgba(109,40,217,0.35)'
+            : isDark ? '1px solid rgba(255,255,255,0.10)' : '1px solid var(--border-subtle)',
         }}>
-        <Icon size={13} style={{ color: active ? '#8b5cf6' : 'var(--text-muted)' }} />
+        <Icon size={13} style={{ color: iconColor }} />
         <span
           className="text-xs font-medium flex-1 min-w-0 truncate"
-          style={{ color: active ? '#8b5cf6' : 'var(--text-primary)' }}>
+          style={{ color: labelColor }}>
           {label}
         </span>
         <ChevronDown
           size={12}
           className={`flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
-          style={{ color: 'var(--text-muted)' }}
+          style={{ color: isDark ? '#ffffff' : 'var(--text-muted)' }}
         />
         {active && onClear && (
           <span
@@ -66,7 +79,7 @@ export function FilterDropdown({
             onClick={e => { e.stopPropagation(); onClear() }}
             onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onClear() } }}
             className="hover:text-red-400 transition-colors flex-shrink-0"
-            style={{ color: 'var(--text-muted)' }}>
+            style={{ color: isDark ? '#ffffff' : 'var(--text-muted)' }}>
             <X size={11} />
           </span>
         )}
@@ -75,7 +88,10 @@ export function FilterDropdown({
       {open && (
         <div
           className="absolute z-50 top-full left-0 mt-1.5 min-w-full max-h-56 overflow-y-auto rounded-xl shadow-2xl py-1"
-          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+          style={{
+            background: isDark ? '#0f1623' : 'var(--bg-card)',
+            border: isDark ? '1px solid rgba(255,255,255,0.10)' : '1px solid var(--border-default)',
+          }}>
           {options.map(opt => {
             const isSelected = opt.value === value
             return (
@@ -85,7 +101,7 @@ export function FilterDropdown({
                 onClick={() => { onChange(opt.value); setOpen(false) }}
                 className="w-full text-left px-3 py-2 text-xs transition-colors hover:opacity-90"
                 style={{
-                  color: isSelected ? '#8b5cf6' : 'var(--text-primary)',
+                  color: isDark ? '#ffffff' : (isSelected ? '#8b5cf6' : 'var(--text-primary)'),
                   background: isSelected ? 'rgba(109,40,217,0.12)' : 'transparent',
                 }}>
                 {opt.label}

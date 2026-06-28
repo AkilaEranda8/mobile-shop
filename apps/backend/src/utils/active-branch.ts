@@ -18,6 +18,7 @@ declare global {
     interface Request {
       activeBranchId?: string
       branchScope?: BranchScope
+      assignedBranchIds?: string[]
     }
   }
 }
@@ -90,6 +91,7 @@ export async function resolveActiveBranch(
   const scopeHeader = (req.headers['x-branch-scope'] as string | undefined)?.trim() as BranchScope | undefined
 
   const assignedIds = await getUserBranchIds(user.userId, tenantId, user.role)
+  req.assignedBranchIds = assignedIds
   const tenantBranches = await getTenantBranches(tenantId)
 
   if (scopeHeader === 'all' && OWNER_ROLES.has(user.role)) {
@@ -139,10 +141,10 @@ export function effectiveBranchId(req: Request): string | undefined {
 
 export function assertBranchRecordAccess(req: Request, recordBranchId?: string | null) {
   if (!recordBranchId || req.branchScope === 'all') return
-  const allowed = effectiveBranchId(req)
-  if (allowed && recordBranchId !== allowed) {
-    throw new AppError('Branch access denied', 403)
-  }
+  if (req.assignedBranchIds?.includes(recordBranchId)) return
+  const active = effectiveBranchId(req)
+  if (active && recordBranchId === active) return
+  throw new AppError('Branch access denied', 403)
 }
 
 export async function resolveOperationalBranchId(

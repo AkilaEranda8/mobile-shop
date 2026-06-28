@@ -8,7 +8,9 @@ import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency } from '@/lib/utils'
-import { useProducts, useCategories, useProductVariantSettings, useBranches } from '@/lib/hooks'
+import { useProducts, useCategories, useProductVariantSettings } from '@/lib/hooks'
+import { getVisibleBranches, hasMultipleBranches } from '@/lib/active-branch'
+import { authStorage } from '@/lib/auth'
 import { DEFAULT_PRODUCT_VARIANT_SETTINGS } from '@/lib/productVariantSettings'
 import { productsApi, uploadApi } from '@/lib/api'
 import type { Product, Category, ProductVariation } from '@/types'
@@ -506,13 +508,15 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
   const router = useRouter()
   const { data: cats, refetch: refetchCats } = useCategories()
   const { data: variantSettings } = useProductVariantSettings()
-  const { data: branchesRaw } = useBranches()
   const branches = useMemo(
-    () => ((branchesRaw as { id: string; name: string }[]) ?? []).map(b => ({ id: b.id, name: b.name })),
-    [branchesRaw],
+    () => getVisibleBranches().map(b => ({ id: b.id, name: b.name })),
+    [],
   )
-  const showBranchPicker = branches.length > 1
-  const stockBranch = branches.find(b => b.id === product.branchId)
+  const showBranchPicker = hasMultipleBranches()
+  const stockBranchName = useMemo(() => {
+    const pool = authStorage.getUser()?.branches ?? []
+    return pool.find(b => b.id === product.branchId)?.name ?? 'Current branch'
+  }, [product.branchId])
   const catalogBranchOptions = branches
     .filter(b => b.id !== product.branchId)
     .map(b => ({ value: b.id, label: b.name }))
@@ -536,7 +540,13 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
   const [warrantyNote, setWarrantyNote] = useState(product.warrantyNote ?? '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [catalogBranchId, setCatalogBranchId] = useState('')
+  const [catalogBranchIds, setCatalogBranchIds] = useState<string[]>([])
+
+  const toggleCatalogBranch = (branchId: string) => {
+    setCatalogBranchIds(prev =>
+      prev.includes(branchId) ? prev.filter(id => id !== branchId) : [...prev, branchId],
+    )
+  }
 
   // Load existing variants into edit state
   const [variants, setVariants] = useState<EditVariantRow[]>(
@@ -578,7 +588,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
         warrantyNote: warrantyNote.trim() || null,
         condition: form.condition,
         imageUrl: form.imageUrl || undefined,
-        ...(showBranchPicker && catalogBranchId ? { branchId: catalogBranchId } : {}),
+        ...(showBranchPicker && catalogBranchIds.length > 0 ? { catalogBranchIds } : {}),
         storageVariations: variants.map(v => ({
           id: v.id,
           storage: v.storage,
@@ -591,13 +601,16 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
         })),
         colorVariations: variants.map(v => ({ name: v.colorName, hex: v.colorHex })),
       })
-      if (showBranchPicker && catalogBranchId) {
-        const destName = branches.find(b => b.id === catalogBranchId)?.name ?? 'selected branch'
+      if (showBranchPicker && catalogBranchIds.length > 0) {
+        const destNames = catalogBranchIds
+          .map(id => branches.find(b => b.id === id)?.name)
+          .filter(Boolean)
+          .join(', ')
         if (hasInventory) {
           toast((t) => (
             <div className="text-sm">
-              <p className="font-medium">Catalog copied to {destName}</p>
-              <p className="text-xs opacity-80 mt-0.5">Stock &amp; IMEI remain at {stockBranch?.name ?? 'this branch'}</p>
+              <p className="font-medium">Catalog copied to {destNames}</p>
+              <p className="text-xs opacity-80 mt-0.5">Stock &amp; IMEI remain at {stockBranchName}</p>
               <button
                 type="button"
                 className="mt-2 text-xs font-semibold text-violet-400 hover:text-violet-300"
@@ -607,8 +620,10 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
               </button>
             </div>
           ), { duration: 8000 })
+        } else if (catalogBranchIds.length === 1) {
+          toast.success(`Product moved to ${destNames}`)
         } else {
-          toast.success(`Product moved to ${destName}`)
+          toast.success(`Catalog copied to ${destNames}`)
         }
       } else {
         toast.success('Product updated')
@@ -677,7 +692,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
                   <span className="text-[10px] px-2 py-0.5 rounded-full font-medium flex items-center gap-1"
                     style={{ background: 'rgba(109,40,217,0.12)', color: '#a78bfa', border: '1px solid rgba(109,40,217,0.25)' }}>
                     <Building2 size={10} />
-                    {stockBranch?.name ?? 'Current branch'}
+                    {stockBranchName}
                     {hasInventory && (
                       <span className="opacity-70">· {product.stock} units</span>
                     )}
@@ -685,23 +700,64 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
                 </div>
                 {catalogBranchOptions.length > 0 && (
                   <>
-                    <label className="block text-xs text-slate-400">
-                      {hasInventory ? 'Also list catalog at branch (optional)' : 'Move to branch'}
-                    </label>
-                    <FilterDropdown
-                      value={catalogBranchId}
-                      onChange={setCatalogBranchId}
-                      options={catalogBranchOptions}
-                      icon={Building2}
-                      placeholder={hasInventory ? 'Select branch to copy catalog' : 'Select destination branch'}
-                      active={!!catalogBranchId}
-                      onClear={() => setCatalogBranchId('')}
-                    />
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="block text-xs text-slate-400">
+                        {hasInventory ? 'Assign catalog to branches (optional)' : 'Move or assign to branches'}
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          className="text-[10px] font-semibold text-violet-400 hover:text-violet-300"
+                          onClick={() => setCatalogBranchIds(catalogBranchOptions.map(b => b.value))}
+                        >
+                          Select all
+                        </button>
+                        <button
+                          type="button"
+                          className="text-[10px] font-semibold text-slate-500 hover:text-slate-300"
+                          onClick={() => setCatalogBranchIds([])}
+                          disabled={catalogBranchIds.length === 0}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+                    <div className="rounded-lg border max-h-36 overflow-y-auto"
+                      style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
+                      {catalogBranchOptions.map(opt => {
+                        const checked = catalogBranchIds.includes(opt.value)
+                        return (
+                          <label
+                            key={opt.value}
+                            className={`flex items-center gap-2.5 px-3 py-2.5 cursor-pointer border-b last:border-0 transition-colors ${
+                              checked ? 'bg-violet-500/10' : 'hover:bg-white/5'
+                            }`}
+                            style={{ borderColor: 'var(--border-subtle)' }}
+                          >
+                            <input
+                              type="checkbox"
+                              className="rounded border-white/20 text-violet-500 focus:ring-violet-500/40"
+                              checked={checked}
+                              onChange={() => toggleCatalogBranch(opt.value)}
+                            />
+                            <Building2 size={12} className={checked ? 'text-violet-400' : 'text-slate-500'} />
+                            <span className="text-xs" style={{ color: 'var(--text-primary)' }}>{opt.label}</span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                    {catalogBranchIds.length > 0 && (
+                      <p className="text-[10px] text-violet-400">
+                        {catalogBranchIds.length} branch{catalogBranchIds.length === 1 ? '' : 'es'} selected
+                      </p>
+                    )}
                     <p className="text-[10px] flex items-start gap-1.5" style={{ color: 'var(--text-muted)' }}>
                       <ArrowLeftRight size={11} className="flex-shrink-0 mt-0.5 opacity-70" />
                       {hasInventory
-                        ? 'Copies image & details only. Move stock and IMEI via Stock Transfer.'
-                        : 'Empty product — changes which branch owns this catalog entry.'}
+                        ? 'Copies image & details to selected branches. Move stock and IMEI via Stock Transfer.'
+                        : catalogBranchIds.length > 1
+                          ? 'Creates catalog entries at selected branches (stock stays 0).'
+                          : 'Select one branch to move this product, or multiple to copy catalog.'}
                     </p>
                   </>
                 )}
