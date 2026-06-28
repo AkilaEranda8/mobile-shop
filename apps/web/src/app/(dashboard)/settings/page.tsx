@@ -58,6 +58,8 @@ export default function SettingsPage() {
   const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState('shop')
   const currentUser = authStorage.getUser()
+  const tenantId = currentUser?.tenantId
+  const userBranchId = currentUser?.branchIds?.[0]
 
   useEffect(() => {
     const tab = searchParams.get('tab')
@@ -83,11 +85,12 @@ export default function SettingsPage() {
   const [reloadSaving, setReloadSaving] = useState(false)
 
   useEffect(() => {
-    if (!currentUser?.tenantId) return
-    tenantApi.get(currentUser.tenantId).then((r: any) => {
+    if (!tenantId) return
+    let cancelled = false
+    tenantApi.get(tenantId).then((r: any) => {
+      if (cancelled) return
       const t = r?.data ?? r
       setTenant(t)
-      const userBranchId = currentUser.branchIds?.[0]
       const branch =
         (userBranchId ? t.branches?.find((b: any) => b.id === userBranchId) : undefined)
         ?? t.branches?.find((b: any) => b.isHeadquarters)
@@ -102,14 +105,15 @@ export default function SettingsPage() {
         city: branch?.city ?? '',
       })
     }).catch(() => {})
-  }, [currentUser?.tenantId, currentUser?.branchIds])
+    return () => { cancelled = true }
+  }, [tenantId, userBranchId])
 
   useEffect(() => {
-    if (!currentUser?.tenantId || !hasFeature('DAILY_RELOAD')) return
-    fetchReloadSettings(currentUser.tenantId)
+    if (!tenantId || !hasFeature('DAILY_RELOAD')) return
+    fetchReloadSettings(tenantId)
       .then(setReloadSettings)
       .catch(() => {})
-  }, [currentUser?.tenantId, hasFeature('DAILY_RELOAD')])
+  }, [tenantId, hasFeature('DAILY_RELOAD')])
 
   const saveReloadSettings = async () => {
     if (!tenant) return
