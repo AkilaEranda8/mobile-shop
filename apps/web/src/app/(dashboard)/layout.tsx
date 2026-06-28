@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
@@ -14,7 +14,6 @@ import { AnnouncementBanners } from '@/components/layout/AnnouncementBanners'
 import { ReleaseNotesPopup } from '@/components/layout/ReleaseNotesPopup'
 import { SessionBranchBootstrap } from '@/components/layout/SessionBranchBootstrap'
 import { OfflineBanner } from '@/components/layout/OfflineBanner'
-import TrialOnboardingCoach from '@/components/onboarding/TrialOnboardingCoach'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -66,11 +65,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <AnnouncementBanners />
         <ReleaseNotesPopup />
         {maintenance?.enabled && <MaintenanceBanner message={maintenance.message} />}
-        <div className="flex-shrink-0 px-4 lg:px-6 pt-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-primary)' }}>
-          <Suspense fallback={null}>
-            <TrialOnboardingCoach />
-          </Suspense>
-        </div>
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           <HexTableProvider>{children}</HexTableProvider>
         </main>

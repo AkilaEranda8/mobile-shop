@@ -9,7 +9,6 @@ import {
 import { authApi, fetchPlatformStatus } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { initializeSessionBranch } from '@/lib/active-branch'
-import { clearFirstLoginOnboarding } from '@/lib/trialOnboarding'
 
 const features = [
   { icon: ShoppingCart, label: 'Point of Sale',    desc: 'Fast POS with invoice generation'   },
@@ -41,7 +40,6 @@ export default function LoginPage() {
       const res = await authApi.login(form.email, form.password)
       const loginUser = initializeSessionBranch(res.data.user as any)
       authStorage.save(res.data.accessToken, res.data.refreshToken, loginUser)
-      clearFirstLoginOnboarding()
       try { localStorage.removeItem('hx_tenant_features') } catch { /* noop */ }
       window.location.href = '/dashboard'
     } catch (err: unknown) {

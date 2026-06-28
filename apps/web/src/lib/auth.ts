@@ -2,12 +2,6 @@ const ACCESS_TOKEN_KEY = 'hx_access_token'
 const REFRESH_TOKEN_KEY = 'hx_refresh_token'
 const USER_KEY = 'hx_user'
 
-function clearFirstLoginOnboardingSession() {
-  try {
-    sessionStorage.removeItem('hx_trial_first_login_onboarding')
-  } catch { /* noop */ }
-}
-
 export type BranchSummary = {
   id: string
   name: string
@@ -59,7 +53,6 @@ export const authStorage = {
   },
 
   clear: () => {
-    clearFirstLoginOnboardingSession()
     localStorage.removeItem(ACCESS_TOKEN_KEY)
     localStorage.removeItem(REFRESH_TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
