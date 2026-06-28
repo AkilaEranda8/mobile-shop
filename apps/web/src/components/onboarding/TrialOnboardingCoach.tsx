@@ -28,7 +28,7 @@ function StepAction({
   compact?: boolean
 }) {
   const cls = compact
-    ? 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shrink-0 bg-violet-600 text-white hover:bg-violet-500 dark:bg-white dark:text-violet-700 dark:hover:bg-violet-50 shadow-sm'
+    ? 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shrink-0 bg-violet-600 text-white hover:bg-violet-500 shadow-sm border border-violet-700/20'
     : 'inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold transition-colors shadow-md shadow-violet-600/15 shrink-0'
 
   if (step.opensPos) {
@@ -184,20 +184,21 @@ export default function TrialOnboardingCoach() {
       }}
     >
       {/* Header — soft in light mode, rich in dark */}
-      <div className="px-4 py-3 sm:px-5 border-b bg-gradient-to-r from-violet-50/90 to-indigo-50/60 dark:from-violet-600 dark:to-indigo-600 dark:text-white"
+      <div
+        className="px-4 py-3 sm:px-5 border-b bg-gradient-to-r from-violet-50 to-indigo-50/80 dark:from-violet-600 dark:to-indigo-600"
         style={{ borderColor: 'var(--border-subtle)' }}
       >
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <div className="w-8 h-8 rounded-lg bg-violet-600/10 dark:bg-white/15 flex items-center justify-center shrink-0">
-              <Sparkles size={15} className="text-violet-600 dark:text-violet-200" />
+            <div className="w-8 h-8 rounded-lg bg-violet-600/12 border border-violet-200/80 dark:bg-white/15 dark:border-white/10 flex items-center justify-center shrink-0">
+              <Sparkles size={15} className="text-violet-700 dark:text-violet-200" />
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-200">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-200">
                 Setup guide · {completedCount}/{totalSteps} · {progressPct}%
               </p>
               {currentStep && (
-                <p className="text-sm sm:text-base font-bold truncate text-gray-900 dark:text-white">
+                <p className="text-sm sm:text-base font-bold truncate text-slate-900 dark:text-white">
                   Step {completedCount + 1}: {currentStep.titleEn}
                 </p>
               )}
@@ -205,22 +206,32 @@ export default function TrialOnboardingCoach() {
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             {trialDays != null && (
-              <span className="hidden sm:inline text-[10px] font-bold px-2 py-0.5 rounded-md bg-violet-100 text-violet-700 dark:bg-white/15 dark:text-white">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border bg-white text-violet-800 border-violet-300/80 shadow-sm dark:bg-white/15 dark:text-white dark:border-white/20">
                 {trialDays}d left
               </span>
             )}
             {currentStep && (
               <StepAction step={currentStep} onPosOpen={() => openPos()} compact />
             )}
-            <button type="button" onClick={toggleExpanded} className="p-1.5 rounded-lg text-violet-600 hover:bg-violet-100 dark:text-white dark:hover:bg-white/10" aria-label="Toggle details">
-              {expanded ? <ChevronUp size={17} /> : <ChevronDown size={17} />}
+            <button
+              type="button"
+              onClick={toggleExpanded}
+              className="p-1.5 rounded-lg border bg-white text-violet-800 border-violet-200 hover:bg-violet-100 dark:bg-white/10 dark:text-white dark:border-white/15 dark:hover:bg-white/20"
+              aria-label="Toggle details"
+            >
+              {expanded ? <ChevronUp size={17} strokeWidth={2.25} /> : <ChevronDown size={17} strokeWidth={2.25} />}
             </button>
-            <button type="button" onClick={dismiss} className="p-1.5 rounded-lg text-violet-600 hover:bg-violet-100 dark:text-white dark:hover:bg-white/10" aria-label="Dismiss">
-              <X size={17} />
+            <button
+              type="button"
+              onClick={dismiss}
+              className="p-1.5 rounded-lg border bg-white text-violet-800 border-violet-200 hover:bg-violet-100 dark:bg-white/10 dark:text-white dark:border-white/15 dark:hover:bg-white/20"
+              aria-label="Dismiss"
+            >
+              <X size={17} strokeWidth={2.25} />
             </button>
           </div>
         </div>
-        <div className="mt-2.5 h-1.5 rounded-full overflow-hidden bg-violet-200/70 dark:bg-white/20">
+        <div className="mt-2.5 h-1.5 rounded-full overflow-hidden bg-violet-200 dark:bg-white/20">
           <div className="h-full bg-violet-600 dark:bg-white rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
         </div>
       </div>
