@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, ArrowRight, CheckCircle, AlertCircle } from 'lucide-react'
 import { authApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
+import { enableFirstLoginOnboarding } from '@/lib/trialOnboarding'
 
 const plans = [
   { id: 'starter', apiPlan: 'STARTER' as const, name: 'Starter', price: 'Rs. 2,999/mo', desc: '1 branch, 3 users' },
@@ -57,6 +58,7 @@ function RegisterForm() {
         city: form.city.trim(),
       })
       authStorage.save(res.data.accessToken, res.data.refreshToken, res.data.user)
+      enableFirstLoginOnboarding()
       try { localStorage.removeItem('hx_tenant_features') } catch { /* noop */ }
       window.location.href = '/dashboard'
     } catch (err: unknown) {

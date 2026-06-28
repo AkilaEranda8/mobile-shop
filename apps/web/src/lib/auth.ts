@@ -2,6 +2,13 @@ const ACCESS_TOKEN_KEY = 'hx_access_token'
 const REFRESH_TOKEN_KEY = 'hx_refresh_token'
 const USER_KEY = 'hx_user'
 
+function clearFirstLoginOnboardingSession() {
+  try {
+    // Keep in sync with FIRST_LOGIN_ONBOARDING_KEY in trialOnboarding.ts
+    sessionStorage.removeItem('hx_trial_first_login_onboarding')
+  } catch { /* noop */ }
+}
+
 export interface AuthUser {
   id: string
   email: string
@@ -32,6 +39,7 @@ export const authStorage = {
   },
 
   clear: () => {
+    clearFirstLoginOnboardingSession()
     localStorage.removeItem(ACCESS_TOKEN_KEY)
     localStorage.removeItem(REFRESH_TOKEN_KEY)
     localStorage.removeItem(USER_KEY)

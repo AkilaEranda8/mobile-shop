@@ -6,7 +6,7 @@ import {
   LayoutDashboard, ShoppingCart, Package, Users, Wrench,
   Shield, Truck, BarChart3, Settings, LogOut,
   CreditCard, Smartphone,   FileText, Building2,
-  UserCheck, ChevronLeft, ChevronRight, Receipt, MessageSquare, PackageCheck, RotateCcw, ArrowLeftRight, Layers, RefreshCw, Lock, PieChart, Sparkles
+  UserCheck, ChevronLeft, ChevronRight, Receipt, MessageSquare, PackageCheck, RotateCcw, ArrowLeftRight, Layers, RefreshCw, Lock, PieChart, Sparkles, BookOpen,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
@@ -93,6 +93,7 @@ const navItems = [
   {
     label: 'System',
     items: [
+      { href: '/dashboard/user-manual', icon: BookOpen, label: 'User Manual' },
       { href: '/dashboard/release-notes', icon: Sparkles, label: 'Release Notes', badge: 'NEW' },
       { href: '/dashboard/branches', icon: Building2, label: 'Branches', badge: 'NEW' },
       { href: '/dashboard/settings', icon: Settings,  label: 'Settings' },

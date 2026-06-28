@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   Save, Building2, User, Bell, Shield, Palette, CreditCard, Users,
-  Loader2, Eye, EyeOff, Trash2, Plus, X, CheckCircle, Check, FileText, Smartphone, ChevronRight,
+  Loader2, Eye, EyeOff, Trash2, Plus, X, CheckCircle, Check, FileText, Smartphone, ChevronRight, BookOpen,
 } from 'lucide-react'
 import { authApi, usersApi, tenantApi, uploadApi, deviceCatalogApi, plansApi, branchesApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
@@ -26,10 +27,12 @@ import {
 } from '@/lib/productVariantSettings'
 import { ImageIcon, Trash2 as TrashIcon } from 'lucide-react'
 import toast from 'react-hot-toast'
+import UserManualPanel from '@/components/settings/UserManualPanel'
 
 const tabs = [
   { key: 'shop',          label: 'Shop Info',       icon: Building2  },
   { key: 'invoice',       label: 'Invoice',         icon: FileText   },
+  { key: 'manual',        label: 'User Manual',     icon: BookOpen   },
   { key: 'devices',       label: 'Devices',         icon: Smartphone },
   { key: 'profile',       label: 'Profile',         icon: User       },
   { key: 'notifications', label: 'Notifications',   icon: Bell       },
@@ -52,8 +55,14 @@ const planColors: Record<string, string> = {
 }
 
 export default function SettingsPage() {
+  const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState('shop')
   const currentUser = authStorage.getUser()
+
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab && tabs.some(t => t.key === tab)) setActiveTab(tab)
+  }, [searchParams])
   const { hasFeature, featurePrices, refetchFeatures } = useTenantFeatures()
   const [featureSaving, setFeatureSaving] = useState(false)
   const canManageFeatures = currentUser?.role === 'OWNER' || currentUser?.role === 'MANAGER'
@@ -599,11 +608,12 @@ export default function SettingsPage() {
             </div>
           )}
 
+          {/* ── USER MANUAL ── */}
+          {activeTab === 'manual' && <UserManualPanel embedded />}
+
           {/* ── INVOICE CUSTOMIZE ── */}
           {activeTab === 'invoice' && (
             <div className="space-y-5">
-
-              {/* Header */}
               <div className="card p-5 flex items-center justify-between">
                 <div>
                   <h2 className="text-base font-semibold text-white flex items-center gap-2"><FileText size={15} className="text-violet-400" /> Invoice Customize</h2>

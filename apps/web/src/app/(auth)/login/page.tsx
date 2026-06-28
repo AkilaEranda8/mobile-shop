@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { authApi, fetchPlatformStatus } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
+import { clearFirstLoginOnboarding } from '@/lib/trialOnboarding'
 
 const features = [
   { icon: ShoppingCart, label: 'Point of Sale',    desc: 'Fast POS with invoice generation'   },
@@ -38,6 +39,7 @@ export default function LoginPage() {
     try {
       const res = await authApi.login(form.email, form.password)
       authStorage.save(res.data.accessToken, res.data.refreshToken, res.data.user)
+      clearFirstLoginOnboarding()
       try { localStorage.removeItem('hx_tenant_features') } catch { /* noop */ }
       window.location.href = '/dashboard'
     } catch (err: unknown) {

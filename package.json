@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "dev:web": "npm run dev --workspace=apps/web",
-    "dev:backend": "npm run start:dev --workspace=apps/backend",
+    "dev:backend": "npm run dev --workspace=apps/backend",
     "build:web": "npm run build --workspace=apps/web",
     "build:backend": "npm run build --workspace=apps/backend",
     "install:all": "npm install --workspaces --include-workspace-root"
