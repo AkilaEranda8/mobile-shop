@@ -5,6 +5,7 @@ import { sendSuccess } from '../../utils/response'
 import { authenticate } from '../../middleware/auth.middleware'
 import { businessDayRange, businessDateFromInstant, resolveQueryDateRange } from '../../utils/date-range'
 import { getDailyRevenueBreakdown, getPeriodFinancials } from '../finance/business-financials.service'
+import { effectiveBranchId } from '../../utils/active-branch'
 
 const router = Router()
 router.use(authenticate)
@@ -59,7 +60,7 @@ function saleItemCogsExpr() {
 router.get('/dashboard', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
-    const branchId = req.query.branchId as string | undefined
+    const branchId = effectiveBranchId(req)
     const branchFilter = branchId ? { branchId } : {}
     const todayKey = businessDateFromInstant()
     const in30End = businessDayRange(resolveQueryDateRange({ days: 30 }).toKey).end
@@ -75,6 +76,7 @@ router.get('/dashboard', async (req: Request, res: Response, next: NextFunction)
         FROM   "Product"
         WHERE  "tenantId" = ${tenantId}
           AND  "isActive" = true
+          ${branchId ? Prisma.sql`AND "branchId" = ${branchId}` : Prisma.empty}
           AND  stock < "minStock"
         ORDER  BY stock ASC
         LIMIT  5
@@ -106,7 +108,7 @@ router.get('/dashboard', async (req: Request, res: Response, next: NextFunction)
 router.get('/revenue', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
-    const branchId = req.query.branchId as string | undefined
+    const branchId = effectiveBranchId(req)
     const days = parseInt(req.query.days as string) || 30
     const { fromKey, toKey } = resolveQueryDateRange({
       from: req.query.from as string | undefined,
@@ -123,7 +125,7 @@ router.get('/top-products', async (req: Request, res: Response, next: NextFuncti
   try {
     const tenantId = req.tenantId!
     const limit = parseInt(req.query.limit as string) || 10
-    const branchId = req.query.branchId as string | undefined
+    const branchId = effectiveBranchId(req)
     let dateFilter = {}
     if (req.query.from || req.query.to) {
       const { start, end } = resolveQueryDateRange({
@@ -216,7 +218,7 @@ router.get('/category-products', async (req: Request, res: Response, next: NextF
   try {
     const tenantId = req.tenantId!
     const category = (req.query.category as string) ?? ''
-    const branchId = req.query.branchId as string | undefined
+    const branchId = effectiveBranchId(req)
     const includeServices = await tenantHasServices(tenantId)
     const { start: from, end: to } = resolveQueryDateRange({
       from: req.query.from as string | undefined,
@@ -310,7 +312,7 @@ router.get('/category-products', async (req: Request, res: Response, next: NextF
 router.get('/category-sales', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
-    const branchId = req.query.branchId as string | undefined
+    const branchId = effectiveBranchId(req)
     const includeServices = await tenantHasServices(tenantId)
     const { start: from, end: to } = resolveQueryDateRange({
       from: req.query.from as string | undefined,

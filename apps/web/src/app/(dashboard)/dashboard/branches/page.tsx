@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Building2, Plus, Edit, MapPin, Phone, Mail, Star, X, Loader2, Save, CheckCircle, AlertTriangle } from 'lucide-react'
 import { branchesApi, tenantApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
@@ -154,12 +155,21 @@ function BranchModal({
 
 /* ── Main Page ───────────────────────────────────────────────────── */
 export default function BranchesPage() {
+  const router = useRouter()
   const user = authStorage.getUser()
   const [branches, setBranches] = useState<Branch[]>([])
   const [plan, setPlan]         = useState('STARTER')
   const [loading, setLoading]   = useState(true)
   const [showAdd, setShowAdd]   = useState(false)
   const [editBranch, setEditBranch] = useState<Branch | null>(null)
+
+  useEffect(() => {
+    if (user && user.role !== 'OWNER') {
+      router.replace('/dashboard')
+    }
+  }, [user, router])
+
+  if (user && user.role !== 'OWNER') return null
 
   const limit    = PLAN_BRANCH_LIMIT[plan] ?? 1
   const atLimit  = branches.filter(b => b.isActive).length >= limit

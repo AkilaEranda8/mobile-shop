@@ -127,6 +127,24 @@ export async function resolveActiveBranch(
   return branchId
 }
 
+/** Branch id for list/report queries: respects owner "all branches" scope. */
+export function effectiveBranchId(req: Request): string | undefined {
+  if (req.branchScope === 'all') {
+    const q = (req.query.branchId as string | undefined)?.trim()
+    return q || undefined
+  }
+  const q = (req.query.branchId as string | undefined)?.trim()
+  return q || req.activeBranchId
+}
+
+export function assertBranchRecordAccess(req: Request, recordBranchId?: string | null) {
+  if (!recordBranchId || req.branchScope === 'all') return
+  const allowed = effectiveBranchId(req)
+  if (allowed && recordBranchId !== allowed) {
+    throw new AppError('Branch access denied', 403)
+  }
+}
+
 export async function resolveOperationalBranchId(
   tenantId: string,
   role: string,

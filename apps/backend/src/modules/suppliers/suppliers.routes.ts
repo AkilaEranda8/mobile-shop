@@ -5,6 +5,7 @@ import { authenticate, authorize } from '../../middleware/auth.middleware'
 import { AppError } from '../../middleware/error.middleware'
 import { getPagination } from '../../utils/pagination'
 import { generatePONumber } from '../../utils/counters'
+import { effectiveBranchId } from '../../utils/active-branch'
 
 const router = Router()
 router.use(authenticate)
@@ -51,7 +52,8 @@ router.get('/purchase-orders', async (req: Request, res: Response, next: NextFun
     const { skip, limit, page } = getPagination(req)
     const status = req.query.status as string | undefined
     const id     = req.query.id     as string | undefined
-    const where: any = { tenantId: req.tenantId!, ...(status && { status }), ...(id && { id }) }
+    const branchId = effectiveBranchId(req)
+    const where: any = { tenantId: req.tenantId!, ...(status && { status }), ...(id && { id }), ...(branchId && { branchId }) }
     const [raw, total] = await Promise.all([
       prisma.purchaseOrder.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { items: true } }),
       prisma.purchaseOrder.count({ where }),

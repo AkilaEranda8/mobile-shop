@@ -5,13 +5,14 @@ import { getPagination } from '../../utils/pagination'
 import { generateInvoiceNumber } from '../../utils/counters'
 import { Request } from 'express'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
+import { effectiveBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
 import { createDailyReloadsFromSaleItems } from '../daily-reload/pos-reload.util'
 import { createWarrantiesFromSaleItems } from '../warranty/warranty.service'
 
 export const salesService = {
   async list(tenantId: string, req: Request) {
     const { skip, limit, page, search } = getPagination(req)
-    const branchId = req.query.branchId as string | undefined
+    const branchId = effectiveBranchId(req)
     const status = req.query.status as string | undefined
     const customerId = req.query.customerId as string | undefined
     const where: any = { tenantId, ...(branchId && { branchId }), ...(status && { status }), ...(customerId && { customerId }), ...(search && { OR: [{ invoiceNumber: { contains: search, mode: 'insensitive' } }, { customerName: { contains: search, mode: 'insensitive' } }, { customerPhone: { contains: search } }] }) }
@@ -22,9 +23,10 @@ export const salesService = {
     return { data, total, page, limit }
   },
 
-  async getById(tenantId: string, id: string) {
+  async getById(tenantId: string, id: string, req: Request) {
     const s = await prisma.sale.findFirst({ where: { id, tenantId }, include: { items: true, payments: true, returns: { include: { items: true } } } })
     if (!s) throw new AppError('Sale not found', 404)
+    assertBranchRecordAccess(req, s.branchId)
     const warranties = await prisma.warranty.findMany({
       where: { tenantId, saleId: id },
       select: { warrantyCode: true, productName: true, imei: true, endDate: true, monthsDuration: true },

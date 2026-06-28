@@ -15,6 +15,7 @@ import {
 import { normalizeBusinessDate, businessDateDb } from '../../utils/date-range'
 import { isTenantFeatureEnabled } from '../../utils/tenant-feature.util'
 import { saveAllocation } from '../profit-allocation/profit-allocation.service'
+import { effectiveBranchId } from '../../utils/active-branch'
 
 function resolveBusinessDate(input?: string): string {
   return normalizeBusinessDate(input)
@@ -37,7 +38,7 @@ router.use(requireDailyClosingFeature)
 router.get('/preview', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
-    const branchId = req.query.branchId as string
+    const branchId = effectiveBranchId(req)
     const date = resolveBusinessDate(req.query.date as string | undefined)
     if (!branchId) throw new AppError('branchId is required', 400)
     sendSuccess(res, await buildDailyClosingPreview(tenantId, branchId, date))
@@ -47,7 +48,7 @@ router.get('/preview', async (req: Request, res: Response, next: NextFunction) =
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
-    const branchId = req.query.branchId as string | undefined
+    const branchId = effectiveBranchId(req)
     const from = req.query.from as string | undefined
     const to = req.query.to as string | undefined
     const where: any = { tenantId, ...(branchId && { branchId }) }
@@ -68,7 +69,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 
 router.get('/day-start', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const branchId = req.query.branchId as string
+    const branchId = effectiveBranchId(req)
     const date = resolveBusinessDate(req.query.date as string | undefined)
     if (!branchId) throw new AppError('branchId is required', 400)
     sendSuccess(res, await getDayStartStatus(req.tenantId!, branchId, date))

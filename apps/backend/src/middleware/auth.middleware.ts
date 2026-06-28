@@ -7,6 +7,7 @@ import { AppError } from './error.middleware'
 import { redis } from '../config/redis'
 import { env } from '../config/env'
 import { ensureTenantAccess } from '../utils/tenant-access'
+import { resolveActiveBranch } from '../utils/active-branch'
 
 declare global {
   namespace Express {
@@ -77,6 +78,17 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
         }
         sendError(res, 'Account access denied', 403)
         return
+      }
+    }
+    if (req.user.role !== 'PLATFORM_ADMIN' && req.tenantId) {
+      try {
+        await resolveActiveBranch(req, { allowAll: true })
+      } catch (err) {
+        if (err instanceof AppError) {
+          sendError(res, err.message, err.statusCode)
+          return
+        }
+        throw err
       }
     }
     next()

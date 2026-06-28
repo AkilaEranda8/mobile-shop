@@ -6,6 +6,7 @@ import { getPagination } from '../../utils/pagination'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 import { resolveQueryDateRange } from '../../utils/date-range'
 import { getPeriodFinancials, toFinanceSummaryResponse } from './business-financials.service'
+import { effectiveBranchId } from '../../utils/active-branch'
 
 const router = Router()
 router.use(authenticate)
@@ -14,7 +15,7 @@ router.get('/transactions', async (req: Request, res: Response, next: NextFuncti
   try {
     const { skip, limit, page } = getPagination(req)
     const type     = req.query.type     as string | undefined
-    const branchId = req.query.branchId as string | undefined
+    const branchId = effectiveBranchId(req)
     const category = req.query.category as string | undefined
     const search   = req.query.search   as string | undefined
     const where: any = {
@@ -39,7 +40,7 @@ router.post('/transactions', authorize('OWNER', 'MANAGER', 'CASHIER'), async (re
 router.get('/summary', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
-    const branchId = req.query.branchId as string | undefined
+    const branchId = effectiveBranchId(req)
     const { fromKey, toKey } = resolveQueryDateRange({
       from: req.query.from as string | undefined,
       to: req.query.to as string | undefined,
@@ -54,7 +55,7 @@ router.get('/summary', async (req: Request, res: Response, next: NextFunction) =
 router.get('/daily-summaries', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { skip, limit, page } = getPagination(req)
-    const branchId = req.query.branchId as string | undefined
+    const branchId = effectiveBranchId(req)
     const where: any = { tenantId: req.tenantId!, ...(branchId && { branchId }) }
     const [data, total] = await Promise.all([prisma.dailySummary.findMany({ where, skip, take: limit, orderBy: { date: 'desc' } }), prisma.dailySummary.count({ where })])
     sendPaginated(res, data, total, page, limit)

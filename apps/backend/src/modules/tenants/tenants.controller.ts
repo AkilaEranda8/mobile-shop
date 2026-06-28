@@ -36,13 +36,17 @@ export const tenantsController = {
     } catch (e) { next(e) }
   },
   async getBranches(req: Request, res: Response, next: NextFunction) {
-    try { sendSuccess(res, await tenantsService.getBranches(req.tenantId!)) } catch (e) { next(e) }
+    try {
+      sendSuccess(res, await tenantsService.getBranches(req.tenantId!, req.user!.userId, req.user!.role))
+    } catch (e) { next(e) }
   },
   async createBranch(req: Request, res: Response, next: NextFunction) {
     try { sendSuccess(res, await tenantsService.createBranch(req.tenantId!, req.body), 'Branch created', 201) } catch (e) { next(e) }
   },
   async updateBranch(req: Request, res: Response, next: NextFunction) {
-    try { sendSuccess(res, await tenantsService.updateBranch(req.tenantId!, req.params.id, req.body)) } catch (e) { next(e) }
+    try {
+      sendSuccess(res, await tenantsService.updateBranch(req.tenantId!, req.params.id, req.body, req.user!.userId, req.user!.role))
+    } catch (e) { next(e) }
   },
   async getInvoiceSettings(req: Request, res: Response, next: NextFunction) {
     try {

@@ -3,11 +3,12 @@ import { AppError } from '../../middleware/error.middleware'
 import { getPagination } from '../../utils/pagination'
 import { Request } from 'express'
 import { inferTrackImeiFromMeta } from '../../utils/productImei'
+import { effectiveBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
 
 export const productsService = {
   async list(tenantId: string, req: Request) {
     const { skip, limit, page, search } = getPagination(req)
-    const branchId = req.query.branchId as string | undefined
+    const branchId = effectiveBranchId(req)
     const categoryId = req.query.categoryId as string | undefined
     const where: any = { tenantId, isActive: true, ...(branchId && { branchId }), ...(categoryId && { categoryId }), ...(search && { OR: [{ name: { contains: search, mode: 'insensitive' } }, { sku: { contains: search, mode: 'insensitive' } }, { barcode: { contains: search, mode: 'insensitive' } }] }) }
     const include = { category: { select: { name: true } }, brand: { select: { name: true } } }

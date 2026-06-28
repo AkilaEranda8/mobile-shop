@@ -14,6 +14,7 @@ import {
   adjustmentSchema,
 } from './profit-allocation.schema'
 import * as profitAllocationService from './profit-allocation.service'
+import { effectiveBranchId } from '../../utils/active-branch'
 
 const router = Router()
 router.use(authenticate)
@@ -31,7 +32,7 @@ router.use(requireProfitAllocationFeature)
 
 router.get('/dashboard', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const branchId = req.query.branchId as string
+    const branchId = effectiveBranchId(req)
     const date = (req.query.date as string) || businessDateFromInstant()
     const live = req.query.live === 'true' || req.query.live === '1'
     if (!branchId) throw new AppError('branchId is required', 400)
@@ -68,7 +69,7 @@ router.post('/save', authorize('OWNER'), validate(saveAllocationSchema), async (
 
 router.delete('/allocations/:date', authorize('OWNER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const branchId = req.query.branchId as string
+    const branchId = effectiveBranchId(req)
     if (!branchId) throw new AppError('branchId is required', 400)
     await profitAllocationService.deleteAllocation(req.tenantId!, branchId, req.params.date)
     sendSuccess(res, null, 'Allocation deleted')
@@ -95,7 +96,7 @@ router.post('/resave', authorize('OWNER'), validate(saveAllocationSchema), async
 
 router.get('/category-table', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const branchId = req.query.branchId as string
+    const branchId = effectiveBranchId(req)
     const date = (req.query.date as string) || businessDateFromInstant()
     if (!branchId) throw new AppError('branchId is required', 400)
     sendSuccess(res, await profitAllocationService.buildCategoryProfitTable(req.tenantId!, branchId, date))
@@ -104,7 +105,7 @@ router.get('/category-table', async (req: Request, res: Response, next: NextFunc
 
 router.get('/funds', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const branchId = req.query.branchId as string
+    const branchId = effectiveBranchId(req)
     if (!branchId) throw new AppError('branchId is required', 400)
     sendSuccess(res, await profitAllocationService.listFunds(req.tenantId!, branchId))
   } catch (e) { next(e) }
@@ -139,7 +140,7 @@ router.patch('/funds/:id/toggle', authorize('OWNER'), async (req: Request, res: 
 router.get('/transactions', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { page, limit } = getPagination(req)
-    const branchId = req.query.branchId as string | undefined
+    const branchId = effectiveBranchId(req)
     const fundId = req.query.fundId as string | undefined
     const from = req.query.from as string | undefined
     const to = req.query.to as string | undefined
@@ -199,7 +200,7 @@ router.post('/adjustment', authorize('OWNER', 'MANAGER'), validate(adjustmentSch
 
 router.get('/period-summary', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const branchId = req.query.branchId as string
+    const branchId = effectiveBranchId(req)
     const from = req.query.from as string
     const to = req.query.to as string
     if (!branchId || !from || !to) throw new AppError('branchId, from and to are required', 400)
@@ -209,7 +210,7 @@ router.get('/period-summary', async (req: Request, res: Response, next: NextFunc
 
 router.get('/monthly-summary', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const branchId = req.query.branchId as string
+    const branchId = effectiveBranchId(req)
     const month = req.query.month as string
     const from = req.query.from as string | undefined
     const to = req.query.to as string | undefined

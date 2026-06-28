@@ -13,7 +13,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try { sendSuccess(res, await repairsService.create(req.tenantId!, req.body), 'Repair ticket created', 201) } catch (e) { next(e) }
 })
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
-  try { sendSuccess(res, await repairsService.getById(req.tenantId!, req.params.id)) } catch (e) { next(e) }
+  try { sendSuccess(res, await repairsService.getById(req.tenantId!, req.params.id, req)) } catch (e) { next(e) }
 })
 router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try { sendSuccess(res, await repairsService.update(req.tenantId!, req.params.id, req.body)) } catch (e) { next(e) }

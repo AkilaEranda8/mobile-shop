@@ -5,6 +5,7 @@ import { UserCheck, Plus, Search, CheckCircle, XCircle, X, Loader2, Mail, Clock,
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import { useUsers, useBranches } from '@/lib/hooks'
 import { usersApi } from '@/lib/api'
+import { authStorage } from '@/lib/auth'
 import toast from 'react-hot-toast'
 
 const roleConfig: Record<string, { label: string; color: string; bg: string; border: string }> = {
@@ -28,11 +29,18 @@ const permissionMatrix = [
   { feature: 'Settings', owner: true, manager: false, technician: false, sales: false },
 ]
 
-const ROLE_OPTIONS = [
+const BASE_ROLE_OPTIONS = [
   { value: 'MANAGER',    label: 'Manager'    },
   { value: 'CASHIER',    label: 'Cashier'    },
   { value: 'TECHNICIAN', label: 'Technician' },
 ]
+
+function roleOptionsFor(actorRole?: string) {
+  if (actorRole === 'OWNER') {
+    return [{ value: 'OWNER', label: 'Owner' }, ...BASE_ROLE_OPTIONS]
+  }
+  return BASE_ROLE_OPTIONS
+}
 
 function StaffFormModal({
   staff, branches, onClose, onSaved,
@@ -49,6 +57,8 @@ function StaffFormModal({
     branchIds: initialBranchIds as string[],
   })
   const [loading, setLoading] = useState(false)
+  const actorRole = authStorage.getUser()?.role
+  const roleOptions = roleOptionsFor(actorRole)
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(p => ({ ...p, [k]: e.target.value }))
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -103,9 +113,18 @@ function StaffFormModal({
             </div>
             <div>
               <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Role</label>
-              <select className="input-field" value={form.role} onChange={f('role')}>
-                {ROLE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+              <select className="input-field" value={form.role} onChange={f('role')}
+                disabled={isEdit && staff?.role === 'OWNER' && actorRole !== 'OWNER'}>
+                {roleOptions.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                {isEdit && staff?.role === 'OWNER' && actorRole !== 'OWNER' && (
+                  <option value="OWNER">Owner</option>
+                )}
               </select>
+              {form.role === 'OWNER' && (
+                <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                  Full access to all branches, settings, and staff management
+                </p>
+              )}
             </div>
             {isEdit && (
               <div>

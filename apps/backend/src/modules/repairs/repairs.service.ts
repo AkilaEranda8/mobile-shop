@@ -5,12 +5,13 @@ import { generateTicketNumber, generateInvoiceNumber } from '../../utils/counter
 import { linkRepairToClaim } from '../warranty/warranty.service'
 import { Request } from 'express'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
+import { effectiveBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
 
 export const repairsService = {
   async list(tenantId: string, req: Request) {
     const { skip, limit, page, search } = getPagination(req)
     const status = req.query.status as string | undefined
-    const branchId = req.query.branchId as string | undefined
+    const branchId = effectiveBranchId(req)
     const customerId = req.query.customerId as string | undefined
     const where: any = { tenantId, ...(status && { status }), ...(branchId && { branchId }), ...(customerId && { customerId }), ...(search && { OR: [{ ticketNumber: { contains: search, mode: 'insensitive' } }, { customerName: { contains: search, mode: 'insensitive' } }, { deviceBrand: { contains: search, mode: 'insensitive' } }, { deviceModel: { contains: search, mode: 'insensitive' } }] }) }
     const [data, total] = await Promise.all([
@@ -20,9 +21,10 @@ export const repairsService = {
     return { data, total, page, limit }
   },
 
-  async getById(tenantId: string, id: string) {
+  async getById(tenantId: string, id: string, req: Request) {
     const r = await prisma.repairTicket.findFirst({ where: { id, tenantId }, include: { notes: true, spareParts: true, history: true } })
     if (!r) throw new AppError('Repair ticket not found', 404)
+    assertBranchRecordAccess(req, r.branchId)
     return r
   },
 

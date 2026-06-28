@@ -5,13 +5,14 @@ import { validate } from '../../middleware/validate.middleware'
 import { sendSuccess } from '../../utils/response'
 import { stockTransferSchema } from './stock-transfer.schema'
 import { stockTransferService } from './stock-transfer.service'
+import { effectiveBranchId } from '../../utils/active-branch'
 
 const router = Router()
 router.use(authenticate)
 
 router.get('/transfers', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const branchId = req.query.branchId as string | undefined
+    const branchId = effectiveBranchId(req)
     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined
     const data = await stockTransferService.list(req.tenantId!, { branchId, limit })
     sendSuccess(res, data)

@@ -1,8 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { productsService } from './products.service'
 import { sendSuccess, sendPaginated } from '../../utils/response'
-import { resolveActiveBranch } from '../../utils/active-branch'
-import { getUserBranchIds } from '../../utils/active-branch'
+import { resolveActiveBranch, getUserBranchIds, assertBranchRecordAccess } from '../../utils/active-branch'
 import { AppError } from '../../middleware/error.middleware'
 
 export const productsController = {
@@ -10,7 +9,11 @@ export const productsController = {
     try { const r = await productsService.list(req.tenantId!, req); sendPaginated(res, r.data, r.total, r.page, r.limit) } catch (e) { next(e) }
   },
   async getById(req: Request, res: Response, next: NextFunction) {
-    try { sendSuccess(res, await productsService.getById(req.tenantId!, req.params.id)) } catch (e) { next(e) }
+    try {
+      const data = await productsService.getById(req.tenantId!, req.params.id)
+      assertBranchRecordAccess(req, (data as any).branchId)
+      sendSuccess(res, data)
+    } catch (e) { next(e) }
   },
   async create(req: Request, res: Response, next: NextFunction) {
     try {

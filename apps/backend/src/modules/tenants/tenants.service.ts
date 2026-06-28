@@ -2,6 +2,9 @@ import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import { normalizeReloadSettings } from '../daily-reload/reload-settings.util'
 import { normalizeProductVariantSettings } from '../products/product-variant-settings.util'
+import { getUserBranchIds } from '../../utils/active-branch'
+
+const OWNER_ROLES = new Set(['OWNER', 'PLATFORM_ADMIN'])
 
 export const tenantsService = {
   async list() {
@@ -74,8 +77,17 @@ export const tenantsService = {
   },
 
   // Branch CRUD
-  async getBranches(tenantId: string) {
-    return prisma.branch.findMany({ where: { tenantId } })
+  async getBranches(tenantId: string, userId: string, role: string) {
+    const where: { tenantId: string; id?: { in: string[] } } = { tenantId }
+    if (!OWNER_ROLES.has(role)) {
+      const ids = await getUserBranchIds(userId, tenantId, role)
+      if (!ids.length) return []
+      where.id = { in: ids }
+    }
+    return prisma.branch.findMany({
+      where,
+      orderBy: [{ isDefault: 'desc' }, { isHeadquarters: 'desc' }, { name: 'asc' }],
+    })
   },
 
   async createBranch(tenantId: string, body: { name: string; address: string; city: string; state: string; phone: string; email?: string; isHeadquarters?: boolean; isDefault?: boolean }) {
@@ -90,9 +102,19 @@ export const tenantsService = {
     })
   },
 
-  async updateBranch(tenantId: string, id: string, body: Partial<{ name: string; address: string; city: string; state: string; phone: string; email: string; isActive: boolean; isHeadquarters: boolean; isDefault: boolean }>) {
+  async updateBranch(
+    tenantId: string,
+    id: string,
+    body: Partial<{ name: string; address: string; city: string; state: string; phone: string; email: string; isActive: boolean; isHeadquarters: boolean; isDefault: boolean }>,
+    userId?: string,
+    role?: string,
+  ) {
     const b = await prisma.branch.findFirst({ where: { id, tenantId } })
     if (!b) throw new AppError('Branch not found', 404)
+    if (role && userId && !OWNER_ROLES.has(role)) {
+      const allowed = await getUserBranchIds(userId, tenantId, role)
+      if (!allowed.includes(id)) throw new AppError('Branch access denied', 403)
+    }
     return prisma.$transaction(async (tx) => {
       if (body.isHeadquarters) {
         await tx.branch.updateMany({ where: { tenantId, isHeadquarters: true, id: { not: id } }, data: { isHeadquarters: false } })

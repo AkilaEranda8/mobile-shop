@@ -59,7 +59,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    sendSuccess(res, await exchangesService.getById(req.tenantId!, req.params.id))
+    sendSuccess(res, await exchangesService.getById(req.tenantId!, req.params.id, req))
   } catch (e) { next(e) }
 })
 

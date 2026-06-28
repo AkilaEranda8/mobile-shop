@@ -34,7 +34,7 @@ router.get('/returns', async (req: Request, res: Response, next: NextFunction) =
 })
 
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
-  try { sendSuccess(res, await salesService.getById(req.tenantId!, req.params.id)) } catch (e) { next(e) }
+  try { sendSuccess(res, await salesService.getById(req.tenantId!, req.params.id, req)) } catch (e) { next(e) }
 })
 
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {

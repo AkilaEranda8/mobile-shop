@@ -7,6 +7,7 @@ import { Request } from 'express'
 import { createWarrantiesFromSaleItems } from '../warranty/warranty.service'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 import type { CompleteExchangeInput } from './exchanges.schema'
+import { effectiveBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
 
 function resolveItemSku(
   product: { sku: string; storageVariations?: unknown },
@@ -266,8 +267,10 @@ export const exchangesService = {
   async list(tenantId: string, req: Request) {
     const { skip, limit, page, search } = getPagination(req)
     const customerId = req.query.customerId as string | undefined
+    const branchId = effectiveBranchId(req)
     const where: any = {
       tenantId,
+      ...(branchId && { branchId }),
       ...(customerId && { customerId }),
       ...(search && {
         OR: [
@@ -287,9 +290,10 @@ export const exchangesService = {
     return { data, total, page, limit }
   },
 
-  async getById(tenantId: string, id: string) {
+  async getById(tenantId: string, id: string, req: Request) {
     const e = await prisma.deviceExchange.findFirst({ where: { id, tenantId } })
     if (!e) throw new AppError('Exchange record not found', 404)
+    assertBranchRecordAccess(req, e.branchId)
     let sale = null
     if (e.saleId) {
       sale = await prisma.sale.findFirst({

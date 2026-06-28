@@ -4,6 +4,7 @@ import { sendSuccess, sendPaginated } from '../../utils/response'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
 import { getPagination } from '../../utils/pagination'
 import { AppError } from '../../middleware/error.middleware'
+import { effectiveBranchId } from '../../utils/active-branch'
 
 const router = Router()
 router.use(authenticate)
@@ -15,7 +16,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     const status    = req.query.status as string | undefined
     const search    = req.query.search as string | undefined
     const productId = req.query.productId as string | undefined
-    const branchId  = req.query.branchId as string | undefined
+    const branchId  = effectiveBranchId(req)
     const purchaseOrderId = req.query.purchaseOrderId as string | undefined
 
     // ── 1. Registered ImeiRecords ──────────────────────────────────────────

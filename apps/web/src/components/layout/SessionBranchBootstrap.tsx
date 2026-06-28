@@ -11,7 +11,11 @@ export function SessionBranchBootstrap() {
     const user = authStorage.getUser()
     if (!user?.id) return
 
-    const needsHydrate = !user.branches?.length || (!user.activeBranchId && user.branchScope !== 'all')
+    const assigned = user.branchIds ?? []
+    const hasUnassignedBranches = user.role !== 'OWNER'
+      && (user.branches?.some(b => !assigned.includes(b.id)) ?? false)
+    const needsHydrate = !user.branches?.length || hasUnassignedBranches
+      || (!user.activeBranchId && user.branchScope !== 'all')
     if (!needsHydrate) return
 
     branchesApi.list()
@@ -19,7 +23,12 @@ export function SessionBranchBootstrap() {
         const list = (res?.data ?? res ?? []) as Array<{
           id: string; name: string; city: string; isHeadquarters: boolean; isDefault?: boolean; isActive: boolean
         }>
-        const branches = list.map(b => ({
+        const assigned = user.branchIds?.length
+          ? user.branchIds
+          : (user.role === 'OWNER' ? list.map(b => b.id) : [])
+        const branches = list
+          .filter(b => user.role === 'OWNER' || assigned.includes(b.id))
+          .map(b => ({
           id: b.id,
           name: b.name,
           city: b.city,
@@ -27,15 +36,13 @@ export function SessionBranchBootstrap() {
           isDefault: b.isDefault ?? false,
           isActive: b.isActive,
         }))
-        const assigned = user.branchIds?.length
-          ? user.branchIds
-          : (user.role === 'OWNER' ? branches.map(b => b.id) : [])
+        const assignedIds = assigned.length ? assigned : branches.map(b => b.id)
         const activeBranchId = user.activeBranchId
-          ?? pickBranchId(branches, assigned)
+          ?? pickBranchId(branches, assignedIds)
           ?? user.branchIds?.[0]
         const next = {
           ...user,
-          branchIds: assigned,
+          branchIds: assignedIds,
           branches,
           activeBranchId: user.branchScope === 'all' ? undefined : activeBranchId,
           suggestedBranchId: activeBranchId,

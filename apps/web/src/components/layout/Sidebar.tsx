@@ -96,7 +96,7 @@ const navItems = [
     items: [
       { href: '/dashboard/user-manual', icon: BookOpen, label: 'User Manual' },
       { href: '/dashboard/release-notes', icon: Sparkles, label: 'Release Notes', badge: 'NEW' },
-      { href: '/dashboard/branches', icon: Building2, label: 'Branches', badge: 'NEW' },
+      { href: '/dashboard/branches', icon: Building2, label: 'Branches', badge: 'NEW', ownerOnly: true },
       { href: '/dashboard/settings', icon: Settings,  label: 'Settings' },
     ],
   },
@@ -190,7 +190,10 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-3 scrollbar-thin">
         {navItems.map((group) => {
-          const visibleItems = group.items.filter(item => !('feature' in item) || !(item as any).feature || hasFeature((item as any).feature as string))
+          const visibleItems = group.items.filter(item => {
+            if ('ownerOnly' in item && (item as { ownerOnly?: boolean }).ownerOnly && user?.role !== 'OWNER') return false
+            return !('feature' in item) || !(item as any).feature || hasFeature((item as any).feature as string)
+          })
           if (visibleItems.length === 0) return null
           return (
           <div key={group.label}>
