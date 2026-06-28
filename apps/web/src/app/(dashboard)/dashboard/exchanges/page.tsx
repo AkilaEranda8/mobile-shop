@@ -17,6 +17,7 @@ import { getInvoiceSettings, fetchInvoiceSettings, shopContextFromTenant, type I
 import { buildReceiptFromApiSale, printReceipt, receiptPrintLabel } from '@/lib/printReceipt'
 import { tradeInFromExchange, soldVariantFromExchange } from '@/lib/exchangeBill'
 import { authStorage } from '@/lib/auth'
+import { getActiveBranchId } from '@/lib/active-branch'
 import toast from 'react-hot-toast'
 
 const CONDITIONS = [
@@ -229,7 +230,7 @@ export default function ExchangesPage() {
   useEffect(() => {
     const user = authStorage.getUser()
     if (!user?.tenantId) return
-    const branchId = user.branchIds?.[0]
+    const branchId = getActiveBranchId()
     const loadSettings = () => {
       Promise.all([
         fetchInvoiceSettings(user.tenantId, branchId),

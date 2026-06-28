@@ -10,6 +10,7 @@ import { authApi } from '@/lib/api'
 import { useAnalyticsDashboard } from '@/lib/hooks'
 import { formatCurrency } from '@/lib/utils'
 import GlobalSearch from '@/components/layout/GlobalSearch'
+import { BranchControl } from '@/components/layout/BranchControl'
 
 interface HeaderProps {
   onMenuToggle: () => void
@@ -83,6 +84,7 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
       </div>
 
       <div className="flex items-center gap-2 ml-auto">
+        <BranchControl />
 
         {/* POS Terminal */}
         {hasPos && (

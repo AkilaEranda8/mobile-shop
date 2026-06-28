@@ -1,4 +1,5 @@
 import { authStorage } from './auth'
+import { getActiveBranchId, getBranchScope } from './active-branch'
 import { getTenantSlugFromHost } from './tenant-context'
 
 function resolveApiBaseUrl(): string {
@@ -68,6 +69,10 @@ async function request<T = unknown>(
   if (token) headers['Authorization'] = `Bearer ${token}`
   const tenantSlug = getTenantSlugFromHost()
   if (tenantSlug) headers['x-tenant-id'] = tenantSlug
+  const activeBranchId = getActiveBranchId()
+  const branchScope = getBranchScope()
+  if (activeBranchId) headers['x-active-branch-id'] = activeBranchId
+  if (branchScope) headers['x-branch-scope'] = branchScope
 
   const res = await fetch(`${getApiBaseUrl()}${path}`, { ...options, headers })
 
@@ -236,6 +241,18 @@ export const productsApi = {
   createBrand: (body: { name: string }) => api.post('/products/brands', body),
   imeiHealth: () => api.get('/products/imei-health'),
   bulkInferTrackImei: () => api.post('/products/bulk-infer-track-imei', {}),
+}
+
+export const inventoryApi = {
+  listTransfers: (params?: Record<string, string>) =>
+    api.get(`/inventory/transfers${params ? '?' + new URLSearchParams(params) : ''}`),
+  transfer: (body: {
+    productId: string
+    fromBranchId: string
+    toBranchId: string
+    quantity: number
+    notes?: string
+  }) => api.post('/inventory/transfer', body),
 }
 
 export const customersApi = {

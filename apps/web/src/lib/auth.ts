@@ -4,10 +4,20 @@ const USER_KEY = 'hx_user'
 
 function clearFirstLoginOnboardingSession() {
   try {
-    // Keep in sync with FIRST_LOGIN_ONBOARDING_KEY in trialOnboarding.ts
     sessionStorage.removeItem('hx_trial_first_login_onboarding')
   } catch { /* noop */ }
 }
+
+export type BranchSummary = {
+  id: string
+  name: string
+  city: string
+  isHeadquarters: boolean
+  isDefault: boolean
+  isActive: boolean
+}
+
+export type BranchScope = 'single' | 'assigned' | 'all'
 
 export interface AuthUser {
   id: string
@@ -16,6 +26,10 @@ export interface AuthUser {
   role: string
   tenantId: string
   branchIds: string[]
+  branches?: BranchSummary[]
+  activeBranchId?: string
+  branchScope?: BranchScope
+  suggestedBranchId?: string
   avatar?: string
 }
 
@@ -36,6 +50,12 @@ export const authStorage = {
     localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
     localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
     localStorage.setItem(USER_KEY, JSON.stringify(user))
+  },
+
+  updateUser: (patch: Partial<AuthUser>) => {
+    const user = authStorage.getUser()
+    if (!user) return
+    localStorage.setItem(USER_KEY, JSON.stringify({ ...user, ...patch }))
   },
 
   clear: () => {

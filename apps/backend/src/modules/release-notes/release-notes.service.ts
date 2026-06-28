@@ -14,14 +14,28 @@ const CATEGORY_MAP: Record<string, string> = {
 }
 
 export function releaseVisibleToTenant(
-  release: { active: boolean; status: string; targetType: string; targetPlans: string[]; targetTenants: string[] },
+  release: { active: boolean; status: string; targetType: string; targetPlans: string[]; targetTenants: string[]; targetBranches?: string[] },
   tenant: TenantTarget,
+  tenantBranchIds?: string[],
 ): boolean {
   if (!release.active || release.status !== 'PUBLISHED') return false
   if (release.targetType === 'ALL') return true
   if (release.targetType === 'PACKAGES' && release.targetPlans.includes(tenant.plan)) return true
   if (release.targetType === 'COMPANIES' && release.targetTenants.includes(tenant.id)) return true
+  if (release.targetType === 'BRANCHES' && tenantBranchIds?.length) {
+    return tenantBranchIds.some(id => (release.targetBranches ?? []).includes(id))
+  }
   return false
+}
+
+async function userCanSeeBranchRelease(userId: string, release: { targetType: string; targetBranches?: string[] }): Promise<boolean> {
+  if (release.targetType !== 'BRANCHES') return true
+  const targets = release.targetBranches ?? []
+  if (!targets.length) return true
+  const links = await prisma.userBranch.findMany({ where: { userId }, select: { branchId: true } })
+  const ids = links.map(l => l.branchId)
+  if (!ids.length) return true
+  return ids.some(id => targets.includes(id))
 }
 
 function itemCounts(items: { category: string }[]) {
@@ -91,22 +105,31 @@ async function getTenantOrThrow(tenantId: string): Promise<TenantTarget> {
   return tenant
 }
 
-async function visibleReleaseWhere(tenant: TenantTarget) {
-  const releases = await prisma.release.findMany({
-    where: { status: 'PUBLISHED', active: true },
-    select: {
-      id: true,
-      targetType: true,
-      targetPlans: true,
-      targetTenants: true,
-      active: true,
-      status: true,
-    },
-  })
-  const visibleIds = releases
-    .filter(r => releaseVisibleToTenant(r, tenant))
-    .map(r => r.id)
-  return visibleIds
+async function visibleReleaseWhere(tenant: TenantTarget, userId?: string) {
+  const [releases, tenantBranches] = await Promise.all([
+    prisma.release.findMany({
+      where: { status: 'PUBLISHED', active: true },
+      select: {
+        id: true,
+        targetType: true,
+        targetPlans: true,
+        targetTenants: true,
+        targetBranches: true,
+        active: true,
+        status: true,
+      },
+    }),
+    prisma.branch.findMany({ where: { tenantId: tenant.id, isActive: true }, select: { id: true } }),
+  ])
+  const tenantBranchIds = tenantBranches.map(b => b.id)
+  const tenantVisible = releases.filter(r => releaseVisibleToTenant(r, tenant, tenantBranchIds))
+  if (!userId) return tenantVisible.map(r => r.id)
+
+  const ids: string[] = []
+  for (const r of tenantVisible) {
+    if (await userCanSeeBranchRelease(userId, r)) ids.push(r.id)
+  }
+  return ids
 }
 
 export const releaseNotesService = {
@@ -169,6 +192,7 @@ export const releaseNotesService = {
     targetType?: string
     targetPlans?: string[]
     targetTenants?: string[]
+    targetBranches?: string[]
     imageUrl?: string | null
     videoUrl?: string | null
     docUrl?: string | null
@@ -197,6 +221,7 @@ export const releaseNotesService = {
         targetType: rest.targetType ?? 'ALL',
         targetPlans: rest.targetPlans ?? [],
         targetTenants: rest.targetTenants ?? [],
+        targetBranches: rest.targetBranches ?? [],
         imageUrl: emptyToNull(rest.imageUrl),
         videoUrl: emptyToNull(rest.videoUrl),
         docUrl: emptyToNull(rest.docUrl),
@@ -231,6 +256,7 @@ export const releaseNotesService = {
     targetType?: string
     targetPlans?: string[]
     targetTenants?: string[]
+    targetBranches?: string[]
     imageUrl?: string | null
     videoUrl?: string | null
     docUrl?: string | null
@@ -261,6 +287,7 @@ export const releaseNotesService = {
     if (rest.targetType !== undefined) updateData.targetType = rest.targetType
     if (rest.targetPlans !== undefined) updateData.targetPlans = rest.targetPlans
     if (rest.targetTenants !== undefined) updateData.targetTenants = rest.targetTenants
+    if (rest.targetBranches !== undefined) updateData.targetBranches = rest.targetBranches
     if (rest.imageUrl !== undefined) updateData.imageUrl = emptyToNull(rest.imageUrl)
     if (rest.videoUrl !== undefined) updateData.videoUrl = emptyToNull(rest.videoUrl)
     if (rest.docUrl !== undefined) updateData.docUrl = emptyToNull(rest.docUrl)
@@ -311,7 +338,8 @@ export const releaseNotesService = {
   // ── Tenant ─────────────────────────────────────────────────────────────────
   async tenantList(tenantId: string, req: Request) {
     const tenant = await getTenantOrThrow(tenantId)
-    const visibleIds = await visibleReleaseWhere(tenant)
+    const userId = req.user?.userId
+    const visibleIds = await visibleReleaseWhere(tenant, userId)
     if (!visibleIds.length) return { data: [], total: 0, page: 1, limit: 20 }
 
     const { skip, limit, page, search } = getPagination(req)
@@ -362,9 +390,9 @@ export const releaseNotesService = {
     }
   },
 
-  async tenantLatest(tenantId: string) {
+  async tenantLatest(tenantId: string, userId?: string) {
     const tenant = await getTenantOrThrow(tenantId)
-    const visibleIds = await visibleReleaseWhere(tenant)
+    const visibleIds = await visibleReleaseWhere(tenant, userId)
     if (!visibleIds.length) return null
 
     const release = await prisma.release.findFirst({
@@ -380,9 +408,9 @@ export const releaseNotesService = {
     return mapReleaseWithMeta(release, read)
   },
 
-  async tenantUnreadPopup(tenantId: string) {
+  async tenantUnreadPopup(tenantId: string, userId?: string) {
     const tenant = await getTenantOrThrow(tenantId)
-    const visibleIds = await visibleReleaseWhere(tenant)
+    const visibleIds = await visibleReleaseWhere(tenant, userId)
     if (!visibleIds.length) return null
 
     const reads = await prisma.tenantReleaseRead.findMany({

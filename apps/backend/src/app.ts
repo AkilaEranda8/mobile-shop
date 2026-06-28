@@ -35,6 +35,7 @@ import servicesRoutes from './modules/services/services.routes'
 import dailyReloadRoutes from './modules/daily-reload/daily-reload.routes'
 import dailyClosingRoutes from './modules/daily-closing/daily-closing.routes'
 import profitAllocationRoutes from './modules/profit-allocation/profit-allocation.routes'
+import inventoryRoutes from './modules/inventory/stock-transfer.routes'
 import releaseNotesRoutes from './modules/release-notes/release-notes.routes'
 
 const app = express()
@@ -131,6 +132,7 @@ app.use(`${API}/users`, usersRoutes)
 app.use(`${API}/tenants`, tenantsRoutes)
 app.use(`${API}/branches`, branchesRoutes)
 app.use(`${API}/products`, productsRoutes)
+app.use(`${API}/inventory`, inventoryRoutes)
 app.use(`${API}/imei`, imeiRoutes)
 app.use(`${API}/customers`, customersRoutes)
 app.use(`${API}/sales`, salesRoutes)

@@ -19,6 +19,7 @@ import { repairsApi, customersApi, deviceCatalogApi, usersApi, uploadApi } from 
 import { whatsappApi, formatWhatsAppPhone } from '@/lib/whatsapp-api'
 import { captureElementAsPdfBase64 } from '@/lib/invoice-pdf'
 import { authStorage } from '@/lib/auth'
+import { getActiveBranchId } from '@/lib/active-branch'
 import { getInvoiceSettings, fetchInvoiceSettings, isKasthuriInvoice, type InvoiceSettings } from '@/lib/invoiceSettings'
 import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrint'
 import KasthuriInvoicePrint, { buildKasthuriRepairInvoiceData } from '@/components/invoice/KasthuriInvoicePrint'
@@ -282,7 +283,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
         estimatedCost: form.estimatedCost ? Number(form.estimatedCost) : undefined,
         reportedIssue: selectedIssues.join(', '),
         accessories:   accessories.length > 0 ? accessories.join(', ') : undefined,
-        branchId: user?.branchIds?.[0],
+        branchId: getActiveBranchId(),
         createdBy: user?.name || 'Staff',
         warrantyClaimId: prefill?.warrantyClaimId,
       })
@@ -922,7 +923,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
   useEffect(() => {
     const user = authStorage.getUser()
     if (!user?.tenantId) return
-    fetchInvoiceSettings(user.tenantId, user.branchIds?.[0]).then(setInvSettings).catch(() => {})
+    fetchInvoiceSettings(user.tenantId, getActiveBranchId()).then(setInvSettings).catch(() => {})
     import('@/lib/api').then(({ tenantApi }) => {
       tenantApi.get(user.tenantId).then((res: any) => {
         setTenantSlug((res?.data ?? res)?.slug)

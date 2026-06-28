@@ -9,7 +9,8 @@ import { DataTableColumnHeader } from '@/components/table/data-table-column-head
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useSuppliers, usePurchaseOrders, useProducts } from '@/lib/hooks'
-import { suppliersApi, branchesApi, imeiApi, productsApi } from '@/lib/api'
+import { suppliersApi, imeiApi, productsApi } from '@/lib/api'
+import { getActiveBranchId } from '@/lib/active-branch'
 import toast from 'react-hot-toast'
 import type { Supplier, PurchaseOrder, POItem } from '@/types'
 import { isImeiHealthBannerDismissed, dismissImeiHealthBanner } from '@/lib/productImei'
@@ -49,8 +50,7 @@ function IMEIRegisterModal({ po, products, onClose, onSaved }: {
   onClose: () => void
   onSaved: (poId: string) => void
 }) {
-  const [branches, setBranches] = useState<any[]>([])
-  const [defaultBranch, setDefaultBranch] = useState(po.branchId ?? '')
+  const [defaultBranch, setDefaultBranch] = useState(po.branchId ?? getActiveBranchId() ?? '')
   const [loading, setLoading] = useState(false)
   const [prefillLoading, setPrefillLoading] = useState(true)
   const [scanValue, setScanValue] = useState('')
@@ -105,12 +105,9 @@ function IMEIRegisterModal({ po, products, onClose, onSaved }: {
   }, [po.id, imeiLines.map(i => `${i.id}:${i.quantity}`).join('|')])
 
   useEffect(() => {
-    branchesApi.list().then((r: any) => {
-      const list = r.data ?? []
-      setBranches(list)
-      const poBranchValid = list.some((b: any) => b.id === po.branchId)
-      setDefaultBranch(poBranchValid ? po.branchId : (list[0]?.id ?? ''))
-    }).catch(() => {})
+    const active = getActiveBranchId()
+    if (active) setDefaultBranch(po.branchId && po.branchId === active ? po.branchId : active)
+    else if (po.branchId) setDefaultBranch(po.branchId)
   }, [po.branchId])
 
   const setImei = (key: string, idx: number, val: string) =>
@@ -246,16 +243,6 @@ function IMEIRegisterModal({ po, products, onClose, onSaved }: {
             />
             {scanValue.replace(/\D/g, '').length === 15 && <span className="text-[10px] text-green-400 font-bold">✓ VALID</span>}
           </div>
-
-          {/* Branch selector */}
-          {branches.length > 1 && (
-            <div>
-              <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Branch</label>
-              <select className="input-field" value={defaultBranch} onChange={e => setDefaultBranch(e.target.value)}>
-                {branches.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
-            </div>
-          )}
 
           {prefillLoading && (
             <div className="flex items-center justify-center gap-2 py-6 text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -870,17 +857,7 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
   const [openIdx, setOpenIdx]         = useState<number | null>(null)
   const [quickSearch, setQuickSearch] = useState('')
   const [quickOpen, setQuickOpen]     = useState(false)
-  const [branches, setBranches]       = useState<{id:string;name:string}[]>([])
-  const [branchId, setBranchId]       = useState('')
-
-  useEffect(() => {
-    branchesApi.list().then((res: any) => {
-      const list = (res.data ?? res) as {id:string;name:string;isActive:boolean}[]
-      const active = list.filter(b => b.isActive)
-      setBranches(active)
-      if (active.length > 0) setBranchId(active[0].id)
-    }).catch(() => {})
-  }, [])
+  const branchId = getActiveBranchId() ?? ''
 
   const { data: productsData } = useProducts({ limit: '2000' })
   const allProducts: any[] = (productsData?.data ?? []) as any[]
@@ -1011,14 +988,6 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
         <form onSubmit={handleSubmit} className="p-5 space-y-5">
           {/* Supplier + delivery */}
           <div className="grid grid-cols-2 gap-4">
-            {branches.length > 1 && (
-              <div className="col-span-2">
-                <label className="block text-xs text-[var(--text-muted)] mb-1.5">Branch *</label>
-                <select className="input-field" value={branchId} onChange={e => setBranchId(e.target.value)}>
-                  {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </select>
-              </div>
-            )}
             <div className="col-span-2">
               <label className="block text-xs text-[var(--text-muted)] mb-1.5">Supplier *</label>
               {suppliers.length === 0

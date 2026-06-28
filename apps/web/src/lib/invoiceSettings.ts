@@ -175,6 +175,7 @@ export function shopContextFromTenant(tenant: any, branchId?: string): ShopConte
   const branches: any[] = tenant.branches ?? []
   const branch =
     (branchId ? branches.find(b => b.id === branchId) : undefined)
+    ?? branches.find(b => b.isDefault)
     ?? branches.find(b => b.isHeadquarters)
     ?? branches[0]
   return {

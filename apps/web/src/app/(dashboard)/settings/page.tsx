@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { authApi, usersApi, tenantApi, uploadApi, deviceCatalogApi, plansApi, branchesApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
+import { getActiveBranchId } from '@/lib/active-branch'
 import { useTenantFeatures } from '@/lib/hooks'
 import { type InvoiceSettings, getInvoiceSettings, fetchInvoiceCustomizeSettings, pushInvoiceSettings } from '@/lib/invoiceSettings'
 import ThermalReceiptCustomizer, { ThermalReceiptPreview } from '@/components/invoice/ThermalReceiptCustomizer'
@@ -59,7 +60,7 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('shop')
   const currentUser = authStorage.getUser()
   const tenantId = currentUser?.tenantId
-  const userBranchId = currentUser?.branchIds?.[0]
+  const userBranchId = getActiveBranchId() ?? currentUser?.branchIds?.[0]
 
   useEffect(() => {
     const tab = searchParams.get('tab')
@@ -227,7 +228,10 @@ export default function SettingsPage() {
   const addUser = async (e: React.FormEvent) => {
     e.preventDefault(); setAddingUser(true)
     try {
-      const res: any = await usersApi.create(newUser)
+      const res: any = await usersApi.create({
+        ...newUser,
+        ...(userBranchId ? { branchIds: [userBranchId] } : {}),
+      })
       setTeamUsers(p => [...p, res?.data ?? res])
       toast.success('User added')
       setNewUser({ name: '', email: '', password: '', role: 'CASHIER' })

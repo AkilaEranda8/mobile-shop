@@ -8,9 +8,10 @@ import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { useCustomers, useFeatureFlag, useBranches } from '@/lib/hooks'
+import { useCustomers, useFeatureFlag } from '@/lib/hooks'
 import { customersApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
+import { getActiveBranchId } from '@/lib/active-branch'
 import toast from 'react-hot-toast'
 import type { Customer } from '@/types'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
@@ -40,9 +41,7 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
     if (outstanding > 0) setAmount(String(outstanding))
   }, [outstanding])
 
-  const { data: branchesData } = useBranches()
-  const branches: any[] = Array.isArray(branchesData) ? branchesData : []
-  const branchId = branches[0]?.id ?? ''
+  const branchId = getActiveBranchId() ?? ''
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

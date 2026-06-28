@@ -37,6 +37,7 @@ const navItems = [
     label: 'Inventory',
     items: [
       { href: '/dashboard/inventory',  icon: Package,    label: 'Inventory' },
+      { href: '/dashboard/stock-transfer', icon: ArrowLeftRight, label: 'Stock Transfer', badge: 'NEW' },
       { href: '/dashboard/imei',       icon: Smartphone, label: 'IMEI Tracker',    badge: 'NEW', feature: 'IMEI' },
       { href: '/dashboard/suppliers',  icon: Truck,      label: 'Suppliers & PO',              feature: 'SUPPLIERS' },
     ],

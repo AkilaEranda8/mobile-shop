@@ -1,6 +1,9 @@
 import { Request, Response, NextFunction } from 'express'
 import { productsService } from './products.service'
 import { sendSuccess, sendPaginated } from '../../utils/response'
+import { resolveActiveBranch } from '../../utils/active-branch'
+import { getUserBranchIds } from '../../utils/active-branch'
+import { AppError } from '../../middleware/error.middleware'
 
 export const productsController = {
   async list(req: Request, res: Response, next: NextFunction) {
@@ -10,7 +13,18 @@ export const productsController = {
     try { sendSuccess(res, await productsService.getById(req.tenantId!, req.params.id)) } catch (e) { next(e) }
   },
   async create(req: Request, res: Response, next: NextFunction) {
-    try { sendSuccess(res, await productsService.create(req.tenantId!, req.body), 'Product created', 201) } catch (e) { next(e) }
+    try {
+      const body = { ...req.body }
+      if (!body.branchId) {
+        const branchId = await resolveActiveBranch(req, { required: true })
+        body.branchId = branchId
+      } else {
+        const user = req.user!
+        const allowed = await getUserBranchIds(user.userId, req.tenantId!, user.role)
+        if (!allowed.includes(body.branchId)) throw new AppError('Branch access denied', 403)
+      }
+      sendSuccess(res, await productsService.create(req.tenantId!, body), 'Product created', 201)
+    } catch (e) { next(e) }
   },
   async update(req: Request, res: Response, next: NextFunction) {
     try { sendSuccess(res, await productsService.update(req.tenantId!, req.params.id, req.body)) } catch (e) { next(e) }

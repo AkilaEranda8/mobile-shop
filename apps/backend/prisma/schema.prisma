@@ -225,6 +225,7 @@ model Branch {
   phone           String
   email           String?
   isHeadquarters  Boolean  @default(false)
+  isDefault       Boolean  @default(false)
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -1368,6 +1369,7 @@ model Release {
   targetType    String   @default("ALL")
   targetPlans   String[] @default([])
   targetTenants String[] @default([])
+  targetBranches String[] @default([])
   imageUrl      String?
   videoUrl      String?
   docUrl        String?

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { authStorage } from '@/lib/auth'
+import { getActiveBranchId } from '@/lib/active-branch'
 import { productsApi, tenantApi } from '@/lib/api'
 import { fetchInvoiceCustomizeSettings } from '@/lib/invoiceSettings'
 import { useAnalyticsDashboard } from '@/lib/hooks'
@@ -28,7 +29,7 @@ export function useTrialOnboarding() {
   const pathname = usePathname()
   const user = authStorage.getUser()
   const tenantId = user?.tenantId
-  const branchId = user?.branchIds?.[0]
+  const branchId = getActiveBranchId() ?? user?.branchIds?.[0]
 
   const { data: stats, refetch: refetchStats } = useAnalyticsDashboard()
 

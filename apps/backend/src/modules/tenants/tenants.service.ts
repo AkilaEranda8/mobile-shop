@@ -78,13 +78,29 @@ export const tenantsService = {
     return prisma.branch.findMany({ where: { tenantId } })
   },
 
-  async createBranch(tenantId: string, body: { name: string; address: string; city: string; state: string; phone: string; email?: string; isHeadquarters?: boolean }) {
-    return prisma.branch.create({ data: { tenantId, ...body } })
+  async createBranch(tenantId: string, body: { name: string; address: string; city: string; state: string; phone: string; email?: string; isHeadquarters?: boolean; isDefault?: boolean }) {
+    return prisma.$transaction(async (tx) => {
+      if (body.isHeadquarters) {
+        await tx.branch.updateMany({ where: { tenantId, isHeadquarters: true }, data: { isHeadquarters: false } })
+      }
+      if (body.isDefault) {
+        await tx.branch.updateMany({ where: { tenantId, isDefault: true }, data: { isDefault: false } })
+      }
+      return tx.branch.create({ data: { tenantId, ...body } })
+    })
   },
 
-  async updateBranch(tenantId: string, id: string, body: Partial<{ name: string; address: string; city: string; state: string; phone: string; email: string; isActive: boolean }>) {
+  async updateBranch(tenantId: string, id: string, body: Partial<{ name: string; address: string; city: string; state: string; phone: string; email: string; isActive: boolean; isHeadquarters: boolean; isDefault: boolean }>) {
     const b = await prisma.branch.findFirst({ where: { id, tenantId } })
     if (!b) throw new AppError('Branch not found', 404)
-    return prisma.branch.update({ where: { id }, data: body })
+    return prisma.$transaction(async (tx) => {
+      if (body.isHeadquarters) {
+        await tx.branch.updateMany({ where: { tenantId, isHeadquarters: true, id: { not: id } }, data: { isHeadquarters: false } })
+      }
+      if (body.isDefault) {
+        await tx.branch.updateMany({ where: { tenantId, isDefault: true, id: { not: id } }, data: { isDefault: false } })
+      }
+      return tx.branch.update({ where: { id }, data: body })
+    })
   },
 }

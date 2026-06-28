@@ -1,6 +1,6 @@
 'use client'
 // v2
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   ComposedChart, Line, ReferenceLine,
@@ -10,13 +10,14 @@ import {
   TrendingUp, TrendingDown, Package, Wrench, Truck, Download,
   ShoppingCart, AlertTriangle, CheckCircle, Clock, XCircle,
   DollarSign, BarChart3, ArrowUpRight, ArrowDownRight, Users,
-  Calendar, Building2, Activity, PhoneCall,
+  Calendar, Activity, PhoneCall,
 } from 'lucide-react'
 import {
   useRevenue, useTopProducts, useRepairsByStatus,
   useInventorySummary, useDeliverySummary, useAnalyticsDashboard,
-  useFinanceSummary, useBranches, useDailyReloadReport, useFeatureFlag,
+  useFinanceSummary, useDailyReloadReport, useFeatureFlag,
 } from '@/lib/hooks'
+import { getActiveBranchId } from '@/lib/active-branch'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday, businessPeriodFrom, shiftBusinessDate, formatBusinessDateLabel } from '@/lib/business-date'
 
@@ -929,17 +930,10 @@ export default function ReportsPage() {
   const hasDailyReload = useFeatureFlag('DAILY_RELOAD')
   const [activeTab, setActiveTab]   = useState('overview')
   const [period, setPeriod]         = useState('30')
-  const [branchId, setBranchId]     = useState('')
+  const branchId = getActiveBranchId() ?? ''
   const [isCustom, setIsCustom]     = useState(false)
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo]     = useState('')
-
-  const { data: branchesData } = useBranches()
-  const branches: any[] = Array.isArray(branchesData) ? branchesData : []
-
-  useEffect(() => {
-    if (branches.length && !branchId) setBranchId(branches[0].id)
-  }, [branches, branchId])
 
   const todayStr = useMemo(() => businessToday(), [])
 
@@ -991,18 +985,6 @@ export default function ReportsPage() {
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>→</span>
               <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} min={customFrom} max={todayStr}
                 className="text-xs bg-transparent outline-none cursor-pointer" style={{ color: 'var(--text-primary)' }} />
-            </div>
-          )}
-
-          {/* Branch filter — only show when multiple branches exist */}
-          {branches.length > 1 && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
-              <Building2 size={13} style={{ color: 'var(--text-muted)' }} />
-              <select value={branchId} onChange={e => setBranchId(e.target.value)}
-                className="bg-transparent text-xs outline-none cursor-pointer" style={{ color: 'var(--text-primary)' }}>
-                <option value="">All Branches</option>
-                {branches.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
             </div>
           )}
 

@@ -31,6 +31,7 @@ import { useUIStore } from '@/stores/ui-store'
 import { useProducts, useFeatureFlag } from '@/lib/hooks'
 import { salesApi, customersApi, productsApi, imeiApi, servicesApi, financeApi, tenantApi, dailyClosingApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
+import { requireActiveBranchId } from '@/lib/active-branch'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday } from '@/lib/business-date'
 import toast from 'react-hot-toast'
@@ -856,7 +857,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
     localStorage.setItem('pos_held_carts', JSON.stringify(list))
   }
 
-  const getBranchId = () => authStorage.getUser()?.branchIds?.[0] ?? ''
+  const getBranchId = () => {
+    try { return requireActiveBranchId() } catch {
+      const u = authStorage.getUser()
+      return u?.activeBranchId ?? u?.branchIds?.[0] ?? ''
+    }
+  }
   const posUser = authStorage.getUser()
   const posRole = posUser?.role ?? 'CASHIER'
   const canCloseDay = posRole === 'OWNER' || posRole === 'MANAGER'
@@ -1544,7 +1550,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     if (!currentUser?.tenantId) return
-    const branchId = currentUser.branchIds?.[0]
+    const branchId = currentUser.activeBranchId ?? currentUser.branchIds?.[0]
     const load = () => {
       Promise.all([
         fetchInvoiceSettings(currentUser.tenantId, branchId),
@@ -1559,7 +1565,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
     load()
     window.addEventListener('invoice-settings-updated', load)
     return () => window.removeEventListener('invoice-settings-updated', load)
-  }, [currentUser?.tenantId, currentUser?.branchIds?.[0]])
+  }, [currentUser?.tenantId, currentUser?.activeBranchId, currentUser?.branchIds?.[0]])
 
   useEffect(() => {
     if (!selectedCustomer?.id) {
@@ -1711,7 +1717,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         await customersApi.creditPayment(selectedCustomer.id, {
           amount: settledOutstanding,
           paymentMethod,
-          branchId: user?.branchIds?.[0] || '',
+          branchId: getBranchId() || '',
           performedBy: user?.name || 'system',
         })
       }
@@ -1730,7 +1736,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       if (saleDueAmount > 0) payments.push({ method: 'CREDIT', amount: saleDueAmount })
 
       const salePayload = {
-        branchId:      user?.branchIds?.[0],
+        branchId:      getBranchId(),
         customerId:    selectedCustomer?.id || undefined,
         customerName:  selectedCustomer?.name || 'Walk-in Customer',
         customerPhone: selectedCustomer?.phone || '',

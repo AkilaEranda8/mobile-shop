@@ -273,14 +273,16 @@ export function isFirstLoginOnboardingActive(): boolean {
 }
 
 function pickBranch(tenant: any, branchId?: string) {
-  if (!tenant?.branches?.length) return null
+  const branches = tenant?.branches ?? []
+  if (!branches.length) return null
   if (branchId) {
-    const match = tenant.branches.find((b: any) => b.id === branchId)
+    const match = branches.find((b: any) => b.id === branchId)
     if (match) return match
   }
   return (
-    tenant.branches.find((b: any) => b.isHeadquarters)
-    ?? tenant.branches[0]
+    branches.find((b: any) => b.isDefault)
+    ?? branches.find((b: any) => b.isHeadquarters)
+    ?? branches[0]
   )
 }
 

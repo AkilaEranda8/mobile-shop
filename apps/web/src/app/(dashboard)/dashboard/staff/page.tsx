@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { UserCheck, Plus, Search, CheckCircle, XCircle, X, Loader2, Mail, Clock, Edit2, Trash2, AlertTriangle } from 'lucide-react'
-import { useUsers } from '@/lib/hooks'
+import { UserCheck, Plus, Search, CheckCircle, XCircle, X, Loader2, Mail, Clock, Edit2, Trash2, AlertTriangle, Building2 } from 'lucide-react'
+import { FilterDropdown } from '@/components/ui/filter-dropdown'
+import { useUsers, useBranches } from '@/lib/hooks'
 import { usersApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 
@@ -34,9 +35,10 @@ const ROLE_OPTIONS = [
 ]
 
 function StaffFormModal({
-  staff, onClose, onSaved,
-}: { staff?: any; onClose: () => void; onSaved: () => void }) {
+  staff, branches, onClose, onSaved,
+}: { staff?: any; branches: Array<{ id: string; name: string }>; onClose: () => void; onSaved: () => void }) {
   const isEdit = !!staff
+  const initialBranchIds = staff?.branches?.map((b: { branchId: string }) => b.branchId) ?? (branches.length === 1 ? [branches[0].id] : [])
   const [form, setForm] = useState({
     name:     staff?.name     ?? '',
     email:    staff?.email    ?? '',
@@ -44,6 +46,7 @@ function StaffFormModal({
     role:     staff?.role     ?? 'CASHIER',
     password: '',
     isActive: staff?.isActive ?? true,
+    branchIds: initialBranchIds as string[],
   })
   const [loading, setLoading] = useState(false)
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(p => ({ ...p, [k]: e.target.value }))
@@ -53,12 +56,12 @@ function StaffFormModal({
     setLoading(true)
     try {
       if (isEdit) {
-        const body: any = { name: form.name, phone: form.phone, role: form.role, isActive: form.isActive }
+        const body: any = { name: form.name, phone: form.phone, role: form.role, isActive: form.isActive, branchIds: form.branchIds }
         if (form.password) body.password = form.password
         await usersApi.update(staff.id, body)
         toast.success('Staff member updated')
       } else {
-        await usersApi.create(form)
+        await usersApi.create({ ...form, branchIds: form.branchIds })
         toast.success('Staff member added')
       }
       onSaved()
@@ -121,6 +124,26 @@ function StaffFormModal({
               <input type="password" className="input-field" placeholder="Min 8 characters"
                 required={!isEdit} value={form.password} onChange={f('password')} />
             </div>
+            {branches.length > 0 && (
+              <div className="col-span-2">
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Branches</label>
+                <div className="flex flex-wrap gap-2">
+                  {branches.map(b => (
+                    <label key={b.id} className="flex items-center gap-1.5 text-xs cursor-pointer px-2 py-1 rounded-lg border"
+                      style={{ borderColor: 'var(--border-subtle)' }}>
+                      <input type="checkbox" checked={form.branchIds.includes(b.id)}
+                        onChange={() => setForm(p => ({
+                          ...p,
+                          branchIds: p.branchIds.includes(b.id)
+                            ? p.branchIds.filter(id => id !== b.id)
+                            : [...p.branchIds, b.id],
+                        }))} />
+                      {b.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
@@ -160,13 +183,19 @@ function DeleteConfirmModal({ name, onConfirm, onClose, loading }: { name: strin
 
 export default function StaffPage() {
   const [search, setSearch] = useState('')
+  const [branchFilter, setBranchFilter] = useState('')
   const [tab, setTab] = useState<'staff' | 'permissions'>('staff')
   const [showAdd, setShowAdd] = useState(false)
   const [editStaff, setEditStaff] = useState<any>(null)
   const [deleteTarget, setDeleteTarget] = useState<any>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
 
-  const { data, loading, refetch } = useUsers(search ? { search } : undefined)
+  const { data: branchesRaw } = useBranches()
+  const branches = ((branchesRaw as any[]) ?? []).map((b: any) => ({ id: b.id, name: b.name }))
+  const listParams: Record<string, string> = {}
+  if (search) listParams.search = search
+  if (branchFilter) listParams.branchId = branchFilter
+  const { data, loading, refetch } = useUsers(Object.keys(listParams).length ? listParams : undefined)
   const users: any[] = (data?.data ?? []) as any[]
   const activeCount = users.filter((u: any) => u.isActive).length
 
@@ -187,8 +216,8 @@ export default function StaffPage() {
 
   return (
     <div className="space-y-6">
-      {showAdd      && <StaffFormModal onClose={() => setShowAdd(false)} onSaved={refetch} />}
-      {editStaff    && <StaffFormModal staff={editStaff} onClose={() => setEditStaff(null)} onSaved={refetch} />}
+      {showAdd      && <StaffFormModal branches={branches} onClose={() => setShowAdd(false)} onSaved={refetch} />}
+      {editStaff    && <StaffFormModal staff={editStaff} branches={branches} onClose={() => setEditStaff(null)} onSaved={refetch} />}
       {deleteTarget && <DeleteConfirmModal name={deleteTarget.name} loading={deleteLoading} onConfirm={handleDelete} onClose={() => setDeleteTarget(null)} />}
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -212,9 +241,22 @@ export default function StaffPage() {
 
       {tab === 'staff' && (
         <>
-          <div className="relative max-w-sm">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input className="input-field pl-9" placeholder="Search staff..." value={search} onChange={e => setSearch(e.target.value)} />
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative max-w-sm flex-1 min-w-[200px]">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input className="input-field pl-9" placeholder="Search staff..." value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+            {branches.length > 1 && (
+              <FilterDropdown
+                value={branchFilter}
+                onChange={setBranchFilter}
+                options={[{ value: '', label: 'All Branches' }, ...branches.map(b => ({ value: b.id, label: b.name }))]}
+                icon={Building2}
+                placeholder="All Branches"
+                active={!!branchFilter}
+                onClear={() => setBranchFilter('')}
+              />
+            )}
           </div>
 
           {loading && <p className="text-sm text-slate-500">Loading staff...</p>}
@@ -243,6 +285,18 @@ export default function StaffPage() {
                     <div className="flex items-center gap-2 text-xs text-slate-500">
                       <Mail size={11} className="flex-shrink-0" /><span className="truncate">{s.email}</span>
                     </div>
+                    {s.branches?.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {s.branches.map((b: { branchId: string }) => {
+                          const name = branches.find(x => x.id === b.branchId)?.name ?? 'Branch'
+                          return (
+                            <span key={b.branchId} className="text-[9px] px-1.5 py-0.5 rounded-md bg-violet-500/10 text-violet-400 border border-violet-500/20">
+                              {name}
+                            </span>
+                          )
+                        })}
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 text-xs text-slate-500">
                       <Clock size={11} className="flex-shrink-0" />
                       <span>Joined {new Date(s.createdAt).toLocaleDateString('en-IN')}</span>

@@ -13,6 +13,7 @@ import { DataTableColumnHeader } from '@/components/table/data-table-column-head
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { salesApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
+import { getActiveBranchId } from '@/lib/active-branch'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { getInvoiceSettings, fetchInvoiceSettings, isKasthuriInvoice, type InvoiceSettings } from '@/lib/invoiceSettings'
@@ -194,7 +195,7 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
   useEffect(() => {
     const user = authStorage.getUser()
     if (!user?.tenantId) return
-    fetchInvoiceSettings(user.tenantId, user.branchIds?.[0]).then(setInvSettings).catch(() => {})
+    fetchInvoiceSettings(user.tenantId, getActiveBranchId()).then(setInvSettings).catch(() => {})
     import('@/lib/api').then(({ tenantApi }) => {
       tenantApi.get(user.tenantId).then((res: any) => {
         const tenant = res?.data ?? res

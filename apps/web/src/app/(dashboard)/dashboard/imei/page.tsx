@@ -11,6 +11,7 @@ import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { useImeiRecords } from '@/lib/hooks'
 import { imeiApi, productsApi, warrantyApi } from '@/lib/api'
+import { getActiveBranchId } from '@/lib/active-branch'
 import toast from 'react-hot-toast'
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; border: string }> = {
@@ -333,14 +334,17 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
 }
 
 function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({ imei: '', productId: '', branchId: '' })
+  const activeBranchId = getActiveBranchId()
+  const [form, setForm] = useState({ imei: '', productId: '' })
   const [loading, setLoading] = useState(false)
   const [imeiError, setImeiError] = useState('')
   const [products, setProducts] = useState<any[]>([])
 
   useEffect(() => {
-    productsApi.list().then((r: any) => setProducts(r.data ?? [])).catch(() => {})
-  }, [])
+    const params: Record<string, string> = {}
+    if (activeBranchId) params.branchId = activeBranchId
+    productsApi.list(params).then((r: any) => setProducts(r.data ?? [])).catch(() => {})
+  }, [activeBranchId])
 
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm(p => ({ ...p, [k]: e.target.value }))
@@ -354,7 +358,8 @@ function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
     setLoading(true)
     try {
       const selectedProduct = products.find((p: any) => p.id === form.productId)
-      const branchId = form.branchId || selectedProduct?.branchId
+      const branchId = activeBranchId || selectedProduct?.branchId
+      if (!branchId) { toast.error('No active branch — switch branch in header'); return }
       await imeiApi.create({ imei: form.imei, productId: form.productId, branchId })
       toast.success('IMEI registered successfully')
       onSaved()
@@ -421,7 +426,10 @@ export default function IMEIPage() {
   const [selectedImei, setSelectedImei] = useState<string | null>(null)
   const [quickSearch,  setQuickSearch]  = useState('')
   const [quickResult,  setQuickResult]  = useState<null | 'loading' | 'found' | 'notfound'>(null)
-  const { data, loading, refetch } = useImeiRecords({ limit: '500' })
+  const branchId = getActiveBranchId()
+  const imeiParams: Record<string, string> = { limit: '500' }
+  if (branchId) imeiParams.branchId = branchId
+  const { data, loading, refetch } = useImeiRecords(imeiParams)
   const records: any[] = (data?.data ?? []) as any[]
   const total = (data as any)?.meta?.total ?? records.length
 

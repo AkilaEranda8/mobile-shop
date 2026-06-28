@@ -77,7 +77,10 @@ async function resolveBranchId(tenantId: string, userId: string, branchId?: stri
     include: { branch: true },
   })
   if (link?.branch?.isActive) return link.branchId
-  const fallback = await prisma.branch.findFirst({ where: { tenantId, isActive: true }, orderBy: { isHeadquarters: 'desc' } })
+  const fallback = await prisma.branch.findFirst({
+    where: { tenantId, isActive: true },
+    orderBy: [{ isDefault: 'desc' }, { isHeadquarters: 'desc' }, { createdAt: 'asc' }],
+  })
   if (!fallback) throw new AppError('No active branch found', 400)
   return fallback.id
 }

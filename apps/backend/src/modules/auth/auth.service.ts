@@ -9,6 +9,7 @@ import { createOrGetGroup, createKcUser } from '../../utils/keycloakAdmin'
 import { sendMail } from '../../utils/mailer'
 import { getMaintenanceStatus } from '../../utils/platform-config'
 import { ensureTenantAccess } from '../../utils/tenant-access'
+import { getTenantBranches, getUserBranchIds, pickDefaultBranchId } from '../../utils/active-branch'
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
@@ -47,6 +48,14 @@ export const authService = {
     const refreshToken = signRefreshToken(payload)
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     await prisma.refreshToken.create({ data: { userId: user.id, token: refreshToken, expiresAt } })
+    const branchIds = user.role === 'OWNER'
+      ? (await getUserBranchIds(user.id, user.tenantId, user.role))
+      : user.branches.map((b: { branchId: string }) => b.branchId)
+    const tenantBranches = user.role !== 'PLATFORM_ADMIN'
+      ? await getTenantBranches(user.tenantId)
+      : []
+    const assignedBranches = tenantBranches.filter(b => branchIds.includes(b.id))
+    const suggestedBranchId = pickDefaultBranchId(tenantBranches, branchIds)
     return {
       accessToken,
       refreshToken,
@@ -56,7 +65,9 @@ export const authService = {
         name: user.name,
         role: user.role,
         tenantId: user.tenantId,
-        branchIds: user.branches.map((b: { branchId: string }) => b.branchId),
+        branchIds,
+        branches: assignedBranches,
+        suggestedBranchId,
         avatar: user.avatar,
       },
     }
@@ -99,6 +110,7 @@ export const authService = {
             state: '',
             phone: data.phone?.trim() || '',
             isHeadquarters: true,
+            isDefault: true,
             isActive: true,
           },
         },

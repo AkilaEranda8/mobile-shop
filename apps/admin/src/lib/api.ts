@@ -490,6 +490,7 @@ export interface ReleaseRow {
   targetType: string
   targetPlans: string[]
   targetTenants: string[]
+  targetBranches: string[]
   imageUrl: string | null
   videoUrl: string | null
   docUrl: string | null

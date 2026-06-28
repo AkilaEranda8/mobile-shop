@@ -56,7 +56,10 @@ export const productsService = {
     if (!body.condition) body.condition = 'BRAND_NEW'
 
     if (!body.branchId) {
-      const branch = await prisma.branch.findFirst({ where: { tenantId } })
+      const branch = await prisma.branch.findFirst({
+        where: { tenantId, isActive: true },
+        orderBy: [{ isDefault: 'desc' }, { isHeadquarters: 'desc' }, { createdAt: 'asc' }],
+      })
       if (!branch) throw new AppError('No branch found for tenant', 400)
       body.branchId = branch.id
     }

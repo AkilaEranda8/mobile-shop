@@ -10,8 +10,9 @@ import toast from 'react-hot-toast'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { businessToday } from '@/lib/business-date'
 import { authStorage } from '@/lib/auth'
+import { getActiveBranchId } from '@/lib/active-branch'
 import { profitAllocationApi } from '@/lib/api'
-import { useBranches, useFeatureFlag, useProfitAllocationDashboard, useProfitFunds } from '@/lib/hooks'
+import { useFeatureFlag, useProfitAllocationDashboard, useProfitFunds } from '@/lib/hooks'
 import {
   exportAllocationCsv, exportAllocationExcel, exportAllocationPdf,
   type AllocationLine,
@@ -211,9 +212,7 @@ export default function ProfitAllocationPage() {
   const canWithdraw = isOwner || role === 'MANAGER'
   const canManageFunds = isOwner
 
-  const { data: branchesRaw } = useBranches()
-  const branches = (branchesRaw as { id: string; name: string }[] | null) ?? []
-  const [branchId, setBranchId] = useState('')
+  const branchId = getActiveBranchId() ?? ''
   const todayStr = useMemo(() => businessToday(), [])
   const [periodPreset, setPeriodPreset] = useState<string>('today')
   const [isCustomRange, setIsCustomRange] = useState(false)
@@ -243,10 +242,6 @@ export default function ProfitAllocationPage() {
     name: '', type: 'MANUAL', fixedAmount: '0', percentage: '0', sortOrder: '0', description: '', isActive: true,
   })
   const [fundSaving, setFundSaving] = useState(false)
-
-  useEffect(() => {
-    if (branches.length && !branchId) setBranchId(branches[0].id)
-  }, [branches, branchId])
 
   useEffect(() => {
     setDashboardOverride(null)
@@ -548,11 +543,6 @@ export default function ProfitAllocationPage() {
 
         {/* Unified date range filter */}
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-          {branches.length > 1 && (
-            <select className="input-field text-sm max-w-[160px]" value={branchId} onChange={e => setBranchId(e.target.value)}>
-              {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
-          )}
           <div className="flex gap-1 p-1 rounded-xl flex-wrap" style={{ background: 'var(--bg-subtle)' }}>
             {PERIOD_PRESETS.map(p => (
               <button key={p.id} type="button" onClick={() => applyPreset(p.id)}

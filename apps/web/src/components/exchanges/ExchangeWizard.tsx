@@ -9,6 +9,7 @@ import { exchangesApi, customersApi, deviceCatalogApi, imeiApi, tenantApi } from
 import { formatCurrency } from '@/lib/utils'
 import { getInvoiceSettings, fetchInvoiceSettings, shopContextFromTenant, type InvoiceSettings, type ShopContext } from '@/lib/invoiceSettings'
 import { authStorage } from '@/lib/auth'
+import { getActiveBranchId } from '@/lib/active-branch'
 import { buildReceiptFromApiSale, printReceipt, receiptPrintLabel } from '@/lib/printReceipt'
 import {
   tradeInFromExchange,
@@ -180,7 +181,7 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
     deviceCatalogApi.listBrands().then((r: any) => setBrands(r.data ?? r ?? [])).catch(() => {})
     const user = authStorage.getUser()
     if (!user?.tenantId) return
-    const branchId = user.branchIds?.[0]
+    const branchId = getActiveBranchId()
     const loadSettings = () => {
       Promise.all([
         fetchInvoiceSettings(user.tenantId, branchId),

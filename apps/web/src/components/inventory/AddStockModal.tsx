@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { productsApi, imeiApi, branchesApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
+import { getActiveBranchId } from '@/lib/active-branch'
 import { useProducts, useCategories } from '@/lib/hooks'
 import type { Product } from '@/types'
 import { formatCurrency } from '@/lib/utils'
@@ -714,7 +715,7 @@ export function AddStockModal({ onClose, onSaved }: AddStockModalProps) {
 
           // Create ImeiRecords for each device entered
           const user = authStorage.getUser()
-          const primaryBranchId = user?.branchIds?.[0] || fallbackBranchId
+          const primaryBranchId = getActiveBranchId() || user?.branchIds?.[0] || fallbackBranchId
           if (product.trackImei && !primaryBranchId) {
             toast.error(`No branch for IMEI registration — add branch in settings (${product.name})`)
           }

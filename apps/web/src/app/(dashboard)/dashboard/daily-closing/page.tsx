@@ -12,7 +12,8 @@ import {
 import toast from 'react-hot-toast'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday } from '@/lib/business-date'
-import { useFeatureFlag, useBranches, useDailyClosingPreview, useProfitAllocationDashboard } from '@/lib/hooks'
+import { useFeatureFlag, useDailyClosingPreview, useProfitAllocationDashboard } from '@/lib/hooks'
+import { getActiveBranchId } from '@/lib/active-branch'
 import { dailyClosingApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { DailyClosingCharts } from '@/components/daily-closing/DailyClosingCharts'
@@ -102,9 +103,7 @@ export default function DailyClosingPage() {
   const canDraft = canClose
   const cashOnly = role === 'CASHIER'
 
-  const { data: branchesRaw } = useBranches()
-  const branches = (branchesRaw as any[]) ?? []
-  const [branchId, setBranchId] = useState('')
+  const branchId = getActiveBranchId() ?? ''
   const [date, setDate] = useState(() => searchParams.get('date') || businessToday())
   const [step, setStep] = useState(() => {
     const fromUrl = searchParams.get('step')
@@ -144,15 +143,6 @@ export default function DailyClosingPage() {
     if (showReload) return list
     return list.filter(ins => !/reload/i.test(ins))
   }, [d?.insights, showReload])
-
-  useEffect(() => {
-    const userBranch = user?.branchIds?.[0]
-    if (userBranch && branches.some((b: any) => b.id === userBranch)) {
-      setBranchId(userBranch)
-    } else if (branches.length && !branchId) {
-      setBranchId(branches[0]?.id ?? '')
-    }
-  }, [branches, user?.branchIds, branchId])
 
   useEffect(() => {
     const onSale = () => { refetch() }
@@ -346,18 +336,6 @@ export default function DailyClosingPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm"
-            style={{ borderColor: 'var(--border-default)', background: 'var(--bg-card)' }}>
-            <Building2 size={13} style={{ color: 'var(--text-muted)' }} />
-            <select
-              value={branchId}
-              onChange={e => setBranchId(e.target.value)}
-              className="bg-transparent outline-none text-sm max-w-[140px]"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              {branches.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
-          </div>
           <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm"
             style={{ borderColor: 'var(--border-default)', background: 'var(--bg-card)' }}>
             <Calendar size={13} style={{ color: 'var(--text-muted)' }} />

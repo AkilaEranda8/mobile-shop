@@ -13,9 +13,11 @@ export const usersService = {
   async list(tenantId: string, req: Request) {
     const { skip, limit, page, search } = getPagination(req)
     const role = req.query.role as string | undefined
+    const branchId = req.query.branchId as string | undefined
     const where: any = {
       tenantId,
       ...(role ? { role: role as any } : {}),
+      ...(branchId ? { branches: { some: { branchId } } } : {}),
       ...(search ? { OR: [{ name: { contains: search, mode: 'insensitive' as const } }, { email: { contains: search, mode: 'insensitive' as const } }] } : {}),
     }
     const [data, total] = await Promise.all([

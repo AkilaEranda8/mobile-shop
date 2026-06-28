@@ -30,11 +30,12 @@ interface Branch {
   phone: string
   email?: string
   isHeadquarters: boolean
+  isDefault: boolean
   isActive: boolean
   createdAt: string
 }
 
-const emptyForm = { name: '', address: '', city: '', state: '', phone: '', email: '', isHeadquarters: false }
+const emptyForm = { name: '', address: '', city: '', state: '', phone: '', email: '', isHeadquarters: false, isDefault: false }
 
 /* ── Add / Edit Modal ────────────────────────────────────────────── */
 function BranchModal({
@@ -43,7 +44,7 @@ function BranchModal({
   const isEdit = !!branch
   const [form, setForm] = useState(
     isEdit
-      ? { name: branch.name, address: branch.address, city: branch.city, state: branch.state, phone: branch.phone, email: branch.email ?? '', isHeadquarters: branch.isHeadquarters }
+      ? { name: branch.name, address: branch.address, city: branch.city, state: branch.state, phone: branch.phone, email: branch.email ?? '', isHeadquarters: branch.isHeadquarters, isDefault: branch.isDefault ?? false }
       : { ...emptyForm }
   )
   const [loading, setLoading] = useState(false)
@@ -120,6 +121,15 @@ function BranchModal({
                   onChange={v => setForm(p => ({ ...p, isHeadquarters: v }))}
                 />
                 <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Mark as Headquarters</span>
+              </label>
+            </div>
+            <div className="col-span-2">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <Switch
+                  checked={form.isDefault}
+                  onChange={v => setForm(p => ({ ...p, isDefault: v }))}
+                />
+                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Default branch (opening stock &amp; auto-assign)</span>
               </label>
             </div>
           </div>
@@ -235,11 +245,18 @@ export default function BranchesPage() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{branch.name}</p>
-                    {branch.isHeadquarters && (
-                      <span className="flex items-center gap-1 text-[10px] font-bold text-violet-400">
-                        <Star size={9} fill="currentColor" />HQ
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {branch.isHeadquarters && (
+                        <span className="flex items-center gap-1 text-[10px] font-bold text-violet-400">
+                          <Star size={9} fill="currentColor" />HQ
+                        </span>
+                      )}
+                      {branch.isDefault && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-blue-500/15 text-blue-400 border border-blue-500/25">
+                          DEFAULT
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">

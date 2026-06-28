@@ -17,14 +17,14 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 
 router.get('/latest', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const data = await releaseNotesService.tenantLatest(req.tenantId!)
+    const data = await releaseNotesService.tenantLatest(req.tenantId!, req.user?.userId)
     sendSuccess(res, data)
   } catch (e) { next(e) }
 })
 
 router.get('/unread-popup', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const data = await releaseNotesService.tenantUnreadPopup(req.tenantId!)
+    const data = await releaseNotesService.tenantUnreadPopup(req.tenantId!, req.user?.userId)
     sendSuccess(res, data)
   } catch (e) { next(e) }
 })

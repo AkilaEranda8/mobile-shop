@@ -6,9 +6,10 @@ import {
 } from 'recharts'
 import {
   TrendingUp, TrendingDown, DollarSign, Package,
-  Download, Calendar, Building2, Tag, X, ChevronRight,
+  Download, Calendar, Tag, X, ChevronRight,
 } from 'lucide-react'
-import { useCategorySales, useCategoryProducts, useBranches, useFeatureFlag } from '@/lib/hooks'
+import { useCategorySales, useCategoryProducts, useFeatureFlag } from '@/lib/hooks'
+import { getActiveBranchId } from '@/lib/active-branch'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday, businessPeriodFrom } from '@/lib/business-date'
 
@@ -79,14 +80,12 @@ const renderPieLabel = ({ name, percent }: any) =>
 export default function CategoryReportPage() {
   const hasServices = useFeatureFlag('SERVICES')
   const [period, setPeriod]         = useState('30')
-  const [branchId, setBranchId]     = useState('')
+  const branchId = getActiveBranchId() ?? ''
   const [selectedCat, setSelectedCat] = useState('')
   const [isCustom, setIsCustom]     = useState(false)
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo]     = useState('')
 
-  const { data: branchesData } = useBranches()
-  const branches: any[] = Array.isArray(branchesData) ? branchesData : []
   const todayStr = useMemo(() => businessToday(), [])
 
   const toDate = useMemo(() => {
@@ -180,17 +179,6 @@ export default function CategoryReportPage() {
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>→</span>
               <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} min={customFrom} max={todayStr}
                 className="text-xs bg-transparent outline-none cursor-pointer" style={{ color: 'var(--text-primary)' }} />
-            </div>
-          )}
-
-          {branches.length > 1 && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
-              <Building2 size={13} style={{ color: 'var(--text-muted)' }} />
-              <select value={branchId} onChange={e => setBranchId(e.target.value)}
-                className="bg-transparent text-xs outline-none cursor-pointer" style={{ color: 'var(--text-primary)' }}>
-                <option value="">All Branches</option>
-                {branches.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
             </div>
           )}
 

@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import {
   fetchReleases, fetchRelease, createRelease, updateRelease, publishRelease, deleteRelease,
-  fetchTenants, type ReleaseRow, type ReleaseItemInput,
+  fetchTenants, fetchTenant, type ReleaseRow, type ReleaseItemInput,
 } from '@/lib/api'
 
 const STATUS_BADGE: Record<string, string> = {
@@ -46,6 +46,7 @@ const EMPTY_FORM = {
   targetType: 'ALL' as string,
   targetPlans: [] as string[],
   targetTenants: [] as string[],
+  targetBranches: [] as string[],
   imageUrl: '',
   videoUrl: '',
   docUrl: '',
@@ -68,6 +69,9 @@ export default function ReleaseNotesAdminPage() {
   const [saving, setSaving] = useState(false)
   const [actionId, setActionId] = useState<string | null>(null)
   const [tenants, setTenants] = useState<Array<{ id: string; name: string }>>([])
+  const [tenantBranches, setTenantBranches] = useState<Array<{
+    id: string; name: string; branches: Array<{ id: string; name: string }>
+  }>>([])
 
   const load = useCallback(() => {
     setLoading(true)
@@ -84,7 +88,15 @@ export default function ReleaseNotesAdminPage() {
 
   useEffect(() => {
     fetchTenants({ limit: '500' })
-      .then((r: any) => setTenants((r.data ?? r ?? []).map((t: any) => ({ id: t.id, name: t.name }))))
+      .then((r: any) => {
+        const rows = r.data ?? r ?? []
+        setTenants(rows.map((t: any) => ({ id: t.id, name: t.name })))
+        setTenantBranches(rows.map((t: any) => ({
+          id: t.id,
+          name: t.name,
+          branches: Array.isArray(t.branches) ? t.branches.map((b: any) => ({ id: b.id, name: b.name })) : [],
+        })))
+      })
       .catch(() => {})
   }, [])
 
@@ -113,6 +125,7 @@ export default function ReleaseNotesAdminPage() {
         targetType: r.targetType,
         targetPlans: r.targetPlans ?? [],
         targetTenants: r.targetTenants ?? [],
+        targetBranches: r.targetBranches ?? [],
         imageUrl: r.imageUrl ?? '',
         videoUrl: r.videoUrl ?? '',
         docUrl: r.docUrl ?? '',
@@ -187,6 +200,27 @@ export default function ReleaseNotesAdminPage() {
         ? p.targetTenants.filter(x => x !== tenantId)
         : [...p.targetTenants, tenantId],
     }))
+  }
+
+  function toggleBranch(branchId: string) {
+    setForm(p => ({
+      ...p,
+      targetBranches: p.targetBranches.includes(branchId)
+        ? p.targetBranches.filter(x => x !== branchId)
+        : [...p.targetBranches, branchId],
+    }))
+  }
+
+  async function loadTenantBranches(tenantId: string) {
+    try {
+      const t = await fetchTenant(tenantId)
+      const branches = Array.isArray((t as any).branches)
+        ? (t as any).branches.map((b: any) => ({ id: b.id, name: b.name }))
+        : []
+      setTenantBranches(prev => prev.map(row =>
+        row.id === tenantId ? { ...row, branches } : row,
+      ))
+    } catch { /* ignore */ }
   }
 
   const published = items.filter(a => a.status === 'PUBLISHED').length
@@ -343,6 +377,7 @@ export default function ReleaseNotesAdminPage() {
                     <option value="ALL">All Tenants</option>
                     <option value="PACKAGES">Selected Packages</option>
                     <option value="COMPANIES">Selected Companies</option>
+                    <option value="BRANCHES">Selected Branches</option>
                   </select>
                 </div>
                 <div className="flex items-end gap-4 pb-1">
@@ -382,6 +417,41 @@ export default function ReleaseNotesAdminPage() {
                         <input type="checkbox" checked={form.targetTenants.includes(t.id)} onChange={() => toggleTenant(t.id)} />
                         {t.name}
                       </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {form.targetType === 'BRANCHES' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">
+                    Branches {form.targetBranches.length > 0 && `(${form.targetBranches.length} selected)`}
+                  </label>
+                  <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2 space-y-3">
+                    {tenantBranches.map(t => (
+                      <div key={t.id}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-xs font-semibold text-gray-700">{t.name}</p>
+                          {t.branches.length === 0 && (
+                            <button type="button" onClick={() => loadTenantBranches(t.id)}
+                              className="text-[10px] text-violet-600 hover:text-violet-800">
+                              Load branches
+                            </button>
+                          )}
+                        </div>
+                        {t.branches.length > 0 ? (
+                          <div className="pl-2 space-y-1">
+                            {t.branches.map(b => (
+                              <label key={b.id} className="flex items-center gap-2 text-xs cursor-pointer p-1 hover:bg-gray-50 rounded">
+                                <input type="checkbox" checked={form.targetBranches.includes(b.id)} onChange={() => toggleBranch(b.id)} />
+                                {b.name}
+                              </label>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-gray-400 pl-2">No branches loaded</p>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>

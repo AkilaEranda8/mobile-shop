@@ -12,6 +12,7 @@ import { usePlatformStatus } from '@/lib/hooks'
 import { MaintenanceBanner } from '@/components/layout/MaintenanceBanner'
 import { AnnouncementBanners } from '@/components/layout/AnnouncementBanners'
 import { ReleaseNotesPopup } from '@/components/layout/ReleaseNotesPopup'
+import { SessionBranchBootstrap } from '@/components/layout/SessionBranchBootstrap'
 import { OfflineBanner } from '@/components/layout/OfflineBanner'
 import TrialOnboardingCoach from '@/components/onboarding/TrialOnboardingCoach'
 
@@ -61,6 +62,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           maintenance={maintenance}
         />
         <OfflineBanner />
+        <SessionBranchBootstrap />
         <AnnouncementBanners />
         <ReleaseNotesPopup />
         {maintenance?.enabled && <MaintenanceBanner message={maintenance.message} />}

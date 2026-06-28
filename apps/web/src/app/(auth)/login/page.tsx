@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { authApi, fetchPlatformStatus } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
+import { initializeSessionBranch } from '@/lib/active-branch'
 import { clearFirstLoginOnboarding } from '@/lib/trialOnboarding'
 
 const features = [
@@ -38,7 +39,8 @@ export default function LoginPage() {
     setError('')
     try {
       const res = await authApi.login(form.email, form.password)
-      authStorage.save(res.data.accessToken, res.data.refreshToken, res.data.user)
+      const loginUser = initializeSessionBranch(res.data.user as any)
+      authStorage.save(res.data.accessToken, res.data.refreshToken, loginUser)
       clearFirstLoginOnboarding()
       try { localStorage.removeItem('hx_tenant_features') } catch { /* noop */ }
       window.location.href = '/dashboard'

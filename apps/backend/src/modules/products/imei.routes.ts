@@ -15,6 +15,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     const status    = req.query.status as string | undefined
     const search    = req.query.search as string | undefined
     const productId = req.query.productId as string | undefined
+    const branchId  = req.query.branchId as string | undefined
     const purchaseOrderId = req.query.purchaseOrderId as string | undefined
 
     // ── 1. Registered ImeiRecords ──────────────────────────────────────────
@@ -22,6 +23,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
       product: { tenantId },
       ...(status && { status }),
       ...(productId && { productId }),
+      ...(branchId && { branchId }),
       ...(purchaseOrderId && { purchaseOrderId }),
       ...(search && { OR: [{ imei: { contains: search, mode: 'insensitive' } }] }),
     }
