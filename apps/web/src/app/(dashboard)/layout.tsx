@@ -64,10 +64,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <AnnouncementBanners />
         <ReleaseNotesPopup />
         {maintenance?.enabled && <MaintenanceBanner message={maintenance.message} />}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <div className="flex-shrink-0 px-4 lg:px-6 pt-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-primary)' }}>
           <Suspense fallback={null}>
             <TrialOnboardingCoach />
           </Suspense>
+        </div>
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           <HexTableProvider>{children}</HexTableProvider>
         </main>
       </div>

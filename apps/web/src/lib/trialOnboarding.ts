@@ -28,7 +28,7 @@ export const TRIAL_ONBOARDING_STEPS: OnboardingStepDef[] = [
     descSi: 'Shop name, phone, address add කරන්න — bills/receipts වල correct details පෙන්වයි.',
     actionEn: 'Open Shop Settings',
     actionSi: 'Shop Settings open කරන්න',
-    href: '/settings?tab=shop',
+    href: '/dashboard/settings?tab=shop',
     hintsEn: [
       'Use your real shop name — it appears on bills and the sidebar.',
       'Add a phone number customers can call from receipts.',
@@ -50,7 +50,7 @@ export const TRIAL_ONBOARDING_STEPS: OnboardingStepDef[] = [
     descSi: 'First sale එකට පෙර invoice template එකේ shop name, phone, address set කරන්න.',
     actionEn: 'Customize Invoice',
     actionSi: 'Invoice customize කරන්න',
-    href: '/settings?tab=invoice',
+    href: '/dashboard/settings?tab=invoice',
     hintsEn: [
       'Open Settings → Invoice tab.',
       'Set shop name, phone, and address on the bill header.',
@@ -127,10 +127,11 @@ export function getPageContextTip(
   const step = TRIAL_ONBOARDING_STEPS.find(s => s.id === currentStepId)
   if (!step) return null
 
-  const onSettings = pathname.startsWith('/settings')
-  const onInventoryAdd = pathname.startsWith('/inventory/add-product')
-  const onInventory = pathname.startsWith('/inventory')
-  const onDashboard = pathname === '/dashboard'
+  const onSettings = pathname.includes('/settings')
+  const onInventoryAdd = pathname.includes('/add-product')
+  const onInventory = pathname.includes('/inventory')
+  const onDashboard = pathname === '/dashboard' || pathname === '/dashboard/'
+  const onPos = pathname.includes('/pos')
 
   switch (currentStepId) {
     case 'shop_profile':
@@ -139,6 +140,15 @@ export function getPageContextTip(
           onRightPage: true,
           headlineEn: 'You are on Shop Info — fill in the fields below and click Save.',
           headlineSi: 'Shop Info page එකේ ඔයා — fields fill කරලා Save click කරන්න.',
+          tipsEn: step.hintsEn,
+          tipsSi: step.hintsSi,
+        }
+      }
+      if (onSettings) {
+        return {
+          onRightPage: false,
+          headlineEn: 'Open the Shop Info tab on this page, then fill and Save.',
+          headlineSi: 'Settings page එකේ Shop Info tab open කරලා Save කරන්න.',
           tipsEn: step.hintsEn,
           tipsSi: step.hintsSi,
         }
@@ -157,6 +167,15 @@ export function getPageContextTip(
           onRightPage: true,
           headlineEn: 'You are on Invoice settings — customize your bill and click Save.',
           headlineSi: 'Invoice settings page එකේ — bill customize කරලා Save කරන්න.',
+          tipsEn: step.hintsEn,
+          tipsSi: step.hintsSi,
+        }
+      }
+      if (onSettings) {
+        return {
+          onRightPage: false,
+          headlineEn: 'Open the Invoice tab on this page to set up your bill.',
+          headlineSi: 'Settings page එකේ Invoice tab open කරලා bill setup කරන්න.',
           tipsEn: step.hintsEn,
           tipsSi: step.hintsSi,
         }
@@ -198,13 +217,17 @@ export function getPageContextTip(
 
     case 'first_sale':
       return {
-        onRightPage: onDashboard,
-        headlineEn: onDashboard
-          ? 'Almost done — open POS and complete one test sale.'
-          : 'Next: open POS from anywhere using the sidebar and complete a sale.',
-        headlineSi: onDashboard
-          ? 'Almost done — POS open කරලා test sale එක complete කරන්න.'
-          : 'Next: sidebar POS open කරලා sale එක complete කරන්න.',
+        onRightPage: onDashboard || onPos,
+        headlineEn: onPos
+          ? 'POS is open — add a product to cart and complete the sale.'
+          : onDashboard
+            ? 'Almost done — open POS and complete one test sale.'
+            : 'Next: open POS from the sidebar (or the button above) and complete a sale.',
+        headlineSi: onPos
+          ? 'POS open — product cart එකට add කරලා sale complete කරන්න.'
+          : onDashboard
+            ? 'Almost done — POS open කරලා test sale එක complete කරන්න.'
+            : 'Next: sidebar POS open කරලා sale complete කරන්න.',
         tipsEn: step.hintsEn,
         tipsSi: step.hintsSi,
       }
@@ -230,7 +253,11 @@ export function onboardingExpandedKey(tenantId: string) {
   return `hx_trial_onboarding_expanded_${tenantId}`
 }
 
-/** sessionStorage — set only after register; cleared on login/logout */
+export function onboardingWelcomeKey(tenantId: string) {
+  return `hx_trial_onboarding_welcome_${tenantId}`
+}
+
+/** sessionStorage — optional nudge right after self-register */
 export const FIRST_LOGIN_ONBOARDING_KEY = 'hx_trial_first_login_onboarding'
 
 export function enableFirstLoginOnboarding() {

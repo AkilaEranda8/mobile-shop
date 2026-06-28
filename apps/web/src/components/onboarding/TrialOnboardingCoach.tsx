@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   ArrowRight, BookOpen, Check, CheckCircle2, ChevronDown, ChevronUp,
   Circle, Lightbulb, MapPin, PartyPopper, Rocket, Sparkles, X,
@@ -15,6 +16,7 @@ import {
   type OnboardingStepDef,
 } from '@/lib/trialOnboarding'
 import { authStorage } from '@/lib/auth'
+import TrialWelcomeModal from '@/components/onboarding/TrialWelcomeModal'
 
 function StepAction({
   step,
@@ -50,13 +52,14 @@ export default function TrialOnboardingCoach() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const tab = searchParams.get('tab')
-  const { openPos } = usePos()
+  const { openPos, posOpen } = usePos()
   const tenantId = authStorage.getUser()?.tenantId
 
   const {
     visible, loading, trialDays, stepStates, steps, currentStep, currentStepId,
     completedCount, totalSteps, allComplete, progressPct,
     dismissed, celebrated, dismiss, expand, markCelebrated,
+    showWelcome, startSetupGuide, tenant,
   } = useTrialOnboarding()
 
   const [expanded, setExpanded] = useState(false)
@@ -76,15 +79,54 @@ export default function TrialOnboardingCoach() {
     if (dismissed) expand()
   }
 
-  if (loading || !visible) return null
+  const handleStartGuide = () => {
+    startSetupGuide()
+    setExpanded(true)
+  }
+
+  if (loading && !visible) return null
+  if (!visible) return null
   if (allComplete && celebrated) return null
+
+  if (showWelcome) {
+    return (
+      <>
+        <TrialWelcomeModal
+          shopName={tenant?.name}
+          trialDays={trialDays}
+          onStart={handleStartGuide}
+        />
+      </>
+    )
+  }
 
   const pageTip = getPageContextTip(pathname, tab, currentStepId)
   const doneMap = Object.fromEntries(stepStates.map(s => [s.id, s.done])) as Record<string, boolean>
 
+  const compactPosGuide = posOpen && currentStep && pageTip && (
+    <div className="fixed top-0 left-0 right-0 z-[101] px-3 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg">
+      <div className="max-w-4xl mx-auto flex flex-wrap items-center gap-2 sm:gap-3">
+        <Sparkles size={14} className="shrink-0 text-violet-200" />
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-violet-200">
+            Setup · Step {completedCount + 1}/{totalSteps}
+          </p>
+          <p className="text-xs sm:text-sm font-bold truncate">{pageTip.headlineEn}</p>
+        </div>
+        {currentStep.opensPos ? null : (
+          <StepAction step={currentStep} onPosOpen={() => openPos()} compact />
+        )}
+      </div>
+    </div>
+  )
+
+  if (posOpen && compactPosGuide && typeof document !== 'undefined') {
+    return createPortal(compactPosGuide, document.body)
+  }
+
   if (allComplete) {
     return (
-      <div className="mb-4 rounded-2xl border border-emerald-200 dark:border-emerald-500/30 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-500/10 dark:to-teal-500/5 overflow-hidden">
+      <div className="mb-3 rounded-2xl border border-emerald-200 dark:border-emerald-500/30 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-500/10 dark:to-teal-500/5 overflow-hidden">
         <div className="p-4 sm:p-5 flex flex-wrap items-center gap-4">
           <PartyPopper size={22} className="text-emerald-600 shrink-0" />
           <div className="flex-1 min-w-0">
@@ -109,7 +151,7 @@ export default function TrialOnboardingCoach() {
       <button
         type="button"
         onClick={expand}
-        className="mb-4 w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-violet-200 dark:border-violet-500/30 bg-violet-50 dark:bg-violet-500/10 text-left hover:bg-violet-100 dark:hover:bg-violet-500/15 transition-colors"
+        className="mb-3 w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-violet-200 dark:border-violet-500/30 bg-violet-50 dark:bg-violet-500/10 text-left hover:bg-violet-100 dark:hover:bg-violet-500/15 transition-colors"
       >
         <span className="flex items-center gap-2 text-sm font-semibold text-violet-700 dark:text-violet-300">
           <Rocket size={15} />
@@ -121,7 +163,7 @@ export default function TrialOnboardingCoach() {
   }
 
   return (
-    <div className="mb-4 rounded-2xl border border-violet-200 dark:border-violet-500/30 bg-white dark:bg-slate-800 shadow-sm overflow-hidden">
+    <div className="mb-3 rounded-2xl border border-violet-200 dark:border-violet-500/30 bg-white dark:bg-slate-800 shadow-sm overflow-hidden">
       {/* Sticky-style top bar — visible on every page */}
       <div className="px-4 py-3 sm:px-5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
         <div className="flex flex-wrap items-center gap-3">
@@ -129,11 +171,11 @@ export default function TrialOnboardingCoach() {
             <Sparkles size={16} className="shrink-0 text-violet-200" />
             <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-wider text-violet-200">
-                Trial setup · {completedCount}/{totalSteps} · {progressPct}%
+                Setup guide · {completedCount}/{totalSteps} · {progressPct}%
               </p>
               {currentStep && (
                 <p className="text-sm sm:text-base font-black truncate">
-                  Next: {currentStep.titleEn}
+                  Step {completedCount + 1}: {currentStep.titleEn}
                 </p>
               )}
             </div>

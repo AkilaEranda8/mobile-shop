@@ -15,7 +15,8 @@ import {
   onboardingCompleteKey,
   onboardingDismissKey,
   trialDaysRemaining,
-  isFirstLoginOnboardingActive,
+  onboardingWelcomeKey,
+  onboardingExpandedKey,
 } from '@/lib/trialOnboarding'
 
 export interface OnboardingStepState {
@@ -38,7 +39,8 @@ export function useTrialOnboarding() {
   const [dismissed, setDismissed] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [celebrated, setCelebrated] = useState(false)
-  const [firstLoginSession, setFirstLoginSession] = useState(false)
+  const [welcomeSeen, setWelcomeSeen] = useState(true)
+  const [hasLoaded, setHasLoaded] = useState(false)
 
   const loadProgress = useCallback(async (opts?: { silent?: boolean }) => {
     if (!tenantId) {
@@ -60,16 +62,17 @@ export function useTrialOnboarding() {
       setProductTotal(Number(total) || 0)
     } finally {
       setLoading(false)
+      setHasLoaded(true)
     }
   }, [tenantId])
 
   useEffect(() => {
     if (!tenantId) return
-    setFirstLoginSession(isFirstLoginOnboardingActive())
     try {
       setDismissed(localStorage.getItem(onboardingDismissKey(tenantId)) === '1')
       setCollapsed(localStorage.getItem(onboardingCollapsedKey(tenantId)) === '1')
       setCelebrated(localStorage.getItem(onboardingCompleteKey(tenantId)) === '1')
+      setWelcomeSeen(localStorage.getItem(onboardingWelcomeKey(tenantId)) === '1')
     } catch { /* noop */ }
     loadProgress()
   }, [tenantId, loadProgress])
@@ -121,8 +124,21 @@ export function useTrialOnboarding() {
   const trialDays = trialDaysRemaining(tenant?.trialEndsAt)
 
   const visible = Boolean(
-    tenantId && isTrial && firstLoginSession && !loading && (!allComplete || !celebrated),
+    tenantId && isTrial && hasLoaded && (!allComplete || !celebrated),
   )
+
+  const showWelcome = visible && !welcomeSeen && !allComplete
+
+  const startSetupGuide = useCallback(() => {
+    if (!tenantId) return
+    try {
+      localStorage.setItem(onboardingWelcomeKey(tenantId), '1')
+      localStorage.setItem(onboardingExpandedKey(tenantId), '1')
+    } catch { /* noop */ }
+    setWelcomeSeen(true)
+    setDismissed(false)
+    setCollapsed(false)
+  }, [tenantId])
 
   const dismiss = useCallback(() => {
     if (!tenantId) return
@@ -166,6 +182,8 @@ export function useTrialOnboarding() {
     dismissed,
     collapsed,
     celebrated,
+    showWelcome,
+    startSetupGuide,
     dismiss,
     expand,
     collapse,
