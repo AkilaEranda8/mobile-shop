@@ -2,13 +2,13 @@
 
 import { useState, useRef, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, RotateCcw, ChevronDown, ChevronUp, GripVertical, Smartphone, Shield } from 'lucide-react'
+import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, RotateCcw, ChevronDown, ChevronUp, GripVertical, Smartphone, Shield, Building2, ArrowLeftRight } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency } from '@/lib/utils'
-import { useProducts, useCategories, useProductVariantSettings } from '@/lib/hooks'
+import { useProducts, useCategories, useProductVariantSettings, useBranches } from '@/lib/hooks'
 import { DEFAULT_PRODUCT_VARIANT_SETTINGS } from '@/lib/productVariantSettings'
 import { productsApi, uploadApi } from '@/lib/api'
 import type { Product, Category, ProductVariation } from '@/types'
@@ -503,8 +503,20 @@ interface EditVariantRow {
 }
 
 function EditProductModal({ product, onClose, onSaved }: { product: Product; onClose: () => void; onSaved: () => void }) {
+  const router = useRouter()
   const { data: cats, refetch: refetchCats } = useCategories()
   const { data: variantSettings } = useProductVariantSettings()
+  const { data: branchesRaw } = useBranches()
+  const branches = useMemo(
+    () => ((branchesRaw as { id: string; name: string }[]) ?? []).map(b => ({ id: b.id, name: b.name })),
+    [branchesRaw],
+  )
+  const showBranchPicker = branches.length > 1
+  const stockBranch = branches.find(b => b.id === product.branchId)
+  const catalogBranchOptions = branches
+    .filter(b => b.id !== product.branchId)
+    .map(b => ({ value: b.id, label: b.name }))
+  const hasInventory = Number(product.stock) > 0 || product.trackImei
   const storageOpts = variantSettings?.storageOptions ?? DEFAULT_PRODUCT_VARIANT_SETTINGS.storageOptions
   const colorOpts = variantSettings?.colorOptions ?? DEFAULT_PRODUCT_VARIANT_SETTINGS.colorOptions
   const categories: Category[] = (cats ?? []) as Category[]
@@ -524,6 +536,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
   const [warrantyNote, setWarrantyNote] = useState(product.warrantyNote ?? '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [catalogBranchId, setCatalogBranchId] = useState('')
 
   // Load existing variants into edit state
   const [variants, setVariants] = useState<EditVariantRow[]>(
@@ -565,6 +578,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
         warrantyNote: warrantyNote.trim() || null,
         condition: form.condition,
         imageUrl: form.imageUrl || undefined,
+        ...(showBranchPicker && catalogBranchId ? { branchId: catalogBranchId } : {}),
         storageVariations: variants.map(v => ({
           id: v.id,
           storage: v.storage,
@@ -577,6 +591,28 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
         })),
         colorVariations: variants.map(v => ({ name: v.colorName, hex: v.colorHex })),
       })
+      if (showBranchPicker && catalogBranchId) {
+        const destName = branches.find(b => b.id === catalogBranchId)?.name ?? 'selected branch'
+        if (hasInventory) {
+          toast((t) => (
+            <div className="text-sm">
+              <p className="font-medium">Catalog copied to {destName}</p>
+              <p className="text-xs opacity-80 mt-0.5">Stock &amp; IMEI remain at {stockBranch?.name ?? 'this branch'}</p>
+              <button
+                type="button"
+                className="mt-2 text-xs font-semibold text-violet-400 hover:text-violet-300"
+                onClick={() => { router.push('/dashboard/stock-transfer'); toast.dismiss(t.id) }}
+              >
+                Open Stock Transfer →
+              </button>
+            </div>
+          ), { duration: 8000 })
+        } else {
+          toast.success(`Product moved to ${destName}`)
+        }
+      } else {
+        toast.success('Product updated')
+      }
       onSaved(); onClose()
     } catch (err: any) { setError(err.message || 'Failed to update') }
     finally { setLoading(false) }
@@ -631,6 +667,46 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
                 </button>
               </div>
             </div>
+            {showBranchPicker && (
+              <div className="col-span-2 rounded-xl p-3 space-y-2"
+                style={{ background: 'rgba(109,40,217,0.06)', border: '1px solid rgba(109,40,217,0.18)' }}>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                    Stock location
+                  </p>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-medium flex items-center gap-1"
+                    style={{ background: 'rgba(109,40,217,0.12)', color: '#a78bfa', border: '1px solid rgba(109,40,217,0.25)' }}>
+                    <Building2 size={10} />
+                    {stockBranch?.name ?? 'Current branch'}
+                    {hasInventory && (
+                      <span className="opacity-70">· {product.stock} units</span>
+                    )}
+                  </span>
+                </div>
+                {catalogBranchOptions.length > 0 && (
+                  <>
+                    <label className="block text-xs text-slate-400">
+                      {hasInventory ? 'Also list catalog at branch (optional)' : 'Move to branch'}
+                    </label>
+                    <FilterDropdown
+                      value={catalogBranchId}
+                      onChange={setCatalogBranchId}
+                      options={catalogBranchOptions}
+                      icon={Building2}
+                      placeholder={hasInventory ? 'Select branch to copy catalog' : 'Select destination branch'}
+                      active={!!catalogBranchId}
+                      onClear={() => setCatalogBranchId('')}
+                    />
+                    <p className="text-[10px] flex items-start gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                      <ArrowLeftRight size={11} className="flex-shrink-0 mt-0.5 opacity-70" />
+                      {hasInventory
+                        ? 'Copies image & details only. Move stock and IMEI via Stock Transfer.'
+                        : 'Empty product — changes which branch owns this catalog entry.'}
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
             <div>
               <label className="block text-xs text-slate-400 mb-1.5">Buying Price (LKR)</label>
               <input type="number" min="0" className="input-field" value={form.buyingPrice} onChange={f('buyingPrice')} />

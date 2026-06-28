@@ -1,17 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Building2, ChevronDown } from 'lucide-react'
 import { authStorage } from '@/lib/auth'
-import { getActiveBranchId, getBranchLabel, setActiveBranchId } from '@/lib/active-branch'
+import { getActiveBranchId, getBranchLabel, setActiveBranchId, hasMultipleBranches, getVisibleBranches } from '@/lib/active-branch'
 
 export function BranchControl() {
   const user = authStorage.getUser()
-  const branches = useMemo(() => (user?.branches ?? []).filter(b => b.isActive !== false), [user])
-  const assigned = user?.branchIds ?? []
-  const visible = branches.length
-    ? branches.filter(b => assigned.includes(b.id) || user?.role === 'OWNER')
-    : branches
+  const visible = getVisibleBranches(user)
 
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -28,14 +24,15 @@ export function BranchControl() {
 
   const activeId = getActiveBranchId()
   const isOwner = user.role === 'OWNER'
-  const showDropdown = visible.length > 1 || (isOwner && visible.length >= 1)
+  const multiBranch = hasMultipleBranches(user)
+  const showDropdown = multiBranch
   const currentValue = user.branchScope === 'all' ? 'all' : (activeId ?? visible[0]?.id ?? '')
   const label = user.branchScope === 'all'
     ? 'All Branches'
     : getBranchLabel(visible, activeId ?? visible[0]?.id)
 
   const options = [
-    ...(isOwner ? [{ value: 'all', label: 'All Branches' }] : []),
+    ...(isOwner && multiBranch ? [{ value: 'all', label: 'All Branches' }] : []),
     ...visible.map(b => ({ value: b.id, label: b.name })),
   ]
 

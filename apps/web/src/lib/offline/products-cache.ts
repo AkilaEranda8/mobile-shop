@@ -1,15 +1,20 @@
 import { getMeta, setMeta } from './db'
 
-const PRODUCTS_KEY = 'products'
+const PRODUCTS_KEY_PREFIX = 'products:'
 const CATEGORIES_KEY = 'categories'
 
-export async function cacheProductsForOffline(products: unknown[]): Promise<void> {
-  if (!products.length) return
-  await setMeta(PRODUCTS_KEY, products)
+function productsKey(branchId: string) {
+  return `${PRODUCTS_KEY_PREFIX}${branchId}`
 }
 
-export async function getCachedProducts(): Promise<unknown[]> {
-  const data = await getMeta<unknown[]>(PRODUCTS_KEY)
+export async function cacheProductsForOffline(branchId: string, products: unknown[]): Promise<void> {
+  if (!branchId || !products.length) return
+  await setMeta(productsKey(branchId), products)
+}
+
+export async function getCachedProducts(branchId?: string): Promise<unknown[]> {
+  if (!branchId) return []
+  const data = await getMeta<unknown[]>(productsKey(branchId))
   return Array.isArray(data) ? data : []
 }
 

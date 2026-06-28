@@ -65,13 +65,14 @@ function StaffFormModal({
     e.preventDefault()
     setLoading(true)
     try {
+      const branchIds = branches.length === 1 ? [branches[0].id] : form.branchIds
       if (isEdit) {
-        const body: any = { name: form.name, phone: form.phone, role: form.role, isActive: form.isActive, branchIds: form.branchIds }
+        const body: any = { name: form.name, phone: form.phone, role: form.role, isActive: form.isActive, branchIds }
         if (form.password) body.password = form.password
         await usersApi.update(staff.id, body)
         toast.success('Staff member updated')
       } else {
-        await usersApi.create({ ...form, branchIds: form.branchIds })
+        await usersApi.create({ ...form, branchIds })
         toast.success('Staff member added')
       }
       onSaved()
@@ -143,7 +144,7 @@ function StaffFormModal({
               <input type="password" className="input-field" placeholder="Min 8 characters"
                 required={!isEdit} value={form.password} onChange={f('password')} />
             </div>
-            {branches.length > 0 && (
+            {branches.length > 1 && (
               <div className="col-span-2">
                 <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Branches</label>
                 <div className="flex flex-wrap gap-2">

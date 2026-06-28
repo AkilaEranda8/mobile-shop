@@ -1,14 +1,15 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   ArrowLeftRight, Building2, Loader2, Search, RefreshCw,
-  CheckCircle, AlertTriangle, Package, ArrowDownRight, ArrowUpRight,
+  CheckCircle, AlertTriangle, Package, ArrowDownRight, ArrowUpRight, Plus, X,
 } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
+import { EmptyState } from '@/components/ui/EmptyState'
 import toast from 'react-hot-toast'
 import { formatDate } from '@/lib/utils'
 import { inventoryApi, productsApi, branchesApi } from '@/lib/api'
@@ -28,66 +29,61 @@ type TransferRow = {
   branch: { id: string; name: string }
 }
 
-export default function StockTransferPage() {
+function TransferModal({
+  branches,
+  defaultFromBranchId,
+  onClose,
+  onSaved,
+}: {
+  branches: Branch[]
+  defaultFromBranchId: string
+  onClose: () => void
+  onSaved: () => void
+}) {
   const user = authStorage.getUser()
-  const activeBranchId = getActiveBranchId() ?? ''
-  const [branches, setBranches] = useState<Branch[]>([])
+  const canTransfer = user?.role === 'OWNER' || user?.role === 'MANAGER'
+
+  const [fromBranchId, setFromBranchId] = useState(defaultFromBranchId)
+  const [toBranchId, setToBranchId] = useState('')
   const [products, setProducts] = useState<Product[]>([])
-  const [transfers, setTransfers] = useState<TransferRow[]>([])
-  const [loadingBranches, setLoadingBranches] = useState(true)
   const [loadingProducts, setLoadingProducts] = useState(false)
-  const [loadingTransfers, setLoadingTransfers] = useState(true)
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
-
-  const [fromBranchId, setFromBranchId] = useState(activeBranchId)
-  const [toBranchId, setToBranchId] = useState('')
   const [productId, setProductId] = useState('')
   const [quantity, setQuantity] = useState('1')
   const [notes, setNotes] = useState('')
+  const [preview, setPreview] = useState<{
+    catalogReady: boolean
+    willMerge: boolean
+    willRelocate: boolean
+    trackImei: boolean
+  } | null>(null)
 
-  const canTransfer = user?.role === 'OWNER' || user?.role === 'MANAGER'
-
-  useEffect(() => {
-    branchesApi.list()
-      .then((r: any) => {
-        const list = (r.data ?? r ?? []).filter((b: Branch) => b.isActive !== false)
-        setBranches(list)
-        if (!fromBranchId && list[0]) setFromBranchId(list[0].id)
-        if (!toBranchId && list.length > 1) {
-          const other = list.find((b: Branch) => b.id !== (fromBranchId || list[0]?.id))
-          if (other) setToBranchId(other.id)
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoadingBranches(false))
-  }, [])
+  const destBranches = branches.filter(b => b.id !== fromBranchId)
+  const branchOptions = branches.map(b => ({ value: b.id, label: b.name }))
+  const destOptions = destBranches.map(b => ({ value: b.id, label: b.name }))
 
   useEffect(() => {
-    if (activeBranchId) setFromBranchId(activeBranchId)
-  }, [activeBranchId])
-
-  const loadProducts = () => {
     if (!fromBranchId) return
     setLoadingProducts(true)
+    setProductId('')
     productsApi.list({ branchId: fromBranchId, limit: '500' })
       .then((r: any) => setProducts((r.data?.data ?? r.data ?? []).filter((p: Product) => p.stock > 0)))
       .catch(() => toast.error('Failed to load products'))
       .finally(() => setLoadingProducts(false))
-  }
+  }, [fromBranchId])
 
-  const loadTransfers = () => {
-    setLoadingTransfers(true)
-    const params: Record<string, string> = { limit: '50' }
-    if (fromBranchId) params.branchId = fromBranchId
-    inventoryApi.listTransfers(params)
-      .then((r: any) => setTransfers(r.data?.data ?? r.data ?? []))
-      .catch(() => {})
-      .finally(() => setLoadingTransfers(false))
-  }
+  useEffect(() => {
+    if (!toBranchId && destBranches[0]) setToBranchId(destBranches[0].id)
+    else if (toBranchId === fromBranchId) setToBranchId(destBranches[0]?.id ?? '')
+  }, [fromBranchId, destBranches, toBranchId])
 
-  useEffect(() => { loadProducts() }, [fromBranchId])
-  useEffect(() => { loadTransfers() }, [fromBranchId])
+  useEffect(() => {
+    if (!productId || !toBranchId) { setPreview(null); return }
+    inventoryApi.previewTransfer(productId, toBranchId)
+      .then((r: any) => setPreview(r.data ?? r))
+      .catch(() => setPreview(null))
+  }, [productId, toBranchId])
 
   const selectedProduct = useMemo(
     () => products.find(p => p.id === productId),
@@ -102,12 +98,6 @@ export default function StockTransferPage() {
     )
   }, [products, search])
 
-  const destBranches = branches.filter(b => b.id !== fromBranchId)
-  const transferIn = transfers.filter(t => t.type === 'TRANSFER_IN').length
-  const transferOut = transfers.filter(t => t.type === 'TRANSFER_OUT').length
-
-  const branchOptions = branches.map(b => ({ value: b.id, label: b.name }))
-  const destOptions = destBranches.map(b => ({ value: b.id, label: b.name }))
   const productOptions = filteredProducts.map(p => ({
     value: p.id,
     label: `${p.name} · ${p.stock} in stock${p.trackImei ? ' · IMEI' : ''}`,
@@ -138,12 +128,15 @@ export default function StockTransferPage() {
         quantity: qty,
         notes: notes.trim() || undefined,
       })
-      toast.success('Stock transferred successfully')
-      setProductId('')
-      setQuantity('1')
-      setNotes('')
-      loadProducts()
-      loadTransfers()
+      toast.success(
+        preview?.willMerge
+          ? 'Stock merged into destination catalog'
+          : preview?.willRelocate
+            ? 'Stock relocated to destination branch'
+            : 'Stock transferred successfully',
+      )
+      onSaved()
+      onClose()
     } catch (err: any) {
       toast.error(err?.message ?? 'Transfer failed')
     } finally {
@@ -151,120 +144,25 @@ export default function StockTransferPage() {
     }
   }
 
-  const columns = useMemo<ColumnDef<TransferRow>[]>(() => [
-    {
-      accessorKey: 'createdAt',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
-      cell: ({ row }) => (
-        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(row.original.createdAt)}</span>
-      ),
-    },
-    {
-      id: 'product',
-      accessorFn: row => row.product?.name ?? '',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Product" />,
-      cell: ({ row }) => (
-        <div>
-          <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{row.original.product?.name}</p>
-          <p className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>{row.original.product?.sku}</p>
-        </div>
-      ),
-    },
-    {
-      id: 'branch',
-      accessorFn: row => row.branch?.name ?? '',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Branch" />,
-      cell: ({ row }) => <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{row.original.branch?.name}</span>,
-    },
-    {
-      accessorKey: 'type',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Type" />,
-      cell: ({ row }) => (
-        <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${
-          row.original.type === 'TRANSFER_IN'
-            ? 'text-green-400 bg-green-500/10 border-green-500/20'
-            : 'text-amber-400 bg-amber-500/10 border-amber-500/20'
-        }`}>
-          {row.original.type === 'TRANSFER_IN' ? 'Transfer In' : 'Transfer Out'}
-        </span>
-      ),
-    },
-    {
-      accessorKey: 'quantity',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Qty" />,
-      cell: ({ row }) => (
-        <span className="text-sm font-mono font-semibold"
-          style={{ color: row.original.quantity > 0 ? '#4ade80' : '#fbbf24' }}>
-          {row.original.quantity > 0 ? `+${row.original.quantity}` : row.original.quantity}
-        </span>
-      ),
-    },
-  ], [])
-
-  if (branches.length < 2) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="page-title">Stock Transfer</h1>
-          <p className="page-subtitle">Move inventory between your branch locations</p>
-        </div>
-        <div className="card p-6 flex items-start gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.25)' }}>
-            <AlertTriangle size={16} className="text-amber-400" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Multi-branch required</p>
-            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-              Add a second branch under Branches to move stock between locations.
-            </p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <div>
-          <h1 className="page-title">Stock Transfer</h1>
-          <p className="page-subtitle">Move stock between branches — use the header for day-to-day branch switching</p>
-        </div>
-        <button type="button" onClick={() => { loadProducts(); loadTransfers() }}
-          className="btn-secondary text-sm flex items-center gap-2 sm:ml-auto">
-          <RefreshCw size={14} /> Refresh
-        </button>
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Products Ready', value: String(products.length), icon: <Package size={16} />, color: '#6d28d9', bg: 'rgba(109,40,217,0.08)', border: 'rgba(109,40,217,0.20)' },
-          { label: 'Transfers In', value: String(transferIn), icon: <ArrowDownRight size={16} />, color: '#15803d', bg: 'rgba(21,128,61,0.08)', border: 'rgba(21,128,61,0.20)' },
-          { label: 'Transfers Out', value: String(transferOut), icon: <ArrowUpRight size={16} />, color: '#b45309', bg: 'rgba(180,83,9,0.08)', border: 'rgba(180,83,9,0.20)' },
-          { label: 'From Branch', value: branches.find(b => b.id === fromBranchId)?.name ?? '—', icon: <Building2 size={16} />, color: '#1d4ed8', bg: 'rgba(29,78,216,0.08)', border: 'rgba(29,78,216,0.20)' },
-        ].map(({ label, value, icon, color, bg, border }) => (
-          <div key={label} className="card p-4" style={{ borderColor: border, background: bg }}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{label}</span>
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ color, background: bg, border: `1px solid ${border}` }}>{icon}</div>
-            </div>
-            <p className="text-lg font-bold truncate" style={{ color: 'var(--text-primary)' }}>{value}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid lg:grid-cols-5 gap-5">
-        <form onSubmit={handleSubmit} className="lg:col-span-2 card p-5 space-y-4">
-          <div className="flex items-center gap-2.5 pb-1">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+        <div className="flex items-center justify-between px-5 py-4 sticky top-0 z-10"
+          style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border-subtle)' }}>
+          <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center"
               style={{ background: 'rgba(109,40,217,0.10)', border: '1px solid rgba(109,40,217,0.25)' }}>
               <ArrowLeftRight size={14} className="text-violet-400" />
             </div>
-            <h2 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>New Transfer</h2>
+            <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>New Stock Transfer</h3>
           </div>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg transition-colors"
+            style={{ color: 'var(--text-muted)' }}><X size={15} /></button>
+        </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>From Branch</label>
               <FilterDropdown
@@ -340,31 +238,334 @@ export default function StockTransferPage() {
             </p>
           )}
 
-          <button type="submit" disabled={saving || !canTransfer || !toBranchId || loadingBranches}
-            className="btn-primary w-full text-sm flex items-center justify-center gap-2 disabled:opacity-50">
-            {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
-            Transfer Stock
-          </button>
-        </form>
-
-        <div className="lg:col-span-3 card overflow-hidden">
-          <div className="px-4 py-3 border-b flex items-center justify-between"
-            style={{ borderColor: 'var(--border-subtle)' }}>
-            <div className="flex items-center gap-2">
-              <Building2 size={14} style={{ color: 'var(--text-muted)' }} />
-              <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Recent Transfers</h2>
+          {selectedProduct && toBranchId && preview && (
+            <div className="rounded-xl p-3 text-xs space-y-1"
+              style={{ background: 'rgba(29,78,216,0.06)', border: '1px solid rgba(29,78,216,0.18)' }}>
+              {preview.catalogReady ? (
+                <p className="text-blue-300 flex items-center gap-1.5">
+                  <CheckCircle size={12} /> Catalog already exists at destination — stock will merge into it
+                </p>
+              ) : preview.willRelocate ? (
+                <p style={{ color: 'var(--text-muted)' }}>
+                  No catalog at destination yet — full transfer will move this product row to the destination branch
+                </p>
+              ) : (
+                <p style={{ color: 'var(--text-muted)' }}>
+                  A catalog entry will be created at the destination branch when stock is transferred
+                </p>
+              )}
             </div>
-            {loadingTransfers && <Loader2 size={14} className="animate-spin text-violet-400" />}
+          )}
+
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
+            <button type="submit" disabled={saving || !canTransfer || !toBranchId}
+              className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
+              Transfer Stock
+            </button>
           </div>
-          <div className="p-2">
-            {transfers.length === 0 && !loadingTransfers ? (
-              <p className="text-sm text-center py-12" style={{ color: 'var(--text-muted)' }}>No transfers yet for this branch</p>
-            ) : (
-              <ClientSideTable columns={columns} data={transfers} />
-            )}
+        </form>
+      </div>
+    </div>
+  )
+}
+
+export default function StockTransferPage() {
+  const user = authStorage.getUser()
+  const activeBranchId = getActiveBranchId() ?? ''
+  const canTransfer = user?.role === 'OWNER' || user?.role === 'MANAGER'
+
+  const [branches, setBranches] = useState<Branch[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+  const [transfers, setTransfers] = useState<TransferRow[]>([])
+  const [loadingBranches, setLoadingBranches] = useState(true)
+  const [loadingProducts, setLoadingProducts] = useState(false)
+  const [loadingTransfers, setLoadingTransfers] = useState(true)
+  const [showTransfer, setShowTransfer] = useState(false)
+  const [viewBranchId, setViewBranchId] = useState(activeBranchId)
+
+  useEffect(() => {
+    branchesApi.list()
+      .then((r: any) => {
+        const list = (r.data ?? r ?? []).filter((b: Branch) => b.isActive !== false)
+        setBranches(list)
+      })
+      .catch(() => {})
+      .finally(() => setLoadingBranches(false))
+  }, [])
+
+  useEffect(() => {
+    if (activeBranchId) setViewBranchId(activeBranchId)
+  }, [activeBranchId])
+
+  const loadProducts = useCallback(() => {
+    if (!viewBranchId) return
+    setLoadingProducts(true)
+    productsApi.list({ branchId: viewBranchId, limit: '500' })
+      .then((r: any) => setProducts((r.data?.data ?? r.data ?? []).filter((p: Product) => p.stock > 0)))
+      .catch(() => {})
+      .finally(() => setLoadingProducts(false))
+  }, [viewBranchId])
+
+  const loadTransfers = useCallback(() => {
+    setLoadingTransfers(true)
+    const params: Record<string, string> = { limit: '100' }
+    if (viewBranchId) params.branchId = viewBranchId
+    inventoryApi.listTransfers(params)
+      .then((r: any) => setTransfers(r.data?.data ?? r.data ?? []))
+      .catch(() => toast.error('Failed to load transfers'))
+      .finally(() => setLoadingTransfers(false))
+  }, [viewBranchId])
+
+  useEffect(() => { loadProducts() }, [loadProducts])
+  useEffect(() => { loadTransfers() }, [loadTransfers])
+
+  const transferIn = transfers.filter(t => t.type === 'TRANSFER_IN').length
+  const transferOut = transfers.filter(t => t.type === 'TRANSFER_OUT').length
+  const totalQty = transfers.reduce((s, t) => s + Math.abs(t.quantity), 0)
+
+  const branchOptions = branches.map(b => ({ value: b.id, label: b.name }))
+
+  const handleRefresh = () => {
+    loadProducts()
+    loadTransfers()
+  }
+
+  const handleSaved = () => {
+    loadProducts()
+    loadTransfers()
+  }
+
+  const columns = useMemo<ColumnDef<TransferRow>[]>(() => [
+    {
+      accessorKey: 'createdAt',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
+      cell: ({ row }) => (
+        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(row.original.createdAt)}</span>
+      ),
+    },
+    {
+      id: 'product',
+      accessorFn: row => row.product?.name ?? '',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Product" />,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: 'rgba(109,40,217,0.10)', border: '1px solid rgba(109,40,217,0.20)' }}>
+            <Package size={13} className="text-violet-400" />
+          </div>
+          <div>
+            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{row.original.product?.name}</p>
+            <p className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>{row.original.product?.sku}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'branch',
+      accessorFn: row => row.branch?.name ?? '',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Branch" />,
+      cell: ({ row }) => (
+        <span className="text-xs flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
+          <Building2 size={11} className="opacity-60" />
+          {row.original.branch?.name}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'type',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Type" />,
+      cell: ({ row }) => (
+        <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${
+          row.original.type === 'TRANSFER_IN'
+            ? 'text-green-400 bg-green-500/10 border-green-500/20'
+            : 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+        }`}>
+          {row.original.type === 'TRANSFER_IN' ? 'Transfer In' : 'Transfer Out'}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'quantity',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Qty" />,
+      cell: ({ row }) => (
+        <span className="text-sm font-mono font-semibold"
+          style={{ color: row.original.quantity > 0 ? '#4ade80' : '#fbbf24' }}>
+          {row.original.quantity > 0 ? `+${row.original.quantity}` : row.original.quantity}
+        </span>
+      ),
+    },
+    {
+      id: 'note',
+      accessorFn: row => row.note ?? row.reference ?? '',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Notes" />,
+      cell: ({ row }) => {
+        const text = row.original.note ?? row.original.reference
+        return text
+          ? <span className="text-xs truncate max-w-[160px] block" style={{ color: 'var(--text-muted)' }}>{text}</span>
+          : <span className="text-xs" style={{ color: 'var(--text-muted)' }}>—</span>
+      },
+    },
+  ], [])
+
+  if (!loadingBranches && branches.length < 2) {
+    const isOwner = user?.role === 'OWNER'
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="page-title">Stock Transfer</h1>
+          <p className="page-subtitle">Move inventory between your branch locations</p>
+        </div>
+        <EmptyState
+          icon={Building2}
+          title="Multi-branch required"
+          description="Add at least two branches to move stock between locations. Use the header branch selector for day-to-day operations."
+          accentColor="amber"
+          actions={isOwner ? [{ label: 'Manage Branches', href: '/dashboard/branches', primary: true }] : []}
+          hints={[
+            'Stock moves from one branch and appears in the destination branch.',
+            'IMEI-tracked products transfer all in-stock units together.',
+            'Only Owner and Manager roles can initiate transfers.',
+          ]}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {showTransfer && (
+        <TransferModal
+          branches={branches}
+          defaultFromBranchId={viewBranchId || branches[0]?.id || ''}
+          onClose={() => setShowTransfer(false)}
+          onSaved={handleSaved}
+        />
+      )}
+
+      {/* Two-step flow */}
+      <div className="rounded-2xl p-4 grid sm:grid-cols-2 gap-4"
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+        <div className="flex gap-3">
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-violet-400"
+            style={{ background: 'rgba(109,40,217,0.10)', border: '1px solid rgba(109,40,217,0.22)' }}>
+            <Package size={14} />
+          </div>
+          <div>
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>1. Product Edit — Catalog</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              Copy image, prices &amp; details to another branch. Stock stays at the source branch.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-blue-400"
+            style={{ background: 'rgba(29,78,216,0.10)', border: '1px solid rgba(29,78,216,0.22)' }}>
+            <ArrowLeftRight size={14} />
+          </div>
+          <div>
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>2. Stock Transfer — Inventory</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              Move physical stock &amp; IMEI units between branches. Merges into existing catalog when ready.
+            </p>
           </div>
         </div>
       </div>
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        <div>
+          <h1 className="page-title">Stock Transfer</h1>
+          <p className="page-subtitle">Move stock between branches — use the header for day-to-day branch switching</p>
+        </div>
+        <div className="flex gap-2 sm:ml-auto">
+          <button type="button" onClick={handleRefresh} disabled={loadingTransfers || loadingProducts}
+            className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-50">
+            <RefreshCw size={14} className={loadingTransfers ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+          {canTransfer && (
+            <button type="button" onClick={() => setShowTransfer(true)} className="btn-primary text-sm flex items-center gap-2">
+              <Plus size={14} />New Transfer
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Branch filter + KPI */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        {branches.length > 1 && (
+          <div className="sm:max-w-[220px]">
+            <FilterDropdown
+              value={viewBranchId}
+              onChange={setViewBranchId}
+              options={branchOptions}
+              icon={Building2}
+              placeholder="View branch"
+              active={!!viewBranchId}
+            />
+          </div>
+        )}
+        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+          Showing transfer history for <strong style={{ color: 'var(--text-secondary)' }}>{branches.find(b => b.id === viewBranchId)?.name ?? 'selected branch'}</strong>
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { label: 'Products Ready', value: loadingProducts ? '…' : String(products.length), icon: <Package size={15} />, color: '#7c3aed', bg: 'rgba(124,58,237,0.08)', border: 'rgba(124,58,237,0.22)' },
+          { label: 'Transfers In', value: String(transferIn), icon: <ArrowDownRight size={15} />, color: '#15803d', bg: 'rgba(21,128,61,0.08)', border: 'rgba(21,128,61,0.22)' },
+          { label: 'Transfers Out', value: String(transferOut), icon: <ArrowUpRight size={15} />, color: '#b45309', bg: 'rgba(180,83,9,0.08)', border: 'rgba(180,83,9,0.22)' },
+          { label: 'Units Moved', value: String(totalQty), icon: <ArrowLeftRight size={15} />, color: '#1d4ed8', bg: 'rgba(29,78,216,0.08)', border: 'rgba(29,78,216,0.22)' },
+        ].map(({ label, value, icon, color, bg, border }) => (
+          <div key={label} className="card p-4" style={{ borderColor: border, background: bg }}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{label}</span>
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ color, background: bg, border: `1px solid ${border}` }}>
+                {icon}
+              </div>
+            </div>
+            <p className="text-xl font-bold truncate" style={{ color: 'var(--text-primary)' }}>{value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Table or Empty */}
+      {!loadingTransfers && transfers.length === 0 ? (
+        <EmptyState
+          icon={ArrowLeftRight}
+          title="No transfers yet"
+          description="Move products from one branch to another. Stock is deducted at the source and added at the destination automatically."
+          accentColor="violet"
+          actions={canTransfer ? [{ label: 'Create First Transfer', onClick: () => setShowTransfer(true), primary: true }] : []}
+          hints={[
+            'Step 1: Edit product → copy catalog to another branch (details only).',
+            'Step 2: Stock Transfer → move units and IMEI to the destination.',
+            'IMEI-tracked devices must transfer in full quantity.',
+          ]}
+        />
+      ) : (
+        <ClientSideTable
+          data={transfers}
+          columns={columns}
+          isLoading={loadingTransfers}
+          pageCount={Math.ceil((transfers.length || 1) / 20)}
+          searchableColumns={[
+            { id: 'product', title: 'Product' },
+            { id: 'branch', title: 'Branch' },
+            { id: 'note', title: 'Notes' },
+          ]}
+          filterableColumns={[{
+            id: 'type',
+            title: 'Type',
+            options: [
+              { label: 'Transfer In', value: 'TRANSFER_IN' },
+              { label: 'Transfer Out', value: 'TRANSFER_OUT' },
+            ],
+          }]}
+        />
+      )}
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { productsService } from './products.service'
 import { sendSuccess, sendPaginated } from '../../utils/response'
 import { resolveActiveBranch, getUserBranchIds, assertBranchRecordAccess } from '../../utils/active-branch'
 import { AppError } from '../../middleware/error.middleware'
+import { prisma } from '../../config/database'
 
 export const productsController = {
   async list(req: Request, res: Response, next: NextFunction) {
@@ -18,19 +19,32 @@ export const productsController = {
   async create(req: Request, res: Response, next: NextFunction) {
     try {
       const body = { ...req.body }
-      if (!body.branchId) {
+      const tenantId = req.tenantId!
+      const activeBranches = await prisma.branch.findMany({
+        where: { tenantId, isActive: true },
+        select: { id: true },
+        orderBy: [{ isDefault: 'desc' }, { isHeadquarters: 'desc' }, { createdAt: 'asc' }],
+      })
+      if (activeBranches.length <= 1) {
+        const onlyId = activeBranches[0]?.id ?? await resolveActiveBranch(req, { required: true })
+        body.branchId = onlyId
+      } else if (!body.branchId) {
         const branchId = await resolveActiveBranch(req, { required: true })
         body.branchId = branchId
       } else {
         const user = req.user!
-        const allowed = await getUserBranchIds(user.userId, req.tenantId!, user.role)
+        const allowed = await getUserBranchIds(user.userId, tenantId, user.role)
         if (!allowed.includes(body.branchId)) throw new AppError('Branch access denied', 403)
       }
-      sendSuccess(res, await productsService.create(req.tenantId!, body), 'Product created', 201)
+      sendSuccess(res, await productsService.create(tenantId, body), 'Product created', 201)
     } catch (e) { next(e) }
   },
   async update(req: Request, res: Response, next: NextFunction) {
-    try { sendSuccess(res, await productsService.update(req.tenantId!, req.params.id, req.body)) } catch (e) { next(e) }
+    try {
+      const existing = await productsService.getById(req.tenantId!, req.params.id) as { branchId?: string }
+      assertBranchRecordAccess(req, existing.branchId)
+      sendSuccess(res, await productsService.update(req.tenantId!, req.params.id, req.body, req))
+    } catch (e) { next(e) }
   },
   async remove(req: Request, res: Response, next: NextFunction) {
     try { sendSuccess(res, await productsService.remove(req.tenantId!, req.params.id)) } catch (e) { next(e) }

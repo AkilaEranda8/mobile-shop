@@ -3,6 +3,7 @@
 import { useCallback } from 'react'
 import { useUIStore, type PosCustomerPreset } from '@/stores/ui-store'
 import { useFeatureFlag } from '@/lib/hooks'
+import { ensureOperationalBranch } from '@/lib/active-branch'
 import toast from 'react-hot-toast'
 
 export function usePos() {
@@ -12,6 +13,11 @@ export function usePos() {
   const openPos = useCallback((customer?: PosCustomerPreset | null) => {
     if (!hasPos) {
       toast.error('POS is not enabled on your plan')
+      return false
+    }
+    const branchId = ensureOperationalBranch()
+    if (!branchId) {
+      toast.error('No branch assigned to your account — contact admin')
       return false
     }
     storeOpen(customer ?? undefined)

@@ -6,6 +6,7 @@ import { sendSuccess } from '../../utils/response'
 import { stockTransferSchema } from './stock-transfer.schema'
 import { stockTransferService } from './stock-transfer.service'
 import { effectiveBranchId } from '../../utils/active-branch'
+import { AppError } from '../../middleware/error.middleware'
 
 const router = Router()
 router.use(authenticate)
@@ -15,6 +16,16 @@ router.get('/transfers', async (req: Request, res: Response, next: NextFunction)
     const branchId = effectiveBranchId(req)
     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined
     const data = await stockTransferService.list(req.tenantId!, { branchId, limit })
+    sendSuccess(res, data)
+  } catch (e) { next(e) }
+})
+
+router.get('/transfer/preview', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const productId = req.query.productId as string
+    const toBranchId = req.query.toBranchId as string
+    if (!productId || !toBranchId) throw new AppError('productId and toBranchId are required', 400)
+    const data = await stockTransferService.preview(req.tenantId!, productId, toBranchId)
     sendSuccess(res, data)
   } catch (e) { next(e) }
 })

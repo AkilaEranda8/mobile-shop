@@ -58,8 +58,71 @@ export function getActiveBranchId(): string | undefined {
 
 /** Always returns a branch id for modules that require one (POS, sales create). */
 export function requireActiveBranchId(): string {
-  const id = getActiveBranchId()
+  const id = getOperationalBranchId()
   if (!id) throw new Error('No active branch')
+  return id
+}
+
+/** Concrete branch for POS / sales — never "all branches" aggregate scope. */
+export function getOperationalBranchId(): string | undefined {
+  const user = authStorage.getUser()
+  if (!user) return undefined
+
+  if (user.branchScope !== 'all' && user.activeBranchId) {
+    return user.activeBranchId
+  }
+
+  const branches = user.branches ?? []
+  let assigned = user.branchIds ?? []
+  if (!assigned.length && user.role === 'OWNER') {
+    assigned = branches.map(b => b.id)
+  }
+
+  const picked = pickBranchId(
+    branches,
+    assigned,
+    user.activeBranchId ?? user.suggestedBranchId,
+  )
+  if (picked) return picked
+
+  const stored = typeof window !== 'undefined'
+    ? localStorage.getItem(lastBranchKey(user.id))
+    : null
+  const pool = assigned.length ? assigned : branches.map(b => b.id)
+  if (stored && pool.includes(stored)) return stored
+
+  return assigned[0] ?? user.suggestedBranchId ?? branches[0]?.id
+}
+
+/** Resolve and persist active branch before POS / sales (no manual picker). */
+export function ensureOperationalBranch(): string | undefined {
+  const id = getOperationalBranchId()
+  if (!id) return undefined
+
+  const user = authStorage.getUser()
+  if (!user) return id
+
+  const branches = user.branches ?? []
+  const assigned = user.branchIds?.length
+    ? user.branchIds
+    : (user.role === 'OWNER' ? branches.map(b => b.id) : [])
+  const scope: BranchScope =
+    assigned.length <= 1 ? 'single' : 'assigned'
+
+  const needsUpdate =
+    user.activeBranchId !== id
+    || user.branchScope === 'all'
+    || !user.activeBranchId
+
+  if (needsUpdate) {
+    authStorage.updateUser({
+      activeBranchId: id,
+      branchScope: scope,
+      suggestedBranchId: id,
+    })
+    localStorage.setItem(lastBranchKey(user.id), id)
+  }
+
   return id
 }
 
@@ -83,7 +146,11 @@ export function initializeSessionBranch(loginUser: AuthUser) {
   const branches = loginUser.branches ?? []
   const assigned = loginUser.branchIds ?? []
   const scope: BranchScope =
-    loginUser.role === 'OWNER' && branches.length > 1 ? (loginUser.branchScope ?? 'assigned') : 'single'
+    branches.length <= 1
+      ? 'single'
+      : loginUser.role === 'OWNER'
+        ? (loginUser.branchScope === 'all' ? 'all' : (loginUser.branchScope ?? 'assigned'))
+        : 'single'
 
   let activeId = loginUser.suggestedBranchId
     ?? pickBranchId(branches, assigned, loginUser.activeBranchId)
@@ -103,4 +170,17 @@ export function initializeSessionBranch(loginUser: AuthUser) {
 export function getBranchLabel(branches: BranchSummary[], branchId?: string): string {
   if (!branchId) return 'All Branches'
   return branches.find(b => b.id === branchId)?.name ?? 'Branch'
+}
+
+export function getVisibleBranches(user = authStorage.getUser()): BranchSummary[] {
+  if (!user) return []
+  const branches = (user.branches ?? []).filter(b => b.isActive !== false)
+  if (!branches.length) return []
+  if (user.role === 'OWNER') return branches
+  const assigned = new Set(user.branchIds ?? [])
+  return branches.filter(b => assigned.has(b.id))
+}
+
+export function hasMultipleBranches(user = authStorage.getUser()): boolean {
+  return getVisibleBranches(user).length > 1
 }

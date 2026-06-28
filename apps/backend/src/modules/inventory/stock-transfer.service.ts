@@ -1,11 +1,75 @@
 import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import { getUserBranchIds } from '../../utils/active-branch'
+import {
+  destBranchSku,
+  ensureBranchCatalogProduct,
+  findBranchCatalogProduct,
+} from '../../utils/branch-catalog'
+import { syncImeiTrackedStock } from '../../utils/product-stock'
+import { Prisma } from '@prisma/client'
 
-function destSku(baseSku: string, toBranchId: string) {
-  const suffix = `-BR${toBranchId.slice(-6).toUpperCase()}`
-  const max = 100 - suffix.length
-  return `${baseSku.slice(0, max)}${suffix}`
+type TransferProduct = {
+  id: string
+  sku: string
+  stock: number
+  trackImei: boolean
+  branchId: string
+  name: string
+  barcode: string | null
+  categoryId: string
+  brandId: string
+  description: string | null
+  buyingPrice: number
+  sellingPrice: number
+  mrp: number
+  warrantyMonths: number
+  warrantyNote: string | null
+  imageUrl: string | null
+  minStock: number
+  storageVariations: unknown
+  colorVariations: unknown
+  subCategory: string | null
+  deviceModel: string | null
+  condition: string
+}
+
+async function recordTransferMovements(
+  tx: Prisma.TransactionClient,
+  opts: {
+    sourceProductId: string
+    destProductId: string
+    fromBranchId: string
+    toBranchId: string
+    quantity: number
+    reference: string
+    notes?: string
+    performedBy: string
+  },
+) {
+  const { sourceProductId, destProductId, fromBranchId, toBranchId, quantity, reference, notes, performedBy } = opts
+  await tx.stockMovement.createMany({
+    data: [
+      {
+        productId: sourceProductId,
+        branchId: fromBranchId,
+        type: 'TRANSFER_OUT',
+        quantity: -quantity,
+        reference,
+        note: notes,
+        performedBy,
+      },
+      {
+        productId: destProductId,
+        branchId: toBranchId,
+        type: 'TRANSFER_IN',
+        quantity,
+        reference,
+        note: notes,
+        performedBy,
+      },
+    ],
+  })
 }
 
 export const stockTransferService = {
@@ -53,14 +117,19 @@ export const stockTransferService = {
     if (product.branchId !== fromBranchId) throw new AppError('Product is not stocked at the source branch', 400)
     if (product.stock < quantity) throw new AppError('Insufficient stock at source branch', 400)
 
-    if (product.trackImei && quantity !== product.stock) {
+    const isFull = quantity === product.stock
+    if (product.trackImei && !isFull) {
       throw new AppError('IMEI-tracked products must be transferred in full quantity', 400)
     }
 
     const reference = `TRF-${Date.now().toString(36).toUpperCase()}`
 
     return prisma.$transaction(async (tx) => {
-      if (quantity === product.stock) {
+      const destCatalog = await findBranchCatalogProduct(tx, tenantId, product.sku, toBranchId)
+      const mergeIntoDest = !!destCatalog && destCatalog.id !== productId
+
+      // No pre-created catalog at destination — move the product row in full transfers.
+      if (isFull && !mergeIntoDest) {
         await tx.product.update({
           where: { id: productId },
           data: { branchId: toBranchId },
@@ -71,69 +140,22 @@ export const stockTransferService = {
             data: { branchId: toBranchId },
           })
         }
-        await tx.stockMovement.createMany({
-          data: [
-            {
-              productId,
-              branchId: fromBranchId,
-              type: 'TRANSFER_OUT',
-              quantity: -quantity,
-              reference,
-              note: notes,
-              performedBy,
-            },
-            {
-              productId,
-              branchId: toBranchId,
-              type: 'TRANSFER_IN',
-              quantity,
-              reference,
-              note: notes,
-              performedBy,
-            },
-          ],
+        await recordTransferMovements(tx, {
+          sourceProductId: productId,
+          destProductId: productId,
+          fromBranchId,
+          toBranchId,
+          quantity,
+          reference,
+          notes,
+          performedBy,
         })
-        return { reference, productId, fromBranchId, toBranchId, quantity, mode: 'full' as const }
+        return { reference, productId, fromBranchId, toBranchId, quantity, mode: 'relocate' as const }
       }
 
-      if (product.trackImei) {
-        throw new AppError('Partial transfer not supported for IMEI products', 400)
-      }
-
-      const sku = destSku(product.sku, toBranchId)
-      let destProduct = await tx.product.findFirst({
-        where: { tenantId, sku, isActive: true },
-      })
-
-      if (!destProduct) {
-        destProduct = await tx.product.create({
-          data: {
-            tenantId,
-            branchId: toBranchId,
-            name: product.name,
-            sku,
-            barcode: product.barcode,
-            categoryId: product.categoryId,
-            brandId: product.brandId,
-            description: product.description,
-            buyingPrice: product.buyingPrice,
-            sellingPrice: product.sellingPrice,
-            mrp: product.mrp,
-            trackImei: false,
-            warrantyMonths: product.warrantyMonths,
-            warrantyNote: product.warrantyNote,
-            stock: 0,
-            minStock: product.minStock,
-            storageVariations: product.storageVariations ?? undefined,
-            colorVariations: product.colorVariations ?? undefined,
-            subCategory: product.subCategory,
-            deviceModel: product.deviceModel,
-            condition: product.condition,
-          },
-        })
-      } else if (destProduct.branchId !== toBranchId) {
-        throw new AppError('Destination SKU exists at another branch', 409)
-      }
+      const destProduct = mergeIntoDest
+        ? destCatalog!
+        : await ensureBranchCatalogProduct(tx, tenantId, product as TransferProduct, toBranchId)
 
       await tx.product.update({
         where: { id: productId },
@@ -144,27 +166,24 @@ export const stockTransferService = {
         data: { stock: { increment: quantity } },
       })
 
-      await tx.stockMovement.createMany({
-        data: [
-          {
-            productId,
-            branchId: fromBranchId,
-            type: 'TRANSFER_OUT',
-            quantity: -quantity,
-            reference,
-            note: notes,
-            performedBy,
-          },
-          {
-            productId: destProduct.id,
-            branchId: toBranchId,
-            type: 'TRANSFER_IN',
-            quantity,
-            reference,
-            note: notes,
-            performedBy,
-          },
-        ],
+      if (product.trackImei) {
+        await tx.imeiRecord.updateMany({
+          where: { productId, branchId: fromBranchId, status: 'IN_STOCK' },
+          data: { productId: destProduct.id, branchId: toBranchId },
+        })
+        await syncImeiTrackedStock(tx, productId)
+        await syncImeiTrackedStock(tx, destProduct.id)
+      }
+
+      await recordTransferMovements(tx, {
+        sourceProductId: productId,
+        destProductId: destProduct.id,
+        fromBranchId,
+        toBranchId,
+        quantity,
+        reference,
+        notes,
+        performedBy,
       })
 
       return {
@@ -174,8 +193,35 @@ export const stockTransferService = {
         fromBranchId,
         toBranchId,
         quantity,
-        mode: 'partial' as const,
+        mode: mergeIntoDest ? ('merge' as const) : ('partial' as const),
+        destSku: destBranchSku(product.sku, toBranchId),
       }
     })
+  },
+
+  async preview(
+    tenantId: string,
+    productId: string,
+    toBranchId: string,
+  ) {
+    const product = await prisma.product.findFirst({
+      where: { id: productId, tenantId, isActive: true },
+      select: { id: true, sku: true, stock: true, trackImei: true, branchId: true },
+    })
+    if (!product) throw new AppError('Product not found', 404)
+
+    const destSku = destBranchSku(product.sku, toBranchId)
+    const destCatalog = await findBranchCatalogProduct(prisma, tenantId, product.sku, toBranchId)
+    const hasSeparateDest = !!destCatalog && destCatalog.id !== product.id
+
+    return {
+      destSku,
+      catalogReady: hasSeparateDest,
+      catalogProductId: hasSeparateDest ? destCatalog!.id : null,
+      willRelocate: product.stock > 0 && !hasSeparateDest,
+      willMerge: hasSeparateDest,
+      trackImei: product.trackImei,
+      requiresFullQuantity: product.trackImei,
+    }
   },
 }

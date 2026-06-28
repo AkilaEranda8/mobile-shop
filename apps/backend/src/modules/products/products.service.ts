@@ -3,7 +3,8 @@ import { AppError } from '../../middleware/error.middleware'
 import { getPagination } from '../../utils/pagination'
 import { Request } from 'express'
 import { inferTrackImeiFromMeta } from '../../utils/productImei'
-import { effectiveBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
+import { effectiveBranchId, assertBranchRecordAccess, getUserBranchIds } from '../../utils/active-branch'
+import { buildBranchCatalogData, findBranchCatalogProduct } from '../../utils/branch-catalog'
 
 export const productsService = {
   async list(tenantId: string, req: Request) {
@@ -96,9 +97,26 @@ export const productsService = {
     return { ...raw, categoryName: raw.category?.name, brandName: raw.brand?.name }
   },
 
-  async update(tenantId: string, id: string, body: any) {
+  async update(tenantId: string, id: string, body: any, req?: Request) {
     const p = await prisma.product.findFirst({ where: { id, tenantId } })
     if (!p) throw new AppError('Product not found', 404)
+
+    let nextBranchId: string | undefined
+    if (body.branchId !== undefined && req) {
+      const activeBranches = await prisma.branch.findMany({
+        where: { tenantId, isActive: true },
+        select: { id: true },
+      })
+      if (activeBranches.length > 1) {
+        const user = req.user!
+        const allowed = await getUserBranchIds(user.userId, tenantId, user.role)
+        if (!allowed.includes(body.branchId)) throw new AppError('Branch access denied', 403)
+        const valid = activeBranches.some(b => b.id === body.branchId)
+        if (!valid) throw new AppError('Invalid branch', 400)
+        nextBranchId = body.branchId
+      }
+    }
+
     const { name, description, sku, barcode, categoryId, brandId,
             buyingPrice, sellingPrice, mrp, trackImei, warrantyMonths, warrantyNote,
             imageUrl, stock, minStock, isActive,
@@ -138,7 +156,39 @@ export const productsService = {
       data.minStock = n
     }
     if (isActive          !== undefined) data.isActive          = Boolean(isActive)
-    return prisma.product.update({ where: { id }, data })
+
+    let moveBranch = false
+    if (nextBranchId && nextBranchId !== p.branchId) {
+      const inStockImei = await prisma.imeiRecord.count({
+        where: { productId: id, status: 'IN_STOCK' },
+      })
+      const hasInventory = p.stock > 0 || inStockImei > 0
+      if (!hasInventory) moveBranch = true
+      if (moveBranch) data.branchId = nextBranchId
+    }
+
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.product.update({ where: { id }, data })
+
+      if (nextBranchId && nextBranchId !== p.branchId && !moveBranch) {
+        const catalog = buildBranchCatalogData(p, data, nextBranchId)
+        let dest = await findBranchCatalogProduct(tx, tenantId, p.sku, nextBranchId)
+        if (!dest) {
+          dest = await tx.product.create({
+            data: { tenantId, ...catalog, stock: 0 },
+          })
+        } else {
+          if (dest.branchId !== nextBranchId) throw new AppError('Destination SKU exists at another branch', 409)
+          await tx.product.update({ where: { id: dest.id }, data: catalog })
+        }
+        return {
+          ...updated,
+          catalogAssigned: { branchId: nextBranchId, productId: dest.id },
+        }
+      }
+
+      return updated
+    })
   },
 
   async remove(tenantId: string, id: string) {

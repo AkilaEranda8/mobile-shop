@@ -246,6 +246,8 @@ export const productsApi = {
 export const inventoryApi = {
   listTransfers: (params?: Record<string, string>) =>
     api.get(`/inventory/transfers${params ? '?' + new URLSearchParams(params) : ''}`),
+  previewTransfer: (productId: string, toBranchId: string) =>
+    api.get(`/inventory/transfer/preview?productId=${encodeURIComponent(productId)}&toBranchId=${encodeURIComponent(toBranchId)}`),
   transfer: (body: {
     productId: string
     fromBranchId: string

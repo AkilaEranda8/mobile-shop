@@ -31,7 +31,7 @@ import { useUIStore } from '@/stores/ui-store'
 import { useProducts, useFeatureFlag } from '@/lib/hooks'
 import { salesApi, customersApi, productsApi, imeiApi, servicesApi, financeApi, tenantApi, dailyClosingApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
-import { requireActiveBranchId } from '@/lib/active-branch'
+import { getOperationalBranchId, ensureOperationalBranch } from '@/lib/active-branch'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday } from '@/lib/business-date'
 import toast from 'react-hot-toast'
@@ -366,11 +366,13 @@ function RegisterCustomerInline({ onBack, onCreated }: { onBack: () => void; onC
 function VariationPickerModal({
   product,
   variations,
+  branchId,
   onClose,
   onAdd,
 }: {
   product: any
   variations: ProductVariation[]
+  branchId?: string
   onClose: () => void
   onAdd: (v: ProductVariation, imei?: string) => void
 }) {
@@ -436,14 +438,16 @@ function VariationPickerModal({
   useEffect(() => {
     if (product?.trackImei) {
       setLoadingImeis(true)
-      imeiApi.list({ productId: product.id, status: 'IN_STOCK', limit: '9999' })
+      const params: Record<string, string> = { productId: product.id, status: 'IN_STOCK', limit: '9999' }
+      if (branchId) params.branchId = branchId
+      imeiApi.list(params)
         .then((res: any) => {
           const list = Array.isArray(res?.data) ? res.data : []
-          setImeis(list)
+          setImeis(branchId ? list.filter((i: any) => i.branchId === branchId) : list)
         })
         .finally(() => setLoadingImeis(false))
     }
-  }, [product])
+  }, [product, branchId])
 
   // Auto-select when only one IMEI for this variant
   useEffect(() => {
@@ -857,12 +861,17 @@ function POSContent({ onClose }: { onClose: () => void }) {
     localStorage.setItem('pos_held_carts', JSON.stringify(list))
   }
 
-  const getBranchId = () => {
-    try { return requireActiveBranchId() } catch {
-      const u = authStorage.getUser()
-      return u?.activeBranchId ?? u?.branchIds?.[0] ?? ''
-    }
-  }
+  const [posBranchId, setPosBranchId] = useState('')
+  useEffect(() => {
+    const id = ensureOperationalBranch() ?? ''
+    setPosBranchId(id)
+  }, [])
+
+  const getBranchId = () => posBranchId || getOperationalBranchId() || ''
+  const productQueryParams = useMemo(
+    (): Record<string, string> | undefined => (posBranchId ? { branchId: posBranchId } : undefined),
+    [posBranchId],
+  )
   const posUser = authStorage.getUser()
   const posRole = posUser?.role ?? 'CASHIER'
   const canCloseDay = posRole === 'OWNER' || posRole === 'MANAGER'
@@ -1240,13 +1249,19 @@ function POSContent({ onClose }: { onClose: () => void }) {
     fetchRecentSales()
   }
 
-  const { data: productsData, refetch: refetchProducts } = useProducts()
+  const { data: productsData, refetch: refetchProducts } = useProducts(productQueryParams)
   const [customers, setCustomers]     = useState<any[]>([])
   const [custLoading, setCustLoading] = useState(false)
   const [cachedProducts, setCachedProducts] = useState<any[]>([])
 
   const liveProducts: any[] = (productsData as any)?.data ?? []
-  const products: any[] = liveProducts.length > 0 ? liveProducts : cachedProducts
+  const branchLiveProducts = useMemo(
+    () => (posBranchId
+      ? liveProducts.filter((p: any) => p.branchId === posBranchId)
+      : liveProducts),
+    [liveProducts, posBranchId],
+  )
+  const products: any[] = branchLiveProducts.length > 0 ? branchLiveProducts : cachedProducts
 
   const refetchCustomers = useCallback(async () => {
     setCustLoading(true)
@@ -1262,20 +1277,24 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     refetchProducts()
-    getCachedProducts().then((rows) => {
-      if (Array.isArray(rows)) setCachedProducts(rows as any[])
-    }).catch(() => {})
+    if (posBranchId) {
+      getCachedProducts(posBranchId).then((rows) => {
+        if (Array.isArray(rows)) setCachedProducts(rows as any[])
+      }).catch(() => {})
+    } else {
+      setCachedProducts([])
+    }
     getCachedCategories().then((cats) => {
       if (cats.length > 0) setCategories(cats)
     }).catch(() => {})
-  }, [refetchProducts])
+  }, [refetchProducts, posBranchId])
 
   useEffect(() => {
-    if (liveProducts.length > 0 && isBrowserOnline()) {
-      cacheProductsForOffline(liveProducts).catch(() => {})
-      setCachedProducts(liveProducts)
+    if (branchLiveProducts.length > 0 && isBrowserOnline() && posBranchId) {
+      cacheProductsForOffline(posBranchId, branchLiveProducts).catch(() => {})
+      setCachedProducts(branchLiveProducts)
     }
-  }, [liveProducts])
+  }, [branchLiveProducts, posBranchId])
 
   useEffect(() => {
     if (!pendingCustomer) return
@@ -1440,6 +1459,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
     try {
       const res: any = await imeiApi.lookup(imei)
       const rec = res?.data?.record
+      if (rec && posBranchId && rec.branchId && rec.branchId !== posBranchId) {
+        toast.error('This IMEI belongs to another branch')
+        return
+      }
       const productId = rec?.productId
       const product = products.find((p: any) => p.id === productId)
       if (product) {
@@ -2376,6 +2399,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         <VariationPickerModal
           product={variationPickerProduct}
           variations={Array.isArray(variationPickerProduct.storageVariations) ? variationPickerProduct.storageVariations : []}
+          branchId={posBranchId || undefined}
           onClose={() => setVariationPickerProduct(null)}
           onAdd={(variation, imei) => {
             addToCart(variationPickerProduct, imei, variation)
