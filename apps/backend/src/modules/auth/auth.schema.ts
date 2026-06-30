@@ -32,3 +32,7 @@ export const resetPasswordSchema = z.object({
   token: z.string().min(64),
   newPassword: z.string().min(8),
 })
+
+export const impersonateExchangeSchema = z.object({
+  code: z.string().min(16),
+})

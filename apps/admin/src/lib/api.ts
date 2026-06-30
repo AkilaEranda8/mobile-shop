@@ -409,8 +409,8 @@ export async function createSupportNote(data: { tenantId: string; note: string; 
 export async function deleteSupportNote(id: string): Promise<null> {
   return req<null>(ADMIN_BASE, `/support/notes/${id}`, { method: 'DELETE' })
 }
-export async function impersonateTenant(tenantId: string): Promise<{ token: string; ownerEmail: string; tenantId: string }> {
-  return req<{ token: string; ownerEmail: string; tenantId: string }>(ADMIN_BASE, `/support/impersonate/${tenantId}`, { method: 'POST' })
+export async function impersonateTenant(tenantId: string): Promise<{ loginUrl: string; ownerEmail: string; tenantId: string }> {
+  return req<{ loginUrl: string; ownerEmail: string; tenantId: string }>(ADMIN_BASE, `/support/impersonate/${tenantId}`, { method: 'POST' })
 }
 export interface TenantDebug {
   tenant: { id: string; name: string; plan: string; status: string; createdAt: string }

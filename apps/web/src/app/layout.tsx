@@ -12,11 +12,11 @@ export const metadata: Metadata = {
   keywords: ['mobile shop', 'repair management', 'POS', 'inventory', 'SaaS', 'IMEI tracking', 'warranty management'],
   authors: [{ name: 'Hexalyte Technologies' }],
   creator: 'Hexalyte Technologies',
-  metadataBase: new URL('https://hexalyte.com'),
+  metadataBase: new URL('https://app.hexalyte.com'),
   openGraph: {
     type: 'website',
     locale: 'en_IN',
-    url: 'https://hexalyte.com',
+    url: 'https://app.hexalyte.com',
     title: 'Hexalyte — Mobile Shop & Repair SaaS',
     description: 'Manage inventory, repairs, POS, and customers in one powerful platform.',
     siteName: 'Hexalyte',

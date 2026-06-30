@@ -9,7 +9,7 @@ export function middleware(req: NextRequest) {
 
   const slug = tenantMatch[1]
 
-  const publicPaths = ['/login', '/register', '/api', '/_next', '/favicon']
+  const publicPaths = ['/login', '/register', '/privacy', '/terms', '/api', '/_next', '/favicon', '/.well-known']
   if (publicPaths.some(p => pathname.startsWith(p))) return NextResponse.next()
 
   if (pathname === '/') {

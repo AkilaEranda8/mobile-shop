@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /impersonate
+
+Sitemap: https://app.hexalyte.com/sitemap.xml

@@ -194,9 +194,14 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-8 pt-6 text-center" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="mt-8 pt-6 text-center space-y-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
             <p className="text-xs" style={{ color: '#475569' }}>
               Having trouble? Contact your system administrator
+            </p>
+            <p className="text-[11px]" style={{ color: '#64748b' }}>
+              <Link href="/privacy" className="hover:text-violet-400 transition-colors">Privacy</Link>
+              {' · '}
+              <Link href="/terms" className="hover:text-violet-400 transition-colors">Terms</Link>
             </p>
           </div>
         </div>

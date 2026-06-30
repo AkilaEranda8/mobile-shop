@@ -10,6 +10,7 @@ import { sendMail } from '../../utils/mailer'
 import { getMaintenanceStatus } from '../../utils/platform-config'
 import { ensureTenantAccess } from '../../utils/tenant-access'
 import { getTenantBranches, getUserBranchIds, pickDefaultBranchId } from '../../utils/active-branch'
+import { consumeImpersonationCode } from '../../utils/impersonation-codes'
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
@@ -203,6 +204,43 @@ export const authService = {
     if (!user) throw new AppError('User not found', 404)
     const { password: _pw, ...safe } = user as any
     return safe
+  },
+
+  async impersonateExchange(code: string) {
+    const token = consumeImpersonationCode(code)
+    if (!token) throw new AppError('Invalid or expired code', 401)
+    let payload
+    try {
+      payload = verifyToken(token)
+    } catch {
+      throw new AppError('Invalid or expired code', 401)
+    }
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      include: { branches: { select: { branchId: true } } },
+    })
+    if (!user || !user.isActive) throw new AppError('Invalid or expired code', 401)
+    const branchIds = user.role === 'OWNER'
+      ? await getUserBranchIds(user.id, user.tenantId, user.role)
+      : user.branches.map((b: { branchId: string }) => b.branchId)
+    const tenantBranches = await getTenantBranches(user.tenantId)
+    const assignedBranches = tenantBranches.filter(b => branchIds.includes(b.id))
+    const suggestedBranchId = pickDefaultBranchId(tenantBranches, branchIds)
+    return {
+      accessToken: token,
+      refreshToken: token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        tenantId: user.tenantId,
+        branchIds,
+        branches: assignedBranches,
+        suggestedBranchId,
+        avatar: user.avatar,
+      },
+    }
   },
 
   async changePassword(userId: string, currentPassword: string, newPassword: string) {

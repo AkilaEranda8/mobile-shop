@@ -558,16 +558,24 @@ export default function LandingPage() {
             {[
               { title: 'Product', links: ['Features', 'Pricing', 'Changelog', 'Roadmap'] },
               { title: 'Company', links: ['About', 'Blog', 'Careers', 'Contact'] },
-              { title: 'Legal', links: ['Privacy', 'Terms', 'Security', 'Compliance'] },
+              { title: 'Legal', links: [
+                { label: 'Privacy', href: '/privacy' },
+                { label: 'Terms', href: '/terms' },
+                { label: 'Security', href: '/.well-known/security.txt' },
+              ] },
             ].map((col) => (
               <div key={col.title}>
                 <h4 className="text-sm font-semibold text-slate-300 mb-4">{col.title}</h4>
                 <ul className="space-y-2">
-                  {col.links.map((link) => (
-                    <li key={link}>
-                      <a href="#" className="text-sm text-slate-500 hover:text-slate-300 transition-colors">{link}</a>
-                    </li>
-                  ))}
+                  {col.links.map((link) => {
+                    const label = typeof link === 'string' ? link : link.label
+                    const href = typeof link === 'string' ? '#' : link.href
+                    return (
+                      <li key={label}>
+                        <a href={href} className="text-sm text-slate-500 hover:text-slate-300 transition-colors">{label}</a>
+                      </li>
+                    )
+                  })}
                 </ul>
               </div>
             ))}

@@ -112,6 +112,13 @@ export const authController = {
     } catch (e) { next(e) }
   },
 
+  async impersonateExchange(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await authService.impersonateExchange(req.body.code)
+      sendSuccess(res, result, 'Support session ready')
+    } catch (e) { next(e) }
+  },
+
   async changePassword(req: Request, res: Response, next: NextFunction) {
     try {
       await authService.changePassword(req.user!.userId, req.body.currentPassword, req.body.newPassword)

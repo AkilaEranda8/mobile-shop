@@ -1158,11 +1158,16 @@ router.post('/support/impersonate/:tenantId', async (req: Request, res: Response
     })
     if (!owner) throw new AppError('No OWNER user found for this tenant', 404)
     const { signAccessToken } = await import('../../utils/jwt.js')
+    const { createImpersonationCode } = await import('../../utils/impersonation-codes.js')
+    const { env } = await import('../../config/env.js')
     const token = signAccessToken({
       userId: owner.id, tenantId: owner.tenantId,
       role: owner.role, email: owner.email,
     })
-    sendSuccess(res, { token, ownerEmail: owner.email, tenantId: owner.tenantId })
+    const code = createImpersonationCode(token)
+    const base = (env.FRONTEND_URL || 'https://app.hexalyte.com').replace(/\/$/, '')
+    const loginUrl = `${base}/impersonate?code=${encodeURIComponent(code)}`
+    sendSuccess(res, { loginUrl, ownerEmail: owner.email, tenantId: owner.tenantId })
   } catch (e) { next(e) }
 })
 

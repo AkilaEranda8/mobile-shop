@@ -13,8 +13,6 @@ import {
   type TenantRow, type SupportNote, type TenantDebug,
 } from '@/lib/api'
 
-const WEB_APP_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.hexalyte.com'
-
 function fmtDT(s: string) {
   return new Date(s).toLocaleString('en-LK', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
@@ -82,8 +80,7 @@ function ImpersonationTab({ tenants }: { tenants: TenantRow[] }) {
     setLoading(true)
     try {
       const res = await impersonateTenant(selectedId)
-      const url = `${WEB_APP_URL}/impersonate?token=${encodeURIComponent(res.token)}`
-      setLoginUrl(url)
+      setLoginUrl(res.loginUrl)
       setConfirm(false)
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Failed')
@@ -111,7 +108,7 @@ function ImpersonationTab({ tenants }: { tenants: TenantRow[] }) {
               <ShieldCheck size={16} className="text-emerald-600" />
               <h3 className="section-title">Session Ready</h3>
             </div>
-            <p className="text-xs text-gray-500">A 1-hour impersonation token has been generated for <strong>{selectedTenant?.name}</strong>.</p>
+            <p className="text-xs text-gray-500">A short-lived support session link has been generated for <strong>{selectedTenant?.name}</strong> (expires in 10 minutes).</p>
             <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-[10px] text-gray-500 break-all">{loginUrl}</div>
             <div className="flex gap-2">
               <button onClick={copyLink} className="btn-secondary flex-1 justify-center text-xs">

@@ -245,6 +245,11 @@ function RegisterForm() {
           Already have an account?{' '}
           <Link href="/login" className="text-violet-400 hover:text-violet-300 font-medium">Sign in</Link>
         </p>
+        <p className="text-center text-[11px] text-slate-600 mt-3">
+          <Link href="/privacy" className="hover:text-violet-400">Privacy</Link>
+          {' · '}
+          <Link href="/terms" className="hover:text-violet-400">Terms</Link>
+        </p>
       </div>
     </div>
   )

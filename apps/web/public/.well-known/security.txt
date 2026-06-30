@@ -1,0 +1,6 @@
+Contact: mailto:info@hexalyte.com
+Contact: mailto:support@hexalyte.com
+Expires: 2027-06-30T00:00:00.000Z
+Preferred-Languages: en, si
+Canonical: https://app.hexalyte.com/.well-known/security.txt
+Policy: https://app.hexalyte.com/privacy

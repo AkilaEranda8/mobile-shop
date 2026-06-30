@@ -3,9 +3,45 @@
 import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { authStorage } from '@/lib/auth'
+import { initializeSessionBranch } from '@/lib/active-branch'
 import { Loader2, ShieldAlert, CheckCircle } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
+
+async function establishSession(code: string) {
+  const res = await fetch(`${API_URL}/auth/impersonate-exchange`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body?.message || 'Invalid or expired support link')
+  }
+  const { data } = await res.json()
+  const loginUser = initializeSessionBranch(data.user as any)
+  authStorage.save(data.accessToken, data.refreshToken, loginUser)
+}
+
+/** Legacy links with JWT in URL — still works for old admin bookmarks. */
+async function establishSessionFromToken(token: string) {
+  const res = await fetch(`${API_URL}/auth/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error('Invalid or expired token')
+  const { data } = await res.json()
+  const loginUser = initializeSessionBranch({
+    id: data.id,
+    email: data.email,
+    name: data.name,
+    role: data.role,
+    tenantId: data.tenantId,
+    branchIds: data.branchIds ?? data.branches?.map((b: { id: string }) => b.id) ?? [],
+    branches: data.branches,
+    suggestedBranchId: data.suggestedBranchId,
+  } as any)
+  authStorage.save(token, token, loginUser)
+}
 
 function ImpersonateInner() {
   const params = useSearchParams()
@@ -13,20 +49,19 @@ function ImpersonateInner() {
   const [message, setMessage] = useState('')
 
   useEffect(() => {
+    const code = params.get('code')
     const token = params.get('token')
-    if (!token) { setStatus('error'); setMessage('No token provided.'); return }
+
+    if (!code && !token) {
+      setStatus('error')
+      setMessage('No support session code provided.')
+      return
+    }
 
     ;(async () => {
       try {
-        const res = await fetch(`${API_URL}/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (!res.ok) throw new Error('Invalid or expired token')
-        const { data } = await res.json()
-        authStorage.save(token, token, {
-          id: data.id, email: data.email, name: data.name,
-          role: data.role, tenantId: data.tenantId, branchIds: data.branchIds ?? [],
-        })
+        if (code) await establishSession(code)
+        else if (token) await establishSessionFromToken(token)
         setStatus('success')
         setTimeout(() => { window.location.href = '/dashboard' }, 1200)
       } catch (e) {
@@ -38,11 +73,11 @@ function ImpersonateInner() {
 
   return (
     <div className="min-h-screen bg-[#07090f] flex items-center justify-center">
-      <div className="text-center space-y-4">
+      <div className="text-center space-y-4 max-w-sm px-4">
         {status === 'loading' && (
           <>
             <Loader2 className="w-10 h-10 text-violet-400 animate-spin mx-auto" />
-            <p className="text-slate-300 text-sm">Establishing support session…</p>
+            <p className="text-slate-300 text-sm">Establishing authorised support session…</p>
           </>
         )}
         {status === 'success' && (
