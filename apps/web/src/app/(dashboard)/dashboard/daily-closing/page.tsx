@@ -276,13 +276,17 @@ export default function DailyClosingPage() {
     if (!confirm('Close business day? New sales will be blocked until reopened.')) return
     setSaving(true)
     try {
-      await dailyClosingApi.close({
+      const res: any = await dailyClosingApi.close({
         branchId, date,
         openingCash: typeof openingCash === 'number' ? openingCash : d?.openingCash,
         cashCount,
         notes,
       })
+      const payload = res.data ?? res
       toast.success('Business day closed')
+      if (payload?.allocationWarning) {
+        toast.error(`Profit allocation not saved: ${payload.allocationWarning}`)
+      }
       refetch()
     } catch (e: any) {
       toast.error(e?.message ?? 'Close failed')

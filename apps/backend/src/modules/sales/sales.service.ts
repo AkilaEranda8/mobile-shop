@@ -185,6 +185,7 @@ export const salesService = {
       }
       await createDailyReloadsFromSaleItems(tx, {
         tenantId,
+        branchId,
         items,
         invoiceNumber,
         cashierName,

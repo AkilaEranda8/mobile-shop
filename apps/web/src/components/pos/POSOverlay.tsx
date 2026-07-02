@@ -91,10 +91,14 @@ const DAY_END_DENOMS: Array<{ key: string; label: string; value: number }> = [
   { key: 'd50', label: '50', value: 50 },
   { key: 'd20', label: '20', value: 20 },
   { key: 'd10', label: '10', value: 10 },
+  { key: 'd5', label: '5', value: 5 },
+  { key: 'd2', label: '2', value: 2 },
+  { key: 'd1', label: '1', value: 1 },
 ]
 
 const emptyDayEndCash = () => ({
-  d5000: 0, d2000: 0, d1000: 0, d500: 0, d100: 0, d50: 0, d20: 0, d10: 0, coins: 0,
+  d5000: 0, d2000: 0, d1000: 0, d500: 0, d100: 0, d50: 0, d20: 0, d10: 0,
+  d5: 0, d2: 0, d1: 0, coins: 0,
 })
 
 /* ── Invoice Template ───────────────────────────────────────────────────── */
@@ -1075,6 +1079,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
           d50: d.cashCount.d50 ?? 0,
           d20: d.cashCount.d20 ?? 0,
           d10: d.cashCount.d10 ?? 0,
+          d5: d.cashCount.d5 ?? 0,
+          d2: d.cashCount.d2 ?? 0,
+          d1: d.cashCount.d1 ?? 0,
           coins: d.cashCount.coins ?? 0,
         })
       } else {
@@ -1126,14 +1133,18 @@ function POSContent({ onClose }: { onClose: () => void }) {
     if (!branchId) return
     setDayEndSaving(true)
     try {
-      await dailyClosingApi.close({
+      const res: any = await dailyClosingApi.close({
         branchId,
         date: businessDateStr,
         openingCash: dayEndData?.openingCash,
         cashCount: dayEndCashCount,
         notes: dayEndNotes,
       })
+      const payload = res.data ?? res
       toast.success('Business day closed')
+      if (payload?.allocationWarning) {
+        toast.error(`Profit allocation not saved: ${payload.allocationWarning}`)
+      }
       await loadDayEndPreview()
       await loadDayStartStatus()
     } catch (e: any) {

@@ -136,6 +136,7 @@ router.post('/close', authorize('OWNER', 'MANAGER'), async (req: Request, res: R
     const dateKey = resolveBusinessDate(date)
     const preview = await closeBusinessDay(req.tenantId!, branchId, dateKey, user.userId, user.email, { openingCash, cashCount, notes })
 
+    let allocationWarning: string | undefined
     const profitFeat = await isTenantFeatureEnabled(req.tenantId!, 'PROFIT_ALLOCATION')
     if (profitFeat) {
       try {
@@ -153,12 +154,12 @@ router.post('/close', authorize('OWNER', 'MANAGER'), async (req: Request, res: R
             'Auto-saved on day close',
           )
         }
-      } catch {
-        // Day close succeeds even if allocation auto-save fails
+      } catch (e: any) {
+        allocationWarning = e?.message ?? 'Profit allocation could not be saved'
       }
     }
 
-    sendSuccess(res, preview, 'Business day closed')
+    sendSuccess(res, { ...preview, allocationWarning }, allocationWarning ? 'Business day closed (allocation not saved)' : 'Business day closed')
   } catch (e) { next(e) }
 })
 

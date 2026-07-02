@@ -40,6 +40,7 @@ export async function createDailyReloadsFromSaleItems(
   tx: Prisma.TransactionClient,
   opts: {
     tenantId: string
+    branchId?: string
     items: Array<{ sku?: string; reloadProvider?: string; reloadType?: string; total?: number; unitPrice?: number; quantity?: number }>
     invoiceNumber: string
     cashierName: string
@@ -59,6 +60,7 @@ export async function createDailyReloadsFromSaleItems(
     await tx.dailyReload.create({
       data: {
         tenantId: opts.tenantId,
+        branchId: opts.branchId,
         connectionNo: parsed.provider,
         provider: parsed.provider,
         reloadType: parsed.reloadType,

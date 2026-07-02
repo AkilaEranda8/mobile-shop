@@ -14,6 +14,7 @@ import {
   type ReloadServiceType,
 } from './reload-settings.util'
 import { buildProviderBreakdown, summarizeProviderBreakdown } from './reload-provider.util'
+import { findBranchReloads } from './reload-branch.util'
 
 const router = Router()
 router.use(authenticate)
@@ -44,6 +45,14 @@ function buildDateFilter(date?: string) {
 
 function reloadServiceType(reload: { reloadType?: string | null }): ReloadServiceType {
   return reload.reloadType === 'RECHARGE_CARD' ? 'RECHARGE_CARD' : 'RELOAD'
+}
+
+function parseReloadTypeInput(raw: unknown): ReloadServiceType {
+  const s = String(raw ?? '').trim().toUpperCase()
+  if (s === 'RECHARGE_CARD' || s === 'RCARD' || s.includes('RECHARGE') && s.includes('CARD')) {
+    return 'RECHARGE_CARD'
+  }
+  return 'RELOAD'
 }
 
 function enrichReload(reload: any, settings: Awaited<ReturnType<typeof fetchTenantReloadSettings>>) {
@@ -111,14 +120,18 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     let providerBreakdown: ReturnType<typeof buildProviderBreakdown> = []
     let settlement = { reloadTotal: 0, commission: 0, netPayable: 0, paid: 0, remaining: 0 }
     if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      const branchId = await resolveBranchId(tenantId, req.user!.userId, req.query.branchId as string | undefined)
+      const { start, end } = businessDayRange(date)
+      const branchReloads = await findBranchReloads(tenantId, branchId, start, end)
+      const branchSuccessReloads = branchReloads.filter(r => r.status === 'Success')
       const payments = await prisma.dailyReloadProviderPayment.findMany({
-        where: { tenantId, businessDate: businessDateDb(date) },
+        where: { tenantId, branchId, businessDate: businessDateDb(date) },
       })
       const paidMap: Record<string, number> = {}
       for (const p of payments) {
         paidMap[p.provider] = (paidMap[p.provider] ?? 0) + Number(p.amountPaid)
       }
-      providerBreakdown = buildProviderBreakdown(successReloads, settings, paidMap)
+      providerBreakdown = buildProviderBreakdown(branchSuccessReloads, settings, paidMap)
       settlement = summarizeProviderBreakdown(providerBreakdown)
     }
 
@@ -141,14 +154,17 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
-    const { connectionNo, provider, transactionId, executedBy, reloadDate, status, amount, reloadType } = req.body
+    const user = req.user!
+    const { connectionNo, provider, transactionId, executedBy, reloadDate, status, amount, reloadType, branchId: bodyBranchId } = req.body
     if (!connectionNo || amount === undefined) throw new AppError('connectionNo and amount are required', 400)
 
+    const branchId = await resolveBranchId(tenantId, user.userId, bodyBranchId)
     const resolvedProvider = resolveReloadProvider(String(connectionNo), provider ? String(provider) : null)
-    const svc: ReloadServiceType = reloadType === 'RECHARGE_CARD' ? 'RECHARGE_CARD' : 'RELOAD'
+    const svc = parseReloadTypeInput(reloadType)
     const reload = await prisma.dailyReload.create({
       data: {
         tenantId,
+        branchId,
         connectionNo: String(connectionNo),
         provider: resolvedProvider ?? (provider ? String(provider) : undefined),
         transactionId: transactionId ? String(transactionId) : undefined,
@@ -167,21 +183,25 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 router.post('/bulk', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
-    const { rows } = req.body
+    const user = req.user!
+    const { rows, branchId: bodyBranchId } = req.body
     if (!Array.isArray(rows) || rows.length === 0) throw new AppError('rows array is required', 400)
 
+    const branchId = await resolveBranchId(tenantId, user.userId, bodyBranchId)
     const data = rows
       .map((r: any) => {
         const connectionNo = String(r.connectionNo || '').trim()
         const provider = resolveReloadProvider(connectionNo, r.provider ? String(r.provider) : null)
         return {
           tenantId,
+          branchId,
           connectionNo,
           provider: provider ?? (r.provider ? String(r.provider).trim() : undefined),
           transactionId: r.transactionId ? String(r.transactionId).trim() : undefined,
           executedBy:    r.executedBy    ? String(r.executedBy).trim()    : undefined,
           reloadDate:    new Date(),
           status:        r.status        ? String(r.status)               : 'Success',
+          reloadType:    parseReloadTypeInput(r.reloadType),
           amount:        parseFloat(String(r.amount || '0').replace(/[^0-9.]/g, '')),
         }
       })
@@ -198,7 +218,10 @@ router.post('/bulk', async (req: Request, res: Response, next: NextFunction) => 
 router.post('/upload', upload.single('file'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
+    const user = req.user!
     if (!req.file) throw new AppError('No file uploaded', 400)
+
+    const branchId = await resolveBranchId(tenantId, user.userId, req.body?.branchId)
 
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const XLSX = require('xlsx') as typeof import('xlsx')
@@ -215,12 +238,14 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
         const provider = resolveReloadProvider(connectionNo, null)
         return {
           tenantId,
+          branchId,
           connectionNo,
           provider: provider ?? undefined,
           transactionId: r[1] != null && r[1] !== '' ? String(r[1]).trim() : undefined,
           executedBy:    r[2] != null && r[2] !== '' ? String(r[2]).trim() : undefined,
           reloadDate:    new Date(),
           status:        r[5] != null && r[5] !== '' ? String(r[5]).trim() : 'Success',
+          reloadType:    parseReloadTypeInput(r[7]),
           amount:        parseAmt(r[6]),
         }
       })
@@ -297,12 +322,10 @@ router.post('/pay-provider', authorize('OWNER', 'MANAGER', 'CASHIER'), async (re
 
     const settings = await fetchTenantReloadSettings(tenantId)
     const { start, end } = businessDayRange(dateKey)
-    const reloads = await prisma.dailyReload.findMany({
-      where: { tenantId, reloadDate: { gte: start, lte: end }, status: 'Success' },
-    })
+    const reloads = await findBranchReloads(tenantId, branchId, start, end, { status: 'Success' })
 
     const payments = await prisma.dailyReloadProviderPayment.findMany({
-      where: { tenantId, businessDate: businessDateDb(dateKey), provider },
+      where: { tenantId, branchId, businessDate: businessDateDb(dateKey), provider },
     })
     const paidSoFar = round2(payments.reduce((s, p) => s + Number(p.amountPaid), 0))
 

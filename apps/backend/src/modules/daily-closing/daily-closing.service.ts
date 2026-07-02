@@ -1,6 +1,7 @@
 import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import { businessDayRange, businessDateDb, previousBusinessDate, businessDateFromInstant, normalizeBusinessDate } from '../../utils/date-range'
+import { findBranchReloads } from '../daily-reload/reload-branch.util'
 import {
   calcReloadCommission,
   fetchTenantReloadSettings,
@@ -46,7 +47,12 @@ function parseDateRange(dateStr: string) {
 function isReloadItem(item: { sku?: string | null; productName?: string; productId?: string | null }) {
   const sku = (item.sku ?? '').toUpperCase()
   const name = (item.productName ?? '').toLowerCase()
-  return sku.startsWith('RELOAD-') || name.includes('reload')
+  return (
+    sku.startsWith('RELOAD-')
+    || sku.startsWith('RCARD-')
+    || name.includes('reload')
+    || name.includes('recharge card')
+  )
 }
 
 function isMobileProduct(product: { trackImei?: boolean; category?: { name?: string; slug?: string } | null } | null) {
@@ -136,18 +142,8 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
     }),
   ])
 
-  const branchInvoiceNos = sales.map(s => s.invoiceNumber)
   const reloads = dailyReloadEnabled
-    ? await prisma.dailyReload.findMany({
-        where: {
-          tenantId,
-          reloadDate: { gte: start, lte: end },
-          OR: [
-            { transactionId: { in: branchInvoiceNos.length ? branchInvoiceNos : ['__none__'] } },
-            { connectionNo: { in: [...RELOAD_PROVIDER_IDS] } },
-          ],
-        },
-      })
+    ? await findBranchReloads(tenantId, branchId, start, end)
     : []
 
   // Repair payments create their own POS Sale AND a Finance "Repairs" transaction.

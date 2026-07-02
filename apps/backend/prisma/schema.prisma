@@ -243,6 +243,7 @@ model Branch {
   profitFunds    ProfitFund[]
   profitAllocations ProfitAllocation[]
   dailyReloadProviderPayments DailyReloadProviderPayment[]
+  dailyReloads DailyReload[]
   profitTransactions ProfitTransaction[]
   profitWithdrawals  ProfitWithdrawal[]
   imeiRecords    ImeiRecord[]
@@ -1059,6 +1060,7 @@ model SupportNote {
 model DailyReload {
   id            String   @id @default(cuid())
   tenantId      String
+  branchId      String?
   connectionNo  String
   provider      String?
   transactionId String?
@@ -1070,9 +1072,11 @@ model DailyReload {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch? @relation(fields: [branchId], references: [id])
 
   @@index([tenantId, reloadDate])
+  @@index([tenantId, branchId, reloadDate])
 }
 
 model DailyReloadProviderPayment {

@@ -84,21 +84,7 @@ function fundCategoryCost(fundName: string, costMap: Record<string, { cogs: numb
 async function getReloadCommissionByFund(tenantId: string, branchId: string, dateStr: string) {
   const { start, end } = businessDayRange(normalizeBusinessDate(dateStr))
   const reloadSettings = await fetchTenantReloadSettings(tenantId)
-  const sales = await prisma.sale.findMany({
-    where: { tenantId, branchId, createdAt: { gte: start, lte: end } },
-    select: { invoiceNumber: true },
-  })
-  const branchInvoiceNos = sales.map(s => s.invoiceNumber)
-  const reloads = await prisma.dailyReload.findMany({
-    where: {
-      tenantId,
-      reloadDate: { gte: start, lte: end },
-      OR: [
-        { transactionId: { in: branchInvoiceNos.length ? branchInvoiceNos : ['__none__'] } },
-        { connectionNo: { in: [...RELOAD_PROVIDER_IDS] } },
-      ],
-    },
-  })
+  const reloads = await findBranchReloads(tenantId, branchId, start, end)
   const map: Record<string, number> = {}
   for (const r of reloads) {
     const provider = resolveReloadProvider(r.connectionNo, r.provider)
