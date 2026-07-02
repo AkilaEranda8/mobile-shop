@@ -12,6 +12,7 @@
     "db:seed": "tsx src/database/seed.ts",
     "db:seed-release-june": "tsx src/database/seed-june-2026-release.ts",
     "db:seed-release-june-28": "tsx src/database/seed-june-28-2026-release.ts",
+    "db:seed-release-july-2": "tsx src/database/seed-july-2-2026-release.ts",
     "db:studio": "prisma studio",
     "lint": "eslint src --ext .ts",
     "type-check": "tsc --noEmit",
