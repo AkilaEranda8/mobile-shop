@@ -2,6 +2,11 @@ export const RELOAD_PROVIDER_IDS = ['Dialog', 'Mobitel', 'Airtel', 'Hutch'] as c
 export type ReloadProviderId = (typeof RELOAD_PROVIDER_IDS)[number]
 export type ReloadServiceType = 'RELOAD' | 'RECHARGE_CARD'
 
+/** Profit-allocation fund names tied to Daily Reload / Recharge Card */
+export function isReloadRelatedFundName(name: string): boolean {
+  return name.endsWith(' Reload') || name.endsWith(' Card')
+}
+
 export interface ReloadSettings {
   commissions: Record<string, number>
   rechargeCardCommissions: Record<string, number>

@@ -76,6 +76,7 @@ interface HexaPosLayoutProps {
   bottomActions: React.ReactNode
   cartPanel: React.ReactNode
   mainOverlay?: React.ReactNode
+  hasDailyReload?: boolean
 }
 
 export function HexaPosLayout({
@@ -105,6 +106,7 @@ export function HexaPosLayout({
   bottomActions,
   cartPanel,
   mainOverlay,
+  hasDailyReload = false,
 }: HexaPosLayoutProps) {
   const sidebarItems: PosNavItem[] = navItems ?? NAV_ITEMS
 
@@ -157,7 +159,7 @@ export function HexaPosLayout({
             ['F3', 'Pay Now'],
             ['F4', 'Hold Sale'],
             ['F5', 'Recent / Print'],
-            ['F6', 'Reload / Held'],
+            ...(hasDailyReload ? [['F6', 'Reload']] as const : [['F6', 'Held Carts']] as const),
             ['Shift+F6', 'Held Carts'],
             ['F7', 'Day Start'],
             ['F8', 'Cash In/Out'],

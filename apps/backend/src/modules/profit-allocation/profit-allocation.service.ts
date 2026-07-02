@@ -10,6 +10,7 @@ import {
   RELOAD_PROVIDER_IDS,
   resolveReloadProvider,
 } from '../daily-reload/reload-settings.util'
+import { findBranchReloads } from '../daily-reload/reload-branch.util'
 import { businessDayRange, businessDateDb, businessDateKeyFromInstant, listBusinessDays, normalizeBusinessDate } from '../../utils/date-range'
 import { isTenantFeatureEnabled } from '../../utils/tenant-feature.util'
 import type { createFundSchema, updateFundSchema } from './profit-allocation.schema'
@@ -52,8 +53,13 @@ const DEFAULT_FUNDS: Array<{
   { name: 'Salary', type: 'PERCENTAGE', percentage: 30, sortOrder: 37 },
 ]
 
+function isReloadRelatedFund(name: string) {
+  return name.endsWith(' Reload') || name.endsWith(' Card')
+}
+
 function defaultFundsForTenant(dailyReloadEnabled: boolean) {
-  return DEFAULT_FUNDS.filter(f => dailyReloadEnabled || !f.name.endsWith(' Card'))
+  if (dailyReloadEnabled) return DEFAULT_FUNDS
+  return DEFAULT_FUNDS.filter(f => !isReloadRelatedFund(f.name))
 }
 
 function round2(n: number) {
@@ -190,10 +196,13 @@ async function ensureExtendedFunds(tenantId: string, branchId: string) {
 
 export async function listFunds(tenantId: string, branchId: string) {
   await ensureExtendedFunds(tenantId, branchId)
-  return prisma.profitFund.findMany({
+  const dailyReloadEnabled = await isTenantFeatureEnabled(tenantId, 'DAILY_RELOAD')
+  const funds = await prisma.profitFund.findMany({
     where: { tenantId, branchId },
     orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
   })
+  if (dailyReloadEnabled) return funds
+  return funds.filter(f => !isReloadRelatedFund(f.name))
 }
 
 export async function createFund(tenantId: string, input: CreateFundInput) {
@@ -293,10 +302,11 @@ export async function calculateAllocationLines(
   dateStr: string,
 ) {
   await ensureExtendedFunds(tenantId, branchId)
-  const funds = await prisma.profitFund.findMany({
+  const dailyReloadEnabled = await isTenantFeatureEnabled(tenantId, 'DAILY_RELOAD')
+  const funds = (await prisma.profitFund.findMany({
     where: { tenantId, branchId, isActive: true },
     orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-  })
+  })).filter(f => dailyReloadEnabled || !isReloadRelatedFund(f.name))
 
   const pctCheck = validatePercentageTotal(funds)
   const profitMeta = await getDayProfit(tenantId, branchId, dateStr)

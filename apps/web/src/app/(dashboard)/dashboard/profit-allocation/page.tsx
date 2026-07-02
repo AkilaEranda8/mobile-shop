@@ -13,6 +13,7 @@ import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { profitAllocationApi } from '@/lib/api'
 import { useFeatureFlag, useProfitAllocationDashboard, useProfitFunds } from '@/lib/hooks'
+import { isReloadRelatedFundName } from '@/lib/reloadSettings'
 import {
   exportAllocationCsv, exportAllocationExcel, exportAllocationPdf,
   type AllocationLine,
@@ -207,6 +208,7 @@ function MovementModal({
 
 export default function ProfitAllocationPage() {
   const hasAccess = useFeatureFlag('PROFIT_ALLOCATION')
+  const hasDailyReload = useFeatureFlag('DAILY_RELOAD')
   const role = authStorage.getUser()?.role ?? ''
   const isOwner = role === 'OWNER' || role === 'PLATFORM_ADMIN'
   const canWithdraw = isOwner || role === 'MANAGER'
@@ -329,20 +331,22 @@ export default function ProfitAllocationPage() {
     const lines = activeDashboard?.lines
     if (!lines) return []
     return lines.filter(l => {
+      if (!hasDailyReload && isReloadRelatedFundName(l.fundName)) return false
       if (typeFilter !== 'ALL' && l.fundType !== typeFilter) return false
       if (search && !l.fundName.toLowerCase().includes(search.toLowerCase())) return false
       return true
     })
-  }, [activeDashboard, search, typeFilter])
+  }, [activeDashboard, search, typeFilter, hasDailyReload])
 
   const filteredFundsForSettings = useMemo(() => {
     return funds.filter(f => {
+      if (!hasDailyReload && isReloadRelatedFundName(f.name)) return false
       if (fundTab === 'FIXED_AMOUNT') return f.type === 'FIXED_AMOUNT'
       if (fundTab === 'PERCENTAGE') return f.type === 'PERCENTAGE'
       if (fundTab === 'MANUAL') return f.type === 'MANUAL'
       return true
     })
-  }, [funds, fundTab])
+  }, [funds, fundTab, hasDailyReload])
 
   const handleRefreshFromSystem = async () => {
     if (!branchId) return

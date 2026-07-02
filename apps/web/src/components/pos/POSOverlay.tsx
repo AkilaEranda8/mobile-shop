@@ -3381,6 +3381,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           )}
           </div>
         )}
+        hasDailyReload={hasDailyReload}
       />
       </div>
 

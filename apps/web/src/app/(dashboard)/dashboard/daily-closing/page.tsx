@@ -124,12 +124,7 @@ export default function DailyClosingPage() {
   const allocation = allocRaw as any
   const d = raw as any
 
-  const showReload = useMemo(() => {
-    if (d?.features && typeof d.features.dailyReload === 'boolean') {
-      return d.features.dailyReload
-    }
-    return hasDailyReload
-  }, [d?.features?.dailyReload, hasDailyReload])
+  const showReload = hasDailyReload
 
   const showProfitAllocation = useMemo(() => {
     if (d?.features && typeof d.features.profitAllocation === 'boolean') {
