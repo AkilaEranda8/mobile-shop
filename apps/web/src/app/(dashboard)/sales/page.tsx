@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   Receipt, Eye, X, Calendar, User, Package,
   CreditCard, Loader2, Hash, ShoppingBag,
@@ -11,6 +12,7 @@ import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
+import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { salesApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
@@ -372,11 +374,25 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
 
 /* ── Main Sales Page ─────────────────────────────────────────────────────── */
 export default function SalesPage() {
+  const searchParams = useSearchParams()
   const [sales, setSales]           = useState<any[]>([])
   const [meta, setMeta]             = useState<any>(null)
   const [loading, setLoading]       = useState(true)
   const [detailSale,  setDetailSale]  = useState<any>(null)
   const [density, setDensity]       = useState<TableDensity>('comfortable')
+  const [textSearch, setTextSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'PAID' | 'PARTIAL' | 'UNPAID' | 'RETURNED' | 'REFUNDED'>('all')
+
+  const openDetail = useCallback((sale: any) => setDetailSale(sale), [])
+
+  useEffect(() => {
+    const q = searchParams.get('q')
+    if (q) setTextSearch(q)
+    const id = searchParams.get('id')
+    if (!id || !sales.length) return
+    const found = sales.find(s => s.id === id)
+    if (found) setDetailSale(found)
+  }, [searchParams, sales])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -401,6 +417,18 @@ export default function SalesPage() {
   const partialCount  = sales.filter(r => r.status === 'PARTIAL').length
   const returnedCount = sales.filter(r => r.status === 'RETURNED' || (r._count?.returns ?? 0) > 0).length
 
+  const filteredSales = useMemo(() => {
+    let rows = sales
+    if (statusFilter !== 'all') rows = rows.filter(r => r.status === statusFilter)
+    const q = textSearch.trim().toLowerCase()
+    if (!q) return rows
+    return rows.filter(r =>
+      r.invoiceNumber?.toLowerCase().includes(q) ||
+      (r.customerName ?? '').toLowerCase().includes(q) ||
+      (r.customerPhone ?? '').toLowerCase().includes(q)
+    )
+  }, [sales, statusFilter, textSearch])
+
   const columns = useMemo<ColumnDef<any>[]>(() => [
     {
       accessorKey: 'invoiceNumber',
@@ -410,7 +438,13 @@ export default function SalesPage() {
         const returnCount = s._count?.returns ?? 0
         return (
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-mono text-xs text-violet-400">{s.invoiceNumber}</span>
+            <button
+              type="button"
+              className="font-mono text-xs text-violet-400 hover:text-violet-300 hover:underline"
+              onClick={() => openDetail(s)}
+            >
+              {s.invoiceNumber}
+            </button>
             {s.source === 'DELIVERY' && (
               <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded font-semibold"
                 style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.2)' }}>
@@ -478,12 +512,12 @@ export default function SalesPage() {
         const s = row.original
         return (
           <div className="flex items-center gap-2">
-            <TableActionsRow showAction={{ action: () => setDetailSale(s) }} />
+            <TableActionsRow showAction={{ action: () => openDetail(s) }} />
           </div>
         )
       },
     },
-  ], [setDetailSale])
+  ], [openDetail])
 
   return (
     <div className="space-y-5">
@@ -501,12 +535,17 @@ export default function SalesPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: 'Total Sales',   value: String(meta?.total ?? '—'), icon: ShoppingBag, color: 'violet' },
-          { label: 'Revenue',       value: formatCurrency(totalRevenue), icon: TrendingUp,  color: 'green'  },
-          { label: 'Paid',          value: String(paidCount),            icon: Receipt,     color: 'green'  },
-          { label: 'Returned',      value: String(returnedCount),        icon: RotateCcw,   color: 'rose'   },
-        ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="card p-4 flex items-center gap-3">
+          { label: 'Total Sales', value: String(meta?.total ?? '—'), icon: ShoppingBag, color: 'violet', filter: 'all' as const },
+          { label: 'Revenue', value: formatCurrency(totalRevenue), icon: TrendingUp, color: 'green', filter: 'all' as const },
+          { label: 'Paid', value: String(paidCount), icon: Receipt, color: 'green', filter: 'PAID' as const },
+          { label: 'Returned', value: String(returnedCount), icon: RotateCcw, color: 'rose', filter: 'RETURNED' as const },
+        ].map(({ label, value, icon: Icon, color, filter }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => setStatusFilter(filter)}
+            className={`card p-4 flex items-center gap-3 text-left w-full transition-all hover:border-violet-500/30 ${statusFilter === filter ? 'ring-2 ring-violet-500/40' : ''}`}
+          >
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20`}>
               <Icon size={15} className={`text-${color}-400`} />
             </div>
@@ -514,32 +553,48 @@ export default function SalesPage() {
               <p className="text-lg font-bold text-white">{value}</p>
               <p className="text-[11px] text-slate-500">{label}</p>
             </div>
-          </div>
+          </button>
         ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <ToolbarSearch
+          value={textSearch}
+          onChange={setTextSearch}
+          placeholder="Search invoice, customer, phone…"
+          className="w-full sm:w-auto sm:min-w-[220px]"
+        />
+        <div className="flex gap-1 p-1 rounded-xl flex-wrap" style={{ background: 'var(--bg-subtle)' }}>
+          {([
+            { id: 'all', label: 'All' },
+            { id: 'PAID', label: 'Paid' },
+            { id: 'PARTIAL', label: 'Partial' },
+            { id: 'UNPAID', label: 'Unpaid' },
+            { id: 'RETURNED', label: 'Returned' },
+          ] as const).map(opt => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setStatusFilter(opt.id)}
+              className="px-3 py-1.5 text-xs rounded-lg font-medium whitespace-nowrap transition-colors"
+              style={statusFilter === opt.id
+                ? { background: '#6d28d9', color: '#fff' }
+                : { color: 'var(--text-muted)' }}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Table */}
       <div className={`table-${density}`}>
         <ClientSideTable
-          data={sales}
+          data={filteredSales}
           columns={columns}
           isLoading={loading}
-          pageCount={Math.ceil((sales.length || 1) / 20)}
-          searchableColumns={[
-            { id: 'invoiceNumber', title: 'Invoice' },
-            { id: 'customerName',  title: 'Customer' },
-          ]}
-          filterableColumns={[{
-            id: 'status',
-            title: 'Status',
-            options: [
-              { label: 'Paid',     value: 'PAID'     },
-              { label: 'Partial',  value: 'PARTIAL'  },
-              { label: 'Unpaid',   value: 'UNPAID'   },
-              { label: 'Returned', value: 'RETURNED' },
-              { label: 'Refunded', value: 'REFUNDED' },
-            ],
-          }]}
+          pageCount={Math.ceil((filteredSales.length || 1) / 20)}
+          searchableColumns={[]}
+          showFilter={false}
         />
       </div>
 

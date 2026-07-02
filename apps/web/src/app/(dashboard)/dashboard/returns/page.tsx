@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   RotateCcw, X, Package, Loader2,
   TrendingDown, AlertTriangle,
@@ -11,6 +12,7 @@ import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
+import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { salesApi } from '@/lib/api'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -44,6 +46,12 @@ function ProcessReturnModal({ onClose, onDone }: { onClose: () => void; onDone: 
   const [refundMethod, setRefundMethod] = useState('CASH')
   const [notes,        setNotes]        = useState('')
   const [loading,      setLoading]      = useState(false)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   const search = async () => {
     if (!query.trim()) return
@@ -352,11 +360,24 @@ function ReturnDetailModal({ ret, onClose }: { ret: any; onClose: () => void }) 
 
 /* ── Main Returns Page ───────────────────────────────────────────────────── */
 export default function ReturnsPage() {
+  const searchParams = useSearchParams()
   const [returns,    setReturns]    = useState<any[]>([])
   const [meta,       setMeta]       = useState<any>(null)
   const [loading,    setLoading]    = useState(true)
   const [detailRet,     setDetailRet]     = useState<any>(null)
   const [showNewReturn, setShowNewReturn] = useState(false)
+  const [textSearch, setTextSearch] = useState('')
+
+  const openDetail = useCallback((ret: any) => setDetailRet(ret), [])
+
+  useEffect(() => {
+    const action = searchParams.get('action')
+    if (action === 'new' || action === 'add' || searchParams.get('new') === '1') setShowNewReturn(true)
+    const id = searchParams.get('id')
+    if (!id || !returns.length) return
+    const found = returns.find(r => r.id === id)
+    if (found) setDetailRet(found)
+  }, [searchParams, returns])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -379,12 +400,29 @@ export default function ReturnsPage() {
     return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 3)
   }, [returns])
 
+  const filteredReturns = useMemo(() => {
+    const q = textSearch.trim().toLowerCase()
+    if (!q) return returns
+    return returns.filter(r =>
+      r.returnNumber?.toLowerCase().includes(q) ||
+      r.reason?.toLowerCase().includes(q) ||
+      r.sale?.invoiceNumber?.toLowerCase().includes(q) ||
+      r.sale?.customerName?.toLowerCase().includes(q)
+    )
+  }, [returns, textSearch])
+
   const columns = useMemo<ColumnDef<any>[]>(() => [
     {
       accessorKey: 'returnNumber',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Return #" />,
       cell: ({ row }) => (
-        <span className="font-mono text-xs text-rose-600 dark:text-rose-400">{row.original.returnNumber}</span>
+        <button
+          type="button"
+          className="font-mono text-xs text-rose-600 dark:text-rose-400 hover:underline"
+          onClick={() => openDetail(row.original)}
+        >
+          {row.original.returnNumber}
+        </button>
       ),
     },
     {
@@ -440,10 +478,10 @@ export default function ReturnsPage() {
     {
       id: 'actions',
       cell: ({ row }) => (
-        <TableActionsRow showAction={{ action: () => setDetailRet(row.original) }} />
+        <TableActionsRow showAction={{ action: () => openDetail(row.original) }} />
       ),
     },
-  ], [])
+  ], [openDetail])
 
   return (
     <div className="space-y-5">
@@ -498,26 +536,21 @@ export default function ReturnsPage() {
         </div>
       )}
 
+      <ToolbarSearch
+        value={textSearch}
+        onChange={setTextSearch}
+        placeholder="Search return #, invoice, reason…"
+        className="max-w-md"
+      />
+
       {/* Table */}
       <ClientSideTable
-        data={returns}
+        data={filteredReturns}
         columns={columns}
         isLoading={loading}
-        pageCount={Math.ceil((returns.length || 1) / 20)}
-        searchableColumns={[
-          { id: 'returnNumber', title: 'Return #' },
-          { id: 'reason',       title: 'Reason' },
-        ]}
-        filterableColumns={[{
-          id: 'refundMethod',
-          title: 'Refund Method',
-          options: [
-            { label: 'Cash',          value: 'CASH'          },
-            { label: 'Card',          value: 'CARD'          },
-            { label: 'UPI',           value: 'UPI'           },
-            { label: 'Bank Transfer', value: 'BANK_TRANSFER' },
-          ],
-        }]}
+        pageCount={Math.ceil((filteredReturns.length || 1) / 20)}
+        searchableColumns={[]}
+        showFilter={false}
       />
 
       {detailRet     && <ReturnDetailModal ret={detailRet} onClose={() => setDetailRet(null)} />}

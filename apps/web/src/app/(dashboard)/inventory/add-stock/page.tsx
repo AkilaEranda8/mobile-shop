@@ -1,14 +1,12 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { AddStockModal } from '@/components/inventory/AddStockModal'
 
 export default function AddStockRoute() {
   const router = useRouter()
-  return (
-    <AddStockModal
-      onClose={() => router.push('/inventory')}
-      onSaved={() => router.push('/inventory')}
-    />
-  )
+  useEffect(() => {
+    router.replace('/inventory')
+  }, [router])
+  return null
 }

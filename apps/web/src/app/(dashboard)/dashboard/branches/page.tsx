@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Building2, Plus, Edit, MapPin, Phone, Mail, Star, X, Loader2, Save, CheckCircle, AlertTriangle } from 'lucide-react'
 import { branchesApi, tenantApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
@@ -156,6 +156,7 @@ function BranchModal({
 /* ── Main Page ───────────────────────────────────────────────────── */
 export default function BranchesPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const user = authStorage.getUser()
   const [branches, setBranches] = useState<Branch[]>([])
   const [plan, setPlan]         = useState('STARTER')
@@ -168,6 +169,11 @@ export default function BranchesPage() {
       router.replace('/dashboard')
     }
   }, [user, router])
+
+  useEffect(() => {
+    const action = searchParams.get('action')
+    if (action === 'add' || action === 'new' || searchParams.get('new') === '1') setShowAdd(true)
+  }, [searchParams])
 
   if (user && user.role !== 'OWNER') return null
 

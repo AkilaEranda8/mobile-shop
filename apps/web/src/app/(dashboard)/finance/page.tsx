@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   TrendingUp, TrendingDown, Download, Plus, ArrowUpRight, ArrowDownRight,
   Loader2, Wallet, Receipt, BarChart2, Calendar, X
@@ -97,6 +98,7 @@ const TOOLTIP_STYLE = {
 }
 
 export default function FinancePage() {
+  const searchParams = useSearchParams()
   const [tab, setTab]     = useState<'overview' | 'transactions'>('overview')
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'INCOME' | 'EXPENSE'>('ALL')
@@ -125,6 +127,14 @@ export default function FinancePage() {
     window.addEventListener('pos:sale-complete', onSale)
     return () => window.removeEventListener('pos:sale-complete', onSale)
   }, [refetchTx, refetchSummary])
+
+  useEffect(() => {
+    const action = searchParams.get('action')
+    if (action === 'add-expense' || action === 'add' || searchParams.get('new') === '1') {
+      setShowAdd(true)
+      setTab('transactions')
+    }
+  }, [searchParams])
 
   const salesRevenue = summary?.salesRevenue  ?? 0
   const otherIncome  = summary?.otherIncome   ?? 0

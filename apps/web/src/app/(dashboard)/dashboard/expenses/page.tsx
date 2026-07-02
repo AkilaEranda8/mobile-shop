@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { Receipt, Plus, Search, X, Loader2, TrendingDown, ArrowDownRight, Tag, CreditCard } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Receipt, Plus, X, Loader2, TrendingDown, ArrowDownRight, Tag, CreditCard } from 'lucide-react'
+import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useTransactions, useFinanceSummary } from '@/lib/hooks'
 import { financeApi } from '@/lib/api'
@@ -111,9 +113,15 @@ function AddExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
 }
 
 export default function ExpensesPage() {
+  const searchParams = useSearchParams()
   const [search, setSearch]   = useState('')
   const [category, setCategory] = useState('All')
   const [showAdd, setShowAdd] = useState(false)
+
+  useEffect(() => {
+    const action = searchParams.get('action')
+    if (action === 'add' || action === 'add-expense' || searchParams.get('new') === '1') setShowAdd(true)
+  }, [searchParams])
 
   const txParams: Record<string, string> = { type: 'EXPENSE' }
   if (category !== 'All') txParams.category = category
@@ -217,10 +225,12 @@ export default function ExpensesPage() {
         {/* ── Expense List ── */}
         <div className="lg:col-span-2 space-y-3">
           <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
-              <input className="input-field pl-9" placeholder="Search expenses…" value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
+            <ToolbarSearch
+              value={search}
+              onChange={setSearch}
+              placeholder="Search expenses…"
+              className="flex-1"
+            />
             <div className="flex gap-1.5 overflow-x-auto flex-wrap">
               {categories.map(c => (
                 <button key={c} onClick={() => setCategory(c)}

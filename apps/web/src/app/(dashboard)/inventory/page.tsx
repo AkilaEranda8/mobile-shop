@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useMemo, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, RotateCcw, ChevronDown, ChevronUp, GripVertical, Smartphone, Shield, Building2, ArrowLeftRight } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
@@ -17,6 +17,8 @@ import type { Product, Category, ProductVariation } from '@/types'
 import toast from 'react-hot-toast'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
+import { ToolbarSearch } from '@/components/ui/toolbar-search'
+import { AddProductModal } from '@/components/inventory/AddProductModal'
 import { ImeiProductTypeSelector } from '@/components/inventory/ImeiProductTypeSelector'
 import { imeiTypeToTrackFlag, trackFlagToImeiType, inferImeiProductType, isImeiHealthBannerDismissed, dismissImeiHealthBanner, type ImeiProductType } from '@/lib/productImei'
 import { PRODUCT_CONDITION_OPTS, type ProductCondition, productConditionLabel } from '@/lib/productCondition'
@@ -1315,9 +1317,12 @@ interface FlatRow {
   brandName: string
 }
 
+const INV_FILTERS_KEY = 'hexalyte:inventory-filters'
+
 export default function InventoryPage() {
-  const router = useRouter()
+  const searchParams = useSearchParams()
   const [showImport, setShowImport]   = useState(false)
+  const [showAddProduct, setShowAddProduct] = useState(false)
   const [showAddCat, setShowAddCat]   = useState(false)
   const [showManageCat, setShowManageCat] = useState(false)
   const [editProduct, setEditProduct] = useState<Product | null>(null)
@@ -1325,6 +1330,8 @@ export default function InventoryPage() {
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [brandFilter, setBrandFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState<'all' | 'in' | 'low' | 'out'>('all')
+  const [textSearch, setTextSearch] = useState('')
+  const [filtersReady, setFiltersReady] = useState(false)
   const { data: productsData, loading, refetch } = useProducts({ limit: '2000' })
   const { data: catsData, refetch: refetchCats } = useCategories()
   const allCategories: Category[] = (catsData ?? []) as Category[]
@@ -1341,8 +1348,13 @@ export default function InventoryPage() {
     if (statusFilter === 'out' && p.stock !== 0) return false
     if (statusFilter === 'low' && !(p.stock > 0 && p.stock < p.minStock)) return false
     if (statusFilter === 'in' && !(p.stock >= p.minStock)) return false
+    const q = textSearch.trim().toLowerCase()
+    if (q) {
+      const hay = `${p.name} ${p.sku} ${p.brandName ?? ''} ${p.categoryName ?? ''}`.toLowerCase()
+      if (!hay.includes(q)) return false
+    }
     return true
-  }), [products, categoryFilter, brandFilter, statusFilter])
+  }), [products, categoryFilter, brandFilter, statusFilter, textSearch])
 
   /* Flatten: each variant becomes its own table row */
   const flatRows = useMemo<FlatRow[]>(() => {
@@ -1383,12 +1395,13 @@ export default function InventoryPage() {
     return rows
   }, [filteredProducts])
 
-  const hasActiveFilters = categoryFilter !== 'all' || brandFilter !== 'all' || statusFilter !== 'all'
+  const hasActiveFilters = categoryFilter !== 'all' || brandFilter !== 'all' || statusFilter !== 'all' || textSearch.trim().length > 0
 
   const clearFilters = () => {
     setCategoryFilter('all')
     setBrandFilter('all')
     setStatusFilter('all')
+    setTextSearch('')
   }
 
   const categoryOptions = useMemo(
@@ -1405,6 +1418,34 @@ export default function InventoryPage() {
   )
 
   const lowStockCount = filteredProducts.filter(p => p.stock < p.minStock && p.stock > 0).length
+
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(INV_FILTERS_KEY)
+      if (saved) {
+        const f = JSON.parse(saved)
+        if (typeof f.categoryFilter === 'string') setCategoryFilter(f.categoryFilter)
+        if (typeof f.brandFilter === 'string') setBrandFilter(f.brandFilter)
+        if (f.statusFilter === 'all' || f.statusFilter === 'in' || f.statusFilter === 'low' || f.statusFilter === 'out') {
+          setStatusFilter(f.statusFilter)
+        }
+        if (typeof f.textSearch === 'string') setTextSearch(f.textSearch)
+      }
+    } catch { /* ignore */ }
+    setFiltersReady(true)
+  }, [])
+
+  useEffect(() => {
+    if (!filtersReady) return
+    sessionStorage.setItem(INV_FILTERS_KEY, JSON.stringify({ categoryFilter, brandFilter, statusFilter, textSearch }))
+  }, [filtersReady, categoryFilter, brandFilter, statusFilter, textSearch])
+
+  useEffect(() => {
+    const action = searchParams.get('action')
+    if (action === 'add-product' || action === 'add') setShowAddProduct(true)
+    const q = searchParams.get('q')
+    if (q) setTextSearch(q)
+  }, [searchParams])
 
   useEffect(() => {
     const onSale = () => { refetch() }
@@ -1439,6 +1480,7 @@ export default function InventoryPage() {
               <button
                 className="text-sm font-medium text-slate-200 hover:text-violet-400 text-left transition-colors leading-tight"
                 onClick={() => setViewProduct(product)}
+                onDoubleClick={(e) => { e.preventDefault(); setEditProduct(product) }}
               >
                 {product.name}
               </button>
@@ -1561,6 +1603,7 @@ export default function InventoryPage() {
   return (
     <div className="space-y-6">
       {showImport  && <ImportModal onClose={() => setShowImport(false)} onSaved={refetch} />}
+      {showAddProduct && <AddProductModal onClose={() => setShowAddProduct(false)} onSaved={refetch} />}
       {showAddCat    && <AddCategoryModal onClose={() => setShowAddCat(false)} onSaved={() => refetchCats()} />}
       {showManageCat && <ManageCategoriesModal onClose={() => setShowManageCat(false)} onChanged={() => { refetchCats(); refetch() }} />}
       {editProduct && <EditProductModal product={editProduct} onClose={() => setEditProduct(null)} onSaved={refetch} />}
@@ -1586,7 +1629,7 @@ export default function InventoryPage() {
           <button onClick={() => exportProductsCSV(filteredProducts)} disabled={filteredProducts.length === 0} className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40">
             <Download size={14} />Export
           </button>
-          <button onClick={() => router.push('/inventory/add-product')} className="btn-secondary text-sm flex items-center gap-2">
+          <button onClick={() => setShowAddProduct(true)} className="btn-secondary text-sm flex items-center gap-2">
             <Plus size={14} />Add Product
           </button>
           <button onClick={() => setShowManageCat(true)} className="btn-secondary text-sm flex items-center gap-2">
@@ -1600,6 +1643,13 @@ export default function InventoryPage() {
 
       {/* Filter toolbar */}
       <div className="flex flex-wrap items-center gap-2">
+        <ToolbarSearch
+          value={textSearch}
+          onChange={setTextSearch}
+          placeholder="Search name, SKU, brand…"
+          className="w-full sm:w-auto sm:min-w-[200px]"
+        />
+
         <FilterDropdown
           value={categoryFilter}
           onChange={setCategoryFilter}
@@ -1682,12 +1732,7 @@ export default function InventoryPage() {
         columns={columns}
         isLoading={loading}
         pageCount={Math.ceil((flatRows.length || 1) / 20)}
-        searchableColumns={[
-          { id: 'displayName', title: 'Name' },
-          { id: 'displaySku',  title: 'SKU'  },
-          { id: 'categoryName', title: 'Category' },
-          { id: 'brandName', title: 'Brand' },
-        ]}
+        searchableColumns={[]}
         showFilter={false}
       />
     </div>

@@ -1,14 +1,12 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { AddProductModal } from '@/components/inventory/AddProductModal'
 
 export default function AddProductRoute() {
   const router = useRouter()
-  return (
-    <AddProductModal
-      onClose={() => router.push('/inventory')}
-      onSaved={() => router.push('/inventory')}
-    />
-  )
+  useEffect(() => {
+    router.replace('/inventory?action=add-product')
+  }, [router])
+  return null
 }

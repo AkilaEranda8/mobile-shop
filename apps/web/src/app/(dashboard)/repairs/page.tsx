@@ -13,6 +13,7 @@ import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
+import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { formatCurrency, formatDate, getRepairStatusColor } from '@/lib/utils'
 import { useRepairs, useProducts, useFeatureFlag } from '@/lib/hooks'
 import { repairsApi, customersApi, deviceCatalogApi, usersApi, uploadApi } from '@/lib/api'
@@ -162,6 +163,13 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
   const [step, setStep]       = useState(1)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(p => ({ ...p, [k]: e.target.value }))
 
@@ -220,7 +228,25 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
     if (prefill?.deviceBrand) setBrandQuery(prefill.deviceBrand)
     if (prefill?.deviceModel) setModelQuery(prefill.deviceModel)
     if (prefill?.customerName) setSearchQuery(prefill.customerName)
-  }, [])
+
+    const phone = prefill?.customerPhone?.trim()
+    if (!phone) return
+    let cancelled = false
+    customersApi.search(phone).then((res: any) => {
+      if (cancelled) return
+      const list: Customer[] = res.data ?? res ?? []
+      const match = list.find(c => c.phone === phone) ?? list[0]
+      if (match) {
+        setSelectedCustomer(match)
+        setSearchQuery(match.name)
+        setCustomerMode('search')
+      } else if (prefill?.customerName) {
+        setNewCust({ name: prefill.customerName, phone, email: '' })
+        setCustomerMode('new')
+      }
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [prefill])
 
   // debounced customer search
   const doSearch = useCallback(async (q: string) => {
@@ -345,7 +371,12 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
             <div className="flex items-center">
               {STEPS.map(({ n, label }, i) => (
                 <div key={n} className={`flex items-center ${i < 4 ? 'flex-1' : ''}`}>
-                  <div className="flex items-center gap-2.5 shrink-0">
+                  <button
+                    type="button"
+                    disabled={n >= step}
+                    onClick={() => { if (n < step) setStep(n) }}
+                    className={`flex items-center gap-2.5 shrink-0 text-left ${n < step ? 'cursor-pointer' : 'cursor-default'}`}
+                  >
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
                       n < step  ? 'bg-violet-600 text-white shadow-md shadow-violet-500/30' :
                       n === step ? 'bg-violet-600 text-white ring-4 ring-violet-500/20' :
@@ -357,7 +388,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                       style={n > step ? { color: 'var(--text-secondary)' } : {}}>
                       {label}
                     </span>
-                  </div>
+                  </button>
                   {i < 4 && (
                     <div className="flex-1 h-px mx-3 transition-all" style={{ background: n < step ? 'rgba(139,92,246,0.45)' : 'var(--border-subtle)' }} />
                   )}
@@ -899,6 +930,24 @@ const priorityBadge = (p: string) => {
   return map[p] || 'bg-slate-500/10 border-slate-500/20 text-slate-400'
 }
 
+type RepairStatusFilter =
+  | 'all' | 'active' | 'urgent'
+  | 'RECEIVED' | 'DIAGNOSED' | 'IN_REPAIR' | 'QC' | 'READY' | 'DELIVERED' | 'CANCELLED'
+
+const REP_FILTERS_KEY = 'hexalyte:repairs-filters'
+
+const STATUS_CHIPS: { id: RepairStatusFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'active', label: 'In progress' },
+  { id: 'RECEIVED', label: 'Received' },
+  { id: 'IN_REPAIR', label: 'In repair' },
+  { id: 'READY', label: 'Ready' },
+  { id: 'DELIVERED', label: 'Delivered' },
+  { id: 'urgent', label: 'Urgent' },
+]
+
+const ACTIVE_STATUSES = ['RECEIVED', 'DIAGNOSED', 'IN_REPAIR', 'QC']
+
 /* ── Repair Details Modal ─────────────────────────────────────────────── */
 function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh, onRepairUpdate, allRepairs }: {
   repair: RepairTicket
@@ -933,6 +982,12 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
       .then((r: any) => setWaSendPdf(!!(r?.data ?? r)?.sendPdfInvoice))
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
@@ -1937,6 +1992,13 @@ function EditRepairModal({ repair, onClose, onSaved }: {
     estimatedCompletion: repair.estimatedCompletion ? repair.estimatedCompletion.slice(0, 10) : '',
   })
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(p => ({ ...p, [k]: e.target.value }))
 
@@ -2126,6 +2188,28 @@ export default function RepairsPage() {
   const [detailRepair, setDetailRepair]     = useState<RepairTicket | null>(null)
   const [editRepair,   setEditRepair]       = useState<RepairTicket | null>(null)
   const [search, setSearch]         = useState('')
+  const [statusFilter, setStatusFilter] = useState<RepairStatusFilter>('all')
+  const [filtersReady, setFiltersReady] = useState(false)
+
+  const openDetail = useCallback((repair: RepairTicket) => setDetailRepair(repair), [])
+  const openEdit = useCallback((repair: RepairTicket) => setEditRepair(repair), [])
+
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(REP_FILTERS_KEY)
+      if (saved) {
+        const f = JSON.parse(saved)
+        if (typeof f.search === 'string') setSearch(f.search)
+        if (f.statusFilter) setStatusFilter(f.statusFilter)
+      }
+    } catch { /* ignore */ }
+    setFiltersReady(true)
+  }, [])
+
+  useEffect(() => {
+    if (!filtersReady) return
+    sessionStorage.setItem(REP_FILTERS_KEY, JSON.stringify({ search, statusFilter }))
+  }, [filtersReady, search, statusFilter])
 
   useEffect(() => {
     const q = searchParams.get('q')
@@ -2143,11 +2227,28 @@ export default function RepairsPage() {
         warrantyClaimId: searchParams.get('warrantyClaimId') || undefined,
       })
       setShowAddModal(true)
+    } else if (searchParams.get('action') === 'new' || searchParams.get('new') === '1') {
+      setShowAddModal(true)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const allRepairs: RepairTicket[] = (repairsData?.data ?? []) as RepairTicket[]
+
+  useEffect(() => {
+    const id = searchParams.get('id') || searchParams.get('ticketId')
+    if (!id) return
+    const found = allRepairs.find(r => r.id === id)
+    if (found) {
+      setDetailRepair(found)
+      return
+    }
+    if (!allRepairs.length && loading) return
+    repairsApi.getById(id).then((res: any) => {
+      const ticket = res?.data ?? res
+      if (ticket?.id) setDetailRepair(ticket)
+    }).catch(() => {})
+  }, [searchParams, allRepairs, loading])
 
   const stats = useMemo(() => ({
     total:     allRepairs.length,
@@ -2159,16 +2260,27 @@ export default function RepairsPage() {
   }), [allRepairs])
 
   const repairs = useMemo(() => {
+    let rows = allRepairs
+    if (statusFilter === 'active') {
+      rows = rows.filter(r => ACTIVE_STATUSES.includes(r.status))
+    } else if (statusFilter === 'urgent') {
+      rows = rows.filter(r => r.priority === 'URGENT')
+    } else if (statusFilter !== 'all') {
+      rows = rows.filter(r => r.status === statusFilter)
+    }
     const q = search.toLowerCase().trim()
-    if (!q) return allRepairs
-    return allRepairs.filter(r =>
+    if (!q) return rows
+    return rows.filter(r =>
       r.ticketNumber?.toLowerCase().includes(q) ||
       r.customerName?.toLowerCase().includes(q) ||
       r.customerPhone?.toLowerCase().includes(q) ||
       `${r.deviceBrand} ${r.deviceModel}`.toLowerCase().includes(q) ||
       r.reportedIssue?.toLowerCase().includes(q)
     )
-  }, [allRepairs, search])
+  }, [allRepairs, search, statusFilter])
+
+  const hasActiveFilters = statusFilter !== 'all' || search.trim().length > 0
+  const clearFilters = () => { setStatusFilter('all'); setSearch('') }
 
   const handleStatusUpdate = async (id: string, status: string) => {
     try {
@@ -2186,16 +2298,30 @@ export default function RepairsPage() {
     {
       accessorKey: 'ticketNumber',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Ticket #" />,
-      cell: ({ row }) => <span className="text-xs font-mono text-violet-400">{row.original.ticketNumber}</span>,
+      cell: ({ row }) => (
+        <button
+          type="button"
+          className="text-xs font-mono text-violet-400 hover:text-violet-300 hover:underline text-left"
+          onClick={() => openDetail(row.original)}
+          onDoubleClick={(e) => { e.preventDefault(); openEdit(row.original) }}
+        >
+          {row.original.ticketNumber}
+        </button>
+      ),
     },
     {
       id: 'device',
       accessorFn: (row) => `${row.deviceBrand} ${row.deviceModel}`,
       header: ({ column }) => <DataTableColumnHeader column={column} title="Device" />,
       cell: ({ row }) => (
-        <div>
-          <p className="text-sm font-medium text-white">{row.original.deviceBrand} {row.original.deviceModel}</p>
-        </div>
+        <button
+          type="button"
+          className="text-left"
+          onClick={() => openDetail(row.original)}
+          onDoubleClick={(e) => { e.preventDefault(); openEdit(row.original) }}
+        >
+          <p className="text-sm font-medium text-white hover:text-violet-300 transition-colors">{row.original.deviceBrand} {row.original.deviceModel}</p>
+        </button>
       ),
     },
     {
@@ -2253,13 +2379,13 @@ export default function RepairsPage() {
             <Printer size={13} />
           </button>
           <TableActionsRow
-            showAction={{ action: () => setDetailRepair(row.original) }}
-            editAction={{ action: () => setEditRepair(row.original) }}
+            showAction={{ action: () => openDetail(row.original) }}
+            editAction={{ action: () => openEdit(row.original) }}
           />
         </div>
       ),
     },
-  ], [setDetailRepair, setEditRepair])
+  ], [openDetail, openEdit])
 
   return (
     <div className="space-y-6">
@@ -2282,15 +2408,20 @@ export default function RepairsPage() {
 
       {/* ── Stat Cards ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        {[
-          { icon: Wrench,       label: 'Total Jobs',   value: String(stats.total),              iconBg: 'bg-violet-500/10',  iconColor: 'text-violet-400',  valColor: 'text-violet-400'  },
-          { icon: Clock,        label: 'In Progress',  value: String(stats.active),             iconBg: 'bg-blue-500/10',    iconColor: 'text-blue-400',    valColor: 'text-blue-400'    },
-          { icon: CheckCircle,  label: 'Ready',        value: String(stats.ready),              iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-400', valColor: 'text-emerald-400' },
-          { icon: Smartphone,   label: 'Delivered',    value: String(stats.delivered),          iconBg: 'bg-green-500/10',   iconColor: 'text-green-400',   valColor: 'text-green-400'   },
-          { icon: AlertCircle,  label: 'Urgent',       value: String(stats.urgent),             iconBg: 'bg-red-500/10',     iconColor: 'text-red-400',     valColor: stats.urgent > 0 ? 'text-red-400' : 'text-slate-400' },
-          { icon: DollarSign,   label: 'Revenue',      value: formatCurrency(stats.revenue),    iconBg: 'bg-amber-500/10',   iconColor: 'text-amber-400',   valColor: 'text-amber-400'   },
-        ].map(({ icon: Icon, label, value, iconBg, iconColor, valColor }) => (
-          <div key={label} className="card p-4 flex items-center gap-3">
+        {([
+          { icon: Wrench,       label: 'Total Jobs',   value: String(stats.total),              iconBg: 'bg-violet-500/10',  iconColor: 'text-violet-400',  valColor: 'text-violet-400',  filter: 'all' as RepairStatusFilter },
+          { icon: Clock,        label: 'In Progress',  value: String(stats.active),             iconBg: 'bg-blue-500/10',    iconColor: 'text-blue-400',    valColor: 'text-blue-400',    filter: 'active' as RepairStatusFilter },
+          { icon: CheckCircle,  label: 'Ready',        value: String(stats.ready),              iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-400', valColor: 'text-emerald-400', filter: 'READY' as RepairStatusFilter },
+          { icon: Smartphone,   label: 'Delivered',    value: String(stats.delivered),          iconBg: 'bg-green-500/10',   iconColor: 'text-green-400',   valColor: 'text-green-400',   filter: 'DELIVERED' as RepairStatusFilter },
+          { icon: AlertCircle,  label: 'Urgent',       value: String(stats.urgent),             iconBg: 'bg-red-500/10',     iconColor: 'text-red-400',     valColor: stats.urgent > 0 ? 'text-red-400' : 'text-slate-400', filter: 'urgent' as RepairStatusFilter },
+          { icon: DollarSign,   label: 'Revenue',      value: formatCurrency(stats.revenue),    iconBg: 'bg-amber-500/10',   iconColor: 'text-amber-400',   valColor: 'text-amber-400',   filter: 'DELIVERED' as RepairStatusFilter },
+        ]).map(({ icon: Icon, label, value, iconBg, iconColor, valColor, filter }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => setStatusFilter(filter)}
+            className={`card p-4 flex items-center gap-3 text-left transition-all hover:border-violet-500/30 ${statusFilter === filter ? 'ring-2 ring-violet-500/40 border-violet-500/30' : ''}`}
+          >
             <div className={`w-9 h-9 rounded-xl ${iconBg} border border-white/5 flex items-center justify-center flex-shrink-0`}>
               <Icon size={16} className={iconColor} />
             </div>
@@ -2298,19 +2429,43 @@ export default function RepairsPage() {
               <p className={`text-base font-bold leading-none ${valColor}`}>{value}</p>
               <p className="text-[10px] text-slate-500 mt-0.5 truncate">{label}</p>
             </div>
-          </div>
+          </button>
         ))}
       </div>
 
-      {/* Search bar */}
-      <div className="relative max-w-sm">
-        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-        <input
-          className="input-field pl-8 text-sm h-9"
-          placeholder="Search ticket, customer, phone, device…"
+      {/* Filter toolbar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <ToolbarSearch
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={setSearch}
+          placeholder="Search ticket, customer, phone, device…"
+          className="w-full sm:w-auto sm:min-w-[220px]"
         />
+
+        <div className="flex gap-1 p-1 rounded-xl flex-wrap" style={{ background: 'var(--bg-subtle)' }}>
+          {STATUS_CHIPS.map(opt => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setStatusFilter(opt.id)}
+              className="px-3 py-1.5 text-xs rounded-lg font-medium whitespace-nowrap transition-colors"
+              style={statusFilter === opt.id
+                ? { background: '#6d28d9', color: '#fff' }
+                : { color: 'var(--text-muted)' }}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+            style={{ color: 'var(--text-muted)' }}>
+            Clear filters
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -2319,36 +2474,8 @@ export default function RepairsPage() {
         columns={columns}
         isLoading={loading}
         pageCount={Math.ceil((repairs.length || 1) / 20)}
-        searchableColumns={[
-          { id: 'ticketNumber',  title: 'Ticket'   },
-          { id: 'customerName',  title: 'Customer' },
-          { id: 'reportedIssue', title: 'Issue'    },
-        ]}
-        filterableColumns={[
-          {
-            id: 'status',
-            title: 'Status',
-            options: [
-              { label: 'Received',     value: 'RECEIVED'   },
-              { label: 'Diagnosed',    value: 'DIAGNOSED'  },
-              { label: 'In Repair',    value: 'IN_REPAIR'  },
-              { label: 'Quality Check',value: 'QC'         },
-              { label: 'Ready',        value: 'READY'      },
-              { label: 'Delivered',    value: 'DELIVERED'  },
-              { label: 'Cancelled',    value: 'CANCELLED'  },
-            ],
-          },
-          {
-            id: 'priority',
-            title: 'Priority',
-            options: [
-              { label: 'Urgent', value: 'URGENT' },
-              { label: 'High',   value: 'HIGH'   },
-              { label: 'Normal', value: 'NORMAL' },
-              { label: 'Low',    value: 'LOW'    },
-            ],
-          },
-        ]}
+        searchableColumns={[]}
+        showFilter={false}
       />
     </div>
   )

@@ -137,7 +137,7 @@ export default function GlobalSearch() {
             type: 'repair',
             label: r.ticketNumber || 'Repair ticket',
             sub: [r.customerName, r.deviceBrand, r.deviceModel].filter(Boolean).join(' · '),
-            href: `/dashboard/repairs?q=${encodeURIComponent(r.ticketNumber || trimmed)}`,
+            href: `/dashboard/repairs?id=${r.id}`,
             icon: Wrench,
           })
         }
@@ -150,7 +150,7 @@ export default function GlobalSearch() {
             type: 'sale',
             label: s.invoiceNumber || 'Sale',
             sub: [s.customerName, s.customerPhone].filter(Boolean).join(' · '),
-            href: `/dashboard/sales?q=${encodeURIComponent(s.invoiceNumber || trimmed)}`,
+            href: `/dashboard/sales?id=${s.id}`,
             icon: Receipt,
           })
         }

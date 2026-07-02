@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   Smartphone, Plus, CheckCircle, X, Loader2, Hash, ShoppingBag, Wrench,
   Search, History, User, Tag, Calendar, ChevronRight, RefreshCw, AlertTriangle,
@@ -9,6 +10,7 @@ import {
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
+import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { useImeiRecords } from '@/lib/hooks'
 import { imeiApi, productsApi, warrantyApi } from '@/lib/api'
 import { getActiveBranchId } from '@/lib/active-branch'
@@ -421,11 +423,26 @@ function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
 }
 
 export default function IMEIPage() {
+  const searchParams = useSearchParams()
   const [showAdd,      setShowAdd]      = useState(false)
   const [scanMode,     setScanMode]     = useState(false)
   const [selectedImei, setSelectedImei] = useState<string | null>(null)
   const [quickSearch,  setQuickSearch]  = useState('')
+  const [listSearch,   setListSearch]   = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'IN_STOCK' | 'SOLD' | 'IN_REPAIR' | 'REPAIR_ONLY'>('all')
   const [quickResult,  setQuickResult]  = useState<null | 'loading' | 'found' | 'notfound'>(null)
+
+  const openDetail = useCallback((imei: string) => setSelectedImei(imei), [])
+
+  useEffect(() => {
+    const action = searchParams.get('action')
+    if (action === 'add' || action === 'new' || searchParams.get('new') === '1') setShowAdd(true)
+    const imei = searchParams.get('imei') || searchParams.get('q')
+    if (imei) {
+      setListSearch(imei)
+      setSelectedImei(imei)
+    }
+  }, [searchParams])
   const branchId = getActiveBranchId()
   const imeiParams: Record<string, string> = { limit: '500' }
   if (branchId) imeiParams.branchId = branchId
@@ -460,21 +477,33 @@ export default function IMEIPage() {
     }
   }
 
+  const filteredRecords = useMemo(() => {
+    let rows = records
+    if (statusFilter !== 'all') rows = rows.filter((d: any) => d.status === statusFilter)
+    const q = listSearch.trim().toLowerCase()
+    if (!q) return rows
+    return rows.filter((d: any) =>
+      d.imei?.toLowerCase().includes(q) ||
+      d.product?.name?.toLowerCase().includes(q) ||
+      d.product?.brand?.name?.toLowerCase().includes(q)
+    )
+  }, [records, statusFilter, listSearch])
+
   const columns = useMemo<ColumnDef<any>[]>(() => [
     {
       id: 'device',
       accessorFn: (row) => `${row.product?.name ?? ''} ${row.imei}`,
       header: ({ column }) => <DataTableColumnHeader column={column} title="IMEI / Device" />,
       cell: ({ row }) => (
-        <div className="flex items-center gap-2.5">
+        <button type="button" className="flex items-center gap-2.5 text-left" onClick={() => openDetail(row.original.imei)}>
           <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
             <Smartphone size={14} className="text-violet-400" />
           </div>
           <div>
-            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{row.original.product?.name ?? '—'}</p>
+            <p className="text-sm font-medium hover:text-violet-400 transition-colors" style={{ color: 'var(--text-primary)' }}>{row.original.product?.name ?? '—'}</p>
             <p className="text-xs font-mono text-slate-500">{row.original.imei}</p>
           </div>
-        </div>
+        </button>
       ),
     },
     {
@@ -507,20 +536,20 @@ export default function IMEIPage() {
       header: () => null,
       cell: ({ row }) => (
         <button
-          onClick={() => setSelectedImei(row.original.imei)}
+          onClick={() => openDetail(row.original.imei)}
           className="text-[11px] px-2.5 py-1 rounded-lg border border-violet-500/30 text-violet-400 bg-violet-500/10 hover:bg-violet-500/20 transition-colors flex items-center gap-1"
         >
           <History size={10} />Details
         </button>
       ),
     },
-  ], [setSelectedImei])
+  ], [openDetail])
 
   const stats = [
-    { label: 'Total Tracked',  value: total,               icon: Smartphone,  color: 'violet' },
-    { label: 'In Stock',       value: counts.inStock,       icon: CheckCircle, color: 'green'  },
-    { label: 'Sold',           value: counts.sold,          icon: ShoppingBag, color: 'blue'   },
-    { label: 'Repair Records', value: counts.repairOnly,    icon: History,     color: 'purple' },
+    { label: 'Total Tracked',  value: total,               icon: Smartphone,  color: 'violet', filter: 'all' as const },
+    { label: 'In Stock',       value: counts.inStock,       icon: CheckCircle, color: 'green',  filter: 'IN_STOCK' as const },
+    { label: 'Sold',           value: counts.sold,          icon: ShoppingBag, color: 'blue',   filter: 'SOLD' as const },
+    { label: 'Repair Records', value: counts.repairOnly,    icon: History,     color: 'purple', filter: 'REPAIR_ONLY' as const },
   ]
 
   return (
@@ -600,8 +629,13 @@ export default function IMEIPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="card p-4 flex items-center gap-3">
+        {stats.map(({ label, value, icon: Icon, color, filter }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => setStatusFilter(filter)}
+            className={`card p-4 flex items-center gap-3 text-left w-full transition-all hover:border-violet-500/30 ${statusFilter === filter ? 'ring-2 ring-violet-500/40' : ''}`}
+          >
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20`}>
               <Icon size={15} className={`text-${color}-400`} />
             </div>
@@ -609,29 +643,24 @@ export default function IMEIPage() {
               <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
               <p className="text-[11px] text-slate-500">{label}</p>
             </div>
-          </div>
+          </button>
         ))}
       </div>
 
-      {/* Table — click row to open detail */}
+      <ToolbarSearch
+        value={listSearch}
+        onChange={setListSearch}
+        placeholder="Filter by IMEI, product, brand…"
+        className="max-w-md"
+      />
+
       <ClientSideTable
-        data={records}
+        data={filteredRecords}
         columns={columns}
         isLoading={loading}
-        pageCount={Math.ceil((records.length || 1) / 20)}
-        searchableColumns={[{ id: 'device', title: 'IMEI / Device' }]}
-        filterableColumns={[{
-          id: 'status',
-          title: 'Status',
-          options: [
-            { label: 'In Stock',      value: 'IN_STOCK'             },
-            { label: 'Sold',          value: 'SOLD'                 },
-            { label: 'In Repair',     value: 'IN_REPAIR'            },
-            { label: 'Warranty',      value: 'UNDER_WARRANTY_CLAIM' },
-            { label: 'Scrapped',      value: 'SCRAPPED'             },
-            { label: 'Repair Record', value: 'REPAIR_ONLY'          },
-          ],
-        }]}
+        pageCount={Math.ceil((filteredRecords.length || 1) / 20)}
+        searchableColumns={[]}
+        showFilter={false}
       />
     </div>
   )

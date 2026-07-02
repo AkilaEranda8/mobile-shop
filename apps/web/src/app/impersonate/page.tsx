@@ -1,111 +1,17 @@
-'use client'
+import { redirect } from 'next/navigation'
 
-import { useEffect, useState, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { authStorage } from '@/lib/auth'
-import { initializeSessionBranch } from '@/lib/active-branch'
-import { Loader2, ShieldAlert, CheckCircle } from 'lucide-react'
+type SearchParams = Record<string, string | string[] | undefined>
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
-
-async function establishSession(code: string) {
-  const res = await fetch(`${API_URL}/auth/impersonate-exchange`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code }),
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body?.message || 'Invalid or expired support link')
+/** Legacy path — redirect to /support-session without forwarding JWT query params. */
+export default async function ImpersonateLegacyRedirect({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>
+}) {
+  const sp = await searchParams
+  const code = typeof sp.code === 'string' ? sp.code : undefined
+  if (code) {
+    redirect(`/support-session?code=${encodeURIComponent(code)}`)
   }
-  const { data } = await res.json()
-  const loginUser = initializeSessionBranch(data.user as any)
-  authStorage.save(data.accessToken, data.refreshToken, loginUser)
-}
-
-/** Legacy links with JWT in URL — still works for old admin bookmarks. */
-async function establishSessionFromToken(token: string) {
-  const res = await fetch(`${API_URL}/auth/me`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-  if (!res.ok) throw new Error('Invalid or expired token')
-  const { data } = await res.json()
-  const loginUser = initializeSessionBranch({
-    id: data.id,
-    email: data.email,
-    name: data.name,
-    role: data.role,
-    tenantId: data.tenantId,
-    branchIds: data.branchIds ?? data.branches?.map((b: { id: string }) => b.id) ?? [],
-    branches: data.branches,
-    suggestedBranchId: data.suggestedBranchId,
-  } as any)
-  authStorage.save(token, token, loginUser)
-}
-
-function ImpersonateInner() {
-  const params = useSearchParams()
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
-  const [message, setMessage] = useState('')
-
-  useEffect(() => {
-    const code = params.get('code')
-    const token = params.get('token')
-
-    if (!code && !token) {
-      setStatus('error')
-      setMessage('No support session code provided.')
-      return
-    }
-
-    ;(async () => {
-      try {
-        if (code) await establishSession(code)
-        else if (token) await establishSessionFromToken(token)
-        setStatus('success')
-        setTimeout(() => { window.location.href = '/dashboard' }, 1200)
-      } catch (e) {
-        setStatus('error')
-        setMessage(e instanceof Error ? e.message : 'Failed to authenticate')
-      }
-    })()
-  }, [params])
-
-  return (
-    <div className="min-h-screen bg-[#07090f] flex items-center justify-center">
-      <div className="text-center space-y-4 max-w-sm px-4">
-        {status === 'loading' && (
-          <>
-            <Loader2 className="w-10 h-10 text-violet-400 animate-spin mx-auto" />
-            <p className="text-slate-300 text-sm">Establishing authorised support session…</p>
-          </>
-        )}
-        {status === 'success' && (
-          <>
-            <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto" />
-            <p className="text-slate-300 text-sm">Session ready — redirecting to dashboard…</p>
-          </>
-        )}
-        {status === 'error' && (
-          <>
-            <ShieldAlert className="w-10 h-10 text-red-400 mx-auto" />
-            <p className="text-red-400 text-sm font-medium">{message}</p>
-            <a href="/login" className="text-violet-400 text-xs underline">Back to login</a>
-          </>
-        )}
-      </div>
-    </div>
-  )
-}
-
-export default function ImpersonatePage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[#07090f] flex items-center justify-center">
-        <Loader2 className="w-10 h-10 text-violet-400 animate-spin" />
-      </div>
-    }>
-      <ImpersonateInner />
-    </Suspense>
-  )
+  redirect('/login?message=support-link-expired')
 }

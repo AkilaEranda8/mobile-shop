@@ -434,10 +434,10 @@ export default function DashboardPage() {
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
         {[
           { href: '/dashboard/pos',       icon: ShoppingCart, label: 'New Sale',     sub: 'Create Invoice', iconBg: '#ede9fe', iconColor: '#7c3aed', openPos: true },
-          { href: '/dashboard/customers', icon: Users,        label: 'Add Customer', sub: 'Register New',   iconBg: '#dbeafe', iconColor: '#2563eb' },
-          { href: '/dashboard/inventory', icon: Package,      label: 'Add Product',  sub: 'New Item',       iconBg: '#dcfce7', iconColor: '#16a34a' },
-          { href: '/dashboard/repairs',   icon: Wrench,       label: 'New Repair',   sub: 'Create Ticket',  iconBg: '#ffedd5', iconColor: '#ea580c' },
-          { href: '/dashboard/finance',   icon: DollarSign,   label: 'Expenses',     sub: 'Add Expense',    iconBg: '#ffe4e6', iconColor: '#e11d48' },
+          { href: '/dashboard/customers?action=add', icon: Users,        label: 'Add Customer', sub: 'Register New',   iconBg: '#dbeafe', iconColor: '#2563eb' },
+          { href: '/dashboard/inventory?action=add-product', icon: Package,      label: 'Add Product',  sub: 'New Item',       iconBg: '#dcfce7', iconColor: '#16a34a' },
+          { href: '/dashboard/repairs?action=new',   icon: Wrench,       label: 'New Repair',   sub: 'Create Ticket',  iconBg: '#ffedd5', iconColor: '#ea580c' },
+          { href: '/dashboard/finance?action=add-expense',   icon: DollarSign,   label: 'Expenses',     sub: 'Add Expense',    iconBg: '#ffe4e6', iconColor: '#e11d48' },
           { href: '/dashboard/finance',   icon: BarChart2,    label: 'Reports',      sub: 'View Reports',   iconBg: '#cffafe', iconColor: '#0891b2' },
           ...(hasDailyClosing ? [{ href: '/dashboard/daily-closing', icon: Lock, label: 'Daily Closing', sub: 'Close Day', iconBg: '#f3e8ff', iconColor: '#7c3aed' }] : []),
         ].map(a => {

@@ -1,14 +1,16 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
-  ArrowLeftRight, Building2, Loader2, Search, RefreshCw,
+  ArrowLeftRight, Building2, Loader2, RefreshCw,
   CheckCircle, AlertTriangle, Package, ArrowDownRight, ArrowUpRight, Plus, X, Layers, Smartphone,
 } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
+import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { EmptyState } from '@/components/ui/EmptyState'
 import toast from 'react-hot-toast'
 import { formatDate } from '@/lib/utils'
@@ -82,6 +84,14 @@ function TransferModal({
   const [loadingImeis, setLoadingImeis] = useState(false)
   const [notes, setNotes] = useState('')
   const [preview, setPreview] = useState<TransferPreview | null>(null)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   const destBranches = branches.filter(b => b.id !== fromBranchId)
   const branchOptions = branches.map(b => ({ value: b.id, label: b.name }))
@@ -263,7 +273,7 @@ function TransferModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4 text-white">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium mb-1.5 text-white">From Branch</label>
               <FilterDropdown
@@ -293,11 +303,15 @@ function TransferModal({
 
           <div>
             <label className="block text-xs font-medium mb-1.5 text-white">Product</label>
-            <div className="relative mb-2">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70" />
-              <input className="input-field pl-9 text-sm text-white placeholder:text-white/50" placeholder="Search by name or SKU…"
-                value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
+            <ToolbarSearch
+              inputId="transfer-product-search"
+              value={search}
+              onChange={setSearch}
+              placeholder="Search by name or SKU…"
+              tone="dark"
+              className="max-w-none mb-2"
+              autoFocus
+            />
             <FilterDropdown
               value={productId}
               onChange={v => {
@@ -484,6 +498,7 @@ function TransferModal({
 }
 
 export default function StockTransferPage() {
+  const searchParams = useSearchParams()
   const user = authStorage.getUser()
   const activeBranchId = getActiveBranchId() ?? ''
   const canTransfer = user?.role === 'OWNER' || user?.role === 'MANAGER'
@@ -496,6 +511,7 @@ export default function StockTransferPage() {
   const [loadingTransfers, setLoadingTransfers] = useState(true)
   const [showTransfer, setShowTransfer] = useState(false)
   const [viewBranchId, setViewBranchId] = useState(activeBranchId)
+  const [transferSearch, setTransferSearch] = useState('')
 
   useEffect(() => {
     const visible = getVisibleBranches()
@@ -506,6 +522,13 @@ export default function StockTransferPage() {
   useEffect(() => {
     if (activeBranchId) setViewBranchId(activeBranchId)
   }, [activeBranchId])
+
+  useEffect(() => {
+    const action = searchParams.get('action')
+    if (action === 'new' || action === 'add' || action === 'transfer' || searchParams.get('new') === '1') {
+      setShowTransfer(true)
+    }
+  }, [searchParams])
 
   const loadProducts = useCallback(() => {
     if (!viewBranchId) return
@@ -532,6 +555,17 @@ export default function StockTransferPage() {
   const transferIn = transfers.filter(t => t.type === 'TRANSFER_IN').length
   const transferOut = transfers.filter(t => t.type === 'TRANSFER_OUT').length
   const totalQty = transfers.reduce((s, t) => s + Math.abs(t.quantity), 0)
+
+  const filteredTransfers = useMemo(() => {
+    const q = transferSearch.trim().toLowerCase()
+    if (!q) return transfers
+    return transfers.filter(t =>
+      t.product?.name?.toLowerCase().includes(q) ||
+      t.product?.sku?.toLowerCase().includes(q) ||
+      t.branch?.name?.toLowerCase().includes(q) ||
+      (t.note ?? t.reference ?? '').toLowerCase().includes(q)
+    )
+  }, [transfers, transferSearch])
 
   const handleRefresh = () => {
     loadProducts()
@@ -689,6 +723,13 @@ export default function StockTransferPage() {
         ))}
       </div>
 
+      <ToolbarSearch
+        value={transferSearch}
+        onChange={setTransferSearch}
+        placeholder="Search product, branch, notes…"
+        className="max-w-md"
+      />
+
       {/* Table or Empty */}
       {!loadingTransfers && transfers.length === 0 ? (
         <EmptyState
@@ -705,23 +746,12 @@ export default function StockTransferPage() {
         />
       ) : (
         <ClientSideTable
-          data={transfers}
+          data={filteredTransfers}
           columns={columns}
           isLoading={loadingTransfers}
-          pageCount={Math.ceil((transfers.length || 1) / 20)}
-          searchableColumns={[
-            { id: 'product', title: 'Product' },
-            { id: 'branch', title: 'Branch' },
-            { id: 'note', title: 'Notes' },
-          ]}
-          filterableColumns={[{
-            id: 'type',
-            title: 'Type',
-            options: [
-              { label: 'Transfer In', value: 'TRANSFER_IN' },
-              { label: 'Transfer Out', value: 'TRANSFER_OUT' },
-            ],
-          }]}
+          pageCount={Math.ceil((filteredTransfers.length || 1) / 20)}
+          searchableColumns={[]}
+          showFilter={false}
         />
       )}
     </div>

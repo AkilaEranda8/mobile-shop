@@ -1,8 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { UserCheck, Plus, Search, CheckCircle, XCircle, X, Loader2, Mail, Clock, Edit2, Trash2, AlertTriangle, Building2 } from 'lucide-react'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
+import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { useUsers, useBranches } from '@/lib/hooks'
 import { usersApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
@@ -202,6 +204,7 @@ function DeleteConfirmModal({ name, onConfirm, onClose, loading }: { name: strin
 }
 
 export default function StaffPage() {
+  const searchParams = useSearchParams()
   const [search, setSearch] = useState('')
   const [branchFilter, setBranchFilter] = useState('')
   const [tab, setTab] = useState<'staff' | 'permissions'>('staff')
@@ -209,6 +212,11 @@ export default function StaffPage() {
   const [editStaff, setEditStaff] = useState<any>(null)
   const [deleteTarget, setDeleteTarget] = useState<any>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+
+  useEffect(() => {
+    const action = searchParams.get('action')
+    if (action === 'add' || action === 'new' || searchParams.get('new') === '1') setShowAdd(true)
+  }, [searchParams])
 
   const { data: branchesRaw } = useBranches()
   const branches = ((branchesRaw as any[]) ?? []).map((b: any) => ({ id: b.id, name: b.name }))
@@ -262,10 +270,12 @@ export default function StaffPage() {
       {tab === 'staff' && (
         <>
           <div className="flex flex-wrap items-center gap-3">
-            <div className="relative max-w-sm flex-1 min-w-[200px]">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input className="input-field pl-9" placeholder="Search staff..." value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
+            <ToolbarSearch
+              value={search}
+              onChange={setSearch}
+              placeholder="Search staff…"
+              className="flex-1 min-w-[200px] max-w-sm"
+            />
             {branches.length > 1 && (
               <FilterDropdown
                 value={branchFilter}

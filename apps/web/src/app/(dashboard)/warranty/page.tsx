@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useRef, useMemo, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Search, Shield, Plus, AlertTriangle, Eye, Loader2, X, Edit, Trash2,
   Phone, Calendar, Hash, CheckCircle, Clock, Package, User, Save,
@@ -11,6 +11,7 @@ import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
+import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { formatDate } from '@/lib/utils'
 import { useWarranties, useCustomers, useProducts } from '@/lib/hooks'
 import { warrantyApi } from '@/lib/api'
@@ -645,8 +646,10 @@ function EditWarrantyModal({ warranty, onClose, onSaved }: {
 /* ── Main Page ────────────────────────────────────────────────────────── */
 export default function WarrantyPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { data: warrantyData, loading, refetch } = useWarranties()
   const [tab, setTab]                     = useState<'all' | 'expiring' | 'claimed'>('all')
+  const [textSearch, setTextSearch]       = useState('')
   const [showAdd,   setShowAdd]           = useState(false)
   const [viewW,     setViewW]             = useState<Warranty | null>(null)
   const [editW,     setEditW]             = useState<Warranty | null>(null)
@@ -659,15 +662,37 @@ export default function WarrantyPage() {
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [refetch])
 
+  useEffect(() => {
+    const action = searchParams.get('action')
+    if (action === 'add' || action === 'new' || searchParams.get('new') === '1') setShowAdd(true)
+    const id = searchParams.get('id')
+    if (!id || !warranties.length) return
+    const found = warranties.find(w => w.id === id)
+    if (found) setViewW(found)
+  }, [searchParams, warranties])
+
+  const openDetail = useCallback((w: Warranty) => setViewW(w), [])
+  const openEdit = useCallback((w: Warranty) => setEditW(w), [])
+
   const now        = new Date()
   const thirtyDays = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
   const expiringCount = warranties.filter((w: Warranty) => new Date(w.endDate) <= thirtyDays && w.status === 'ACTIVE').length
 
-  const tabFiltered = warranties.filter((w: Warranty) => {
-    if (tab === 'expiring') return new Date(w.endDate) <= thirtyDays && w.status === 'ACTIVE'
-    if (tab === 'claimed')  return w.status === 'CLAIMED'
-    return true
-  })
+  const tabFiltered = useMemo(() => {
+    let rows = warranties.filter((w: Warranty) => {
+      if (tab === 'expiring') return new Date(w.endDate) <= thirtyDays && w.status === 'ACTIVE'
+      if (tab === 'claimed')  return w.status === 'CLAIMED'
+      return true
+    })
+    const q = textSearch.trim().toLowerCase()
+    if (!q) return rows
+    return rows.filter((w: Warranty) =>
+      w.warrantyCode?.toLowerCase().includes(q) ||
+      w.customerName?.toLowerCase().includes(q) ||
+      w.productName?.toLowerCase().includes(q) ||
+      ((w as any).imei ?? '').toLowerCase().includes(q)
+    )
+  }, [warranties, tab, textSearch, thirtyDays])
 
   const handleDelete = async (w: Warranty) => {
     if (!confirm(`Delete warranty ${w.warrantyCode}? This cannot be undone.`)) return
@@ -686,10 +711,15 @@ export default function WarrantyPage() {
       accessorKey: 'warrantyCode',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Code" />,
       cell: ({ row }) => (
-        <div className="flex items-center gap-2">
+        <button
+          type="button"
+          className="flex items-center gap-2 hover:opacity-80"
+          onClick={() => openDetail(row.original)}
+          onDoubleClick={(e) => { e.preventDefault(); openEdit(row.original) }}
+        >
           <Shield size={13} className="text-violet-400 flex-shrink-0" />
-          <span className="text-xs font-mono text-violet-500">{row.original.warrantyCode}</span>
-        </div>
+          <span className="text-xs font-mono text-violet-500 hover:underline">{row.original.warrantyCode}</span>
+        </button>
       ),
     },
     {
@@ -740,13 +770,13 @@ export default function WarrantyPage() {
       id: 'actions',
       cell: ({ row }) => (
         <TableActionsRow
-          showAction={{ action: () => setViewW(row.original) }}
-          editAction={{ action: () => setEditW(row.original) }}
+          showAction={{ action: () => openDetail(row.original) }}
+          editAction={{ action: () => openEdit(row.original) }}
           deleteAction={{ action: () => handleDelete(row.original), disabled: deletingId === row.original.id }}
         />
       ),
     },
-  ], [deletingId, handleDelete])
+  ], [deletingId, handleDelete, openDetail, openEdit])
 
   return (
     <div className="space-y-6">
@@ -783,12 +813,17 @@ export default function WarrantyPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total Warranties', value: warranties.length,                                                  icon: Shield,        color: 'violet' },
-          { label: 'Active',           value: warranties.filter((w: Warranty) => w.status === 'ACTIVE').length,  icon: CheckCircle,   color: 'green'  },
-          { label: 'Expiring 30d',     value: expiringCount,                                                      icon: AlertTriangle, color: 'yellow' },
-          { label: 'Claimed',          value: warranties.filter((w: Warranty) => w.status === 'CLAIMED').length, icon: Clock,         color: 'blue'   },
-        ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="card p-4 flex items-center gap-3">
+          { label: 'Total Warranties', value: warranties.length,                                                  icon: Shield,        color: 'violet', tabKey: 'all' as const },
+          { label: 'Active',           value: warranties.filter((w: Warranty) => w.status === 'ACTIVE').length,  icon: CheckCircle,   color: 'green',  tabKey: 'all' as const },
+          { label: 'Expiring 30d',     value: expiringCount,                                                      icon: AlertTriangle, color: 'yellow', tabKey: 'expiring' as const },
+          { label: 'Claimed',          value: warranties.filter((w: Warranty) => w.status === 'CLAIMED').length, icon: Clock,         color: 'blue',   tabKey: 'claimed' as const },
+        ].map(({ label, value, icon: Icon, color, tabKey }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => setTab(tabKey)}
+            className={`card p-4 flex items-center gap-3 text-left transition-all hover:border-violet-500/30 w-full ${tab === tabKey ? 'ring-2 ring-violet-500/40' : ''}`}
+          >
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20`}>
               <Icon size={15} className={`text-${color}-400`} />
             </div>
@@ -796,7 +831,7 @@ export default function WarrantyPage() {
               <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
               <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{label}</p>
             </div>
-          </div>
+          </button>
         ))}
       </div>
 
@@ -811,27 +846,21 @@ export default function WarrantyPage() {
         ))}
       </div>
 
+      <ToolbarSearch
+        value={textSearch}
+        onChange={setTextSearch}
+        placeholder="Search code, customer, product, IMEI…"
+        className="max-w-md"
+      />
+
       {/* Table */}
       <ClientSideTable
         data={tabFiltered}
         columns={columns}
         isLoading={loading}
         pageCount={Math.ceil((tabFiltered.length || 1) / 20)}
-        searchableColumns={[
-          { id: 'warrantyCode',  title: 'Code'     },
-          { id: 'customerName', title: 'Customer' },
-          { id: 'productName',  title: 'Product'  },
-        ]}
-        filterableColumns={[{
-          id: 'status',
-          title: 'Status',
-          options: [
-            { label: 'Active',  value: 'ACTIVE'  },
-            { label: 'Claimed', value: 'CLAIMED' },
-            { label: 'Void',    value: 'VOID'    },
-            { label: 'Expired', value: 'EXPIRED' },
-          ],
-        }]}
+        searchableColumns={[]}
+        showFilter={false}
       />
     </div>
   )

@@ -1,0 +1,33 @@
+---
+description: Hexalyte dashboard UX standards — fewer clicks, consistent patterns
+globs: apps/web/src/app/(dashboard)/**/*.tsx
+alwaysApply: false
+---
+
+# Hexalyte UX Standards
+
+When changing dashboard pages, keep these patterns. Do not add onboarding panels, coach strips, or plan docs unless explicitly requested.
+
+## Clicks & navigation
+
+- Prefer **inline modals** over `router.push` to a wrapper route for create/edit flows.
+- Support **URL deep links**: `?action=add|new`, `?id=`, `?q=` to open forms, detail modals, or prefill search.
+- **Primary column clickable** (ticket #, invoice #, customer name) → detail modal; optional double-click → edit.
+- **Stat cards / chips** filter lists in one click; avoid nested dropdown-only filters when chips work.
+
+## Search & tables
+
+- **One** `ToolbarSearch` per page toolbar — never duplicate with `ClientSideTable` `searchableColumns`.
+- Pass `searchableColumns={[]}` and `showFilter={false}` when filters live in the page toolbar.
+- Persist list filters in `sessionStorage` when users commonly refresh (inventory, repairs).
+
+## Modals & keyboard
+
+- **Esc** closes modals (`keydown` listener, remove on unmount).
+- Reuse `FilterDropdown` and `ToolbarSearch` from `@/components/ui/`.
+- Mobile: branch switcher and toolbars must work without `hidden sm:` blocking core actions.
+
+## Scope
+
+- UX only — do not change business logic, API contracts, or break backward-compatible routes.
+- No new banners/panels for “tips” or setup guides.

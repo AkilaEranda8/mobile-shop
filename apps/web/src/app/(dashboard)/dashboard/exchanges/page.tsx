@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   Plus, X, Loader2, ArrowLeftRight, Trash2, Phone, RefreshCw,
   Receipt, Smartphone, Package, ArrowDownLeft, ArrowUpRight, Printer,
@@ -10,6 +11,7 @@ import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
+import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { exchangesApi, salesApi, tenantApi } from '@/lib/api'
 import { ExchangeWizard } from '@/components/exchanges/ExchangeWizard'
@@ -210,10 +212,12 @@ function ExchangeDetailModal({
 
 /* ── Main Page ────────────────────────────────────────────────────────── */
 export default function ExchangesPage() {
+  const searchParams = useSearchParams()
   const [records, setRecords]   = useState<any[]>([])
   const [loading, setLoading]   = useState(true)
   const [showNew, setShowNew]   = useState(false)
   const [selected, setSelected] = useState<any | null>(null)
+  const [textSearch, setTextSearch] = useState('')
   const [invSettings, setInvSettings] = useState<InvoiceSettings>(() => getInvoiceSettings())
   const [shopCtx, setShopCtx] = useState<ShopContext | undefined>(undefined)
 
@@ -226,6 +230,15 @@ export default function ExchangesPage() {
   }, [])
 
   useEffect(() => { fetchExchanges() }, [fetchExchanges])
+
+  useEffect(() => {
+    const action = searchParams.get('action')
+    if (action === 'new' || action === 'add' || searchParams.get('new') === '1') setShowNew(true)
+    const id = searchParams.get('id')
+    if (!id || !records.length) return
+    const found = records.find(r => r.id === id)
+    if (found) setSelected(found)
+  }, [searchParams, records])
 
   useEffect(() => {
     const user = authStorage.getUser()
@@ -254,12 +267,26 @@ export default function ExchangesPage() {
     return { total: records.length, withInvoice, refunds, totalBuy, totalSold }
   }, [records])
 
+  const openDetail = useCallback((row: any) => setSelected(row), [])
+
+  const filteredRecords = useMemo(() => {
+    const q = textSearch.trim().toLowerCase()
+    if (!q) return records
+    return records.filter(r =>
+      r.exchangeNumber?.toLowerCase().includes(q) ||
+      r.customerName?.toLowerCase().includes(q) ||
+      r.customerPhone?.toLowerCase().includes(q) ||
+      `${r.oldBrand ?? ''} ${r.oldModel ?? ''}`.toLowerCase().includes(q) ||
+      `${r.newBrand ?? ''} ${r.newModel ?? ''}`.toLowerCase().includes(q)
+    )
+  }, [records, textSearch])
+
   const columns = useMemo<ColumnDef<any>[]>(() => [
     {
       accessorKey: 'exchangeNumber',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Exchange #" />,
       cell: ({ row }) => (
-        <button type="button" onClick={() => setSelected(row.original)}
+        <button type="button" onClick={() => openDetail(row.original)}
           className="text-xs font-mono font-semibold text-amber-600 dark:text-amber-400 hover:underline text-left">
           {row.original.exchangeNumber}
         </button>
@@ -269,17 +296,19 @@ export default function ExchangesPage() {
       accessorKey: 'customerName',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Customer" />,
       cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-amber-500/15 flex items-center justify-center text-[11px] font-bold text-amber-600 dark:text-amber-300 flex-shrink-0">
-            {row.original.customerName?.charAt(0) ?? '?'}
+        <button type="button" className="text-left" onClick={() => openDetail(row.original)}>
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full bg-amber-500/15 flex items-center justify-center text-[11px] font-bold text-amber-600 dark:text-amber-300 flex-shrink-0">
+              {row.original.customerName?.charAt(0) ?? '?'}
+            </div>
+            <div>
+              <p className="text-sm font-medium hover:text-amber-500 transition-colors" style={{ color: 'var(--text-primary)' }}>{row.original.customerName}</p>
+              <p className="text-[10px] flex items-center gap-0.5" style={{ color: 'var(--text-muted)' }}>
+                <Phone size={9} />{row.original.customerPhone}
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{row.original.customerName}</p>
-            <p className="text-[10px] flex items-center gap-0.5" style={{ color: 'var(--text-muted)' }}>
-              <Phone size={9} />{row.original.customerPhone}
-            </p>
-          </div>
-        </div>
+        </button>
       ),
     },
     {
@@ -340,10 +369,10 @@ export default function ExchangesPage() {
     {
       id: 'actions',
       cell: ({ row }) => (
-        <TableActionsRow showAction={{ action: () => setSelected(row.original) }} />
+        <TableActionsRow showAction={{ action: () => openDetail(row.original) }} />
       ),
     },
-  ], [])
+  ], [openDetail])
 
   return (
     <div className="space-y-6">
@@ -396,6 +425,15 @@ export default function ExchangesPage() {
         ))}
       </div>
 
+      {records.length > 0 && (
+        <ToolbarSearch
+          value={textSearch}
+          onChange={setTextSearch}
+          placeholder="Search exchange #, customer, device…"
+          className="max-w-md"
+        />
+      )}
+
       {/* Table or Empty */}
       {!loading && records.length === 0 ? (
         <EmptyState
@@ -412,22 +450,12 @@ export default function ExchangesPage() {
         />
       ) : (
         <ClientSideTable
-          data={records}
+          data={filteredRecords}
           columns={columns}
           isLoading={loading}
-          pageCount={Math.ceil((records.length || 1) / 20)}
-          searchableColumns={[
-            { id: 'customerName',   title: 'Customer' },
-            { id: 'exchangeNumber', title: 'Exchange #' },
-          ]}
-          filterableColumns={[{
-            id: 'balanceDirection',
-            title: 'Balance Type',
-            options: [
-              { label: 'Customer Pays', value: 'CUSTOMER_PAYS' },
-              { label: 'Shop Refunds',  value: 'SHOP_REFUNDS' },
-            ],
-          }]}
+          pageCount={Math.ceil((filteredRecords.length || 1) / 20)}
+          searchableColumns={[]}
+          showFilter={false}
         />
       )}
     </div>

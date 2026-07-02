@@ -1,24 +1,13 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { Building2, ChevronDown } from 'lucide-react'
+import { Building2 } from 'lucide-react'
 import { authStorage } from '@/lib/auth'
+import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import { getActiveBranchId, getBranchLabel, setActiveBranchId, hasMultipleBranches, getVisibleBranches } from '@/lib/active-branch'
 
 export function BranchControl() {
   const user = authStorage.getUser()
   const visible = getVisibleBranches(user)
-
-  const [open, setOpen] = useState(false)
-  const rootRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const onOutside = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onOutside)
-    return () => document.removeEventListener('mousedown', onOutside)
-  }, [])
 
   if (!user || visible.length === 0) return null
 
@@ -39,13 +28,12 @@ export function BranchControl() {
   const pick = (value: string) => {
     if (value === 'all' && isOwner) setActiveBranchId('all', 'all')
     else setActiveBranchId(value, 'assigned')
-    setOpen(false)
     window.location.reload()
   }
 
   if (!showDropdown) {
     return (
-      <div className="hidden sm:flex items-center gap-1.5 h-8 px-2.5 rounded-xl text-xs font-medium max-w-[170px]"
+      <div className="flex items-center gap-1.5 h-8 px-2.5 rounded-xl text-xs font-medium max-w-[min(170px,42vw)]"
         style={{ background: 'var(--bg-subtle)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>
         <Building2 size={13} className="flex-shrink-0 opacity-70" />
         <span className="truncate">{label}</span>
@@ -54,47 +42,14 @@ export function BranchControl() {
   }
 
   return (
-    <div ref={rootRef} className="relative hidden sm:block">
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 h-8 pl-2.5 pr-2 rounded-xl text-xs font-medium max-w-[190px] transition-colors"
-        style={{
-          background: 'var(--bg-subtle)',
-          color: 'var(--text-secondary)',
-          border: open ? '1px solid rgba(109,40,217,0.35)' : '1px solid var(--border-subtle)',
-        }}
-        title="Active branch"
-      >
-        <Building2 size={13} className="flex-shrink-0 opacity-70" />
-        <span className="truncate flex-1 text-left">{label}</span>
-        <ChevronDown size={12} className={`flex-shrink-0 opacity-60 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
-
-      {open && (
-        <div
-          className="absolute right-0 top-full mt-1.5 min-w-[200px] max-h-56 overflow-y-auto rounded-xl shadow-2xl py-1 z-50"
-          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
-        >
-          {options.map(opt => {
-            const selected = opt.value === currentValue
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => pick(opt.value)}
-                className="w-full text-left px-3 py-2 text-xs transition-colors"
-                style={{
-                  color: selected ? '#8b5cf6' : 'var(--text-primary)',
-                  background: selected ? 'rgba(109,40,217,0.12)' : 'transparent',
-                }}
-              >
-                {opt.label}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
+    <FilterDropdown
+      value={currentValue}
+      onChange={pick}
+      options={options}
+      icon={Building2}
+      placeholder="Active branch"
+      active={user.branchScope === 'all' || (!!activeId && activeId !== visible[0]?.id)}
+      className="min-w-[min(190px,46vw)] max-w-[190px]"
+    />
   )
 }

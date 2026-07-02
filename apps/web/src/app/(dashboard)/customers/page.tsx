@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Plus, Star, Phone, Mail, MapPin, Eye, Loader2, SlidersHorizontal, X, ShoppingBag, Wrench, CreditCard, Calendar, ChevronRight, Users, User, Hash, MessageSquare, ArrowRight, CheckCircle2, UserPlus, DollarSign, Building2, Wallet } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
+import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useCustomers, useFeatureFlag } from '@/lib/hooks'
 import { customersApi } from '@/lib/api'
@@ -498,6 +499,7 @@ export default function CustomersPage() {
   const [detailId, setDetailId] = useState<string | null>(null)
   const [payCustomerId, setPayCustomerId] = useState<string | null>(null)
   const [segment, setSegment] = useState('all')
+  const [textSearch, setTextSearch] = useState('')
   const [showSegment, setShowSegment] = useState(false)
   const segmentRef = useRef<HTMLDivElement>(null)
 
@@ -512,12 +514,28 @@ export default function CustomersPage() {
   }, [refetch])
 
   useEffect(() => {
-    const id = searchParams.get('customerId')
+    const action = searchParams.get('action')
+    if (action === 'add' || searchParams.get('new') === '1') setShowAddModal(true)
+    const id = searchParams.get('customerId') || searchParams.get('id')
     if (id) setDetailId(id)
+    const q = searchParams.get('q')
+    if (q) setTextSearch(q)
   }, [searchParams])
 
+  const openDetail = useCallback((id: string) => setDetailId(id), [])
+
   const activeSeg = SEGMENTS.find(s => s.key === segment) ?? SEGMENTS[0]
-  const segmentFiltered = customers.filter(activeSeg.filter)
+  const segmentFiltered = useMemo(() => {
+    let rows = customers.filter(activeSeg.filter)
+    const q = textSearch.trim().toLowerCase()
+    if (!q) return rows
+    return rows.filter(c =>
+      c.name?.toLowerCase().includes(q) ||
+      c.phone?.toLowerCase().includes(q) ||
+      (c.email ?? '').toLowerCase().includes(q) ||
+      (c.city ?? '').toLowerCase().includes(q)
+    )
+  }, [customers, activeSeg, textSearch])
 
   const totalDue       = customers.reduce((s, c) => s + c.totalDue, 0)
   const totalPurchases = customers.reduce((s, c) => s + c.totalPurchases, 0)
@@ -532,7 +550,13 @@ export default function CustomersPage() {
             {row.original.name.charAt(0)}
           </div>
           <div>
-            <p className="text-sm font-bold text-slate-200">{row.original.name}</p>
+            <button
+              type="button"
+              className="text-sm font-bold text-slate-200 hover:text-violet-400 text-left transition-colors"
+              onClick={() => openDetail(row.original.id)}
+            >
+              {row.original.name}
+            </button>
             {row.original.loyaltyPoints >= 500 && (
               <span className="flex items-center gap-1 text-[10px] text-yellow-400">
                 <Star size={9} className="fill-yellow-400" />VIP
@@ -594,11 +618,11 @@ export default function CustomersPage() {
               Pay
             </button>
           )}
-          <TableActionsRow showAction={{ action: () => setDetailId(row.original.id) }} />
+          <TableActionsRow showAction={{ action: () => openDetail(row.original.id) }} />
         </div>
       ),
     },
-  ], [setDetailId])
+  ], [openDetail])
 
   /* close segment dropdown on outside click */
   useEffect(() => {
@@ -690,16 +714,36 @@ export default function CustomersPage() {
         ))}
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <ToolbarSearch
+          value={textSearch}
+          onChange={setTextSearch}
+          placeholder="Search name, phone, email…"
+          className="w-full sm:w-auto sm:min-w-[220px]"
+        />
+        <div className="flex gap-1 p-1 rounded-xl flex-wrap" style={{ background: 'var(--bg-subtle)' }}>
+          {SEGMENTS.filter(s => hasCustomerCredit || s.key !== 'outstanding').map(s => (
+            <button
+              key={s.key}
+              type="button"
+              onClick={() => setSegment(s.key)}
+              className="px-3 py-1.5 text-xs rounded-lg font-medium whitespace-nowrap transition-colors"
+              style={segment === s.key
+                ? { background: '#6d28d9', color: '#fff' }
+                : { color: 'var(--text-muted)' }}>
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Table */}
       <ClientSideTable
         data={segmentFiltered}
         columns={columns}
         isLoading={loading}
         pageCount={Math.ceil((segmentFiltered.length || 1) / 20)}
-        searchableColumns={[
-          { id: 'name',  title: 'Name'  },
-          { id: 'phone', title: 'Phone' },
-        ]}
+        searchableColumns={[]}
       />
     </div>
   )

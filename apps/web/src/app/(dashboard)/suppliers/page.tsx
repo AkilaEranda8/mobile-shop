@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus, Search, Truck, Phone, Mail, Package, Eye, Edit, Loader2, X, ChevronDown, Trash2, FileText, MapPin, Globe, Hash, ShoppingBag, TrendingUp, AlertCircle, Calendar, CheckCircle, Save, PackageCheck, ShieldAlert, CreditCard, Banknote, Receipt, Smartphone, ClipboardList } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
+import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useSuppliers, usePurchaseOrders, useProducts } from '@/lib/hooks'
 import { suppliersApi, imeiApi, productsApi } from '@/lib/api'
@@ -1250,6 +1251,7 @@ function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; on
 
 export default function SuppliersPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState<'suppliers' | 'orders'>('suppliers')
   const [showAddSupplier, setShowAddSupplier]     = useState(false)
   const [showNewPO, setShowNewPO]                 = useState(false)
@@ -1260,12 +1262,37 @@ export default function SuppliersPage() {
   const [registerImeiPO,  setRegisterImeiPO]      = useState<PurchaseOrder | null>(null)
   const [paySupplier,     setPaySupplier]         = useState<Supplier | null>(null)
   const [imeiBannerHidden, setImeiBannerHidden]   = useState(() => isImeiHealthBannerDismissed())
+  const [textSearch, setTextSearch] = useState('')
+  const [poStatusFilter, setPoStatusFilter] = useState<'all' | 'DRAFT' | 'SENT' | 'PARTIAL' | 'RECEIVED' | 'CLOSED'>('all')
+
+  const openSupplier = useCallback((s: Supplier) => setDetailSupplier(s), [])
+  const openPoInvoice = useCallback((id: string) => router.push(`/purchase-invoice?id=${id}`), [router])
   const { data: suppliersData, loading: suppliersLoading, refetch: refetchSuppliers } = useSuppliers()
   const { data: ordersData,    loading: ordersLoading,    refetch: refetchOrders    } = usePurchaseOrders()
   const { data: productsData } = useProducts({ limit: '2000' })
   const suppliers:      Supplier[]      = (suppliersData?.data ?? []) as Supplier[]
   const purchaseOrders: PurchaseOrder[] = (ordersData?.data    ?? []) as PurchaseOrder[]
   const allProducts: PoProduct[] = (productsData?.data ?? []) as PoProduct[]
+
+  useEffect(() => {
+    const action = searchParams.get('action')
+    if (action === 'add' || action === 'add-supplier' || searchParams.get('new') === '1') {
+      setActiveTab('suppliers')
+      setShowAddSupplier(true)
+    }
+    if (action === 'new-po' || action === 'add-po') {
+      setActiveTab('orders')
+      setShowNewPO(true)
+    }
+    const id = searchParams.get('id')
+    if (id && suppliers.length) {
+      const found = suppliers.find(s => s.id === id)
+      if (found) {
+        setActiveTab('suppliers')
+        setDetailSupplier(found)
+      }
+    }
+  }, [searchParams, suppliers])
 
   const incompletePoCount = useMemo(() =>
     purchaseOrders.filter(po => {
@@ -1274,6 +1301,28 @@ export default function SuppliersPage() {
       return (po.status === 'RECEIVED' || po.status === 'CLOSED') && expected > 0 && registered < expected
     }).length,
   [purchaseOrders, allProducts])
+
+  const filteredSuppliers = useMemo(() => {
+    const q = textSearch.trim().toLowerCase()
+    if (!q) return suppliers
+    return suppliers.filter(s =>
+      s.name?.toLowerCase().includes(q) ||
+      (s.contactName ?? '').toLowerCase().includes(q) ||
+      (s.phone ?? '').toLowerCase().includes(q) ||
+      (s.city ?? '').toLowerCase().includes(q)
+    )
+  }, [suppliers, textSearch])
+
+  const filteredPOs = useMemo(() => {
+    let rows = purchaseOrders
+    if (poStatusFilter !== 'all') rows = rows.filter(po => po.status === poStatusFilter)
+    const q = textSearch.trim().toLowerCase()
+    if (!q) return rows
+    return rows.filter(po =>
+      po.poNumber?.toLowerCase().includes(q) ||
+      po.supplierName?.toLowerCase().includes(q)
+    )
+  }, [purchaseOrders, textSearch, poStatusFilter])
 
   const handleMarkReceived = async (po: PurchaseOrder) => {
     setConfirmPO(po)
@@ -1308,7 +1357,9 @@ export default function SuppliersPage() {
             {row.original.name.charAt(0)}
           </div>
           <div>
-            <p className="font-semibold text-slate-100 text-sm">{row.original.name}</p>
+            <button type="button" className="font-semibold text-slate-100 text-sm hover:text-violet-400 text-left transition-colors" onClick={() => openSupplier(row.original)}>
+              {row.original.name}
+            </button>
             {row.original.contactName && <p className="text-xs text-slate-500">{row.original.contactName}</p>}
           </div>
         </div>
@@ -1362,13 +1413,17 @@ export default function SuppliersPage() {
         )
       },
     },
-  ], [setDetailSupplier, setEditSupplier, setPaySupplier, purchaseOrders])
+  ], [setDetailSupplier, setEditSupplier, setPaySupplier, purchaseOrders, openSupplier])
 
   const poColumns = useMemo<ColumnDef<PurchaseOrder>[]>(() => [
     {
       accessorKey: 'poNumber',
       header: ({ column }) => <DataTableColumnHeader column={column} title="PO Number" />,
-      cell: ({ row }) => <span className="text-xs font-mono text-violet-300">{row.original.poNumber}</span>,
+      cell: ({ row }) => (
+        <button type="button" className="text-xs font-mono text-violet-300 hover:underline" onClick={() => openPoInvoice(row.original.id)}>
+          {row.original.poNumber}
+        </button>
+      ),
     },
     {
       accessorKey: 'supplierName',
@@ -1449,7 +1504,7 @@ export default function SuppliersPage() {
         )
       },
     },
-  ], [router, markReceiving, handleMarkReceived, setRegisterImeiPO, allProducts])
+  ], [openPoInvoice, markReceiving, handleMarkReceived, setRegisterImeiPO, allProducts, router])
 
   return (
     <div className="space-y-6">
@@ -1504,38 +1559,53 @@ export default function SuppliersPage() {
         ))}
       </div>
 
+      <ToolbarSearch
+        value={textSearch}
+        onChange={setTextSearch}
+        placeholder={activeTab === 'suppliers' ? 'Search suppliers…' : 'Search PO #, supplier…'}
+        className="max-w-md"
+      />
+
+      {activeTab === 'orders' && (
+        <div className="flex gap-1 p-1 rounded-xl flex-wrap w-fit" style={{ background: 'var(--bg-subtle)' }}>
+          {([
+            { id: 'all', label: 'All' },
+            { id: 'DRAFT', label: 'Draft' },
+            { id: 'SENT', label: 'Sent' },
+            { id: 'PARTIAL', label: 'Partial' },
+            { id: 'RECEIVED', label: 'Received' },
+            { id: 'CLOSED', label: 'Closed' },
+          ] as const).map(opt => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setPoStatusFilter(opt.id)}
+              className="px-3 py-1.5 text-xs rounded-lg font-medium whitespace-nowrap transition-colors"
+              style={poStatusFilter === opt.id
+                ? { background: '#6d28d9', color: '#fff' }
+                : { color: 'var(--text-muted)' }}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {activeTab === 'suppliers' ? (
         <ClientSideTable
-          data={suppliers}
+          data={filteredSuppliers}
           columns={supplierColumns}
           isLoading={suppliersLoading}
-          pageCount={Math.ceil((suppliers.length || 1) / 20)}
-          searchableColumns={[
-            { id: 'name',        title: 'Name'    },
-            { id: 'contactName', title: 'Contact' },
-          ]}
+          pageCount={Math.ceil((filteredSuppliers.length || 1) / 20)}
+          searchableColumns={[]}
         />
       ) : (
         <ClientSideTable
-          data={purchaseOrders}
+          data={filteredPOs}
           columns={poColumns}
           isLoading={ordersLoading}
-          pageCount={Math.ceil((purchaseOrders.length || 1) / 20)}
-          searchableColumns={[
-            { id: 'poNumber',     title: 'PO #'     },
-            { id: 'supplierName', title: 'Supplier' },
-          ]}
-          filterableColumns={[{
-            id: 'status',
-            title: 'Status',
-            options: [
-              { label: 'Draft',    value: 'DRAFT'    },
-              { label: 'Sent',     value: 'SENT'     },
-              { label: 'Partial',  value: 'PARTIAL'  },
-              { label: 'Received', value: 'RECEIVED' },
-              { label: 'Closed',   value: 'CLOSED'   },
-            ],
-          }]}
+          pageCount={Math.ceil((filteredPOs.length || 1) / 20)}
+          searchableColumns={[]}
+          showFilter={false}
         />
       )}
     </div>

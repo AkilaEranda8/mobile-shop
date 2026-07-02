@@ -6,8 +6,32 @@ const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts')
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
+  async redirects() {
+    return [
+      {
+        source: '/impersonate',
+        has: [{ type: 'query', key: 'code' }],
+        destination: '/support-session',
+        permanent: true,
+      },
+    ]
+  },
   async headers() {
     return [
+      {
+        source: '/support-session',
+        headers: [
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' },
+          { key: 'Cache-Control', value: 'no-store' },
+        ],
+      },
+      {
+        source: '/impersonate',
+        headers: [
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' },
+          { key: 'Cache-Control', value: 'no-store' },
+        ],
+      },
       {
         source: '/sw.js',
         headers: [
