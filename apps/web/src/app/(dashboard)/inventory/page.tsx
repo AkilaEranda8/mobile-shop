@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useMemo, useEffect } from 'react'
+import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, RotateCcw, ChevronDown, ChevronUp, GripVertical, Smartphone, Shield, Building2, ArrowLeftRight } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
@@ -1320,6 +1320,7 @@ interface FlatRow {
 const INV_FILTERS_KEY = 'hexalyte:inventory-filters'
 
 export default function InventoryPage() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const [showImport, setShowImport]   = useState(false)
   const [showAddProduct, setShowAddProduct] = useState(false)
@@ -1446,6 +1447,14 @@ export default function InventoryPage() {
     const q = searchParams.get('q')
     if (q) setTextSearch(q)
   }, [searchParams])
+
+  const closeAddProduct = useCallback(() => {
+    setShowAddProduct(false)
+    if (searchParams.get('action')) {
+      const q = searchParams.get('q')
+      router.replace(q ? `/inventory?q=${encodeURIComponent(q)}` : '/inventory', { scroll: false })
+    }
+  }, [router, searchParams])
 
   useEffect(() => {
     const onSale = () => { refetch() }
@@ -1600,10 +1609,18 @@ export default function InventoryPage() {
   ], [handleDelete, setViewProduct, setEditProduct])
 
 
+  if (showAddProduct) {
+    return (
+      <AddProductModal
+        onClose={closeAddProduct}
+        onSaved={() => { refetch(); closeAddProduct() }}
+      />
+    )
+  }
+
   return (
     <div className="space-y-6">
       {showImport  && <ImportModal onClose={() => setShowImport(false)} onSaved={refetch} />}
-      {showAddProduct && <AddProductModal onClose={() => setShowAddProduct(false)} onSaved={refetch} />}
       {showAddCat    && <AddCategoryModal onClose={() => setShowAddCat(false)} onSaved={() => refetchCats()} />}
       {showManageCat && <ManageCategoriesModal onClose={() => setShowManageCat(false)} onChanged={() => { refetchCats(); refetch() }} />}
       {editProduct && <EditProductModal product={editProduct} onClose={() => setEditProduct(null)} onSaved={refetch} />}
@@ -1629,7 +1646,13 @@ export default function InventoryPage() {
           <button onClick={() => exportProductsCSV(filteredProducts)} disabled={filteredProducts.length === 0} className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40">
             <Download size={14} />Export
           </button>
-          <button onClick={() => setShowAddProduct(true)} className="btn-secondary text-sm flex items-center gap-2">
+          <button
+            onClick={() => {
+              setShowAddProduct(true)
+              router.replace('/inventory?action=add-product', { scroll: false })
+            }}
+            className="btn-secondary text-sm flex items-center gap-2"
+          >
             <Plus size={14} />Add Product
           </button>
           <button onClick={() => setShowManageCat(true)} className="btn-secondary text-sm flex items-center gap-2">
