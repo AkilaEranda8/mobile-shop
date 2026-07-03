@@ -9,6 +9,7 @@ import {
   type InvoiceSettings,
   type InvoiceTemplateId,
 } from '@/lib/invoiceSettings'
+import { buildItemWarrantyInfo, resolveSaleWarranties } from '@/components/invoice/invoice-warranty.util'
 
 export interface InvoiceA4ViewProps {
   sale: any
@@ -28,6 +29,7 @@ export function buildDefaultInvoiceData(
 ): InvoiceData {
   const subtotal = extras?.subtotal ?? sale.subtotal ?? 0
   const discountAmount = extras?.discountAmount ?? sale.discount ?? 0
+  const warranties = resolveSaleWarranties(sale)
   return {
     companyName: settings.shopName || shopName,
     companySlogan: settings.slogan || 'Sales & Service',
@@ -43,9 +45,10 @@ export function buildDefaultInvoiceData(
     customerName: sale.customerName || 'Walk-in Customer',
     customerEmail: sale.customerEmail || '',
     customerAddress: sale.customerPhone ? `Phone: ${sale.customerPhone}` : '',
-    items: (sale.items ?? []).map((i: any) => ({
+    items: (sale.items ?? []).map((i: any, idx: number) => ({
       description: i.productName ?? i.description ?? 'Item',
       details: i.sku ? `SKU: ${i.sku}${i.imei ? ` · IMEI: ${i.imei}` : ''}` : undefined,
+      warranty: buildItemWarrantyInfo(i, warranties, sale.createdAt, sale.warrantyMonths, idx),
       price: i.unitPrice ?? 0,
       qty: i.quantity ?? 1,
     })),
@@ -97,8 +100,24 @@ export const SAMPLE_SALE_FOR_PREVIEW = {
   total: 285000,
   paidAmount: 285000,
   dueAmount: 0,
+  warrantyMonths: 3,
+  warranties: [
+    {
+      warrantyCode: 'WR-EYM1GH31',
+      productName: 'iPhone 15 Pro',
+      monthsDuration: 3,
+      endDate: '2026-10-03T00:00:00.000Z',
+    },
+  ],
   items: [
-    { productName: 'iPhone 15 Pro', sku: 'IP15P-256', quantity: 1, unitPrice: 285000, total: 285000 },
+    {
+      productName: 'iPhone 15 Pro',
+      sku: 'IP15P-256',
+      quantity: 1,
+      unitPrice: 285000,
+      total: 285000,
+      warrantyMonths: 3,
+    },
     { productName: 'Screen Guard', sku: 'SG-001', quantity: 2, unitPrice: 1500, total: 3000, discount: 3000 },
   ],
 }

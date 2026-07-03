@@ -3,7 +3,8 @@
 import { forwardRef, useRef } from 'react'
 import { Download, Printer, MapPin, Globe, Mail, Phone } from 'lucide-react'
 import { KASTHURI_INVOICE_PRESET, HEXALYTE_SOFTWARE_FOOTER, type InvoiceSettings } from '@/lib/invoiceSettings'
-import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
+import { buildItemWarrantyInfo, resolveSaleWarranties } from '@/components/invoice/invoice-warranty.util'
+import InvoiceItemWarrantyBlock from '@/components/invoice/InvoiceItemWarrantyBlock'
 
 export interface KasthuriInvoiceItem {
   description: string
@@ -39,32 +40,19 @@ export function buildKasthuriInvoiceData(
   settings: InvoiceSettings,
   extras?: { subtotal?: number; discountAmount?: number },
 ): KasthuriInvoiceData {
-  const warranties: Array<{ warrantyCode?: string; productName?: string; imei?: string; endDate?: string; monthsDuration?: number }> =
-    sale.warranties ?? (sale.warrantyNumbers ?? []).map((code: string) => ({ warrantyCode: code, monthsDuration: sale.warrantyMonths }))
+  const warranties = resolveSaleWarranties(sale)
 
-  const fmtExpiry = (endDate?: string, months?: number) => {
-    if (endDate) return new Date(endDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
-    if (sale.createdAt && months) {
-      const d = new Date(sale.createdAt)
-      d.setMonth(d.getMonth() + months)
-      return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
-    }
-    return undefined
-  }
-
-  const items: KasthuriInvoiceItem[] = (sale.items ?? []).map((i: any) => {
+  const items: KasthuriInvoiceItem[] = (sale.items ?? []).map((i: any, idx: number) => {
     const lineSub = (i.unitPrice ?? 0) * (i.quantity ?? 0)
     const lineDisc = i.discount ?? 0
     const discountPct = lineSub > 0 ? Math.round((lineDisc / lineSub) * 10000) / 100 : 0
-    const matched = warranties.find(w => w.imei && i.imei && w.imei === i.imei)
-      ?? warranties.find(w => w.productName && i.productName && w.productName === i.productName)
-    const months = matched?.monthsDuration ?? i.warrantyMonths ?? 0
+    const warranty = buildItemWarrantyInfo(i, warranties, sale.createdAt, sale.warrantyMonths, idx)
     return {
       description: i.productName ?? i.description ?? 'Item',
       imei: i.imei,
-      warrantyCode: matched?.warrantyCode,
-      warrantyPeriod: months > 0 ? formatWarrantyPeriodLabel(months) : undefined,
-      warrantyExpiry: matched ? fmtExpiry(matched.endDate, matched.monthsDuration ?? i.warrantyMonths) : (months > 0 && sale.createdAt ? fmtExpiry(undefined, months) : undefined),
+      warrantyCode: warranty?.warrantyCode,
+      warrantyPeriod: warranty?.warrantyPeriod,
+      warrantyExpiry: warranty?.warrantyExpiry,
       qty: i.quantity ?? 0,
       unitPrice: i.unitPrice ?? 0,
       discountPct,
@@ -317,9 +305,14 @@ const KasthuriInvoicePrint = forwardRef<
                 {(item.imei || item.warrantyCode || item.warrantyPeriod || item.warrantyExpiry) && (
                   <div style={{ marginTop: 4, fontSize: 12, lineHeight: 1.5, color: C.muted }}>
                     {item.imei && <div>IMEI: {item.imei}</div>}
-                    {item.warrantyCode && <div>Warranty: {item.warrantyCode}</div>}
-                    {item.warrantyPeriod && <div>Warranty Period: {item.warrantyPeriod}</div>}
-                    {item.warrantyExpiry && <div>Valid until: {item.warrantyExpiry}</div>}
+                    <InvoiceItemWarrantyBlock
+                      info={{
+                        warrantyCode: item.warrantyCode,
+                        warrantyPeriod: item.warrantyPeriod,
+                        warrantyExpiry: item.warrantyExpiry,
+                      }}
+                      color={C.muted}
+                    />
                   </div>
                 )}
               </td>

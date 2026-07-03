@@ -3,10 +3,13 @@
 import { forwardRef, useRef } from 'react'
 import { Download, Printer } from 'lucide-react'
 import { HEXALYTE_SOFTWARE_FOOTER, type InvoiceSettings } from '@/lib/invoiceSettings'
+import { buildItemWarrantyInfo, resolveSaleWarranties, type ItemWarrantyInfo } from '@/components/invoice/invoice-warranty.util'
+import InvoiceItemWarrantyBlock from '@/components/invoice/InvoiceItemWarrantyBlock'
 
 export interface PaymentReceiptItem {
   item: string
   description: string
+  warranty?: ItemWarrantyInfo
   qty: number
   rate: number
   total: number
@@ -43,7 +46,8 @@ export function buildPaymentReceiptData(
   settings: InvoiceSettings,
   extras?: { subtotal?: number; discountAmount?: number },
 ): PaymentReceiptData {
-  const items: PaymentReceiptItem[] = (sale.items ?? []).map((i: any) => {
+  const warranties = resolveSaleWarranties(sale)
+  const items: PaymentReceiptItem[] = (sale.items ?? []).map((i: any, idx: number) => {
     const qty = i.quantity ?? 1
     const rate = i.unitPrice ?? 0
     const lineDisc = i.discount ?? 0
@@ -51,6 +55,7 @@ export function buildPaymentReceiptData(
     return {
       item: i.productName ?? i.description ?? 'Item',
       description: [i.sku, i.imei ? `IMEI: ${i.imei}` : ''].filter(Boolean).join(' · ') || '—',
+      warranty: buildItemWarrantyInfo(i, warranties, sale.createdAt, sale.warrantyMonths, idx),
       qty,
       rate,
       total: i.total ?? lineSub - lineDisc,
@@ -85,7 +90,14 @@ export const SAMPLE_PAYMENT_RECEIPT: PaymentReceiptData = {
   receiptDate: '02/07/2026',
   clientName: 'Akila Eranda Gankewela',
   items: [
-    { item: 'iPhone 15 Pro', description: '256GB · Natural Titanium', qty: 1, rate: 285000, total: 285000 },
+    {
+      item: 'iPhone 15 Pro',
+      description: '256GB · Natural Titanium',
+      warranty: { warrantyCode: 'WR-EYM1GH31', warrantyPeriod: '3 months', warrantyExpiry: '03/10/2026' },
+      qty: 1,
+      rate: 285000,
+      total: 285000,
+    },
     { item: 'Screen Guard', description: 'Tempered glass', qty: 2, rate: 1500, total: 3000 },
   ],
   subtotal: 288000,
@@ -253,7 +265,10 @@ const PaymentReceiptPrint = forwardRef<
             <tr key={idx} style={{ background: idx % 2 === 1 ? C.rowAlt : '#fff' }}>
               <td style={{ ...td, textAlign: 'center' }}>{idx + 1}</td>
               <td style={{ ...td, fontWeight: 600 }}>{item.item}</td>
-              <td style={{ ...td, color: C.muted }}>{item.description}</td>
+              <td style={{ ...td, color: C.muted }}>
+                <div>{item.description}</div>
+                <InvoiceItemWarrantyBlock info={item.warranty} fontSize={9} color={C.muted} />
+              </td>
               <td style={{ ...td, textAlign: 'center' }}>{item.qty}</td>
               <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(item.rate)}</td>
               <td style={{ ...td, textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{fmt(item.total)}</td>
