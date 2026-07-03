@@ -13,6 +13,16 @@ function announcementTargetsForPlan(plan: string): string[] {
   return [...targets]
 }
 
+function announcementMatchesTenant(
+  announcement: { target: string; targetTenants: string[] },
+  tenant: { id: string; plan: string },
+): boolean {
+  if (announcement.target === 'SPECIFIC') {
+    return announcement.targetTenants.includes(tenant.id)
+  }
+  return announcementTargetsForPlan(tenant.plan).includes(announcement.target)
+}
+
 router.get('/status', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const maintenance = await getMaintenanceStatus()
@@ -27,7 +37,7 @@ router.get('/announcements', authenticate, async (req: Request, res: Response, n
     const tenantId = req.tenantId!
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { plan: true },
+      select: { id: true, plan: true },
     })
     if (!tenant) throw new AppError('Tenant not found', 404)
 
@@ -37,16 +47,23 @@ router.get('/announcements', authenticate, async (req: Request, res: Response, n
     })
     const dismissedIds = dismissed.map(d => d.announcementId)
 
-    const items = await prisma.platformAnnouncement.findMany({
+    const candidates = await prisma.platformAnnouncement.findMany({
       where: {
         status: 'SENT',
-        target: { in: announcementTargetsForPlan(tenant.plan) },
         ...(dismissedIds.length ? { id: { notIn: dismissedIds } } : {}),
       },
       orderBy: { sentAt: 'desc' },
-      take: 5,
-      select: { id: true, title: true, body: true, type: true, sentAt: true },
+      take: 20,
+      select: {
+        id: true, title: true, body: true, type: true, sentAt: true,
+        target: true, targetTenants: true, dismissible: true,
+      },
     })
+
+    const items = candidates
+      .filter(a => announcementMatchesTenant(a, tenant))
+      .slice(0, 5)
+      .map(({ target: _t, targetTenants: _tt, ...rest }) => rest) // keeps dismissible
 
     sendSuccess(res, items)
   } catch (e) { next(e) }
@@ -59,6 +76,7 @@ router.post('/announcements/:id/dismiss', authenticate, async (req: Request, res
 
     const item = await prisma.platformAnnouncement.findUnique({ where: { id: announcementId } })
     if (!item || item.status !== 'SENT') throw new AppError('Announcement not found', 404)
+    if (!item.dismissible) throw new AppError('This announcement cannot be dismissed', 400)
 
     const existing = await prisma.announcementDismissal.findUnique({
       where: { userId_announcementId: { userId, announcementId } },

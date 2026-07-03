@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import {
   fetchAnnouncements, createAnnouncement, sendAnnouncement, deleteAnnouncement,
-  type AnnouncementRow,
+  fetchTenants, type AnnouncementRow, type TenantRow,
 } from '@/lib/api'
 
 const STATUS_BADGE: Record<string, string> = {
@@ -24,7 +24,10 @@ function fmtDate(s?: string | null) {
   return new Date(s).toLocaleString('en-LK', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
-const EMPTY_FORM = { title: '', body: '', target: 'ALL', type: 'INFO', schedule: 'now', scheduledAt: '' }
+const EMPTY_FORM = {
+  title: '', body: '', target: 'ALL', type: 'INFO', schedule: 'now', scheduledAt: '',
+  targetTenants: [] as string[], dismissible: true,
+}
 
 export default function AnnouncementsPage() {
   const [items, setItems]             = useState<AnnouncementRow[]>([])
@@ -34,6 +37,7 @@ export default function AnnouncementsPage() {
   const [form, setForm]               = useState(EMPTY_FORM)
   const [saving, setSaving]           = useState(false)
   const [actionId, setActionId]       = useState<string | null>(null)
+  const [tenants, setTenants]         = useState<TenantRow[]>([])
 
   const load = useCallback(() => {
     setLoading(true)
@@ -45,24 +49,49 @@ export default function AnnouncementsPage() {
 
   useEffect(() => { load() }, [])
 
+  useEffect(() => {
+    if (!showCompose) return
+    fetchTenants({ limit: '500' }).then(setTenants).catch(() => {})
+  }, [showCompose])
+
+  const toggleTenant = (tenantId: string) => {
+    setForm(p => ({
+      ...p,
+      targetTenants: p.targetTenants.includes(tenantId)
+        ? p.targetTenants.filter(id => id !== tenantId)
+        : [...p.targetTenants, tenantId],
+    }))
+  }
+
+  const announcementPayload = () => ({
+    title: form.title,
+    body: form.body,
+    type: form.type,
+    target: form.target,
+    targetTenants: form.target === 'SPECIFIC' ? form.targetTenants : [],
+    dismissible: form.dismissible,
+  })
+
   const sf = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(p => ({ ...p, [k]: e.target.value }))
 
   async function handleSaveDraft() {
     if (!form.title.trim() || !form.body.trim()) return
+    if (form.target === 'SPECIFIC' && form.targetTenants.length === 0) return
     setSaving(true)
     try {
-      await createAnnouncement({ title: form.title, body: form.body, type: form.type, target: form.target })
+      await createAnnouncement(announcementPayload())
       setShowCompose(false); setForm(EMPTY_FORM); load()
     } finally { setSaving(false) }
   }
 
   async function handleSend() {
     if (!form.title.trim() || !form.body.trim()) return
+    if (form.target === 'SPECIFIC' && form.targetTenants.length === 0) return
     setSaving(true)
     try {
       await createAnnouncement({
-        title: form.title, body: form.body, type: form.type, target: form.target,
+        ...announcementPayload(),
         scheduledAt: form.schedule === 'schedule' ? form.scheduledAt : undefined,
         sendNow: form.schedule === 'now',
       })
@@ -153,7 +182,12 @@ export default function AnnouncementsPage() {
                     <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                       <span className={meta.badge}>{a.type}</span>
                       <span className={STATUS_BADGE[a.status] ?? 'badge-gray'}>{a.status}</span>
-                      <span className="badge-gray">{a.target}</span>
+                      <span className="badge-gray">
+                        {a.target === 'SPECIFIC'
+                          ? `Tenants (${a.targetTenants?.length ?? 0})`
+                          : a.target}
+                      </span>
+                      {a.dismissible === false && <span className="badge-yellow">Pinned</span>}
                     </div>
                     <h3 className="text-sm font-semibold text-gray-900 mb-1">{a.title}</h3>
                     <p className="text-xs text-gray-500 line-clamp-2">{a.body}</p>
@@ -224,6 +258,7 @@ export default function AnnouncementsPage() {
                     <option value="STARTER">Starter Plan</option>
                     <option value="PRO">Pro Plan</option>
                     <option value="ENTERPRISE">Enterprise Plan</option>
+                    <option value="SPECIFIC">Specific Tenants</option>
                   </select>
                 </div>
                 <div>
@@ -235,6 +270,36 @@ export default function AnnouncementsPage() {
                   </select>
                 </div>
               </div>
+              {form.target === 'SPECIFIC' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">
+                    Select tenants {form.targetTenants.length > 0 && `(${form.targetTenants.length} selected)`}
+                  </label>
+                  <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2 space-y-1">
+                    {tenants.length === 0 ? (
+                      <p className="text-xs text-gray-400 p-2">Loading tenants…</p>
+                    ) : tenants.map(t => (
+                      <label key={t.id} className="flex items-center gap-2 text-xs cursor-pointer p-1.5 hover:bg-gray-50 rounded">
+                        <input
+                          type="checkbox"
+                          checked={form.targetTenants.includes(t.id)}
+                          onChange={() => toggleTenant(t.id)}
+                        />
+                        <span className="font-medium text-gray-800">{t.name}</span>
+                        <span className="text-gray-400">{t.plan}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.dismissible}
+                  onChange={e => setForm(p => ({ ...p, dismissible: e.target.checked }))}
+                />
+                Users can dismiss (uncheck to pin — users cannot close)
+              </label>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-2">Send timing</label>
                 <div className="flex gap-3">
@@ -255,8 +320,8 @@ export default function AnnouncementsPage() {
             <div className="flex gap-2 justify-end mt-6">
               <button onClick={() => { setShowCompose(false); setForm(EMPTY_FORM) }} className="btn-secondary text-sm">Cancel</button>
               {form.schedule === 'draft'
-                ? <button onClick={handleSaveDraft} disabled={saving || !form.title || !form.body} className="btn-secondary text-sm disabled:opacity-50">Save Draft</button>
-                : <button onClick={handleSend} disabled={saving || !form.title || !form.body} className="btn-primary text-sm disabled:opacity-50">
+                ? <button onClick={handleSaveDraft} disabled={saving || !form.title || !form.body || (form.target === 'SPECIFIC' && form.targetTenants.length === 0)} className="btn-secondary text-sm disabled:opacity-50">Save Draft</button>
+                : <button onClick={handleSend} disabled={saving || !form.title || !form.body || (form.target === 'SPECIFIC' && form.targetTenants.length === 0)} className="btn-primary text-sm disabled:opacity-50">
                     <Send size={13} />{form.schedule === 'now' ? 'Send Now' : 'Schedule'}
                   </button>
               }

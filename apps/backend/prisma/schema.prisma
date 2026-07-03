@@ -1336,6 +1336,8 @@ model PlatformAnnouncement {
   type        String    @default("INFO")
   status      String    @default("DRAFT")
   target      String    @default("ALL")
+  targetTenants String[] @default([])
+  dismissible Boolean   @default(true)
   scheduledAt DateTime?
   sentAt      DateTime?
   seenCount   Int       @default(0)

@@ -13,7 +13,7 @@ import {
   resolveReloadProvider,
   type ReloadServiceType,
 } from './reload-settings.util'
-import { buildProviderBreakdown, summarizeProviderBreakdown } from './reload-provider.util'
+import { buildProviderBreakdown, computeProviderPriorBalances, summarizeProviderBreakdown } from './reload-provider.util'
 import { findBranchReloads } from './reload-branch.util'
 
 const router = Router()
@@ -131,7 +131,8 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
       for (const p of payments) {
         paidMap[p.provider] = (paidMap[p.provider] ?? 0) + Number(p.amountPaid)
       }
-      providerBreakdown = buildProviderBreakdown(branchSuccessReloads, settings, paidMap)
+      const priorBalances = await computeProviderPriorBalances(tenantId, branchId, date, settings)
+      providerBreakdown = buildProviderBreakdown(branchSuccessReloads, settings, paidMap, priorBalances)
       settlement = summarizeProviderBreakdown(providerBreakdown)
     }
 
@@ -329,11 +330,16 @@ router.post('/pay-provider', authorize('OWNER', 'MANAGER', 'CASHIER'), async (re
     })
     const paidSoFar = round2(payments.reduce((s, p) => s + Number(p.amountPaid), 0))
 
+    const priorBalances = await computeProviderPriorBalances(tenantId, branchId, dateKey, settings)
+    const priorBalance = round2(priorBalances[provider] ?? 0)
+
     const providerReloads = reloads.filter(r => {
       const p = resolveReloadProvider(r.connectionNo, r.provider) ?? 'Other'
       return p === provider
     })
-    if (providerReloads.length === 0 && paidSoFar === 0) throw new AppError('No successful reloads for this provider on selected date', 400)
+    if (providerReloads.length === 0 && paidSoFar === 0 && priorBalance <= 0) {
+      throw new AppError('No outstanding balance for this provider on selected date', 400)
+    }
 
     const reloadTotal = round2(providerReloads.reduce((s, r) => s + Number(r.amount), 0))
     const commission = round2(providerReloads.reduce(
@@ -341,7 +347,8 @@ router.post('/pay-provider', authorize('OWNER', 'MANAGER', 'CASHIER'), async (re
         r.amount, settings, r.connectionNo, r.provider, reloadServiceType(r),
       ), 0,
     ))
-    const netPayable = round2(reloadTotal - commission)
+    const todayNetPayable = round2(reloadTotal - commission)
+    const netPayable = round2(priorBalance + todayNetPayable)
     const remaining = round2(Math.max(0, netPayable - paidSoFar))
     if (remaining <= 0) throw new AppError('Provider already paid for this date', 400)
 
@@ -397,6 +404,8 @@ router.post('/pay-provider', authorize('OWNER', 'MANAGER', 'CASHIER'), async (re
       date: dateKey,
       reloadTotal,
       commission,
+      priorBalance,
+      todayNetPayable,
       netPayable,
       amountPaid,
       paidSoFar: round2(paidSoFar + amountPaid),

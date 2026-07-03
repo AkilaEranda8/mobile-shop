@@ -498,6 +498,7 @@ export type PlatformAnnouncement = {
   body: string
   type: string
   sentAt: string | null
+  dismissible?: boolean
 }
 
 export type PlatformStatus = {

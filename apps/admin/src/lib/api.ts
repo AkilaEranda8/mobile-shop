@@ -446,6 +446,8 @@ export async function resetLoginRateLimit(data: {
 export interface AnnouncementRow {
   id: string; title: string; body: string
   type: string; status: string; target: string
+  targetTenants: string[]
+  dismissible: boolean
   scheduledAt: string | null; sentAt: string | null
   seenCount: number; createdBy: string; createdAt: string
 }
@@ -454,6 +456,8 @@ export async function fetchAnnouncements(): Promise<AnnouncementRow[]> {
 }
 export async function createAnnouncement(data: {
   title: string; body: string; type: string; target: string
+  targetTenants?: string[]
+  dismissible?: boolean
   scheduledAt?: string; sendNow?: boolean
 }): Promise<AnnouncementRow> {
   return req<AnnouncementRow>(ADMIN_BASE, '/announcements', { method: 'POST', body: JSON.stringify(data) })

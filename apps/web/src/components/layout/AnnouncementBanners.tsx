@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { X, Info, AlertTriangle, Wrench, Loader2 } from 'lucide-react'
+import { X, Info, AlertTriangle, Wrench, Loader2, Pin } from 'lucide-react'
 import { platformApi, type PlatformAnnouncement } from '@/lib/api'
 
 const TYPE_STYLES: Record<string, { bg: string; border: string; icon: typeof Info; accent: string }> = {
@@ -77,9 +77,18 @@ export function AnnouncementBanners() {
           >
             <Icon size={16} className={`${style.accent} flex-shrink-0 mt-0.5`} />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{a.title}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{a.title}</p>
+                {a.dismissible === false && (
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full"
+                    style={{ background: 'rgba(0,0,0,0.08)', color: 'var(--text-muted)' }}>
+                    <Pin size={9} /> Pinned
+                  </span>
+                )}
+              </div>
               <p className="text-xs mt-0.5 whitespace-pre-wrap" style={{ color: 'var(--text-secondary)' }}>{a.body}</p>
             </div>
+            {a.dismissible !== false && (
             <button
               type="button"
               onClick={() => dismiss(a.id)}
@@ -91,6 +100,7 @@ export function AnnouncementBanners() {
             >
               {busy ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
             </button>
+            )}
           </div>
         )
       })}

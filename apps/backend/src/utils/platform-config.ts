@@ -22,6 +22,7 @@ export async function syncMaintenanceAnnouncement(enabled: boolean, message: str
       body: message,
       type: 'MAINTENANCE',
       target: 'ALL',
+      dismissible: false,
       status: 'SENT',
       sentAt: new Date(),
       createdBy: 'Platform Admin',

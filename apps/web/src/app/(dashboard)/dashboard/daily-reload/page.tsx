@@ -30,6 +30,8 @@ interface ProviderRow {
   count: number
   reloadTotal: number
   commission: number
+  priorBalance: number
+  todayNetPayable: number
   netPayable: number
   paid: number
   remaining: number
@@ -39,6 +41,7 @@ interface ProviderRow {
 interface Settlement {
   reloadTotal: number
   commission: number
+  priorBalance?: number
   netPayable: number
   paid: number
   remaining: number
@@ -90,7 +93,14 @@ export default function DailyReloadPage() {
   const [reloadType, setReloadType] = useState<'RELOAD' | 'RECHARGE_CARD'>('RELOAD')
   const [saving, setSaving]  = useState(false)
   const [payingProvider, setPayingProvider] = useState<string | null>(null)
-  const [payModal, setPayModal] = useState<{ provider: string; remaining: number; netPayable: number; paid: number } | null>(null)
+  const [payModal, setPayModal] = useState<{
+    provider: string
+    priorBalance: number
+    todayNetPayable: number
+    remaining: number
+    netPayable: number
+    paid: number
+  } | null>(null)
   const [payAmount, setPayAmount] = useState('')
   const [payMethod, setPayMethod] = useState('CASH')
 
@@ -177,6 +187,8 @@ export default function DailyReloadPage() {
     if (!row || row.remaining <= 0) return
     setPayModal({
       provider,
+      priorBalance: row.priorBalance ?? 0,
+      todayNetPayable: row.todayNetPayable ?? row.netPayable,
       remaining: row.remaining,
       netPayable: row.netPayable,
       paid: row.paid,
@@ -540,7 +552,7 @@ export default function DailyReloadPage() {
                 <div>
                   <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Provider Settlement</p>
                   <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                    {date} · Pay provider = Reload total − Commission earned
+                    {date} · Net to Pay = Prior balance + Today (reload − commission)
                   </p>
                 </div>
               </div>
@@ -561,7 +573,7 @@ export default function DailyReloadPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                        {['Provider', 'Reloads', 'Reload Total', 'Commission', 'Net to Pay', 'Paid', 'Balance', 'Action'].map(h => (
+                        {['Provider', 'Reloads', 'Reload Total', 'Commission', 'Prior Balance', 'Today Net', 'Net to Pay', 'Paid', 'Balance', 'Action'].map(h => (
                           <th key={h} className="text-left text-[10px] font-semibold uppercase tracking-wide px-3 py-2" style={{ color: 'var(--text-muted)' }}>{h}</th>
                         ))}
                       </tr>
@@ -573,6 +585,12 @@ export default function DailyReloadPage() {
                           <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{row.count}</td>
                           <td className="px-3 py-2.5 text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{formatAmt(row.reloadTotal)}</td>
                           <td className="px-3 py-2.5 text-xs font-semibold text-emerald-500">{formatAmt(row.commission)}</td>
+                          <td className="px-3 py-2.5 text-xs font-medium" style={{ color: row.priorBalance > 0 ? '#f97316' : 'var(--text-muted)' }}>
+                            {formatAmt(row.priorBalance ?? 0)}
+                          </td>
+                          <td className="px-3 py-2.5 text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+                            {formatAmt(row.todayNetPayable ?? 0)}
+                          </td>
                           <td className="px-3 py-2.5 text-xs font-bold text-amber-500">{formatAmt(row.netPayable)}</td>
                           <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{formatAmt(row.paid)}</td>
                           <td className="px-3 py-2.5 text-xs font-semibold" style={{ color: row.remaining > 0 ? '#ef4444' : '#10b981' }}>
@@ -609,6 +627,10 @@ export default function DailyReloadPage() {
                           <td />
                           <td className="px-3 py-2.5 text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{formatAmt(settlement.reloadTotal)}</td>
                           <td className="px-3 py-2.5 text-xs font-bold text-emerald-500">{formatAmt(settlement.commission)}</td>
+                          <td className="px-3 py-2.5 text-xs font-bold" style={{ color: (settlement.priorBalance ?? 0) > 0 ? '#f97316' : 'var(--text-muted)' }}>
+                            {formatAmt(settlement.priorBalance ?? 0)}
+                          </td>
+                          <td />
                           <td className="px-3 py-2.5 text-xs font-bold text-amber-500">{formatAmt(settlement.netPayable)}</td>
                           <td className="px-3 py-2.5 text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{formatAmt(settlement.paid)}</td>
                           <td className="px-3 py-2.5 text-xs font-bold" style={{ color: settlement.remaining > 0 ? '#ef4444' : '#10b981' }}>{formatAmt(settlement.remaining)}</td>
@@ -622,7 +644,7 @@ export default function DailyReloadPage() {
 
               <div className="flex items-start gap-2 px-4 py-3 rounded-xl text-xs" style={{ background: 'rgba(59,130,246,0.08)', color: 'var(--text-muted)' }}>
                 <AlertCircle size={14} className="flex-shrink-0 mt-0.5" style={{ color: '#3b82f6' }} />
-                <span>Commission is your shop profit from the provider. Net to Pay is sent to the provider (reload total minus commission). You can pay the full balance or enter a smaller amount in parts. Each payment is recorded in Finance as &quot;Reload Provider&quot; expense.</span>
+                <span>Commission is your shop profit from the provider. Prior Balance is unpaid amount from previous days. Net to Pay = Prior Balance + Today&apos;s net (reload total minus commission). Partial payments are supported.</span>
               </div>
             </div>
           )}
@@ -647,8 +669,10 @@ export default function DailyReloadPage() {
               </button>
             </div>
             <div className="p-5 space-y-4">
-              <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
                 {[
+                  ...(payModal.priorBalance > 0.01 ? [{ label: 'Prior Balance', value: formatAmt(payModal.priorBalance), color: '#f97316' }] : []),
+                  ...(payModal.todayNetPayable > 0.01 ? [{ label: 'Today Net', value: formatAmt(payModal.todayNetPayable), color: 'var(--text-primary)' }] : []),
                   { label: 'Net to Pay', value: formatAmt(payModal.netPayable), color: '#f59e0b' },
                   { label: 'Paid', value: formatAmt(payModal.paid), color: '#10b981' },
                   { label: 'Balance', value: formatAmt(payModal.remaining), color: '#ef4444' },

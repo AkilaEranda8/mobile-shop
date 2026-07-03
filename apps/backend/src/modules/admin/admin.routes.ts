@@ -1220,12 +1220,20 @@ router.get('/announcements', async (_req: Request, res: Response, next: NextFunc
 
 router.post('/announcements', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { title, body, type = 'INFO', target = 'ALL', scheduledAt, sendNow = false } = req.body
+    const {
+      title, body, type = 'INFO', target = 'ALL', targetTenants = [],
+      dismissible = true, scheduledAt, sendNow = false,
+    } = req.body
     if (!title || !body) throw new AppError('title and body are required', 400)
+    if (target === 'SPECIFIC' && (!Array.isArray(targetTenants) || targetTenants.length === 0)) {
+      throw new AppError('Select at least one tenant for specific targeting', 400)
+    }
     const status = sendNow ? 'SENT' : scheduledAt ? 'SCHEDULED' : 'DRAFT'
     const item = await prisma.platformAnnouncement.create({
       data: {
         title, body, type, target, status,
+        targetTenants: Array.isArray(targetTenants) ? targetTenants : [],
+        dismissible: dismissible !== false,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
         sentAt: sendNow ? new Date() : undefined,
       },
@@ -1248,7 +1256,7 @@ router.patch('/announcements/:id/send', async (req: Request, res: Response, next
 
 router.patch('/announcements/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const allowed = ['title', 'body', 'type', 'target', 'status', 'scheduledAt']
+    const allowed = ['title', 'body', 'type', 'target', 'targetTenants', 'dismissible', 'status', 'scheduledAt']
     const data: Record<string, unknown> = {}
     for (const k of allowed) if (k in req.body) data[k] = req.body[k]
     const updated = await prisma.platformAnnouncement.update({ where: { id: req.params.id }, data })
