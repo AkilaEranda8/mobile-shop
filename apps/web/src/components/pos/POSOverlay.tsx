@@ -35,12 +35,11 @@ import { getOperationalBranchId, ensureOperationalBranch } from '@/lib/active-br
 import { formatCurrency } from '@/lib/utils'
 import { businessToday } from '@/lib/business-date'
 import toast from 'react-hot-toast'
-import { getInvoiceSettings, fetchInvoiceSettings, shopContextFromTenant, isKasthuriInvoice, HEXALYTE_SOFTWARE_FOOTER, type InvoiceSettings, type ShopContext } from '@/lib/invoiceSettings'
+import { getInvoiceSettings, fetchInvoiceSettings, shopContextFromTenant, resolveInvoiceTemplate, HEXALYTE_SOFTWARE_FOOTER, type InvoiceSettings, type ShopContext } from '@/lib/invoiceSettings'
 import { cacheProductsForOffline, cacheCategoriesForOffline, getCachedProducts, getCachedCategories } from '@/lib/offline/products-cache'
 import { buildOfflineInvoiceNumber, queueOfflineSale } from '@/lib/offline/queue-sale'
 import { isBrowserOnline, isNetworkError } from '@/lib/offline/sync'
-import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrint'
-import KasthuriInvoicePrint, { buildKasthuriInvoiceData } from '@/components/invoice/KasthuriInvoicePrint'
+import InvoiceA4View from '@/components/invoice/InvoiceA4View'
 import { printThermalReceipt } from '@/components/invoice/ThermalReceipt'
 import { printStockFormInvoice } from '@/components/invoice/StockFormInvoice'
 import { whatsappApi, formatWhatsAppPhone } from '@/lib/whatsapp-api'
@@ -1580,7 +1579,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [invoiceSettings, setInvoiceSettings] = useState<InvoiceSettings>(() => getInvoiceSettings())
   const [thermalShopCtx, setThermalShopCtx] = useState<ShopContext | undefined>(undefined)
   const [tenantSlug, setTenantSlug] = useState<string | undefined>(undefined)
-  const useKasthuriInvoice = isKasthuriInvoice(invoiceSettings, tenantSlug)
+  const activeInvoiceTemplate = resolveInvoiceTemplate(invoiceSettings, tenantSlug)
 
   useEffect(() => {
     if (!currentUser?.tenantId) return
@@ -2097,52 +2096,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart, cartView, checkoutLoading, completedSale, selectedCustomer, customerOutstanding, subtotal, discountAmount, saleTotal, invoiceSettings])
 
-  const buildA4Data = (): InvoiceData | null => {
-    if (!completedSale) return null
-    const s = invoiceSettings
-    return {
-      companyName:     s.shopName    || shopName,
-      companySlogan:   s.slogan      || 'Sales & Service',
-      companyLogo:     s.logo        || undefined,
-      companyAddress:  s.address     || '',
-      companyPhone:    s.phone       || '',
-      companyEmail:    s.email       || '',
-      companyWebsite:  s.website     || '',
-      invoiceNumber:   completedSale.invoiceNumber || `INV-${Date.now()}`,
-      dueDate:         completedSale.createdAt
-        ? new Date(completedSale.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
-        : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }),
-      customerName:    completedSale.customerName  || 'Walk-in Customer',
-      customerEmail:   completedSale.customerEmail || '',
-      customerAddress: completedSale.customerPhone ? `Phone: ${completedSale.customerPhone}` : '',
-      items: completedSale.items?.map((i: any) => ({
-        description: i.productName,
-        details:     i.sku ? `SKU: ${i.sku}${i.imei ? '  ·  IMEI: ' + i.imei : ''}` : undefined,
-        price:       i.unitPrice,
-        qty:         i.quantity,
-      })) ?? [],
-      bankName:  s.bankName  || '',
-      accNumber: s.accNumber || '',
-      accHolder: s.accHolder || s.shopName || shopName,
-      swiftCode: s.swiftCode || '',
-      currency:      s.currency     || 'LKR',
-      taxRate:       s.taxRate      ?? 0,
-      discountRate:  subtotal > 0 ? Math.round((discountAmount / subtotal) * 100) : (s.discountRate ?? 0),
-      terms:         [
-        ...(s.terms?.length ? s.terms : [
-          'Payment is due upon receipt of this invoice.',
-          'All sales are final unless otherwise agreed.',
-          s.footerNote || 'Thank you for your business!',
-        ]),
-        ...(completedSale.warrantyNumbers?.length
-          ? [`Warranty: ${completedSale.warrantyNumbers.join(', ')} (${completedSale.warrantyMonths} months)`]
-          : []),
-      ],
-      signatoryName:  s.signatoryName  || s.shopName || shopName,
-      signatoryTitle: s.signatoryTitle || 'Authorized Signatory',
-    }
-  }
-
   const downloadInvoice = async () => {
     if (!a4Ref.current) return
     setDownloading(true)
@@ -2420,11 +2373,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       )}
 
       {/* Modals */}
-      {showA4Invoice && completedSale && (() => {
-        const a4Data = buildA4Data()
-        const kasthuriData = useKasthuriInvoice ? buildKasthuriInvoiceData(completedSale, invoiceSettings, { subtotal, discountAmount }) : null
-        if (!a4Data && !kasthuriData) return null
-        return (
+      {showA4Invoice && completedSale && (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm overflow-y-auto">
             <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 bg-[#0a0f1a]/95 border-b border-white/10 backdrop-blur">
               <div className="flex items-center gap-2">
@@ -2436,12 +2385,17 @@ function POSContent({ onClose }: { onClose: () => void }) {
                 <X size={13} /> Close
               </button>
             </div>
-            {useKasthuriInvoice && kasthuriData
-              ? <KasthuriInvoicePrint data={kasthuriData} settings={invoiceSettings} />
-              : a4Data ? <InvoicePrint data={a4Data} /> : null}
+            <InvoiceA4View
+              sale={completedSale}
+              settings={invoiceSettings}
+              tenantSlug={tenantSlug}
+              shopName={shopName}
+              template={activeInvoiceTemplate}
+              extras={{ subtotal, discountAmount }}
+              hideControls={false}
+            />
           </div>
-        )
-      })()}
+      )}
 
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
       <HexaPosLayout
@@ -2795,18 +2749,20 @@ function POSContent({ onClose }: { onClose: () => void }) {
                 )}
                 <button onClick={handleNewSale} className="w-full py-3 rounded-2xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[.99]" style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: '0 4px 20px rgba(124,58,237,.4)' }}>+ New Sale (F10)</button>
               </div>
-              {completedSale && (() => {
-                if (useKasthuriInvoice) {
-                  const kd = buildKasthuriInvoiceData(completedSale, invoiceSettings, { subtotal, discountAmount })
-                  return (
-                    <div style={{ position: 'fixed', left: '-9999px', top: 0, width: 794, pointerEvents: 'none' }}>
-                      <KasthuriInvoicePrint ref={a4Ref} data={kd} settings={invoiceSettings} hideControls />
-                    </div>
-                  )
-                }
-                const d = buildA4Data()
-                return d ? <div style={{ position: 'fixed', left: '-9999px', top: 0, width: 794, pointerEvents: 'none' }}><InvoicePrint ref={a4Ref} data={d} hideControls /></div> : null
-              })()}
+              {completedSale && (
+                <div style={{ position: 'fixed', left: '-9999px', top: 0, width: 794, pointerEvents: 'none' }}>
+                  <InvoiceA4View
+                    ref={a4Ref}
+                    sale={completedSale}
+                    settings={invoiceSettings}
+                    tenantSlug={tenantSlug}
+                    shopName={shopName}
+                    template={activeInvoiceTemplate}
+                    extras={{ subtotal, discountAmount }}
+                    hideControls
+                  />
+                </div>
+              )}
             </div>
           ) : (
             <>

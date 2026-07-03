@@ -3,6 +3,10 @@ import { AppError } from '../../middleware/error.middleware'
 import { normalizeReloadSettings } from '../daily-reload/reload-settings.util'
 import { normalizeProductVariantSettings } from '../products/product-variant-settings.util'
 import { getUserBranchIds } from '../../utils/active-branch'
+import {
+  INVOICE_TEMPLATE_OPTIONS,
+  normalizeInvoiceSettings,
+} from './invoice-settings.util'
 
 const OWNER_ROLES = new Set(['OWNER', 'PLATFORM_ADMIN'])
 
@@ -26,22 +30,36 @@ export const tenantsService = {
     return prisma.tenant.update({ where: { id }, data: data as any, include: { branches: true } })
   },
 
+  listInvoiceTemplates() {
+    return INVOICE_TEMPLATE_OPTIONS
+  },
+
   async getInvoiceSettings(tenantId: string, _branchId?: string) {
     const t = await prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { invoiceSettings: true },
+      select: { invoiceSettings: true, slug: true },
     })
     if (!t) throw new AppError('Tenant not found', 404)
-    return (t.invoiceSettings ?? {}) as Record<string, unknown>
+    return normalizeInvoiceSettings(t.invoiceSettings, t.slug)
   },
 
-  async updateInvoiceSettings(tenantId: string, settings: Record<string, unknown>) {
+  async updateInvoiceSettings(tenantId: string, patch: Record<string, unknown>) {
+    const existing = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { invoiceSettings: true, slug: true },
+    })
+    if (!existing) throw new AppError('Tenant not found', 404)
+    const merged = {
+      ...(existing.invoiceSettings && typeof existing.invoiceSettings === 'object' ? existing.invoiceSettings : {}),
+      ...patch,
+    }
+    const normalized = normalizeInvoiceSettings(merged, existing.slug)
     const t = await prisma.tenant.update({
       where: { id: tenantId },
-      data: { invoiceSettings: settings as any },
-      select: { invoiceSettings: true },
+      data: { invoiceSettings: normalized as any },
+      select: { invoiceSettings: true, slug: true },
     })
-    return t.invoiceSettings
+    return normalizeInvoiceSettings(t.invoiceSettings, t.slug)
   },
 
   async getReloadSettings(tenantId: string) {

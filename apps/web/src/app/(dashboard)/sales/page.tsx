@@ -18,8 +18,8 @@ import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
-import { getInvoiceSettings, fetchInvoiceSettings, isKasthuriInvoice, type InvoiceSettings } from '@/lib/invoiceSettings'
-import KasthuriInvoicePrint, { buildKasthuriInvoiceData } from '@/components/invoice/KasthuriInvoicePrint'
+import { getInvoiceSettings, fetchInvoiceSettings, resolveInvoiceTemplate, type InvoiceSettings } from '@/lib/invoiceSettings'
+import InvoiceA4View from '@/components/invoice/InvoiceA4View'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
 
 const statusColors: Record<string, string> = {
@@ -191,8 +191,7 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
   const shopName = authStorage.getUser()?.name?.split(' ')[0] + ' Shop' || 'Our Shop'
   const [invSettings, setInvSettings] = useState<InvoiceSettings>(() => getInvoiceSettings())
   const [tenantSlug, setTenantSlug] = useState<string | undefined>()
-  const useKasthuri = isKasthuriInvoice(invSettings, tenantSlug)
-  const kasthuriData = useKasthuri ? buildKasthuriInvoiceData(sale, invSettings) : null
+  const activeTemplate = resolveInvoiceTemplate(invSettings, tenantSlug)
 
   useEffect(() => {
     const user = authStorage.getUser()
@@ -358,13 +357,15 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
 
           {/* Hidden invoice for PDF capture */}
           <div style={{ position: 'fixed', left: '-9999px', top: 0, pointerEvents: 'none' }}>
-            {useKasthuri && kasthuriData
-              ? <KasthuriInvoicePrint ref={invoiceRef} data={kasthuriData} settings={invSettings} hideControls />
-              : (
-                <div ref={invoiceRef}>
-                  <InvoiceTemplate sale={sale} shopName={shopName} settings={invSettings} />
-                </div>
-              )}
+            <InvoiceA4View
+              ref={invoiceRef}
+              sale={sale}
+              settings={invSettings}
+              tenantSlug={tenantSlug}
+              shopName={shopName}
+              template={activeTemplate}
+              hideControls
+            />
           </div>
         </div>
       </div>

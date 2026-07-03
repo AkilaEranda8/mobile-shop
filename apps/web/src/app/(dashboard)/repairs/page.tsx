@@ -21,9 +21,8 @@ import { whatsappApi, formatWhatsAppPhone } from '@/lib/whatsapp-api'
 import { captureElementAsPdfBase64 } from '@/lib/invoice-pdf'
 import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
-import { getInvoiceSettings, fetchInvoiceSettings, isKasthuriInvoice, type InvoiceSettings } from '@/lib/invoiceSettings'
-import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrint'
-import KasthuriInvoicePrint, { buildKasthuriRepairInvoiceData } from '@/components/invoice/KasthuriInvoicePrint'
+import { getInvoiceSettings, fetchInvoiceSettings, resolveInvoiceTemplate, type InvoiceSettings } from '@/lib/invoiceSettings'
+import InvoiceA4View from '@/components/invoice/InvoiceA4View'
 import type { Customer } from '@/types'
 import toast from 'react-hot-toast'
 import type { RepairTicket } from '@/types'
@@ -1250,8 +1249,29 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
   }
 
   const { serviceFee, partsTotal, estimatedCost, subtotal } = calcRepairTotals(repair)
-  const useKasthuri = isKasthuriInvoice(invSettings, tenantSlug)
-  const kasthuriData = useKasthuri ? buildKasthuriRepairInvoiceData(repair, invSettings) : null
+  const isPaid      = repair.status === 'DELIVERED'
+  const balanceDue  = isPaid ? 0 : estimatedCost
+  const displayTotal = isPaid ? (Number(repair.actualCost) || estimatedCost) : estimatedCost
+  const activeTemplate = resolveInvoiceTemplate(invSettings, tenantSlug)
+  const repairSale = {
+    invoiceNumber: repair.ticketNumber,
+    createdAt: repair.createdAt,
+    customerName: repair.customerName,
+    customerPhone: repair.customerPhone,
+    items: serviceFee > 0 ? [{
+      productName: `Repair Service – ${repair.deviceBrand} ${repair.deviceModel}`,
+      description: repair.reportedIssue,
+      quantity: 1,
+      unitPrice: serviceFee,
+      total: serviceFee,
+    }] : [],
+    subtotal,
+    discount: repair.actualCost != null && Number(repair.actualCost) < subtotal ? subtotal - Number(repair.actualCost) : 0,
+    tax: 0,
+    total: displayTotal,
+    paidAmount: isPaid ? displayTotal : 0,
+    dueAmount: isPaid ? 0 : displayTotal,
+  }
   const discountAmt  = Number(discount) || 0
   const finalAmount  = Math.max(0, subtotal - discountAmt)
   const payNow = (() => {
@@ -1285,10 +1305,6 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
   }
 
   const STEP_ICONS = [Smartphone, Wrench, CheckCircle2]
-
-  const isPaid      = repair.status === 'DELIVERED'
-  const balanceDue  = isPaid ? 0 : estimatedCost
-  const displayTotal = isPaid ? (Number(repair.actualCost) || estimatedCost) : estimatedCost
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm">
@@ -1934,39 +1950,14 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
 
         {/* Hidden PDF template */}
         <div style={{ position: 'fixed', left: '-9999px', top: 0, pointerEvents: 'none', zIndex: -1, width: 794 }}>
-          {useKasthuri && kasthuriData
-            ? <KasthuriInvoicePrint ref={quoteRef} data={kasthuriData} settings={invSettings} hideControls />
-            : <InvoicePrint ref={quoteRef} hideControls data={{
-            companyName:    invSettings.shopName || 'Our Shop',
-            companySlogan:  invSettings.slogan   || 'Repair Services',
-            companyLogo:    invSettings.logo,
-            companyAddress: invSettings.address  || '',
-            companyPhone:   invSettings.phone    || '',
-            companyEmail:   invSettings.email    || '',
-            companyWebsite: invSettings.website  || '',
-            invoiceNumber:  repair.ticketNumber,
-            dueDate: repair.estimatedCompletion
-              ? new Date(repair.estimatedCompletion).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-              : new Date(repair.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-            customerName:    repair.customerName,
-            customerEmail:   '',
-            customerAddress: repair.customerPhone || '',
-            items: [
-              ...(serviceFee > 0 ? [{ description: `Repair Service – ${repair.deviceBrand} ${repair.deviceModel}`, details: repair.reportedIssue || undefined, price: serviceFee, qty: 1 }] : []),
-            ],
-            bankName:  invSettings.bankName  || '',
-            accNumber: invSettings.accNumber || '',
-            accHolder: invSettings.accHolder || '',
-            swiftCode: invSettings.swiftCode || '',
-            taxRate:      0,
-            discountRate: repair.actualCost != null && Number(repair.actualCost) < subtotal
-              ? ((subtotal - Number(repair.actualCost)) / subtotal) * 100
-              : 0,
-            terms:          invSettings.terms.length ? invSettings.terms : ['Thank you for choosing our repair services!'],
-            signatoryName:  repair.technicianName || invSettings.signatoryName || '',
-            signatoryTitle: invSettings.signatoryTitle || 'Authorised Signature',
-            currency:       invSettings.currency || 'LKR',
-          } satisfies InvoiceData} />}
+          <InvoiceA4View
+            ref={quoteRef}
+            sale={repairSale}
+            settings={invSettings}
+            tenantSlug={tenantSlug}
+            template={activeTemplate}
+            hideControls
+          />
         </div>
       </div>
     </div>

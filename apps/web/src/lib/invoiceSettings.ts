@@ -1,6 +1,16 @@
 export const INVOICE_SETTINGS_KEY = 'hx_invoice_settings'
 
-export type InvoiceTemplateId = 'default' | 'kasthuri'
+export type InvoiceTemplateId = 'default' | 'kasthuri' | 'payment_receipt'
+
+export const INVOICE_TEMPLATE_OPTIONS: Array<{
+  id: InvoiceTemplateId
+  label: string
+  description: string
+}> = [
+  { id: 'default', label: 'Classic', description: 'Standard A4 invoice with company header and bank details' },
+  { id: 'kasthuri', label: 'Kasthuri', description: 'Professional layout with warranty and VAT fields' },
+  { id: 'payment_receipt', label: 'Payment Receipt', description: 'Formal receipt with item table and payment information' },
+]
 
 export const KASTHURI_TENANT_SLUG = 'kasthuri-mobile-solutions'
 
@@ -133,14 +143,32 @@ export function isKasthuriTenant(tenantSlug?: string | null): boolean {
   return tenantSlug === KASTHURI_TENANT_SLUG
 }
 
-/** Kasthuri custom A4 layout — only for the Kasthuri Mobile Solutions tenant */
-export function isKasthuriInvoice(_settings: InvoiceSettings, tenantSlug?: string): boolean {
-  return isKasthuriTenant(tenantSlug)
+/** Active A4 template — saved setting wins; Kasthuri tenant defaults to kasthuri */
+export function resolveInvoiceTemplate(
+  settings: InvoiceSettings,
+  tenantSlug?: string | null,
+): InvoiceTemplateId {
+  if (settings.invoiceTemplate) return settings.invoiceTemplate
+  if (isKasthuriTenant(tenantSlug)) return 'kasthuri'
+  return 'default'
+}
+
+/** True when the Kasthuri A4 layout should be used */
+export function isKasthuriInvoice(settings: InvoiceSettings, tenantSlug?: string): boolean {
+  return resolveInvoiceTemplate(settings, tenantSlug) === 'kasthuri'
+}
+
+export function isPaymentReceiptInvoice(settings: InvoiceSettings, tenantSlug?: string): boolean {
+  return resolveInvoiceTemplate(settings, tenantSlug) === 'payment_receipt'
 }
 
 export function applyKasthuriPreset(settings: InvoiceSettings, tenantSlug?: string): InvoiceSettings {
   if (tenantSlug !== KASTHURI_TENANT_SLUG) return settings
-  const merged: InvoiceSettings = { ...KASTHURI_INVOICE_PRESET, ...settings, invoiceTemplate: 'kasthuri' }
+  const merged: InvoiceSettings = {
+    ...KASTHURI_INVOICE_PRESET,
+    ...settings,
+    invoiceTemplate: settings.invoiceTemplate ?? KASTHURI_INVOICE_PRESET.invoiceTemplate ?? 'kasthuri',
+  }
   if (!merged.logo?.trim()) merged.logo = KASTHURI_INVOICE_PRESET.logo ?? ''
   if (!merged.companyLegalName?.trim()) merged.companyLegalName = KASTHURI_INVOICE_PRESET.companyLegalName ?? ''
   if (!merged.slogan?.trim()) merged.slogan = KASTHURI_INVOICE_PRESET.slogan ?? ''
@@ -215,7 +243,11 @@ export async function fetchInvoiceSettings(tenantId: string, branchId?: string):
     const tenant = (tenantRes as any)?.data ?? tenantRes
     const ctx = shopContextFromTenant(tenant, branchId)
     const slug = tenant?.slug as string | undefined
-    const base = applyKasthuriPreset({ ...DEFAULT_INVOICE_SETTINGS, ...data }, slug)
+    const base = applyKasthuriPreset({
+      ...DEFAULT_INVOICE_SETTINGS,
+      ...data,
+      invoiceTemplate: resolveInvoiceTemplate({ ...DEFAULT_INVOICE_SETTINGS, ...data }, slug),
+    }, slug)
     const merged = mergeReceiptSettings(base, ctx)
     saveInvoiceSettings(merged)
     return merged
@@ -233,14 +265,27 @@ export async function fetchInvoiceCustomizeSettings(
     const { tenantApi } = await import('./api')
     const res: any = await tenantApi.getInvoiceSettings(tenantId)
     const data = res?.data ?? res
-    return applyKasthuriPreset({ ...DEFAULT_INVOICE_SETTINGS, ...data }, tenantSlug)
+    return applyKasthuriPreset({
+      ...DEFAULT_INVOICE_SETTINGS,
+      ...data,
+      invoiceTemplate: resolveInvoiceTemplate({ ...DEFAULT_INVOICE_SETTINGS, ...data }, tenantSlug),
+    }, tenantSlug)
   } catch {
     return applyKasthuriPreset(getInvoiceSettings(), tenantSlug)
   }
 }
 
-export async function pushInvoiceSettings(tenantId: string, s: InvoiceSettings): Promise<void> {
-  saveInvoiceSettings(s)
+export async function pushInvoiceSettings(tenantId: string, s: InvoiceSettings, tenantSlug?: string): Promise<InvoiceSettings> {
+  const payload: InvoiceSettings = {
+    ...DEFAULT_INVOICE_SETTINGS,
+    ...s,
+    invoiceTemplate: s.invoiceTemplate ?? resolveInvoiceTemplate(s, tenantSlug),
+  }
+  saveInvoiceSettings(payload)
   const { tenantApi } = await import('./api')
-  await tenantApi.updateInvoiceSettings(tenantId, s)
+  const res: any = await tenantApi.updateInvoiceSettings(tenantId, payload)
+  const saved = (res?.data ?? res) as InvoiceSettings
+  const merged = applyKasthuriPreset({ ...DEFAULT_INVOICE_SETTINGS, ...saved }, tenantSlug)
+  saveInvoiceSettings(merged)
+  return merged
 }

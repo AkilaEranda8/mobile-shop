@@ -55,6 +55,9 @@ export const tenantsController = {
       sendSuccess(res, await tenantsService.getInvoiceSettings(req.params.id, branchId))
     } catch (e) { next(e) }
   },
+  async listInvoiceTemplates(_req: Request, res: Response, next: NextFunction) {
+    try { sendSuccess(res, tenantsService.listInvoiceTemplates()) } catch (e) { next(e) }
+  },
   async updateInvoiceSettings(req: Request, res: Response, next: NextFunction) {
     try { assertTenantAccess(req); sendSuccess(res, await tenantsService.updateInvoiceSettings(req.params.id, req.body)) } catch (e) { next(e) }
   },

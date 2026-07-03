@@ -1,6 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { tenantsController } from './tenants.controller'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
+import { validate } from '../../middleware/validate.middleware'
+import { updateInvoiceSettingsSchema } from './invoice-settings.schema'
 import { prisma } from '../../config/database'
 import { sendSuccess } from '../../utils/response'
 import { OPT_IN_FEATURES, buildFeatureMap, buildPriceMap } from './tenant-features'
@@ -37,12 +39,13 @@ router.patch('/my-features', authorize('OWNER', 'MANAGER'), async (req: Request,
   } catch (e) { next(e) }
 })
 
+router.get('/invoice-templates', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'), tenantsController.listInvoiceTemplates)
 router.get('/', authorize('PLATFORM_ADMIN'), tenantsController.list)
 router.get('/me', tenantsController.getMe)
 router.get('/:id', authorize('PLATFORM_ADMIN', 'OWNER'), tenantsController.getById)
 router.put('/:id', authorize('PLATFORM_ADMIN', 'OWNER'), tenantsController.update)
 router.get('/:id/invoice-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'), tenantsController.getInvoiceSettings)
-router.patch('/:id/invoice-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER'), tenantsController.updateInvoiceSettings)
+router.patch('/:id/invoice-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER'), validate(updateInvoiceSettingsSchema), tenantsController.updateInvoiceSettings)
 router.get('/:id/reload-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'), tenantsController.getReloadSettings)
 router.patch('/:id/reload-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER'), tenantsController.updateReloadSettings)
 router.get('/:id/product-variant-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'), tenantsController.getProductVariantSettings)

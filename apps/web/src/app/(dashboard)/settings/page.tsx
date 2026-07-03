@@ -12,6 +12,7 @@ import { getActiveBranchId } from '@/lib/active-branch'
 import { useTenantFeatures } from '@/lib/hooks'
 import { type InvoiceSettings, getInvoiceSettings, fetchInvoiceCustomizeSettings, pushInvoiceSettings } from '@/lib/invoiceSettings'
 import ThermalReceiptCustomizer, { ThermalReceiptPreview } from '@/components/invoice/ThermalReceiptCustomizer'
+import InvoiceTemplatePicker from '@/components/invoice/InvoiceTemplatePicker'
 import { Switch } from '@/components/ui/Switch'
 import {
   type ReloadSettings,
@@ -270,7 +271,7 @@ export default function SettingsPage() {
     if (!currentUser?.tenantId) return
     setInvoiceSaving(true)
     try {
-      await pushInvoiceSettings(currentUser.tenantId, invoiceForm)
+      await pushInvoiceSettings(currentUser.tenantId, invoiceForm, tenant?.slug).then(saved => setInvoiceForm(saved))
       window.dispatchEvent(new CustomEvent('invoice-settings-updated'))
       toast.success('Invoice settings saved — receipts will use these details')
     } catch { toast.error('Save failed') }
@@ -645,6 +646,12 @@ export default function SettingsPage() {
               </div>
               <div className="order-2 lg:order-1 space-y-5 min-w-0">
 
+              <InvoiceTemplatePicker
+                settings={invoiceForm}
+                tenantSlug={tenant?.slug}
+                onChange={template => setInv({ invoiceTemplate: template })}
+              />
+
               {/* ── 1. Company Info ── */}
               <div className="card p-5 space-y-4">
                 <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Company Info</p>
@@ -675,6 +682,7 @@ export default function SettingsPage() {
                 <div className="grid sm:grid-cols-2 gap-4">
                   {([
                     { k: 'shopName', label: 'Business Name', ph: 'e.g. Akila Mobile Shop' },
+                    { k: 'companyLegalName', label: 'Legal Company Name', ph: 'e.g. YOUR SHOP (PVT) LTD' },
                     { k: 'slogan',   label: 'Slogan / Tagline', ph: 'e.g. Your Trusted Store' },
                     { k: 'phone',    label: 'Phone', ph: '+94 77 123 4567' },
                     { k: 'email',    label: 'Email', ph: 'shop@example.com' },
@@ -712,6 +720,11 @@ export default function SettingsPage() {
                         onChange={e => setInv({ [k]: e.target.value })} />
                     </div>
                   ))}
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1.5">Extended Bank / Payment Info</label>
+                  <textarea rows={4} className="input-field resize-none text-xs" placeholder="Add multiple bank accounts, branch names, and payment remarks (shown on Payment Receipt template)."
+                    value={invoiceForm.bankDetails} onChange={e => setInv({ bankDetails: e.target.value })} />
                 </div>
               </div>
 
