@@ -51,7 +51,7 @@ export default function AnnouncementsPage() {
 
   useEffect(() => {
     if (!showCompose) return
-    fetchTenants({ limit: '500' }).then(setTenants).catch(() => {})
+    fetchTenants({ limit: '500' }).then(res => setTenants(res.data)).catch(() => {})
   }, [showCompose])
 
   const toggleTenant = (tenantId: string) => {
