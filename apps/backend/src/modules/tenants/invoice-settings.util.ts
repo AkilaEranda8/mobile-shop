@@ -7,32 +7,25 @@ export const INVOICE_TEMPLATE_OPTIONS: Array<{
   description: string
 }> = [
   { id: 'default', label: 'Classic', description: 'Standard A4 invoice with company header and bank details' },
-  { id: 'kasthuri', label: 'Kasthuri', description: 'Professional layout with warranty and VAT fields' },
+  { id: 'kasthuri', label: 'Professional', description: 'Professional layout with warranty and VAT fields' },
   { id: 'payment_receipt', label: 'Payment Receipt', description: 'Formal receipt with item table and payment information' },
 ]
 
 export const KASTHURI_TENANT_SLUG = 'kasthuri-mobile-solutions'
 export const PAYMENT_RECEIPT_TENANT_SLUGS = ['adrexlk', 'adrex-lk'] as const
 
-/** Specialized templates are only available to assigned tenant slugs */
+/** Legacy tenant slugs — used for default presets only; all templates are selectable by any tenant */
 export const INVOICE_TEMPLATE_TENANT_SLUGS: Record<Exclude<InvoiceTemplateId, 'default'>, readonly string[]> = {
   kasthuri: [KASTHURI_TENANT_SLUG],
   payment_receipt: [...PAYMENT_RECEIPT_TENANT_SLUGS],
 }
 
-export function tenantCanUseInvoiceTemplate(
-  template: InvoiceTemplateId,
-  tenantSlug?: string | null,
-): boolean {
-  if (template === 'default') return true
-  if (!tenantSlug) return false
-  return INVOICE_TEMPLATE_TENANT_SLUGS[template].includes(tenantSlug)
+export function tenantCanUseInvoiceTemplate(template: InvoiceTemplateId): boolean {
+  return (INVOICE_TEMPLATE_IDS as readonly string[]).includes(template)
 }
 
-export function listInvoiceTemplatesForTenant(tenantSlug?: string | null) {
-  return INVOICE_TEMPLATE_OPTIONS.filter(
-    opt => opt.id === 'default' || tenantCanUseInvoiceTemplate(opt.id, tenantSlug),
-  )
+export function listInvoiceTemplatesForTenant(_tenantSlug?: string | null) {
+  return INVOICE_TEMPLATE_OPTIONS
 }
 
 export function isKasthuriTenant(tenantSlug?: string | null): boolean {
@@ -154,9 +147,7 @@ function strArray(v: unknown, fallback: string[]) {
 
 function parseTemplate(v: unknown, tenantSlug?: string | null): InvoiceTemplateId {
   if (typeof v === 'string' && (INVOICE_TEMPLATE_IDS as readonly string[]).includes(v)) {
-    const id = v as InvoiceTemplateId
-    if (tenantCanUseInvoiceTemplate(id, tenantSlug)) return id
-    return 'default'
+    return v as InvoiceTemplateId
   }
   if (!v && isKasthuriTenant(tenantSlug)) return 'kasthuri'
   return 'default'
@@ -167,7 +158,7 @@ export function resolveInvoiceTemplate(
   tenantSlug?: string | null,
 ): InvoiceTemplateId {
   const requested = settings.invoiceTemplate
-  if (requested && tenantCanUseInvoiceTemplate(requested, tenantSlug)) return requested
+  if (requested && (INVOICE_TEMPLATE_IDS as readonly string[]).includes(requested)) return requested
   if (!requested && isKasthuriTenant(tenantSlug)) return 'kasthuri'
   return 'default'
 }

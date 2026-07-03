@@ -971,7 +971,11 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
   useEffect(() => {
     const user = authStorage.getUser()
     if (!user?.tenantId) return
-    fetchInvoiceSettings(user.tenantId, getActiveBranchId()).then(setInvSettings).catch(() => {})
+    const load = () => {
+      fetchInvoiceSettings(user.tenantId, getActiveBranchId()).then(setInvSettings).catch(() => {})
+    }
+    load()
+    window.addEventListener('invoice-settings-updated', load)
     import('@/lib/api').then(({ tenantApi }) => {
       tenantApi.get(user.tenantId).then((res: any) => {
         setTenantSlug((res?.data ?? res)?.slug)
@@ -980,6 +984,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
     whatsappApi.getConfig()
       .then((r: any) => setWaSendPdf(!!(r?.data ?? r)?.sendPdfInvoice))
       .catch(() => {})
+    return () => window.removeEventListener('invoice-settings-updated', load)
   }, [])
 
   useEffect(() => {

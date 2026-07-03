@@ -8,7 +8,7 @@ export const INVOICE_TEMPLATE_OPTIONS: Array<{
   description: string
 }> = [
   { id: 'default', label: 'Classic', description: 'Standard A4 invoice with company header and bank details' },
-  { id: 'kasthuri', label: 'Kasthuri', description: 'Professional layout with warranty and VAT fields' },
+  { id: 'kasthuri', label: 'Professional', description: 'Professional layout with warranty and VAT fields' },
   { id: 'payment_receipt', label: 'Payment Receipt', description: 'Formal receipt with item table and payment information' },
 ]
 
@@ -285,7 +285,11 @@ export async function pushInvoiceSettings(tenantId: string, s: InvoiceSettings, 
   const { tenantApi } = await import('./api')
   const res: any = await tenantApi.updateInvoiceSettings(tenantId, payload)
   const saved = (res?.data ?? res) as InvoiceSettings
-  const merged = applyKasthuriPreset({ ...DEFAULT_INVOICE_SETTINGS, ...saved }, tenantSlug)
+  const merged = applyKasthuriPreset({
+    ...DEFAULT_INVOICE_SETTINGS,
+    ...saved,
+    invoiceTemplate: saved.invoiceTemplate ?? payload.invoiceTemplate,
+  }, tenantSlug)
   saveInvoiceSettings(merged)
   return merged
 }
