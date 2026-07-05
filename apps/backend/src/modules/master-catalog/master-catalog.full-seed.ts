@@ -1,4 +1,5 @@
 import { prisma } from '../../config/database'
+import { AppError } from '../../middleware/error.middleware'
 import { slugify } from './master-catalog.util'
 
 type StorageTier = 'budget' | 'mid' | 'flagship'
@@ -233,61 +234,12 @@ export async function seedFullMasterCatalog(): Promise<FullSeedSummary> {
     summary.brandsAdded++
   }
 
-  const existingModels = await prisma.masterCatalogPhoneModel.findMany({
-    include: { variants: true },
-  })
-  const modelKey = (brandId: string, name: string) => `${brandId}|${name}`
-  const modelMap = new Map<string, { id: string; variants: Set<string> }>()
-  for (const m of existingModels) {
-    const vset = new Set(m.variants.map(v => `${v.storage}|${v.colorName}`))
-    modelMap.set(modelKey(m.brandId, m.name), { id: m.id, variants: vset })
-  }
-
   for (const [brandName, models] of Object.entries(PHONE_MODELS)) {
     const brandId = brandMap.get(brandName)
     if (!brandId) continue
-    for (let order = 0; order < models.length; order++) {
-      const { name, tier, year } = models[order]
-      const key = modelKey(brandId, name)
-      let entry = modelMap.get(key)
-      if (!entry) {
-        const row = await prisma.masterCatalogPhoneModel.create({
-          data: {
-            brandId,
-            categoryId: mobileId,
-            name,
-            releaseYear: year,
-            displayOrder: order + 1,
-            trackImei: true,
-            defaultWarrantyMonths: 12,
-          },
-        })
-        entry = { id: row.id, variants: new Set() }
-        modelMap.set(key, entry)
-        summary.modelsAdded++
-      }
-
-      const storages = STORAGE_BY_TIER[tier] ?? STORAGE_BY_TIER.mid
-      const colors = tier === 'budget' ? COLORS.slice(0, 6) : COLORS.slice(0, 8)
-      let varOrder = entry.variants.size + 1
-      for (const storage of storages) {
-        for (const color of colors) {
-          const vk = `${storage}|${color.name}`
-          if (entry.variants.has(vk)) continue
-          await prisma.masterCatalogPhoneVariant.create({
-            data: {
-              modelId: entry.id,
-              storage,
-              colorName: color.name,
-              colorHex: color.hex,
-              displayOrder: varOrder++,
-            },
-          })
-          entry.variants.add(vk)
-          summary.variantsAdded++
-        }
-      }
-    }
+    const r = await seedModelsForBrandId(brandId, brandName, models, mobileId)
+    summary.modelsAdded += r.modelsAdded
+    summary.variantsAdded += r.variantsAdded
   }
 
   const existingAcc = await prisma.masterCatalogAccessory.findMany()
@@ -334,5 +286,127 @@ export async function seedFullMasterCatalog(): Promise<FullSeedSummary> {
       models: modelCount,
       accessories: accCount,
     },
+  }
+}
+
+export function listDefaultPhoneBrandNames(): string[] {
+  return Object.keys(PHONE_MODELS)
+}
+
+function resolveDefaultBrandModels(brandName: string) {
+  const key = Object.keys(PHONE_MODELS).find(k => k.toLowerCase() === brandName.trim().toLowerCase())
+  return key ? { key, models: PHONE_MODELS[key] } : null
+}
+
+export interface BrandModelsSeedSummary {
+  message: string
+  brandName: string
+  modelsAdded: number
+  variantsAdded: number
+  totalModelsForBrand: number
+}
+
+async function seedModelsForBrandId(
+  brandId: string,
+  brandName: string,
+  models: Array<{ name: string; tier: StorageTier; year: number }>,
+  mobileCategoryId: string,
+): Promise<{ modelsAdded: number; variantsAdded: number }> {
+  const result = { modelsAdded: 0, variantsAdded: 0 }
+  const existingModels = await prisma.masterCatalogPhoneModel.findMany({
+    where: { brandId },
+    include: { variants: true },
+  })
+  const modelKey = (name: string) => `${brandId}|${name}`
+  const modelMap = new Map<string, { id: string; variants: Set<string> }>()
+  for (const m of existingModels) {
+    modelMap.set(modelKey(m.name), {
+      id: m.id,
+      variants: new Set(m.variants.map(v => `${v.storage}|${v.colorName}`)),
+    })
+  }
+
+  for (let order = 0; order < models.length; order++) {
+    const { name, tier, year } = models[order]
+    const key = modelKey(name)
+    let entry = modelMap.get(key)
+    if (!entry) {
+      const row = await prisma.masterCatalogPhoneModel.create({
+        data: {
+          brandId,
+          categoryId: mobileCategoryId,
+          name,
+          releaseYear: year,
+          displayOrder: order + 1,
+          trackImei: true,
+          defaultWarrantyMonths: 12,
+        },
+      })
+      entry = { id: row.id, variants: new Set() }
+      modelMap.set(key, entry)
+      result.modelsAdded++
+    }
+
+    const storages = STORAGE_BY_TIER[tier] ?? STORAGE_BY_TIER.mid
+    const colors = tier === 'budget' ? COLORS.slice(0, 6) : COLORS.slice(0, 8)
+    let varOrder = entry.variants.size + 1
+    for (const storage of storages) {
+      for (const color of colors) {
+        const vk = `${storage}|${color.name}`
+        if (entry.variants.has(vk)) continue
+        await prisma.masterCatalogPhoneVariant.create({
+          data: {
+            modelId: entry.id,
+            storage,
+            colorName: color.name,
+            colorHex: color.hex,
+            displayOrder: varOrder++,
+          },
+        })
+        entry.variants.add(vk)
+        result.variantsAdded++
+      }
+    }
+  }
+
+  return result
+}
+
+export async function seedBrandPhoneModels(brandId: string): Promise<BrandModelsSeedSummary> {
+  const brand = await prisma.masterCatalogBrand.findUnique({ where: { id: brandId } })
+  if (!brand) throw new AppError('Brand not found', 404)
+
+  const resolved = resolveDefaultBrandModels(brand.name)
+  if (!resolved) {
+    throw new AppError(
+      `No default models for "${brand.name}". Use exact names like: ${listDefaultPhoneBrandNames().join(', ')}`,
+      400,
+    )
+  }
+
+  let mobileCat = await prisma.masterCatalogCategory.findFirst({ where: { name: 'Mobile Phones' } })
+  if (!mobileCat) {
+    mobileCat = await prisma.masterCatalogCategory.create({
+      data: { name: 'Mobile Phones', slug: slugify('Mobile Phones'), displayOrder: 1 },
+    })
+  }
+
+  const { modelsAdded, variantsAdded } = await seedModelsForBrandId(
+    brandId,
+    brand.name,
+    resolved.models,
+    mobileCat.id,
+  )
+
+  const totalModelsForBrand = await prisma.masterCatalogPhoneModel.count({ where: { brandId } })
+
+  return {
+    message: modelsAdded || variantsAdded
+      ? `Loaded models for ${brand.name}`
+      : `All default models for ${brand.name} already exist`,
+    brandName: brand.name,
+    modelsAdded,
+    variantsAdded,
+    totalModelsForBrand,
   }
 }

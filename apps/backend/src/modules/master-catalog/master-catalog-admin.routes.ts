@@ -3,7 +3,7 @@ import { sendSuccess } from '../../utils/response'
 import { validate } from '../../middleware/validate.middleware'
 import { masterCatalogService } from './master-catalog.service'
 import { seedMasterCatalog } from './master-catalog.seed'
-import { seedFullMasterCatalog } from './master-catalog.full-seed'
+import { seedFullMasterCatalog, seedBrandPhoneModels } from './master-catalog.full-seed'
 import {
   masterCategorySchema,
   masterBrandSchema,
@@ -41,6 +41,9 @@ router.patch('/brands/:id', async (req, res, next) => {
 })
 router.delete('/brands/:id', async (req, res, next) => {
   try { sendSuccess(res, await masterCatalogService.deleteBrand(req.params.id), 'Brand deleted') } catch (e) { next(e) }
+})
+router.post('/brands/:id/seed-models', async (req, res, next) => {
+  try { sendSuccess(res, await seedBrandPhoneModels(req.params.id), 'Brand models loaded') } catch (e) { next(e) }
 })
 
 router.get('/phone-models', async (req, res, next) => {

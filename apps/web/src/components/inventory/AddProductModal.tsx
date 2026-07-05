@@ -646,6 +646,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
       brandName: draft.brandName,
       categoryName: draft.categoryName,
       deviceModel: draft.deviceModel ?? '',
+      description: draft.description ?? '',
     }))
     setCondition('BRAND_NEW')
     setPricing({ tax: 'None', taxType: 'Exclusive', purchaseEx: '', purchaseInc: '', sellingEx: '', margin: '' })

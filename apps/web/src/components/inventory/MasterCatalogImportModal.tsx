@@ -6,6 +6,8 @@ import { masterCatalogApi } from '@/lib/api'
 import {
   buildMasterCatalogAccessorySku,
   buildMasterCatalogSku,
+  buildAccessoryCatalogDescription,
+  buildPhoneCatalogDescription,
   type MasterCatalogFormDraft,
 } from '@/lib/masterCatalogFormDraft'
 import toast from 'react-hot-toast'
@@ -23,6 +25,7 @@ interface PhoneVariant {
 interface PhoneModel {
   id: string
   name: string
+  releaseYear?: number | null
   brand?: { name: string }
   category?: { name: string }
   trackImei?: boolean
@@ -187,6 +190,13 @@ export function MasterCatalogImportModal({ onClose, onApplyToForm }: Props) {
           brandName,
           categoryName,
           deviceModel: model.name,
+          description: buildPhoneCatalogDescription({
+            brandName,
+            modelName: model.name,
+            categoryName,
+            releaseYear: model.releaseYear,
+            variants,
+          }),
           trackImei: model.trackImei ?? true,
           warrantyMonths: model.defaultWarrantyMonths ?? 12,
           variants,
@@ -206,6 +216,12 @@ export function MasterCatalogImportModal({ onClose, onApplyToForm }: Props) {
           brandName,
           categoryName,
           deviceModel: a.modelOptional ?? undefined,
+          description: buildAccessoryCatalogDescription({
+            name: a.name,
+            brandName,
+            categoryName,
+            modelOptional: a.modelOptional,
+          }),
           trackImei: false,
           warrantyMonths: 0,
           variants: [],

@@ -669,6 +669,13 @@ export const masterCatalogAdminApi = {
   updateBrand: (id: string, body: { isActive?: boolean; name?: string; type?: string; displayOrder?: number }) =>
     req<MasterCatalogBrand>(ADMIN_BASE, `/master-catalog/brands/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteBrand: (id: string) => req<null>(ADMIN_BASE, `/master-catalog/brands/${id}`, { method: 'DELETE' }),
+  seedBrandModels: (brandId: string) => req<{
+    message: string
+    brandName: string
+    modelsAdded: number
+    variantsAdded: number
+    totalModelsForBrand: number
+  }>(ADMIN_BASE, `/master-catalog/brands/${brandId}/seed-models`, { method: 'POST' }),
   listPhoneModels: (params?: Record<string, string>) => {
     const qs = params ? '?' + new URLSearchParams(params) : ''
     return req<MasterCatalogPhoneModel[]>(ADMIN_BASE, `/master-catalog/phone-models${qs}`)

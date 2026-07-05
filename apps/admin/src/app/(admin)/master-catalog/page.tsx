@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { RefreshCw, Database, Download, Plus, Trash2, Smartphone, Package, Info } from 'lucide-react'
 import { Switch } from '@/components/ui/Switch'
 import {
@@ -13,11 +13,22 @@ import {
 
 type Tab = 'categories' | 'brands' | 'phones' | 'accessories'
 
+const BRANDS_WITH_DEFAULT_MODELS = new Set([
+  'apple', 'samsung', 'xiaomi', 'redmi', 'poco', 'realme', 'vivo', 'oppo',
+  'honor', 'google pixel', 'motorola', 'nothing', 'oneplus', 'nokia', 'huawei',
+])
+
+function brandHasDefaultModels(name: string) {
+  return BRANDS_WITH_DEFAULT_MODELS.has(name.trim().toLowerCase())
+}
+
 export default function MasterCatalogPage() {
   const [tab, setTab] = useState<Tab>('categories')
   const [loading, setLoading] = useState(true)
   const [seeding, setSeeding] = useState(false)
   const [loadingFull, setLoadingFull] = useState(false)
+  const [seedingBrandId, setSeedingBrandId] = useState<string | null>(null)
+  const [phoneBrandFilter, setPhoneBrandFilter] = useState('')
   const [categories, setCategories] = useState<MasterCatalogCategory[]>([])
   const [brands, setBrands] = useState<MasterCatalogBrand[]>([])
   const [phones, setPhones] = useState<MasterCatalogPhoneModel[]>([])
@@ -77,6 +88,39 @@ export default function MasterCatalogPage() {
       alert(e instanceof Error ? e.message : 'Load failed')
     } finally {
       setLoadingFull(false)
+    }
+  }
+
+  const modelCountByBrand = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const p of phones) {
+      counts.set(p.brandId, (counts.get(p.brandId) ?? 0) + 1)
+    }
+    return counts
+  }, [phones])
+
+  const filteredPhones = useMemo(
+    () => (phoneBrandFilter ? phones.filter(p => p.brandId === phoneBrandFilter) : phones),
+    [phones, phoneBrandFilter],
+  )
+
+  const openBrandModels = (brandId: string) => {
+    setPhoneBrandFilter(brandId)
+    setTab('phones')
+  }
+
+  const runBrandSeed = async (brandId: string, brandName: string) => {
+    setSeedingBrandId(brandId)
+    try {
+      const res = await masterCatalogAdminApi.seedBrandModels(brandId)
+      await load()
+      alert(
+        `${brandName}: ${res.modelsAdded} models, ${res.variantsAdded} variants added.\nTotal models for brand: ${res.totalModelsForBrand}`,
+      )
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Load failed')
+    } finally {
+      setSeedingBrandId(null)
     }
   }
 
@@ -186,28 +230,87 @@ export default function MasterCatalogPage() {
             <input className="input flex-1" placeholder="Brand name (e.g. Samsung)" value={newBrand} onChange={e => setNewBrand(e.target.value)} />
             <button type="submit" className="btn-primary text-sm flex items-center gap-1"><Plus size={14} /> Add</button>
           </form>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-            {brands.map(b => (
-              <div key={b.id} className={`flex items-center justify-between px-3 py-2 rounded-lg border ${b.isActive ? 'border-gray-200 bg-gray-50' : 'border-gray-100 bg-gray-100 opacity-70'}`}>
-                <span className="text-sm font-medium truncate">{b.name}</span>
-                <div className="flex items-center gap-2 shrink-0 ml-2">
-                  <Switch
-                    checked={b.isActive}
-                    onChange={async next => {
-                      await masterCatalogAdminApi.updateBrand(b.id, { isActive: next })
-                      load()
-                    }}
-                  />
-                  <button type="button" className="text-red-400" onClick={async () => { await masterCatalogAdminApi.deleteBrand(b.id); load() }}>
-                    <Trash2 size={13} />
-                  </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {brands.map(b => {
+              const modelCount = modelCountByBrand.get(b.id) ?? 0
+              const canLoadDefaults = brandHasDefaultModels(b.name)
+              return (
+                <div key={b.id} className={`rounded-lg border p-3 space-y-2 ${b.isActive ? 'border-gray-200 bg-gray-50' : 'border-gray-100 bg-gray-100 opacity-80'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <button
+                      type="button"
+                      className="text-sm font-semibold text-left hover:text-blue-600 truncate"
+                      onClick={() => openBrandModels(b.id)}
+                      title="View phone models"
+                    >
+                      {b.name}
+                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Switch
+                        checked={b.isActive}
+                        onChange={async next => {
+                          await masterCatalogAdminApi.updateBrand(b.id, { isActive: next })
+                          load()
+                        }}
+                      />
+                      <button type="button" className="text-red-400" onClick={async () => { await masterCatalogAdminApi.deleteBrand(b.id); load() }}>
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500">{modelCount} phone model{modelCount !== 1 ? 's' : ''}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" className="btn-secondary text-xs py-1 px-2" onClick={() => openBrandModels(b.id)}>
+                      View models
+                    </button>
+                    {canLoadDefaults && (
+                      <button
+                        type="button"
+                        className="btn-primary text-xs py-1 px-2"
+                        disabled={seedingBrandId === b.id}
+                        onClick={() => runBrandSeed(b.id, b.name)}
+                      >
+                        {seedingBrandId === b.id ? 'Loading…' : 'Load all models'}
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       ) : tab === 'phones' ? (
         <div className="space-y-4">
+          <div className="card p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex-1">
+              <label className="text-xs text-gray-500 block mb-1">Filter by brand</label>
+              <select
+                className="input max-w-xs"
+                value={phoneBrandFilter}
+                onChange={e => setPhoneBrandFilter(e.target.value)}
+              >
+                <option value="">All brands ({phones.length})</option>
+                {brands.map(b => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} ({modelCountByBrand.get(b.id) ?? 0})
+                  </option>
+                ))}
+              </select>
+            </div>
+            {phoneBrandFilter && brandHasDefaultModels(brands.find(b => b.id === phoneBrandFilter)?.name ?? '') && (
+              <button
+                type="button"
+                className="btn-primary text-sm shrink-0"
+                disabled={seedingBrandId === phoneBrandFilter}
+                onClick={() => {
+                  const b = brands.find(x => x.id === phoneBrandFilter)
+                  if (b) runBrandSeed(b.id, b.name)
+                }}
+              >
+                {seedingBrandId === phoneBrandFilter ? 'Loading…' : 'Load all models for this brand'}
+              </button>
+            )}
+          </div>
           <div className="card p-5 space-y-3">
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Add phone model</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
@@ -270,7 +373,7 @@ export default function MasterCatalogPage() {
             <table className="w-full text-sm min-w-[640px]">
               <thead><tr className="text-left text-gray-500 border-b"><th className="py-2">Brand</th><th>Model</th><th>Category</th><th>Variants</th><th>Active</th><th>IMEI</th><th /></tr></thead>
               <tbody>
-                {phones.map(m => (
+                {filteredPhones.map(m => (
                   <tr key={m.id} className={`border-b border-gray-100 ${!m.isActive ? 'opacity-60' : ''}`}>
                     <td className="py-2">{m.brand?.name}</td>
                     <td className="font-medium">{m.name}</td>
@@ -301,6 +404,13 @@ export default function MasterCatalogPage() {
                     </td>
                   </tr>
                 ))}
+                {filteredPhones.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="py-6 text-center text-gray-500 text-sm">
+                      No models for this brand. Use &quot;Load all models&quot; on the Brands tab.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
