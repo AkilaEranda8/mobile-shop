@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { RefreshCw, Database, Plus, Trash2, Smartphone, Package } from 'lucide-react'
+import { RefreshCw, Database, Plus, Trash2, Smartphone, Package, Info } from 'lucide-react'
+import { Switch } from '@/components/ui/Switch'
 import {
   masterCatalogAdminApi,
   type MasterCatalogCategory,
@@ -23,7 +24,7 @@ export default function MasterCatalogPage() {
 
   const [newCat, setNewCat] = useState('')
   const [newBrand, setNewBrand] = useState('')
-  const [phoneForm, setPhoneForm] = useState({ brandId: '', categoryId: '', name: '', releaseYear: '2025' })
+  const [phoneForm, setPhoneForm] = useState({ brandId: '', categoryId: '', name: '', releaseYear: '2025', trackImei: true })
   const [variantForm, setVariantForm] = useState({ modelId: '', storage: '128GB', colorName: 'Black', colorHex: '#1a1a1a' })
   const [accForm, setAccForm] = useState({ categoryId: '', brandId: '', name: '', modelOptional: '' })
 
@@ -71,7 +72,10 @@ export default function MasterCatalogPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="page-title">Master Catalog</h1>
-          <p className="text-sm text-gray-500 mt-1">Global mobile catalog — tenants import read-only copies into their inventory.</p>
+          <p className="text-sm text-gray-500 mt-1">
+            Global catalog managed here only. Seed/Python script fills this list — it does not auto-save to tenant shops.
+            Tenants import manually when needed. Untick Active to hide items from tenant import.
+          </p>
         </div>
         <div className="flex gap-2">
           <button type="button" onClick={load} className="btn-secondary text-sm flex items-center gap-2">
@@ -81,6 +85,15 @@ export default function MasterCatalogPage() {
             <Database size={14} /> {seeding ? 'Seeding…' : 'Seed defaults'}
           </button>
         </div>
+      </div>
+
+      <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 flex gap-2 text-sm text-blue-900">
+        <Info size={16} className="shrink-0 mt-0.5" />
+        <p>
+          <strong>Admin only.</strong> Catalog data (brands, models, accessories) lives in the Master Catalog.
+          Tenant inventory is updated only when a shop owner clicks <em>Import from Master Catalog</em> and confirms.
+          Deactivate (untick) anything you do not want shops to see yet.
+        </p>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -119,7 +132,15 @@ export default function MasterCatalogPage() {
                 <tr key={c.id} className="border-b border-gray-100">
                   <td className="py-2 font-medium">{c.name}</td>
                   <td>{c.displayOrder}</td>
-                  <td>{c.isActive ? 'Yes' : 'No'}</td>
+                  <td>
+                    <Switch
+                      checked={c.isActive}
+                      onChange={async next => {
+                        await masterCatalogAdminApi.updateCategory(c.id, { isActive: next })
+                        load()
+                      }}
+                    />
+                  </td>
                   <td className="text-right">
                     <button type="button" className="text-red-500 hover:text-red-700" onClick={async () => { await masterCatalogAdminApi.deleteCategory(c.id); load() }}>
                       <Trash2 size={14} />
@@ -144,11 +165,20 @@ export default function MasterCatalogPage() {
           </form>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
             {brands.map(b => (
-              <div key={b.id} className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-200 bg-gray-50">
+              <div key={b.id} className={`flex items-center justify-between px-3 py-2 rounded-lg border ${b.isActive ? 'border-gray-200 bg-gray-50' : 'border-gray-100 bg-gray-100 opacity-70'}`}>
                 <span className="text-sm font-medium truncate">{b.name}</span>
-                <button type="button" className="text-red-400 shrink-0 ml-2" onClick={async () => { await masterCatalogAdminApi.deleteBrand(b.id); load() }}>
-                  <Trash2 size={13} />
-                </button>
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  <Switch
+                    checked={b.isActive}
+                    onChange={async next => {
+                      await masterCatalogAdminApi.updateBrand(b.id, { isActive: next })
+                      load()
+                    }}
+                  />
+                  <button type="button" className="text-red-400" onClick={async () => { await masterCatalogAdminApi.deleteBrand(b.id); load() }}>
+                    <Trash2 size={13} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -169,6 +199,13 @@ export default function MasterCatalogPage() {
               <input className="input" placeholder="Model name" value={phoneForm.name} onChange={e => setPhoneForm(p => ({ ...p, name: e.target.value }))} />
               <input className="input" placeholder="Release year" value={phoneForm.releaseYear} onChange={e => setPhoneForm(p => ({ ...p, releaseYear: e.target.value }))} />
             </div>
+            <label className="flex items-center gap-2 text-sm text-gray-600">
+              <Switch
+                checked={phoneForm.trackImei}
+                onChange={trackImei => setPhoneForm(p => ({ ...p, trackImei }))}
+              />
+              Track IMEI (untick for non-phone items)
+            </label>
             <button type="button" className="btn-primary text-sm" onClick={async () => {
               if (!phoneForm.brandId || !phoneForm.categoryId || !phoneForm.name.trim()) return
               await masterCatalogAdminApi.createPhoneModel({
@@ -176,6 +213,8 @@ export default function MasterCatalogPage() {
                 categoryId: phoneForm.categoryId,
                 name: phoneForm.name.trim(),
                 releaseYear: Number(phoneForm.releaseYear) || undefined,
+                trackImei: phoneForm.trackImei,
+                defaultWarrantyMonths: phoneForm.trackImei ? 12 : 0,
               })
               setPhoneForm(p => ({ ...p, name: '' }))
               load()
@@ -206,14 +245,32 @@ export default function MasterCatalogPage() {
 
           <div className="card p-5 overflow-x-auto">
             <table className="w-full text-sm min-w-[640px]">
-              <thead><tr className="text-left text-gray-500 border-b"><th className="py-2">Brand</th><th>Model</th><th>Category</th><th>Variants</th><th /></tr></thead>
+              <thead><tr className="text-left text-gray-500 border-b"><th className="py-2">Brand</th><th>Model</th><th>Category</th><th>Variants</th><th>Active</th><th>IMEI</th><th /></tr></thead>
               <tbody>
                 {phones.map(m => (
-                  <tr key={m.id} className="border-b border-gray-100">
+                  <tr key={m.id} className={`border-b border-gray-100 ${!m.isActive ? 'opacity-60' : ''}`}>
                     <td className="py-2">{m.brand?.name}</td>
                     <td className="font-medium">{m.name}</td>
                     <td>{m.category?.name}</td>
                     <td className="text-gray-500">{m.variants?.length ?? 0}</td>
+                    <td>
+                      <Switch
+                        checked={m.isActive}
+                        onChange={async next => {
+                          await masterCatalogAdminApi.updatePhoneModel(m.id, { isActive: next })
+                          load()
+                        }}
+                      />
+                    </td>
+                    <td>
+                      <Switch
+                        checked={m.trackImei ?? true}
+                        onChange={async next => {
+                          await masterCatalogAdminApi.updatePhoneModel(m.id, { trackImei: next })
+                          load()
+                        }}
+                      />
+                    </td>
                     <td className="text-right">
                       <button type="button" className="text-red-500" onClick={async () => { await masterCatalogAdminApi.deletePhoneModel(m.id); load() }}>
                         <Trash2 size={14} />
@@ -253,13 +310,22 @@ export default function MasterCatalogPage() {
           }}>Add accessory</button>
 
           <table className="w-full text-sm">
-            <thead><tr className="text-left text-gray-500 border-b"><th className="py-2">Name</th><th>Category</th><th>Brand</th><th /></tr></thead>
+            <thead><tr className="text-left text-gray-500 border-b"><th className="py-2">Name</th><th>Category</th><th>Brand</th><th>Active</th><th /></tr></thead>
             <tbody>
               {accessories.map(a => (
-                <tr key={a.id} className="border-b border-gray-100">
+                <tr key={a.id} className={`border-b border-gray-100 ${!a.isActive ? 'opacity-60' : ''}`}>
                   <td className="py-2 font-medium">{a.name}{a.modelOptional ? ` (${a.modelOptional})` : ''}</td>
                   <td>{a.category?.name}</td>
                   <td>{a.brand?.name ?? '—'}</td>
+                  <td>
+                    <Switch
+                      checked={a.isActive}
+                      onChange={async next => {
+                        await masterCatalogAdminApi.updateAccessory(a.id, { isActive: next })
+                        load()
+                      }}
+                    />
+                  </td>
                   <td className="text-right">
                     <button type="button" className="text-red-500" onClick={async () => { await masterCatalogAdminApi.deleteAccessory(a.id); load() }}>
                       <Trash2 size={14} />

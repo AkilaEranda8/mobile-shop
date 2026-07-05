@@ -633,7 +633,8 @@ export interface MasterCatalogBrand {
 }
 export interface MasterCatalogPhoneModel {
   id: string; name: string; brandId: string; categoryId: string; releaseYear?: number | null
-  isActive: boolean; brand?: { id: string; name: string }; category?: { id: string; name: string }
+  isActive: boolean; trackImei?: boolean; defaultWarrantyMonths?: number
+  brand?: { id: string; name: string }; category?: { id: string; name: string }
   variants?: MasterCatalogVariant[]
 }
 export interface MasterCatalogVariant {
@@ -649,11 +650,15 @@ export const masterCatalogAdminApi = {
   listCategories: () => req<MasterCatalogCategory[]>(ADMIN_BASE, '/master-catalog/categories'),
   createCategory: (body: { name: string; displayOrder?: number }) =>
     req<MasterCatalogCategory>(ADMIN_BASE, '/master-catalog/categories', { method: 'POST', body: JSON.stringify(body) }),
+  updateCategory: (id: string, body: { isActive?: boolean; name?: string; displayOrder?: number }) =>
+    req<MasterCatalogCategory>(ADMIN_BASE, `/master-catalog/categories/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteCategory: (id: string) => req<null>(ADMIN_BASE, `/master-catalog/categories/${id}`, { method: 'DELETE' }),
   listBrands: (type?: string) =>
     req<MasterCatalogBrand[]>(ADMIN_BASE, `/master-catalog/brands${type ? `?type=${type}` : ''}`),
   createBrand: (body: { name: string; type?: string }) =>
     req<MasterCatalogBrand>(ADMIN_BASE, '/master-catalog/brands', { method: 'POST', body: JSON.stringify(body) }),
+  updateBrand: (id: string, body: { isActive?: boolean; name?: string; type?: string; displayOrder?: number }) =>
+    req<MasterCatalogBrand>(ADMIN_BASE, `/master-catalog/brands/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteBrand: (id: string) => req<null>(ADMIN_BASE, `/master-catalog/brands/${id}`, { method: 'DELETE' }),
   listPhoneModels: (params?: Record<string, string>) => {
     const qs = params ? '?' + new URLSearchParams(params) : ''
@@ -661,6 +666,8 @@ export const masterCatalogAdminApi = {
   },
   createPhoneModel: (body: Record<string, unknown>) =>
     req<MasterCatalogPhoneModel>(ADMIN_BASE, '/master-catalog/phone-models', { method: 'POST', body: JSON.stringify(body) }),
+  updatePhoneModel: (id: string, body: { isActive?: boolean; trackImei?: boolean; name?: string; releaseYear?: number | null; displayOrder?: number }) =>
+    req<MasterCatalogPhoneModel>(ADMIN_BASE, `/master-catalog/phone-models/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deletePhoneModel: (id: string) => req<null>(ADMIN_BASE, `/master-catalog/phone-models/${id}`, { method: 'DELETE' }),
   createVariant: (modelId: string, body: Record<string, unknown>) =>
     req<MasterCatalogVariant>(ADMIN_BASE, `/master-catalog/phone-models/${modelId}/variants`, { method: 'POST', body: JSON.stringify(body) }),
@@ -670,5 +677,7 @@ export const masterCatalogAdminApi = {
   },
   createAccessory: (body: Record<string, unknown>) =>
     req<MasterCatalogAccessory>(ADMIN_BASE, '/master-catalog/accessories', { method: 'POST', body: JSON.stringify(body) }),
+  updateAccessory: (id: string, body: { isActive?: boolean; name?: string; modelOptional?: string | null; displayOrder?: number }) =>
+    req<MasterCatalogAccessory>(ADMIN_BASE, `/master-catalog/accessories/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteAccessory: (id: string) => req<null>(ADMIN_BASE, `/master-catalog/accessories/${id}`, { method: 'DELETE' }),
 }
