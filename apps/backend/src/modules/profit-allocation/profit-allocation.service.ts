@@ -2,6 +2,8 @@ import { ProfitFundType, ProfitTxnType } from '@prisma/client'
 import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import { buildDailyClosingPreview } from '../daily-closing/daily-closing.service'
+import { revertSavedProfitAllocation } from './revert-allocation.util'
+import { getFundBalanceAtInstant, getFundBalanceBeforeDay } from './fund-balance.util'
 import { financialsFromPreview } from '../finance/business-financials.service'
 import { buildCategoryCostMap, buildCategoryProfitTable } from '../finance/category-profit.util'
 import {
@@ -28,9 +30,9 @@ const DEFAULT_FUNDS: Array<{
   percentage?: number
   sortOrder: number
 }> = [
-  { name: 'Rent', type: 'FIXED_AMOUNT', fixedAmount: 400, sortOrder: 1 },
-  { name: 'RDB Loan', type: 'FIXED_AMOUNT', fixedAmount: 500, sortOrder: 2 },
-  { name: 'Shop Bills', type: 'FIXED_AMOUNT', fixedAmount: 200, sortOrder: 3 },
+  { name: 'Rent', type: 'FIXED_AMOUNT', fixedAmount: 0, sortOrder: 1 },
+  { name: 'Loan Repayment', type: 'FIXED_AMOUNT', fixedAmount: 0, sortOrder: 2 },
+  { name: 'Shop Bills', type: 'FIXED_AMOUNT', fixedAmount: 0, sortOrder: 3 },
   { name: 'Bill Payment', type: 'MANUAL', sortOrder: 10 },
   { name: 'Dialog Reload', type: 'MANUAL', sortOrder: 11 },
   { name: 'Dialog Card', type: 'MANUAL', sortOrder: 12 },
@@ -40,9 +42,9 @@ const DEFAULT_FUNDS: Array<{
   { name: 'Airtel Card', type: 'MANUAL', sortOrder: 16 },
   { name: 'Hutch Reload', type: 'MANUAL', sortOrder: 17 },
   { name: 'Hutch Card', type: 'MANUAL', sortOrder: 18 },
-  { name: 'Mobile Items', type: 'MANUAL', sortOrder: 20 },
+  { name: 'Mobile Sales', type: 'MANUAL', sortOrder: 20 },
   { name: 'Mobile Profit', type: 'MANUAL', sortOrder: 21 },
-  { name: 'Anu Art\'s', type: 'MANUAL', sortOrder: 22 },
+  { name: 'Partner Share', type: 'MANUAL', sortOrder: 22 },
   { name: 'Savings', type: 'PERCENTAGE', percentage: 20, sortOrder: 30 },
   { name: 'Emergency Fund', type: 'PERCENTAGE', percentage: 10, sortOrder: 31 },
   { name: 'Repair', type: 'PERCENTAGE', percentage: 5, sortOrder: 32 },
@@ -52,6 +54,9 @@ const DEFAULT_FUNDS: Array<{
   { name: 'Other Loan', type: 'PERCENTAGE', percentage: 3, sortOrder: 36 },
   { name: 'Salary', type: 'PERCENTAGE', percentage: 30, sortOrder: 37 },
 ]
+
+/** Manual funds that receive income but do not reduce the % allocation pool. */
+const MANUAL_POOL_EXEMPT = new Set(['Mobile Sales'])
 
 function isReloadRelatedFund(name: string) {
   return name.endsWith(' Reload') || name.endsWith(' Card')
@@ -124,12 +129,17 @@ async function getManualFundIncomeMap(tenantId: string, branchId: string, dateSt
   ])
 
   map['Bill Payment'] = round2(preview.sales.billPaymentIncome)
-  map['Mobile Items'] = round2(categoryCostMap.Mobile?.revenue ?? 0)
+  map['Mobile Sales'] = round2(categoryCostMap.Mobile?.revenue ?? 0)
+  map['Mobile Items'] = map['Mobile Sales']
   map['Mobile Profit'] = round2(categoryCostMap.Mobile?.profit ?? 0)
 
   for (const [catName, val] of Object.entries(categoryCostMap)) {
+    if (/partner|owner\s*draw/i.test(catName)) {
+      map['Partner Share'] = round2(val.profit)
+    }
     if (/anu\s*art/i.test(catName)) {
       map["Anu Art's"] = round2(val.profit)
+      map['Partner Share'] = round2(val.profit)
     }
   }
 
@@ -263,31 +273,28 @@ export async function toggleFund(tenantId: string, id: string, isActive: boolean
 }
 
 async function getYesterdayBalance(fundId: string, dateStr: string) {
-  const start = allocationDbDate(dateStr)
-  const prevLine = await prisma.profitAllocationLine.findFirst({
-    where: {
-      fundId,
-      allocation: { date: { lt: start } },
-    },
-    orderBy: { allocation: { date: 'desc' } },
-    include: { allocation: true },
-  })
-  if (prevLine) return round2(prevLine.remainingBalance)
-  const fund = await prisma.profitFund.findUnique({ where: { id: fundId } })
-  return round2(fund?.balance ?? 0)
+  return getFundBalanceBeforeDay(fundId, dateStr, allocationDbDate)
 }
 
 async function getDayWithdrawn(fundId: string, dateStr: string) {
-  const { start, end } = businessDayRange(normalizeBusinessDate(dateStr))
-  const agg = await prisma.profitWithdrawal.aggregate({
-    where: {
-      fundId,
-      type: 'WITHDRAW',
-      createdAt: { gte: start, lte: end },
-    },
+  const date = allocationDbDate(dateStr)
+  const agg = await prisma.profitTransaction.aggregate({
+    where: { fundId, type: 'WITHDRAW', date },
     _sum: { amount: true },
   })
-  return round2(agg._sum.amount ?? 0)
+  return round2(Math.abs(agg._sum.amount ?? 0))
+}
+
+function normalizePercentageWeights(
+  funds: Array<{ type: ProfitFundType; percentage: number; isActive: boolean; name: string }>,
+) {
+  const pctFunds = funds.filter(f => f.isActive && f.type === 'PERCENTAGE')
+  const total = pctFunds.reduce((s, f) => s + f.percentage, 0)
+  if (pctFunds.length === 0 || total === 0 || total === 100) return false
+  for (const f of pctFunds) {
+    f.percentage = round2(f.percentage * (100 / total))
+  }
+  return true
 }
 
 function validatePercentageTotal(funds: { type: ProfitFundType; percentage: number; isActive: boolean }[]) {
@@ -300,13 +307,21 @@ export async function calculateAllocationLines(
   tenantId: string,
   branchId: string,
   dateStr: string,
+  opts?: { normalizePercentages?: boolean },
 ) {
   await ensureExtendedFunds(tenantId, branchId)
   const dailyReloadEnabled = await isTenantFeatureEnabled(tenantId, 'DAILY_RELOAD')
-  const funds = (await prisma.profitFund.findMany({
+  const fundsRaw = await prisma.profitFund.findMany({
     where: { tenantId, branchId, isActive: true },
     orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-  })).filter(f => dailyReloadEnabled || !isReloadRelatedFund(f.name))
+  })
+  const funds = fundsRaw
+    .filter(f => dailyReloadEnabled || !isReloadRelatedFund(f.name))
+    .map(f => ({ ...f }))
+
+  if (opts?.normalizePercentages) {
+    normalizePercentageWeights(funds)
+  }
 
   const pctCheck = validatePercentageTotal(funds)
   const profitMeta = await getDayProfit(tenantId, branchId, dateStr)
@@ -369,7 +384,9 @@ export async function calculateAllocationLines(
     const yesterdayBalance = await getYesterdayBalance(fund.id, dateStr)
     const withdrawn = await getDayWithdrawn(fund.id, dateStr)
     const todayAllocation = round2(manualIncomeMap[fund.name] ?? 0)
-    remainingProfit = round2(remainingProfit - todayAllocation)
+    if (!MANUAL_POOL_EXEMPT.has(fund.name)) {
+      remainingProfit = round2(remainingProfit - todayAllocation)
+    }
     const totalBalance = round2(yesterdayBalance + todayAllocation)
     const remainingBalance = round2(totalBalance - withdrawn)
     lines.push({
@@ -497,28 +514,8 @@ export async function getDashboard(tenantId: string, branchId: string, dateStr: 
 }
 
 export async function deleteAllocation(tenantId: string, branchId: string, dateStr: string) {
-  const date = allocationDbDate(dateStr)
-  const existing = await prisma.profitAllocation.findUnique({
-    where: { tenantId_branchId_date: { tenantId, branchId, date } },
-    include: { lines: true },
-  })
-  if (!existing) throw new AppError('No saved allocation for this date', 404)
-
-  await prisma.$transaction(async tx => {
-    for (const line of existing.lines) {
-      if (line.todayAllocation > 0) {
-        await tx.profitFund.update({
-          where: { id: line.fundId },
-          data: { balance: { decrement: line.todayAllocation } },
-        })
-      }
-    }
-    await tx.profitTransaction.deleteMany({
-      where: { tenantId, branchId, date, type: 'ALLOCATION' },
-    })
-    await tx.profitAllocationLine.deleteMany({ where: { allocationId: existing.id } })
-    await tx.profitAllocation.delete({ where: { id: existing.id } })
-  })
+  const removed = await revertSavedProfitAllocation(tenantId, branchId, dateStr)
+  if (!removed) throw new AppError('No saved allocation for this date', 404)
 }
 
 export async function resaveAllocation(
@@ -544,9 +541,10 @@ export async function saveAllocation(
   userId: string,
   userName: string,
   notes?: string,
+  opts?: { normalizePercentages?: boolean },
 ) {
-  const calc = await calculateAllocationLines(tenantId, branchId, dateStr)
-  if (!calc.percentageValid) {
+  const calc = await calculateAllocationLines(tenantId, branchId, dateStr, opts)
+  if (!calc.percentageValid && !opts?.normalizePercentages) {
     throw new AppError(`Percentage funds must total 100%. Current total: ${calc.percentageTotal}%`, 400)
   }
 
@@ -752,16 +750,12 @@ async function buildFundSummariesForRange(
   end: Date,
 ) {
   const funds = await listFunds(tenantId, branchId)
+  const openingAt = new Date(start.getTime() - 1)
+
   return Promise.all(
     funds.map(async fund => {
-      const openingLine = await prisma.profitAllocationLine.findFirst({
-        where: {
-          fundId: fund.id,
-          allocation: { tenantId, branchId, date: { lt: start } },
-        },
-        orderBy: { allocation: { date: 'desc' } },
-      })
-      const openingBalance = round2(openingLine?.remainingBalance ?? fund.balance)
+      const openingBalance = await getFundBalanceAtInstant(fund.id, openingAt)
+      const closingBalance = await getFundBalanceAtInstant(fund.id, end)
 
       const allocAgg = await prisma.profitTransaction.aggregate({
         where: {
@@ -772,28 +766,27 @@ async function buildFundSummariesForRange(
         _sum: { amount: true },
       })
 
-      const withdrawAgg = await prisma.profitWithdrawal.aggregate({
+      const withdrawAgg = await prisma.profitTransaction.aggregate({
         where: {
           fundId: fund.id,
           type: 'WITHDRAW',
-          createdAt: { gte: start, lte: end },
+          date: { gte: start, lte: end },
         },
         _sum: { amount: true },
       })
 
-      const depositAgg = await prisma.profitWithdrawal.aggregate({
+      const depositAgg = await prisma.profitTransaction.aggregate({
         where: {
           fundId: fund.id,
           type: 'DEPOSIT',
-          createdAt: { gte: start, lte: end },
+          date: { gte: start, lte: end },
         },
         _sum: { amount: true },
       })
 
       const allocatedAmount = round2(allocAgg._sum.amount ?? 0)
-      const withdrawnAmount = round2(withdrawAgg._sum.amount ?? 0)
+      const withdrawnAmount = round2(Math.abs(withdrawAgg._sum.amount ?? 0))
       const depositedAmount = round2(depositAgg._sum.amount ?? 0)
-      const closingBalance = round2(fund.balance)
 
       return {
         fundId: fund.id,

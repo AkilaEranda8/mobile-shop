@@ -12,6 +12,7 @@ import {
 } from 'recharts'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { businessToday, businessPeriodFrom, formatBusinessDateLabel } from '@/lib/business-date'
+import { getActiveBranchId } from '@/lib/active-branch'
 import { useTransactions, useRevenue, useFinanceSummary, useFeatureFlag } from '@/lib/hooks'
 import Link from 'next/link'
 import { Lock } from 'lucide-react'
@@ -26,9 +27,20 @@ function AddTransactionModal({ onClose, onSaved }: { onClose: () => void; onSave
   const [loading, setLoading] = useState(false)
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(p => ({ ...p, [k]: e.target.value }))
   const handleSubmit = async (ev: React.FormEvent) => {
-    ev.preventDefault(); setLoading(true)
+    ev.preventDefault()
+    const branchId = getActiveBranchId()
+    if (!branchId) {
+      toast.error('Select an active branch first')
+      return
+    }
+    const amount = parseFloat(form.amount)
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error('Enter a valid amount')
+      return
+    }
+    setLoading(true)
     try {
-      await financeApi.create({ ...form, amount: parseFloat(form.amount) })
+      await financeApi.create({ ...form, branchId, amount })
       toast.success('Transaction recorded')
       onSaved(); onClose()
     } catch (err: any) { toast.error(err?.message ?? 'Failed') } finally { setLoading(false) }

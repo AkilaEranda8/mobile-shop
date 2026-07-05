@@ -6,6 +6,7 @@ import { authenticate } from '../../middleware/auth.middleware'
 import { businessDayRange, businessDateFromInstant, resolveQueryDateRange } from '../../utils/date-range'
 import { getDailyRevenueBreakdown, getPeriodFinancials } from '../finance/business-financials.service'
 import { effectiveBranchId } from '../../utils/active-branch'
+import { isReloadSaleItem } from '../finance/reload-item.util'
 
 const router = Router()
 router.use(authenticate)
@@ -25,7 +26,7 @@ function normalizeServiceCategory(category: string | null | undefined): string {
 const SERVICE_REPORT_CATEGORY = 'Service'
 
 function isReloadSaleItemSql() {
-  return Prisma.sql`(UPPER(si.sku) LIKE 'RELOAD-%' OR LOWER(si."productName") LIKE '%reload%')`
+  return Prisma.sql`(UPPER(si.sku) LIKE 'RELOAD-%' OR UPPER(si.sku) LIKE 'RCARD-%' OR LOWER(si."productName") LIKE '%reload%' OR LOWER(si."productName") LIKE '%recharge card%')`
 }
 
 function isCatalogServiceSaleItemSql() {
@@ -134,21 +135,39 @@ router.get('/top-products', async (req: Request, res: Response, next: NextFuncti
         days: 30,
       })
       dateFilter = { createdAt: { gte: start, lte: end } }
+    } else if (req.query.days) {
+      const { start, end } = resolveQueryDateRange({ days: parseInt(req.query.days as string) || 30 })
+      dateFilter = { createdAt: { gte: start, lte: end } }
     }
-    const items = await prisma.saleItem.groupBy({
-      by: ['productId', 'productName'],
-      where: { sale: { tenantId, status: { not: 'RETURNED' }, ...(branchId && { branchId }), ...dateFilter } },
-      _sum: { quantity: true, total: true },
-      orderBy: { _sum: { total: 'desc' } },
-      take: limit,
+    const items = await prisma.saleItem.findMany({
+      where: {
+        productId: { not: null },
+        sale: { tenantId, status: { not: 'RETURNED' }, ...(branchId && { branchId }), ...dateFilter },
+      },
+      select: { productId: true, productName: true, sku: true, quantity: true, total: true },
     })
-    sendSuccess(res, items.map((i: (typeof items)[number]) => ({ productId: i.productId, productName: i.productName, quantitySold: i._sum.quantity ?? 0, revenue: i._sum.total ?? 0 })))
+    const agg = new Map<string, { productId: string | null; productName: string; quantitySold: number; revenue: number }>()
+    for (const item of items) {
+      if (isReloadSaleItem(item)) continue
+      const key = item.productId ?? item.productName
+      const row = agg.get(key) ?? { productId: item.productId, productName: item.productName, quantitySold: 0, revenue: 0 }
+      row.quantitySold += item.quantity
+      row.revenue += item.total
+      agg.set(key, row)
+    }
+    const sorted = [...agg.values()].sort((a, b) => b.revenue - a.revenue).slice(0, limit)
+    sendSuccess(res, sorted.map(i => ({ productId: i.productId, productName: i.productName, quantitySold: i.quantitySold, revenue: Math.round(i.revenue * 100) / 100 })))
   } catch (e) { next(e) }
 })
 
 router.get('/repairs-by-status', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const counts = await prisma.repairTicket.groupBy({ by: ['status'], where: { tenantId: req.tenantId! }, _count: true })
+    const branchId = effectiveBranchId(req)
+    const counts = await prisma.repairTicket.groupBy({
+      by: ['status'],
+      where: { tenantId: req.tenantId!, ...(branchId && { branchId }) },
+      _count: true,
+    })
     sendSuccess(res, counts.map((c: any) => ({ status: c.status, count: typeof c._count === 'object' ? (c._count._all ?? 0) : (c._count ?? 0) })))
   } catch (e) { next(e) }
 })
@@ -156,8 +175,9 @@ router.get('/repairs-by-status', async (req: Request, res: Response, next: NextF
 router.get('/inventory-summary', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
+    const branchId = effectiveBranchId(req)
     const products = await prisma.product.findMany({
-      where: { tenantId, isActive: true },
+      where: { tenantId, isActive: true, ...(branchId && { branchId }) },
       select: { id: true, stock: true, minStock: true, buyingPrice: true, sellingPrice: true, category: { select: { name: true } } },
     })
 
@@ -184,18 +204,25 @@ router.get('/inventory-summary', async (req: Request, res: Response, next: NextF
 router.get('/delivery-summary', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
+    const branchId = effectiveBranchId(req)
     const days = parseInt(req.query.days as string) || 30
-    const { start: from } = resolveQueryDateRange({ days })
+    const { start: from, end: to } = resolveQueryDateRange({
+      from: req.query.from as string | undefined,
+      to: req.query.to as string | undefined,
+      days: req.query.from || req.query.to ? undefined : days,
+    })
+    const dateFilter = { createdAt: { gte: from, lte: to } }
+    const branchFilter = branchId ? { branchId } : {}
 
     const [byStatus, revenue, codTotal] = await Promise.all([
       prisma.deliveryOrder.groupBy({
-        by: ['status'], where: { tenantId, createdAt: { gte: from } }, _count: true, _sum: { totalAmount: true },
+        by: ['status'], where: { tenantId, ...branchFilter, ...dateFilter }, _count: true, _sum: { totalAmount: true },
       }),
       prisma.deliveryOrder.aggregate({
-        where: { tenantId, createdAt: { gte: from } },
+        where: { tenantId, ...branchFilter, ...dateFilter },
         _sum: { totalAmount: true, deliveryCharge: true, codAmount: true }, _count: true,
       }),
-      prisma.deliveryOrder.count({ where: { tenantId, isCOD: true, createdAt: { gte: from } } }),
+      prisma.deliveryOrder.count({ where: { tenantId, isCOD: true, ...branchFilter, ...dateFilter } }),
     ])
 
     sendSuccess(res, {

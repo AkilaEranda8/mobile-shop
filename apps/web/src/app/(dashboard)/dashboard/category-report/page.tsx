@@ -6,7 +6,7 @@ import {
 } from 'recharts'
 import {
   TrendingUp, TrendingDown, DollarSign, Package,
-  Download, Calendar, Tag, X, ChevronRight,
+  Download, Calendar, Tag, X, ChevronRight, Info,
 } from 'lucide-react'
 import { useCategorySales, useCategoryProducts, useFeatureFlag } from '@/lib/hooks'
 import { getActiveBranchId } from '@/lib/active-branch'
@@ -208,6 +208,18 @@ export default function CategoryReportPage() {
               )}
             </div>
           )}
+        </div>
+      </div>
+
+      <div className="rounded-xl px-4 py-3 flex gap-3 items-start text-xs leading-relaxed" style={{ background: 'rgba(109,40,217,0.08)', border: '1px solid rgba(109,40,217,0.2)' }}>
+        <Info size={16} className="flex-shrink-0 mt-0.5 text-violet-600 dark:text-violet-400" />
+        <div style={{ color: 'var(--text-secondary)' }}>
+          <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Product categories vs Profit Allocation buckets</p>
+          <p>
+            This report groups sales by each product&apos;s inventory category (e.g. Accessories, Mobile Phones).
+            Daily Closing and Profit Allocation use separate revenue buckets (Mobile Sales, Reload, Services, etc.).
+            Totals may not match — use this report for product mix analysis; use Profit Allocation for fund distribution.
+          </p>
         </div>
       </div>
 

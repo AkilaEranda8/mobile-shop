@@ -1,5 +1,5 @@
 import { prisma } from '../../config/database'
-import { listBusinessDays, normalizeBusinessDate } from '../../utils/date-range'
+import { listBusinessDays, normalizeBusinessDate, businessDateDb } from '../../utils/date-range'
 import { buildDailyClosingPreview } from '../daily-closing/daily-closing.service'
 
 /** Canonical day financials — same formulas as Daily Closing preview */
@@ -118,8 +118,53 @@ export async function getBranchDayFinancials(
   branchId: string,
   dateStr: string,
 ): Promise<BusinessFinancialSummary> {
-  const preview = await buildDailyClosingPreview(tenantId, branchId, normalizeBusinessDate(dateStr))
+  const dateKey = normalizeBusinessDate(dateStr)
+  const closed = await prisma.dailyClosing.findUnique({
+    where: {
+      tenantId_branchId_date: {
+        tenantId,
+        branchId,
+        date: businessDateDb(dateKey),
+      },
+    },
+  })
+  if (closed?.status === 'CLOSED') {
+    return mapClosingRecordToSummary(closed)
+  }
+  const preview = await buildDailyClosingPreview(tenantId, branchId, dateKey)
   return mapPreviewToSummary(preview)
+}
+
+function mapClosingRecordToSummary(closed: {
+  totalSales: number
+  grossSales: number
+  repairIncome: number
+  billPaymentIncome: number
+  otherIncome: number
+  serviceIncome: number
+  reloadCommission: number
+  salesCount: number
+  cogs: number
+  totalExpenses: number
+  grossProfit: number
+  netProfit: number
+}): BusinessFinancialSummary {
+  const otherIncome = round2(
+    closed.repairIncome + closed.billPaymentIncome + closed.otherIncome + closed.serviceIncome,
+  )
+  return {
+    salesRevenue: closed.totalSales,
+    grossSales: closed.grossSales,
+    otherIncome,
+    reloadCommission: closed.reloadCommission,
+    salesCount: closed.salesCount,
+    cogs: closed.cogs,
+    repairPartsCogs: 0,
+    opExpenses: closed.totalExpenses,
+    refundsTotal: 0,
+    grossProfit: closed.grossProfit,
+    netProfit: closed.netProfit,
+  }
 }
 
 async function tenantBranchIds(tenantId: string): Promise<string[]> {

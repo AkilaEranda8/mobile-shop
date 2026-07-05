@@ -16,6 +16,12 @@ export function businessPeriodFrom(days: number, toDate?: string): string {
   return shiftBusinessDate(end, -(days - 1))
 }
 
+/** First day of the month for a Colombo business date (YYYY-MM-01) */
+export function businessMonthStart(toDate?: string): string {
+  const d = toDate ?? businessToday()
+  return `${d.slice(0, 7)}-01`
+}
+
 /** Format chart label from YYYY-MM-DD without UTC shift */
 export function formatBusinessDateLabel(dateStr: string): string {
   const d = new Date(`${dateStr}T12:00:00+05:30`)

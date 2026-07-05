@@ -1,14 +1,9 @@
 import { prisma } from '../../config/database'
 import { businessDayRange, normalizeBusinessDate } from '../../utils/date-range'
+import { isReloadSaleItem } from './reload-item.util'
 
 function round2(n: number) {
   return Math.round(n * 100) / 100
-}
-
-function isReloadSaleItem(item: { sku?: string | null; productName?: string }) {
-  const sku = (item.sku ?? '').toUpperCase()
-  const name = (item.productName ?? '').toLowerCase()
-  return sku.startsWith('RELOAD-') || name.includes('reload')
 }
 
 function isMobileProduct(product: { trackImei?: boolean; category?: { name?: string; slug?: string } | null } | null) {

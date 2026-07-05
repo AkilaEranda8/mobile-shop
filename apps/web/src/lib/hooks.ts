@@ -277,6 +277,13 @@ export function useFinanceSummary(params?: Record<string, string>) {
   )
 }
 
+export function usePlStatement(params?: Record<string, string>) {
+  return useApi<unknown>(
+    () => financeApi.plStatement(params) as Promise<{ data: unknown }>,
+    [JSON.stringify(params)],
+  )
+}
+
 export function useAnalyticsDashboard(branchId?: string) {
   const params = branchId ? { branchId } : undefined
   return useApi<unknown>(
@@ -299,17 +306,17 @@ export function useTopProducts(params?: Record<string, string>) {
   )
 }
 
-export function useRepairsByStatus() {
+export function useRepairsByStatus(params?: Record<string, string>) {
   return useApi<unknown[]>(
-    () => analyticsApi.repairsByStatus() as Promise<{ data: unknown[] }>,
-    [],
+    () => analyticsApi.repairsByStatus(params) as Promise<{ data: unknown[] }>,
+    [JSON.stringify(params ?? {})],
   )
 }
 
-export function useInventorySummary() {
+export function useInventorySummary(params?: Record<string, string>) {
   return useApi<unknown>(
-    () => analyticsApi.inventorySummary() as Promise<{ data: unknown }>,
-    [],
+    () => analyticsApi.inventorySummary(params) as Promise<{ data: unknown }>,
+    [JSON.stringify(params ?? {})],
   )
 }
 

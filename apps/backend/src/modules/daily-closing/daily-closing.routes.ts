@@ -152,6 +152,7 @@ router.post('/close', authorize('OWNER', 'MANAGER'), async (req: Request, res: R
             user.userId,
             user.email,
             'Auto-saved on day close',
+            { normalizePercentages: true },
           )
         }
       } catch (e: any) {
@@ -167,7 +168,11 @@ router.post('/reopen', authorize('OWNER', 'MANAGER'), async (req: Request, res: 
   try {
     const { branchId, date } = req.body
     if (!branchId || !date) throw new AppError('branchId and date are required', 400)
-    sendSuccess(res, await reopenBusinessDay(req.tenantId!, branchId, resolveBusinessDate(date)), 'Day reopened')
+    const result = await reopenBusinessDay(req.tenantId!, branchId, resolveBusinessDate(date))
+    const parts = ['Day reopened']
+    if (result.allocationRemoved) parts.push('profit allocation reversed')
+    if (result.summaryRemoved) parts.push('daily summary removed')
+    sendSuccess(res, result.preview, parts.join(' · '))
   } catch (e) { next(e) }
 })
 

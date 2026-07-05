@@ -9,7 +9,9 @@ import {
   resolveReloadProvider,
 } from '../daily-reload/reload-settings.util'
 import { buildCategoryProfitTable } from '../finance/category-profit.util'
+import { isReloadSaleItem } from '../finance/reload-item.util'
 import { isTenantFeatureEnabled } from '../../utils/tenant-feature.util'
+import { revertSavedProfitAllocation } from '../profit-allocation/revert-allocation.util'
 
 export interface CashCountInput {
   d5000?: number
@@ -45,14 +47,7 @@ function parseDateRange(dateStr: string) {
 }
 
 function isReloadItem(item: { sku?: string | null; productName?: string; productId?: string | null }) {
-  const sku = (item.sku ?? '').toUpperCase()
-  const name = (item.productName ?? '').toLowerCase()
-  return (
-    sku.startsWith('RELOAD-')
-    || sku.startsWith('RCARD-')
-    || name.includes('reload')
-    || name.includes('recharge card')
-  )
+  return isReloadSaleItem(item)
 }
 
 function isMobileProduct(product: { trackImei?: boolean; category?: { name?: string; slug?: string } | null } | null) {
@@ -498,12 +493,20 @@ export async function assertBusinessDayOpen(tenantId: string, branchId: string, 
   }
 }
 
+/** Reject invalid values; treat empty string / null / undefined as fallback (avoids string concat on expected cash). */
+export function resolveOpeningCash(value: unknown, fallback: number): number {
+  if (value === undefined || value === null || value === '') return fallback
+  const n = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(n) || n < 0) throw new AppError('Opening cash must be zero or greater', 400)
+  return Math.round(n * 100) / 100
+}
+
 function previewToClosingData(
   preview: Awaited<ReturnType<typeof buildDailyClosingPreview>>,
-  overrides: { openingCash?: number; actualCash?: number; notes?: string },
+  overrides: { openingCash?: unknown; actualCash?: number; notes?: string },
   existingSummary?: Record<string, unknown> | null,
 ) {
-  const openingCash = overrides.openingCash ?? preview.openingCash
+  const openingCash = resolveOpeningCash(overrides.openingCash, preview.openingCash)
   const actualCash = overrides.actualCash ?? preview.cash.actualCash
   const expectedCash = openingCash + preview.cash.cashSales - preview.expenses.totalExpenses - preview.cash.bankDeposits - (preview.cash.cashRefunds ?? 0)
   const cashVariance = Math.round((expectedCash - actualCash) * 100) / 100
@@ -793,10 +796,26 @@ export async function reopenBusinessDay(tenantId: string, branchId: string, date
   })
   if (!existing || existing.status !== 'CLOSED') throw new AppError('No closed record found for this date', 404)
 
+  let allocationRemoved = false
+  let summaryRemoved = false
+
+  allocationRemoved = await revertSavedProfitAllocation(tenantId, branchId, dateKey)
+
+  const dailySummary = await prisma.dailySummary.findUnique({
+    where: { tenantId_branchId_date: { tenantId, branchId, date } },
+  })
+  if (dailySummary) {
+    await prisma.dailySummary.delete({
+      where: { tenantId_branchId_date: { tenantId, branchId, date } },
+    })
+    summaryRemoved = true
+  }
+
   await prisma.dailyClosing.update({
     where: { id: existing.id },
     data: { status: 'DRAFT', closedBy: null, closedByName: null, closedAt: null },
   })
 
-  return buildDailyClosingPreview(tenantId, branchId, dateKey)
+  const preview = await buildDailyClosingPreview(tenantId, branchId, dateKey)
+  return { preview, allocationRemoved, summaryRemoved }
 }

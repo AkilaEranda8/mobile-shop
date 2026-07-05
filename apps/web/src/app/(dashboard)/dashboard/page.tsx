@@ -18,6 +18,7 @@ import {
 } from '@/lib/hooks'
 import type { RepairTicket, Transaction as AppTransaction } from '@/types'
 import { formatCurrency, formatRelativeTime } from '@/lib/utils'
+import { businessToday, businessPeriodFrom, formatBusinessDateLabel } from '@/lib/business-date'
 
 /* ─────────────────────────────────────────────────────────────────────
    SVG SPARKLINE
@@ -86,11 +87,13 @@ export default function DashboardPage() {
   const { openPos } = usePos()
 
   /* ── Data ── */
+  const dashTo = businessToday()
+  const dashFrom = businessPeriodFrom(30, dashTo)
   const { data: rawRevenue, refetch: refetchRevenue }     = useRevenue({ days: '30' })
   const { data: repairsData }    = useRepairs()
   const { data: txData, refetch: refetchTx }         = useTransactions()
   const { data: stats, refetch: refetchDashboard } = useAnalyticsDashboard()
-  const { data: rawTopProducts, refetch: refetchTopProducts } = useTopProducts()
+  const { data: rawTopProducts, refetch: refetchTopProducts } = useTopProducts({ limit: '5', from: dashFrom, to: dashTo })
   const hasDailyClosing = useFeatureFlag('DAILY_CLOSING')
 
   useEffect(() => {
@@ -123,7 +126,7 @@ export default function DashboardPage() {
 
   /* Chart */
   const chartData = revenueArr.slice(-7).map((d: any) => ({
-    date:   new Date(d.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
+    date:   formatBusinessDateLabel(d.date),
     sales:  Math.round(d.totalRevenue ?? d.revenue ?? 0),
     cost:   Math.round((d.totalRevenue ?? d.revenue ?? 0) - (d.profit ?? 0)),
     profit: Math.round(d.profit  ?? 0),
@@ -278,9 +281,9 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
-          <Link href="/dashboard/finance"
+          <Link href="/dashboard/reports?tab=overview"
             className="mt-5 flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl text-sm font-semibold text-green-600 bg-green-50 dark:bg-green-500/10 hover:bg-green-100 dark:hover:bg-green-500/20 transition-colors border border-green-100 dark:border-green-500/20">
-            Go to Analytics <ArrowRight size={14}/>
+            Go to Reports <ArrowRight size={14}/>
           </Link>
         </div>
 
@@ -288,7 +291,7 @@ export default function DashboardPage() {
         <div className={`${CARD} lg:col-span-4 p-5`}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-gray-900 dark:text-white">Recent Activity</h3>
-            <Link href="/dashboard/finance" className="text-xs font-medium text-violet-600 hover:text-violet-700 transition-colors">View All</Link>
+            <Link href="/dashboard/reports?tab=overview" className="text-xs font-medium text-violet-600 hover:text-violet-700 transition-colors">View All</Link>
           </div>
           <div className="space-y-3.5">
             {activityFeed.length > 0 ? activityFeed.map((item: any, i: number) => (
@@ -438,7 +441,7 @@ export default function DashboardPage() {
           { href: '/dashboard/inventory?action=add-product', icon: Package,      label: 'Add Product',  sub: 'New Item',       iconBg: '#dcfce7', iconColor: '#16a34a' },
           { href: '/dashboard/repairs?action=new',   icon: Wrench,       label: 'New Repair',   sub: 'Create Ticket',  iconBg: '#ffedd5', iconColor: '#ea580c' },
           { href: '/dashboard/finance?action=add-expense',   icon: DollarSign,   label: 'Expenses',     sub: 'Add Expense',    iconBg: '#ffe4e6', iconColor: '#e11d48' },
-          { href: '/dashboard/finance',   icon: BarChart2,    label: 'Reports',      sub: 'View Reports',   iconBg: '#cffafe', iconColor: '#0891b2' },
+          { href: '/dashboard/reports?tab=overview',   icon: BarChart2,    label: 'Reports',      sub: 'View Reports',   iconBg: '#cffafe', iconColor: '#0891b2' },
           ...(hasDailyClosing ? [{ href: '/dashboard/daily-closing', icon: Lock, label: 'Daily Closing', sub: 'Close Day', iconBg: '#f3e8ff', iconColor: '#7c3aed' }] : []),
         ].map(a => {
           const cardClass = `${CARD} p-4 flex flex-col items-center gap-2 text-center hover:shadow-md hover:border-violet-200 dark:hover:border-violet-500/30 transition-all active:scale-95`

@@ -258,7 +258,13 @@ export default function DailyClosingPage() {
     if (!canDraft) return
     setSaving(true)
     try {
-      await dailyClosingApi.saveDraft({ branchId, date, openingCash, cashCount, notes })
+      await dailyClosingApi.saveDraft({
+        branchId,
+        date,
+        openingCash: typeof openingCash === 'number' ? openingCash : undefined,
+        cashCount,
+        notes,
+      })
       toast.success('Draft saved')
       refetch()
     } catch (e: any) {
@@ -290,10 +296,11 @@ export default function DailyClosingPage() {
 
   const reopenDay = async () => {
     if (!canClose) return
+    if (!confirm('Reopen this day? Saved profit allocation will be reversed, daily summary removed, and new transactions allowed again.')) return
     setSaving(true)
     try {
       await dailyClosingApi.reopen({ branchId, date })
-      toast.success('Day reopened')
+      toast.success('Day reopened — allocation and summary cleared')
       refetch()
     } catch (e: any) {
       toast.error(e?.message ?? 'Reopen failed')

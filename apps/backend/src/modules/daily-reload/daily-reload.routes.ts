@@ -15,6 +15,7 @@ import {
 } from './reload-settings.util'
 import { buildProviderBreakdown, computeProviderPriorBalances, summarizeProviderBreakdown } from './reload-provider.util'
 import { findBranchReloads } from './reload-branch.util'
+import { effectiveBranchId } from '../../utils/active-branch'
 
 const router = Router()
 router.use(authenticate)
@@ -263,14 +264,18 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
 router.get('/report', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
+    const branchId = effectiveBranchId(req)
     const { from, to } = req.query as Record<string, string>
-    const where: any = { tenantId }
     const { start, end } = resolveQueryDateRange({ from, to, days: 30 })
-    where.reloadDate = { gte: start, lte: end }
 
     res.setHeader('Cache-Control', 'no-store')
     const settings = await fetchTenantReloadSettings(tenantId)
-    const reloads = await prisma.dailyReload.findMany({ where, orderBy: { reloadDate: 'asc' } })
+    const reloads = branchId
+      ? await findBranchReloads(tenantId, branchId, start, end)
+      : await prisma.dailyReload.findMany({
+          where: { tenantId, reloadDate: { gte: start, lte: end } },
+          orderBy: { reloadDate: 'asc' },
+        })
 
     const totalAmount  = reloads.reduce((s: number, r: any) => s + Number(r.amount), 0)
     const successCount = reloads.filter((r: any) => r.status === 'Success').length

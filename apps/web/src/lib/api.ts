@@ -395,6 +395,8 @@ export const financeApi = {
   create: (body: unknown) => api.post('/finance/transactions', body),
   summary: (params?: Record<string, string>) =>
     api.get(`/finance/summary${params ? '?' + new URLSearchParams(params) : ''}`),
+  plStatement: (params?: Record<string, string>) =>
+    api.get(`/finance/pl-statement${params ? '?' + new URLSearchParams(params) : ''}`),
   dailySummaries: (params?: Record<string, string>) =>
     api.get(`/finance/daily-summaries${params ? '?' + new URLSearchParams(params) : ''}`),
 }
@@ -504,8 +506,10 @@ export const analyticsApi = {
     api.get(`/analytics/revenue${params ? '?' + new URLSearchParams(params) : ''}`),
   topProducts: (params?: Record<string, string>) =>
     api.get(`/analytics/top-products${params ? '?' + new URLSearchParams(params) : ''}`),
-  repairsByStatus: () => api.get('/analytics/repairs-by-status'),
-  inventorySummary: () => api.get('/analytics/inventory-summary'),
+  repairsByStatus: (params?: Record<string, string>) =>
+    api.get(`/analytics/repairs-by-status${params ? '?' + new URLSearchParams(params) : ''}`),
+  inventorySummary: (params?: Record<string, string>) =>
+    api.get(`/analytics/inventory-summary${params ? '?' + new URLSearchParams(params) : ''}`),
   deliverySummary: (params?: Record<string, string>) =>
     api.get(`/analytics/delivery-summary${params ? '?' + new URLSearchParams(params) : ''}`),
   categorySales: (params?: Record<string, string>) =>

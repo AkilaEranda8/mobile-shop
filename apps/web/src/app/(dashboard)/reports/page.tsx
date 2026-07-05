@@ -1,6 +1,7 @@
 'use client'
 // v2
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, Suspense } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   ComposedChart, Line, ReferenceLine,
@@ -87,6 +88,37 @@ function ExportCSV({ filename, rows, headers }: { filename: string; rows: (strin
   )
 }
 
+type FetchSlice = { loading: boolean; error: string | null; refetch?: () => void }
+
+function combineFetch(...items: FetchSlice[]) {
+  return {
+    loading: items.some(i => i.loading),
+    error: items.find(i => i.error)?.error ?? null,
+    refetch: () => items.forEach(i => i.refetch?.()),
+  }
+}
+
+function ReportTabState({ loading, error, label, onRetry }: { loading: boolean; error?: string | null; label?: string; onRetry?: () => void }) {
+  if (!loading && !error) return null
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24 text-sm" style={{ color: 'var(--text-muted)' }}>
+        Loading {label ?? 'report'}…
+      </div>
+    )
+  }
+  return (
+    <div className="flex flex-col items-center justify-center py-24 gap-3 text-sm">
+      <p className="text-red-600 dark:text-red-400">{error ?? 'Failed to load data'}</p>
+      {onRetry && (
+        <button type="button" onClick={onRetry} className="text-xs px-3 py-1.5 rounded-lg border transition-colors hover:opacity-80" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
+          Retry
+        </button>
+      )}
+    </div>
+  )
+}
+
 /* ── tabs ───────────────────────────────────────────────────────── */
 const BASE_TABS = [
   { id: 'overview',     label: 'Overview',      icon: BarChart3    },
@@ -100,8 +132,10 @@ const BASE_TABS = [
 const RELOAD_TAB = { id: 'dailyreload', label: 'Daily Reload', icon: PhoneCall }
 
 /* ── Daily Reload Tab ──────────────────────────────────────────── */
-function DailyReloadTab({ fromDate, toDate }: { fromDate: string; toDate: string }) {
-  const { data: rawData } = useDailyReloadReport({ from: fromDate, to: toDate })
+function DailyReloadTab({ fromDate, toDate, branchId }: { fromDate: string; toDate: string; branchId?: string }) {
+  const params: Record<string, string> = { from: fromDate, to: toDate }
+  if (branchId) params.branchId = branchId
+  const { data: rawData, loading, error, refetch } = useDailyReloadReport(params)
   const d = rawData as any
 
   const totalCount   = d?.totalCount   ?? 0
@@ -121,6 +155,11 @@ function DailyReloadTab({ fromDate, toDate }: { fromDate: string; toDate: string
   const exportRows = breakdown.map((r: any) => [
     r.date, r.count, r.totalAmount.toFixed(2), r.commission.toFixed(2), r.successCount, r.count - r.successCount,
   ])
+
+  const tabState = combineFetch({ loading, error, refetch })
+  if (tabState.loading || tabState.error) {
+    return <ReportTabState loading={tabState.loading} error={tabState.error} label="daily reload report" onRetry={tabState.refetch} />
+  }
 
   return (
     <div className="space-y-6">
@@ -191,8 +230,11 @@ function SalesTab({ days, fromDate, toDate, branchId }: { days: string; fromDate
   const revParams: Record<string, string> = { from: fromDate, to: toDate }
   const topParams: Record<string, string> = { limit: '10', from: fromDate, to: toDate }
   if (branchId) { revParams.branchId = branchId; topParams.branchId = branchId }
-  const { data: rawRevenue }      = useRevenue(revParams)
-  const { data: topProductsData } = useTopProducts(topParams)
+  const revFetch = useRevenue(revParams)
+  const topFetch = useTopProducts(topParams)
+  const { data: rawRevenue } = revFetch
+  const { data: topProductsData } = topFetch
+  const tabState = combineFetch(revFetch, topFetch)
   const revenueArr: any[] = Array.isArray(rawRevenue) ? rawRevenue : []
   const topProducts: any[] = Array.isArray(topProductsData) ? topProductsData : []
 
@@ -210,6 +252,10 @@ function SalesTab({ days, fromDate, toDate, branchId }: { days: string; fromDate
   })), [revenueArr])
 
   const exportRows = topProducts.map(p => [p.productName, p.quantitySold, p.revenue])
+
+  if (tabState.loading || tabState.error) {
+    return <ReportTabState loading={tabState.loading} error={tabState.error} label="sales report" onRetry={tabState.refetch} />
+  }
 
   return (
     <div className="space-y-6">
@@ -284,8 +330,10 @@ function SalesTab({ days, fromDate, toDate, branchId }: { days: string; fromDate
 }
 
 /* ── Inventory Tab ─────────────────────────────────────────────── */
-function InventoryTab() {
-  const { data: invData } = useInventorySummary()
+function InventoryTab({ branchId }: { branchId?: string }) {
+  const params = branchId ? { branchId } : undefined
+  const invFetch = useInventorySummary(params)
+  const { data: invData } = invFetch
   const inv = invData as any
 
   const byCategory: any[] = inv?.byCategory ?? []
@@ -295,6 +343,10 @@ function InventoryTab() {
   const outOfStockCount   = inv?.outOfStockCount ?? 0
 
   const exportRows = byCategory.map(c => [c.name, c.products, c.totalStock, c.stockValue, c.lowStock, c.outOfStock])
+
+  if (invFetch.loading || invFetch.error) {
+    return <ReportTabState loading={invFetch.loading} error={invFetch.error} label="inventory report" onRetry={invFetch.refetch} />
+  }
 
   return (
     <div className="space-y-6">
@@ -377,8 +429,10 @@ function InventoryTab() {
 }
 
 /* ── Repairs Tab ────────────────────────────────────────────────── */
-function RepairsTab() {
-  const { data: repairStatusData } = useRepairsByStatus()
+function RepairsTab({ branchId }: { branchId?: string }) {
+  const params = branchId ? { branchId } : undefined
+  const repairFetch = useRepairsByStatus(params)
+  const { data: repairStatusData } = repairFetch
   const statusArr: any[] = Array.isArray(repairStatusData) ? repairStatusData : []
 
   const total     = statusArr.reduce((s, r) => s + (r.count ?? 0), 0)
@@ -389,6 +443,10 @@ function RepairsTab() {
   const pieData = statusArr.map((r, i) => ({ name: STATUS_LABEL[r.status] ?? r.status, value: r.count ?? 0, fill: PIE_COLORS[i % PIE_COLORS.length] }))
 
   const exportRows = statusArr.map(r => [STATUS_LABEL[r.status] ?? r.status, r.count ?? 0])
+
+  if (repairFetch.loading || repairFetch.error) {
+    return <ReportTabState loading={repairFetch.loading} error={repairFetch.error} label="repairs report" onRetry={repairFetch.refetch} />
+  }
 
   return (
     <div className="space-y-6">
@@ -444,8 +502,11 @@ function RepairsTab() {
 }
 
 /* ── Delivery Tab ───────────────────────────────────────────────── */
-function DeliveryTab({ days }: { days: string }) {
-  const { data: delData } = useDeliverySummary({ days })
+function DeliveryTab({ fromDate, toDate, branchId }: { fromDate: string; toDate: string; branchId?: string }) {
+  const params: Record<string, string> = { from: fromDate, to: toDate }
+  if (branchId) params.branchId = branchId
+  const delFetch = useDeliverySummary(params)
+  const { data: delData } = delFetch
   const del = delData as any
 
   const totalOrders  = del?.totalOrders ?? 0
@@ -461,6 +522,10 @@ function DeliveryTab({ days }: { days: string }) {
   const codPie  = [{ name: 'COD', value: codOrders, fill: '#b45309' }, { name: 'Prepaid', value: prepaid, fill: '#1d4ed8' }]
 
   const exportRows = byStatus.map(s => [STATUS_LABEL[s.status] ?? s.status, s.count, s.revenue])
+
+  if (delFetch.loading || delFetch.error) {
+    return <ReportTabState loading={delFetch.loading} error={delFetch.error} label="delivery report" onRetry={delFetch.refetch} />
+  }
 
   return (
     <div className="space-y-6">
@@ -547,11 +612,17 @@ function DeliveryTab({ days }: { days: string }) {
 /* ── Overview Tab ─────────────────────────────────────────────── */
 function OverviewTab({ days, fromDate, toDate, branchId }: { days: string; fromDate: string; toDate: string; branchId?: string }) {
   const revParams: Record<string, string> = { from: fromDate, to: toDate }
+  const branchParams = branchId ? { branchId } : undefined
   if (branchId) revParams.branchId = branchId
-  const { data: dashData }         = useAnalyticsDashboard(branchId)
-  const { data: rawRevenue }       = useRevenue(revParams)
-  const { data: repairStatusData } = useRepairsByStatus()
-  const { data: invData }          = useInventorySummary()
+  const dashFetch    = useAnalyticsDashboard(branchId)
+  const revFetch     = useRevenue(revParams)
+  const repairFetch  = useRepairsByStatus(branchParams)
+  const invFetch     = useInventorySummary(branchParams)
+  const tabState     = combineFetch(dashFetch, revFetch, repairFetch, invFetch)
+  const { data: dashData }         = dashFetch
+  const { data: rawRevenue }       = revFetch
+  const { data: repairStatusData } = repairFetch
+  const { data: invData }          = invFetch
 
   const dash = dashData as any
   const revenue: any[]  = Array.isArray(rawRevenue) ? rawRevenue : []
@@ -579,6 +650,10 @@ function OverviewTab({ days, fromDate, toDate, branchId }: { days: string; fromD
     { label: 'Expiring Warranties',  value: String(dash?.expiringWarranties ?? 0),  good: (dash?.expiringWarranties ?? 0) === 0 },
   ]
 
+  if (tabState.loading || tabState.error) {
+    return <ReportTabState loading={tabState.loading} error={tabState.error} label="overview" onRetry={tabState.refetch} />
+  }
+
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
@@ -587,7 +662,7 @@ function OverviewTab({ days, fromDate, toDate, branchId }: { days: string; fromD
         <StatCard label={`${days}d Total Cost`} value={formatCurrency(totalCost)}               icon={TrendingDown}  color="red"    />
         <StatCard label="Today's Revenue"       value={formatCurrency(dash?.todayRevenue ?? 0)} icon={ShoppingCart}  color="blue"   sub={`${dash?.todaySalesCount ?? 0} sales`} />
         <StatCard label="Total Customers"       value={(dash?.totalCustomers ?? 0).toLocaleString()} icon={Users}    color="orange" />
-        <StatCard label="Low Stock Items"       value={(dash?.lowStockCount ?? 0).toString()}   icon={AlertTriangle} color="yellow" sub="≤5 units remaining" />
+        <StatCard label="Low Stock Items"       value={(inv?.lowStockCount ?? dash?.lowStockCount ?? 0).toString()}   icon={AlertTriangle} color="yellow" sub="Below min stock" />
       </div>
 
       <div className="card p-5">
@@ -660,7 +735,8 @@ function PLTab({ fromDate, toDate, branchId }: { fromDate: string; toDate: strin
     if (branchId) p.branchId = branchId
     return p
   }
-  const { data: summaryData } = useFinanceSummary(mkParams())
+  const summaryFetch = useFinanceSummary(mkParams())
+  const { data: summaryData } = summaryFetch
 
   const periodDays = useMemo(() => {
     const ms = new Date(toDate).getTime() - new Date(fromDate).getTime()
@@ -670,7 +746,9 @@ function PLTab({ fromDate, toDate, branchId }: { fromDate: string; toDate: strin
   const prevFromDate = useMemo(() => shiftBusinessDate(fromDate, -periodDays), [fromDate, periodDays])
   const prevParams: Record<string, string> = { from: prevFromDate, to: prevToDate }
   if (branchId) prevParams.branchId = branchId
-  const { data: prevData } = useFinanceSummary(prevParams)
+  const prevFetch = useFinanceSummary(prevParams)
+  const { data: prevData } = prevFetch
+  const tabState = combineFetch(summaryFetch, prevFetch)
 
   const s    = summaryData as any
   const prev = prevData    as any
@@ -719,6 +797,10 @@ function PLTab({ fromDate, toDate, branchId }: { fromDate: string; toDate: strin
     { label: 'Net Profit Margin',    pct: netMargin,      positive: netMargin >= 0,   indent: true        },
   ]
   const exportRows = plRows.filter(r => r.value !== undefined).map(r => [r.label, r.value!.toFixed(2)])
+
+  if (tabState.loading || tabState.error) {
+    return <ReportTabState loading={tabState.loading} error={tabState.error} label="P&amp;L report" onRetry={tabState.refetch} />
+  }
 
   return (
     <div className="space-y-5">
@@ -834,7 +916,8 @@ function PLTab({ fromDate, toDate, branchId }: { fromDate: string; toDate: strin
 function CashFlowTab({ fromDate, toDate, branchId }: { fromDate: string; toDate: string; branchId?: string }) {
   const cfParams: Record<string, string> = { from: fromDate, to: toDate }
   if (branchId) cfParams.branchId = branchId
-  const { data: rawRevenue } = useRevenue(cfParams)
+  const revFetch = useRevenue(cfParams)
+  const { data: rawRevenue } = revFetch
   const revenueArr: any[] = Array.isArray(rawRevenue) ? rawRevenue : []
 
   const cashFlowData = useMemo(() => {
@@ -854,6 +937,10 @@ function CashFlowTab({ fromDate, toDate, branchId }: { fromDate: string; toDate:
   const bestDay  = cashFlowData.length > 0 ? cashFlowData.reduce((b, d) => d.net > b.net ? d : b, cashFlowData[0]) : null
 
   const exportRows = cashFlowData.map(d => [d.rawDate, d.cashIn.toFixed(2), d.cashOut.toFixed(2), d.net.toFixed(2), d.cumulative.toFixed(2)])
+
+  if (revFetch.loading || revFetch.error) {
+    return <ReportTabState loading={revFetch.loading} error={revFetch.error} label="cash flow report" onRetry={revFetch.refetch} />
+  }
 
   return (
     <div className="space-y-6">
@@ -926,14 +1013,30 @@ function CashFlowTab({ fromDate, toDate, branchId }: { fromDate: string; toDate:
 }
 
 /* ── Main Page ───────────────────────────────────────────────────── */
-export default function ReportsPage() {
+const TAB_IDS = new Set([...BASE_TABS.map(t => t.id), RELOAD_TAB.id])
+
+function ReportsPageContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const hasDailyReload = useFeatureFlag('DAILY_RELOAD')
+  const tabFromUrl = searchParams.get('tab')
   const [activeTab, setActiveTab]   = useState('overview')
   const [period, setPeriod]         = useState('30')
   const branchId = getActiveBranchId() ?? ''
   const [isCustom, setIsCustom]     = useState(false)
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo]     = useState('')
+
+  useEffect(() => {
+    if (!tabFromUrl || !TAB_IDS.has(tabFromUrl)) return
+    if (tabFromUrl === 'dailyreload' && !hasDailyReload) return
+    setActiveTab(tabFromUrl)
+  }, [tabFromUrl, hasDailyReload])
+
+  const selectTab = (id: string) => {
+    setActiveTab(id)
+    router.replace(`/dashboard/reports?tab=${id}`, { scroll: false })
+  }
 
   const todayStr = useMemo(() => businessToday(), [])
 
@@ -1000,7 +1103,7 @@ export default function ReportsPage() {
         {TABS.map(tab => {
           const Icon = tab.icon
           return (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+            <button key={tab.id} onClick={() => selectTab(tab.id)}
               className="flex items-center gap-1.5 px-4 py-2 text-xs rounded-lg font-medium transition-all whitespace-nowrap"
               style={activeTab === tab.id
                 ? { background: 'var(--bg-card)', color: 'var(--text-primary)', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }
@@ -1016,10 +1119,22 @@ export default function ReportsPage() {
       {activeTab === 'sales'     && <SalesTab     days={period} fromDate={fromDate} toDate={toDate} branchId={activeBranch} />}
       {activeTab === 'pl'        && <PLTab        fromDate={fromDate} toDate={toDate} branchId={activeBranch} />}
       {activeTab === 'cashflow'  && <CashFlowTab  fromDate={fromDate} toDate={toDate} branchId={activeBranch} />}
-      {activeTab === 'inventory' && <InventoryTab />}
-      {activeTab === 'repairs'      && <RepairsTab />}
-      {activeTab === 'delivery'     && <DeliveryTab days={period} />}
-      {activeTab === 'dailyreload'  && <DailyReloadTab fromDate={fromDate} toDate={toDate} />}
+      {activeTab === 'inventory' && <InventoryTab branchId={activeBranch} />}
+      {activeTab === 'repairs'      && <RepairsTab branchId={activeBranch} />}
+      {activeTab === 'delivery'     && <DeliveryTab fromDate={fromDate} toDate={toDate} branchId={activeBranch} />}
+      {activeTab === 'dailyreload'  && <DailyReloadTab fromDate={fromDate} toDate={toDate} branchId={activeBranch} />}
     </div>
+  )
+}
+
+export default function ReportsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[40vh] text-sm" style={{ color: 'var(--text-muted)' }}>
+        Loading Reports &amp; Analytics…
+      </div>
+    }>
+      <ReportsPageContent />
+    </Suspense>
   )
 }

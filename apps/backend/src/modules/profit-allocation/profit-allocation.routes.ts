@@ -48,7 +48,7 @@ router.post('/calculate', authorize('OWNER', 'MANAGER'), async (req: Request, re
   } catch (e) { next(e) }
 })
 
-router.post('/save', authorize('OWNER'), validate(saveAllocationSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/save', authorize('OWNER', 'MANAGER'), validate(saveAllocationSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { branchId, date, notes } = req.body
     sendSuccess(
@@ -76,7 +76,7 @@ router.delete('/allocations/:date', authorize('OWNER'), async (req: Request, res
   } catch (e) { next(e) }
 })
 
-router.post('/resave', authorize('OWNER'), validate(saveAllocationSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/resave', authorize('OWNER', 'MANAGER'), validate(saveAllocationSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { branchId, date, notes } = req.body
     sendSuccess(

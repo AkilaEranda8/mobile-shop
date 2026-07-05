@@ -6,7 +6,7 @@ import {
   LayoutDashboard, ShoppingCart, Package, Users, Wrench,
   Shield, Truck, BarChart3, Settings, LogOut,
   CreditCard, Smartphone,   FileText, Building2,
-  UserCheck, ChevronLeft, ChevronRight, Receipt, MessageSquare, PackageCheck, RotateCcw, ArrowLeftRight, Layers, RefreshCw, Lock, PieChart, Sparkles, BookOpen,
+  UserCheck, ChevronLeft, ChevronRight, Receipt, MessageSquare, PackageCheck, RotateCcw, ArrowLeftRight, Layers, RefreshCw, Lock, PieChart, Sparkles, BookOpen, TrendingUp,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
@@ -54,17 +54,17 @@ const navItems = [
     label: 'Finance',
     items: [
       { href: '/dashboard/finance',   icon: CreditCard, label: 'Finance',   feature: 'FINANCE' },
+      { href: '/dashboard/profit-loss', icon: TrendingUp, label: 'Profit & Loss', badge: 'NEW', feature: 'FINANCE' },
       { href: '/dashboard/expenses',  icon: Receipt,    label: 'Expenses',  badge: 'NEW', feature: 'FINANCE' },
       { href: '/dashboard/profit-allocation', icon: PieChart, label: 'Profit Allocation', badge: 'NEW', feature: 'PROFIT_ALLOCATION' },
       { href: '/dashboard/daily-closing', icon: Lock,   label: 'Daily Closing', badge: 'NEW', feature: 'DAILY_CLOSING' },
-      { href: '/dashboard/analytics', icon: BarChart3,  label: 'Analytics', feature: 'ANALYTICS' },
     ],
   },
   {
     label: 'Reports',
     items: [
-      { href: '/dashboard/reports',          icon: FileText, label: 'Reports',          badge: 'NEW', feature: 'REPORTS' },
-      { href: '/dashboard/category-report',  icon: BarChart3, label: 'Category Report', badge: 'NEW', feature: 'REPORTS' },
+      { href: '/dashboard/reports',          icon: BarChart3, label: 'Reports & Analytics', feature: 'REPORTS' },
+      { href: '/dashboard/category-report',  icon: FileText, label: 'Category Report', badge: 'NEW', feature: 'REPORTS' },
     ],
   },
   {

@@ -211,7 +211,8 @@ export default function ProfitAllocationPage() {
   const hasDailyReload = useFeatureFlag('DAILY_RELOAD')
   const role = authStorage.getUser()?.role ?? ''
   const isOwner = role === 'OWNER' || role === 'PLATFORM_ADMIN'
-  const canWithdraw = isOwner || role === 'MANAGER'
+  const canSave = isOwner || role === 'MANAGER'
+  const canWithdraw = canSave
   const canManageFunds = isOwner
 
   const branchId = getActiveBranchId() ?? ''
@@ -586,21 +587,23 @@ export default function ProfitAllocationPage() {
                   Recalculate
                 </button>
               )}
-              {isOwner && !activeDashboard?.saved && (
+              {canSave && !activeDashboard?.saved && (
                 <button onClick={handleSave} disabled={saveLoading || !activeDashboard} className="btn-primary flex items-center gap-2 text-sm">
                   {saveLoading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                   Save Allocation
                 </button>
               )}
-              {isOwner && activeDashboard?.saved && (
+              {canSave && activeDashboard?.saved && (
                 <>
                   <button onClick={handleResave} disabled={saveLoading} className="btn-primary flex items-center gap-2 text-sm">
                     {saveLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                     Recalculate &amp; Save
                   </button>
-                  <button onClick={handleDeleteAllocation} disabled={saveLoading} className="btn-secondary flex items-center gap-2 text-sm text-red-600">
-                    <Trash2 size={14} /> Delete
-                  </button>
+                  {isOwner && (
+                    <button onClick={handleDeleteAllocation} disabled={saveLoading} className="btn-secondary flex items-center gap-2 text-sm text-red-600">
+                      <Trash2 size={14} /> Delete
+                    </button>
+                  )}
                 </>
               )}
             </>

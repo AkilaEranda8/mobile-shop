@@ -5,6 +5,8 @@ import { useSearchParams } from 'next/navigation'
 import { Receipt, Plus, X, Loader2, TrendingDown, ArrowDownRight, Tag, CreditCard } from 'lucide-react'
 import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { businessToday, businessMonthStart } from '@/lib/business-date'
+import { getActiveBranchId } from '@/lib/active-branch'
 import { useTransactions, useFinanceSummary } from '@/lib/hooks'
 import { financeApi } from '@/lib/api'
 import toast from 'react-hot-toast'
@@ -42,12 +44,23 @@ function AddExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    const branchId = getActiveBranchId()
+    if (!branchId) {
+      toast.error('Select an active branch first')
+      return
+    }
+    const amount = parseFloat(form.amount)
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error('Enter a valid amount')
+      return
+    }
     setLoading(true)
     try {
       await financeApi.create({
+        branchId,
         type: 'EXPENSE',
         category: form.category,
-        amount: parseFloat(form.amount),
+        amount,
         description: form.description,
         paymentMethod: form.paymentMethod,
       })
@@ -118,16 +131,20 @@ export default function ExpensesPage() {
   const [category, setCategory] = useState('All')
   const [showAdd, setShowAdd] = useState(false)
 
+  const periodTo = businessToday()
+  const periodFrom = businessMonthStart(periodTo)
+  const periodParams = { from: periodFrom, to: periodTo }
+
   useEffect(() => {
     const action = searchParams.get('action')
     if (action === 'add' || action === 'add-expense' || searchParams.get('new') === '1') setShowAdd(true)
   }, [searchParams])
 
-  const txParams: Record<string, string> = { type: 'EXPENSE' }
+  const txParams: Record<string, string> = { type: 'EXPENSE', ...periodParams }
   if (category !== 'All') txParams.category = category
 
   const { data, loading, refetch }  = useTransactions(txParams)
-  const { data: summaryData }       = useFinanceSummary()
+  const { data: summaryData }       = useFinanceSummary(periodParams)
   const summary                     = summaryData as any
 
   const allExpenses: any[] = (data?.data ?? []) as any[]
@@ -140,8 +157,8 @@ export default function ExpensesPage() {
     : allExpenses
   , [allExpenses, search])
 
-  const totalExpenses = summary?.totalExpense ?? allExpenses.reduce((s: number, e: any) => s + (e.amount ?? 0), 0)
-  const totalIncome   = summary?.totalIncome  ?? 0
+  const operatingExpenses = summary?.opExpenses ?? allExpenses.reduce((s: number, e: any) => s + (e.amount ?? 0), 0)
+  const netProfit         = summary?.profit ?? 0
 
   const categoryTotals = useMemo(() =>
     categories.filter(c => c !== 'All').map(c => ({
@@ -161,7 +178,7 @@ export default function ExpensesPage() {
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
           <h1 className="page-title">Expenses</h1>
-          <p className="page-subtitle">Track and manage all business expenses</p>
+          <p className="page-subtitle">Operating expenses this month ({periodFrom} → {periodTo})</p>
         </div>
         <button onClick={() => setShowAdd(true)} className="btn-primary flex items-center gap-2 sm:ml-auto">
           <Plus size={14} />Add Expense
@@ -171,10 +188,10 @@ export default function ExpensesPage() {
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Expenses', value: formatCurrency(totalExpenses), icon: <TrendingDown size={16} />, color: '#b91c1c', bg: 'rgba(185,28,28,0.08)', border: 'rgba(185,28,28,0.20)' },
+          { label: 'Operating Expenses', value: formatCurrency(operatingExpenses), icon: <TrendingDown size={16} />, color: '#b91c1c', bg: 'rgba(185,28,28,0.08)', border: 'rgba(185,28,28,0.20)' },
           { label: 'Largest Category', value: categoryTotals[0]?.cat ?? '—', icon: <Tag size={16} />, color: '#c2410c', bg: 'rgba(194,65,12,0.08)', border: 'rgba(194,65,12,0.20)' },
-          { label: 'Total Records', value: String(allExpenses.length), icon: <Receipt size={16} />, color: '#6d28d9', bg: 'rgba(109,40,217,0.08)', border: 'rgba(109,40,217,0.20)' },
-          { label: 'Net Profit', value: formatCurrency(totalIncome - totalExpenses), icon: <ArrowDownRight size={16} />, color: totalIncome - totalExpenses >= 0 ? '#15803d' : '#b91c1c', bg: totalIncome - totalExpenses >= 0 ? 'rgba(21,128,61,0.08)' : 'rgba(185,28,28,0.08)', border: totalIncome - totalExpenses >= 0 ? 'rgba(21,128,61,0.20)' : 'rgba(185,28,28,0.20)' },
+          { label: 'Records (MTD)', value: String(allExpenses.length), icon: <Receipt size={16} />, color: '#6d28d9', bg: 'rgba(109,40,217,0.08)', border: 'rgba(109,40,217,0.20)' },
+          { label: 'Net Profit (MTD)', value: formatCurrency(netProfit), icon: <ArrowDownRight size={16} />, color: netProfit >= 0 ? '#15803d' : '#b91c1c', bg: netProfit >= 0 ? 'rgba(21,128,61,0.08)' : 'rgba(185,28,28,0.08)', border: netProfit >= 0 ? 'rgba(21,128,61,0.20)' : 'rgba(185,28,28,0.20)' },
         ].map(({ label, value, icon, color, bg, border }) => (
           <div key={label} className="card p-4" style={{ borderColor: border, background: bg }}>
             <div className="flex items-center justify-between mb-2">
@@ -213,7 +230,7 @@ export default function ExpensesPage() {
                       <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(c.total)}</span>
                     </div>
                     <div className="h-1 rounded-full overflow-hidden" style={{ background: 'var(--bg-subtle)' }}>
-                      <div className="h-full rounded-full" style={{ width: `${totalExpenses > 0 ? (c.total / totalExpenses) * 100 : 0}%`, backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                      <div className="h-full rounded-full" style={{ width: `${operatingExpenses > 0 ? (c.total / operatingExpenses) * 100 : 0}%`, backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
                     </div>
                   </div>
                 ))}
