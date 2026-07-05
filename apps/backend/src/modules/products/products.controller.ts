@@ -4,6 +4,7 @@ import { sendSuccess, sendPaginated } from '../../utils/response'
 import { resolveActiveBranch, getUserBranchIds, assertBranchRecordAccess } from '../../utils/active-branch'
 import { AppError } from '../../middleware/error.middleware'
 import { prisma } from '../../config/database'
+import { masterCatalogImportService } from '../master-catalog/master-catalog-import.service'
 
 export const productsController = {
   async list(req: Request, res: Response, next: NextFunction) {
@@ -73,5 +74,26 @@ export const productsController = {
   },
   async bulkInferTrackImei(req: Request, res: Response, next: NextFunction) {
     try { sendSuccess(res, await productsService.bulkInferTrackImei(req.tenantId!), 'IMEI flags updated') } catch (e) { next(e) }
+  },
+  async importFromMaster(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.tenantId!
+      const body = { ...req.body }
+      const activeBranches = await prisma.branch.findMany({
+        where: { tenantId, isActive: true },
+        select: { id: true },
+        orderBy: [{ isDefault: 'desc' }, { isHeadquarters: 'desc' }, { createdAt: 'asc' }],
+      })
+      if (activeBranches.length <= 1) {
+        body.branchId = activeBranches[0]?.id ?? await resolveActiveBranch(req, { required: true })
+      } else if (!body.branchId) {
+        body.branchId = await resolveActiveBranch(req, { required: true })
+      } else {
+        const user = req.user!
+        const allowed = await getUserBranchIds(user.userId, tenantId, user.role)
+        if (!allowed.includes(body.branchId)) throw new AppError('Branch access denied', 403)
+      }
+      sendSuccess(res, await masterCatalogImportService.importToTenant(tenantId, body), 'Import complete')
+    } catch (e) { next(e) }
   },
 }

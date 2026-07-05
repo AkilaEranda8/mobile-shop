@@ -33,6 +33,7 @@ import {
 } from '../whatsapp/whatsapp.schema'
 import { sendTenantOnboardWhatsApp } from '../../utils/send-tenant-onboard-whatsapp'
 import releaseNotesAdminRoutes from '../release-notes/release-notes-admin.routes'
+import masterCatalogAdminRoutes from '../master-catalog/master-catalog-admin.routes'
 
 const router = Router()
 router.use(authenticate)
@@ -1381,5 +1382,6 @@ router.delete('/settings/admins/:id', async (req: Request, res: Response, next: 
 })
 
 router.use('/releases', releaseNotesAdminRoutes)
+router.use('/master-catalog', masterCatalogAdminRoutes)
 
 export default router

@@ -556,6 +556,94 @@ model DeviceModel {
   @@unique([tenantId, brandId, name])
 }
 
+// ─────────────── Master Catalog (global, Super Admin only) ───────────────
+
+enum MasterCatalogBrandType {
+  PHONE
+  ACCESSORY
+  BOTH
+}
+
+model MasterCatalogCategory {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  slug         String   @unique
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  phoneModels MasterCatalogPhoneModel[]
+  accessories MasterCatalogAccessory[]
+}
+
+model MasterCatalogBrand {
+  id           String                 @id @default(cuid())
+  name         String                 @unique
+  type         MasterCatalogBrandType @default(BOTH)
+  displayOrder Int                    @default(0)
+  isActive     Boolean                @default(true)
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  phoneModels MasterCatalogPhoneModel[]
+  accessories MasterCatalogAccessory[]
+}
+
+model MasterCatalogPhoneModel {
+  id                    String   @id @default(cuid())
+  brandId               String
+  categoryId            String
+  name                  String
+  releaseYear           Int?
+  displayOrder          Int      @default(0)
+  isActive              Boolean  @default(true)
+  trackImei             Boolean  @default(true)
+  defaultWarrantyMonths Int      @default(12)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  brand    MasterCatalogBrand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  category MasterCatalogCategory @relation(fields: [categoryId], references: [id])
+  variants MasterCatalogPhoneVariant[]
+
+  @@unique([brandId, name])
+}
+
+model MasterCatalogPhoneVariant {
+  id           String   @id @default(cuid())
+  modelId      String
+  storage      String
+  colorName    String
+  colorHex     String?
+  skuSuffix    String?
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  model MasterCatalogPhoneModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@unique([modelId, storage, colorName])
+}
+
+model MasterCatalogAccessory {
+  id            String   @id @default(cuid())
+  categoryId    String
+  brandId       String?
+  name          String
+  modelOptional String?
+  displayOrder  Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  category MasterCatalogCategory @relation(fields: [categoryId], references: [id])
+  brand    MasterCatalogBrand?   @relation(fields: [brandId], references: [id])
+
+  @@unique([categoryId, name, brandId])
+}
+
 // ─────────────── Repair ───────────────
 
 model RepairTicket {

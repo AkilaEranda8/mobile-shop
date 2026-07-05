@@ -28,6 +28,7 @@ import adminRoutes from './modules/admin/admin.routes'
 import whatsappRoutes from './modules/whatsapp/whatsapp.routes'
 import deliveryRoutes from './modules/delivery/delivery.routes'
 import deviceCatalogRoutes from './modules/device-catalog/device-catalog.routes'
+import masterCatalogRoutes from './modules/master-catalog/master-catalog.routes'
 import uploadRoutes from './modules/upload/upload.routes'
 import exchangesRoutes from './modules/exchanges/exchanges.routes'
 import platformRoutes from './modules/platform/platform.routes'
@@ -148,6 +149,7 @@ app.use(`${API}/daily-closing`, dailyClosingRoutes)
 app.use(`${API}/profit-allocation`, profitAllocationRoutes)
 app.use(`${API}/delivery`, deliveryRoutes)
 app.use(`${API}/device-catalog`, deviceCatalogRoutes)
+app.use(`${API}/master-catalog`, masterCatalogRoutes)
 app.use(`${API}/upload`, uploadRoutes)
 app.use(`${API}/exchanges`, exchangesRoutes)
 app.use(`${API}/platform`, platformRoutes)

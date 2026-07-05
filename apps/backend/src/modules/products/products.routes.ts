@@ -1,6 +1,8 @@
 import { Router } from 'express'
 import { productsController } from './products.controller'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
+import { validate } from '../../middleware/validate.middleware'
+import { importFromMasterSchema } from '../master-catalog/master-catalog.schema'
 
 const router = Router()
 router.use(authenticate)
@@ -14,6 +16,7 @@ router.get('/imei-health', productsController.getImeiHealth)
 router.post('/bulk-infer-track-imei', authorize('OWNER', 'MANAGER'), productsController.bulkInferTrackImei)
 
 router.get('/', productsController.list)
+router.post('/import-from-master', authorize('OWNER', 'MANAGER'), validate(importFromMasterSchema), productsController.importFromMaster)
 router.post('/', authorize('OWNER', 'MANAGER'), productsController.create)
 router.get('/:id', productsController.getById)
 router.put('/:id', authorize('OWNER', 'MANAGER'), productsController.update)

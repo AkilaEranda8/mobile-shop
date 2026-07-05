@@ -242,6 +242,22 @@ export const productsApi = {
   createBrand: (body: { name: string }) => api.post('/products/brands', body),
   imeiHealth: () => api.get('/products/imei-health'),
   bulkInferTrackImei: () => api.post('/products/bulk-infer-track-imei', {}),
+  importFromMaster: (body: unknown) => api.post('/products/import-from-master', body),
+}
+
+export const masterCatalogApi = {
+  listCategories: () => api.get('/master-catalog/categories'),
+  listBrands: (type?: 'PHONE' | 'ACCESSORY') =>
+    api.get(`/master-catalog/brands${type ? `?type=${type}` : ''}`),
+  listPhoneModels: (params?: Record<string, string>) => {
+    const qs = params ? '?' + new URLSearchParams(params) : ''
+    return api.get(`/master-catalog/phone-models${qs}`)
+  },
+  getPhoneModel: (id: string) => api.get(`/master-catalog/phone-models/${id}`),
+  listAccessories: (params?: Record<string, string>) => {
+    const qs = params ? '?' + new URLSearchParams(params) : ''
+    return api.get(`/master-catalog/accessories${qs}`)
+  },
 }
 
 export const inventoryApi = {

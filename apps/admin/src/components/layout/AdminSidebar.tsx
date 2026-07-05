@@ -4,8 +4,8 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Building2, CreditCard, KeyRound, Activity,
-  BarChart3, ScrollText, Bell, Megaphone, Wrench, Settings,
-  Shield, ChevronRight, LogOut, X, Sparkles, MessageCircle,
+  BarChart3, ScrollText, Bell,   Megaphone, Wrench, Settings,
+  Shield, ChevronRight, LogOut, X, Sparkles, MessageCircle, Smartphone,
 } from 'lucide-react'
 
 const NAV = [
@@ -20,6 +20,7 @@ const NAV = [
   { href: '/notifications',   label: 'Notifications',        icon: Bell,             badge: '5' },
   { href: '/announcements',   label: 'Announcements',        icon: Megaphone,        badge: null },
   { href: '/release-notes',  label: 'Release Notes',        icon: Sparkles,         badge: null },
+  { href: '/master-catalog', label: 'Master Catalog',       icon: Smartphone,       badge: null },
   { href: '/support-tools',   label: 'Support Tools',        icon: Wrench,           badge: null },
   { href: '/settings',        label: 'Settings',             icon: Settings,         badge: null },
 ]

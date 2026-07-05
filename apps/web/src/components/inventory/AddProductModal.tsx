@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Plus, Trash2, Upload, Loader2, ChevronDown, Info, GripVertical, Box, Eye, Lock, ArrowLeft } from 'lucide-react'
+import { Plus, Trash2, Upload, Loader2, ChevronDown, Info, GripVertical, Box, Eye, Lock, ArrowLeft, Download } from 'lucide-react'
 import { productsApi, suppliersApi, uploadApi, deviceCatalogApi, tenantApi } from '@/lib/api'
 import { useCategories, useBrands, useSuppliers, useProductVariantSettings } from '@/lib/hooks'
 import { DEFAULT_PRODUCT_VARIANT_SETTINGS, pushProductVariantSettings } from '@/lib/productVariantSettings'
@@ -11,6 +11,7 @@ import { getTenantSlugFromHost } from '@/lib/tenant-context'
 import type { Category } from '@/types'
 import toast from 'react-hot-toast'
 import { ImeiProductTypeSelector } from './ImeiProductTypeSelector'
+import { MasterCatalogImportModal } from './MasterCatalogImportModal'
 import { inferImeiProductType, imeiTypeToTrackFlag, type ImeiProductType } from '@/lib/productImei'
 import { PRODUCT_CONDITION_OPTS, type ProductCondition } from '@/lib/productCondition'
 
@@ -425,6 +426,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
   const [pricing, setPricing] = useState({ tax: 'None', taxType: 'Exclusive', purchaseEx: '', purchaseInc: '', sellingEx: '', margin: '' })
   const [extra,   setExtra]   = useState({ supplierId: '', warranty: '1 Year', warrantyNote: '', hsCode: '', tags: '' })
   const [variants, setVariants] = useState<VariantRow[]>([])
+  const [showMasterImport, setShowMasterImport] = useState(false)
 
   const f = useCallback((k: string, v: string) => setForm(p => ({ ...p, [k]: v })), [])
 
@@ -649,6 +651,9 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
           </div>
         </div>
         <div className="flex flex-wrap gap-2 sm:ml-auto pl-11 sm:pl-0">
+          <button type="button" onClick={() => setShowMasterImport(true)} className="btn-secondary text-sm flex items-center gap-2">
+            <Download size={14} /> Import from Master Catalog
+          </button>
           <button type="button" onClick={onClose} className="btn-secondary text-sm">Cancel</button>
           <button type="button" onClick={submit} disabled={loading || !form.name.trim() || !form.sku.trim()}
             className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
@@ -664,79 +669,79 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
             <div className="space-y-5 min-w-0">
 
               {/* 1. Basic Information */}
-              <div style={card}>
+        <div style={card}>
                 <SectionHeader n={1} title="Basic Information" />
 
                 <div className="grid grid-cols-1 lg:grid-cols-[160px_1fr] gap-5 lg:gap-6">
-                  <ImageUploader imageUrl={form.imageUrl} onUploaded={url => f('imageUrl', url)} />
+            <ImageUploader imageUrl={form.imageUrl} onUploaded={url => f('imageUrl', url)} />
 
                   <div className="flex flex-col gap-3.5 min-w-0">
-                    <div>
-                      <Lbl req>Product Name</Lbl>
-                      <input style={inputStyle} placeholder="Enter product name" value={form.name} onChange={e => f('name', e.target.value)} />
-                    </div>
+                <div>
+                  <Lbl req>Product Name</Lbl>
+                  <input style={inputStyle} placeholder="Enter product name" value={form.name} onChange={e => f('name', e.target.value)} />
+                </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                      <div>
-                        <Lbl req>SKU</Lbl>
-                        <input style={inputStyle} placeholder="Enter SKU" value={form.sku} onChange={e => f('sku', e.target.value)} />
+                <div>
+                  <Lbl req>SKU</Lbl>
+                  <input style={inputStyle} placeholder="Enter SKU" value={form.sku} onChange={e => f('sku', e.target.value)} />
                       </div>
                       <div>
                         <Lbl tip="Scanned barcode number stored for POS lookup">Barcode</Lbl>
                         <input style={{ ...inputStyle, fontFamily: 'monospace' }} placeholder="Scan or enter barcode"
                           value={form.barcodeValue} onChange={e => f('barcodeValue', e.target.value)} />
                       </div>
-                    </div>
-                    <div>
-                      <Lbl tip="Barcode format for label printing">Barcode Type</Lbl>
-                      <Sel value={form.barcodeType} onChange={v => f('barcodeType', v)}>
-                        {BARCODE_OPTS.map(b => <option key={b}>{b}</option>)}
-                      </Sel>
-                    </div>
+                </div>
+                <div>
+                  <Lbl tip="Barcode format for label printing">Barcode Type</Lbl>
+                  <Sel value={form.barcodeType} onChange={v => f('barcodeType', v)}>
+                    {BARCODE_OPTS.map(b => <option key={b}>{b}</option>)}
+                  </Sel>
+                </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                       <div className="relative">
-                        <Lbl req>Brand</Lbl>
+                  <Lbl req>Brand</Lbl>
                         <FieldWithPlus
                           select={
-                            <Sel value={form.brandName} onChange={v => f('brandName', v)} placeholder="Select brand">
-                              {allBrands.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
-                            </Sel>
+                    <Sel value={form.brandName} onChange={v => f('brandName', v)} placeholder="Select brand">
+                      {allBrands.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                    </Sel>
                           }
                           popup={(
                             <>
-                              <PlusBtn onClick={() => setShowAddBrand(p => !p)} />
-                              {showAddBrand && (
+                      <PlusBtn onClick={() => setShowAddBrand(p => !p)} />
+                      {showAddBrand && (
                                 <AddBrandPopup onClose={() => setShowAddBrand(false)}
                                   onSaved={b => { setExtraBrands(p => [...p, b]); refetchBrands(); f('brandName', b.name) }} />
                               )}
                             </>
                           )}
                         />
-                      </div>
+                    </div>
                       <div className="relative">
-                        <Lbl req>Category</Lbl>
+                  <Lbl req>Category</Lbl>
                         <FieldWithPlus
                           select={
-                            <Sel value={form.categoryName} onChange={v => f('categoryName', v)} placeholder="Select category">
-                              {cats.map(c => <option key={c.id} value={c.name}>{c.icon ? `${c.icon} ` : ''}{c.name}</option>)}
-                            </Sel>
+                    <Sel value={form.categoryName} onChange={v => f('categoryName', v)} placeholder="Select category">
+                      {cats.map(c => <option key={c.id} value={c.name}>{c.icon ? `${c.icon} ` : ''}{c.name}</option>)}
+                    </Sel>
                           }
                           popup={(
                             <>
-                              <PlusBtn onClick={() => setShowAddCat(p => !p)} />
-                              {showAddCat && <AddCatPopup onClose={() => setShowAddCat(false)} onSaved={c => { refetchCats(); f('categoryName', c.name) }} />}
+                      <PlusBtn onClick={() => setShowAddCat(p => !p)} />
+                      {showAddCat && <AddCatPopup onClose={() => setShowAddCat(false)} onSaved={c => { refetchCats(); f('categoryName', c.name) }} />}
                             </>
                           )}
                         />
-                      </div>
+                    </div>
                       {!hideSubCatAndDeviceModel && (
                         <>
                           <div className="relative">
-                            <Lbl>Sub Category</Lbl>
+                  <Lbl>Sub Category</Lbl>
                             <FieldWithPlus
                               select={
-                                <Sel value={form.subCategory} onChange={v => f('subCategory', v)} placeholder="Select sub category">
+                  <Sel value={form.subCategory} onChange={v => f('subCategory', v)} placeholder="Select sub category">
                                   {subCatOpts.map(s => <option key={s} value={s}>{s}</option>)}
-                                </Sel>
+                  </Sel>
                               }
                               popup={(
                                 <>
@@ -748,7 +753,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                                 </>
                               )}
                             />
-                          </div>
+                </div>
                           <div className="relative">
                             <Lbl>Device Model</Lbl>
                             <FieldWithPlus
@@ -777,45 +782,45 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                                 </>
                               )}
                             />
-                          </div>
+              </div>
                         </>
                       )}
-                      <div>
-                        <Lbl req>Unit</Lbl>
-                        <Sel value={form.unit} onChange={v => f('unit', v)}>
-                          {UNIT_OPTS.map(u => <option key={u}>{u}</option>)}
-                        </Sel>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-5">
-                  <Lbl>Description</Lbl>
-                  <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 8, overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '6px 10px',
-                      background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-subtle)', flexWrap: 'wrap' }}>
-                      {['B', 'I', 'U'].map(l => (
-                        <button key={l} type="button" style={{ padding: '3px 7px', fontSize: 12, fontWeight: 700, borderRadius: 4,
-                          background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>{l}</button>
-                      ))}
-                      <div style={{ width: 1, height: 14, background: 'var(--border-subtle)', margin: '0 4px' }} />
-                      {['≡', '⁝', '⊞'].map((s, i) => (
-                        <button key={i} type="button" style={{ padding: '3px 6px', fontSize: 13, borderRadius: 4,
-                          background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>{s}</button>
-                      ))}
-                    </div>
-                    <textarea rows={5} maxLength={2000} placeholder="Write product description…"
-                      style={{ ...inputStyle, height: 'auto', padding: '12px', resize: 'none', border: 'none',
-                        borderRadius: 0, fontFamily: 'inherit', lineHeight: 1.6 }}
-                      value={form.description} onChange={e => f('description', e.target.value)} />
-                  </div>
-                  <p style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'right', marginTop: 4 }}>{form.description.length}/2000</p>
+                <div>
+                  <Lbl req>Unit</Lbl>
+                  <Sel value={form.unit} onChange={v => f('unit', v)}>
+                    {UNIT_OPTS.map(u => <option key={u}>{u}</option>)}
+                  </Sel>
                 </div>
               </div>
+            </div>
+          </div>
+
+                <div className="mt-5">
+              <Lbl>Description</Lbl>
+              <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 8, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '6px 10px',
+                  background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-subtle)', flexWrap: 'wrap' }}>
+                      {['B', 'I', 'U'].map(l => (
+                    <button key={l} type="button" style={{ padding: '3px 7px', fontSize: 12, fontWeight: 700, borderRadius: 4,
+                      background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>{l}</button>
+                  ))}
+                  <div style={{ width: 1, height: 14, background: 'var(--border-subtle)', margin: '0 4px' }} />
+                      {['≡', '⁝', '⊞'].map((s, i) => (
+                    <button key={i} type="button" style={{ padding: '3px 6px', fontSize: 13, borderRadius: 4,
+                      background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>{s}</button>
+                  ))}
+                </div>
+                    <textarea rows={5} maxLength={2000} placeholder="Write product description…"
+                  style={{ ...inputStyle, height: 'auto', padding: '12px', resize: 'none', border: 'none',
+                    borderRadius: 0, fontFamily: 'inherit', lineHeight: 1.6 }}
+                  value={form.description} onChange={e => f('description', e.target.value)} />
+              </div>
+              <p style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'right', marginTop: 4 }}>{form.description.length}/2000</p>
+          </div>
+        </div>
 
               {/* Product Condition */}
-              <div style={card}>
+          <div style={card}>
                 <SectionHeader n={2} title="Product Condition" sub="Whether this item is brand new or pre-owned." />
                 <div className="max-w-xs">
                   <Lbl req>Condition</Lbl>
@@ -832,114 +837,114 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                 <SectionHeader n={5} title="Variant Combinations" optional
                   sub="For phones/tablets with storage & color. Skip for simple barcode products."
                   action={(
-                    <button type="button" onClick={addVariant}
-                      style={{ ...btn, background: '#2563eb', color: '#fff', border: 'none', fontSize: 12, whiteSpace: 'nowrap' }}>
-                      <Plus size={13} /> Add Variant
-                    </button>
+              <button type="button" onClick={addVariant}
+                style={{ ...btn, background: '#2563eb', color: '#fff', border: 'none', fontSize: 12, whiteSpace: 'nowrap' }}>
+                <Plus size={13} /> Add Variant
+              </button>
                   )}
                 />
 
-                {variants.length > 0 ? (
-                  <>
+            {variants.length > 0 ? (
+              <>
                     <div className="overflow-x-auto -mx-1 px-1 rounded-lg border" style={{ borderColor: 'var(--border-subtle)' }}>
                       <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse', fontSize: 12 }}>
-                        <thead>
-                          <tr style={{ background: 'var(--bg-subtle)' }}>
+                    <thead>
+                      <tr style={{ background: 'var(--bg-subtle)' }}>
                             {['#', '', 'Storage (Model) *', 'Color *', 'SKU (Optional)', 'Selling Price (LKR) *', 'Cost Price (LKR)', 'Action'].map((h, i) => (
-                              <th key={i} style={{ padding: '9px 10px', textAlign: 'left', fontSize: 11, fontWeight: 600,
-                                color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)', whiteSpace: 'nowrap',
+                          <th key={i} style={{ padding: '9px 10px', textAlign: 'left', fontSize: 11, fontWeight: 600,
+                            color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)', whiteSpace: 'nowrap',
                                 width: i === 0 ? 28 : i === 1 ? 24 : i === 7 ? 48 : 'auto' }}>{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {variants.map((v, i) => (
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {variants.map((v, i) => (
                             <tr key={v.id} style={{ borderBottom: i < variants.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
                               <td style={{ padding: '8px 10px', color: 'var(--text-muted)', textAlign: 'center' }}>{i + 1}</td>
-                              <td style={{ padding: '8px 4px' }}><GripVertical size={12} style={{ color: 'var(--text-muted)' }} /></td>
-                              <td style={{ padding: '8px 6px' }}>
-                                <div style={{ position: 'relative' }}>
+                          <td style={{ padding: '8px 4px' }}><GripVertical size={12} style={{ color: 'var(--text-muted)' }} /></td>
+                          <td style={{ padding: '8px 6px' }}>
+                            <div style={{ position: 'relative' }}>
                                   <select value={v.storage} onChange={e => updVariant(v.id, 'storage', e.target.value)}
                                     style={{ ...selectStyle, height: 32, fontSize: 12 }}>
                                     {storageOpts.map(s => <option key={s} value={s}>{s}</option>)}
                                     {!storageOpts.includes(v.storage) && <option value={v.storage}>{v.storage}</option>}
-                                  </select>
-                                  <ChevronDown size={11} style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
-                                </div>
-                              </td>
-                              <td style={{ padding: '8px 6px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                  <ColorDot hex={v.colorHex} />
-                                  <div style={{ position: 'relative', flex: 1 }}>
+                              </select>
+                              <ChevronDown size={11} style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
+                            </div>
+                          </td>
+                          <td style={{ padding: '8px 6px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <ColorDot hex={v.colorHex} />
+                              <div style={{ position: 'relative', flex: 1 }}>
                                     <select value={v.colorName} onChange={e => {
                                       const found = colorOpts.find(c => c.name === e.target.value)
-                                      if (found) updColor(v.id, found.name, found.hex)
+                                    if (found) updColor(v.id, found.name, found.hex)
                                     }} style={{ ...selectStyle, height: 32, fontSize: 12 }}>
                                       {colorOpts.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                                       {!colorOpts.some(c => c.name === v.colorName) && (
                                         <option value={v.colorName}>{v.colorName}</option>
                                       )}
-                                    </select>
-                                    <ChevronDown size={11} style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
-                                  </div>
-                                </div>
-                              </td>
-                              <td style={{ padding: '8px 6px' }}>
-                                <input style={{ ...inputStyle, height: 32, fontFamily: 'monospace', fontSize: 11 }}
+                                </select>
+                                <ChevronDown size={11} style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ padding: '8px 6px' }}>
+                            <input style={{ ...inputStyle, height: 32, fontFamily: 'monospace', fontSize: 11 }}
                                   placeholder={`${(form.sku || 'PROD').toUpperCase()}-${v.storage.replace(/\s/g, '')}-${v.colorName.slice(0, 3).toUpperCase()}`}
                                   value={v.sku} onChange={e => updVariant(v.id, 'sku', e.target.value)} />
-                              </td>
-                              <td style={{ padding: '8px 6px' }}>
-                                <input type="number" min={0} style={{ ...inputStyle, height: 32 }} placeholder="0.00"
+                          </td>
+                          <td style={{ padding: '8px 6px' }}>
+                            <input type="number" min={0} style={{ ...inputStyle, height: 32 }} placeholder="0.00"
                                   value={v.sellingPrice} onChange={e => updVariant(v.id, 'sellingPrice', e.target.value)} />
-                              </td>
-                              <td style={{ padding: '8px 6px' }}>
-                                <input type="number" min={0} style={{ ...inputStyle, height: 32 }} placeholder="0.00"
+                          </td>
+                          <td style={{ padding: '8px 6px' }}>
+                            <input type="number" min={0} style={{ ...inputStyle, height: 32 }} placeholder="0.00"
                                   value={v.costPrice} onChange={e => updVariant(v.id, 'costPrice', e.target.value)} />
-                              </td>
-                              <td style={{ padding: '8px 10px' }}>
-                                <button type="button" onClick={() => delVariant(v.id)}
-                                  style={{ padding: 6, borderRadius: 6, background: 'rgba(239,68,68,0.1)', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'flex' }}>
-                                  <Trash2 size={13} />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
+                          </td>
+                          <td style={{ padding: '8px 10px' }}>
+                            <button type="button" onClick={() => delVariant(v.id)}
+                              style={{ padding: 6, borderRadius: 6, background: 'rgba(239,68,68,0.1)', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'flex' }}>
+                              <Trash2 size={13} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
                       <Info size={10} /> Each variant is a unique storage + color combination.
-                    </p>
-                  </>
-                ) : (
+                </p>
+              </>
+            ) : (
                   <div style={{ borderRadius: 8, padding: '36px 16px', textAlign: 'center', border: '1px dashed var(--border-subtle)' }}>
-                    <Box size={22} style={{ color: 'var(--text-muted)', margin: '0 auto 8px' }} />
+                <Box size={22} style={{ color: 'var(--text-muted)', margin: '0 auto 8px' }} />
                     <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No variants — simple product</p>
                     <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Enter buy &amp; sell price in Pricing &amp; Stock, or add variants for phones</p>
-                  </div>
-                )}
               </div>
+            )}
+          </div>
 
               {/* 6. Additional Information */}
-              <div style={card}>
+          <div style={card}>
                 <SectionHeader n={6} title="Additional Information" optional />
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div>
+                <div>
                     <Lbl>Supplier</Lbl>
                     <Sel value={extra.supplierId} onChange={v => setExtra(p => ({ ...p, supplierId: v }))} placeholder="Select supplier">
                       {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </Sel>
-                  </div>
-                  <div>
+                  </Sel>
+                </div>
+                <div>
                     <Lbl tip="Harmonized System code for customs">HS Code</Lbl>
                     <input style={inputStyle} placeholder="Enter HS code" value={extra.hsCode} onChange={e => setExtra(p => ({ ...p, hsCode: e.target.value }))} />
-                  </div>
+                </div>
                   <div>
                     <Lbl>Tags</Lbl>
                     <input style={inputStyle} placeholder="Enter tags" value={extra.tags} onChange={e => setExtra(p => ({ ...p, tags: e.target.value }))} />
                     <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>Press enter to add</p>
-                  </div>
+              </div>
                 </div>
               </div>
 
@@ -947,7 +952,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
               <div style={card}>
                 <SectionHeader n={7} title="Preview Summary" />
                 <div className="grid grid-cols-1 sm:grid-cols-[1fr_minmax(220px,320px)] gap-5 items-start">
-                  <div>
+              <div>
                     <PreviewRow label="Product Name" value={form.name} />
                     <PreviewRow label="SKU" value={form.sku} />
                     <PreviewRow label="Brand" value={form.brandName} />
@@ -999,17 +1004,17 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                 <SectionHeader n={2} title="Pricing & Stock" />
                 <div className="flex flex-col gap-3.5">
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-3.5">
-                    <div>
+                  <div>
                       <Lbl req>Buying Price (LKR)</Lbl>
-                      <input type="number" min={0} style={inputStyle} placeholder="0.00"
+                    <input type="number" min={0} style={inputStyle} placeholder="0.00"
                         value={pricing.purchaseEx} onChange={e => setPurchaseEx(e.target.value)} />
-                    </div>
-                    <div>
-                      <Lbl req>Selling Price (LKR)</Lbl>
-                      <input type="number" min={0} style={inputStyle} placeholder="0.00"
-                        value={pricing.sellingEx} onChange={e => setSellingEx(e.target.value)} />
-                    </div>
                   </div>
+                  <div>
+                      <Lbl req>Selling Price (LKR)</Lbl>
+                    <input type="number" min={0} style={inputStyle} placeholder="0.00"
+                        value={pricing.sellingEx} onChange={e => setSellingEx(e.target.value)} />
+                  </div>
+                </div>
                   <div>
                     <Lbl>Profit Margin (%)</Lbl>
                     <div style={{ position: 'relative' }}>
@@ -1027,19 +1032,19 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                         <input type="number" min={0} style={inputStyle} value={minStock} onChange={e => setMinStock(e.target.value)} />
                       </div>
                     )}
-                  </div>
-                  <div>
+              </div>
+              <div>
                     <Lbl>Manage Stock</Lbl>
                     <Sel value={manageStock} onChange={setManageStock}>
                       <option>Yes</option><option>No</option>
                     </Sel>
-                  </div>
+              </div>
                   {manageStock === 'Yes' && (
-                    <div>
+              <div>
                       <Lbl>Initial Quantity</Lbl>
                       <input type="number" min={0} style={inputStyle} placeholder="0"
                         value={initialQty} onChange={e => setInitialQty(e.target.value)} />
-                    </div>
+                </div>
                   )}
                   {variants.length > 0 && (
                     <>
@@ -1050,27 +1055,27 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                             <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>Ex. Tax (buy)</p>
                             <input type="number" min={0} style={{ ...inputStyle, height: 32 }} placeholder="0.00"
                               value={pricing.purchaseEx} onChange={e => setPurchaseEx(e.target.value)} />
-                          </div>
+              </div>
                           <div>
                             <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>Inc. Tax (buy)</p>
                             <input type="number" min={0} style={{ ...inputStyle, height: 32 }} placeholder="0.00"
                               value={pricing.purchaseInc} onChange={e => setPurchaseInc(e.target.value)} />
-                          </div>
-                        </div>
-                      </div>
+            </div>
+          </div>
+        </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <Lbl>Applicable Tax</Lbl>
                           <Sel value={pricing.tax} onChange={applyTaxToPricing}>
                             <option>None</option><option>VAT 15%</option><option>GST 10%</option>
                           </Sel>
-                        </div>
-                        <div>
+          </div>
+            <div>
                           <Lbl>Tax Type</Lbl>
                           <Sel value={pricing.taxType} onChange={v => setPricing(p => ({ ...p, taxType: v }))}>
                             <option>Exclusive</option><option>Inclusive</option>
-                          </Sel>
-                        </div>
+              </Sel>
+            </div>
                       </div>
                     </>
                   )}
@@ -1087,13 +1092,13 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                   desc="Auto-create warranty certificate on sale" />
                 {warrantyTrack && (
                   <div style={{ paddingLeft: 26 }} className="space-y-3">
-                    <div>
+            <div>
                       <Lbl req>Warranty Period</Lbl>
-                      <Sel value={extra.warranty} onChange={v => setExtra(p => ({ ...p, warranty: v }))}>
+              <Sel value={extra.warranty} onChange={v => setExtra(p => ({ ...p, warranty: v }))}>
                         {WARRANTY_OPTS.filter(w => w !== 'None').map(w => <option key={w}>{w}</option>)}
-                      </Sel>
-                    </div>
-                    <div>
+              </Sel>
+            </div>
+            <div>
                       <Lbl>Warranty note</Lbl>
                       <textarea
                         rows={3}
@@ -1112,10 +1117,10 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                       <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.45 }}>
                         Optional text for this product — prints on the bill under warranty. Shop-wide policy lines: Settings → Invoice → Warranty &amp; Service Terms.
                       </p>
-                    </div>
-                  </div>
+            </div>
+            </div>
                 )}
-              </div>
+        </div>
 
               {/* 4. IMEI Tracking */}
               <div style={card}>
@@ -1131,7 +1136,14 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                 />
               </div>
             </div>
-          </div>
+      </div>
+
+      {showMasterImport && (
+        <MasterCatalogImportModal
+          onClose={() => setShowMasterImport(false)}
+          onImported={() => { refetchCats(); refetchBrands(); onSaved() }}
+        />
+      )}
     </div>
   )
 }

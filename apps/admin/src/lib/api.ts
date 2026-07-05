@@ -623,3 +623,52 @@ export async function createAdminUser(data: { name: string; email: string; passw
 export async function deleteAdminUser(id: string): Promise<null> {
   return req<null>(ADMIN_BASE, `/settings/admins/${id}`, { method: 'DELETE' })
 }
+
+// ─── Master Catalog ───────────────────────────────────────────────────────────
+export interface MasterCatalogCategory {
+  id: string; name: string; slug: string; displayOrder: number; isActive: boolean
+}
+export interface MasterCatalogBrand {
+  id: string; name: string; type: 'PHONE' | 'ACCESSORY' | 'BOTH'; displayOrder: number; isActive: boolean
+}
+export interface MasterCatalogPhoneModel {
+  id: string; name: string; brandId: string; categoryId: string; releaseYear?: number | null
+  isActive: boolean; brand?: { id: string; name: string }; category?: { id: string; name: string }
+  variants?: MasterCatalogVariant[]
+}
+export interface MasterCatalogVariant {
+  id: string; modelId: string; storage: string; colorName: string; colorHex?: string | null; isActive: boolean
+}
+export interface MasterCatalogAccessory {
+  id: string; name: string; categoryId: string; brandId?: string | null; modelOptional?: string | null; isActive: boolean
+  category?: { id: string; name: string }; brand?: { id: string; name: string } | null
+}
+
+export const masterCatalogAdminApi = {
+  seed: () => req<{ message: string }>(ADMIN_BASE, '/master-catalog/seed', { method: 'POST' }),
+  listCategories: () => req<MasterCatalogCategory[]>(ADMIN_BASE, '/master-catalog/categories'),
+  createCategory: (body: { name: string; displayOrder?: number }) =>
+    req<MasterCatalogCategory>(ADMIN_BASE, '/master-catalog/categories', { method: 'POST', body: JSON.stringify(body) }),
+  deleteCategory: (id: string) => req<null>(ADMIN_BASE, `/master-catalog/categories/${id}`, { method: 'DELETE' }),
+  listBrands: (type?: string) =>
+    req<MasterCatalogBrand[]>(ADMIN_BASE, `/master-catalog/brands${type ? `?type=${type}` : ''}`),
+  createBrand: (body: { name: string; type?: string }) =>
+    req<MasterCatalogBrand>(ADMIN_BASE, '/master-catalog/brands', { method: 'POST', body: JSON.stringify(body) }),
+  deleteBrand: (id: string) => req<null>(ADMIN_BASE, `/master-catalog/brands/${id}`, { method: 'DELETE' }),
+  listPhoneModels: (params?: Record<string, string>) => {
+    const qs = params ? '?' + new URLSearchParams(params) : ''
+    return req<MasterCatalogPhoneModel[]>(ADMIN_BASE, `/master-catalog/phone-models${qs}`)
+  },
+  createPhoneModel: (body: Record<string, unknown>) =>
+    req<MasterCatalogPhoneModel>(ADMIN_BASE, '/master-catalog/phone-models', { method: 'POST', body: JSON.stringify(body) }),
+  deletePhoneModel: (id: string) => req<null>(ADMIN_BASE, `/master-catalog/phone-models/${id}`, { method: 'DELETE' }),
+  createVariant: (modelId: string, body: Record<string, unknown>) =>
+    req<MasterCatalogVariant>(ADMIN_BASE, `/master-catalog/phone-models/${modelId}/variants`, { method: 'POST', body: JSON.stringify(body) }),
+  listAccessories: (params?: Record<string, string>) => {
+    const qs = params ? '?' + new URLSearchParams(params) : ''
+    return req<MasterCatalogAccessory[]>(ADMIN_BASE, `/master-catalog/accessories${qs}`)
+  },
+  createAccessory: (body: Record<string, unknown>) =>
+    req<MasterCatalogAccessory>(ADMIN_BASE, '/master-catalog/accessories', { method: 'POST', body: JSON.stringify(body) }),
+  deleteAccessory: (id: string) => req<null>(ADMIN_BASE, `/master-catalog/accessories/${id}`, { method: 'DELETE' }),
+}
