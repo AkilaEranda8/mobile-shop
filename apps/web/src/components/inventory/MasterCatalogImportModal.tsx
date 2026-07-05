@@ -1,20 +1,33 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { X, ChevronRight, ChevronLeft, Loader2, Download, CheckSquare, Square } from 'lucide-react'
-import { masterCatalogApi, productsApi } from '@/lib/api'
+import { X, ChevronRight, ChevronLeft, Loader2, FileInput, CheckSquare, Square } from 'lucide-react'
+import { masterCatalogApi } from '@/lib/api'
+import {
+  buildMasterCatalogAccessorySku,
+  buildMasterCatalogSku,
+  type MasterCatalogFormDraft,
+} from '@/lib/masterCatalogFormDraft'
 import toast from 'react-hot-toast'
 
 type CatalogKind = 'PHONE' | 'ACCESSORY'
 
 interface Category { id: string; name: string }
 interface Brand { id: string; name: string }
+interface PhoneVariant {
+  id: string
+  storage: string
+  colorName: string
+  colorHex?: string | null
+}
 interface PhoneModel {
   id: string
   name: string
   brand?: { name: string }
   category?: { name: string }
-  variants?: Array<{ id: string; storage: string; colorName: string }>
+  trackImei?: boolean
+  defaultWarrantyMonths?: number
+  variants?: PhoneVariant[]
 }
 interface Accessory {
   id: string
@@ -26,13 +39,13 @@ interface Accessory {
 
 interface Props {
   onClose: () => void
-  onImported: () => void
+  onApplyToForm: (draft: MasterCatalogFormDraft) => void
 }
 
-export function MasterCatalogImportModal({ onClose, onImported }: Props) {
+export function MasterCatalogImportModal({ onClose, onApplyToForm }: Props) {
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
-  const [importing, setImporting] = useState(false)
+  const [applying, setApplying] = useState(false)
   const [kind, setKind] = useState<CatalogKind>('PHONE')
   const [categories, setCategories] = useState<Category[]>([])
   const [brands, setBrands] = useState<Brand[]>([])
@@ -42,16 +55,9 @@ export function MasterCatalogImportModal({ onClose, onImported }: Props) {
   const [search, setSearch] = useState('')
   const [phones, setPhones] = useState<PhoneModel[]>([])
   const [accessories, setAccessories] = useState<Accessory[]>([])
-  const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set())
-  const [selectedAccessories, setSelectedAccessories] = useState<Set<string>>(new Set())
+  const [selectedModelId, setSelectedModelId] = useState('')
+  const [selectedAccessoryId, setSelectedAccessoryId] = useState('')
   const [variantMap, setVariantMap] = useState<Record<string, Set<string>>>({})
-  const [defaults, setDefaults] = useState({ buyingPrice: '0', sellingPrice: '0', stock: '0' })
-  const [summary, setSummary] = useState<{
-    categoriesCreated: number
-    brandsCreated: number
-    productsCreated: number
-    duplicatesSkipped: number
-  } | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -119,26 +125,8 @@ export function MasterCatalogImportModal({ onClose, onImported }: Props) {
       else next.add(id)
       return next
     })
-    setSelectedModels(new Set())
+    setSelectedModelId('')
     setVariantMap({})
-  }
-
-  const toggleModel = (id: string) => {
-    setSelectedModels(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  const toggleAccessory = (id: string) => {
-    setSelectedAccessories(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
   }
 
   const toggleVariant = (modelId: string, variantId: string) => {
@@ -152,67 +140,95 @@ export function MasterCatalogImportModal({ onClose, onImported }: Props) {
     })
   }
 
-  const previewRows = useMemo(() => {
-    if (kind === 'PHONE') {
-      return phones.filter(m => selectedModels.has(m.id)).map(m => ({
-        id: m.id,
-        label: `${m.brand?.name ?? ''} ${m.name}`.trim(),
-        category: m.category?.name ?? '—',
-        variants: m.variants?.length ?? 0,
-      }))
-    }
-    return accessories.filter(a => selectedAccessories.has(a.id)).map(a => ({
-      id: a.id,
-      label: a.modelOptional ? `${a.name} (${a.modelOptional})` : a.name,
-      category: a.category?.name ?? '—',
-      variants: 0,
-    }))
-  }, [kind, phones, accessories, selectedModels, selectedAccessories])
+  const selectedPhone = phones.find(m => m.id === selectedModelId)
+  const selectedAccessory = accessories.find(a => a.id === selectedAccessoryId)
 
-  const runImport = async () => {
-    setImporting(true)
+  const previewLabel = kind === 'PHONE'
+    ? selectedPhone ? `${selectedPhone.brand?.name ?? ''} ${selectedPhone.name}`.trim() : ''
+    : selectedAccessory
+      ? (selectedAccessory.modelOptional ? `${selectedAccessory.name} (${selectedAccessory.modelOptional})` : selectedAccessory.name)
+      : ''
+
+  const selectedVariantCount = useMemo(() => {
+    if (!selectedPhone) return 0
+    const picked = variantMap[selectedPhone.id]
+    if (picked?.size) return picked.size
+    return selectedPhone.variants?.length ?? 0
+  }, [selectedPhone, variantMap])
+
+  const applyToForm = async () => {
+    setApplying(true)
     try {
-      const items = kind === 'PHONE'
-        ? [...selectedModels].map(modelId => ({
-            type: 'PHONE' as const,
-            modelId,
-            variantIds: variantMap[modelId]?.size
-              ? [...(variantMap[modelId] ?? [])]
-              : undefined,
-          }))
-        : [...selectedAccessories].map(accessoryId => ({
-            type: 'ACCESSORY' as const,
-            accessoryId,
-          }))
+      if (kind === 'PHONE') {
+        if (!selectedModelId) {
+          toast.error('Select a phone model')
+          return
+        }
+        const r: unknown = await masterCatalogApi.getPhoneModel(selectedModelId)
+        const model = ((r as { data?: PhoneModel })?.data ?? r) as PhoneModel
+        const brandName = model.brand?.name ?? 'General'
+        const categoryName = model.category?.name ?? 'Mobile Phones'
+        const productName = `${brandName} ${model.name}`.trim()
+        const sku = buildMasterCatalogSku(brandName, model.name)
+        const allVariants = model.variants ?? []
+        const pickedIds = variantMap[model.id]
+        const variants = (pickedIds?.size
+          ? allVariants.filter(v => pickedIds.has(v.id))
+          : allVariants
+        ).map(v => ({
+          storage: v.storage,
+          colorName: v.colorName,
+          colorHex: v.colorHex ?? '#1a1a1a',
+        }))
 
-      const res: unknown = await productsApi.importFromMaster({
-        items,
-        defaults: {
-          buyingPrice: Number(defaults.buyingPrice) || 0,
-          sellingPrice: Number(defaults.sellingPrice) || 0,
-          stock: Number(defaults.stock) || 0,
-        },
-      })
-      const data = (res as { data?: typeof summary })?.data ?? res
-      setSummary(data as typeof summary)
-      setStep(6)
-      toast.success('Import complete')
-      onImported()
+        onApplyToForm({
+          name: productName,
+          sku,
+          brandName,
+          categoryName,
+          deviceModel: model.name,
+          trackImei: model.trackImei ?? true,
+          warrantyMonths: model.defaultWarrantyMonths ?? 12,
+          variants,
+        })
+      } else {
+        if (!selectedAccessoryId || !selectedAccessory) {
+          toast.error('Select an accessory')
+          return
+        }
+        const a = selectedAccessory
+        const brandName = a.brand?.name ?? 'General'
+        const categoryName = a.category?.name ?? 'Accessories'
+        const productName = a.modelOptional ? `${a.name} (${a.modelOptional})` : a.name
+        onApplyToForm({
+          name: productName,
+          sku: buildMasterCatalogAccessorySku(categoryName, a.name, a.brand?.name),
+          brandName,
+          categoryName,
+          deviceModel: a.modelOptional ?? undefined,
+          trackImei: false,
+          warrantyMonths: 0,
+          variants: [],
+        })
+      }
+      onClose()
     } catch (e: unknown) {
-      toast.error((e as Error)?.message ?? 'Import failed')
+      toast.error((e as Error)?.message ?? 'Could not load product details')
     } finally {
-      setImporting(false)
+      setApplying(false)
     }
   }
 
   const canNext = () => {
     if (step === 1) return true
     if (step === 2) return kind === 'PHONE' ? selectedBrandIds.size > 0 : true
-    if (step === 3) return kind === 'PHONE' ? selectedModels.size > 0 : selectedAccessories.size > 0
+    if (step === 3) return kind === 'PHONE' ? !!selectedModelId : !!selectedAccessoryId
     if (step === 4) return true
-    if (step === 5) return previewRows.length > 0
+    if (step === 5) return !!previewLabel
     return false
   }
+
+  const totalSteps = kind === 'PHONE' ? 5 : 4
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -220,7 +236,9 @@ export function MasterCatalogImportModal({ onClose, onImported }: Props) {
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 shrink-0">
           <div>
             <p className="text-sm font-bold text-white">Import from Master Catalog</p>
-            <p className="text-[11px] text-slate-500">Step {Math.min(step, 5)} of 5</p>
+            <p className="text-[11px] text-slate-500">
+              Step {Math.min(step, totalSteps)} of {totalSteps} · fills Create Product form (you save manually)
+            </p>
           </div>
           <button type="button" onClick={onClose} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/5">
             <X size={18} />
@@ -230,7 +248,7 @@ export function MasterCatalogImportModal({ onClose, onImported }: Props) {
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {step === 1 && (
             <>
-              <p className="text-sm text-slate-400">What would you like to import?</p>
+              <p className="text-sm text-slate-400">Pick one catalog item — it will fill the product form. Set prices there, then click Create Product.</p>
               <div className="grid grid-cols-2 gap-3">
                 {(['PHONE', 'ACCESSORY'] as CatalogKind[]).map(k => (
                   <button
@@ -241,8 +259,8 @@ export function MasterCatalogImportModal({ onClose, onImported }: Props) {
                       setCategoryId('')
                       setBrandId('')
                       setSelectedBrandIds(new Set())
-                      setSelectedModels(new Set())
-                      setSelectedAccessories(new Set())
+                      setSelectedModelId('')
+                      setSelectedAccessoryId('')
                       setVariantMap({})
                     }}
                     className={`p-4 rounded-xl border text-left transition-colors ${
@@ -251,7 +269,7 @@ export function MasterCatalogImportModal({ onClose, onImported }: Props) {
                   >
                     <p className="text-sm font-semibold text-white">{k === 'PHONE' ? 'Mobile Phones' : 'Accessories'}</p>
                     <p className="text-[11px] text-slate-500 mt-1">
-                      {k === 'PHONE' ? 'Brands, models & storage/color variants' : 'Chargers, cases, earbuds & more'}
+                      {k === 'PHONE' ? 'Brand → model → variants' : 'Category → accessory'}
                     </p>
                   </button>
                 ))}
@@ -261,7 +279,7 @@ export function MasterCatalogImportModal({ onClose, onImported }: Props) {
 
           {step === 2 && kind === 'PHONE' && (
             <>
-              <p className="text-sm text-slate-400">Select the phone brand(s) you need</p>
+              <p className="text-sm text-slate-400">Select phone brand(s) to browse models</p>
               {loading ? (
                 <div className="flex justify-center py-8"><Loader2 className="animate-spin text-violet-400" /></div>
               ) : brands.length === 0 ? (
@@ -286,9 +304,6 @@ export function MasterCatalogImportModal({ onClose, onImported }: Props) {
                     )
                   })}
                 </div>
-              )}
-              {selectedBrandIds.size > 0 && (
-                <p className="text-[11px] text-slate-500">{selectedBrandIds.size} brand{selectedBrandIds.size !== 1 ? 's' : ''} selected</p>
               )}
             </>
           )}
@@ -324,9 +339,12 @@ export function MasterCatalogImportModal({ onClose, onImported }: Props) {
 
           {step === 3 && (
             <>
+              <p className="text-sm text-slate-400">
+                {kind === 'PHONE' ? 'Select one phone model' : 'Select one accessory'}
+              </p>
               <input
                 className="w-full h-10 px-3 rounded-lg bg-white/5 border border-white/10 text-sm text-white"
-                placeholder="Search models…"
+                placeholder="Search…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
@@ -338,10 +356,10 @@ export function MasterCatalogImportModal({ onClose, onImported }: Props) {
                     <button
                       key={m.id}
                       type="button"
-                      onClick={() => toggleModel(m.id)}
+                      onClick={() => { setSelectedModelId(m.id); setVariantMap({}) }}
                       className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/5 text-left"
                     >
-                      {selectedModels.has(m.id) ? <CheckSquare size={16} className="text-violet-400 shrink-0" /> : <Square size={16} className="text-slate-500 shrink-0" />}
+                      {selectedModelId === m.id ? <CheckSquare size={16} className="text-violet-400 shrink-0" /> : <Square size={16} className="text-slate-500 shrink-0" />}
                       <span className="text-sm text-white">{m.brand?.name} {m.name}</span>
                       <span className="text-[11px] text-slate-500 ml-auto">{m.variants?.length ?? 0} variants</span>
                     </button>
@@ -354,10 +372,10 @@ export function MasterCatalogImportModal({ onClose, onImported }: Props) {
                     <button
                       key={a.id}
                       type="button"
-                      onClick={() => toggleAccessory(a.id)}
+                      onClick={() => setSelectedAccessoryId(a.id)}
                       className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/5 text-left"
                     >
-                      {selectedAccessories.has(a.id) ? <CheckSquare size={16} className="text-violet-400 shrink-0" /> : <Square size={16} className="text-slate-500 shrink-0" />}
+                      {selectedAccessoryId === a.id ? <CheckSquare size={16} className="text-violet-400 shrink-0" /> : <Square size={16} className="text-slate-500 shrink-0" />}
                       <span className="text-sm text-white">{a.name}</span>
                       <span className="text-[11px] text-slate-500 ml-auto">{a.category?.name}</span>
                     </button>
@@ -368,108 +386,73 @@ export function MasterCatalogImportModal({ onClose, onImported }: Props) {
             </>
           )}
 
-          {step === 4 && kind === 'PHONE' && (
+          {step === 4 && kind === 'PHONE' && selectedPhone && (
             <>
-              <p className="text-sm text-slate-400">Select variants (leave empty to import all)</p>
-              {phones.filter(m => selectedModels.has(m.id)).map(m => (
-                <div key={m.id} className="rounded-xl border border-white/10 p-3">
-                  <p className="text-sm font-semibold text-white mb-2">{m.brand?.name} {m.name}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {(m.variants ?? []).map(v => {
-                      const on = variantMap[m.id]?.has(v.id)
-                      return (
-                        <button
-                          key={v.id}
-                          type="button"
-                          onClick={() => toggleVariant(m.id, v.id)}
-                          className={`px-2.5 py-1 rounded-md text-xs border ${
-                            on ? 'border-violet-500 bg-violet-500/20 text-violet-200' : 'border-white/10 text-slate-400'
-                          }`}
-                        >
-                          {v.storage} · {v.colorName}
-                        </button>
-                      )
-                    })}
-                  </div>
+              <p className="text-sm text-slate-400">Select variants (leave empty = all). Prices you set on the product form.</p>
+              <div className="rounded-xl border border-white/10 p-3">
+                <p className="text-sm font-semibold text-white mb-2">{selectedPhone.brand?.name} {selectedPhone.name}</p>
+                <div className="flex flex-wrap gap-2">
+                  {(selectedPhone.variants ?? []).map(v => {
+                    const on = variantMap[selectedPhone.id]?.has(v.id)
+                    return (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => toggleVariant(selectedPhone.id, v.id)}
+                        className={`px-2.5 py-1 rounded-md text-xs border ${
+                          on ? 'border-violet-500 bg-violet-500/20 text-violet-200' : 'border-white/10 text-slate-400'
+                        }`}
+                      >
+                        {v.storage} · {v.colorName}
+                      </button>
+                    )
+                  })}
                 </div>
-              ))}
+              </div>
             </>
+          )}
+
+          {step === 5 && kind === 'PHONE' && (
+            <div className="rounded-xl border border-white/10 p-4 space-y-2 text-sm">
+              <p className="text-white font-semibold">{previewLabel}</p>
+              <p className="text-slate-400">Category: {selectedPhone?.category?.name ?? '—'}</p>
+              <p className="text-slate-400">Variants: {selectedVariantCount}</p>
+              <p className="text-[11px] text-slate-500 pt-2">
+                Next: form opens with name, brand, category, SKU &amp; variants filled. Enter buy/sell prices, then Create Product.
+              </p>
+            </div>
           )}
 
           {step === 4 && kind === 'ACCESSORY' && (
-            <p className="text-sm text-slate-400">Accessories import as single products — continue to preview.</p>
-          )}
-
-          {step === 5 && !summary && (
-            <>
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { k: 'buyingPrice', label: 'Buy price (LKR)' },
-                  { k: 'sellingPrice', label: 'Sell price (LKR)' },
-                  { k: 'stock', label: 'Initial stock' },
-                ].map(f => (
-                  <div key={f.k}>
-                    <label className="text-xs text-slate-500 block mb-1">{f.label}</label>
-                    <input
-                      className="w-full h-10 px-3 rounded-lg bg-white/5 border border-white/10 text-sm text-white"
-                      value={defaults[f.k as keyof typeof defaults]}
-                      onChange={e => setDefaults(p => ({ ...p, [f.k]: e.target.value }))}
-                    />
-                  </div>
-                ))}
-              </div>
-              <div className="rounded-xl border border-white/10 overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead><tr className="text-left text-slate-500 border-b border-white/10"><th className="px-3 py-2">Product</th><th>Category</th><th>Variants</th></tr></thead>
-                  <tbody>
-                    {previewRows.map(r => (
-                      <tr key={r.id} className="border-b border-white/5">
-                        <td className="px-3 py-2 text-white">{r.label}</td>
-                        <td className="text-slate-400">{r.category}</td>
-                        <td className="text-slate-400">{r.variants || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-
-          {step === 6 && summary && (
-            <div className="space-y-3 text-center py-4">
-              <Download size={32} className="mx-auto text-emerald-400" />
-              <p className="text-lg font-bold text-white">Import complete</p>
-              <div className="grid grid-cols-2 gap-2 max-w-sm mx-auto text-sm">
-                <div className="rounded-lg bg-white/5 p-3"><p className="text-slate-500 text-xs">Categories created</p><p className="text-white font-bold">{summary.categoriesCreated}</p></div>
-                <div className="rounded-lg bg-white/5 p-3"><p className="text-slate-500 text-xs">Brands created</p><p className="text-white font-bold">{summary.brandsCreated}</p></div>
-                <div className="rounded-lg bg-white/5 p-3"><p className="text-slate-500 text-xs">Products created</p><p className="text-emerald-400 font-bold">{summary.productsCreated}</p></div>
-                <div className="rounded-lg bg-white/5 p-3"><p className="text-slate-500 text-xs">Duplicates skipped</p><p className="text-amber-400 font-bold">{summary.duplicatesSkipped}</p></div>
-              </div>
+            <div className="rounded-xl border border-white/10 p-4 space-y-2 text-sm">
+              <p className="text-white font-semibold">{previewLabel}</p>
+              <p className="text-slate-400">Category: {selectedAccessory?.category?.name ?? '—'}</p>
+              <p className="text-slate-400">Brand: {selectedAccessory?.brand?.name ?? 'General'}</p>
+              <p className="text-[11px] text-slate-500 pt-2">
+                Form will be filled — set prices on Create Product, then save.
+              </p>
             </div>
           )}
         </div>
 
         <div className="flex items-center justify-between px-5 py-4 border-t border-white/10 shrink-0">
-          {step > 1 && step < 6 ? (
+          {step > 1 ? (
             <button type="button" onClick={() => setStep(s => Math.max(1, s - 1))} className="btn-secondary text-sm flex items-center gap-1">
               <ChevronLeft size={14} /> Back
             </button>
           ) : <span />}
 
-          {step === 6 ? (
-            <button type="button" onClick={onClose} className="btn-primary text-sm ml-auto">Done</button>
-          ) : step === 5 ? (
-            <button type="button" disabled={importing || !canNext()} onClick={runImport} className="btn-primary text-sm flex items-center gap-2 ml-auto disabled:opacity-50">
-              {importing ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-              Import {previewRows.length} item{previewRows.length !== 1 ? 's' : ''}
+          {(kind === 'PHONE' && step === 5) || (kind === 'ACCESSORY' && step === 4) ? (
+            <button type="button" disabled={applying || !canNext()} onClick={applyToForm} className="btn-primary text-sm flex items-center gap-2 ml-auto disabled:opacity-50">
+              {applying ? <Loader2 size={14} className="animate-spin" /> : <FileInput size={14} />}
+              Fill product form
             </button>
           ) : (
             <button
               type="button"
               disabled={!canNext()}
               onClick={() => {
-                if (step === 3 && kind === 'ACCESSORY') setStep(5)
-                else if (step === 4 && kind === 'ACCESSORY') setStep(5)
+                if (step === 3 && kind === 'ACCESSORY') setStep(4)
                 else setStep(s => s + 1)
               }}
               className="btn-primary text-sm flex items-center gap-1 ml-auto disabled:opacity-50"

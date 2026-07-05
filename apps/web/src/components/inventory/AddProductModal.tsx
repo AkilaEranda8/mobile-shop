@@ -12,6 +12,7 @@ import type { Category } from '@/types'
 import toast from 'react-hot-toast'
 import { ImeiProductTypeSelector } from './ImeiProductTypeSelector'
 import { MasterCatalogImportModal } from './MasterCatalogImportModal'
+import type { MasterCatalogFormDraft } from '@/lib/masterCatalogFormDraft'
 import { inferImeiProductType, imeiTypeToTrackFlag, type ImeiProductType } from '@/lib/productImei'
 import { PRODUCT_CONDITION_OPTS, type ProductCondition } from '@/lib/productCondition'
 
@@ -636,6 +637,44 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
 
   const supplierName = suppliers.find(s => s.id === extra.supplierId)?.name ?? ''
 
+  const applyCatalogDraft = useCallback((draft: MasterCatalogFormDraft) => {
+    setForm(p => ({
+      ...p,
+      name: draft.name,
+      sku: draft.sku,
+      barcodeValue: draft.sku,
+      brandName: draft.brandName,
+      categoryName: draft.categoryName,
+      deviceModel: draft.deviceModel ?? '',
+    }))
+    setCondition('BRAND_NEW')
+    setPricing({ tax: 'None', taxType: 'Exclusive', purchaseEx: '', purchaseInc: '', sellingEx: '', margin: '' })
+    setInitialQty('0')
+    setManageStock('Yes')
+    setVariants(draft.variants.map(v => ({
+      id: genId(),
+      storage: v.storage,
+      colorName: v.colorName,
+      colorHex: v.colorHex,
+      sku: v.sku ?? '',
+      sellingPrice: '',
+      costPrice: '',
+    })))
+    setImeiType(draft.trackImei ? 'device' : 'accessory')
+    setImeiTouched(true)
+    const months = draft.warrantyMonths
+    setWarrantyTrack(months > 0)
+    const warrantyLabel =
+      months >= 24 ? '2 Years'
+      : months >= 12 ? '1 Year'
+      : months >= 6 ? '6 Months'
+      : months >= 3 ? '3 Months'
+      : months >= 1 ? '1 Month'
+      : 'None'
+    setExtra(p => ({ ...p, warranty: warrantyLabel }))
+    toast.success('Form filled from catalog — set buy & sell prices, then Create Product')
+  }, [])
+
   /* ── Render ────────────────────────────────────────────────────────────── */
   return (
     <div className="space-y-6">
@@ -647,7 +686,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
           </button>
           <div className="min-w-0">
             <h1 className="page-title">Create New Product</h1>
-            <p className="page-subtitle">Add a new product to your inventory.</p>
+            <p className="page-subtitle">Add a new product to your inventory. Import from catalog fills this form — you set prices and save.</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2 sm:ml-auto pl-11 sm:pl-0">
@@ -1141,7 +1180,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
       {showMasterImport && (
         <MasterCatalogImportModal
           onClose={() => setShowMasterImport(false)}
-          onImported={() => { refetchCats(); refetchBrands(); onSaved() }}
+          onApplyToForm={applyCatalogDraft}
         />
       )}
     </div>
