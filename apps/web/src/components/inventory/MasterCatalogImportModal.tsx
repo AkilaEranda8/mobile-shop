@@ -37,6 +37,7 @@ export function MasterCatalogImportModal({ onClose, onImported }: Props) {
   const [categories, setCategories] = useState<Category[]>([])
   const [brands, setBrands] = useState<Brand[]>([])
   const [categoryId, setCategoryId] = useState('')
+  const [selectedBrandIds, setSelectedBrandIds] = useState<Set<string>>(new Set())
   const [brandId, setBrandId] = useState('')
   const [search, setSearch] = useState('')
   const [phones, setPhones] = useState<PhoneModel[]>([])
@@ -64,7 +65,10 @@ export function MasterCatalogImportModal({ onClose, onImported }: Props) {
   }, [])
 
   const loadBrands = useCallback(() => {
-    masterCatalogApi.listBrands(kind === 'PHONE' ? 'PHONE' : 'ACCESSORY')
+    masterCatalogApi.listBrands(
+      kind === 'PHONE' ? 'PHONE' : 'ACCESSORY',
+      kind === 'PHONE' ? { withPhoneModels: true } : { withAccessories: true },
+    )
       .then((r: unknown) => {
         const list = ((r as { data?: Brand[] })?.data ?? r) as Brand[]
         setBrands(Array.isArray(list) ? list : [])
@@ -79,7 +83,7 @@ export function MasterCatalogImportModal({ onClose, onImported }: Props) {
     try {
       if (kind === 'PHONE') {
         const params: Record<string, string> = {}
-        if (brandId) params.brandId = brandId
+        if (selectedBrandIds.size) params.brandIds = [...selectedBrandIds].join(',')
         if (categoryId) params.categoryId = categoryId
         if (search.trim()) params.search = search.trim()
         const r: unknown = await masterCatalogApi.listPhoneModels(params)
@@ -99,18 +103,25 @@ export function MasterCatalogImportModal({ onClose, onImported }: Props) {
     } finally {
       setLoading(false)
     }
-  }, [kind, brandId, categoryId, search])
+  }, [kind, selectedBrandIds, brandId, categoryId, search])
 
   useEffect(() => { if (step >= 3) loadItems() }, [step, loadItems])
 
-  const phoneCategories = useMemo(
-    () => categories.filter(c => /mobile|phone|smartphone|handset/i.test(c.name)),
-    [categories],
-  )
   const accessoryCategories = useMemo(
     () => categories.filter(c => !/mobile|phone|smartphone|handset/i.test(c.name)),
     [categories],
   )
+
+  const toggleBrand = (id: string) => {
+    setSelectedBrandIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+    setSelectedModels(new Set())
+    setVariantMap({})
+  }
 
   const toggleModel = (id: string) => {
     setSelectedModels(prev => {
@@ -196,7 +207,7 @@ export function MasterCatalogImportModal({ onClose, onImported }: Props) {
 
   const canNext = () => {
     if (step === 1) return true
-    if (step === 2) return !!brandId || kind === 'ACCESSORY'
+    if (step === 2) return kind === 'PHONE' ? selectedBrandIds.size > 0 : true
     if (step === 3) return kind === 'PHONE' ? selectedModels.size > 0 : selectedAccessories.size > 0
     if (step === 4) return true
     if (step === 5) return previewRows.length > 0
@@ -225,7 +236,15 @@ export function MasterCatalogImportModal({ onClose, onImported }: Props) {
                   <button
                     key={k}
                     type="button"
-                    onClick={() => { setKind(k); setCategoryId(''); setBrandId(''); setSelectedModels(new Set()); setSelectedAccessories(new Set()) }}
+                    onClick={() => {
+                      setKind(k)
+                      setCategoryId('')
+                      setBrandId('')
+                      setSelectedBrandIds(new Set())
+                      setSelectedModels(new Set())
+                      setSelectedAccessories(new Set())
+                      setVariantMap({})
+                    }}
                     className={`p-4 rounded-xl border text-left transition-colors ${
                       kind === k ? 'border-violet-500 bg-violet-500/10' : 'border-white/10 hover:border-white/20'
                     }`}
@@ -240,7 +259,41 @@ export function MasterCatalogImportModal({ onClose, onImported }: Props) {
             </>
           )}
 
-          {step === 2 && (
+          {step === 2 && kind === 'PHONE' && (
+            <>
+              <p className="text-sm text-slate-400">Select the phone brand(s) you need</p>
+              {loading ? (
+                <div className="flex justify-center py-8"><Loader2 className="animate-spin text-violet-400" /></div>
+              ) : brands.length === 0 ? (
+                <p className="text-sm text-slate-500 text-center py-6">No phone brands in catalog yet. Ask admin to load the Master Catalog.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {brands.map(b => {
+                    const on = selectedBrandIds.has(b.id)
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => toggleBrand(b.id)}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                          on
+                            ? 'border-violet-500 bg-violet-500/20 text-violet-100'
+                            : 'border-white/10 text-slate-300 hover:border-white/20 hover:bg-white/5'
+                        }`}
+                      >
+                        {on ? '✓ ' : ''}{b.name}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+              {selectedBrandIds.size > 0 && (
+                <p className="text-[11px] text-slate-500">{selectedBrandIds.size} brand{selectedBrandIds.size !== 1 ? 's' : ''} selected</p>
+              )}
+            </>
+          )}
+
+          {step === 2 && kind === 'ACCESSORY' && (
             <>
               <div>
                 <label className="text-xs text-slate-500 block mb-1">Category</label>
@@ -250,19 +303,19 @@ export function MasterCatalogImportModal({ onClose, onImported }: Props) {
                   onChange={e => setCategoryId(e.target.value)}
                 >
                   <option value="">All categories</option>
-                  {(kind === 'PHONE' ? phoneCategories : accessoryCategories).map(c => (
+                  {accessoryCategories.map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="text-xs text-slate-500 block mb-1">Brand</label>
+                <label className="text-xs text-slate-500 block mb-1">Brand (optional)</label>
                 <select
                   className="w-full h-10 px-3 rounded-lg bg-white/5 border border-white/10 text-sm text-white"
                   value={brandId}
                   onChange={e => setBrandId(e.target.value)}
                 >
-                  <option value="">Select brand</option>
+                  <option value="">All brands</option>
                   {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
               </div>

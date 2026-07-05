@@ -647,6 +647,15 @@ export interface MasterCatalogAccessory {
 
 export const masterCatalogAdminApi = {
   seed: () => req<{ message: string }>(ADMIN_BASE, '/master-catalog/seed', { method: 'POST' }),
+  seedFull: () => req<{
+    message: string
+    categoriesAdded: number
+    brandsAdded: number
+    modelsAdded: number
+    variantsAdded: number
+    accessoriesAdded: number
+    totals: { categories: number; brands: number; models: number; accessories: number }
+  }>(ADMIN_BASE, '/master-catalog/seed-full', { method: 'POST' }),
   listCategories: () => req<MasterCatalogCategory[]>(ADMIN_BASE, '/master-catalog/categories'),
   createCategory: (body: { name: string; displayOrder?: number }) =>
     req<MasterCatalogCategory>(ADMIN_BASE, '/master-catalog/categories', { method: 'POST', body: JSON.stringify(body) }),

@@ -60,13 +60,24 @@ export const masterCatalogService = {
   },
 
   /* ── Brands ── */
-  listBrands(opts?: { activeOnly?: boolean; type?: 'PHONE' | 'ACCESSORY' | 'BOTH' }) {
+  listBrands(opts?: {
+    activeOnly?: boolean
+    type?: 'PHONE' | 'ACCESSORY' | 'BOTH'
+    withPhoneModels?: boolean
+    withAccessories?: boolean
+  }) {
     const where: Record<string, unknown> = {}
     if (opts?.activeOnly) where.isActive = true
     if (opts?.type === 'PHONE') {
       where.type = { in: ['PHONE', 'BOTH'] }
     } else if (opts?.type === 'ACCESSORY') {
       where.type = { in: ['ACCESSORY', 'BOTH'] }
+    }
+    if (opts?.withPhoneModels) {
+      where.phoneModels = { some: { isActive: opts.activeOnly ? true : undefined } }
+    }
+    if (opts?.withAccessories) {
+      where.accessories = { some: { isActive: opts.activeOnly ? true : undefined } }
     }
     return prisma.masterCatalogBrand.findMany({
       where,
@@ -117,12 +128,17 @@ export const masterCatalogService = {
   listPhoneModels(opts?: {
     activeOnly?: boolean
     brandId?: string
+    brandIds?: string[]
     categoryId?: string
     search?: string
   }) {
     const where: Record<string, unknown> = {}
     if (opts?.activeOnly) where.isActive = true
-    if (opts?.brandId) where.brandId = opts.brandId
+    if (opts?.brandIds?.length) {
+      where.brandId = { in: opts.brandIds }
+    } else if (opts?.brandId) {
+      where.brandId = opts.brandId
+    }
     if (opts?.categoryId) where.categoryId = opts.categoryId
     if (opts?.search?.trim()) {
       where.name = { contains: opts.search.trim(), mode: 'insensitive' }

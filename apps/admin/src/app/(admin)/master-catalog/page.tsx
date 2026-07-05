@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { RefreshCw, Database, Plus, Trash2, Smartphone, Package, Info } from 'lucide-react'
+import { RefreshCw, Database, Download, Plus, Trash2, Smartphone, Package, Info } from 'lucide-react'
 import { Switch } from '@/components/ui/Switch'
 import {
   masterCatalogAdminApi,
@@ -17,6 +17,7 @@ export default function MasterCatalogPage() {
   const [tab, setTab] = useState<Tab>('categories')
   const [loading, setLoading] = useState(true)
   const [seeding, setSeeding] = useState(false)
+  const [loadingFull, setLoadingFull] = useState(false)
   const [categories, setCategories] = useState<MasterCatalogCategory[]>([])
   const [brands, setBrands] = useState<MasterCatalogBrand[]>([])
   const [phones, setPhones] = useState<MasterCatalogPhoneModel[]>([])
@@ -55,8 +56,27 @@ export default function MasterCatalogPage() {
     try {
       await masterCatalogAdminApi.seed()
       await load()
+      alert('Minimal defaults loaded.')
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Seed failed')
     } finally {
       setSeeding(false)
+    }
+  }
+
+  const runFullLoad = async () => {
+    if (!confirm('Load full mobile catalog (all brands, models, variants & accessories)? Safe to re-run — duplicates are skipped.')) return
+    setLoadingFull(true)
+    try {
+      const res = await masterCatalogAdminApi.seedFull()
+      await load()
+      alert(
+        `Full catalog loaded.\n\nAdded: ${res.categoriesAdded} categories, ${res.brandsAdded} brands, ${res.modelsAdded} models, ${res.variantsAdded} variants, ${res.accessoriesAdded} accessories.\n\nTotals: ${res.totals.categories} categories, ${res.totals.brands} brands, ${res.totals.models} phone models, ${res.totals.accessories} accessories.`,
+      )
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Load failed')
+    } finally {
+      setLoadingFull(false)
     }
   }
 
@@ -73,16 +93,19 @@ export default function MasterCatalogPage() {
         <div>
           <h1 className="page-title">Master Catalog</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Global catalog managed here only. Seed/Python script fills this list — it does not auto-save to tenant shops.
-            Tenants import manually when needed. Untick Active to hide items from tenant import.
+            Global catalog managed here only. Use Load full catalog to populate brands, models and accessories.
+            Does not auto-save to tenant shops — untick Active to hide items from tenant import.
           </p>
         </div>
         <div className="flex gap-2">
           <button type="button" onClick={load} className="btn-secondary text-sm flex items-center gap-2">
             <RefreshCw size={14} /> Refresh
           </button>
-          <button type="button" onClick={runSeed} disabled={seeding} className="btn-primary text-sm flex items-center gap-2">
-            <Database size={14} /> {seeding ? 'Seeding…' : 'Seed defaults'}
+          <button type="button" onClick={runFullLoad} disabled={loadingFull || seeding} className="btn-primary text-sm flex items-center gap-2">
+            <Download size={14} /> {loadingFull ? 'Loading…' : 'Load full catalog'}
+          </button>
+          <button type="button" onClick={runSeed} disabled={seeding || loadingFull} className="btn-secondary text-sm flex items-center gap-2">
+            <Database size={14} /> {seeding ? 'Seeding…' : 'Quick seed'}
           </button>
         </div>
       </div>

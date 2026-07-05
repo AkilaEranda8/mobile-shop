@@ -247,8 +247,14 @@ export const productsApi = {
 
 export const masterCatalogApi = {
   listCategories: () => api.get('/master-catalog/categories'),
-  listBrands: (type?: 'PHONE' | 'ACCESSORY') =>
-    api.get(`/master-catalog/brands${type ? `?type=${type}` : ''}`),
+  listBrands: (type?: 'PHONE' | 'ACCESSORY', opts?: { withPhoneModels?: boolean; withAccessories?: boolean }) => {
+    const q = new URLSearchParams()
+    if (type) q.set('type', type)
+    if (opts?.withPhoneModels) q.set('withPhoneModels', 'true')
+    if (opts?.withAccessories) q.set('withAccessories', 'true')
+    const qs = q.toString()
+    return api.get(`/master-catalog/brands${qs ? `?${qs}` : ''}`)
+  },
   listPhoneModels: (params?: Record<string, string>) => {
     const qs = params ? '?' + new URLSearchParams(params) : ''
     return api.get(`/master-catalog/phone-models${qs}`)

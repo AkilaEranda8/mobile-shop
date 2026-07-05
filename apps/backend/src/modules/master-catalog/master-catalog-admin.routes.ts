@@ -3,6 +3,7 @@ import { sendSuccess } from '../../utils/response'
 import { validate } from '../../middleware/validate.middleware'
 import { masterCatalogService } from './master-catalog.service'
 import { seedMasterCatalog } from './master-catalog.seed'
+import { seedFullMasterCatalog } from './master-catalog.full-seed'
 import {
   masterCategorySchema,
   masterBrandSchema,
@@ -95,6 +96,10 @@ router.delete('/accessories/:id', async (req, res, next) => {
 
 router.post('/seed', async (_req, res, next) => {
   try { sendSuccess(res, await seedMasterCatalog(), 'Seed complete') } catch (e) { next(e) }
+})
+
+router.post('/seed-full', async (_req, res, next) => {
+  try { sendSuccess(res, await seedFullMasterCatalog(), 'Full catalog loaded') } catch (e) { next(e) }
 })
 
 export default router
