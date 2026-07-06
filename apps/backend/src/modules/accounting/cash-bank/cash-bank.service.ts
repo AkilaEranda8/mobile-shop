@@ -59,7 +59,20 @@ export async function listCashBankRegisters(tenantId: string, branchId?: string)
     }),
   ])
 
-  const registers = await Promise.all([
+  const registers: Array<{
+    kind: 'CASH' | 'BANK' | 'CLEARING'
+    id: string
+    name: string
+    branchId: string | null
+    branchName: string | null
+    glAccountId: string
+    code: string
+    glName: string
+    balance: number
+    clearingType?: 'CARD' | 'UPI'
+    accountNo?: string | null
+    bankName?: string | null
+  }> = await Promise.all([
     ...cashAccounts.map(async c => ({
       kind: 'CASH' as const,
       id: c.id,
@@ -86,7 +99,40 @@ export async function listCashBankRegisters(tenantId: string, branchId?: string)
     })),
   ])
 
-  return registers
+  const settings = await prisma.accountingSettings.findUnique({ where: { tenantId } })
+  const map = (settings?.defaultAccounts ?? {}) as Record<string, string>
+  const clearingDefs = [
+    { key: 'cardClearing', clearingType: 'CARD' as const },
+    { key: 'upiClearing', clearingType: 'UPI' as const },
+  ]
+  for (const def of clearingDefs) {
+    const glAccountId = map[def.key]
+    if (!glAccountId) continue
+    const gl = await prisma.glAccount.findFirst({
+      where: { id: glAccountId, tenantId },
+      select: { id: true, code: true, name: true },
+    })
+    if (!gl) continue
+    registers.push({
+      kind: 'CLEARING' as const,
+      id: gl.id,
+      name: gl.name,
+      branchId: branchId ?? null,
+      branchName: null,
+      glAccountId: gl.id,
+      code: gl.code,
+      glName: gl.name,
+      clearingType: def.clearingType,
+      balance: await glBalanceForAccount(tenantId, gl.id, branchId),
+    })
+  }
+
+  const kindOrder = { CASH: 0, BANK: 1, CLEARING: 2 }
+  return registers.sort((a, b) => {
+    const ko = kindOrder[a.kind] - kindOrder[b.kind]
+    if (ko !== 0) return ko
+    return a.name.localeCompare(b.name)
+  })
 }
 
 export async function createBankAccount(

@@ -6,7 +6,7 @@ import {
   LayoutDashboard, ShoppingCart, Package, Users, Wrench,
   Shield, Truck, BarChart3, Settings, LogOut,
   CreditCard, Smartphone,   FileText, Building2,
-  UserCheck, ChevronLeft, ChevronRight, Receipt, MessageSquare, PackageCheck, RotateCcw, ArrowLeftRight, Layers, RefreshCw, Lock, PieChart, Sparkles, BookOpen, TrendingUp, Landmark,
+  UserCheck, ChevronLeft, ChevronRight, ChevronDown, Receipt, MessageSquare, PackageCheck, RotateCcw, ArrowLeftRight, Layers, RefreshCw, Lock, PieChart, Sparkles, BookOpen, TrendingUp, Landmark, Wallet, Calendar, ReceiptText,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
@@ -15,8 +15,38 @@ import { authApi, tenantApi } from '@/lib/api'
 import { getInvoiceSettings } from '@/lib/invoiceSettings'
 import { useTenantFeatures } from '@/lib/hooks'
 import { usePos } from '@/lib/use-pos'
+import type { LucideIcon } from 'lucide-react'
 
-const navItems = [
+type NavSubItem = { href: string; icon: LucideIcon; label: string }
+
+type NavItem = {
+  href: string
+  icon: LucideIcon
+  label: string
+  badge?: string
+  feature?: string
+  openPos?: boolean
+  ownerOnly?: boolean
+  submenu?: NavSubItem[]
+}
+
+type NavGroup = { label: string; items: NavItem[] }
+
+const accountingSubmenu: NavSubItem[] = [
+  { href: '/dashboard/accounting', icon: BookOpen, label: 'Overview' },
+  { href: '/dashboard/accounting/journals', icon: FileText, label: 'GL Journals' },
+  { href: '/dashboard/accounting/reports', icon: BarChart3, label: 'GL Reports' },
+  { href: '/dashboard/accounting/ar-ap', icon: Users, label: 'AR / AP' },
+  { href: '/dashboard/accounting/cash-bank', icon: Landmark, label: 'Cash & Bank' },
+  { href: '/dashboard/accounting/tax', icon: ReceiptText, label: 'VAT / Tax' },
+  { href: '/dashboard/accounting/petty-cash', icon: Wallet, label: 'Petty Cash' },
+  { href: '/dashboard/accounting/payroll', icon: Users, label: 'Payroll' },
+  { href: '/dashboard/accounting/periods', icon: Calendar, label: 'Periods' },
+  { href: '/dashboard/accounting/audit', icon: Shield, label: 'Audit Trail' },
+  { href: '/dashboard/accounting/settings', icon: Settings, label: 'Settings' },
+]
+
+const navItems: NavGroup[] = [
   {
     label: 'Overview',
     items: [
@@ -58,12 +88,14 @@ const navItems = [
       { href: '/dashboard/expenses',  icon: Receipt,    label: 'Expenses',  badge: 'NEW', feature: 'FINANCE' },
       { href: '/dashboard/profit-allocation', icon: PieChart, label: 'Profit Allocation', badge: 'NEW', feature: 'PROFIT_ALLOCATION' },
       { href: '/dashboard/daily-closing', icon: Lock,   label: 'Daily Closing', badge: 'NEW', feature: 'DAILY_CLOSING' },
-      { href: '/dashboard/accounting', icon: BookOpen, label: 'Accounting', badge: 'NEW', feature: 'ACCOUNTING' },
-      { href: '/dashboard/accounting/journals', icon: FileText, label: 'GL Journals', feature: 'ACCOUNTING' },
-      { href: '/dashboard/accounting/reports', icon: BarChart3, label: 'GL Reports', feature: 'ACCOUNTING' },
-      { href: '/dashboard/accounting/ar-ap', icon: Users, label: 'AR / AP', feature: 'ACCOUNTING' },
-      { href: '/dashboard/accounting/cash-bank', icon: Landmark, label: 'Cash & Bank', feature: 'ACCOUNTING' },
-      { href: '/dashboard/accounting/audit', icon: Shield, label: 'Audit Trail', feature: 'ACCOUNTING' },
+      {
+        href: '/dashboard/accounting',
+        icon: BookOpen,
+        label: 'Accounting',
+        badge: 'NEW',
+        feature: 'ACCOUNTING',
+        submenu: accountingSubmenu,
+      },
     ],
   },
   {
@@ -129,6 +161,17 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const [logo, setLogo]         = useState('')
   const { hasFeature }          = useTenantFeatures()
   const { openPos, posOpen }    = usePos()
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({})
+
+  useEffect(() => {
+    if (pathname.startsWith('/dashboard/accounting')) {
+      setExpandedMenus(prev => ({ ...prev, accounting: true }))
+    }
+  }, [pathname])
+
+  const toggleMenu = (key: string) => {
+    setExpandedMenus(prev => ({ ...prev, [key]: !prev[key] }))
+  }
 
   useEffect(() => {
     const inv = getInvoiceSettings()
@@ -158,8 +201,13 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
 
   const isActive = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard'
+    if (href === '/dashboard/accounting') {
+      return pathname === '/dashboard/accounting' || pathname === '/dashboard/accounting/'
+    }
     return pathname.startsWith(href)
   }
+
+  const isAccountingSection = pathname.startsWith('/dashboard/accounting')
 
   return (
     <aside className={cn(
@@ -211,6 +259,76 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
             {collapsed && <div className="my-1 h-px bg-white/5 mx-2" />}
             <div className="space-y-0.5">
               {visibleItems.map((item) => {
+                if (item.submenu?.length) {
+                  const menuKey = item.label.toLowerCase().replace(/\s+/g, '-')
+                  const open = expandedMenus[menuKey] ?? false
+                  const sectionActive = item.href === '/dashboard/accounting' ? isAccountingSection : item.submenu.some(s => isActive(s.href))
+
+                  if (collapsed) {
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={cn(
+                          'sidebar-item group justify-center px-2',
+                          sectionActive && 'sidebar-item-active',
+                        )}
+                        title={item.label}
+                      >
+                        <item.icon size={17} className={cn('flex-shrink-0', sectionActive ? 'text-violet-400' : 'text-slate-500')} />
+                      </Link>
+                    )
+                  }
+
+                  return (
+                    <div key={item.href}>
+                      <button
+                        type="button"
+                        onClick={() => toggleMenu(menuKey)}
+                        className={cn(
+                          'sidebar-item group w-full text-left',
+                          sectionActive && 'sidebar-item-active',
+                        )}
+                      >
+                        <item.icon size={17} className={cn('flex-shrink-0 transition-colors', sectionActive ? 'text-violet-400' : 'text-slate-500 group-hover:text-slate-300')} />
+                        <span className="text-sm font-medium flex-1 truncate text-left">{item.label}</span>
+                        {item.badge && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 bg-cyan-500/15 text-cyan-400 border border-cyan-500/20">
+                            {item.badge}
+                          </span>
+                        )}
+                        <ChevronDown
+                          size={14}
+                          className={cn(
+                            'flex-shrink-0 text-slate-500 transition-transform duration-200',
+                            open && 'rotate-180',
+                          )}
+                        />
+                      </button>
+                      {open && (
+                        <div className="ml-3 pl-3 border-l border-white/10 space-y-0.5 my-0.5">
+                          {item.submenu.map(sub => {
+                            const subActive = isActive(sub.href)
+                            return (
+                              <Link
+                                key={sub.href}
+                                href={sub.href}
+                                className={cn(
+                                  'sidebar-item group py-2',
+                                  subActive && 'sidebar-item-active',
+                                )}
+                              >
+                                <sub.icon size={15} className={cn('flex-shrink-0', subActive ? 'text-violet-400' : 'text-slate-500 group-hover:text-slate-300')} />
+                                <span className="text-sm font-medium flex-1 truncate">{sub.label}</span>
+                              </Link>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                }
+
                 const active = ('openPos' in item && item.openPos) ? posOpen : isActive(item.href)
                 const inner = (
                   <>

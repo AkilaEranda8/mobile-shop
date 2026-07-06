@@ -124,6 +124,92 @@ export function AccountingKpiCard({
   )
 }
 
+export function CashFlowRegisterCard({
+  name,
+  balance,
+  kind,
+  branchName,
+  onFill,
+  onSettle,
+}: {
+  name: string
+  balance: number
+  kind: 'CASH' | 'BANK' | 'CLEARING'
+  branchName?: string | null
+  onFill?: () => void
+  onSettle?: () => void
+}) {
+  const WatermarkIcon = kind === 'BANK' ? LandmarkWatermark : kind === 'CLEARING' ? CardWatermark : CashWatermark
+
+  return (
+    <div
+      className="relative overflow-hidden rounded-xl border p-4 min-h-[130px] flex flex-col"
+      style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
+    >
+      <WatermarkIcon className="absolute right-2 top-1/2 -translate-y-1/2 w-20 h-20 opacity-[0.07] pointer-events-none" style={{ color: 'var(--text-primary)' }} />
+
+      <div className="relative z-10 flex-1">
+        <p className="text-sm font-medium truncate pr-16" style={{ color: 'var(--text-primary)' }}>{name}</p>
+        {branchName && (
+          <p className="text-[10px] mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>{branchName}</p>
+        )}
+        <p className="text-2xl sm:text-3xl font-bold mt-2 tabular-nums tracking-tight" style={{ color: 'var(--text-primary)' }}>
+          {typeof balance === 'number' ? balance.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : balance}
+        </p>
+      </div>
+
+      <div className="relative z-10 flex justify-end gap-2 mt-3">
+        {onFill && (
+          <button
+            type="button"
+            onClick={onFill}
+            className="px-3 py-1 rounded-md text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 transition-colors shadow-sm"
+          >
+            Fill
+          </button>
+        )}
+        {onSettle && (
+          <button
+            type="button"
+            onClick={onSettle}
+            className="px-3 py-1 rounded-md text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 transition-colors shadow-sm"
+          >
+            Settle
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function CashWatermark({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg className={className} style={style} viewBox="0 0 64 64" fill="currentColor" aria-hidden>
+      <rect x="4" y="16" width="56" height="32" rx="4" opacity="0.9" />
+      <circle cx="32" cy="32" r="10" fill="none" stroke="currentColor" strokeWidth="3" />
+    </svg>
+  )
+}
+
+function LandmarkWatermark({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg className={className} style={style} viewBox="0 0 64 64" fill="currentColor" aria-hidden>
+      <path d="M8 52h48v4H8zm4-6h8V28h8v18h8V20h8v26h8V32l8 14v6H12z" />
+      <rect x="28" y="8" width="8" height="12" />
+    </svg>
+  )
+}
+
+function CardWatermark({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg className={className} style={style} viewBox="0 0 64 64" fill="currentColor" aria-hidden>
+      <rect x="6" y="18" width="52" height="34" rx="5" />
+      <rect x="6" y="26" width="52" height="8" fill="var(--bg-card)" opacity="0.35" />
+      <rect x="12" y="40" width="20" height="4" rx="1" fill="var(--bg-card)" opacity="0.5" />
+    </svg>
+  )
+}
+
 export function AccountingPanel({
   title,
   icon: Icon,
