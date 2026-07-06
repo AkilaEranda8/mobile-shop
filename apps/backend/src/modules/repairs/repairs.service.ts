@@ -146,9 +146,10 @@ export const repairsService = {
     const unitCost = body.unitCost != null && String(body.unitCost).trim() !== ''
       ? Number(body.unitCost)
       : (Number(product.sellingPrice) || Number(product.buyingPrice) || 0)
+    const unitBuyCost = Number(product.buyingPrice) || 0
     const partTotal = qty * unitCost
     await prisma.repairSparePart.create({
-      data: { repairId, productId: body.productId, productName: product.name, quantity: qty, unitCost, total: partTotal },
+      data: { repairId, productId: body.productId, productName: product.name, quantity: qty, unitCost, unitBuyCost, total: partTotal },
     })
     return prisma.repairTicket.findUnique({ where: { id: repairId }, include: { notes: true, spareParts: true, history: true } })
   },

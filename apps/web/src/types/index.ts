@@ -253,10 +253,12 @@ export interface RepairNote {
 }
 
 export interface RepairSparePart {
+  id?: string
   productId: string
   productName: string
   quantity: number
   unitCost: number
+  unitBuyCost?: number
   total: number
 }
 

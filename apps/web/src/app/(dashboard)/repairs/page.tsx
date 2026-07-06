@@ -26,6 +26,7 @@ import { getInvoiceSettings, fetchInvoiceSettings, resolveInvoiceTemplate, type 
 import { buildRepairInvoiceSale, resolveRepairWarrantyMonths, REPAIR_WARRANTY_OPTIONS, repairWarrantyMonths } from '@/lib/repair-invoice.util'
 import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
 import InvoiceA4View from '@/components/invoice/InvoiceA4View'
+import RepairPartsProfitPanel from '@/components/repairs/RepairPartsProfitPanel'
 import type { Customer } from '@/types'
 import toast from 'react-hot-toast'
 import type { RepairTicket } from '@/types'
@@ -1237,6 +1238,10 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
   const [removingId,  setRemovingId]        = useState<string | null>(null)
   const { data: productsData } = useProducts()
   const allProducts: any[] = (productsData?.data ?? []) as any[]
+  const getProductBuyPrice = useCallback((productId: string) => {
+    const p = allProducts.find((x: any) => x.id === productId)
+    return p?.buyingPrice != null ? Number(p.buyingPrice) : undefined
+  }, [allProducts])
   const filteredProducts = partSearch.length > 1
     ? allProducts.filter(p => String(p.name ?? '').toLowerCase().includes(partSearch.toLowerCase()) || String(p.sku ?? '').toLowerCase().includes(partSearch.toLowerCase())).slice(0, 8)
     : []
@@ -1609,7 +1614,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                 </button>
               </div>
               <p className="text-[11px] mb-3" style={{ color: 'var(--text-muted)' }}>
-                Parts are for inventory only — not added to estimated cost.
+                Sell price from inventory; buy cost tracked for profit. Stock deducts on payment.
               </p>
 
               {showAddPart && (
@@ -1627,7 +1632,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                             onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-subtle)')}
                             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                             <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{p.name}</p>
-                            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{p.sku ? `${p.sku} · ` : ''}Stock: {p.stock} · {formatCurrency(p.buyingPrice)}</p>
+                            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{p.sku ? `${p.sku} · ` : ''}Stock: {p.stock} · Sell: {formatCurrency(p.sellingPrice ?? 0)} · Buy: {formatCurrency(p.buyingPrice ?? 0)}</p>
                           </button>
                         ))}
                       </div>
@@ -1721,6 +1726,8 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                 </div>
               </div>
             </div>
+
+            <RepairPartsProfitPanel repair={repair} getBuyPrice={getProductBuyPrice} />
 
             {/* Technician Notes */}
             <div>

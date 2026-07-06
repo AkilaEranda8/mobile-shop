@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "RepairSparePart" ADD COLUMN "unitBuyCost" DOUBLE PRECISION NOT NULL DEFAULT 0;
