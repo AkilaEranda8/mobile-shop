@@ -1807,15 +1807,21 @@ model CashAccount {
   @@unique([tenantId, branchId, name])
 }
 
+enum BankAccountType {
+  CURRENT
+  SAVINGS
+}
+
 model BankAccount {
-  id          String  @id @default(cuid())
+  id          String          @id @default(cuid())
   tenantId    String
   branchId    String?
   name        String
   accountNo   String?
   bankName    String?
+  accountType BankAccountType @default(CURRENT)
   glAccountId String
-  isActive    Boolean @default(true)
+  isActive    Boolean         @default(true)
 
   tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branch    Branch?   @relation(fields: [branchId], references: [id])

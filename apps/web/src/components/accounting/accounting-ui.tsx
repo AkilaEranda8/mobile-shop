@@ -128,42 +128,51 @@ export function CashFlowRegisterCard({
   name,
   balance,
   kind,
-  branchName,
+  subtitle,
   onFill,
   onSettle,
 }: {
   name: string
   balance: number
   kind: 'CASH' | 'BANK' | 'CLEARING'
-  branchName?: string | null
+  subtitle?: string | null
   onFill?: () => void
   onSettle?: () => void
 }) {
   const WatermarkIcon = kind === 'BANK' ? LandmarkWatermark : kind === 'CLEARING' ? CardWatermark : CashWatermark
+  const isNegative = balance < 0
 
   return (
     <div
-      className="relative overflow-hidden rounded-xl border p-4 min-h-[130px] flex flex-col"
+      className="relative overflow-hidden rounded-xl border shadow-sm p-4 min-h-[148px] flex flex-col transition-shadow hover:shadow-md"
       style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
     >
-      <WatermarkIcon className="absolute right-2 top-1/2 -translate-y-1/2 w-20 h-20 opacity-[0.07] pointer-events-none" style={{ color: 'var(--text-primary)' }} />
+      <WatermarkIcon
+        className="absolute -right-1 top-1/2 -translate-y-1/2 w-[88px] h-[88px] opacity-[0.06] pointer-events-none"
+        style={{ color: kind === 'BANK' ? '#6366f1' : kind === 'CLEARING' ? '#0891b2' : '#16a34a' }}
+      />
 
-      <div className="relative z-10 flex-1">
-        <p className="text-sm font-medium truncate pr-16" style={{ color: 'var(--text-primary)' }}>{name}</p>
-        {branchName && (
-          <p className="text-[10px] mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>{branchName}</p>
+      <div className="relative z-10 flex-1 min-w-0">
+        <p className="text-sm font-semibold leading-snug truncate pr-2" style={{ color: 'var(--text-primary)' }}>
+          {name}
+        </p>
+        {subtitle && (
+          <p className="text-[11px] mt-1 truncate" style={{ color: 'var(--text-muted)' }}>{subtitle}</p>
         )}
-        <p className="text-2xl sm:text-3xl font-bold mt-2 tabular-nums tracking-tight" style={{ color: 'var(--text-primary)' }}>
-          {typeof balance === 'number' ? balance.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : balance}
+        <p
+          className={`text-2xl sm:text-[1.75rem] font-bold mt-3 tabular-nums tracking-tight leading-none ${isNegative ? 'text-rose-500' : ''}`}
+          style={!isNegative ? { color: 'var(--text-primary)' } : undefined}
+        >
+          {balance.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </p>
       </div>
 
-      <div className="relative z-10 flex justify-end gap-2 mt-3">
+      <div className="relative z-10 flex justify-end gap-2 mt-4 pt-2">
         {onFill && (
           <button
             type="button"
             onClick={onFill}
-            className="px-3 py-1 rounded-md text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 transition-colors shadow-sm"
+            className="px-4 py-1.5 rounded text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] transition-all shadow-sm"
           >
             Fill
           </button>
@@ -172,7 +181,7 @@ export function CashFlowRegisterCard({
           <button
             type="button"
             onClick={onSettle}
-            className="px-3 py-1 rounded-md text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 transition-colors shadow-sm"
+            className="px-4 py-1.5 rounded text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 active:scale-[0.98] transition-all shadow-sm"
           >
             Settle
           </button>

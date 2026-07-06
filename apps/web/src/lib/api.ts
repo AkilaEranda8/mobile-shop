@@ -489,8 +489,13 @@ export const accountingApi = {
   accountingSettings: () => api.get('/accounting/settings'),
   updateAccountingSettings: (body: Record<string, unknown>) => api.patch('/accounting/settings', body),
   cashBankRegisters: () => api.get('/accounting/cash-bank/registers'),
-  createBankAccount: (body: { name: string; branchId?: string; accountNo?: string; bankName?: string }) =>
-    api.post('/accounting/cash-bank/accounts', body),
+  createBankAccount: (body: {
+    bankName: string
+    accountType?: 'CURRENT' | 'SAVINGS'
+    name?: string
+    branchId?: string
+    accountNo?: string
+  }) => api.post('/accounting/cash-bank/accounts', body),
   cashBankTransfer: (body: {
     branchId?: string
     entryDate: string

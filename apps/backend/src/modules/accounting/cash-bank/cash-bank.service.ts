@@ -39,6 +39,7 @@ async function glBalanceForAccount(
 
 export async function listCashBankRegisters(tenantId: string, branchId?: string) {
   await assertInitialized(tenantId)
+  await ensureUniqueBankGlAccounts(tenantId)
 
   const [cashAccounts, bankAccounts] = await Promise.all([
     prisma.cashAccount.findMany({
@@ -72,6 +73,7 @@ export async function listCashBankRegisters(tenantId: string, branchId?: string)
     clearingType?: 'CARD' | 'UPI'
     accountNo?: string | null
     bankName?: string | null
+    accountType?: 'CURRENT' | 'SAVINGS'
   }> = await Promise.all([
     ...cashAccounts.map(async c => ({
       kind: 'CASH' as const,
@@ -92,6 +94,7 @@ export async function listCashBankRegisters(tenantId: string, branchId?: string)
       branchName: b.branch?.name ?? null,
       accountNo: b.accountNo,
       bankName: b.bankName,
+      accountType: b.accountType,
       glAccountId: b.glAccountId,
       code: b.glAccount.code,
       glName: b.glAccount.name,
@@ -135,23 +138,135 @@ export async function listCashBankRegisters(tenantId: string, branchId?: string)
   })
 }
 
+function formatBankAccountName(bankName: string, accountType: 'CURRENT' | 'SAVINGS') {
+  const label = accountType === 'SAVINGS' ? 'Savings Account' : 'Current Account'
+  return `${bankName.trim()} ${label}`
+}
+
+async function nextBankGlCode(tenantId: string) {
+  const accounts = await prisma.glAccount.findMany({
+    where: { tenantId, code: { startsWith: '11' } },
+    select: { code: true },
+  })
+  let max = 1100
+  for (const a of accounts) {
+    const n = parseInt(a.code, 10)
+    if (!Number.isNaN(n) && n >= max) max = n
+  }
+  return String(max + 1)
+}
+
+/** Each bank register must have its own GL — repairs legacy rows that share 1100. */
+export async function ensureUniqueBankGlAccounts(tenantId: string) {
+  const settings = await prisma.accountingSettings.findUnique({ where: { tenantId } })
+  if (!settings?.initializedAt) return { repaired: 0 }
+
+  const defaultBankGlId = ((settings.defaultAccounts ?? {}) as Record<string, string>).bank
+  const banks = await prisma.bankAccount.findMany({
+    where: { tenantId, isActive: true },
+    orderBy: { name: 'asc' },
+  })
+  if (banks.length <= 1) return { repaired: 0 }
+
+  const byGl = new Map<string, typeof banks>()
+  for (const b of banks) {
+    const group = byGl.get(b.glAccountId) ?? []
+    group.push(b)
+    byGl.set(b.glAccountId, group)
+  }
+
+  let repaired = 0
+  for (const group of byGl.values()) {
+    if (group.length <= 1) continue
+
+    const keeper =
+      group.find(b => b.name === 'Main Bank') ??
+      (defaultBankGlId ? group.find(b => b.glAccountId === defaultBankGlId) : undefined) ??
+      group[0]
+
+    for (const bank of group) {
+      if (bank.id === keeper.id) continue
+
+      const code = await nextBankGlCode(tenantId)
+      const gl = await prisma.glAccount.create({
+        data: {
+          tenantId,
+          branchId: bank.branchId,
+          code,
+          name: bank.name,
+          type: 'ASSET',
+          subtype: 'BANK',
+          isSystem: false,
+        },
+      })
+      await prisma.bankAccount.update({
+        where: { id: bank.id },
+        data: { glAccountId: gl.id },
+      })
+      repaired += 1
+    }
+  }
+
+  return { repaired }
+}
+
 export async function createBankAccount(
   tenantId: string,
-  body: { name: string; branchId?: string; accountNo?: string; bankName?: string; glAccountId?: string },
+  body: {
+    name?: string
+    bankName?: string
+    accountType?: 'CURRENT' | 'SAVINGS'
+    branchId?: string
+    accountNo?: string
+  },
 ) {
-  const settings = await assertInitialized(tenantId)
-  const map = (settings.defaultAccounts ?? {}) as Record<string, string>
-  const glAccountId = body.glAccountId ?? map.bank
-  if (!glAccountId) throw new AppError('Bank GL account not configured', 400)
+  await assertInitialized(tenantId)
+
+  const accountType = body.accountType ?? 'CURRENT'
+  const rawBankName = body.bankName?.trim()
+  const rawName = body.name?.trim()
+
+  let displayName: string
+  let bankName: string
+
+  if (rawBankName) {
+    bankName = rawBankName
+    displayName = rawName || formatBankAccountName(bankName, accountType)
+  } else if (rawName) {
+    // Legacy clients sent only `name`
+    bankName = rawName
+    displayName = rawName
+  } else {
+    throw new AppError('Bank name is required', 400)
+  }
+
+  const existing = await prisma.bankAccount.findFirst({
+    where: { tenantId, name: displayName },
+  })
+  if (existing) throw new AppError(`Bank account "${displayName}" already exists`, 400)
+
+  const code = await nextBankGlCode(tenantId)
+  const glAccount = await prisma.glAccount.create({
+    data: {
+      tenantId,
+      branchId: body.branchId ?? null,
+      code,
+      name: displayName,
+      type: 'ASSET',
+      subtype: 'BANK',
+      isSystem: false,
+    },
+  })
 
   return prisma.bankAccount.create({
     data: {
       tenantId,
       branchId: body.branchId,
-      name: body.name,
-      accountNo: body.accountNo,
-      bankName: body.bankName,
-      glAccountId,
+      name: displayName,
+      accountNo: body.accountNo?.trim() || null,
+      bankName,
+      accountType,
+      glAccountId: glAccount.id,
     },
     include: { glAccount: { select: { code: true, name: true } } },
   })
@@ -188,7 +303,8 @@ async function resolveRegisterGl(
   if (type === 'BANK') {
     const bank = id
       ? await prisma.bankAccount.findFirst({ where: { id, tenantId, isActive: true } })
-      : await prisma.bankAccount.findFirst({ where: { tenantId, isActive: true } })
+      : await prisma.bankAccount.findFirst({ where: { tenantId, name: 'Main Bank', isActive: true } })
+        ?? await prisma.bankAccount.findFirst({ where: { tenantId, isActive: true }, orderBy: { name: 'asc' } })
     if (!bank) throw new AppError('Bank account not found', 404)
     return bank.glAccountId
   }
@@ -310,7 +426,8 @@ export async function reconcileBankAccount(
   await assertInitialized(tenantId)
   const bank = body.bankAccountId
     ? await prisma.bankAccount.findFirst({ where: { id: body.bankAccountId, tenantId, isActive: true } })
-    : await prisma.bankAccount.findFirst({ where: { tenantId, isActive: true } })
+    : await prisma.bankAccount.findFirst({ where: { tenantId, name: 'Main Bank', isActive: true } })
+      ?? await prisma.bankAccount.findFirst({ where: { tenantId, isActive: true }, orderBy: { name: 'asc' } })
   if (!bank) throw new AppError('Bank account not found', 404)
 
   const glBalance = await glBalanceForAccount(tenantId, bank.glAccountId, body.branchId)

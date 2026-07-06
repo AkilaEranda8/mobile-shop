@@ -1,0 +1,3 @@
+-- Backfill: assign dedicated GL codes to bank registers that share the default 1100 ledger.
+-- Runtime repair in ensureUniqueBankGlAccounts() handles this idempotently on Cash Flow load.
+-- No SQL data migration required; this file documents the fix for deploy history.
