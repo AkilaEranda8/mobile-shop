@@ -7,6 +7,7 @@ import {
   fetchPlatformStatus, type PlatformStatus,
 } from './api'
 import { isFeatureEnabled, clearFeaturesCache, PRICED_FEATURES } from './tenant-features'
+import { normalizeRepairTicket } from './repair.util'
 
 const FEATURES_CACHE_KEY = 'hx_tenant_features'
 const FEATURES_CACHE_TTL = 5 * 1000
@@ -233,7 +234,12 @@ export function useSales(params?: Record<string, string>) {
 export function useRepairs(params?: Record<string, string>) {
   const p = { ...ALL, ...params }
   return useApi<{ data: unknown[]; meta: any }>(
-    () => wrapPaginated(repairsApi.list.bind(null, p)),
+    () => wrapPaginated(repairsApi.list.bind(null, p)).then((res) => ({
+      data: {
+        ...res.data,
+        data: (res.data.data ?? []).map((row) => normalizeRepairTicket(row)),
+      },
+    })),
     [JSON.stringify(p)],
   )
 }

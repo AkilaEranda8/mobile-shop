@@ -18,9 +18,10 @@ export type RepairPartsReport = {
   partsSellTotal: number
   partsBuyTotal: number
   partsProfit: number
-  serviceProfit: number
+  /** Labour portion left in the customer quote after parts sell value */
+  labourFromEstimate: number
+  /** Net job profit = customer quote − parts inventory cost */
   totalProfit: number
-  /** Service estimate minus parts sell value (remaining for labour) */
   estimateAfterParts: number
 }
 
@@ -64,9 +65,9 @@ export function buildRepairPartsReport(
   const partsSellTotal = lines.reduce((s, l) => s + l.sellTotal, 0)
   const partsBuyTotal = lines.reduce((s, l) => s + l.buyTotal, 0)
   const partsProfit = partsSellTotal - partsBuyTotal
-  const serviceProfit = serviceCharge
-  const totalProfit = serviceProfit + partsProfit
-  const estimateAfterParts = serviceCharge - partsSellTotal
+  const labourFromEstimate = serviceCharge - partsSellTotal
+  const totalProfit = serviceCharge - partsBuyTotal
+  const estimateAfterParts = labourFromEstimate
 
   return {
     serviceCharge,
@@ -74,7 +75,7 @@ export function buildRepairPartsReport(
     partsSellTotal,
     partsBuyTotal,
     partsProfit,
-    serviceProfit,
+    labourFromEstimate,
     totalProfit,
     estimateAfterParts,
   }
@@ -88,7 +89,7 @@ export function aggregateRepairPartsReports(reports: RepairPartsReport[]) {
       partsSellTotal: acc.partsSellTotal + r.partsSellTotal,
       partsBuyTotal: acc.partsBuyTotal + r.partsBuyTotal,
       partsProfit: acc.partsProfit + r.partsProfit,
-      serviceProfit: acc.serviceProfit + r.serviceProfit,
+      labourFromEstimate: acc.labourFromEstimate + r.labourFromEstimate,
       totalProfit: acc.totalProfit + r.totalProfit,
       partLineCount: acc.partLineCount + r.lines.length,
     }),
@@ -98,7 +99,7 @@ export function aggregateRepairPartsReports(reports: RepairPartsReport[]) {
       partsSellTotal: 0,
       partsBuyTotal: 0,
       partsProfit: 0,
-      serviceProfit: 0,
+      labourFromEstimate: 0,
       totalProfit: 0,
       partLineCount: 0,
     },

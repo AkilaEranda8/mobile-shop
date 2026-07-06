@@ -14,12 +14,14 @@ import {
   Calendar, Activity, PhoneCall,
 } from 'lucide-react'
 import {
-  useRevenue, useTopProducts, useRepairsByStatus,
+  useRevenue, useTopProducts, useRepairsByStatus, useRepairs, useProducts,
   useInventorySummary, useDeliverySummary, useAnalyticsDashboard,
   useFinanceSummary, useDailyReloadReport, useFeatureFlag,
 } from '@/lib/hooks'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { formatCurrency } from '@/lib/utils'
+import { buildRepairPartsReport, aggregateRepairPartsReports } from '@/lib/repair-parts-report.util'
+import type { RepairTicket } from '@/types'
 import { businessToday, businessPeriodFrom, shiftBusinessDate, formatBusinessDateLabel } from '@/lib/business-date'
 
 /* ── constants ─────────────────────────────────────────────────── */
@@ -429,7 +431,7 @@ function InventoryTab({ branchId }: { branchId?: string }) {
 }
 
 /* ── Repairs Tab ────────────────────────────────────────────────── */
-function RepairsTab({ branchId }: { branchId?: string }) {
+function RepairsTab({ branchId, fromDate, toDate }: { branchId?: string; fromDate: string; toDate: string }) {
   const params = branchId ? { branchId } : undefined
   const repairFetch = useRepairsByStatus(params)
   const { data: repairStatusData } = repairFetch
@@ -495,6 +497,117 @@ function RepairsTab({ branchId }: { branchId?: string }) {
             })}
             {statusArr.length === 0 && <p className="text-xs text-center py-8" style={{ color: 'var(--text-muted)' }}>No repair data</p>}
           </div>
+        </div>
+      </div>
+
+      <RepairsPartsProfitSection branchId={branchId} fromDate={fromDate} toDate={toDate} />
+    </div>
+  )
+}
+
+/* ── Repair Parts & Profit ──────────────────────────────────────── */
+function RepairsPartsProfitSection({ branchId, fromDate, toDate }: { branchId?: string; fromDate: string; toDate: string }) {
+  const params: Record<string, string> = { from: fromDate, to: toDate, ...(branchId ? { branchId } : {}) }
+  const repairListFetch = useRepairs(params)
+  const { data: productsData } = useProducts()
+  const repairs = (repairListFetch.data?.data ?? []) as RepairTicket[]
+
+  const getBuyPrice = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const p of (productsData?.data ?? []) as any[]) {
+      if (p?.id && p.buyingPrice != null) map.set(p.id, Number(p.buyingPrice))
+    }
+    return (productId: string) => map.get(productId)
+  }, [productsData])
+
+  const rows = useMemo(() => repairs
+    .filter(r => (r.spareParts?.length ?? 0) > 0 || Number(r.estimatedCost) > 0)
+    .map(r => ({ repair: r, report: buildRepairPartsReport(r, getBuyPrice) }))
+    .sort((a, b) => b.report.totalProfit - a.report.totalProfit),
+  [repairs, getBuyPrice])
+
+  const totals = useMemo(() => aggregateRepairPartsReports(rows.map(r => r.report)), [rows])
+
+  const exportRows = rows.map(({ repair: r, report }) => [
+    r.ticketNumber,
+    `${r.deviceBrand} ${r.deviceModel}`,
+    r.status,
+    report.serviceCharge,
+    report.partsBuyTotal,
+    report.partsSellTotal,
+    report.partsProfit,
+    report.totalProfit,
+  ])
+
+  if (repairListFetch.loading || repairListFetch.error) {
+    return (
+      <ReportTabState
+        loading={repairListFetch.loading}
+        error={repairListFetch.error}
+        label="repair parts profit"
+        onRetry={repairListFetch.refetch}
+      />
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatCard label="Jobs w/ Parts" value={String(totals.jobCount)} icon={Wrench} color="violet" />
+        <StatCard label="Parts Profit" value={formatCurrency(totals.partsProfit)} icon={TrendingUp} color="green" />
+        <StatCard label="Quote Total" value={formatCurrency(totals.serviceCharge)} icon={DollarSign} color="blue" />
+        <StatCard label="Net Profit" value={formatCurrency(totals.totalProfit)} icon={TrendingUp} color="green" />
+      </div>
+
+      <div className="card p-5">
+        <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+          <SectionTitle title="Parts & Profit by Job" />
+          <ExportCSV
+            filename="repair-parts-profit.csv"
+            headers={['Ticket', 'Device', 'Status', 'Quote', 'Parts Buy', 'Parts Sell', 'Parts Profit', 'Net Profit']}
+            rows={exportRows}
+          />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-xs">
+            <thead>
+              <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                {['Ticket', 'Device', 'Status', 'Quote', 'Parts Buy', 'Parts Sell', 'Parts Profit', 'Net Profit'].map(h => (
+                  <th key={h} className="text-left py-2 px-2 font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-10 text-center" style={{ color: 'var(--text-muted)' }}>No repair jobs with parts or service charges yet</td>
+                </tr>
+              ) : rows.map(({ repair: r, report }) => (
+                <tr key={r.id} className="border-b hover:bg-white/[0.02]" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <td className="py-2.5 px-2 font-mono text-violet-500">{r.ticketNumber}</td>
+                  <td className="py-2.5 px-2" style={{ color: 'var(--text-primary)' }}>{r.deviceBrand} {r.deviceModel}</td>
+                  <td className="py-2.5 px-2" style={{ color: 'var(--text-secondary)' }}>{STATUS_LABEL[r.status] ?? r.status}</td>
+                  <td className="py-2.5 px-2 text-right" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(report.serviceCharge)}</td>
+                  <td className="py-2.5 px-2 text-right" style={{ color: 'var(--text-muted)' }}>{formatCurrency(report.partsBuyTotal)}</td>
+                  <td className="py-2.5 px-2 text-right" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(report.partsSellTotal)}</td>
+                  <td className="py-2.5 px-2 text-right font-semibold text-green-600 dark:text-green-400">{formatCurrency(report.partsProfit)}</td>
+                  <td className="py-2.5 px-2 text-right font-bold text-green-600 dark:text-green-400">{formatCurrency(report.totalProfit)}</td>
+                </tr>
+              ))}
+            </tbody>
+            {rows.length > 0 && (
+              <tfoot>
+                <tr style={{ background: 'var(--bg-subtle)' }}>
+                  <td colSpan={3} className="py-2.5 px-2 font-bold" style={{ color: 'var(--text-muted)' }}>Totals</td>
+                  <td className="py-2.5 px-2 text-right font-bold">{formatCurrency(totals.serviceCharge)}</td>
+                  <td className="py-2.5 px-2 text-right font-bold">{formatCurrency(totals.partsBuyTotal)}</td>
+                  <td className="py-2.5 px-2 text-right font-bold">{formatCurrency(totals.partsSellTotal)}</td>
+                  <td className="py-2.5 px-2 text-right font-bold text-green-600 dark:text-green-400">{formatCurrency(totals.partsProfit)}</td>
+                  <td className="py-2.5 px-2 text-right font-bold text-green-600 dark:text-green-400">{formatCurrency(totals.totalProfit)}</td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
         </div>
       </div>
     </div>
@@ -1120,7 +1233,7 @@ function ReportsPageContent() {
       {activeTab === 'pl'        && <PLTab        fromDate={fromDate} toDate={toDate} branchId={activeBranch} />}
       {activeTab === 'cashflow'  && <CashFlowTab  fromDate={fromDate} toDate={toDate} branchId={activeBranch} />}
       {activeTab === 'inventory' && <InventoryTab branchId={activeBranch} />}
-      {activeTab === 'repairs'      && <RepairsTab branchId={activeBranch} />}
+      {activeTab === 'repairs'      && <RepairsTab branchId={activeBranch} fromDate={fromDate} toDate={toDate} />}
       {activeTab === 'delivery'     && <DeliveryTab fromDate={fromDate} toDate={toDate} branchId={activeBranch} />}
       {activeTab === 'dailyreload'  && <DailyReloadTab fromDate={fromDate} toDate={toDate} branchId={activeBranch} />}
     </div>

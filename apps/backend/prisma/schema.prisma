@@ -704,6 +704,8 @@ model RepairSparePart {
   quantity    Int
   unitCost    Float
   unitBuyCost Float  @default(0)
+  warrantyMonths Int    @default(0)
+  warrantyNote   String?
   total       Float
 
   repair  RepairTicket @relation(fields: [repairId], references: [id], onDelete: Cascade)

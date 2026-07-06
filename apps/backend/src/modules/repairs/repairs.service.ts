@@ -7,25 +7,38 @@ import { Request } from 'express'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 import { effectiveBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
 
+function serializeRepair<T extends Record<string, unknown>>(ticket: T) {
+  if (!ticket) return ticket
+  const { history, ...rest } = ticket as T & { history?: unknown; statusHistory?: unknown }
+  return { ...rest, statusHistory: (history ?? (ticket as { statusHistory?: unknown }).statusHistory ?? []) as unknown }
+}
+
 export const repairsService = {
   async list(tenantId: string, req: Request) {
     const { skip, limit, page, search } = getPagination(req)
     const status = req.query.status as string | undefined
     const branchId = effectiveBranchId(req)
     const customerId = req.query.customerId as string | undefined
+    const from = req.query.from as string | undefined
+    const to = req.query.to as string | undefined
     const where: any = { tenantId, ...(status && { status }), ...(branchId && { branchId }), ...(customerId && { customerId }), ...(search && { OR: [{ ticketNumber: { contains: search, mode: 'insensitive' } }, { customerName: { contains: search, mode: 'insensitive' } }, { deviceBrand: { contains: search, mode: 'insensitive' } }, { deviceModel: { contains: search, mode: 'insensitive' } }] }) }
+    if (from || to) {
+      where.createdAt = {}
+      if (from) where.createdAt.gte = new Date(`${from}T00:00:00.000Z`)
+      if (to) where.createdAt.lte = new Date(`${to}T23:59:59.999Z`)
+    }
     const [data, total] = await Promise.all([
       prisma.repairTicket.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { notes: true, spareParts: true, history: true } }),
       prisma.repairTicket.count({ where }),
     ])
-    return { data, total, page, limit }
+    return { data: data.map(serializeRepair), total, page, limit }
   },
 
   async getById(tenantId: string, id: string, req: Request) {
     const r = await prisma.repairTicket.findFirst({ where: { id, tenantId }, include: { notes: true, spareParts: true, history: true } })
     if (!r) throw new AppError('Repair ticket not found', 404)
     assertBranchRecordAccess(req, r.branchId)
-    return r
+    return serializeRepair(r)
   },
 
   async create(tenantId: string, body: any) {
@@ -77,7 +90,7 @@ export const repairsService = {
     if (body.warrantyClaimId) {
       await linkRepairToClaim(tenantId, body.warrantyClaimId, repair.id)
     }
-    return repair
+    return serializeRepair(repair)
   },
 
   async update(tenantId: string, id: string, body: any) {
@@ -114,12 +127,16 @@ export const repairsService = {
     } else if (warrantyMonths !== undefined) {
       data.warrantyMonths = Math.max(0, Math.min(120, Number(warrantyMonths)))
     }
-    return prisma.repairTicket.update({ where: { id }, data, include: { notes: true, spareParts: true, history: true } })
+    const updated = await prisma.repairTicket.update({ where: { id }, data, include: { notes: true, spareParts: true, history: true } })
+    return serializeRepair(updated)
   },
 
   async updateStatus(tenantId: string, id: string, status: string, changedBy: string, note?: string) {
     const r = await prisma.repairTicket.findFirst({ where: { id, tenantId } })
     if (!r) throw new AppError('Repair ticket not found', 404)
+    if (status === 'DELIVERED') {
+      throw new AppError('Use Collect Payment to complete and deliver this repair', 400)
+    }
     const completedAt = status === 'DELIVERED' ? new Date() : undefined
     await prisma.$transaction([
       prisma.repairTicket.update({ where: { id }, data: { status: status as any, ...(completedAt && { completedAt }) } }),
@@ -128,7 +145,8 @@ export const repairsService = {
     if ((status === 'DELIVERED' || status === 'CANCELLED') && r.imei) {
       await prisma.imeiRecord.updateMany({ where: { imei: r.imei }, data: { status: 'IN_STOCK' } }).catch(() => {})
     }
-    return prisma.repairTicket.findUnique({ where: { id }, include: { notes: true, spareParts: true, history: true } })
+    const ticket = await prisma.repairTicket.findUnique({ where: { id }, include: { notes: true, spareParts: true, history: true } })
+    return serializeRepair(ticket!)
   },
 
   async addNote(tenantId: string, id: string, text: string, authorName: string, isPublic: boolean) {
@@ -140,6 +158,9 @@ export const repairsService = {
   async addSparePart(tenantId: string, repairId: string, body: any) {
     const r = await prisma.repairTicket.findFirst({ where: { id: repairId, tenantId } })
     if (!r) throw new AppError('Repair ticket not found', 404)
+    if (r.status === 'DELIVERED' || r.status === 'CANCELLED') {
+      throw new AppError('Cannot add parts to a completed or cancelled repair', 400)
+    }
     const product = await prisma.product.findFirst({ where: { id: body.productId, tenantId } })
     if (!product) throw new AppError('Product not found', 404)
     const qty      = Number(body.quantity) || 1
@@ -147,24 +168,36 @@ export const repairsService = {
       ? Number(body.unitCost)
       : (Number(product.sellingPrice) || Number(product.buyingPrice) || 0)
     const unitBuyCost = Number(product.buyingPrice) || 0
+    const warrantyMonths = Math.max(0, Math.min(120, Number(product.warrantyMonths) || 0))
+    const warrantyNote = product.warrantyNote?.trim() || undefined
     const partTotal = qty * unitCost
     await prisma.repairSparePart.create({
-      data: { repairId, productId: body.productId, productName: product.name, quantity: qty, unitCost, unitBuyCost, total: partTotal },
+      data: {
+        repairId, productId: body.productId, productName: product.name,
+        quantity: qty, unitCost, unitBuyCost, total: partTotal,
+        warrantyMonths, warrantyNote,
+      },
     })
-    return prisma.repairTicket.findUnique({ where: { id: repairId }, include: { notes: true, spareParts: true, history: true } })
+    const ticket = await prisma.repairTicket.findUnique({ where: { id: repairId }, include: { notes: true, spareParts: true, history: true } })
+    return serializeRepair(ticket!)
   },
 
   async removeSparePart(tenantId: string, repairId: string, partId: string) {
     const r = await prisma.repairTicket.findFirst({ where: { id: repairId, tenantId } })
     if (!r) throw new AppError('Repair ticket not found', 404)
+    if (r.status === 'DELIVERED' || r.status === 'CANCELLED') {
+      throw new AppError('Cannot remove parts from a completed or cancelled repair', 400)
+    }
     await prisma.repairSparePart.deleteMany({ where: { id: partId, repairId } })
-    return prisma.repairTicket.findUnique({ where: { id: repairId }, include: { notes: true, spareParts: true, history: true } })
+    const ticket = await prisma.repairTicket.findUnique({ where: { id: repairId }, include: { notes: true, spareParts: true, history: true } })
+    return serializeRepair(ticket!)
   },
 
   async updatePhotos(tenantId: string, id: string, photos: string[]) {
     const r = await prisma.repairTicket.findFirst({ where: { id, tenantId } })
     if (!r) throw new AppError('Repair ticket not found', 404)
-    return prisma.repairTicket.update({ where: { id }, data: { photos }, include: { notes: true, spareParts: true, history: true } })
+    const updated = await prisma.repairTicket.update({ where: { id }, data: { photos }, include: { notes: true, spareParts: true, history: true } })
+    return serializeRepair(updated)
   },
 
   async collectPayment(tenantId: string, id: string, body: { discount?: number; paymentMethod: string; cashierName?: string; paidAmount?: number }) {
@@ -192,6 +225,10 @@ export const repairsService = {
       ? Math.max(0, Math.min(120, Number(r.warrantyMonths)))
       : 0
 
+    const partsSummary = r.spareParts.length
+      ? ` | Parts: ${r.spareParts.map((p) => `${p.productName} x${p.quantity}`).join(', ')}`
+      : ''
+
     await prisma.$transaction(async (tx: any) => {
       await tx.repairTicket.update({
         where: { id },
@@ -217,19 +254,6 @@ export const repairsService = {
           warrantyMonths: repairWarrantyMonths,
         })
       }
-      for (const p of r.spareParts) {
-        const qty = Number(p.quantity) || 1
-        const unitPrice = Number(p.unitCost) || 0
-        saleItems.push({
-          productName: p.productName,
-          sku: '',
-          quantity: qty,
-          unitPrice,
-          discount: 0,
-          total: Number(p.total) || unitPrice * qty,
-          warrantyMonths: 0,
-        })
-      }
       await tx.sale.create({
         data: {
           tenantId, branchId: r.branchId, invoiceNumber,
@@ -237,7 +261,7 @@ export const repairsService = {
           subtotal, discount, tax: 0, total,
           paidAmount, dueAmount,
           status: saleStatus, cashierName, source: 'REPAIR',
-          notes: `Repair ticket: ${r.ticketNumber}${r.reportedIssue?.trim() ? ` | Fault: ${r.reportedIssue.trim()}` : ''}`,
+          notes: `Repair ticket: ${r.ticketNumber}${r.reportedIssue?.trim() ? ` | Fault: ${r.reportedIssue.trim()}` : ''}${partsSummary}`,
           items:    { create: saleItems },
           payments: paidAmount > 0
             ? { create: [{ method: body.paymentMethod as any, amount: paidAmount }] }
@@ -300,6 +324,14 @@ export const repairsService = {
         })
       }
     } catch (e) { console.error('Finance repair transaction error:', e) }
-    return prisma.repairTicket.findUnique({ where: { id }, include: { notes: true, spareParts: true, history: true } })
+    if (r.imei) {
+      await prisma.imeiRecord.updateMany({ where: { imei: r.imei }, data: { status: 'IN_STOCK' } }).catch(() => {})
+    }
+    await prisma.warrantyClaim.updateMany({
+      where: { repairTicketId: id },
+      data: { status: 'RESOLVED', resolution: `Repair completed — ${r.ticketNumber}` },
+    }).catch(() => {})
+    const ticket = await prisma.repairTicket.findUnique({ where: { id }, include: { notes: true, spareParts: true, history: true } })
+    return serializeRepair(ticket!)
   },
 }

@@ -24,6 +24,7 @@ import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { getInvoiceSettings, fetchInvoiceSettings, resolveInvoiceTemplate, type InvoiceSettings } from '@/lib/invoiceSettings'
 import { buildRepairInvoiceSale, resolveRepairWarrantyMonths, REPAIR_WARRANTY_OPTIONS, repairWarrantyMonths } from '@/lib/repair-invoice.util'
+import { normalizeRepairTicket, repairNextStatus, repairPartsLocked, repairProgressStep, repairStatusHistory, REPAIR_PROGRESS_FLOW } from '@/lib/repair.util'
 import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
 import InvoiceA4View from '@/components/invoice/InvoiceA4View'
 import RepairPartsProfitPanel from '@/components/repairs/RepairPartsProfitPanel'
@@ -46,9 +47,10 @@ function printRepairReceipt(repair: RepairTicket, settings: InvoiceSettings) {
   const paperWidth = settings.thermalWidthRepair || '80mm'
   const bodyWidth  = paperWidth === '58mm' ? '216px' : '302px'
   const fmt = (n: number) => `LKR ${n.toLocaleString('en-LK', { minimumFractionDigits: 2 })}`
-  const { serviceFee, partsTotal, subtotal } = calcRepairTotals(repair)
-  const partsRows = (repair.spareParts ?? []).map((p: any) => `
-    <tr><td>${p.productName}</td><td style="text-align:right">${p.quantity}x</td><td style="text-align:right">${fmt(Number(p.total))}</td></tr>`).join('')
+  const { serviceFee, subtotal } = calcRepairTotals(repair)
+  const partsRows = (repair.spareParts ?? []).length > 0
+    ? `<div class="line"></div><div class="bold med">PARTS USED</div>${(repair.spareParts ?? []).map((p: any) => `<div class="row"><span>${p.productName}</span><span>x${p.quantity}</span></div>`).join('')}`
+    : ''
   const warrantyMonths = resolveRepairWarrantyMonths(repair, settings)
   const warrantyLine = warrantyMonths > 0
     ? `<div class="row"><span>Warranty:</span><span>${warrantyMonths} month${warrantyMonths === 1 ? '' : 's'} on repair service</span></div>`
@@ -95,9 +97,10 @@ ${repair.accessories ? `<div class="row"><span>Accessories:</span><span>${repair
 <div class="line"></div>
 <div class="bold med">CHARGES</div>
 <table><tbody>
-  ${partsRows}
-  <tr class="total-row"><td colspan="2">ESTIMATED COST</td><td>${fmt(subtotal)}</td></tr>
+  <tr><td>Repair Service</td><td style="text-align:right">1</td><td style="text-align:right">${fmt(serviceFee)}</td></tr>
+  <tr class="total-row"><td colspan="2">TOTAL</td><td>${fmt(subtotal)}</td></tr>
 </tbody></table>
+${partsRows}
 ${repair.technicianName ? `<div class="line"></div><div class="row"><span>Technician:</span><span>${repair.technicianName}</span></div>` : ''}
 ${warrantyLine}
 <div class="line"></div>
@@ -927,7 +930,7 @@ const statusLabels: Record<string, string> = {
   READY: 'Ready', DELIVERED: 'Delivered', CANCELLED: 'Cancelled',
 }
 
-const STATUS_FLOW = ['RECEIVED', 'IN_REPAIR', 'READY']
+const STATUS_FLOW = REPAIR_PROGRESS_FLOW
 
 const priorityBadge = (p: string) => {
   const map: Record<string, string> = {
@@ -1097,8 +1100,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
       resolveRepairWarrantyMonths(repair, invSettings) > 0
         ? `    Warranty: ${formatWarrantyPeriodLabel(resolveRepairWarrantyMonths(repair, invSettings))} on repair service`
         : null,
-      ...(repair.spareParts ?? []).map((p: any) =>
-        `  - ${p.productName} x${p.quantity}: ${fmt(Number(p.total) || 0)}`),
+      ...(repair.spareParts ?? []).map((p: any) => `  - ${p.productName} x${p.quantity} (inventory)`),
     ].filter(Boolean).join('\n')
 
     const bankSection = invSettings.bankName
@@ -1255,7 +1257,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
         quantity:  partQty,
         unitCost:  partCost ? Number(partCost) : undefined,
       })
-      const updated = res?.data as RepairTicket | undefined
+      const updated = res?.data ? normalizeRepairTicket(res.data) : undefined
       if (updated) onRepairUpdate(updated)
       else onRefresh()
       toast.success(`${selProduct.name} added`)
@@ -1268,15 +1270,17 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
     setRemovingId(partId)
     try {
       const res: any = await repairsApi.removePart(repair.id, partId)
-      const updated = res?.data as RepairTicket | undefined
+      const updated = res?.data ? normalizeRepairTicket(res.data) : undefined
       if (updated) onRepairUpdate(updated)
       else onRefresh()
       toast.success('Part removed')
     } catch { toast.error('Failed to remove part') }
     finally { setRemovingId(null) }
   }
-  const currentIdx = STATUS_FLOW.indexOf(repair.status)
-  const nextStatus = STATUS_FLOW[currentIdx + 1] ?? null
+  const currentIdx = repairProgressStep(repair.status)
+  const nextStatus = repairNextStatus(repair.status)
+  const statusHistory = repairStatusHistory(repair)
+  const partsLocked = repairPartsLocked(repair.status)
 
   const handleNext = async () => {
     if (!nextStatus) return
@@ -1467,12 +1471,12 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
               <div className="relative flex items-start justify-between px-2">
                 <div className="absolute left-7 right-7 top-5 h-[2px] rounded-full" style={{ background: 'var(--border-default)' }} />
                 <div className="absolute left-7 top-5 h-[2px] rounded-full bg-violet-500 transition-all duration-500"
-                  style={{ width: currentIdx <= 0 ? '0%' : `${(currentIdx / (STATUS_FLOW.length - 1)) * 90}%` }} />
+                  style={{ width: currentIdx <= 0 ? '0%' : `${Math.min(100, (Math.min(currentIdx, STATUS_FLOW.length - 1) / (STATUS_FLOW.length - 1)) * 90)}%` }} />
                 {STATUS_FLOW.map((s, i) => {
                   const StepIcon = STEP_ICONS[i]
-                  const done     = i < currentIdx
-                  const active   = i === currentIdx
-                  const stepTime = repair.statusHistory?.find((h: any) => h.status === s)?.timestamp
+                  const done     = currentIdx > i || (repair.status === 'DELIVERED' && i < STATUS_FLOW.length)
+                  const active   = currentIdx === i && repair.status !== 'DELIVERED'
+                  const stepTime = statusHistory.find((h: any) => h.status === s)?.timestamp
                   return (
                     <div key={s} className="flex-1 flex flex-col items-center gap-1.5 relative z-10">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${
@@ -1607,17 +1611,19 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                     Items ({(repair.spareParts?.length ?? 0) + (serviceFee > 0 ? 1 : 0)})
                   </p>
                 </div>
-                <button onClick={() => setShowAddPart(v => !v)}
-                  className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-bold rounded-lg transition-colors"
+                <button onClick={() => setShowAddPart(v => !v)} disabled={partsLocked}
+                  className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-bold rounded-lg transition-colors disabled:opacity-40"
                   style={{ background: showAddPart ? 'rgba(239,68,68,0.08)' : 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: showAddPart ? '#ef4444' : 'var(--text-secondary)' }}>
                   {showAddPart ? <><X size={10} />Cancel</> : <><Plus size={10} />Add Part</>}
                 </button>
               </div>
               <p className="text-[11px] mb-3" style={{ color: 'var(--text-muted)' }}>
-                Sell price from inventory; buy cost tracked for profit. Stock deducts on payment.
+                {partsLocked
+                  ? 'Repair completed — parts are locked.'
+                  : 'Sell/buy tracked for profit report. Customer pays the quote only. Stock deducts on payment.'}
               </p>
 
-              {showAddPart && (
+              {showAddPart && !partsLocked && (
                 <div className="rounded-xl p-4 mb-3 space-y-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
                   <div className="relative">
                     <input className="input-field text-sm" placeholder="Search inventory by name or SKU…"
@@ -1632,17 +1638,28 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                             onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-subtle)')}
                             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                             <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{p.name}</p>
-                            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{p.sku ? `${p.sku} · ` : ''}Stock: {p.stock} · Sell: {formatCurrency(p.sellingPrice ?? 0)} · Buy: {formatCurrency(p.buyingPrice ?? 0)}</p>
+                            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                              {p.sku ? `${p.sku} · ` : ''}Stock: {p.stock} · Sell: {formatCurrency(p.sellingPrice ?? 0)} · Buy: {formatCurrency(p.buyingPrice ?? 0)}
+                              {Number(p.warrantyMonths) > 0 ? ` · Warranty: ${formatWarrantyPeriodLabel(Number(p.warrantyMonths))}` : ''}
+                            </p>
                           </button>
                         ))}
                       </div>
                     )}
                   </div>
                   {selProduct && (
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                      <Package size={11} className="text-violet-500 shrink-0" />
-                      <span className="text-xs flex-1 truncate font-semibold" style={{ color: 'var(--text-primary)' }}>{selProduct.name}</span>
-                      <button onClick={() => setSelProduct(null)} style={{ color: 'var(--text-muted)' }}><X size={11} /></button>
+                    <div className="rounded-lg px-3 py-2 space-y-1" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                      <div className="flex items-center gap-2">
+                        <Package size={11} className="text-violet-500 shrink-0" />
+                        <span className="text-xs flex-1 truncate font-semibold" style={{ color: 'var(--text-primary)' }}>{selProduct.name}</span>
+                        <button onClick={() => setSelProduct(null)} style={{ color: 'var(--text-muted)' }}><X size={11} /></button>
+                      </div>
+                      {(Number(selProduct.warrantyMonths) > 0 || selProduct.warrantyNote) && (
+                        <p className="text-[10px] pl-5" style={{ color: 'var(--text-muted)' }}>
+                          {Number(selProduct.warrantyMonths) > 0 && <>Warranty: {formatWarrantyPeriodLabel(Number(selProduct.warrantyMonths))}</>}
+                          {selProduct.warrantyNote ? `${Number(selProduct.warrantyMonths) > 0 ? ' · ' : ''}Note: ${selProduct.warrantyNote}` : ''}
+                        </p>
+                      )}
                     </div>
                   )}
                   <div className="grid grid-cols-2 gap-3">
@@ -1694,22 +1711,21 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                         </div>
                         <div>
                           <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{part.productName}</p>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Premium Quality</span>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-600 dark:text-violet-400 font-semibold border border-violet-500/20">Part</span>
-                          </div>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-600 dark:text-violet-400 font-semibold border border-violet-500/20">Stock tracking</span>
                         </div>
                       </div>
                     </div>
                     <div className="col-span-2 text-center text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>{part.quantity}</div>
-                    <div className="col-span-2 text-right text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(part.unitCost ?? part.total / part.quantity)}</div>
+                    <div className="col-span-2 text-right text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>—</div>
                     <div className="col-span-2 text-right flex items-center justify-end gap-2">
-                      <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(part.total)}</span>
+                      <span className="text-xs font-bold" style={{ color: 'var(--text-muted)' }}>—</span>
+                      {!partsLocked && (
                       <button onClick={() => handleRemovePart(part.id)} disabled={removingId === part.id}
                         className="w-5 h-5 rounded flex items-center justify-center transition-colors hover:bg-red-500/10 hover:text-red-500 disabled:opacity-40"
                         style={{ color: 'var(--text-muted)' }}>
                         {removingId === part.id ? <Loader2 size={10} className="animate-spin" /> : <X size={10} />}
                       </button>
+                      )}
                     </div>
                   </div>
                 )) : !showAddPart && serviceFee <= 0 && (
@@ -1720,9 +1736,12 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                 )}
                 <div className="px-4 py-3" style={{ background: 'var(--bg-subtle)' }}>
                   <div className="flex justify-between font-black text-base">
-                    <span style={{ color: 'var(--text-primary)' }}>Estimated Cost</span>
+                    <span style={{ color: 'var(--text-primary)' }}>Customer Total</span>
                     <span className="text-violet-600 dark:text-violet-400">{formatCurrency(isPaid ? displayTotal : estimatedCost)}</span>
                   </div>
+                  {(repair.spareParts?.length ?? 0) > 0 && (
+                    <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>Parts buy/sell in profit report below — not added to bill.</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -1746,9 +1765,9 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                     </div>
                   ))}
                 </div>
-              ) : repair.statusHistory?.filter((h: any) => h.note).length > 0 ? (
+              ) : statusHistory.filter((h: any) => h.note).length > 0 ? (
                 <div className="space-y-2">
-                  {repair.statusHistory.filter((h: any) => h.note).map((h: any, i: number) => (
+                  {statusHistory.filter((h: any) => h.note).map((h: any, i: number) => (
                     <div key={i} className="rounded-xl p-3.5 border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                       <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{h.note}</p>
                       <p className="text-[10px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
@@ -2284,7 +2303,10 @@ export default function RepairsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const allRepairs: RepairTicket[] = (repairsData?.data ?? []) as RepairTicket[]
+  const allRepairs: RepairTicket[] = useMemo(
+    () => ((repairsData?.data ?? []) as unknown[]).map((r) => normalizeRepairTicket(r)),
+    [repairsData],
+  )
 
   useEffect(() => {
     const id = searchParams.get('id') || searchParams.get('ticketId')
@@ -2296,7 +2318,7 @@ export default function RepairsPage() {
     }
     if (!allRepairs.length && loading) return
     repairsApi.getById(id).then((res: any) => {
-      const ticket = res?.data ?? res
+      const ticket = normalizeRepairTicket(res?.data ?? res)
       if (ticket?.id) setDetailRepair(ticket)
     }).catch(() => {})
   }, [searchParams, allRepairs, loading])
@@ -2340,7 +2362,7 @@ export default function RepairsPage() {
       refetch()
       if (detailRepair?.id === id) {
         const res: any = await repairsApi.getById(id)
-        setDetailRepair(res?.data ?? detailRepair)
+        setDetailRepair(normalizeRepairTicket(res?.data ?? detailRepair))
       }
     } catch { toast.error('Status update failed') }
   }
@@ -2454,7 +2476,7 @@ export default function RepairsPage() {
   return (
     <div className="space-y-6">
       {showAddModal  && <NewTicketModal onClose={() => { setShowAddModal(false); setPrefillData(null) }} onSaved={refetch} prefill={prefillData ?? undefined} />}
-      {detailRepair  && <RepairDetailsModal repair={detailRepair} allRepairs={allRepairs} onClose={() => setDetailRepair(null)} onEdit={() => { setEditRepair(detailRepair); setDetailRepair(null) }} onStatusChange={handleStatusUpdate} onRepairUpdate={setDetailRepair} onRefresh={async () => { refetch(); const res: any = await repairsApi.getById(detailRepair.id); setDetailRepair(res?.data ?? detailRepair) }} />}
+      {detailRepair  && <RepairDetailsModal repair={detailRepair} allRepairs={allRepairs} onClose={() => setDetailRepair(null)} onEdit={() => { setEditRepair(detailRepair); setDetailRepair(null) }} onStatusChange={handleStatusUpdate} onRepairUpdate={setDetailRepair} onRefresh={async () => { refetch(); const res: any = await repairsApi.getById(detailRepair.id); setDetailRepair(normalizeRepairTicket(res?.data ?? detailRepair)) }} />}
       {editRepair    && <EditRepairModal   repair={editRepair}   onClose={() => setEditRepair(null)}   onSaved={() => { refetch(); setEditRepair(null) }} />}
 
       {/* Header */}

@@ -1,9 +1,11 @@
 import { formatWarrantyPeriodLabel, matchWarrantyMonths } from '@/components/pos/cart-rules'
+import { isRepairSparePartLine } from '@/components/invoice/invoice-line-item.util'
 
 export interface ItemWarrantyInfo {
   warrantyCode?: string
   warrantyPeriod?: string
   warrantyExpiry?: string
+  warrantyNote?: string
 }
 
 export type SaleWarranty = {
@@ -70,12 +72,24 @@ export function buildItemWarrantyInfo(
     imei?: string
     warrantyMonths?: number
     warrantyEndDate?: string
+    isRepairPart?: boolean
+    warrantyNote?: string
+    description?: string
   },
   warranties: SaleWarranty[],
   saleCreatedAt?: string,
   saleWarrantyMonths?: number,
   itemIndex = 0,
+  sale?: { source?: string },
 ): ItemWarrantyInfo | undefined {
+  if (isRepairSparePartLine(item, sale)) {
+    const months = Math.max(0, Number(item.warrantyMonths) || 0)
+    const warrantyNote = item.warrantyNote?.trim() || item.description?.trim()
+    const warrantyPeriod = months > 0 ? formatWarrantyPeriodLabel(months) : undefined
+    const warrantyExpiry = months > 0 ? fmtWarrantyExpiryDate(undefined, saleCreatedAt, months) : undefined
+    if (!warrantyPeriod && !warrantyExpiry && !warrantyNote) return undefined
+    return { warrantyPeriod, warrantyExpiry, warrantyNote: warrantyNote || undefined }
+  }
   const matched = matchWarrantyForItem(item, warranties, itemIndex)
   const months = matched
     ? matchWarrantyMonths(matched, [item], saleWarrantyMonths)

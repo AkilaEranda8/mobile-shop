@@ -4,8 +4,9 @@ import { forwardRef, useRef } from 'react'
 import { Download, Printer, MapPin, Globe, Mail, Phone } from 'lucide-react'
 import { KASTHURI_INVOICE_PRESET, HEXALYTE_SOFTWARE_FOOTER, type InvoiceSettings } from '@/lib/invoiceSettings'
 import { buildItemWarrantyInfo, resolveSaleWarranties } from '@/components/invoice/invoice-warranty.util'
-import { mapSaleItemForInvoice } from '@/components/invoice/invoice-line-item.util'
+import { mapSaleItemForInvoice, repairInvoiceSaleItems, isRepairSparePartLine } from '@/components/invoice/invoice-line-item.util'
 import InvoiceItemWarrantyBlock from '@/components/invoice/InvoiceItemWarrantyBlock'
+import { buildRepairInvoiceSale } from '@/lib/repair-invoice.util'
 
 export interface KasthuriInvoiceItem {
   description: string
@@ -14,10 +15,12 @@ export interface KasthuriInvoiceItem {
   warrantyCode?: string
   warrantyPeriod?: string
   warrantyExpiry?: string
+  warrantyNote?: string
   qty: number
   unitPrice: number
   discountPct: number
   amount: number
+  isRepairPart?: boolean
 }
 
 export interface KasthuriInvoiceData {
@@ -43,24 +46,27 @@ export function buildKasthuriInvoiceData(
   extras?: { subtotal?: number; discountAmount?: number },
 ): KasthuriInvoiceData {
   const warranties = resolveSaleWarranties(sale)
+  const sourceItems = repairInvoiceSaleItems(sale)
 
-  const items: KasthuriInvoiceItem[] = (sale.items ?? []).map((i: any, idx: number) => {
+  const items: KasthuriInvoiceItem[] = sourceItems.map((i: any, idx: number) => {
     const lineSub = (i.unitPrice ?? 0) * (i.quantity ?? 0)
     const lineDisc = i.discount ?? 0
     const discountPct = lineSub > 0 ? Math.round((lineDisc / lineSub) * 10000) / 100 : 0
-    const warranty = buildItemWarrantyInfo(i, warranties, sale.createdAt, sale.warrantyMonths, idx)
+    const warranty = buildItemWarrantyInfo(i, warranties, sale.createdAt, sale.warrantyMonths, idx, sale)
     const { title, details } = mapSaleItemForInvoice(i, { sale, index: idx })
     return {
       description: title,
       details,
-      imei: i.imei,
+      imei: details?.includes('IMEI:') ? undefined : i.imei,
       warrantyCode: warranty?.warrantyCode,
       warrantyPeriod: warranty?.warrantyPeriod,
       warrantyExpiry: warranty?.warrantyExpiry,
+      warrantyNote: warranty?.warrantyNote,
       qty: i.quantity ?? 0,
       unitPrice: i.unitPrice ?? 0,
       discountPct,
       amount: i.total ?? lineSub - lineDisc,
+      isRepairPart: isRepairSparePartLine(i, sale),
     }
   })
 
@@ -94,72 +100,15 @@ export function buildKasthuriInvoiceData(
 }
 
 export function buildKasthuriRepairInvoiceData(
-  repair: {
-    ticketNumber: string
-    createdAt: string
-    customerName: string
-    customerPhone?: string
-    deviceBrand: string
-    deviceModel: string
-    reportedIssue?: string
-    estimatedCost?: number | string | null
-    actualCost?: number | string | null
-    status?: string
-    imei?: string
-    spareParts?: Array<{ productName: string; quantity: number; unitCost: number; total: number }>
-    warrantyMonths?: number | null
-  },
+  repair: Parameters<typeof buildRepairInvoiceSale>[0],
   settings: InvoiceSettings,
+  opts?: { isPaid?: boolean },
 ): KasthuriInvoiceData {
-  const serviceFee = Number(repair.estimatedCost ?? 0) || 0
-  const subtotal = serviceFee
-  const discount = repair.actualCost != null && Number(repair.actualCost) < subtotal
-    ? subtotal - Number(repair.actualCost)
-    : 0
-  const warrantyMonths = repair.warrantyMonths != null && repair.warrantyMonths >= 0
-    ? Math.round(repair.warrantyMonths)
-    : 0
-  const items = []
-  if (serviceFee > 0) {
-    items.push({
-      productName: `Repair Service – ${repair.deviceBrand} ${repair.deviceModel}`,
-      description: repair.reportedIssue,
-      quantity: 1,
-      unitPrice: serviceFee,
-      discount,
-      total: Math.max(0, serviceFee - discount),
-      warrantyMonths,
-      imei: repair.imei,
-    })
-  }
-  for (const p of repair.spareParts ?? []) {
-    const qty = Number(p.quantity) || 1
-    const unitPrice = Number(p.unitCost) || 0
-    items.push({
-      productName: p.productName,
-      description: 'Spare part used',
-      quantity: qty,
-      unitPrice,
-      discount: 0,
-      total: Number(p.total) || unitPrice * qty,
-      warrantyMonths: 0,
-    })
-  }
-  return buildKasthuriInvoiceData({
-    invoiceNumber: repair.ticketNumber,
-    createdAt: repair.createdAt,
-    customerName: repair.customerName,
-    customerPhone: repair.customerPhone,
-    source: 'REPAIR',
-    items,
-    subtotal,
-    discount,
-    tax: 0,
-    total: Math.max(0, subtotal - discount),
-    paidAmount: repair.status === 'DELIVERED' ? Math.max(0, subtotal - discount) : 0,
-    dueAmount: repair.status === 'DELIVERED' ? 0 : Math.max(0, subtotal - discount),
-    warrantyMonths,
-  }, settings, { subtotal, discountAmount: discount })
+  const sale = buildRepairInvoiceSale(repair, settings, opts)
+  return buildKasthuriInvoiceData(sale, settings, {
+    subtotal: sale.subtotal,
+    discountAmount: sale.discount,
+  })
 }
 
 const fmt = (n: number) =>
@@ -335,7 +284,7 @@ const KasthuriInvoicePrint = forwardRef<
                     {item.details}
                   </div>
                 )}
-                {(item.imei || item.warrantyCode || item.warrantyPeriod || item.warrantyExpiry) && (
+                {(item.imei || item.warrantyCode || item.warrantyPeriod || item.warrantyExpiry || item.warrantyNote) && (
                   <div style={{ marginTop: 4, fontSize: 12, lineHeight: 1.5, color: C.muted }}>
                     {item.imei && <div>IMEI: {item.imei}</div>}
                     <InvoiceItemWarrantyBlock
@@ -343,6 +292,7 @@ const KasthuriInvoicePrint = forwardRef<
                         warrantyCode: item.warrantyCode,
                         warrantyPeriod: item.warrantyPeriod,
                         warrantyExpiry: item.warrantyExpiry,
+                        warrantyNote: item.warrantyNote,
                       }}
                       color={C.muted}
                     />
@@ -350,9 +300,13 @@ const KasthuriInvoicePrint = forwardRef<
                 )}
               </td>
               <td style={{ ...td, textAlign: 'center' }}>{item.qty}</td>
-              <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(item.unitPrice)}</td>
-              <td style={{ ...td, textAlign: 'center' }}>{item.discountPct > 0 ? item.discountPct.toFixed(2) : ''}</td>
-              <td style={{ ...td, textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmt(item.amount)}</td>
+              <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                {item.isRepairPart ? '—' : fmt(item.unitPrice)}
+              </td>
+              <td style={{ ...td, textAlign: 'center' }}>{item.isRepairPart ? '' : (item.discountPct > 0 ? item.discountPct.toFixed(2) : '')}</td>
+              <td style={{ ...td, textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                {item.isRepairPart ? '—' : fmt(item.amount)}
+              </td>
             </tr>
           ))}
           {Array.from({ length: emptyRows }).map((_, i) => (

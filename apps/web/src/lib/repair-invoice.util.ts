@@ -42,8 +42,10 @@ export function buildRepairInvoiceSale(
     unitPrice: number
     total: number
     warrantyMonths?: number
+    warrantyNote?: string
     imei?: string
     sku?: string
+    isRepairPart?: boolean
   }> = []
 
   if (serviceFee > 0) {
@@ -61,15 +63,17 @@ export function buildRepairInvoiceSale(
 
   for (const p of repair.spareParts ?? []) {
     const qty = Number(p.quantity) || 1
-    const unitPrice = Number(p.unitCost) || 0
-    const lineTotal = Number(p.total) || unitPrice * qty
+    const partWarranty = Math.max(0, Number(p.warrantyMonths) || 0)
+    const partWarrantyNote = p.warrantyNote?.trim() || undefined
     items.push({
       productName: p.productName,
-      description: 'Spare part used',
       quantity: qty,
-      unitPrice,
-      total: lineTotal,
-      warrantyMonths: 0,
+      unitPrice: 0,
+      total: 0,
+      warrantyMonths: partWarranty,
+      warrantyNote: partWarrantyNote,
+      description: partWarrantyNote,
+      isRepairPart: true,
     })
   }
 

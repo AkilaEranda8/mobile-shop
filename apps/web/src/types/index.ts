@@ -259,6 +259,8 @@ export interface RepairSparePart {
   quantity: number
   unitCost: number
   unitBuyCost?: number
+  warrantyMonths?: number
+  warrantyNote?: string | null
   total: number
 }
 

@@ -10,7 +10,7 @@ import {
   type InvoiceTemplateId,
 } from '@/lib/invoiceSettings'
 import { buildItemWarrantyInfo, resolveSaleWarranties } from '@/components/invoice/invoice-warranty.util'
-import { mapSaleItemForInvoice } from '@/components/invoice/invoice-line-item.util'
+import { mapSaleItemForInvoice, repairInvoiceSaleItems, isRepairSparePartLine } from '@/components/invoice/invoice-line-item.util'
 
 export interface InvoiceA4ViewProps {
   sale: any
@@ -47,14 +47,15 @@ export function buildDefaultInvoiceData(
     customerName: sale.customerName || 'Walk-in Customer',
     customerEmail: sale.customerEmail || '',
     customerAddress: sale.customerPhone ? `Phone: ${sale.customerPhone}` : '',
-    items: (sale.items ?? []).map((i: any, idx: number) => {
+    items: repairInvoiceSaleItems(sale).map((i: any, idx: number) => {
       const { title, details } = mapSaleItemForInvoice(i, { sale, index: idx })
       return {
         description: title,
         details,
-        warranty: buildItemWarrantyInfo(i, warranties, sale.createdAt, sale.warrantyMonths, idx),
+        warranty: buildItemWarrantyInfo(i, warranties, sale.createdAt, sale.warrantyMonths, idx, sale),
         price: i.unitPrice ?? 0,
         qty: i.quantity ?? 1,
+        isRepairPart: isRepairSparePartLine(i, sale),
       }
     }),
     bankName: settings.bankName || '',

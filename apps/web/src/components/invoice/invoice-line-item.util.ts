@@ -5,17 +5,48 @@ export function extractRepairFaultFromSale(sale: { notes?: string }): string | u
   return m?.[1]?.trim() || undefined
 }
 
+/** Spare part line on a repair invoice (name + qty; price billed in service quote). */
+export function isRepairSparePartLine(
+  item: { productName?: string; isRepairPart?: boolean },
+  sale?: { source?: string },
+): boolean {
+  if (item.isRepairPart) return true
+  return sale?.source === 'REPAIR' && !String(item.productName || '').startsWith('Repair Service')
+}
+
+/** Normalize repair sale lines: service billed, spare parts listed by name only. */
+export function repairInvoiceSaleItems(sale: { source?: string; items?: any[] }) {
+  const items = sale.items ?? []
+  if (sale.source !== 'REPAIR') return items
+  return items.map((i) => {
+    if (String(i.productName || '').startsWith('Repair Service')) return i
+    return {
+      ...i,
+      unitPrice: 0,
+      total: 0,
+      discount: 0,
+      isRepairPart: true,
+    }
+  })
+}
+
 /** Map a sale line item to invoice title + optional detail lines (fault, SKU, IMEI). */
 export function mapSaleItemForInvoice(
   i: {
     productName?: string
     description?: string
+    warrantyNote?: string
     sku?: string
     imei?: string
+    isRepairPart?: boolean
   },
-  ctx?: { sale?: { notes?: string }; index?: number },
+  ctx?: { sale?: { notes?: string; source?: string }; index?: number },
 ): { title: string; details?: string } {
   const title = i.productName || i.description || 'Item'
+  if (isRepairSparePartLine(i, ctx?.sale)) {
+    return { title, details: undefined }
+  }
+
   const detailParts: string[] = []
 
   const inlineFault = i.productName && i.description?.trim() && i.description.trim() !== i.productName
@@ -30,8 +61,9 @@ export function mapSaleItemForInvoice(
   }
 
   if (i.sku) {
-    detailParts.push(i.imei ? `SKU: ${i.sku} · IMEI: ${i.imei}` : `SKU: ${i.sku}`)
-  } else if (i.imei) {
+    detailParts.push(`SKU: ${i.sku}`)
+  }
+  if (i.imei) {
     detailParts.push(`IMEI: ${i.imei}`)
   }
 

@@ -14,6 +14,7 @@ export interface InvoiceItem {
   warranty?: ItemWarrantyInfo
   price: number
   qty: number
+  isRepairPart?: boolean
 }
 
 export interface InvoiceData {
@@ -284,9 +285,13 @@ function InvoicePrint({ data = SAMPLE_INVOICE, hideControls = false }, outerRef)
                   {item.details && <p style={{ margin: '2px 0 0', fontSize: 10, color: '#888', lineHeight: 1.4, whiteSpace: 'pre-line' }}>{item.details}</p>}
                   <InvoiceItemWarrantyBlock info={item.warranty} fontSize={10} color="#888" />
                 </td>
-                <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 12, color: '#555' }}>{fmt(item.price)}</td>
+                <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 12, color: '#555' }}>
+                  {item.isRepairPart ? '—' : fmt(item.price)}
+                </td>
                 <td style={{ padding: '10px 14px', textAlign: 'center', fontSize: 12, color: '#555' }}>{item.qty}</td>
-                <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 12, fontWeight: 600, color: '#555' }}>{fmt(item.price * item.qty)}</td>
+                <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 12, fontWeight: 600, color: '#555' }}>
+                  {item.isRepairPart ? '—' : fmt(item.price * item.qty)}
+                </td>
               </tr>
             ))}
           </tbody>

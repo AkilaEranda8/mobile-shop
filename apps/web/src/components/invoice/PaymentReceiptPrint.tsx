@@ -4,7 +4,7 @@ import { forwardRef, useRef } from 'react'
 import { Download, Printer } from 'lucide-react'
 import { HEXALYTE_SOFTWARE_FOOTER, type InvoiceSettings } from '@/lib/invoiceSettings'
 import { buildItemWarrantyInfo, resolveSaleWarranties, type ItemWarrantyInfo } from '@/components/invoice/invoice-warranty.util'
-import { mapSaleItemForInvoice } from '@/components/invoice/invoice-line-item.util'
+import { mapSaleItemForInvoice, repairInvoiceSaleItems } from '@/components/invoice/invoice-line-item.util'
 import InvoiceItemWarrantyBlock from '@/components/invoice/InvoiceItemWarrantyBlock'
 
 export interface PaymentReceiptItem {
@@ -48,7 +48,7 @@ export function buildPaymentReceiptData(
   extras?: { subtotal?: number; discountAmount?: number },
 ): PaymentReceiptData {
   const warranties = resolveSaleWarranties(sale)
-  const items: PaymentReceiptItem[] = (sale.items ?? []).map((i: any, idx: number) => {
+  const items: PaymentReceiptItem[] = repairInvoiceSaleItems(sale).map((i: any, idx: number) => {
     const qty = i.quantity ?? 1
     const rate = i.unitPrice ?? 0
     const lineDisc = i.discount ?? 0
@@ -57,7 +57,7 @@ export function buildPaymentReceiptData(
     return {
       item: title,
       description: details || '—',
-      warranty: buildItemWarrantyInfo(i, warranties, sale.createdAt, sale.warrantyMonths, idx),
+      warranty: buildItemWarrantyInfo(i, warranties, sale.createdAt, sale.warrantyMonths, idx, sale),
       qty,
       rate,
       total: i.total ?? lineSub - lineDisc,

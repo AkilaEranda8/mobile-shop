@@ -74,10 +74,10 @@ export default function RepairPartsProfitPanel({ repair, getBuyPrice, compact }:
       <div className={compact ? 'p-3 space-y-3' : 'p-4 space-y-4'}>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {[
-            { label: 'Service', value: formatCurrency(report.serviceCharge), icon: Wrench, color: 'text-violet-500' },
+            { label: 'Customer Quote', value: formatCurrency(report.serviceCharge), icon: Wrench, color: 'text-violet-500' },
             { label: 'Parts Sell', value: formatCurrency(report.partsSellTotal), icon: Package, color: 'text-cyan-500' },
             { label: 'Parts Profit', value: formatCurrency(report.partsProfit), icon: TrendingUp, color: 'text-emerald-500' },
-            { label: 'Total Profit', value: formatCurrency(report.totalProfit), icon: TrendingUp, color: 'text-green-600 dark:text-green-400' },
+            { label: 'Net Job Profit', value: formatCurrency(report.totalProfit), icon: TrendingUp, color: 'text-green-600 dark:text-green-400' },
           ].map(({ label, value, icon: Icon, color }) => (
             <div key={label} className="rounded-lg p-2.5 border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
               <div className="flex items-center gap-1.5 mb-1">
@@ -127,27 +127,27 @@ export default function RepairPartsProfitPanel({ repair, getBuyPrice, compact }:
         )}
 
         <div className="rounded-lg p-3 space-y-2 border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-          <SummaryRow label="Service charge (estimate)" value={formatCurrency(report.serviceCharge)} />
+          <SummaryRow label="Customer quote (estimate)" value={formatCurrency(report.serviceCharge)} />
           {hasParts && (
             <>
               <SummaryRow label="Parts inventory cost (buy)" value={formatCurrency(report.partsBuyTotal)} muted />
-              <SummaryRow label="Parts sell value" value={formatCurrency(report.partsSellTotal)} />
+              <SummaryRow label="Parts sell value (inventory)" value={formatCurrency(report.partsSellTotal)} />
               <SummaryRow label="Parts profit (sell − buy)" value={formatCurrency(report.partsProfit)} highlight="green" />
               <SummaryRow
-                label="Remaining from estimate after parts sell"
-                value={formatCurrency(report.estimateAfterParts)}
+                label="Labour from quote (quote − parts sell)"
+                value={formatCurrency(report.labourFromEstimate)}
                 bold
-                highlight={report.estimateAfterParts >= 0 ? 'violet' : undefined}
+                highlight={report.labourFromEstimate >= 0 ? 'violet' : undefined}
               />
             </>
           )}
           <div className="pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-            <SummaryRow label="Total job profit (service + parts)" value={formatCurrency(report.totalProfit)} bold highlight="green" />
+            <SummaryRow label="Net job profit (quote − parts buy)" value={formatCurrency(report.totalProfit)} bold highlight="green" />
           </div>
         </div>
 
         <p className="text-[10px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-          Sell price comes from inventory when the part is added. Buy cost is the product&apos;s buying price at that time. Service charge is your labour estimate; parts are tracked separately from the customer quote.
+          Customer pays the quote only. Parts buy/sell are tracked for your margin — stock deducts on payment.
         </p>
       </div>
     </div>
