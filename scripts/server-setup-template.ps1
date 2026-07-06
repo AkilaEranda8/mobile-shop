@@ -35,7 +35,7 @@ Run these commands in order:
    DATABASE_URL=postgresql://hexalyte:hexalyte_secret@postgres:5432/hexalyte
    REDIS_URL=redis://redis:6379
    JWT_SECRET=hexalyte-super-secret-jwt-key-change-in-production
-   JWT_EXPIRES_IN=15m
+   JWT_EXPIRES_IN=1d
    JWT_REFRESH_EXPIRES_IN=7d
    FRONTEND_URL=http://$SERVER_IP:3000
    API_PREFIX=api/v1
