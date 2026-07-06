@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import type { LucideIcon } from 'lucide-react'
-import { ArrowLeft, Lock, X } from 'lucide-react'
+import { ArrowLeft, Lock, X, Wallet, Landmark, CreditCard } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 
 export const VIOLET_ACCENT = {
@@ -124,6 +124,263 @@ export function AccountingKpiCard({
   )
 }
 
+const REGISTER_THEMES = {
+  CASH: {
+    accent: '#16a34a',
+    bg: 'linear-gradient(135deg, rgba(22,163,74,0.12) 0%, rgba(22,163,74,0.02) 55%, transparent 100%)',
+    border: 'rgba(22,163,74,0.28)',
+    icon: Wallet,
+  },
+  BANK: {
+    accent: '#6366f1',
+    bg: 'linear-gradient(135deg, rgba(99,102,241,0.14) 0%, rgba(99,102,241,0.03) 55%, transparent 100%)',
+    border: 'rgba(99,102,241,0.28)',
+    icon: Landmark,
+  },
+  CLEARING: {
+    accent: '#0891b2',
+    bg: 'linear-gradient(135deg, rgba(8,145,178,0.14) 0%, rgba(8,145,178,0.03) 55%, transparent 100%)',
+    border: 'rgba(8,145,178,0.28)',
+    icon: CreditCard,
+  },
+} as const
+
+const CASH_BANK_SUMMARY_ITEMS = [
+  { key: 'cash' as const, label: 'Cash', icon: Wallet, color: '#16a34a' },
+  { key: 'bank' as const, label: 'Bank', icon: Landmark, color: '#6366f1' },
+  { key: 'clearing' as const, label: 'Clearing', icon: CreditCard, color: '#0891b2' },
+]
+
+function fmtCashBankAmount(n: number) {
+  return n.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+export function CashBankSummaryStrip({
+  cash,
+  bank,
+  clearing,
+}: {
+  cash: number
+  bank: number
+  clearing: number
+}) {
+  const total = cash + bank + clearing
+  const values = { cash, bank, clearing }
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {CASH_BANK_SUMMARY_ITEMS.map(item => {
+        const Icon = item.icon
+        return (
+          <div
+            key={item.key}
+            className="rounded-xl border p-4 flex items-center gap-3 transition-colors"
+            style={{ background: `${item.color}14`, borderColor: `${item.color}33` }}
+          >
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: `${item.color}18`, color: item.color }}
+            >
+              <Icon size={18} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{item.label}</p>
+              <p className="text-lg font-bold tabular-nums truncate" style={{ color: 'var(--text-primary)' }}>{fmtCashBankAmount(values[item.key])}</p>
+            </div>
+          </div>
+        )
+      })}
+      <div
+        className="rounded-xl border p-4 flex items-center gap-3 col-span-2"
+        style={{
+          background: 'linear-gradient(135deg, rgba(124,58,237,0.18) 0%, rgba(124,58,237,0.04) 100%)',
+          borderColor: 'rgba(124,58,237,0.35)',
+        }}
+      >
+        <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0 text-violet-400">
+          <Wallet size={18} />
+        </div>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-violet-400">Total liquidity</p>
+          <p className="text-lg font-bold tabular-nums text-violet-300">{fmtCashBankAmount(total)}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function CashBankSidebar({
+  cash,
+  bank,
+  clearing,
+  counts,
+  onAddBank,
+  onReconcile,
+  onRefresh,
+  loading,
+}: {
+  cash: number
+  bank: number
+  clearing: number
+  counts: { cash: number; bank: number; clearing: number }
+  onAddBank: () => void
+  onReconcile: () => void
+  onRefresh: () => void
+  loading?: boolean
+}) {
+  const total = cash + bank + clearing
+  const values = { cash, bank, clearing }
+  const sectionLinks = [
+    { id: 'cash-section', label: 'Cash registers', key: 'cash' as const, icon: Wallet, color: '#16a34a' },
+    { id: 'bank-section', label: 'Bank accounts', key: 'bank' as const, icon: Landmark, color: '#6366f1' },
+    { id: 'clearing-section', label: 'Clearing', key: 'clearing' as const, icon: CreditCard, color: '#0891b2' },
+  ].filter(link => counts[link.key] > 0)
+
+  return (
+    <aside
+      className="rounded-2xl border overflow-hidden sticky top-4"
+      style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}
+    >
+      <div
+        className="px-4 py-5 border-b"
+        style={{
+          borderColor: 'var(--border-subtle)',
+          background: 'linear-gradient(135deg, rgba(124,58,237,0.16) 0%, rgba(124,58,237,0.03) 100%)',
+        }}
+      >
+        <p className="text-[10px] font-bold uppercase tracking-wider text-violet-400">Total liquidity</p>
+        <p className="text-2xl font-extrabold tabular-nums text-violet-300 mt-1">{fmtCashBankAmount(total)}</p>
+        <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-muted)' }}>Cash + Bank + Clearing</p>
+      </div>
+
+      <div className="p-3 space-y-1.5">
+        {CASH_BANK_SUMMARY_ITEMS.map(item => {
+          const Icon = item.icon
+          return (
+            <div
+              key={item.key}
+              className="flex items-center gap-3 rounded-xl px-3 py-2.5"
+              style={{ background: `${item.color}0c` }}
+            >
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                style={{ background: `${item.color}18`, color: item.color }}
+              >
+                <Icon size={15} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{item.label}</p>
+                <p className="text-sm font-bold tabular-nums truncate" style={{ color: 'var(--text-primary)' }}>
+                  {fmtCashBankAmount(values[item.key])}
+                </p>
+              </div>
+              <span
+                className="text-[10px] font-bold px-2 py-0.5 rounded-full tabular-nums shrink-0"
+                style={{ background: `${item.color}18`, color: item.color }}
+              >
+                {counts[item.key]}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+
+      {sectionLinks.length > 0 && (
+        <div className="px-3 pb-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider px-1 mb-2" style={{ color: 'var(--text-muted)' }}>
+            Jump to
+          </p>
+          <nav className="space-y-1">
+            {sectionLinks.map(link => {
+              const Icon = link.icon
+              return (
+                <a
+                  key={link.id}
+                  href={`#${link.id}`}
+                  className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors hover:bg-white/5"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  <Icon size={14} style={{ color: link.color }} />
+                  <span className="flex-1 truncate">{link.label}</span>
+                  <span className="text-[10px] tabular-nums opacity-70">{counts[link.key]}</span>
+                </a>
+              )
+            })}
+          </nav>
+        </div>
+      )}
+
+      <div className="p-3 pt-0 space-y-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+        <button type="button" onClick={onAddBank} className="btn-primary w-full flex items-center justify-center gap-2 text-sm">
+          Add bank
+        </button>
+        <button type="button" onClick={onReconcile} className="btn-secondary w-full flex items-center justify-center gap-2 text-sm">
+          Reconcile
+        </button>
+        <button
+          type="button"
+          onClick={onRefresh}
+          className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
+          disabled={loading}
+        >
+          {loading ? 'Refreshing…' : 'Refresh balances'}
+        </button>
+      </div>
+    </aside>
+  )
+}
+
+export function CashBankSection({
+  id,
+  title,
+  kind,
+  count,
+  children,
+  compact,
+}: {
+  id?: string
+  title: string
+  kind: 'CASH' | 'BANK' | 'CLEARING'
+  count: number
+  children: React.ReactNode
+  compact?: boolean
+}) {
+  const theme = REGISTER_THEMES[kind]
+  const Icon = theme.icon
+  return (
+    <section
+      id={id}
+      className="rounded-2xl border overflow-hidden scroll-mt-4"
+      style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}
+    >
+      <div
+        className="px-4 py-3 flex items-center gap-3 border-b"
+        style={{
+          borderColor: 'var(--border-subtle)',
+          background: theme.bg,
+        }}
+      >
+        <div
+          className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+          style={{ background: `${theme.accent}20`, color: theme.accent }}
+        >
+          <Icon size={16} />
+        </div>
+        <h2 className="text-sm font-bold flex-1" style={{ color: 'var(--text-primary)' }}>{title}</h2>
+        <span
+          className="text-[10px] font-bold px-2 py-0.5 rounded-full tabular-nums"
+          style={{ background: `${theme.accent}18`, color: theme.accent }}
+        >
+          {count}
+        </span>
+      </div>
+      <div className={`p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 ${compact ? 'xl:grid-cols-3' : 'lg:grid-cols-3 xl:grid-cols-4'}`}>
+        {children}
+      </div>
+    </section>
+  )
+}
+
 export function CashFlowRegisterCard({
   name,
   balance,
@@ -139,40 +396,71 @@ export function CashFlowRegisterCard({
   onFill?: () => void
   onSettle?: () => void
 }) {
+  const theme = REGISTER_THEMES[kind]
   const WatermarkIcon = kind === 'BANK' ? LandmarkWatermark : kind === 'CLEARING' ? CardWatermark : CashWatermark
+  const KindIcon = theme.icon
   const isNegative = balance < 0
+  const isZero = Math.abs(balance) < 0.005
 
   return (
     <div
-      className="relative overflow-hidden rounded-xl border shadow-sm p-4 min-h-[148px] flex flex-col transition-shadow hover:shadow-md"
-      style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
+      className="group relative overflow-hidden rounded-xl border min-h-[160px] flex flex-col transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+      style={{
+        background: theme.bg,
+        borderColor: theme.border,
+        boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+      }}
     >
+      <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl" style={{ background: theme.accent }} />
+
       <WatermarkIcon
-        className="absolute -right-1 top-1/2 -translate-y-1/2 w-[88px] h-[88px] opacity-[0.06] pointer-events-none"
-        style={{ color: kind === 'BANK' ? '#6366f1' : kind === 'CLEARING' ? '#0891b2' : '#16a34a' }}
+        className="absolute -right-2 bottom-2 w-24 h-24 opacity-[0.07] pointer-events-none transition-transform duration-300 group-hover:scale-105"
+        style={{ color: theme.accent }}
       />
 
-      <div className="relative z-10 flex-1 min-w-0">
-        <p className="text-sm font-semibold leading-snug truncate pr-2" style={{ color: 'var(--text-primary)' }}>
-          {name}
-        </p>
-        {subtitle && (
-          <p className="text-[11px] mt-1 truncate" style={{ color: 'var(--text-muted)' }}>{subtitle}</p>
-        )}
-        <p
-          className={`text-2xl sm:text-[1.75rem] font-bold mt-3 tabular-nums tracking-tight leading-none ${isNegative ? 'text-rose-500' : ''}`}
-          style={!isNegative ? { color: 'var(--text-primary)' } : undefined}
-        >
-          {balance.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-        </p>
+      <div className="relative z-10 flex-1 p-4 pb-2 pl-5 min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold leading-snug truncate" style={{ color: 'var(--text-primary)' }}>
+              {name}
+            </p>
+            {subtitle && (
+              <p className="text-[11px] mt-1 truncate font-medium opacity-80" style={{ color: 'var(--text-muted)' }}>
+                {subtitle}
+              </p>
+            )}
+          </div>
+          <div
+            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 opacity-90"
+            style={{ background: `${theme.accent}22`, color: theme.accent }}
+          >
+            <KindIcon size={14} />
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <p className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-muted)' }}>
+            Balance
+          </p>
+          <p
+            className={`text-2xl font-extrabold tabular-nums tracking-tight leading-none ${
+              isNegative ? 'text-rose-500' : isZero ? 'opacity-50' : ''
+            }`}
+            style={!isNegative && !isZero ? { color: 'var(--text-primary)' } : undefined}
+          >
+            <span className="text-sm font-semibold mr-1 opacity-60">LKR</span>
+            {balance.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+        </div>
       </div>
 
-      <div className="relative z-10 flex justify-end gap-2 mt-4 pt-2">
+      <div className="relative z-10 flex gap-2 px-4 pb-4 pl-5 mt-auto">
         {onFill && (
           <button
             type="button"
             onClick={onFill}
-            className="px-4 py-1.5 rounded text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] transition-all shadow-sm"
+            className="flex-1 py-2 rounded-lg text-xs font-bold text-white transition-all active:scale-[0.98] shadow-sm hover:shadow"
+            style={{ background: 'linear-gradient(180deg, #22c55e 0%, #16a34a 100%)' }}
           >
             Fill
           </button>
@@ -181,7 +469,8 @@ export function CashFlowRegisterCard({
           <button
             type="button"
             onClick={onSettle}
-            className="px-4 py-1.5 rounded text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 active:scale-[0.98] transition-all shadow-sm"
+            className="flex-1 py-2 rounded-lg text-xs font-bold text-white transition-all active:scale-[0.98] shadow-sm hover:shadow"
+            style={{ background: 'linear-gradient(180deg, #f87171 0%, #e11d48 100%)' }}
           >
             Settle
           </button>

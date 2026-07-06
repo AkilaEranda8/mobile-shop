@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Landmark, Loader2, Plus, RefreshCw } from 'lucide-react'
+import { Landmark, Loader2, Plus, RefreshCw, Scale } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useFeatureFlag } from '@/lib/hooks'
 import { accountingApi } from '@/lib/api'
@@ -15,6 +15,9 @@ import {
   AccountingPanel,
   AccountingModal,
   CashFlowRegisterCard,
+  CashBankSummaryStrip,
+  CashBankSidebar,
+  CashBankSection,
 } from '@/components/accounting/accounting-ui'
 
 type Register = {
@@ -69,35 +72,29 @@ function registerSubtitle(r: Register) {
   return r.branchName ?? undefined
 }
 
-function RegisterSection({
-  title,
+function RegisterCards({
   registers,
   onFill,
   onSettle,
 }: {
-  title: string
   registers: Register[]
   onFill: (r: Register) => void
   onSettle: (r: Register) => void
 }) {
-  if (!registers.length) return null
   return (
-    <section className="space-y-3">
-      <h2 className="text-sm font-semibold px-0.5" style={{ color: 'var(--text-secondary)' }}>{title}</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {registers.map(r => (
-          <CashFlowRegisterCard
-            key={`${r.kind}-${r.id}`}
-            name={r.name}
-            balance={r.balance}
-            kind={r.kind}
-            subtitle={registerSubtitle(r)}
-            onFill={r.kind === 'CLEARING' ? undefined : () => onFill(r)}
-            onSettle={() => onSettle(r)}
-          />
-        ))}
-      </div>
-    </section>
+    <>
+      {registers.map(r => (
+        <CashFlowRegisterCard
+          key={`${r.kind}-${r.id}`}
+          name={r.name}
+          balance={r.balance}
+          kind={r.kind}
+          subtitle={registerSubtitle(r)}
+          onFill={r.kind === 'CLEARING' ? undefined : () => onFill(r)}
+          onSettle={() => onSettle(r)}
+        />
+      ))}
+    </>
   )
 }
 
@@ -299,45 +296,22 @@ export default function CashBankPage() {
     <AccountingPageShell>
       <AccountingPageHeader
         title="Cash & Bank"
-        subtitle="Account balances with Fill and Settle — like your cash flow board"
+        subtitle="Live liquidity board — tap Fill or Settle on any account"
         icon={Landmark}
         actions={
-          <>
-            <button type="button" onClick={() => setShowAddBank(true)} className="btn-secondary flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-2 lg:hidden">
+            <button type="button" onClick={() => setShowAddBank(true)} className="btn-primary flex items-center gap-2 text-sm">
               <Plus size={14} /> Add bank
             </button>
-            <button type="button" onClick={() => setShowReconcile(true)} className="btn-secondary text-sm">
-              Reconcile
+            <button type="button" onClick={() => setShowReconcile(true)} className="btn-secondary flex items-center gap-2 text-sm">
+              <Scale size={14} /> Reconcile
             </button>
-            <button type="button" onClick={load} className="btn-secondary p-2" aria-label="Refresh">
-              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            <button type="button" onClick={load} className="btn-secondary p-2.5 rounded-lg" aria-label="Refresh">
+              <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
             </button>
-          </>
+          </div>
         }
       />
-
-      {!loading && registers.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: 'Cash', value: totals.cash },
-            { label: 'Bank', value: totals.bank },
-            { label: 'Clearing', value: totals.clearing },
-            { label: 'Total', value: totals.cash + totals.bank + totals.clearing, highlight: true },
-          ].map(t => (
-            <div
-              key={t.label}
-              className={`card p-3 text-center ${t.highlight ? 'border-violet-500/25 bg-violet-500/5' : ''}`}
-            >
-              <p className={`text-[10px] uppercase tracking-wide font-semibold ${t.highlight ? 'text-violet-400' : ''}`} style={!t.highlight ? { color: 'var(--text-muted)' } : undefined}>
-                {t.label}
-              </p>
-              <p className={`text-lg font-bold mt-1 tabular-nums ${t.highlight ? 'text-violet-300' : ''}`} style={!t.highlight ? { color: 'var(--text-primary)' } : undefined}>
-                {t.value.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
 
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 className="animate-spin text-violet-400" /></div>
@@ -348,26 +322,70 @@ export default function CashBankPage() {
           </p>
         </AccountingPanel>
       ) : (
-        <div className="space-y-8 w-full">
-          <RegisterSection title="Cash" registers={cashRegisters} onFill={r => openModal('fill', r)} onSettle={r => openModal('settle', r)} />
-          <RegisterSection title="Bank" registers={bankRegisters} onFill={r => openModal('fill', r)} onSettle={r => openModal('settle', r)} />
-          <RegisterSection title="Clearing" registers={clearingRegisters} onFill={r => openModal('fill', r)} onSettle={r => openModal('settle', r)} />
+        <div className="grid lg:grid-cols-[minmax(260px,280px)_1fr] gap-5 items-start">
+          <div className="lg:hidden">
+            <CashBankSummaryStrip cash={totals.cash} bank={totals.bank} clearing={totals.clearing} />
+          </div>
+
+          <div className="hidden lg:block">
+            <CashBankSidebar
+              cash={totals.cash}
+              bank={totals.bank}
+              clearing={totals.clearing}
+              counts={{
+                cash: cashRegisters.length,
+                bank: bankRegisters.length,
+                clearing: clearingRegisters.length,
+              }}
+              onAddBank={() => setShowAddBank(true)}
+              onReconcile={() => setShowReconcile(true)}
+              onRefresh={load}
+              loading={loading}
+            />
+          </div>
+
+          <div className="space-y-5 min-w-0">
+            {cashRegisters.length > 0 && (
+              <CashBankSection id="cash-section" title="Cash registers" kind="CASH" count={cashRegisters.length} compact>
+                <RegisterCards registers={cashRegisters} onFill={r => openModal('fill', r)} onSettle={r => openModal('settle', r)} />
+              </CashBankSection>
+            )}
+            {bankRegisters.length > 0 && (
+              <CashBankSection id="bank-section" title="Bank accounts" kind="BANK" count={bankRegisters.length} compact>
+                <RegisterCards registers={bankRegisters} onFill={r => openModal('fill', r)} onSettle={r => openModal('settle', r)} />
+              </CashBankSection>
+            )}
+            {clearingRegisters.length > 0 && (
+              <CashBankSection id="clearing-section" title="Clearing accounts" kind="CLEARING" count={clearingRegisters.length} compact>
+                <RegisterCards registers={clearingRegisters} onFill={r => openModal('fill', r)} onSettle={r => openModal('settle', r)} />
+              </CashBankSection>
+            )}
+          </div>
         </div>
       )}
 
       {modal && (
         <AccountingModal
-          title={`${modal.type === 'fill' ? 'Fill' : 'Settle'} — ${modal.register.name}`}
+          title={`${modal.type === 'fill' ? 'Fill account' : 'Settle account'}`}
           icon={Landmark}
           onClose={() => setModal(null)}
         >
           <div className="space-y-4">
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              Current balance:{' '}
-              <span className={`font-semibold ${modal.register.balance < 0 ? 'text-rose-500' : ''}`} style={modal.register.balance >= 0 ? { color: 'var(--text-primary)' } : undefined}>
-                {modal.register.balance.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            </p>
+            <div
+              className="rounded-xl px-4 py-3 border"
+              style={{
+                background: modal.type === 'fill' ? 'rgba(22,163,74,0.08)' : 'rgba(225,29,72,0.08)',
+                borderColor: modal.type === 'fill' ? 'rgba(22,163,74,0.25)' : 'rgba(225,29,72,0.25)',
+              }}
+            >
+              <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{modal.register.name}</p>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                Balance:{' '}
+                <span className={`font-semibold ${modal.register.balance < 0 ? 'text-rose-500' : ''}`} style={modal.register.balance >= 0 ? { color: 'var(--text-primary)' } : undefined}>
+                  LKR {modal.register.balance.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </p>
+            </div>
 
             {modal.register.kind === 'CLEARING' && modal.type === 'settle' ? (
               <>
