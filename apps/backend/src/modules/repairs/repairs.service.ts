@@ -63,6 +63,9 @@ export const repairsService = {
         technicianName:      body.technicianName || undefined,
         source:              body.source         || 'WALK_IN',
         estimatedCompletion: body.estimatedCompletion ? new Date(body.estimatedCompletion) : undefined,
+        ...(body.warrantyMonths != null && body.warrantyMonths !== ''
+          ? { warrantyMonths: Math.max(0, Math.min(120, Number(body.warrantyMonths))) }
+          : {}),
         history: { create: [{ status: 'RECEIVED', changedBy: body.createdBy ?? 'system', note: 'Ticket created' }] },
       },
       include: { notes: true, spareParts: true, history: true },
@@ -82,7 +85,7 @@ export const repairsService = {
     if (!r) throw new AppError('Repair ticket not found', 404)
     const { customerName, customerPhone, deviceBrand, deviceModel, deviceColor,
             imei, reportedIssue, technicianId, technicianName, priority,
-            estimatedCost, actualCost, estimatedCompletion, source } = body
+            estimatedCost, actualCost, estimatedCompletion, source, warrantyMonths } = body
     const data: any = {}
     if (customerName        !== undefined) data.customerName        = customerName
     if (customerPhone       !== undefined) data.customerPhone       = customerPhone
@@ -106,6 +109,11 @@ export const repairsService = {
     if (actualCost          !== undefined) data.actualCost          = Number(actualCost)
     if (estimatedCompletion !== undefined) data.estimatedCompletion = estimatedCompletion ? new Date(estimatedCompletion) : null
     if (source              !== undefined) data.source              = source
+    if (warrantyMonths === null || warrantyMonths === '') {
+      data.warrantyMonths = null
+    } else if (warrantyMonths !== undefined) {
+      data.warrantyMonths = Math.max(0, Math.min(120, Number(warrantyMonths)))
+    }
     return prisma.repairTicket.update({ where: { id }, data, include: { notes: true, spareParts: true, history: true } })
   },
 
@@ -179,6 +187,10 @@ export const repairsService = {
     const cashierName = body.cashierName || 'System'
     const invoiceNumber = await generateInvoiceNumber(tenantId)
 
+    const repairWarrantyMonths = r.warrantyMonths != null && r.warrantyMonths >= 0
+      ? Math.max(0, Math.min(120, Number(r.warrantyMonths)))
+      : 0
+
     await prisma.$transaction(async (tx: any) => {
       await tx.repairTicket.update({
         where: { id },
@@ -194,7 +206,28 @@ export const repairsService = {
       })
       const saleItems: any[] = []
       if (serviceFee > 0) {
-        saleItems.push({ productName: `Repair Service – ${r.deviceBrand} ${r.deviceModel}`, sku: r.ticketNumber, quantity: 1, unitPrice: serviceFee, discount: 0, total: serviceFee })
+        saleItems.push({
+          productName: `Repair Service – ${r.deviceBrand} ${r.deviceModel}`,
+          sku: r.ticketNumber,
+          quantity: 1,
+          unitPrice: serviceFee,
+          discount: 0,
+          total: serviceFee,
+          warrantyMonths: repairWarrantyMonths,
+        })
+      }
+      for (const p of r.spareParts) {
+        const qty = Number(p.quantity) || 1
+        const unitPrice = Number(p.unitCost) || 0
+        saleItems.push({
+          productName: p.productName,
+          sku: '',
+          quantity: qty,
+          unitPrice,
+          discount: 0,
+          total: Number(p.total) || unitPrice * qty,
+          warrantyMonths: 0,
+        })
       }
       await tx.sale.create({
         data: {
@@ -203,7 +236,7 @@ export const repairsService = {
           subtotal, discount, tax: 0, total,
           paidAmount, dueAmount,
           status: saleStatus, cashierName, source: 'REPAIR',
-          notes: `Repair ticket: ${r.ticketNumber}`,
+          notes: `Repair ticket: ${r.ticketNumber}${r.reportedIssue?.trim() ? ` | Fault: ${r.reportedIssue.trim()}` : ''}`,
           items:    { create: saleItems },
           payments: paidAmount > 0
             ? { create: [{ method: body.paymentMethod as any, amount: paidAmount }] }

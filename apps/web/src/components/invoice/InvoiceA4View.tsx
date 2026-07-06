@@ -10,6 +10,7 @@ import {
   type InvoiceTemplateId,
 } from '@/lib/invoiceSettings'
 import { buildItemWarrantyInfo, resolveSaleWarranties } from '@/components/invoice/invoice-warranty.util'
+import { mapSaleItemForInvoice } from '@/components/invoice/invoice-line-item.util'
 
 export interface InvoiceA4ViewProps {
   sale: any
@@ -30,6 +31,7 @@ export function buildDefaultInvoiceData(
   const subtotal = extras?.subtotal ?? sale.subtotal ?? 0
   const discountAmount = extras?.discountAmount ?? sale.discount ?? 0
   const warranties = resolveSaleWarranties(sale)
+  const isRepair = sale.source === 'REPAIR'
   return {
     companyName: settings.shopName || shopName,
     companySlogan: settings.slogan || 'Sales & Service',
@@ -45,13 +47,16 @@ export function buildDefaultInvoiceData(
     customerName: sale.customerName || 'Walk-in Customer',
     customerEmail: sale.customerEmail || '',
     customerAddress: sale.customerPhone ? `Phone: ${sale.customerPhone}` : '',
-    items: (sale.items ?? []).map((i: any, idx: number) => ({
-      description: i.productName ?? i.description ?? 'Item',
-      details: i.sku ? `SKU: ${i.sku}${i.imei ? ` · IMEI: ${i.imei}` : ''}` : undefined,
-      warranty: buildItemWarrantyInfo(i, warranties, sale.createdAt, sale.warrantyMonths, idx),
-      price: i.unitPrice ?? 0,
-      qty: i.quantity ?? 1,
-    })),
+    items: (sale.items ?? []).map((i: any, idx: number) => {
+      const { title, details } = mapSaleItemForInvoice(i, { sale, index: idx })
+      return {
+        description: title,
+        details,
+        warranty: buildItemWarrantyInfo(i, warranties, sale.createdAt, sale.warrantyMonths, idx),
+        price: i.unitPrice ?? 0,
+        qty: i.quantity ?? 1,
+      }
+    }),
     bankName: settings.bankName || '',
     accNumber: settings.accNumber || '',
     accHolder: settings.accHolder || settings.shopName || shopName,
@@ -64,6 +69,8 @@ export function buildDefaultInvoiceData(
       : ['Payment is due upon receipt of this invoice.', settings.footerNote || 'Thank you for your business!'],
     signatoryName: settings.signatoryName || settings.shopName || shopName,
     signatoryTitle: settings.signatoryTitle || 'Authorized Signatory',
+    subtotalOverride: isRepair ? subtotal : undefined,
+    totalOverride: isRepair ? (sale.total ?? subtotal - discountAmount) : undefined,
   }
 }
 

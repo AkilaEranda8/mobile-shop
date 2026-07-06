@@ -42,6 +42,9 @@ export interface InvoiceData {
   signatoryName:  string
   signatoryTitle: string
   currency?:      string
+  /** When set (e.g. repair invoices with parts listed at cost), overrides item-sum subtotal */
+  subtotalOverride?: number
+  totalOverride?: number
 }
 
 // ── Sample data ───────────────────────────────────────────────────────────────
@@ -94,10 +97,11 @@ function InvoicePrint({ data = SAMPLE_INVOICE, hideControls = false }, outerRef)
   const invoiceRef = (outerRef as React.RefObject<HTMLDivElement>) ?? localRef
 
   const fmt       = makeFmt(data.currency)
-  const subtotal  = data.items.reduce((s, i) => s + i.price * i.qty, 0)
+  const itemSum   = data.items.reduce((s, i) => s + i.price * i.qty, 0)
+  const subtotal  = data.subtotalOverride ?? itemSum
   const tax       = subtotal * (data.taxRate / 100)
   const discount  = subtotal * (data.discountRate / 100)
-  const total     = subtotal + tax - discount
+  const total     = data.totalOverride ?? (subtotal + tax - discount)
 
   // ── PDF download using jsPDF + html2canvas ──────────────────────────────
   const handleDownloadPDF = async () => {
@@ -277,7 +281,7 @@ function InvoicePrint({ data = SAMPLE_INVOICE, hideControls = false }, outerRef)
               <tr key={i} style={{ backgroundColor: i % 2 === 1 ? '#F5F5F5' : '#FFFFFF' }}>
                 <td style={{ padding: '10px 14px', verticalAlign: 'top' }}>
                   <p style={{ margin: 0, fontWeight: 700, fontSize: 12, color: '#2E2E2E' }}>{item.description}</p>
-                  {item.details && <p style={{ margin: '2px 0 0', fontSize: 10, color: '#888', lineHeight: 1.4 }}>{item.details}</p>}
+                  {item.details && <p style={{ margin: '2px 0 0', fontSize: 10, color: '#888', lineHeight: 1.4, whiteSpace: 'pre-line' }}>{item.details}</p>}
                   <InvoiceItemWarrantyBlock info={item.warranty} fontSize={10} color="#888" />
                 </td>
                 <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 12, color: '#555' }}>{fmt(item.price)}</td>

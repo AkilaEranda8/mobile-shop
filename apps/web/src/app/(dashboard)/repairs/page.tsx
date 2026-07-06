@@ -7,13 +7,14 @@ import {
   Eye, Edit, ChevronRight, Smartphone, User, Wrench, DollarSign, AlertTriangle,
   Calendar, Hash, Save, ArrowRight, MessageSquare, Package, Search, UserPlus, CheckCircle2, Download, Printer,
   History, XCircle, AlertCircle, ArrowLeft, MoreVertical, Phone, Mail, MapPin,
-  Shield, Upload, SlidersHorizontal, FileText, Pencil, Zap, ClipboardList,
+  Shield, Upload, SlidersHorizontal, FileText, Pencil, Zap, ClipboardList, RefreshCw,
 } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { ToolbarSearch } from '@/components/ui/toolbar-search'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { formatCurrency, formatDate, getRepairStatusColor } from '@/lib/utils'
 import { useRepairs, useProducts, useFeatureFlag } from '@/lib/hooks'
 import { repairsApi, customersApi, deviceCatalogApi, usersApi, uploadApi } from '@/lib/api'
@@ -22,6 +23,8 @@ import { captureElementAsPdfBase64 } from '@/lib/invoice-pdf'
 import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { getInvoiceSettings, fetchInvoiceSettings, resolveInvoiceTemplate, type InvoiceSettings } from '@/lib/invoiceSettings'
+import { buildRepairInvoiceSale, resolveRepairWarrantyMonths, REPAIR_WARRANTY_OPTIONS, repairWarrantyMonths } from '@/lib/repair-invoice.util'
+import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
 import InvoiceA4View from '@/components/invoice/InvoiceA4View'
 import type { Customer } from '@/types'
 import toast from 'react-hot-toast'
@@ -45,6 +48,10 @@ function printRepairReceipt(repair: RepairTicket, settings: InvoiceSettings) {
   const { serviceFee, partsTotal, subtotal } = calcRepairTotals(repair)
   const partsRows = (repair.spareParts ?? []).map((p: any) => `
     <tr><td>${p.productName}</td><td style="text-align:right">${p.quantity}x</td><td style="text-align:right">${fmt(Number(p.total))}</td></tr>`).join('')
+  const warrantyMonths = resolveRepairWarrantyMonths(repair, settings)
+  const warrantyLine = warrantyMonths > 0
+    ? `<div class="row"><span>Warranty:</span><span>${warrantyMonths} month${warrantyMonths === 1 ? '' : 's'} on repair service</span></div>`
+    : ''
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/>
 <title>Repair Receipt</title>
 <style>
@@ -91,6 +98,7 @@ ${repair.accessories ? `<div class="row"><span>Accessories:</span><span>${repair
   <tr class="total-row"><td colspan="2">ESTIMATED COST</td><td>${fmt(subtotal)}</td></tr>
 </tbody></table>
 ${repair.technicianName ? `<div class="line"></div><div class="row"><span>Technician:</span><span>${repair.technicianName}</span></div>` : ''}
+${warrantyLine}
 <div class="line"></div>
 <div class="center" style="font-size:10px;margin-top:4px;">Thank you for choosing us!</div>
 <div class="center" style="font-size:9px;margin-top:2px;">${settings.website || ''}</div>
@@ -344,22 +352,23 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-6xl max-h-[96vh] overflow-y-auto rounded-2xl shadow-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-6xl max-h-[96vh] overflow-y-auto rounded-2xl shadow-2xl flex flex-col" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+        <div className="h-1 w-full bg-gradient-to-r from-violet-500 to-purple-600 flex-shrink-0" />
 
         {/* Header */}
-        <div className="flex items-center justify-between px-8 py-6 border-b sticky top-0 z-20" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-violet-500/10 border border-violet-500/15">
-              <FileText size={24} className="text-violet-500" />
+        <div className="flex items-center justify-between px-5 py-4 border-b sticky top-0 z-20 flex-shrink-0" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-violet-500/10 border border-violet-500/20">
+              <FileText size={16} className="text-violet-500" />
             </div>
             <div>
-              <h3 className="text-xl font-black leading-tight" style={{ color: 'var(--text-primary)' }}>New Repair Ticket</h3>
-              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Create a new repair ticket in a few simple steps</p>
+              <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>New Repair Ticket</h3>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Customer → device → fault → review</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="p-2 rounded-lg transition-colors hover:bg-red-500/10 hover:text-red-500" style={{ color: 'var(--text-muted)' }}>
-            <X size={20} />
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg transition-colors hover:bg-white/5" style={{ color: 'var(--text-muted)' }}>
+            <X size={16} />
           </button>
         </div>
 
@@ -379,7 +388,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
                       n < step  ? 'bg-violet-600 text-white shadow-md shadow-violet-500/30' :
                       n === step ? 'bg-violet-600 text-white ring-4 ring-violet-500/20' :
-                      'border-2 text-slate-400'
+                      'border-2 [color:var(--text-muted)]'
                     }`} style={n > step ? { borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' } : {}}>
                       {n < step ? <Check size={14} /> : n}
                     </div>
@@ -418,10 +427,10 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{selectedCustomer.name}</p>
-                            <p className="text-xs text-slate-400">{selectedCustomer.phone}</p>
+                            <p className="text-xs [color:var(--text-muted)]">{selectedCustomer.phone}</p>
                             <p className="text-[10px] text-violet-400 mt-0.5">{selectedCustomer.totalRepairs ?? 0} previous repairs</p>
                           </div>
-                          <button type="button" onClick={clearCustomer} className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                          <button type="button" onClick={clearCustomer} className="p-1.5 rounded-lg [color:var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 transition-colors">
                             <X size={13} />
                           </button>
                         </div>
@@ -429,8 +438,8 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                         <div className="flex gap-3">
                           <div className="relative flex-1" ref={dropRef}>
                             <div className="relative">
-                              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                              {searching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 animate-spin" />}
+                              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 [color:var(--text-muted)]" />
+                              {searching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 [color:var(--text-muted)] animate-spin" />}
                               <input
                                 className="input-field pl-11 h-12"
                                 placeholder="Search customer by name or phone number..."
@@ -483,7 +492,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                           <div>
                             <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Customer Name <span className="text-red-500">*</span></label>
                             <div className="relative">
-                              <User size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                              <User size={15} className="absolute left-4 top-1/2 -translate-y-1/2 [color:var(--text-muted)]" />
                               <input required className="input-field pl-11 h-12" placeholder="Enter customer name" value={newCust.name}
                                 onChange={e => setNewCust(p => ({ ...p, name: e.target.value }))} />
                             </div>
@@ -491,7 +500,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                           <div>
                             <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Phone Number <span className="text-red-500">*</span></label>
                             <div className="relative">
-                              <Phone size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                              <Phone size={15} className="absolute left-4 top-1/2 -translate-y-1/2 [color:var(--text-muted)]" />
                               <div className="absolute left-10 top-1/2 -translate-y-1/2 flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
                                 <span>🇱🇰</span><span>+94</span>
                               </div>
@@ -503,7 +512,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                           <div className="col-span-2">
                             <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Email <span style={{ color: 'var(--text-muted)' }}>(Optional)</span></label>
                             <div className="relative max-w-md">
-                              <Mail size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                              <Mail size={15} className="absolute left-4 top-1/2 -translate-y-1/2 [color:var(--text-muted)]" />
                               <input className="input-field pl-11 h-12" placeholder="Enter email address" value={newCust.email}
                                 onChange={e => setNewCust(p => ({ ...p, email: e.target.value }))} />
                             </div>
@@ -532,7 +541,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                     <div className="relative">
                       <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Device Brand <span className="text-red-500">*</span></label>
                       <div className="relative">
-                        <Smartphone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                        <Smartphone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 [color:var(--text-muted)] pointer-events-none" />
                         <input required className="input-field pl-9 h-12" placeholder="Select brand"
                           value={brandQuery}
                           onChange={e => { setBrandQuery(e.target.value); setForm(p => ({ ...p, deviceBrand: e.target.value, deviceModel: '' })); setModelQuery(''); setModels([]); setBrandOpen(true) }}
@@ -558,7 +567,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                     <div className="relative">
                       <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Device Model <span className="text-red-500">*</span></label>
                       <div className="relative">
-                        <Hash size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                        <Hash size={13} className="absolute left-3 top-1/2 -translate-y-1/2 [color:var(--text-muted)] pointer-events-none" />
                         <input required className="input-field pl-9 h-12" placeholder="Select model"
                           value={modelQuery}
                           onChange={e => { setModelQuery(e.target.value); setForm(p => ({ ...p, deviceModel: e.target.value })); setModelOpen(true) }}
@@ -585,7 +594,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                       <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>IMEI <span style={{ color: 'var(--text-muted)' }}>(Optional)</span></label>
                       <div className="flex gap-3">
                         <div className="relative flex-1">
-                          <Hash size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <Hash size={15} className="absolute left-4 top-1/2 -translate-y-1/2 [color:var(--text-muted)]" />
                           <input className="input-field pl-11 h-12 font-mono" placeholder="Enter 15-digit IMEI number" maxLength={17} value={form.imei} onChange={f('imei')} />
                         </div>
                         <button type="button" className="h-12 px-4 rounded-xl border text-sm font-semibold flex items-center gap-2 text-violet-500 bg-violet-500/5" style={{ borderColor: 'rgba(139,92,246,0.25)' }}>
@@ -597,11 +606,11 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                       <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Accessories Received</label>
                       <button type="button" onClick={() => setAccOpen(o => !o)}
                         className="input-field w-full h-12 flex items-center justify-between text-left">
-                        <span className={accessories.length === 0 ? 'text-slate-500 text-sm' : 'text-sm'}
+                        <span className={accessories.length === 0 ? '[color:var(--text-muted)] text-sm' : 'text-sm'}
                           style={{ color: accessories.length === 0 ? undefined : 'var(--text-primary)' }}>
                           {accessories.length === 0 ? 'Select accessories…' : accessories.join(', ')}
                         </span>
-                        <ChevronDown size={14} className={`text-slate-400 shrink-0 transition-transform ${accOpen ? 'rotate-180' : ''}`} />
+                        <ChevronDown size={14} className={`[color:var(--text-muted)] shrink-0 transition-transform ${accOpen ? 'rotate-180' : ''}`} />
                       </button>
                       {accOpen && (
                         <div className="absolute z-30 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden"
@@ -642,11 +651,11 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                       <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Select Fault(s) <span className="text-red-500">*</span></label>
                       <button type="button" onClick={() => setIssueOpen(o => !o)}
                         className="input-field w-full h-12 flex items-center justify-between text-left">
-                        <span className={selectedIssues.length === 0 ? 'text-slate-500 text-sm truncate pr-2' : 'text-sm truncate pr-2'}
+                        <span className={selectedIssues.length === 0 ? '[color:var(--text-muted)] text-sm truncate pr-2' : 'text-sm truncate pr-2'}
                           style={{ color: selectedIssues.length === 0 ? undefined : 'var(--text-primary)' }}>
                           {selectedIssues.length === 0 ? 'Select fault / issue…' : selectedIssues.join(', ')}
                         </span>
-                        <ChevronDown size={14} className={`text-slate-400 shrink-0 transition-transform ${issueOpen ? 'rotate-180' : ''}`} />
+                        <ChevronDown size={14} className={`[color:var(--text-muted)] shrink-0 transition-transform ${issueOpen ? 'rotate-180' : ''}`} />
                       </button>
                       {issueOpen && (
                         <div className="absolute z-30 top-full mt-1 left-0 right-0 rounded-xl shadow-2xl overflow-hidden"
@@ -706,7 +715,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                     <div className="relative">
                       <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Technician</label>
                       <div className="relative">
-                        <Wrench size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                        <Wrench size={13} className="absolute left-3 top-1/2 -translate-y-1/2 [color:var(--text-muted)] pointer-events-none" />
                         <input className="input-field pl-9 h-12"
                           placeholder={technicians.length === 0 ? 'No technicians found' : 'Select technician…'}
                           value={techQuery}
@@ -716,7 +725,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                         />
                         {techQuery && (
                           <button type="button" onClick={() => { setTechQuery(''); setForm(p => ({ ...p, technicianId: '', technicianName: '' })) }}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 [color:var(--text-muted)] hover:[color:var(--text-secondary)]">
                             <X size={11} />
                           </button>
                         )}
@@ -748,7 +757,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                         <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
                           {SOURCE_OPTIONS.find(o => o.value === form.source)?.label ?? 'Select source'}
                         </span>
-                        <ChevronDown size={14} className={`text-slate-400 shrink-0 transition-transform ${sourceOpen ? 'rotate-180' : ''}`} />
+                        <ChevronDown size={14} className={`[color:var(--text-muted)] shrink-0 transition-transform ${sourceOpen ? 'rotate-180' : ''}`} />
                       </button>
                       {sourceOpen && (
                         <div className="absolute z-30 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden"
@@ -785,7 +794,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                     <div className="col-span-2">
                       <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Estimated Completion</label>
                       <div className="relative">
-                        <Calendar size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <Calendar size={15} className="absolute left-4 top-1/2 -translate-y-1/2 [color:var(--text-muted)]" />
                         <input type="date" className="input-field pl-11 h-12" value={form.estimatedCompletion} onChange={f('estimatedCompletion')} />
                       </div>
                     </div>
@@ -816,7 +825,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                       { title: 'Issue', icon: AlertTriangle, color: 'text-orange-500', rows: [
                         { label: 'Fault(s)', value: selectedIssues.join(', ') || '—' },
                       ]},
-                      { title: 'Details', icon: Wrench, color: 'text-indigo-500', rows: [
+                      { title: 'Details', icon: Wrench, color: 'text-violet-500', rows: [
                         { label: 'Technician',      value: form.technicianName || '—' },
                         { label: 'Source',          value: SOURCE_OPTIONS.find(o => o.value === form.source)?.label ?? form.source },
                         { label: 'Priority',        value: form.priority },
@@ -926,7 +935,7 @@ const priorityBadge = (p: string) => {
     NORMAL: 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400',
     LOW:    'bg-green-500/10 border-green-500/20 text-green-400',
   }
-  return map[p] || 'bg-slate-500/10 border-slate-500/20 text-slate-400'
+  return map[p] || 'bg-slate-500/10 border-slate-500/20 [color:var(--text-muted)]'
 }
 
 type RepairStatusFilter =
@@ -1037,6 +1046,9 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
       repair.imei ? `*IMEI:* ${repair.imei}` : null,
       ``,
       `*Issue:* ${repair.reportedIssue}`,
+      resolveRepairWarrantyMonths(repair, invSettings) > 0
+        ? `*Warranty:* ${formatWarrantyPeriodLabel(resolveRepairWarrantyMonths(repair, invSettings))} on repair service`
+        : null,
       ``,
       `*Service Charge:* ${fmt(serviceFee)}` + partsLines,
       ``,
@@ -1078,8 +1090,14 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
       serviceFee > 0
         ? `  - Repair Service (${repair.deviceBrand} ${repair.deviceModel}): ${fmt(serviceFee)}`
         : null,
+      repair.reportedIssue?.trim()
+        ? `    Fault / Service: ${repair.reportedIssue.trim()}`
+        : null,
+      resolveRepairWarrantyMonths(repair, invSettings) > 0
+        ? `    Warranty: ${formatWarrantyPeriodLabel(resolveRepairWarrantyMonths(repair, invSettings))} on repair service`
+        : null,
       ...(repair.spareParts ?? []).map((p: any) =>
-        `  - ${p.productName} x${p.quantity} (inventory)`),
+        `  - ${p.productName} x${p.quantity}: ${fmt(Number(p.total) || 0)}`),
     ].filter(Boolean).join('\n')
 
     const bankSection = invSettings.bankName
@@ -1187,6 +1205,21 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
   }
 
   const [changingStatus, setChangingStatus] = useState(false)
+  const [savingWarranty, setSavingWarranty] = useState(false)
+  const shopDefaultWarranty = repairWarrantyMonths(invSettings)
+
+  const handleWarrantyChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const raw = e.target.value
+    const months = raw === '' ? null : Number(raw)
+    setSavingWarranty(true)
+    try {
+      const res: any = await repairsApi.update(repair.id, { warrantyMonths: months })
+      const updated = (res?.data ?? res) as RepairTicket
+      onRepairUpdate(updated)
+      toast.success('Warranty period updated')
+    } catch { toast.error('Failed to update warranty') }
+    finally { setSavingWarranty(false) }
+  }
   /* ── collect payment state ── */
   const [showPayment, setShowPayment] = useState(false)
   const [discount,    setDiscount]    = useState('')
@@ -1258,25 +1291,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
   const balanceDue  = isPaid ? 0 : estimatedCost
   const displayTotal = isPaid ? (Number(repair.actualCost) || estimatedCost) : estimatedCost
   const activeTemplate = resolveInvoiceTemplate(invSettings, tenantSlug)
-  const repairSale = {
-    invoiceNumber: repair.ticketNumber,
-    createdAt: repair.createdAt,
-    customerName: repair.customerName,
-    customerPhone: repair.customerPhone,
-    items: serviceFee > 0 ? [{
-      productName: `Repair Service – ${repair.deviceBrand} ${repair.deviceModel}`,
-      description: repair.reportedIssue,
-      quantity: 1,
-      unitPrice: serviceFee,
-      total: serviceFee,
-    }] : [],
-    subtotal,
-    discount: repair.actualCost != null && Number(repair.actualCost) < subtotal ? subtotal - Number(repair.actualCost) : 0,
-    tax: 0,
-    total: displayTotal,
-    paidAmount: isPaid ? displayTotal : 0,
-    dueAmount: isPaid ? 0 : displayTotal,
-  }
+  const repairSale = buildRepairInvoiceSale(repair, invSettings, { isPaid })
   const discountAmt  = Number(discount) || 0
   const finalAmount  = Math.max(0, subtotal - discountAmt)
   const payNow = (() => {
@@ -1313,10 +1328,11 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-5xl max-h-[96vh] overflow-y-auto rounded-2xl shadow-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+      <div className="w-full max-w-5xl max-h-[96vh] overflow-y-auto rounded-2xl shadow-2xl flex flex-col" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+        <div className="h-1 w-full bg-gradient-to-r from-violet-500 to-purple-600 flex-shrink-0" />
 
         {/* ══ TOP HEADER BAR ══ */}
-        <div className="flex items-center justify-between px-5 py-3.5 sticky top-0 z-10" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-card)' }}>
+        <div className="flex items-center justify-between px-5 py-3.5 sticky top-0 z-10 flex-shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-card)' }}>
           <button onClick={onClose} className="flex items-center gap-2 text-sm font-medium transition-opacity hover:opacity-70" style={{ color: 'var(--text-secondary)' }}>
             <ArrowLeft size={15} /> Back to Tickets
           </button>
@@ -1348,7 +1364,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
 
             {/* Title + Badges */}
             <div>
-              <p className="text-[12px] font-bold text-indigo-500 dark:text-violet-400 font-mono mb-1">{repair.ticketNumber}</p>
+              <p className="text-[12px] font-bold text-violet-500 font-mono mb-1">{repair.ticketNumber}</p>
               <h2 className="text-[22px] font-black mb-3 leading-tight" style={{ color: 'var(--text-primary)' }}>{repair.deviceBrand} {repair.deviceModel}</h2>
               <div className="flex flex-wrap gap-2">
                 <span className={`flex items-center gap-1.5 text-xs px-3 py-1 rounded-full border font-semibold ${getRepairStatusColor(repair.status)}`}>
@@ -1372,20 +1388,39 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
               {[
                 { label: 'Date Received',  value: new Date(repair.createdAt).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' }) },
                 { label: 'Est. Completion',value: repair.estimatedCompletion ? new Date(repair.estimatedCompletion).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' }) : '—' },
-                { label: 'Warranty',       value: '30 Days' },
-                { label: 'Payment Status', value: isPaid ? 'Paid in Full' : 'Pending', green: isPaid },
               ].map((item, i) => (
                 <div key={item.label} className="p-3" style={{ borderLeft: i > 0 ? '1px solid var(--border-subtle)' : undefined, background: 'var(--bg-subtle)' }}>
                   <p className="text-[10px] font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>{item.label}</p>
-                  <p className={`text-xs font-bold ${(item as any).green ? 'text-green-600 dark:text-green-400' : ''}`} style={!(item as any).green ? { color: 'var(--text-primary)' } : {}}>{item.value}</p>
+                  <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{item.value}</p>
                 </div>
               ))}
+              <div className="p-3" style={{ borderLeft: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                <p className="text-[10px] font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Warranty</p>
+                <select
+                  className="text-xs font-bold w-full bg-transparent outline-none cursor-pointer disabled:opacity-50"
+                  style={{ color: repair.warrantyMonths == null ? 'var(--text-muted)' : 'var(--text-primary)' }}
+                  value={repair.warrantyMonths != null ? String(repair.warrantyMonths) : ''}
+                  disabled={savingWarranty || isPaid}
+                  onChange={handleWarrantyChange}
+                >
+                  <option value="">Not set{shopDefaultWarranty > 0 ? ` (shop default: ${formatWarrantyPeriodLabel(shopDefaultWarranty)})` : ''}</option>
+                  {REPAIR_WARRANTY_OPTIONS.map(m => (
+                    <option key={m} value={m}>{m === 0 ? 'No warranty' : formatWarrantyPeriodLabel(m)}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="p-3" style={{ borderLeft: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                <p className="text-[10px] font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Payment Status</p>
+                <p className={`text-xs font-bold ${isPaid ? 'text-green-600 dark:text-green-400' : ''}`} style={!isPaid ? { color: 'var(--text-primary)' } : {}}>
+                  {isPaid ? 'Paid in Full' : 'Pending'}
+                </p>
+              </div>
             </div>
 
             {/* Ticket Details */}
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <SlidersHorizontal size={13} className="text-indigo-500" />
+                <SlidersHorizontal size={13} className="text-violet-500" />
                 <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Ticket Details</p>
               </div>
               <div className="grid grid-cols-2 gap-2.5">
@@ -1421,12 +1456,12 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
             {/* Repair Progress */}
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <Zap size={13} className="text-indigo-500" />
+                <Zap size={13} className="text-violet-500" />
                 <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Repair Progress</p>
               </div>
               <div className="relative flex items-start justify-between px-2">
                 <div className="absolute left-7 right-7 top-5 h-[2px] rounded-full" style={{ background: 'var(--border-default)' }} />
-                <div className="absolute left-7 top-5 h-[2px] rounded-full bg-indigo-500 transition-all duration-500"
+                <div className="absolute left-7 top-5 h-[2px] rounded-full bg-violet-500 transition-all duration-500"
                   style={{ width: currentIdx <= 0 ? '0%' : `${(currentIdx / (STATUS_FLOW.length - 1)) * 90}%` }} />
                 {STATUS_FLOW.map((s, i) => {
                   const StepIcon = STEP_ICONS[i]
@@ -1437,17 +1472,17 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                     <div key={s} className="flex-1 flex flex-col items-center gap-1.5 relative z-10">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${
                         active ? 'bg-indigo-600 border-indigo-600 shadow-lg shadow-indigo-500/30'
-                        : done  ? 'bg-indigo-500 border-indigo-500'
+                        : done  ? 'bg-violet-500 border-indigo-500'
                         : 'border-gray-300 dark:border-slate-600'}`}
                         style={!active && !done ? { background: 'var(--bg-card)' } : {}}>
                         {done   ? <CheckCircle size={16} className="text-white" />
-                                 : <StepIcon size={15} className={active ? 'text-white' : 'text-gray-400 dark:text-slate-500'} />}
+                                 : <StepIcon size={15} className={active ? 'text-white' : 'text-gray-400 dark:[color:var(--text-muted)]'} />}
                       </div>
-                      <span className={`text-[11px] font-bold ${active ? 'text-indigo-600 dark:text-violet-400' : done ? 'text-indigo-400' : ''}`}
+                      <span className={`text-[11px] font-bold ${active ? 'text-violet-600 dark:text-violet-400' : done ? 'text-indigo-400' : ''}`}
                         style={!active && !done ? { color: 'var(--text-muted)' } : {}}>{statusLabels[s]}</span>
                       {stepTime
                         ? <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{new Date(stepTime).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                        : <span className="text-[10px] text-gray-300 dark:text-slate-600">Pending</span>}
+                        : <span className="text-[10px] text-gray-300 dark:[color:var(--text-muted)]">Pending</span>}
                     </div>
                   )
                 })}
@@ -1552,7 +1587,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
             {/* Reported Issue */}
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle size={13} className="text-indigo-500" />
+                <AlertTriangle size={13} className="text-violet-500" />
                 <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Reported Issue</p>
               </div>
               <p className="text-sm font-semibold leading-relaxed uppercase" style={{ color: 'var(--text-primary)' }}>{repair.reportedIssue}</p>
@@ -1562,7 +1597,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
             <div>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Wrench size={13} className="text-indigo-500" />
+                  <Wrench size={13} className="text-violet-500" />
                   <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
                     Items ({(repair.spareParts?.length ?? 0) + (serviceFee > 0 ? 1 : 0)})
                   </p>
@@ -1681,7 +1716,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                 <div className="px-4 py-3" style={{ background: 'var(--bg-subtle)' }}>
                   <div className="flex justify-between font-black text-base">
                     <span style={{ color: 'var(--text-primary)' }}>Estimated Cost</span>
-                    <span className="text-indigo-600 dark:text-violet-400">{formatCurrency(isPaid ? displayTotal : estimatedCost)}</span>
+                    <span className="text-violet-600 dark:text-violet-400">{formatCurrency(isPaid ? displayTotal : estimatedCost)}</span>
                   </div>
                 </div>
               </div>
@@ -1690,7 +1725,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
             {/* Technician Notes */}
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <ClipboardList size={13} className="text-indigo-500" />
+                <ClipboardList size={13} className="text-violet-500" />
                 <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Technician Notes</p>
               </div>
               {repair.notes?.length > 0 ? (
@@ -1729,7 +1764,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
               return (
                 <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                   <div className="flex items-center gap-2 mb-3">
-                    <History size={13} className="text-indigo-500" />
+                    <History size={13} className="text-violet-500" />
                     <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Device History — IMEI {repair.imei}</p>
                     <span className="ml-auto text-[10px] font-bold text-violet-600 bg-violet-500/10 px-2 py-0.5 rounded">{history.length} past repair{history.length > 1 ? 's' : ''}</span>
                   </div>
@@ -1754,7 +1789,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
             <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                 <div className="flex items-center gap-2">
-                  <DollarSign size={13} className="text-indigo-500" />
+                  <DollarSign size={13} className="text-violet-500" />
                   <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Payment Summary</p>
                 </div>
                 <button className="w-6 h-6 rounded flex items-center justify-center" style={{ color: 'var(--text-muted)' }}><MoreVertical size={13} /></button>
@@ -1788,7 +1823,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
             <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                 <p className="text-[11px] font-black uppercase tracking-widest flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
-                  <Zap size={12} className="text-indigo-500" /> Quick Actions
+                  <Zap size={12} className="text-violet-500" /> Quick Actions
                 </p>
               </div>
               <div className="p-3 grid grid-cols-3 gap-2">
@@ -1816,7 +1851,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
             <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                 <div className="flex items-center gap-2">
-                  <Shield size={12} className="text-indigo-500" />
+                  <Shield size={12} className="text-violet-500" />
                   <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Device Condition</p>
                 </div>
                 <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">Good</span>
@@ -1833,12 +1868,12 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
             <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                 <p className="text-[11px] font-black uppercase tracking-widest flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
-                  <Upload size={12} className="text-indigo-500" /> Attachments ({photos.length})
+                  <Upload size={12} className="text-violet-500" /> Attachments ({photos.length})
                 </p>
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold text-indigo-400 border border-indigo-500/20 bg-indigo-500/10 hover:bg-indigo-500/20 transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold text-indigo-400 border border-indigo-500/20 bg-violet-500/10 hover:bg-violet-500/20 transition-colors disabled:opacity-50"
                 >
                   {uploading ? <Loader2 size={10} className="animate-spin" /> : <Upload size={10} />}
                   {uploading ? 'Uploading…' : 'Add Files'}
@@ -1884,7 +1919,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                     <button
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploading}
-                      className="aspect-square rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-1 text-[10px] transition-colors hover:border-indigo-500/50 hover:bg-indigo-500/5 disabled:opacity-50"
+                      className="aspect-square rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-1 text-[10px] transition-colors hover:border-indigo-500/50 hover:bg-violet-500/5 disabled:opacity-50"
                       style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}
                     >
                       {uploading ? <Loader2 size={16} className="animate-spin text-indigo-400" /> : <Upload size={16} />}
@@ -1895,7 +1930,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
-                    className="w-full rounded-xl border-2 border-dashed p-5 flex flex-col items-center gap-2 text-center transition-colors hover:border-indigo-500/40 hover:bg-indigo-500/5 disabled:opacity-50"
+                    className="w-full rounded-xl border-2 border-dashed p-5 flex flex-col items-center gap-2 text-center transition-colors hover:border-indigo-500/40 hover:bg-violet-500/5 disabled:opacity-50"
                     style={{ borderColor: 'var(--border-subtle)' }}
                   >
                     {uploading ? <Loader2 size={22} className="animate-spin text-indigo-400" /> : <Upload size={22} style={{ color: 'var(--text-muted)' }} />}
@@ -1923,7 +1958,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
             <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                 <p className="text-[11px] font-black uppercase tracking-widest flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
-                  <User size={12} className="text-indigo-500" /> Customer Contact
+                  <User size={12} className="text-violet-500" /> Customer Contact
                 </p>
               </div>
               <div className="p-4 space-y-3">
@@ -1931,7 +1966,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <Phone size={13} style={{ color: 'var(--text-muted)' }} />
-                      <a href={`tel:${repair.customerPhone}`} className="text-sm font-semibold hover:text-indigo-500 transition-colors" style={{ color: 'var(--text-primary)' }}>{repair.customerPhone}</a>
+                      <a href={`tel:${repair.customerPhone}`} className="text-sm font-semibold hover:text-violet-500 transition-colors" style={{ color: 'var(--text-primary)' }}>{repair.customerPhone}</a>
                     </div>
                     <button onClick={sendInvoiceWhatsApp} className="w-7 h-7 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-center">
                       <MessageSquare size={12} className="text-green-600" />
@@ -1986,6 +2021,7 @@ function EditRepairModal({ repair, onClose, onSaved }: {
     estimatedCost:       String(repair.estimatedCost ?? ''),
     actualCost:          String(repair.actualCost    ?? ''),
     estimatedCompletion: repair.estimatedCompletion ? repair.estimatedCompletion.slice(0, 10) : '',
+    warrantyMonths:      repair.warrantyMonths != null ? String(repair.warrantyMonths) : '',
   })
   const [loading, setLoading] = useState(false)
 
@@ -2005,6 +2041,7 @@ function EditRepairModal({ repair, onClose, onSaved }: {
         ...form,
         estimatedCost: form.estimatedCost ? Number(form.estimatedCost) : undefined,
         actualCost:    form.actualCost    ? Number(form.actualCost)    : undefined,
+        warrantyMonths: form.warrantyMonths !== '' ? Number(form.warrantyMonths) : null,
       })
       toast.success('Repair job updated')
       onSaved(); onClose()
@@ -2014,10 +2051,11 @@ function EditRepairModal({ repair, onClose, onSaved }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="rounded-2xl w-full max-w-2xl shadow-2xl max-h-[92vh] overflow-y-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+      <div className="rounded-2xl w-full max-w-2xl shadow-2xl max-h-[92vh] overflow-y-auto flex flex-col" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+        <div className="h-1 w-full bg-gradient-to-r from-violet-500 to-purple-600 flex-shrink-0" />
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b sticky top-0 z-10" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
+        <div className="flex items-center justify-between px-5 py-4 border-b sticky top-0 z-10 flex-shrink-0" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-violet-500/10 border border-violet-500/15 shrink-0">
               <Pencil size={18} className="text-violet-500" />
@@ -2047,14 +2085,14 @@ function EditRepairModal({ repair, onClose, onSaved }: {
               <div>
                 <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Customer Name <span className="text-red-500">*</span></label>
                 <div className="relative">
-                  <User size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <User size={13} className="absolute left-3 top-1/2 -translate-y-1/2 [color:var(--text-muted)] pointer-events-none" />
                   <input required type="text" className="input-field pl-9 h-10" placeholder="Customer name" value={form.customerName} onChange={f('customerName')} />
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Phone <span className="text-red-500">*</span></label>
                 <div className="relative">
-                  <Phone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <Phone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 [color:var(--text-muted)] pointer-events-none" />
                   <input required type="text" className="input-field pl-9 h-10" placeholder="Phone number" value={form.customerPhone} onChange={f('customerPhone')} />
                 </div>
               </div>
@@ -2071,21 +2109,21 @@ function EditRepairModal({ repair, onClose, onSaved }: {
               <div>
                 <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Brand <span className="text-red-500">*</span></label>
                 <div className="relative">
-                  <Smartphone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <Smartphone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 [color:var(--text-muted)] pointer-events-none" />
                   <input required type="text" className="input-field pl-9 h-10" placeholder="e.g. Samsung" value={form.deviceBrand} onChange={f('deviceBrand')} />
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Model <span className="text-red-500">*</span></label>
                 <div className="relative">
-                  <Hash size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <Hash size={13} className="absolute left-3 top-1/2 -translate-y-1/2 [color:var(--text-muted)] pointer-events-none" />
                   <input required type="text" className="input-field pl-9 h-10" placeholder="e.g. Galaxy S24" value={form.deviceModel} onChange={f('deviceModel')} />
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>IMEI <span style={{ color: 'var(--text-muted)' }}>(Optional)</span></label>
                 <div className="relative">
-                  <Hash size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <Hash size={13} className="absolute left-3 top-1/2 -translate-y-1/2 [color:var(--text-muted)] pointer-events-none" />
                   <input type="text" className="input-field pl-9 h-10 font-mono" placeholder="15-digit IMEI" maxLength={17} value={form.imei} onChange={f('imei')} />
                 </div>
               </div>
@@ -2119,7 +2157,7 @@ function EditRepairModal({ repair, onClose, onSaved }: {
               <div>
                 <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Technician</label>
                 <div className="relative">
-                  <Wrench size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <Wrench size={13} className="absolute left-3 top-1/2 -translate-y-1/2 [color:var(--text-muted)] pointer-events-none" />
                   <input type="text" className="input-field pl-9 h-10" placeholder="Assign technician" value={form.technicianName} onChange={f('technicianName')} />
                 </div>
               </div>
@@ -2134,21 +2172,30 @@ function EditRepairModal({ repair, onClose, onSaved }: {
               <div>
                 <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Estimated Cost (LKR)</label>
                 <div className="relative">
-                  <DollarSign size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <DollarSign size={13} className="absolute left-3 top-1/2 -translate-y-1/2 [color:var(--text-muted)] pointer-events-none" />
                   <input type="number" min={0} className="input-field pl-9 h-10" placeholder="0.00" value={form.estimatedCost} onChange={f('estimatedCost')} />
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Actual Cost (LKR)</label>
                 <div className="relative">
-                  <DollarSign size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <DollarSign size={13} className="absolute left-3 top-1/2 -translate-y-1/2 [color:var(--text-muted)] pointer-events-none" />
                   <input type="number" min={0} className="input-field pl-9 h-10" placeholder="0.00" value={form.actualCost} onChange={f('actualCost')} />
                 </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Service Warranty</label>
+                <select className="input-field h-10" value={form.warrantyMonths} onChange={f('warrantyMonths')}>
+                  <option value="">Not set</option>
+                  {REPAIR_WARRANTY_OPTIONS.map(m => (
+                    <option key={m} value={m}>{m === 0 ? 'No warranty' : formatWarrantyPeriodLabel(m)}</option>
+                  ))}
+                </select>
               </div>
               <div className="col-span-2">
                 <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Estimated Completion</label>
                 <div className="relative">
-                  <Calendar size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <Calendar size={13} className="absolute left-3 top-1/2 -translate-y-1/2 [color:var(--text-muted)] pointer-events-none" />
                   <input type="date" className="input-field pl-9 h-10" value={form.estimatedCompletion} onChange={f('estimatedCompletion')} />
                 </div>
               </div>
@@ -2177,6 +2224,7 @@ function EditRepairModal({ repair, onClose, onSaved }: {
 }
 
 export default function RepairsPage() {
+  const hasAccess = useFeatureFlag('REPAIRS')
   const searchParams = useSearchParams()
   const { data: repairsData, loading, refetch } = useRepairs()
   const [showAddModal, setShowAddModal]     = useState(false)
@@ -2297,7 +2345,7 @@ export default function RepairsPage() {
       cell: ({ row }) => (
         <button
           type="button"
-          className="text-xs font-mono text-violet-400 hover:text-violet-300 hover:underline text-left"
+          className="text-xs font-mono text-violet-600 dark:text-violet-400 hover:underline text-left"
           onClick={() => openDetail(row.original)}
           onDoubleClick={(e) => { e.preventDefault(); openEdit(row.original) }}
         >
@@ -2316,7 +2364,7 @@ export default function RepairsPage() {
           onClick={() => openDetail(row.original)}
           onDoubleClick={(e) => { e.preventDefault(); openEdit(row.original) }}
         >
-          <p className="text-sm font-medium text-white hover:text-violet-300 transition-colors">{row.original.deviceBrand} {row.original.deviceModel}</p>
+          <p className="text-sm font-medium transition-colors hover:text-violet-600 dark:hover:text-violet-400" style={{ color: 'var(--text-primary)' }}>{row.original.deviceBrand} {row.original.deviceModel}</p>
         </button>
       ),
     },
@@ -2325,12 +2373,12 @@ export default function RepairsPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Customer" />,
       cell: ({ row }) => (
         <div className="flex items-center gap-1.5">
-          <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center text-[10px] font-bold text-violet-300">
+          <div className="w-6 h-6 rounded-full bg-violet-500/15 flex items-center justify-center text-[10px] font-bold text-violet-600 dark:text-violet-400">
             {row.original.customerName.charAt(0)}
           </div>
           <div>
-            <p className="text-xs text-slate-300">{row.original.customerName}</p>
-            <a href={`tel:${row.original.customerPhone}`} className="text-[10px] text-slate-500 hover:text-violet-400">{row.original.customerPhone}</a>
+            <p className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{row.original.customerName}</p>
+            <a href={`tel:${row.original.customerPhone}`} className="text-[10px] hover:text-violet-600 dark:hover:text-violet-400" style={{ color: 'var(--text-muted)' }}>{row.original.customerPhone}</a>
           </div>
         </div>
       ),
@@ -2338,7 +2386,7 @@ export default function RepairsPage() {
     {
       accessorKey: 'reportedIssue',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Issue" />,
-      cell: ({ row }) => <p className="text-xs text-slate-400 max-w-[200px] truncate">{row.original.reportedIssue}</p>,
+      cell: ({ row }) => <p className="text-xs max-w-[200px] truncate" style={{ color: 'var(--text-muted)' }}>{row.original.reportedIssue}</p>,
     },
     {
       accessorKey: 'priority',
@@ -2361,7 +2409,7 @@ export default function RepairsPage() {
     {
       accessorKey: 'createdAt',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
-      cell: ({ row }) => <span className="text-xs text-slate-500">{formatDate(row.original.createdAt)}</span>,
+      cell: ({ row }) => <span className="text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{formatDate(row.original.createdAt)}</span>,
     },
     {
       id: 'actions',
@@ -2370,7 +2418,8 @@ export default function RepairsPage() {
           <button
             onClick={() => printRepairReceipt(row.original, getInvoiceSettings())}
             title="Thermal Print"
-            className="p-1.5 rounded-lg transition-colors text-slate-500 hover:text-cyan-400 hover:bg-cyan-500/10"
+            className="p-1.5 rounded-lg transition-colors hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-cyan-500/10"
+            style={{ color: 'var(--text-muted)' }}
           >
             <Printer size={13} />
           </button>
@@ -2383,62 +2432,73 @@ export default function RepairsPage() {
     },
   ], [openDetail, openEdit])
 
+  if (!hasAccess) return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+      <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(109,40,217,0.1)' }}>
+        <Wrench size={26} className="text-violet-500" />
+      </div>
+      <div className="text-center">
+        <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Repair Jobs</h2>
+        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>This feature is not enabled for your account.</p>
+      </div>
+    </div>
+  )
+
   return (
     <div className="space-y-6">
       {showAddModal  && <NewTicketModal onClose={() => { setShowAddModal(false); setPrefillData(null) }} onSaved={refetch} prefill={prefillData ?? undefined} />}
       {detailRepair  && <RepairDetailsModal repair={detailRepair} allRepairs={allRepairs} onClose={() => setDetailRepair(null)} onEdit={() => { setEditRepair(detailRepair); setDetailRepair(null) }} onStatusChange={handleStatusUpdate} onRepairUpdate={setDetailRepair} onRefresh={async () => { refetch(); const res: any = await repairsApi.getById(detailRepair.id); setDetailRepair(res?.data ?? detailRepair) }} />}
       {editRepair    && <EditRepairModal   repair={editRepair}   onClose={() => setEditRepair(null)}   onSaved={() => { refetch(); setEditRepair(null) }} />}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
           <h1 className="page-title">Repair Jobs</h1>
-          <p className="page-subtitle">Finite State Machine · Kanban workflow</p>
+          <p className="page-subtitle">{stats.total} tickets · {stats.active} in progress · {stats.ready} ready for pickup</p>
         </div>
         <div className="flex gap-2 sm:ml-auto">
-          <button onClick={() => setShowAddModal(true)} className="btn-primary text-sm flex items-center gap-2">
+          <button type="button" onClick={() => refetch()} disabled={loading}
+            className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-50">
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+          <button type="button" onClick={() => setShowAddModal(true)} className="btn-primary text-sm flex items-center gap-2">
             <Plus size={14} />New Ticket
           </button>
         </div>
       </div>
 
-
-      {/* ── Stat Cards ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
         {([
-          { icon: Wrench,       label: 'Total Jobs',   value: String(stats.total),              iconBg: 'bg-violet-500/10',  iconColor: 'text-violet-400',  valColor: 'text-violet-400',  filter: 'all' as RepairStatusFilter },
-          { icon: Clock,        label: 'In Progress',  value: String(stats.active),             iconBg: 'bg-blue-500/10',    iconColor: 'text-blue-400',    valColor: 'text-blue-400',    filter: 'active' as RepairStatusFilter },
-          { icon: CheckCircle,  label: 'Ready',        value: String(stats.ready),              iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-400', valColor: 'text-emerald-400', filter: 'READY' as RepairStatusFilter },
-          { icon: Smartphone,   label: 'Delivered',    value: String(stats.delivered),          iconBg: 'bg-green-500/10',   iconColor: 'text-green-400',   valColor: 'text-green-400',   filter: 'DELIVERED' as RepairStatusFilter },
-          { icon: AlertCircle,  label: 'Urgent',       value: String(stats.urgent),             iconBg: 'bg-red-500/10',     iconColor: 'text-red-400',     valColor: stats.urgent > 0 ? 'text-red-400' : 'text-slate-400', filter: 'urgent' as RepairStatusFilter },
-          { icon: DollarSign,   label: 'Revenue',      value: formatCurrency(stats.revenue),    iconBg: 'bg-amber-500/10',   iconColor: 'text-amber-400',   valColor: 'text-amber-400',   filter: 'DELIVERED' as RepairStatusFilter },
-        ]).map(({ icon: Icon, label, value, iconBg, iconColor, valColor, filter }) => (
+          { icon: Wrench,      label: 'Total Jobs',  value: String(stats.total),           color: '#6d28d9', bg: 'rgba(109,40,217,0.08)', border: 'rgba(109,40,217,0.20)', filter: 'all' as RepairStatusFilter },
+          { icon: Clock,       label: 'In Progress', value: String(stats.active),          color: '#1d4ed8', bg: 'rgba(29,78,216,0.08)',  border: 'rgba(29,78,216,0.20)',  filter: 'active' as RepairStatusFilter },
+          { icon: CheckCircle, label: 'Ready',       value: String(stats.ready),           color: '#15803d', bg: 'rgba(21,128,61,0.08)',  border: 'rgba(21,128,61,0.20)',  filter: 'READY' as RepairStatusFilter },
+          { icon: Smartphone,  label: 'Delivered',   value: String(stats.delivered),       color: '#0e7490', bg: 'rgba(14,116,144,0.08)', border: 'rgba(14,116,144,0.20)', filter: 'DELIVERED' as RepairStatusFilter },
+          { icon: AlertCircle, label: 'Urgent',      value: String(stats.urgent),          color: '#b91c1c', bg: 'rgba(185,28,28,0.08)',  border: 'rgba(185,28,28,0.20)',  filter: 'urgent' as RepairStatusFilter },
+          { icon: DollarSign,  label: 'Revenue',     value: formatCurrency(stats.revenue), color: '#b45309', bg: 'rgba(180,83,9,0.08)',   border: 'rgba(180,83,9,0.20)',   filter: 'DELIVERED' as RepairStatusFilter },
+        ]).map(({ icon: Icon, label, value, color, bg, border, filter }) => (
           <button
             key={label}
             type="button"
             onClick={() => setStatusFilter(filter)}
-            className={`card p-4 flex items-center gap-3 text-left transition-all hover:border-violet-500/30 ${statusFilter === filter ? 'ring-2 ring-violet-500/40 border-violet-500/30' : ''}`}
+            className={`card p-4 flex items-center gap-3 text-left w-full transition-all hover:opacity-95 ${statusFilter === filter ? 'ring-2 ring-violet-500/40' : ''}`}
+            style={{ borderColor: border, background: bg }}
           >
-            <div className={`w-9 h-9 rounded-xl ${iconBg} border border-white/5 flex items-center justify-center flex-shrink-0`}>
-              <Icon size={16} className={iconColor} />
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ color, background: bg, border: `1px solid ${border}` }}>
+              <Icon size={15} />
             </div>
             <div className="min-w-0">
-              <p className={`text-base font-bold leading-none ${valColor}`}>{value}</p>
-              <p className="text-[10px] text-slate-500 mt-0.5 truncate">{label}</p>
+              <p className="text-base font-bold truncate" style={{ color: 'var(--text-primary)' }}>{value}</p>
+              <p className="text-[10px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{label}</p>
             </div>
           </button>
         ))}
       </div>
 
-      {/* Filter toolbar */}
-      <div className="flex flex-wrap items-center gap-2">
-        <ToolbarSearch
-          value={search}
-          onChange={setSearch}
-          placeholder="Search ticket, customer, phone, device…"
-          className="w-full sm:w-auto sm:min-w-[220px]"
-        />
-
-        <div className="flex gap-1 p-1 rounded-xl flex-wrap" style={{ background: 'var(--bg-subtle)' }}>
+      {/* Status filters */}
+      <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
+        <div className="flex gap-1 p-1 rounded-xl flex-wrap border w-fit" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
           {STATUS_CHIPS.map(opt => (
             <button
               key={opt.id}
@@ -2452,27 +2512,48 @@ export default function RepairsPage() {
             </button>
           ))}
         </div>
-
         {hasActiveFilters && (
           <button
             type="button"
             onClick={clearFilters}
-            className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors hover:text-violet-600 dark:hover:text-violet-400"
             style={{ color: 'var(--text-muted)' }}>
             Clear filters
           </button>
         )}
       </div>
 
-      {/* Table */}
-      <ClientSideTable
-        data={repairs}
-        columns={columns}
-        isLoading={loading}
-        pageCount={Math.ceil((repairs.length || 1) / 20)}
-        searchableColumns={[]}
-        showFilter={false}
+      <ToolbarSearch
+        value={search}
+        onChange={setSearch}
+        placeholder="Search ticket, customer, phone, device…"
+        className="max-w-md"
       />
+
+      {/* Table or empty */}
+      {!loading && allRepairs.length === 0 ? (
+        <EmptyState
+          icon={Wrench}
+          title="No repair tickets yet"
+          description="Create a ticket when a customer drops off a device. Track diagnosis, parts, status, and payment through to delivery."
+          accentColor="violet"
+          actions={[{ label: 'Create First Ticket', onClick: () => setShowAddModal(true), primary: true }]}
+          hints={[
+            'Assign a technician and set priority when creating the ticket.',
+            'Add spare parts from inventory and collect payment on delivery.',
+            'Print a thermal receipt or send quotes via WhatsApp from the ticket detail view.',
+          ]}
+        />
+      ) : (
+        <ClientSideTable
+          data={repairs}
+          columns={columns}
+          isLoading={loading}
+          pageCount={Math.ceil((repairs.length || 1) / 20)}
+          searchableColumns={[]}
+          showFilter={false}
+        />
+      )}
     </div>
   )
 }

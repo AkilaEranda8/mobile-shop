@@ -18,7 +18,9 @@ import { warrantyApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import type { Warranty } from '@/types'
 import WarrantyCertificate, { printWarrantyCertificate } from '@/components/invoice/WarrantyCertificate'
-import { type InvoiceSettings, fetchInvoiceSettings, DEFAULT_INVOICE_SETTINGS } from '@/lib/invoiceSettings'
+import { type InvoiceSettings, fetchInvoiceSettings, pushInvoiceSettings, DEFAULT_INVOICE_SETTINGS } from '@/lib/invoiceSettings'
+import { REPAIR_WARRANTY_OPTIONS } from '@/lib/repair-invoice.util'
+import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
 import { authStorage } from '@/lib/auth'
 import { Printer } from 'lucide-react'
 
@@ -27,6 +29,61 @@ const statusColors: Record<string, string> = {
   EXPIRED: 'bg-slate-500/10  border-slate-500/20  text-slate-400',
   VOID:    'bg-red-500/10    border-red-500/20    text-red-400',
   CLAIMED: 'bg-blue-500/10   border-blue-500/20   text-blue-400',
+}
+
+/* ── Repair service warranty default (shop-wide) ─────────────────────── */
+function RepairWarrantyDefaults() {
+  const [months, setMonths] = useState(3)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    const user = authStorage.getUser()
+    if (!user?.tenantId) return
+    fetchInvoiceSettings(user.tenantId).then(s => setMonths(s.repairWarrantyMonths ?? 3)).catch(() => {})
+  }, [])
+
+  const save = async () => {
+    const user = authStorage.getUser()
+    if (!user?.tenantId) return
+    setSaving(true)
+    try {
+      const cur = await fetchInvoiceSettings(user.tenantId)
+      await pushInvoiceSettings(user.tenantId, { ...cur, repairWarrantyMonths: months })
+      toast.success('Default repair warranty saved')
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to save')
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="card p-4 flex flex-col sm:flex-row sm:items-center gap-4 border border-violet-500/15 bg-violet-500/5">
+      <div className="flex items-start gap-3 flex-1">
+        <div className="w-9 h-9 rounded-lg bg-violet-500/15 flex items-center justify-center shrink-0">
+          <Wrench size={16} className="text-violet-400" />
+        </div>
+        <div>
+          <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Repair Service Warranty</p>
+          <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+            Suggested period when setting warranty on a repair job (not applied on new tickets).
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <select
+          className="input-field h-9 text-sm min-w-[130px]"
+          value={months}
+          onChange={e => setMonths(Number(e.target.value))}
+        >
+          {REPAIR_WARRANTY_OPTIONS.map(m => (
+            <option key={m} value={m}>{m === 0 ? 'No warranty' : formatWarrantyPeriodLabel(m)}</option>
+          ))}
+        </select>
+        <button type="button" onClick={save} disabled={saving} className="btn-primary text-xs h-9 px-4 disabled:opacity-50">
+          {saving ? <Loader2 size={13} className="animate-spin" /> : 'Save'}
+        </button>
+      </div>
+    </div>
+  )
 }
 
 /* ── Add Warranty Modal ───────────────────────────────────────────────── */
@@ -809,6 +866,9 @@ export default function WarrantyPage() {
           <Plus size={14} />Issue Warranty
         </button>
       </div>
+
+      {/* Repair warranty default */}
+      <RepairWarrantyDefaults />
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

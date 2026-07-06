@@ -240,6 +240,7 @@ export interface RepairTicket {
   source?: string
   estimatedCompletion?: string
   completedAt?: string
+  warrantyMonths?: number | null
   createdAt: string
 }
 

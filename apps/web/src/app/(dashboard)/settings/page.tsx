@@ -782,7 +782,7 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* ── 4b. Warranty & Service Terms ── */}
+              {/* ── 4c. Warranty & Service Terms ── */}
               <div className="card p-5 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>

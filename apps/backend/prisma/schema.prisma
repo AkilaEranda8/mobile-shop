@@ -670,6 +670,7 @@ model RepairTicket {
   photos              String[]
   estimatedCompletion DateTime?
   completedAt         DateTime?
+  warrantyMonths      Int?
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
 

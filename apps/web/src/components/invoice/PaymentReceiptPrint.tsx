@@ -4,6 +4,7 @@ import { forwardRef, useRef } from 'react'
 import { Download, Printer } from 'lucide-react'
 import { HEXALYTE_SOFTWARE_FOOTER, type InvoiceSettings } from '@/lib/invoiceSettings'
 import { buildItemWarrantyInfo, resolveSaleWarranties, type ItemWarrantyInfo } from '@/components/invoice/invoice-warranty.util'
+import { mapSaleItemForInvoice } from '@/components/invoice/invoice-line-item.util'
 import InvoiceItemWarrantyBlock from '@/components/invoice/InvoiceItemWarrantyBlock'
 
 export interface PaymentReceiptItem {
@@ -52,9 +53,10 @@ export function buildPaymentReceiptData(
     const rate = i.unitPrice ?? 0
     const lineDisc = i.discount ?? 0
     const lineSub = rate * qty
+    const { title, details } = mapSaleItemForInvoice(i, { sale, index: idx })
     return {
-      item: i.productName ?? i.description ?? 'Item',
-      description: [i.sku, i.imei ? `IMEI: ${i.imei}` : ''].filter(Boolean).join(' · ') || '—',
+      item: title,
+      description: details || '—',
       warranty: buildItemWarrantyInfo(i, warranties, sale.createdAt, sale.warrantyMonths, idx),
       qty,
       rate,

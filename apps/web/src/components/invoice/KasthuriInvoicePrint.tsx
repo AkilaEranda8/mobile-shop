@@ -4,10 +4,12 @@ import { forwardRef, useRef } from 'react'
 import { Download, Printer, MapPin, Globe, Mail, Phone } from 'lucide-react'
 import { KASTHURI_INVOICE_PRESET, HEXALYTE_SOFTWARE_FOOTER, type InvoiceSettings } from '@/lib/invoiceSettings'
 import { buildItemWarrantyInfo, resolveSaleWarranties } from '@/components/invoice/invoice-warranty.util'
+import { mapSaleItemForInvoice } from '@/components/invoice/invoice-line-item.util'
 import InvoiceItemWarrantyBlock from '@/components/invoice/InvoiceItemWarrantyBlock'
 
 export interface KasthuriInvoiceItem {
   description: string
+  details?: string
   imei?: string
   warrantyCode?: string
   warrantyPeriod?: string
@@ -47,8 +49,10 @@ export function buildKasthuriInvoiceData(
     const lineDisc = i.discount ?? 0
     const discountPct = lineSub > 0 ? Math.round((lineDisc / lineSub) * 10000) / 100 : 0
     const warranty = buildItemWarrantyInfo(i, warranties, sale.createdAt, sale.warrantyMonths, idx)
+    const { title, details } = mapSaleItemForInvoice(i, { sale, index: idx })
     return {
-      description: i.productName ?? i.description ?? 'Item',
+      description: title,
+      details,
       imei: i.imei,
       warrantyCode: warranty?.warrantyCode,
       warrantyPeriod: warranty?.warrantyPeriod,
@@ -101,6 +105,9 @@ export function buildKasthuriRepairInvoiceData(
     estimatedCost?: number | string | null
     actualCost?: number | string | null
     status?: string
+    imei?: string
+    spareParts?: Array<{ productName: string; quantity: number; unitCost: number; total: number }>
+    warrantyMonths?: number | null
   },
   settings: InvoiceSettings,
 ): KasthuriInvoiceData {
@@ -109,28 +116,49 @@ export function buildKasthuriRepairInvoiceData(
   const discount = repair.actualCost != null && Number(repair.actualCost) < subtotal
     ? subtotal - Number(repair.actualCost)
     : 0
-  const total = Math.max(0, subtotal - discount)
-  const isPaid = repair.status === 'DELIVERED'
-
-  return buildKasthuriInvoiceData({
-    invoiceNumber: repair.ticketNumber,
-    createdAt: repair.createdAt,
-    customerName: repair.customerName,
-    customerPhone: repair.customerPhone,
-    items: serviceFee > 0 ? [{
+  const warrantyMonths = repair.warrantyMonths != null && repair.warrantyMonths >= 0
+    ? Math.round(repair.warrantyMonths)
+    : 0
+  const items = []
+  if (serviceFee > 0) {
+    items.push({
       productName: `Repair Service – ${repair.deviceBrand} ${repair.deviceModel}`,
       description: repair.reportedIssue,
       quantity: 1,
       unitPrice: serviceFee,
       discount,
-      total,
-    }] : [],
+      total: Math.max(0, serviceFee - discount),
+      warrantyMonths,
+      imei: repair.imei,
+    })
+  }
+  for (const p of repair.spareParts ?? []) {
+    const qty = Number(p.quantity) || 1
+    const unitPrice = Number(p.unitCost) || 0
+    items.push({
+      productName: p.productName,
+      description: 'Spare part used',
+      quantity: qty,
+      unitPrice,
+      discount: 0,
+      total: Number(p.total) || unitPrice * qty,
+      warrantyMonths: 0,
+    })
+  }
+  return buildKasthuriInvoiceData({
+    invoiceNumber: repair.ticketNumber,
+    createdAt: repair.createdAt,
+    customerName: repair.customerName,
+    customerPhone: repair.customerPhone,
+    source: 'REPAIR',
+    items,
     subtotal,
     discount,
     tax: 0,
-    total,
-    paidAmount: isPaid ? total : 0,
-    dueAmount: isPaid ? 0 : total,
+    total: Math.max(0, subtotal - discount),
+    paidAmount: repair.status === 'DELIVERED' ? Math.max(0, subtotal - discount) : 0,
+    dueAmount: repair.status === 'DELIVERED' ? 0 : Math.max(0, subtotal - discount),
+    warrantyMonths,
   }, settings, { subtotal, discountAmount: discount })
 }
 
@@ -302,6 +330,11 @@ const KasthuriInvoicePrint = forwardRef<
               <td style={{ ...td, textAlign: 'center' }}>{idx + 1}</td>
               <td style={td}>
                 <div style={{ fontWeight: 600 }}>{item.description}</div>
+                {item.details && (
+                  <div style={{ marginTop: 4, fontSize: 12, lineHeight: 1.5, color: C.muted, whiteSpace: 'pre-line' }}>
+                    {item.details}
+                  </div>
+                )}
                 {(item.imei || item.warrantyCode || item.warrantyPeriod || item.warrantyExpiry) && (
                   <div style={{ marginTop: 4, fontSize: 12, lineHeight: 1.5, color: C.muted }}>
                     {item.imei && <div>IMEI: {item.imei}</div>}

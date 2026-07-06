@@ -58,6 +58,8 @@ export interface InvoiceSettings {
   thermalShowWebsite:   boolean
   thermalShowWarranty:  boolean
   thermalFontSize:      'sm' | 'md' | 'lg'
+  /** Default repair service warranty shown on repair invoices (months) */
+  repairWarrantyMonths?: number
   /** When true, POS prints the bill automatically after each completed sale */
   posAutoPrintBill:     boolean
 }
@@ -124,6 +126,7 @@ export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   thermalShowWebsite:   true,
   thermalShowWarranty:  true,
   thermalFontSize:      'md',
+  repairWarrantyMonths: 3,
   posAutoPrintBill:     true,
 }
 
