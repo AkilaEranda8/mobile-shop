@@ -1,9 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 import {
-  ArrowLeft, BarChart3, BookOpen, DollarSign, Landmark, Loader2,
+  BarChart3, DollarSign, Landmark, Loader2,
   RefreshCw, Scale, TrendingUp,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -12,6 +11,16 @@ import { accountingApi } from '@/lib/api'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { businessToday, businessPeriodFrom } from '@/lib/business-date'
 import { formatCurrency } from '@/lib/utils'
+import {
+  AccountingPageShell,
+  AccountingFeatureGate,
+  AccountingPageHeader,
+  AccountingPanel,
+  AccountingTable,
+  AccountingTd,
+  AccountingTh,
+  AccountingTabs,
+} from '@/components/accounting/accounting-ui'
 
 type ReportTab = 'trial-balance' | 'profit-loss' | 'balance-sheet' | 'cash-flow'
 
@@ -68,84 +77,54 @@ export default function AccountingReportsPage() {
 
   useEffect(() => { if (hasAccess) load() }, [hasAccess, load])
 
-  if (!hasAccess) {
-    return (
-      <div className="p-6 max-w-lg mx-auto text-center">
-        <p className="text-slate-400">Accounting module is disabled.</p>
-        <Link href="/settings" className="text-violet-400 text-sm mt-2 inline-block">Enable in Settings</Link>
-      </div>
-    )
-  }
+  if (!hasAccess) return <AccountingFeatureGate />
 
   return (
-    <div className="p-4 md:p-6 space-y-5 max-w-6xl">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <Link href="/dashboard/accounting" className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 mb-2">
-            <ArrowLeft size={12} /> Accounting
-          </Link>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <BarChart3 className="text-violet-400" size={24} />
-            GL Reports
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">Generated from posted journal entries only</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-lg border border-white/10 overflow-hidden">
-            {PERIODS.map(p => (
-              <button
-                key={p.days}
-                type="button"
-                onClick={() => setPeriod(p.days)}
-                className={`px-3 py-1.5 text-xs font-medium ${period === p.days ? 'bg-violet-600 text-white' : 'text-slate-400 hover:bg-white/5'}`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={load}
-            disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border border-white/10 text-slate-300 hover:bg-white/5"
-          >
-            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
-            Refresh
-          </button>
-        </div>
-      </div>
+    <AccountingPageShell>
+      <AccountingPageHeader
+        title="GL Reports"
+        subtitle="Generated from posted journal entries only"
+        icon={BarChart3}
+        actions={
+          <>
+            <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: 'var(--border-default)' }}>
+              {PERIODS.map(p => (
+                <button
+                  key={p.days}
+                  type="button"
+                  onClick={() => setPeriod(p.days)}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${period === p.days ? 'bg-violet-600 text-white' : ''}`}
+                  style={period !== p.days ? { color: 'var(--text-muted)' } : undefined}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <button type="button" onClick={load} disabled={loading} className="btn-secondary flex items-center gap-2 text-sm">
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+          </>
+        }
+      />
 
-      <div className="flex flex-wrap gap-2">
-        {TABS.map(t => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
-              tab === t.id
-                ? 'bg-violet-600/20 border-violet-500/40 text-violet-300'
-                : 'border-white/10 text-slate-400 hover:bg-white/5'
-            }`}
-          >
-            <t.icon size={14} />
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <AccountingTabs
+        tabs={TABS.map(t => ({ id: t.id, label: t.label }))}
+        value={tab}
+        onChange={setTab}
+      />
 
-      <div className="text-xs text-slate-500">
-        {tab === 'balance-sheet'
-          ? `As of ${toDate}`
-          : `${fromDate} → ${toDate}`}
+      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+        {tab === 'balance-sheet' ? `As of ${toDate}` : `${fromDate} → ${toDate}`}
         {' · '}Accrual basis
-      </div>
+      </p>
 
       {loading ? (
         <div className="flex justify-center py-20">
           <Loader2 className="animate-spin text-violet-400" size={28} />
         </div>
       ) : !report ? (
-        <div className="rounded-xl border border-white/10 p-8 text-center text-slate-500 text-sm">
+        <div className="card p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
           No report data. Initialize accounting and post journals via Integration sync.
         </div>
       ) : (
@@ -156,7 +135,7 @@ export default function AccountingReportsPage() {
           {tab === 'cash-flow' && <CashFlowView data={report as CfData} />}
         </>
       )}
-    </div>
+    </AccountingPageShell>
   )
 }
 
@@ -299,48 +278,42 @@ function ReportTable({
   highlightLast?: boolean
 }) {
   return (
-    <div className="rounded-xl border border-white/10 overflow-hidden">
+    <AccountingPanel>
       {balanced !== undefined && (
-        <div className={`px-4 py-2 text-xs border-b border-white/10 ${balanced ? 'text-emerald-400 bg-emerald-500/5' : 'text-amber-400 bg-amber-500/5'}`}>
+        <div className={`px-4 py-2 text-xs border-b ${balanced ? 'text-emerald-400 bg-emerald-500/5' : 'text-amber-400 bg-amber-500/5'}`}
+          style={{ borderColor: 'var(--border-subtle)' }}>
           {balanced ? '✓ Books balanced' : '⚠ Trial balance / sheet out of balance — check journals'}
         </div>
       )}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-900/80 text-left text-xs text-slate-500">
-            <tr>
-              {headers.map(h => (
-                <th key={h} className="px-4 py-2.5 font-medium">{h}</th>
+      <AccountingTable>
+        <thead>
+          <tr>
+            {headers.map(h => <AccountingTh key={h}>{h}</AccountingTh>)}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i} className={highlightLast && i === rows.length - 1 ? 'bg-violet-500/10 font-semibold' : ''}>
+              {row.map((cell, j) => (
+                <AccountingTd key={j} align={j === row.length - 1 ? 'right' : 'left'} mono={j === row.length - 1}>
+                  {cell}
+                </AccountingTd>
               ))}
             </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => (
-              <tr
-                key={i}
-                className={`border-t border-white/5 ${
-                  highlightLast && i === rows.length - 1 ? 'bg-violet-500/10 font-semibold' : 'hover:bg-white/[0.02]'
-                }`}
-              >
-                {row.map((cell, j) => (
-                  <td key={j} className={`px-4 py-2 ${j === row.length - 1 ? 'text-right font-mono text-slate-200' : 'text-slate-300'}`}>
-                    {cell}
-                  </td>
-                ))}
-              </tr>
-            ))}
-            {footer && (
-              <tr className="border-t border-white/10 bg-white/[0.03] font-semibold">
-                {footer.map((cell, j) => (
-                  <td key={j} className={`px-4 py-2.5 ${j === footer.length - 1 ? 'text-right font-mono text-white' : 'text-slate-200'}`}>
-                    {cell}
-                  </td>
-                ))}
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+          ))}
+          {footer && (
+            <tr className="font-semibold" style={{ background: 'var(--bg-subtle)' }}>
+              {footer.map((cell, j) => (
+                <AccountingTd key={j} align={j === footer.length - 1 ? 'right' : 'left'} mono={j === footer.length - 1}
+                  className={j === footer.length - 1 ? 'font-medium' : ''}
+                  style={j === footer.length - 1 ? { color: 'var(--text-primary)' } : undefined}>
+                  {cell}
+                </AccountingTd>
+              ))}
+            </tr>
+          )}
+        </tbody>
+      </AccountingTable>
+    </AccountingPanel>
   )
 }

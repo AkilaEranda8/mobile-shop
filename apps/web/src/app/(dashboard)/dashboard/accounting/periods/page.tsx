@@ -1,14 +1,21 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
-import {
-  ArrowLeft, Calendar, Loader2, Lock, LockOpen, RefreshCw, AlertTriangle,
-} from 'lucide-react'
+import { Calendar, Loader2, Lock, LockOpen, RefreshCw, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useFeatureFlag } from '@/lib/hooks'
 import { accountingApi } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
+import {
+  AccountingPageShell,
+  AccountingFeatureGate,
+  AccountingKpiCard,
+  AccountingPageHeader,
+  AccountingPanel,
+  AccountingStatusBadge,
+  CYAN_ACCENT,
+  VIOLET_ACCENT,
+} from '@/components/accounting/accounting-ui'
 
 type PeriodRow = {
   id: string
@@ -31,10 +38,10 @@ type PeriodPreview = {
   canReopen: boolean
 }
 
-const STATUS_STYLE: Record<string, string> = {
-  OPEN: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
-  SOFT_CLOSED: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
-  HARD_CLOSED: 'text-red-400 bg-red-500/10 border-red-500/30',
+const STATUS_TONE: Record<string, 'success' | 'warning' | 'danger'> = {
+  OPEN: 'success',
+  SOFT_CLOSED: 'warning',
+  HARD_CLOSED: 'danger',
 }
 
 export default function AccountingPeriodsPage() {
@@ -90,76 +97,60 @@ export default function AccountingPeriodsPage() {
     }
   }
 
-  if (!hasAccess) {
-    return (
-      <div className="p-6 text-center text-slate-400">
-        <Link href="/settings" className="text-violet-400">Enable Accounting</Link>
-      </div>
-    )
-  }
+  if (!hasAccess) return <AccountingFeatureGate />
 
   return (
-    <div className="p-4 md:p-6 space-y-5 max-w-4xl">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <Link href="/dashboard/accounting" className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 mb-2">
-            <ArrowLeft size={12} /> Accounting
-          </Link>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <Calendar className="text-violet-400" size={24} />
-            Period Closing
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">Soft-close locks posting; hard-close transfers P&amp;L to retained earnings</p>
-        </div>
-        <button
-          type="button"
-          onClick={loadPeriods}
-          disabled={loading}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border border-white/10 text-slate-300"
-        >
-          <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
-          Refresh
-        </button>
-      </div>
+    <AccountingPageShell>
+      <AccountingPageHeader
+        title="Period Closing"
+        subtitle="Soft-close locks posting; hard-close transfers P&L to retained earnings"
+        icon={Calendar}
+        actions={
+          <button type="button" onClick={loadPeriods} disabled={loading} className="btn-secondary flex items-center gap-2 text-sm">
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+        }
+      />
 
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 className="animate-spin text-violet-400" size={28} /></div>
       ) : (
-        <div className="grid md:grid-cols-5 gap-4">
-          <div className="md:col-span-2 rounded-xl border border-white/10 overflow-hidden">
-            <div className="px-4 py-2 border-b border-white/10 text-xs font-semibold text-slate-400">Periods</div>
-            <ul className="max-h-[360px] overflow-y-auto">
+        <div className="grid lg:grid-cols-12 gap-4 w-full">
+          <AccountingPanel title="Periods" className="lg:col-span-4">
+            <ul className="max-h-[400px] overflow-y-auto">
               {periods.map(p => (
                 <li key={p.id}>
                   <button
                     type="button"
                     onClick={() => setSelectedId(p.id)}
-                    className={`w-full text-left px-4 py-3 border-b border-white/5 hover:bg-white/[0.03] ${selectedId === p.id ? 'bg-violet-500/10' : ''}`}
+                    className={`w-full text-left px-4 py-3 border-b transition-colors hover:bg-white/[0.03] ${selectedId === p.id ? 'bg-violet-500/10' : ''}`}
+                    style={{ borderColor: 'var(--border-subtle)' }}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium text-white">{p.name}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded border ${STATUS_STYLE[p.status]}`}>{p.status.replace('_', ' ')}</span>
+                      <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{p.name}</span>
+                      <AccountingStatusBadge tone={STATUS_TONE[p.status]}>{p.status.replace('_', ' ')}</AccountingStatusBadge>
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5">{p.startDate} → {p.endDate}</p>
+                    <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{p.startDate} → {p.endDate}</p>
                   </button>
                 </li>
               ))}
             </ul>
-          </div>
+          </AccountingPanel>
 
-          <div className="md:col-span-3 rounded-xl border border-white/10 p-5 space-y-4">
+          <div className="lg:col-span-8 card p-5 space-y-4">
             {!preview ? (
-              <p className="text-sm text-slate-500">Select a period</p>
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Select a period</p>
             ) : (
               <>
                 <div>
-                  <h2 className="text-lg font-semibold text-white">{preview.period.name}</h2>
-                  <p className="text-xs text-slate-500">{preview.period.startDate} to {preview.period.endDate}</p>
+                  <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>{preview.period.name}</h2>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{preview.period.startDate} to {preview.period.endDate}</p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <MiniStat label="Net Income" value={formatCurrency(preview.profitAndLoss.netIncome)} />
-                  <MiniStat label="Journals" value={String(preview.period.journalCount)} />
+                <div className="grid grid-cols-2 gap-4">
+                  <AccountingKpiCard label="Net Income" value={formatCurrency(preview.profitAndLoss.netIncome)} accent={CYAN_ACCENT} />
+                  <AccountingKpiCard label="Journals" value={preview.period.journalCount} accent={VIOLET_ACCENT} />
                 </div>
 
                 {preview.pendingOutbox > 0 && (
@@ -171,56 +162,35 @@ export default function AccountingPeriodsPage() {
 
                 <div className="flex flex-wrap gap-2 pt-2">
                   {preview.canSoftClose && (
-                    <button
-                      type="button"
-                      disabled={actionLoading}
-                      onClick={() => runAction('soft')}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
-                    >
+                    <button type="button" disabled={actionLoading} onClick={() => runAction('soft')}
+                      className="btn-secondary flex items-center gap-1.5 text-xs">
                       <Lock size={12} /> Soft Close
                     </button>
                   )}
                   {preview.canHardClose && (
-                    <button
-                      type="button"
-                      disabled={actionLoading}
-                      onClick={() => runAction('hard')}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-red-600/80 hover:bg-red-600 text-white"
-                    >
+                    <button type="button" disabled={actionLoading} onClick={() => runAction('hard')}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-red-600/80 hover:bg-red-600 text-white">
                       {actionLoading ? <Loader2 size={12} className="animate-spin" /> : <Lock size={12} />}
                       Hard Close
                     </button>
                   )}
                   {preview.canReopen && (
-                    <button
-                      type="button"
-                      disabled={actionLoading}
-                      onClick={() => runAction('reopen')}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10"
-                    >
+                    <button type="button" disabled={actionLoading} onClick={() => runAction('reopen')}
+                      className="btn-secondary flex items-center gap-1.5 text-xs text-emerald-400 border-emerald-500/30">
                       <LockOpen size={12} /> Reopen
                     </button>
                   )}
                 </div>
 
-                <p className="text-[11px] text-slate-600 leading-relaxed">
-                  <strong className="text-slate-500">Soft close</strong> blocks new journal entries.
-                  <strong className="text-slate-500"> Hard close</strong> posts a closing entry (zeroes income/expense, transfers net to Retained Earnings 3100) and permanently locks the period until reopened.
+                <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                  <strong>Soft close</strong> blocks new journal entries.
+                  <strong> Hard close</strong> posts a closing entry (zeroes income/expense, transfers net to Retained Earnings 3100) and permanently locks the period until reopened.
                 </p>
               </>
             )}
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-function MiniStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3">
-      <p className="text-[10px] text-slate-500 uppercase">{label}</p>
-      <p className="text-base font-bold text-white mt-0.5">{value}</p>
-    </div>
+    </AccountingPageShell>
   )
 }

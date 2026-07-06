@@ -1,11 +1,16 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
-import { ArrowLeft, Loader2, Settings, Save } from 'lucide-react'
+import { Loader2, Save, Settings } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useFeatureFlag } from '@/lib/hooks'
 import { accountingApi } from '@/lib/api'
+import {
+  AccountingPageShell,
+  AccountingFeatureGate,
+  AccountingPageHeader,
+  AccountingPanel,
+} from '@/components/accounting/accounting-ui'
 
 const EXPENSE_CATEGORIES = ['Rent', 'Salary', 'Utilities', 'Marketing', 'Inventory', 'Repairs', 'Misc']
 
@@ -66,67 +71,72 @@ export default function AccountingSettingsPage() {
     }
   }
 
-  if (!hasAccess) {
-    return <div className="p-6 text-center text-slate-400"><Link href="/settings" className="text-violet-400">Enable Accounting</Link></div>
-  }
+  if (!hasAccess) return <AccountingFeatureGate />
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-3xl">
-      <div className="flex items-center gap-4">
-        <Link href="/dashboard/accounting" className="text-slate-400 hover:text-white"><ArrowLeft size={20} /></Link>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <Settings className="text-violet-400" size={26} /> Accounting Settings
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">Expense GL mapping, approval threshold, auto-post</p>
-        </div>
-      </div>
+    <AccountingPageShell>
+      <AccountingPageHeader
+        title="Accounting Settings"
+        subtitle="Expense GL mapping, approval threshold, auto-post"
+        icon={Settings}
+      />
 
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 className="animate-spin text-violet-400" /></div>
       ) : settings && (
-        <div className="space-y-6">
-          <div className="rounded-xl border border-white/10 p-5 space-y-4">
-            <h2 className="text-sm font-semibold text-white">General</h2>
-            <label className="flex items-center gap-3 text-sm text-slate-300">
-              <input type="checkbox" checked={autoPost} onChange={e => setAutoPost(e.target.checked)} />
-              Auto-post enabled (outbox processor)
-            </label>
-            <label className="block">
-              <span className="text-xs text-slate-500">Manual journal approval above (LKR)</span>
-              <input type="number" value={approvalAbove} onChange={e => setApprovalAbove(e.target.value)}
-                placeholder="Leave empty to post all immediately"
-                className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-sm" />
-            </label>
-          </div>
-
-          <div className="rounded-xl border border-white/10 p-5 space-y-3">
-            <h2 className="text-sm font-semibold text-white">Expense category → GL account</h2>
-            <p className="text-xs text-slate-500">Maps finance module expense categories to GL when auto-journaling.</p>
-            {EXPENSE_CATEGORIES.map(cat => (
-              <div key={cat} className="flex items-center gap-3">
-                <span className="w-24 text-sm text-slate-400">{cat}</span>
-                <select
-                  value={categoryMap[cat] ?? ''}
-                  onChange={e => setCategoryMap(prev => ({ ...prev, [cat]: e.target.value }))}
-                  className="flex-1 px-3 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-sm"
-                >
-                  <option value="">Default (Operating Expenses)</option>
-                  {accounts.map(a => (
-                    <option key={a.id} value={a.id}>{a.code} — {a.name}</option>
-                  ))}
-                </select>
+        <>
+          <div className="grid xl:grid-cols-2 gap-6 w-full">
+            <AccountingPanel title="General">
+              <div className="p-5 space-y-4">
+                <label className="flex items-center gap-3 text-sm cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
+                  <input type="checkbox" checked={autoPost} onChange={e => setAutoPost(e.target.checked)} className="rounded" />
+                  Auto-post enabled (outbox processor)
+                </label>
+                <label className="block">
+                  <span className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>
+                    Manual journal approval above (LKR)
+                  </span>
+                  <input
+                    type="number"
+                    value={approvalAbove}
+                    onChange={e => setApprovalAbove(e.target.value)}
+                    placeholder="Leave empty to post all immediately"
+                    className="input-field"
+                  />
+                </label>
               </div>
-            ))}
+            </AccountingPanel>
+
+            <AccountingPanel title="Expense category → GL account">
+              <div className="p-5 space-y-3">
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Maps finance module expense categories to GL when auto-journaling.
+                </p>
+                {EXPENSE_CATEGORIES.map(cat => (
+                  <div key={cat} className="flex items-center gap-3">
+                    <span className="w-24 text-sm shrink-0" style={{ color: 'var(--text-muted)' }}>{cat}</span>
+                    <select
+                      value={categoryMap[cat] ?? ''}
+                      onChange={e => setCategoryMap(prev => ({ ...prev, [cat]: e.target.value }))}
+                      className="input-field flex-1 text-sm"
+                    >
+                      <option value="">Default (Operating Expenses)</option>
+                      {accounts.map(a => (
+                        <option key={a.id} value={a.id}>{a.code} — {a.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </AccountingPanel>
           </div>
 
-          <button type="button" onClick={handleSave} disabled={saving}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-50">
+          <button type="button" onClick={handleSave} disabled={saving} className="btn-primary flex items-center gap-2 text-sm">
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
             Save settings
           </button>
-        </div>
+        </>
       )}
-    </div>
+    </AccountingPageShell>
   )
 }

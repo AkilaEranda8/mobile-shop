@@ -1,14 +1,26 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
-import { ArrowLeft, Loader2, Receipt, RefreshCw } from 'lucide-react'
+import { Loader2, Receipt, RefreshCw } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useFeatureFlag } from '@/lib/hooks'
 import { accountingApi } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday } from '@/lib/business-date'
 import { getActiveBranchId } from '@/lib/active-branch'
+import {
+  AccountingPageShell,
+  AccountingFeatureGate,
+  AccountingKpiCard,
+  AccountingPageHeader,
+  AccountingPanel,
+  AccountingTable,
+  AccountingTd,
+  AccountingTh,
+  AMBER_ACCENT,
+  CYAN_ACCENT,
+  VIOLET_ACCENT,
+} from '@/components/accounting/accounting-ui'
 
 type VatSummary = { from: string; to: string; outputVat: number; inputVat: number; netPayable: number }
 
@@ -61,83 +73,82 @@ export default function TaxPage() {
     }
   }
 
-  if (!hasAccess) {
-    return <div className="p-6 text-center text-slate-400"><Link href="/settings" className="text-violet-400">Enable Accounting</Link></div>
-  }
+  if (!hasAccess) return <AccountingFeatureGate />
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-4xl">
-      <div className="flex items-center gap-4">
-        <Link href="/dashboard/accounting" className="text-slate-400 hover:text-white"><ArrowLeft size={20} /></Link>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <Receipt className="text-violet-400" size={26} /> VAT / Tax
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">Output vs input VAT and remittance</p>
-        </div>
-        <button type="button" onClick={load} className="p-2 rounded-lg border border-white/10 text-slate-300">
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-        </button>
-      </div>
+    <AccountingPageShell>
+      <AccountingPageHeader
+        title="VAT / Tax"
+        subtitle="Output vs input VAT and remittance"
+        icon={Receipt}
+        actions={
+          <button type="button" onClick={load} className="btn-secondary p-2">
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          </button>
+        }
+      />
 
       <div className="flex flex-wrap gap-3">
-        <input type="date" value={from} onChange={e => setFrom(e.target.value)}
-          className="px-3 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-sm" />
-        <input type="date" value={to} onChange={e => setTo(e.target.value)}
-          className="px-3 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-sm" />
+        <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="input-field w-auto text-sm" />
+        <input type="date" value={to} onChange={e => setTo(e.target.value)} className="input-field w-auto text-sm" />
       </div>
 
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 className="animate-spin text-violet-400" /></div>
       ) : summary && (
         <>
-          <div className="grid sm:grid-cols-3 gap-3">
-            <Stat label="Output VAT" value={summary.outputVat} />
-            <Stat label="Input VAT" value={summary.inputVat} />
-            <Stat label="Net Payable" value={summary.netPayable} highlight />
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <AccountingKpiCard label="Output VAT" value={formatCurrency(summary.outputVat)} accent={AMBER_ACCENT} />
+            <AccountingKpiCard label="Input VAT" value={formatCurrency(summary.inputVat)} accent={CYAN_ACCENT} />
+            <AccountingKpiCard label="Net Payable" value={formatCurrency(summary.netPayable)} accent={VIOLET_ACCENT} />
           </div>
 
-          <div className="rounded-xl border border-white/10 p-5 space-y-3">
-            <h2 className="text-sm font-semibold text-white">Record VAT Payment</h2>
-            <div className="grid sm:grid-cols-3 gap-3">
-              <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)}
-                className="px-3 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-sm" />
-              <select value={payMethod} onChange={e => setPayMethod(e.target.value)}
-                className="px-3 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-sm">
-                {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
-              <button type="button" onClick={handleVatPayment} disabled={payLoading}
-                className="px-4 py-2 rounded-lg text-sm font-semibold bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-50">
-                {payLoading ? 'Posting…' : 'Post VAT Payment'}
-              </button>
+          <AccountingPanel title="Record VAT Payment">
+            <div className="p-5">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <label className="block">
+                  <span className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Amount (LKR)</span>
+                  <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)} className="input-field" />
+                </label>
+                <label className="block">
+                  <span className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Payment method</span>
+                  <select value={payMethod} onChange={e => setPayMethod(e.target.value)} className="input-field">
+                    {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m.replace('_', ' ')}</option>)}
+                  </select>
+                </label>
+                <div className="flex items-end">
+                  <button type="button" onClick={handleVatPayment} disabled={payLoading} className="btn-primary w-full text-sm">
+                    {payLoading ? 'Posting…' : 'Post VAT Payment'}
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="rounded-xl border border-white/10 overflow-hidden">
-            <div className="px-4 py-3 border-b border-white/10 text-sm font-semibold text-white">Tax codes</div>
-            <table className="w-full text-sm">
+          </AccountingPanel>
+
+          <AccountingPanel title="Tax codes">
+            <AccountingTable>
+              <thead>
+                <tr>
+                  <AccountingTh>Code</AccountingTh>
+                  <AccountingTh>Name</AccountingTh>
+                  <AccountingTh>Rate</AccountingTh>
+                  <AccountingTh>GL Account</AccountingTh>
+                </tr>
+              </thead>
               <tbody>
                 {taxCodes.map(t => (
-                  <tr key={t.code} className="border-t border-white/5">
-                    <td className="px-4 py-2 font-mono text-violet-300">{t.code}</td>
-                    <td className="px-4 py-2 text-slate-300">{t.name}</td>
-                    <td className="px-4 py-2 text-slate-400">{t.type} · {t.rate}%</td>
-                    <td className="px-4 py-2 text-slate-500">{t.glAccount.code}</td>
+                  <tr key={t.code}>
+                    <AccountingTd mono className="text-violet-400">{t.code}</AccountingTd>
+                    <AccountingTd>{t.name}</AccountingTd>
+                    <AccountingTd>{t.type} · {t.rate}%</AccountingTd>
+                    <AccountingTd mono>{t.glAccount.code}</AccountingTd>
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </AccountingTable>
+          </AccountingPanel>
         </>
       )}
-    </div>
-  )
-}
-
-function Stat({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {
-  return (
-    <div className={`rounded-xl border p-4 ${highlight ? 'border-violet-500/30 bg-violet-500/5' : 'border-white/10 bg-white/[0.02]'}`}>
-      <p className="text-xs text-slate-500">{label}</p>
-      <p className={`text-xl font-bold mt-1 ${highlight ? 'text-violet-300' : 'text-white'}`}>{formatCurrency(value)}</p>
-    </div>
+    </AccountingPageShell>
   )
 }

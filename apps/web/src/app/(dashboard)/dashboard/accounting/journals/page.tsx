@@ -1,10 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 import {
-  ArrowLeft, ChevronRight, Loader2, Plus, RefreshCw, RotateCcw,
-  FileText, X, Check,
+  ChevronRight, Loader2, Plus, RefreshCw, RotateCcw,
+  FileText, Check,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useFeatureFlag } from '@/lib/hooks'
@@ -13,6 +12,17 @@ import { downloadCsv } from '@/lib/export-csv'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday } from '@/lib/business-date'
 import { getActiveBranchId } from '@/lib/active-branch'
+import {
+  AccountingPageShell,
+  AccountingFeatureGate,
+  AccountingModal,
+  AccountingPageHeader,
+  AccountingPanel,
+  AccountingStatusBadge,
+  AccountingTable,
+  AccountingTd,
+  AccountingTh,
+} from '@/components/accounting/accounting-ui'
 
 type GlAccount = { id: string; code: string; name: string; type: string }
 
@@ -245,73 +255,50 @@ export default function JournalsPage() {
     }
   }
 
-  if (!hasAccess) {
-    return <div className="p-6 text-center text-slate-400"><Link href="/settings" className="text-violet-400">Enable Accounting</Link></div>
-  }
+  if (!hasAccess) return <AccountingFeatureGate />
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-6xl">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <Link href="/dashboard/accounting" className="text-slate-400 hover:text-white">
-          <ArrowLeft size={20} />
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <FileText className="text-violet-400" size={26} />
-            Journal Entries
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">Browse GL journals and post manual adjustments</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)}
-            className="px-3 py-2 rounded-lg text-sm bg-slate-900 border border-white/10 text-slate-300" />
-          <input type="date" value={toDate} onChange={e => setToDate(e.target.value)}
-            className="px-3 py-2 rounded-lg text-sm bg-slate-900 border border-white/10 text-slate-300" />
-          <input type="search" placeholder="Search entry / memo" value={search} onChange={e => setSearch(e.target.value)}
-            className="px-3 py-2 rounded-lg text-sm bg-slate-900 border border-white/10 text-slate-300 w-40" />
-          <select
-            value={sourceFilter}
-            onChange={e => setSourceFilter(e.target.value)}
-            className="px-3 py-2 rounded-lg text-sm bg-slate-900 border border-white/10 text-slate-300"
-          >
-            <option value="">All sources</option>
-            <option value="MANUAL">Manual</option>
-            <option value="SALES">Sales</option>
-            <option value="PURCHASE">Purchase</option>
-            <option value="REPAIR">Repair</option>
-            <option value="EXPENSE">Expense</option>
-            <option value="AR">AR</option>
-            <option value="AP">AP</option>
-            <option value="PERIOD_CLOSE">Period close</option>
-            <option value="DAILY_CLOSING">Daily closing</option>
-          </select>
-          <button type="button" onClick={exportJournals} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm border border-white/10 text-slate-300">Export CSV</button>
-          <button
-            type="button"
-            onClick={load}
-            disabled={loading}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm border border-white/10 text-slate-300 hover:bg-white/5"
-          >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          </button>
-          <button
-            type="button"
-            onClick={() => { setShowCreate(true); resetForm() }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-violet-600 hover:bg-violet-500 text-white"
-          >
-            <Plus size={14} />
-            Manual Entry
-          </button>
-        </div>
-      </div>
+    <AccountingPageShell>
+      <AccountingPageHeader
+        title="Journal Entries"
+        subtitle="Browse GL journals and post manual adjustments"
+        icon={FileText}
+        actions={
+          <>
+            <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="input-field w-auto text-sm" />
+            <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="input-field w-auto text-sm" />
+            <input type="search" placeholder="Search entry / memo" value={search} onChange={e => setSearch(e.target.value)}
+              className="input-field w-40 text-sm" />
+            <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)} className="input-field w-auto text-sm">
+              <option value="">All sources</option>
+              <option value="MANUAL">Manual</option>
+              <option value="SALES">Sales</option>
+              <option value="PURCHASE">Purchase</option>
+              <option value="REPAIR">Repair</option>
+              <option value="EXPENSE">Expense</option>
+              <option value="AR">AR</option>
+              <option value="AP">AP</option>
+              <option value="PERIOD_CLOSE">Period close</option>
+              <option value="DAILY_CLOSING">Daily closing</option>
+            </select>
+            <button type="button" onClick={exportJournals} className="btn-secondary text-sm">Export CSV</button>
+            <button type="button" onClick={load} disabled={loading} className="btn-secondary p-2">
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            </button>
+            <button type="button" onClick={() => { setShowCreate(true); resetForm() }} className="btn-primary flex items-center gap-2 text-sm">
+              <Plus size={14} /> Manual Entry
+            </button>
+          </>
+        }
+      />
 
       {pending.length > 0 && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-2">
+        <div className="card p-4 space-y-2 border-amber-500/25 bg-amber-500/5">
           <p className="text-sm font-semibold text-amber-200">{pending.length} journal(s) awaiting approval</p>
           {pending.map(p => (
             <div key={p.id} className="flex items-center justify-between text-sm gap-2">
-              <span className="font-mono text-violet-300">{p.entryNo}</span>
-              <span className="text-slate-400">{formatCurrency(p.totalDebit)}</span>
+              <span className="font-mono text-violet-400">{p.entryNo}</span>
+              <span style={{ color: 'var(--text-muted)' }}>{formatCurrency(p.totalDebit)}</span>
               <div className="flex gap-2">
                 <button type="button" onClick={() => handleApprove(p.id)} className="text-xs text-emerald-400">Approve</button>
                 <button type="button" onClick={() => handleReject(p.id)} className="text-xs text-red-400">Reject</button>
@@ -321,46 +308,43 @@ export default function JournalsPage() {
         </div>
       )}
 
-      <div className="grid lg:grid-cols-5 gap-4">
-        <div className="lg:col-span-2 rounded-xl border border-white/10 overflow-hidden">
-          <div className="px-4 py-3 border-b border-white/10 text-sm font-semibold text-white">
-            Journal entries
-          </div>
+      <div className="grid xl:grid-cols-12 gap-4 w-full">
+        <AccountingPanel title="Journal entries" className="xl:col-span-4">
           {loading ? (
             <div className="flex justify-center py-12"><Loader2 className="animate-spin text-violet-400" /></div>
           ) : journals.length === 0 ? (
-            <p className="p-6 text-sm text-slate-500 text-center">No journals found</p>
+            <p className="p-6 text-sm text-center" style={{ color: 'var(--text-muted)' }}>No journals found</p>
           ) : (
-            <ul className="max-h-[520px] overflow-y-auto divide-y divide-white/5">
+            <ul className="max-h-[520px] overflow-y-auto divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
               {journals.map(j => (
                 <li key={j.id}>
                   <button
                     type="button"
                     onClick={() => setSelectedId(j.id)}
-                    className={`w-full text-left px-4 py-3 hover:bg-white/[0.03] flex items-center gap-2 ${selectedId === j.id ? 'bg-violet-500/10' : ''}`}
+                    className={`w-full text-left px-4 py-3 hover:bg-white/[0.03] flex items-center gap-2 transition-colors ${selectedId === j.id ? 'bg-violet-500/10' : ''}`}
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-mono text-violet-300 truncate">{j.entryNo}</p>
-                      <p className="text-xs text-slate-500">{j.entryDate} · {j.sourceModule}</p>
+                      <p className="text-sm font-mono text-violet-400 truncate">{j.entryNo}</p>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{j.entryDate} · {j.sourceModule}</p>
                       {j.status === 'PENDING_APPROVAL' && (
-                        <span className="text-[10px] text-amber-400">Pending approval</span>
+                        <AccountingStatusBadge tone="warning">Pending approval</AccountingStatusBadge>
                       )}
-                      {j.memo && <p className="text-xs text-slate-400 truncate mt-0.5">{j.memo}</p>}
+                      {j.memo && <p className="text-xs truncate mt-0.5" style={{ color: 'var(--text-secondary)' }}>{j.memo}</p>}
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-xs font-medium text-slate-300">{formatCurrency(j.totalDebit)}</p>
-                      <ChevronRight size={14} className="text-slate-600 ml-auto mt-1" />
+                      <p className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(j.totalDebit)}</p>
+                      <ChevronRight size={14} className="ml-auto mt-1" style={{ color: 'var(--text-muted)' }} />
                     </div>
                   </button>
                 </li>
               ))}
             </ul>
           )}
-        </div>
+        </AccountingPanel>
 
-        <div className="lg:col-span-3 rounded-xl border border-white/10 p-4 min-h-[320px]">
+        <div className="xl:col-span-8 card p-4 min-h-[320px]">
           {!selectedId ? (
-            <div className="flex flex-col items-center justify-center h-full py-16 text-slate-500 text-sm">
+            <div className="flex flex-col items-center justify-center h-full py-16 text-sm" style={{ color: 'var(--text-muted)' }}>
               Select a journal to view lines
             </div>
           ) : detailLoading ? (
@@ -369,12 +353,12 @@ export default function JournalsPage() {
             <div className="space-y-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-bold text-white font-mono">{detail.entryNo}</h2>
-                  <p className="text-sm text-slate-400">{detail.entryDate} · {detail.sourceModule}</p>
+                  <h2 className="text-lg font-bold font-mono" style={{ color: 'var(--text-primary)' }}>{detail.entryNo}</h2>
+                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{detail.entryDate} · {detail.sourceModule}</p>
                   {detail.status === 'PENDING_APPROVAL' && (
-                    <span className="inline-block mt-1 text-xs text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">Pending approval</span>
+                    <AccountingStatusBadge tone="warning">Pending approval</AccountingStatusBadge>
                   )}
-                  {detail.memo && <p className="text-sm text-slate-300 mt-1">{detail.memo}</p>}
+                  {detail.memo && <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{detail.memo}</p>}
                   {detail.reversal && (
                     <p className="text-xs text-amber-400 mt-1">Reverses {detail.reversal.entryNo}</p>
                   )}
@@ -383,53 +367,46 @@ export default function JournalsPage() {
                   )}
                 </div>
                 {detail.sourceModule === 'MANUAL' && !detail.reversedBy && (
-                  <button
-                    type="button"
-                    onClick={handleReverse}
-                    disabled={reverseLoading}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs border border-amber-500/30 text-amber-300 hover:bg-amber-500/10"
-                  >
+                  <button type="button" onClick={handleReverse} disabled={reverseLoading}
+                    className="btn-secondary flex items-center gap-2 text-xs text-amber-300 border-amber-500/30">
                     {reverseLoading ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
                     Reverse
                   </button>
                 )}
               </div>
-              <table className="w-full text-sm">
-                <thead className="text-left text-xs text-slate-500 border-b border-white/10">
+              <AccountingTable>
+                <thead>
                   <tr>
-                    <th className="py-2 font-medium">Account</th>
-                    <th className="py-2 font-medium">Description</th>
-                    <th className="py-2 font-medium text-right">Debit</th>
-                    <th className="py-2 font-medium text-right">Credit</th>
+                    <AccountingTh>Account</AccountingTh>
+                    <AccountingTh>Description</AccountingTh>
+                    <AccountingTh align="right">Debit</AccountingTh>
+                    <AccountingTh align="right">Credit</AccountingTh>
                   </tr>
                 </thead>
                 <tbody>
                   {detail.lines.map(l => (
-                    <tr key={l.id} className="border-t border-white/5">
-                      <td className="py-2">
-                        <span className="font-mono text-violet-300">{l.account.code}</span>
-                        <span className="text-slate-400 ml-2">{l.account.name}</span>
-                      </td>
-                      <td className="py-2 text-slate-400">{l.description ?? '—'}</td>
-                      <td className="py-2 text-right text-slate-200">{l.debit > 0 ? formatCurrency(l.debit) : '—'}</td>
-                      <td className="py-2 text-right text-slate-200">{l.credit > 0 ? formatCurrency(l.credit) : '—'}</td>
+                    <tr key={l.id}>
+                      <AccountingTd>
+                        <span className="font-mono text-violet-400">{l.account.code}</span>
+                        <span className="ml-2">{l.account.name}</span>
+                      </AccountingTd>
+                      <AccountingTd>{l.description ?? '—'}</AccountingTd>
+                      <AccountingTd align="right">{l.debit > 0 ? formatCurrency(l.debit) : '—'}</AccountingTd>
+                      <AccountingTd align="right">{l.credit > 0 ? formatCurrency(l.credit) : '—'}</AccountingTd>
                     </tr>
                   ))}
                 </tbody>
-                <tfoot className="border-t border-white/10 text-xs font-semibold">
-                  <tr>
-                    <td colSpan={2} className="py-2 text-slate-400">Total</td>
-                    <td className="py-2 text-right text-white">{formatCurrency(detail.totalDebit)}</td>
-                    <td className="py-2 text-right text-white">{formatCurrency(detail.totalCredit)}</td>
-                  </tr>
-                </tfoot>
-              </table>
+              </AccountingTable>
+              <div className="flex justify-between text-xs font-semibold px-4" style={{ color: 'var(--text-muted)' }}>
+                <span>Total</span>
+                <span>{formatCurrency(detail.totalDebit)} / {formatCurrency(detail.totalCredit)}</span>
+              </div>
               {detail.createdByEmail && (
-                <p className="text-xs text-slate-600">Posted by {detail.createdByEmail}</p>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Posted by {detail.createdByEmail}</p>
               )}
               {(detail.integrationLinks?.length ?? 0) > 0 && (
-                <div className="text-xs text-slate-500 space-y-1">
-                  <p className="font-semibold text-slate-400">Source documents</p>
+                <div className="text-xs space-y-1" style={{ color: 'var(--text-muted)' }}>
+                  <p className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Source documents</p>
                   {detail.integrationLinks!.map((l, i) => (
                     <p key={i}>{l.sourceType} · {l.eventType} · {l.sourceId.slice(0, 12)}…</p>
                   ))}
@@ -441,139 +418,85 @@ export default function JournalsPage() {
       </div>
 
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl border border-white/10 bg-slate-900 shadow-xl">
-            <div className="sticky top-0 flex items-center justify-between px-5 py-4 border-b border-white/10 bg-slate-900">
-              <h2 className="text-lg font-bold text-white">New Manual Journal</h2>
-              <button type="button" onClick={() => setShowCreate(false)} className="text-slate-400 hover:text-white">
-                <X size={20} />
+        <AccountingModal title="New Manual Journal" icon={FileText} onClose={() => setShowCreate(false)} wide>
+          <div className="space-y-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <label className="block">
+                <span className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Entry date</span>
+                <input type="date" value={entryDate} onChange={e => setEntryDate(e.target.value)} className="input-field text-sm" />
+              </label>
+              <label className="block">
+                <span className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Memo</span>
+                <input type="text" value={memo} onChange={e => setMemo(e.target.value)} placeholder="e.g. Month-end adjustment" className="input-field text-sm" />
+              </label>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase" style={{ color: 'var(--text-muted)' }}>Lines</span>
+                <button type="button" onClick={addLine} className="text-xs text-violet-400 hover:text-violet-300">+ Add line</button>
+              </div>
+              {lines.map((l, i) => (
+                <div key={l.key} className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-4">
+                    {i === 0 && <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Account</span>}
+                    <select value={l.accountId} onChange={e => updateLine(l.key, { accountId: e.target.value })} className="input-field text-xs">
+                      <option value="">Select…</option>
+                      {accounts.map(a => (
+                        <option key={a.id} value={a.id}>{a.code} — {a.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-span-3">
+                    {i === 0 && <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Description</span>}
+                    <input type="text" value={l.description} onChange={e => updateLine(l.key, { description: e.target.value })} className="input-field text-xs" />
+                  </div>
+                  <div className="col-span-2">
+                    {i === 0 && <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Debit</span>}
+                    <input type="number" min="0" step="0.01" value={l.debit}
+                      onChange={e => updateLine(l.key, { debit: e.target.value, credit: e.target.value ? '' : l.credit })}
+                      className="input-field text-xs text-right" />
+                  </div>
+                  <div className="col-span-2">
+                    {i === 0 && <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Credit</span>}
+                    <input type="number" min="0" step="0.01" value={l.credit}
+                      onChange={e => updateLine(l.key, { credit: e.target.value, debit: e.target.value ? '' : l.debit })}
+                      className="input-field text-xs text-right" />
+                  </div>
+                  <div className="col-span-1 flex justify-center pb-2">
+                    <button type="button" onClick={() => removeLine(l.key)} disabled={lines.length <= 2}
+                      className="text-red-400 opacity-60 hover:opacity-100 disabled:opacity-20 text-sm">×</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className={`flex items-center justify-between px-4 py-3 rounded-lg border ${totals.balanced ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-amber-500/30 bg-amber-500/5'}`}>
+              <div className="text-sm">
+                <span style={{ color: 'var(--text-muted)' }}>Debit </span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{formatCurrency(totals.debit)}</span>
+                <span className="mx-2" style={{ color: 'var(--text-muted)' }}>·</span>
+                <span style={{ color: 'var(--text-muted)' }}>Credit </span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{formatCurrency(totals.credit)}</span>
+              </div>
+              {totals.balanced ? (
+                <span className="flex items-center gap-1 text-xs text-emerald-400"><Check size={14} /> Balanced</span>
+              ) : (
+                <span className="text-xs text-amber-400">Out of balance by {formatCurrency(Math.abs(totals.debit - totals.credit))}</span>
+              )}
+            </div>
+
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setShowCreate(false)} className="btn-secondary flex-1 text-sm">Cancel</button>
+              <button type="button" onClick={handleCreate} disabled={submitLoading || !totals.balanced}
+                className="btn-primary flex-1 flex items-center justify-center gap-2 text-sm disabled:opacity-50">
+                {submitLoading ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                Post Journal
               </button>
             </div>
-            <div className="p-5 space-y-4">
-              <div className="grid sm:grid-cols-2 gap-4">
-                <label className="block">
-                  <span className="text-xs text-slate-500">Entry date</span>
-                  <input
-                    type="date"
-                    value={entryDate}
-                    onChange={e => setEntryDate(e.target.value)}
-                    className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-sm"
-                  />
-                </label>
-                <label className="block sm:col-span-1">
-                  <span className="text-xs text-slate-500">Memo</span>
-                  <input
-                    type="text"
-                    value={memo}
-                    onChange={e => setMemo(e.target.value)}
-                    placeholder="e.g. Month-end adjustment"
-                    className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-sm"
-                  />
-                </label>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-400 uppercase">Lines</span>
-                  <button type="button" onClick={addLine} className="text-xs text-violet-400 hover:text-violet-300">+ Add line</button>
-                </div>
-                {lines.map((l, i) => (
-                  <div key={l.key} className="grid grid-cols-12 gap-2 items-end">
-                    <div className="col-span-4">
-                      {i === 0 && <span className="text-[10px] text-slate-600">Account</span>}
-                      <select
-                        value={l.accountId}
-                        onChange={e => updateLine(l.key, { accountId: e.target.value })}
-                        className="w-full px-2 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-xs"
-                      >
-                        <option value="">Select…</option>
-                        {accounts.map(a => (
-                          <option key={a.id} value={a.id}>{a.code} — {a.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="col-span-3">
-                      {i === 0 && <span className="text-[10px] text-slate-600">Description</span>}
-                      <input
-                        type="text"
-                        value={l.description}
-                        onChange={e => updateLine(l.key, { description: e.target.value })}
-                        className="w-full px-2 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-xs"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      {i === 0 && <span className="text-[10px] text-slate-600">Debit</span>}
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={l.debit}
-                        onChange={e => updateLine(l.key, { debit: e.target.value, credit: e.target.value ? '' : l.credit })}
-                        className="w-full px-2 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-xs text-right"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      {i === 0 && <span className="text-[10px] text-slate-600">Credit</span>}
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={l.credit}
-                        onChange={e => updateLine(l.key, { credit: e.target.value, debit: e.target.value ? '' : l.debit })}
-                        className="w-full px-2 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-xs text-right"
-                      />
-                    </div>
-                    <div className="col-span-1 flex justify-center pb-2">
-                      <button
-                        type="button"
-                        onClick={() => removeLine(l.key)}
-                        disabled={lines.length <= 2}
-                        className="text-slate-600 hover:text-red-400 disabled:opacity-30"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className={`flex items-center justify-between px-4 py-3 rounded-lg border ${totals.balanced ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-amber-500/30 bg-amber-500/5'}`}>
-                <div className="text-sm">
-                  <span className="text-slate-400">Debit </span>
-                  <span className="text-white font-medium">{formatCurrency(totals.debit)}</span>
-                  <span className="text-slate-600 mx-2">·</span>
-                  <span className="text-slate-400">Credit </span>
-                  <span className="text-white font-medium">{formatCurrency(totals.credit)}</span>
-                </div>
-                {totals.balanced ? (
-                  <span className="flex items-center gap-1 text-xs text-emerald-400"><Check size={14} /> Balanced</span>
-                ) : (
-                  <span className="text-xs text-amber-400">Out of balance by {formatCurrency(Math.abs(totals.debit - totals.credit))}</span>
-                )}
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCreate(false)}
-                  className="px-4 py-2 rounded-lg text-sm border border-white/10 text-slate-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCreate}
-                  disabled={submitLoading || !totals.balanced}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-50"
-                >
-                  {submitLoading ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                  Post Journal
-                </button>
-              </div>
-            </div>
           </div>
-        </div>
+        </AccountingModal>
       )}
-    </div>
+    </AccountingPageShell>
   )
 }
