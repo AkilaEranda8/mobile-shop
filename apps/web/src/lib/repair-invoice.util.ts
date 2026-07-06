@@ -34,6 +34,8 @@ export function buildRepairInvoiceSale(
   const total = Math.max(0, subtotal - discount)
   const isPaid = opts?.isPaid ?? repair.status === 'DELIVERED'
   const warrantyMonths = resolveRepairWarrantyMonths(repair, settings)
+  const paidAmount = isPaid ? (Number(repair.paidAmount) ?? total) : 0
+  const dueAmount = isPaid ? (Number(repair.dueAmount) ?? Math.max(0, total - paidAmount)) : total
 
   const items: Array<{
     productName: string
@@ -91,8 +93,8 @@ export function buildRepairInvoiceSale(
     discount,
     tax: 0,
     total,
-    paidAmount: isPaid ? total : 0,
-    dueAmount: isPaid ? 0 : total,
+    paidAmount,
+    dueAmount,
     warrantyMonths,
   }
 }

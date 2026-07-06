@@ -92,6 +92,7 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
     reloadSettings,
     newCustomers,
     repairsCompleted,
+    deliveredRepairs,
     imeiSoldToday,
     imeiRegistered,
     pendingImeis,
@@ -113,6 +114,10 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
     prisma.customer.count({ where: { tenantId, createdAt: { gte: start, lte: end } } }),
     prisma.repairTicket.count({
       where: { ...branchFilter, status: 'DELIVERED', completedAt: { gte: start, lte: end } },
+    }),
+    prisma.repairTicket.findMany({
+      where: { ...branchFilter, status: 'DELIVERED', completedAt: { gte: start, lte: end } },
+      select: { spareParts: { select: { quantity: true, unitBuyCost: true } } },
     }),
     prisma.imeiRecord.count({
       where: { ...imeiWhere, status: 'SOLD', updatedAt: { gte: start, lte: end } },
@@ -145,7 +150,6 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
   // Aggregate repair revenue/cash from the Finance transaction only (below) and keep
   // these repair-source sales out of the POS buckets to avoid double-counting.
   const posSales = sales.filter(s => (s as any).source !== 'REPAIR')
-  const repairSales = sales.filter(s => (s as any).source === 'REPAIR')
 
   let mobileSales = 0
   let accessorySales = 0
@@ -273,17 +277,13 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
       AND  s.status != 'RETURNED'
   `
   const totalCogsAll = Number(cogsRaw[0]?.cogs ?? 0)
-  // Repair spare-part cost is part of repair income, not POS product sales — split it
-  // out so POS gross profit and repair margin are each reported correctly.
   let repairPartsCogs = 0
-  for (const sale of repairSales) {
-    for (const item of sale.items) {
-      if (item.productId && item.product) {
-        repairPartsCogs += item.quantity * Number((item.product as any).buyingPrice ?? 0)
-      }
+  for (const repair of deliveredRepairs) {
+    for (const part of repair.spareParts) {
+      repairPartsCogs += Number(part.quantity) * Number(part.unitBuyCost ?? 0)
     }
   }
-  const cogs = Math.max(0, totalCogsAll - repairPartsCogs)
+  const cogs = totalCogsAll
   const grossSales = totalSales + repairIncome + billPaymentIncome + otherIncome + creditPayments
   const grossProfit = totalSales - cogs - refundsTotal
   const netProfit = grossSales + reloadCommission - cogs - repairPartsCogs - totalExpenses - refundsTotal

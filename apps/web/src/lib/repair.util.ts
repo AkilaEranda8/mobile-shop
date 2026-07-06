@@ -49,3 +49,43 @@ export function repairNextStatus(status: string): string | null {
 export function repairPartsLocked(status: string): boolean {
   return status === 'DELIVERED' || status === 'CANCELLED'
 }
+
+export function repairTicketEditable(status: string): boolean {
+  return status !== 'DELIVERED' && status !== 'CANCELLED'
+}
+
+/** Payment breakdown for repair detail / invoice. */
+export function repairPaymentSummary(
+  repair: Pick<RepairTicket, 'status' | 'estimatedCost' | 'actualCost' | 'paidAmount' | 'dueAmount'>,
+) {
+  const quote = Number(repair.estimatedCost) || 0
+  const isPaid = repair.status === 'DELIVERED'
+  const billTotal = isPaid ? (Number(repair.actualCost) ?? quote) : quote
+  const paid = isPaid ? (Number(repair.paidAmount) ?? billTotal) : 0
+  const due = isPaid ? (Number(repair.dueAmount) ?? Math.max(0, billTotal - paid)) : quote
+  const discount = isPaid ? Math.max(0, quote - billTotal) : 0
+  return {
+    quote,
+    billTotal,
+    paid,
+    due,
+    discount,
+    isPaid,
+    isPartial: isPaid && due > 0,
+    isFull: isPaid && due <= 0,
+  }
+}
+
+/** Parse device brand/model from combined repair warranty product name. */
+export function parseRepairWarrantyDevice(productName?: string, brandName?: string) {
+  const brand = brandName?.trim() || ''
+  const name = productName?.trim() || ''
+  const match = name.match(/^Repair – (.+?) \|/)
+  if (!match) return { deviceBrand: brand, deviceModel: brand ? '' : name }
+  const deviceLabel = match[1].trim()
+  if (brand && deviceLabel.toLowerCase().startsWith(brand.toLowerCase())) {
+    return { deviceBrand: brand, deviceModel: deviceLabel.slice(brand.length).trim() || deviceLabel }
+  }
+  const [first, ...rest] = deviceLabel.split(' ')
+  return { deviceBrand: brand || first || '', deviceModel: brand ? deviceLabel : rest.join(' ') }
+}

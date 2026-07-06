@@ -662,6 +662,8 @@ model RepairTicket {
   reportedIssue       String
   estimatedCost       Float
   actualCost          Float?
+  paidAmount          Float?
+  dueAmount           Float?
   status              RepairStatus   @default(RECEIVED)
   priority            RepairPriority @default(NORMAL)
   technicianId        String?

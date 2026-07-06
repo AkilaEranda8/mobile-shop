@@ -228,6 +228,8 @@ export interface RepairTicket {
   reportedIssue: string
   estimatedCost: number
   actualCost?: number
+  paidAmount?: number
+  dueAmount?: number
   status: RepairStatus
   priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'
   technicianId?: string

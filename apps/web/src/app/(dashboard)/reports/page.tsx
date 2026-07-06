@@ -16,13 +16,24 @@ import {
 import {
   useRevenue, useTopProducts, useRepairsByStatus, useRepairs, useProducts,
   useInventorySummary, useDeliverySummary, useAnalyticsDashboard,
-  useFinanceSummary, useDailyReloadReport, useFeatureFlag,
+  useFinanceSummary, useDailyReloadReport, useFeatureFlag, usePlStatement,
 } from '@/lib/hooks'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { formatCurrency } from '@/lib/utils'
-import { buildRepairPartsReport, aggregateRepairPartsReports } from '@/lib/repair-parts-report.util'
+import {
+  aggregateRepairStatement,
+  buildRepairStatementRows,
+  buildCsvContent,
+  computeStatusBreakdown,
+  FULL_STATEMENT_HEADERS,
+  fullStatementCsvRow,
+  groupDeliveredByDay,
+  PARTS_DETAIL_HEADERS,
+  partsDetailCsvRows,
+} from '@/lib/repair-statement.util'
 import type { RepairTicket } from '@/types'
 import { businessToday, businessPeriodFrom, shiftBusinessDate, formatBusinessDateLabel } from '@/lib/business-date'
+import { PlStatementBody, type PlStatementLine } from '@/components/finance/PlStatementBody'
 
 /* ── constants ─────────────────────────────────────────────────── */
 const TOOLTIP_STYLE = {
@@ -78,8 +89,8 @@ function SectionTitle({ title, sub }: { title: string; sub?: string }) {
 
 function ExportCSV({ filename, rows, headers }: { filename: string; rows: (string | number)[][]; headers: string[] }) {
   const handle = () => {
-    const csv  = [headers, ...rows].map(r => r.join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
+    const csv  = buildCsvContent(headers, rows)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const a    = document.createElement('a')
     a.href     = URL.createObjectURL(blob); a.download = filename; a.click()
   }
@@ -431,86 +442,36 @@ function InventoryTab({ branchId }: { branchId?: string }) {
 }
 
 /* ── Repairs Tab ────────────────────────────────────────────────── */
-function RepairsTab({ branchId, fromDate, toDate }: { branchId?: string; fromDate: string; toDate: string }) {
-  const params = branchId ? { branchId } : undefined
-  const repairFetch = useRepairsByStatus(params)
-  const { data: repairStatusData } = repairFetch
-  const statusArr: any[] = Array.isArray(repairStatusData) ? repairStatusData : []
+type RepairStatementFilter = 'all' | 'delivered' | 'active' | 'cancelled'
 
-  const total     = statusArr.reduce((s, r) => s + (r.count ?? 0), 0)
-  const delivered = statusArr.find(r => r.status === 'DELIVERED')?.count ?? 0
-  const active    = statusArr.filter(r => !['DELIVERED','CANCELLED'].includes(r.status)).reduce((s, r) => s + r.count, 0)
-  const cancelled = statusArr.find(r => r.status === 'CANCELLED')?.count ?? 0
-
-  const pieData = statusArr.map((r, i) => ({ name: STATUS_LABEL[r.status] ?? r.status, value: r.count ?? 0, fill: PIE_COLORS[i % PIE_COLORS.length] }))
-
-  const exportRows = statusArr.map(r => [STATUS_LABEL[r.status] ?? r.status, r.count ?? 0])
-
-  if (repairFetch.loading || repairFetch.error) {
-    return <ReportTabState loading={repairFetch.loading} error={repairFetch.error} label="repairs report" onRetry={repairFetch.refetch} />
-  }
-
+function StatementLine({ label, value, bold, highlight, indent }: {
+  label: string; value: string; bold?: boolean; highlight?: 'green' | 'amber' | 'muted'; indent?: boolean
+}) {
+  const color =
+    highlight === 'green' ? 'text-green-600 dark:text-green-400'
+    : highlight === 'amber' ? 'text-amber-600 dark:text-amber-400'
+    : highlight === 'muted' ? 'var(--text-muted)'
+    : 'var(--text-primary)'
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Total Jobs"    value={String(total)}     icon={Wrench}       color="violet" />
-        <StatCard label="Active Jobs"   value={String(active)}    icon={Clock}        color="yellow" />
-        <StatCard label="Completed"     value={String(delivered)} icon={CheckCircle}  color="green"  />
-        <StatCard label="Cancelled"     value={String(cancelled)} icon={XCircle}      color="red"    />
-      </div>
-
-      <div className="grid sm:grid-cols-2 gap-5">
-        {/* Pie chart */}
-        <div className="card p-5">
-          <SectionTitle title="Jobs by Status" />
-          <ResponsiveContainer width="100%" height={230}>
-            <PieChart>
-              <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={40}>
-                {pieData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
-              </Pie>
-              <Tooltip contentStyle={TOOLTIP_STYLE} />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Status breakdown list */}
-        <div className="card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <SectionTitle title="Status Breakdown" />
-            <ExportCSV filename="repairs-report.csv" headers={['Status','Count']} rows={exportRows} />
-          </div>
-          <div className="space-y-2">
-            {statusArr.map((r: any, i: number) => {
-              const pct = total > 0 ? Math.round((r.count / total) * 100) : 0
-              return (
-                <div key={i}>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span style={{ color: 'var(--text-primary)' }}>{STATUS_LABEL[r.status] ?? r.status}</span>
-                    <span style={{ color: 'var(--text-secondary)' }}>{r.count} <span style={{ color: 'var(--text-muted)' }}>({pct}%)</span></span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
-                  </div>
-                </div>
-              )
-            })}
-            {statusArr.length === 0 && <p className="text-xs text-center py-8" style={{ color: 'var(--text-muted)' }}>No repair data</p>}
-          </div>
-        </div>
-      </div>
-
-      <RepairsPartsProfitSection branchId={branchId} fromDate={fromDate} toDate={toDate} />
+    <div className={`flex justify-between items-center gap-4 text-xs ${indent ? 'pl-3' : ''}`}>
+      <span style={{ color: indent ? 'var(--text-muted)' : 'var(--text-secondary)' }}>{label}</span>
+      <span className={bold ? 'font-black text-sm' : 'font-semibold'} style={{ color }}>{value}</span>
     </div>
   )
 }
 
-/* ── Repair Parts & Profit ──────────────────────────────────────── */
-function RepairsPartsProfitSection({ branchId, fromDate, toDate }: { branchId?: string; fromDate: string; toDate: string }) {
-  const params: Record<string, string> = { from: fromDate, to: toDate, ...(branchId ? { branchId } : {}) }
-  const repairListFetch = useRepairs(params)
+function RepairsTab({ branchId, fromDate, toDate }: { branchId?: string; fromDate: string; toDate: string }) {
+  const baseParams: Record<string, string> = { ...(branchId ? { branchId } : {}) }
+  const receivedParams = { ...baseParams, from: fromDate, to: toDate }
+  const deliveredParams = { ...baseParams, completedFrom: fromDate, completedTo: toDate, status: 'DELIVERED' }
+
+  const receivedFetch = useRepairs(receivedParams)
+  const deliveredFetch = useRepairs(deliveredParams)
   const { data: productsData } = useProducts()
-  const repairs = (repairListFetch.data?.data ?? []) as RepairTicket[]
+  const [stmtFilter, setStmtFilter] = useState<RepairStatementFilter>('delivered')
+
+  const receivedRepairs = (receivedFetch.data?.data ?? []) as RepairTicket[]
+  const deliveredRepairs = (deliveredFetch.data?.data ?? []) as RepairTicket[]
 
   const getBuyPrice = useMemo(() => {
     const map = new Map<string, number>()
@@ -520,89 +481,231 @@ function RepairsPartsProfitSection({ branchId, fromDate, toDate }: { branchId?: 
     return (productId: string) => map.get(productId)
   }, [productsData])
 
-  const rows = useMemo(() => repairs
-    .filter(r => (r.spareParts?.length ?? 0) > 0 || Number(r.estimatedCost) > 0)
-    .map(r => ({ repair: r, report: buildRepairPartsReport(r, getBuyPrice) }))
-    .sort((a, b) => b.report.totalProfit - a.report.totalProfit),
-  [repairs, getBuyPrice])
+  const receivedBreakdown = useMemo(() => computeStatusBreakdown(receivedRepairs), [receivedRepairs])
+  const receivedTotal = receivedRepairs.length
+  const receivedActive = receivedRepairs.filter(r => !['DELIVERED', 'CANCELLED'].includes(r.status)).length
+  const receivedDelivered = receivedRepairs.filter(r => r.status === 'DELIVERED').length
+  const receivedCancelled = receivedRepairs.filter(r => r.status === 'CANCELLED').length
 
-  const totals = useMemo(() => aggregateRepairPartsReports(rows.map(r => r.report)), [rows])
+  const deliveredRows = useMemo(
+    () => buildRepairStatementRows(deliveredRepairs, getBuyPrice),
+    [deliveredRepairs, getBuyPrice],
+  )
+  const totals = useMemo(() => aggregateRepairStatement(deliveredRows), [deliveredRows])
+  const dailyData = useMemo(() => groupDeliveredByDay(deliveredRows), [deliveredRows])
 
-  const exportRows = rows.map(({ repair: r, report }) => [
-    r.ticketNumber,
-    `${r.deviceBrand} ${r.deviceModel}`,
-    r.status,
-    report.serviceCharge,
-    report.partsBuyTotal,
-    report.partsSellTotal,
-    report.partsProfit,
-    report.totalProfit,
-  ])
+  const pieData = receivedBreakdown.map((r, i) => ({
+    name: STATUS_LABEL[r.status] ?? r.status,
+    value: r.count,
+    fill: PIE_COLORS[i % PIE_COLORS.length],
+  }))
 
-  if (repairListFetch.loading || repairListFetch.error) {
-    return (
-      <ReportTabState
-        loading={repairListFetch.loading}
-        error={repairListFetch.error}
-        label="repair parts profit"
-        onRetry={repairListFetch.refetch}
-      />
-    )
+  const tableSource = useMemo(() => {
+    if (stmtFilter === 'delivered') return deliveredRows
+    const receivedRows = buildRepairStatementRows(receivedRepairs, getBuyPrice)
+    if (stmtFilter === 'active') {
+      return receivedRows.filter(r => !['DELIVERED', 'CANCELLED'].includes(r.repair.status))
+    }
+    if (stmtFilter === 'cancelled') {
+      return receivedRows.filter(r => r.repair.status === 'CANCELLED')
+    }
+    return receivedRows
+  }, [stmtFilter, deliveredRows, receivedRepairs, getBuyPrice])
+
+  const fullStatementExport = useMemo(
+    () => tableSource.map(fullStatementCsvRow),
+    [tableSource],
+  )
+  const partsDetailExport = useMemo(
+    () => partsDetailCsvRows(deliveredRows),
+    [deliveredRows],
+  )
+
+  const tabState = combineFetch(receivedFetch, deliveredFetch)
+  if (tabState.loading || tabState.error) {
+    return <ReportTabState loading={tabState.loading} error={tabState.error} label="repairs report" onRetry={tabState.refetch} />
   }
 
+  const periodLabel = `${fromDate} → ${toDate}`
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Jobs w/ Parts" value={String(totals.jobCount)} icon={Wrench} color="violet" />
-        <StatCard label="Parts Profit" value={formatCurrency(totals.partsProfit)} icon={TrendingUp} color="green" />
-        <StatCard label="Quote Total" value={formatCurrency(totals.serviceCharge)} icon={DollarSign} color="blue" />
-        <StatCard label="Net Profit" value={formatCurrency(totals.totalProfit)} icon={TrendingUp} color="green" />
+        <StatCard label="Jobs Received" value={String(receivedTotal)} icon={Wrench} color="violet" sub={periodLabel} />
+        <StatCard label="Active (Period)" value={String(receivedActive)} icon={Clock} color="yellow" />
+        <StatCard label="Delivered (Period)" value={String(totals.jobCount)} icon={CheckCircle} color="green" sub="By completion date" />
+        <StatCard label="Net Profit" value={formatCurrency(totals.totalProfit)} icon={TrendingUp} color="green" sub={`${totals.marginPct}% margin`} />
       </div>
 
-      <div className="card p-5">
-        <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-          <SectionTitle title="Parts & Profit by Job" />
-          <ExportCSV
-            filename="repair-parts-profit.csv"
-            headers={['Ticket', 'Device', 'Status', 'Quote', 'Parts Buy', 'Parts Sell', 'Parts Profit', 'Net Profit']}
-            rows={exportRows}
-          />
+      <div className="grid lg:grid-cols-5 gap-5">
+        <div className="lg:col-span-3 card p-5">
+          <SectionTitle title="Repair Financial Statement" sub={`Delivered jobs · ${periodLabel}`} />
+          <div className="rounded-xl border p-4 space-y-2.5" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+            <StatementLine label="Jobs Completed" value={String(totals.jobCount)} />
+            <StatementLine label="Customer Quotes" value={formatCurrency(totals.serviceCharge)} />
+            <StatementLine label="Less: Discounts" value={`−${formatCurrency(totals.discount)}`} highlight="amber" />
+            <div className="border-t my-2" style={{ borderColor: 'var(--border-subtle)' }} />
+            <StatementLine label="Collected Revenue" value={formatCurrency(totals.customerRevenue)} bold />
+            <StatementLine label="Cash Received" value={formatCurrency(totals.cashReceived)} indent />
+            <StatementLine label="Customer Credit (Due)" value={formatCurrency(totals.creditDue)} indent highlight={totals.creditDue > 0 ? 'amber' : 'muted'} />
+            <div className="border-t my-2" style={{ borderColor: 'var(--border-subtle)' }} />
+            <StatementLine label="Parts Inventory Cost" value={formatCurrency(totals.partsBuyTotal)} />
+            <StatementLine label="Parts Margin" value={formatCurrency(totals.partsMargin)} highlight="green" />
+            <StatementLine label="Labour Share" value={formatCurrency(totals.labourShare)} />
+            <div className="border-t my-2" style={{ borderColor: 'var(--border-subtle)' }} />
+            <StatementLine label="NET PROFIT" value={formatCurrency(totals.totalProfit)} bold highlight="green" />
+            <p className="text-[10px] pt-1" style={{ color: 'var(--text-muted)' }}>
+              Net profit = collected − parts buy · Avg {formatCurrency(totals.avgProfitPerJob)} per job
+            </p>
+          </div>
         </div>
+
+        <div className="lg:col-span-2 card p-5">
+          <SectionTitle title="Period Pipeline" sub="Jobs received in date range" />
+          <div className="space-y-2">
+            {[
+              { label: 'Received', value: receivedTotal, pct: 100 },
+              { label: 'Still Active', value: receivedActive, pct: receivedTotal ? Math.round((receivedActive / receivedTotal) * 100) : 0 },
+              { label: 'Delivered', value: receivedDelivered, pct: receivedTotal ? Math.round((receivedDelivered / receivedTotal) * 100) : 0 },
+              { label: 'Cancelled', value: receivedCancelled, pct: receivedTotal ? Math.round((receivedCancelled / receivedTotal) * 100) : 0 },
+            ].map((row, i) => (
+              <div key={row.label}>
+                <div className="flex justify-between text-xs mb-1">
+                  <span style={{ color: 'var(--text-primary)' }}>{row.label}</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>{row.value} <span style={{ color: 'var(--text-muted)' }}>({row.pct}%)</span></span>
+                </div>
+                <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                  <div className="h-full rounded-full" style={{ width: `${row.pct}%`, backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-5">
+        <div className="card p-5">
+          <SectionTitle title="Daily Delivered — Revenue & Profit" sub={periodLabel} />
+          {dailyData.length === 0 ? (
+            <div className="h-48 flex items-center justify-center text-sm" style={{ color: 'var(--text-muted)' }}>No delivered jobs in this period</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <ComposedChart data={dailyData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
+                <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} tickFormatter={v => formatCurrency(v)} width={70} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any) => formatCurrency(v)} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Bar dataKey="collected" name="Collected" fill="#6d28d9" radius={[4, 4, 0, 0]} />
+                <Line type="monotone" dataKey="profit" name="Net Profit" stroke="#16a34a" strokeWidth={2} dot={false} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <SectionTitle title="Status Breakdown" sub="Received in period" />
+            <ExportCSV filename="repairs-status.csv" headers={['Status', 'Count']} rows={receivedBreakdown.map(r => [STATUS_LABEL[r.status] ?? r.status, r.count])} />
+          </div>
+          {pieData.length === 0 ? (
+            <p className="text-xs text-center py-16" style={{ color: 'var(--text-muted)' }}>No repair jobs received in this period</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={78} innerRadius={38}>
+                  {pieData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                </Pie>
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+
+      <div className="card p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <SectionTitle title="Full Repair Statement" sub={`${tableSource.length} jobs · export for accounting`} />
+          <div className="flex flex-wrap items-center gap-2">
+            {([
+              ['delivered', 'Delivered'],
+              ['all', 'All Received'],
+              ['active', 'Active'],
+              ['cancelled', 'Cancelled'],
+            ] as const).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setStmtFilter(id)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors ${stmtFilter === id ? 'bg-violet-500/15 border-violet-500/30 text-violet-600 dark:text-violet-300' : ''}`}
+                style={stmtFilter !== id ? { borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' } : undefined}
+              >
+                {label}
+              </button>
+            ))}
+            <ExportCSV filename={`repair-statement-${fromDate}-${toDate}.csv`} headers={[...FULL_STATEMENT_HEADERS]} rows={fullStatementExport} />
+            <ExportCSV filename={`repair-parts-detail-${fromDate}-${toDate}.csv`} headers={[...PARTS_DETAIL_HEADERS]} rows={partsDetailExport} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <StatCard label="Quote Total" value={formatCurrency(totals.serviceCharge)} icon={DollarSign} color="blue" />
+          <StatCard label="Discounts" value={formatCurrency(totals.discount)} icon={DollarSign} color="amber" />
+          <StatCard label="Collected" value={formatCurrency(totals.customerRevenue)} icon={DollarSign} color="violet" />
+          <StatCard label="Parts Margin" value={formatCurrency(totals.partsMargin)} icon={Package} color="cyan" />
+          <StatCard label="Cash In" value={formatCurrency(totals.cashReceived)} icon={DollarSign} color="green" sub={totals.creditDue > 0 ? `${formatCurrency(totals.creditDue)} credit` : undefined} />
+        </div>
+
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-xs">
+          <table className="w-full min-w-[1200px] text-xs">
             <thead>
               <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                {['Ticket', 'Device', 'Status', 'Quote', 'Parts Buy', 'Parts Sell', 'Parts Profit', 'Net Profit'].map(h => (
-                  <th key={h} className="text-left py-2 px-2 font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{h}</th>
+                {['Ticket', 'Received', 'Completed', 'Customer', 'Device', 'Status', 'Quote', 'Discount', 'Collected', 'Cash', 'Credit', 'Parts', 'Parts Buy', 'Labour', 'Net Profit'].map(h => (
+                  <th key={h} className={`${['Ticket', 'Received', 'Completed', 'Customer', 'Device', 'Status'].includes(h) ? 'text-left' : 'text-right'} py-2 px-2 font-bold uppercase tracking-wide whitespace-nowrap`} style={{ color: 'var(--text-muted)' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {rows.length === 0 ? (
+              {tableSource.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-10 text-center" style={{ color: 'var(--text-muted)' }}>No repair jobs with parts or service charges yet</td>
+                  <td colSpan={15} className="py-12 text-center" style={{ color: 'var(--text-muted)' }}>No jobs match this filter for the selected period</td>
                 </tr>
-              ) : rows.map(({ repair: r, report }) => (
-                <tr key={r.id} className="border-b hover:bg-white/[0.02]" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <td className="py-2.5 px-2 font-mono text-violet-500">{r.ticketNumber}</td>
-                  <td className="py-2.5 px-2" style={{ color: 'var(--text-primary)' }}>{r.deviceBrand} {r.deviceModel}</td>
-                  <td className="py-2.5 px-2" style={{ color: 'var(--text-secondary)' }}>{STATUS_LABEL[r.status] ?? r.status}</td>
-                  <td className="py-2.5 px-2 text-right" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(report.serviceCharge)}</td>
-                  <td className="py-2.5 px-2 text-right" style={{ color: 'var(--text-muted)' }}>{formatCurrency(report.partsBuyTotal)}</td>
-                  <td className="py-2.5 px-2 text-right" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(report.partsSellTotal)}</td>
-                  <td className="py-2.5 px-2 text-right font-semibold text-green-600 dark:text-green-400">{formatCurrency(report.partsProfit)}</td>
-                  <td className="py-2.5 px-2 text-right font-bold text-green-600 dark:text-green-400">{formatCurrency(report.totalProfit)}</td>
-                </tr>
-              ))}
+              ) : tableSource.map(({ repair: r, report, payment }) => {
+                const isDelivered = r.status === 'DELIVERED'
+                return (
+                  <tr key={r.id} className="border-b hover:bg-white/[0.02]" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <td className="py-2.5 px-2 font-mono text-violet-500 whitespace-nowrap">{r.ticketNumber}</td>
+                    <td className="py-2.5 px-2 whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{r.createdAt?.slice(0, 10)}</td>
+                    <td className="py-2.5 px-2 whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{r.completedAt?.slice(0, 10) ?? '—'}</td>
+                    <td className="py-2.5 px-2 max-w-[120px] truncate" style={{ color: 'var(--text-primary)' }}>{r.customerName}</td>
+                    <td className="py-2.5 px-2 max-w-[140px] truncate" style={{ color: 'var(--text-secondary)' }}>{r.deviceBrand} {r.deviceModel}</td>
+                    <td className="py-2.5 px-2 whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{STATUS_LABEL[r.status] ?? r.status}</td>
+                    <td className="py-2.5 px-2 text-right" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(report.serviceCharge)}</td>
+                    <td className="py-2.5 px-2 text-right text-amber-600 dark:text-amber-400">{isDelivered && report.discount > 0 ? `−${formatCurrency(report.discount)}` : '—'}</td>
+                    <td className="py-2.5 px-2 text-right font-semibold" style={{ color: 'var(--text-primary)' }}>{isDelivered ? formatCurrency(report.customerRevenue) : '—'}</td>
+                    <td className="py-2.5 px-2 text-right text-green-600 dark:text-green-400">{isDelivered ? formatCurrency(payment.paid) : '—'}</td>
+                    <td className="py-2.5 px-2 text-right text-amber-600 dark:text-amber-400">{isDelivered && payment.due > 0 ? formatCurrency(payment.due) : '—'}</td>
+                    <td className="py-2.5 px-2 text-right" style={{ color: 'var(--text-muted)' }}>{r.spareParts?.length ?? 0}</td>
+                    <td className="py-2.5 px-2 text-right" style={{ color: 'var(--text-muted)' }}>{isDelivered ? formatCurrency(report.partsBuyTotal) : '—'}</td>
+                    <td className="py-2.5 px-2 text-right" style={{ color: 'var(--text-secondary)' }}>{isDelivered ? formatCurrency(report.labourShare) : '—'}</td>
+                    <td className="py-2.5 px-2 text-right font-bold text-green-600 dark:text-green-400">{isDelivered ? formatCurrency(report.netProfit) : '—'}</td>
+                  </tr>
+                )
+              })}
             </tbody>
-            {rows.length > 0 && (
+            {stmtFilter === 'delivered' && tableSource.length > 0 && (
               <tfoot>
                 <tr style={{ background: 'var(--bg-subtle)' }}>
-                  <td colSpan={3} className="py-2.5 px-2 font-bold" style={{ color: 'var(--text-muted)' }}>Totals</td>
+                  <td colSpan={6} className="py-2.5 px-2 font-bold" style={{ color: 'var(--text-muted)' }}>Totals (Delivered)</td>
                   <td className="py-2.5 px-2 text-right font-bold">{formatCurrency(totals.serviceCharge)}</td>
+                  <td className="py-2.5 px-2 text-right font-bold text-amber-600 dark:text-amber-400">{totals.discount > 0 ? `−${formatCurrency(totals.discount)}` : '—'}</td>
+                  <td className="py-2.5 px-2 text-right font-bold">{formatCurrency(totals.customerRevenue)}</td>
+                  <td className="py-2.5 px-2 text-right font-bold text-green-600 dark:text-green-400">{formatCurrency(totals.cashReceived)}</td>
+                  <td className="py-2.5 px-2 text-right font-bold text-amber-600 dark:text-amber-400">{totals.creditDue > 0 ? formatCurrency(totals.creditDue) : '—'}</td>
+                  <td className="py-2.5 px-2 text-right font-bold">{totals.partLineCount}</td>
                   <td className="py-2.5 px-2 text-right font-bold">{formatCurrency(totals.partsBuyTotal)}</td>
-                  <td className="py-2.5 px-2 text-right font-bold">{formatCurrency(totals.partsSellTotal)}</td>
-                  <td className="py-2.5 px-2 text-right font-bold text-green-600 dark:text-green-400">{formatCurrency(totals.partsProfit)}</td>
+                  <td className="py-2.5 px-2 text-right font-bold">{formatCurrency(totals.labourShare)}</td>
                   <td className="py-2.5 px-2 text-right font-bold text-green-600 dark:text-green-400">{formatCurrency(totals.totalProfit)}</td>
                 </tr>
               </tfoot>
@@ -848,95 +951,103 @@ function PLTab({ fromDate, toDate, branchId }: { fromDate: string; toDate: strin
     if (branchId) p.branchId = branchId
     return p
   }
-  const summaryFetch = useFinanceSummary(mkParams())
-  const { data: summaryData } = summaryFetch
+  const plFetch = usePlStatement(mkParams())
+  const { data: plData } = plFetch
 
   const periodDays = useMemo(() => {
     const ms = new Date(toDate).getTime() - new Date(fromDate).getTime()
     return Math.max(1, Math.round(ms / 86400000) + 1)
   }, [fromDate, toDate])
-  const prevToDate   = useMemo(() => shiftBusinessDate(fromDate, -1), [fromDate])
-  const prevFromDate = useMemo(() => shiftBusinessDate(fromDate, -periodDays), [fromDate, periodDays])
-  const prevParams: Record<string, string> = { from: prevFromDate, to: prevToDate }
-  if (branchId) prevParams.branchId = branchId
-  const prevFetch = useFinanceSummary(prevParams)
-  const { data: prevData } = prevFetch
-  const tabState = combineFetch(summaryFetch, prevFetch)
 
-  const s    = summaryData as any
-  const prev = prevData    as any
+  const d = plData as any
+  const summary = d?.summary ?? {}
+  const previous = d?.previous ?? {}
+  const margins = d?.margins ?? { gross: 0, net: 0 }
+  const incomeBreakdown: any[] = d?.incomeBreakdown ?? []
+  const expenseBreakdown: any[] = d?.expenseBreakdown ?? []
+  const insights: string[] = d?.insights ?? []
+  const statement: PlStatementLine[] = d?.statement ?? []
+  const repairAccrual = d?.repairAccrual ?? { jobs: 0 }
 
-  const salesRevenue = s?.salesRevenue ?? 0
-  const otherIncome  = s?.otherIncome  ?? 0
-  const totalIncome  = s?.totalIncome  ?? 0
-  const cogs         = s?.cogs         ?? 0
-  const grossProfit  = s?.grossProfit  ?? 0
-  const opExpenses   = s?.opExpenses   ?? 0
-  const netProfit    = s?.profit       ?? 0
-  const grossMargin  = salesRevenue > 0 ? Math.round((grossProfit / salesRevenue) * 100) : 0
-  const netMargin    = totalIncome  > 0 ? Math.round((netProfit   / totalIncome)  * 100) : 0
-  const cogsRatio    = salesRevenue > 0 ? Math.round((cogs        / salesRevenue) * 100) : 0
-  const opexRatio    = totalIncome  > 0 ? Math.round((opExpenses  / totalIncome)  * 100) : 0
+  const salesRevenue = summary.salesRevenue ?? 0
+  const otherIncome = summary.otherIncome ?? 0
+  const totalIncome = summary.totalIncome ?? 0
+  const cogs = summary.cogs ?? 0
+  const repairPartsCogs = summary.repairPartsCogs ?? 0
+  const posCogs = summary.posCogs ?? (cogs - repairPartsCogs)
+  const repairIncome = summary.repairIncome ?? 0
+  const grossProfit = summary.grossProfit ?? 0
+  const opExpenses = summary.opExpenses ?? 0
+  const netProfit = summary.profit ?? 0
+  const grossMargin = margins.gross ?? 0
+  const netMargin = margins.net ?? 0
+  const cogsRatio = salesRevenue > 0 ? Math.round((posCogs / salesRevenue) * 100) : 0
+  const opexRatio = totalIncome > 0 ? Math.round((opExpenses / totalIncome) * 100) : 0
 
   const delta = (curr: number, p: number) => {
     if (!p) return null
     const pct = Math.round(((curr - p) / Math.abs(p)) * 100)
     return { pct, up: curr >= p }
   }
-  const DeltaBadge = ({ d }: { d: { pct: number; up: boolean } | null }) => {
-    if (!d) return null
-    return <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded ${d.up ? 'bg-green-500/15 text-green-400' : 'bg-red-500/15 text-red-400'}`}>{d.up ? '▲' : '▼'} {Math.abs(d.pct)}%</span>
+  const DeltaBadge = ({ d: badge }: { d: { pct: number; up: boolean } | null }) => {
+    if (!badge) return null
+    return <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded ${badge.up ? 'bg-green-500/15 text-green-400' : 'bg-red-500/15 text-red-400'}`}>{badge.up ? '▲' : '▼'} {Math.abs(badge.pct)}%</span>
   }
 
   const waterfallData = [
-    { name: 'Revenue',    value: salesRevenue,                              fill: '#16a34a' },
-    { name: 'Oth.Income', value: otherIncome,                               fill: '#0e7490' },
-    { name: 'COGS',       value: -cogs,                                     fill: '#dc2626' },
-    { name: 'Gross P.',   value: grossProfit,                               fill: grossProfit >= 0 ? '#0891b2' : '#dc2626' },
-    { name: 'OpEx',       value: -opExpenses,                               fill: '#f97316' },
-    { name: 'Net Profit', value: netProfit,                                 fill: netProfit  >= 0 ? '#7c3aed' : '#dc2626' },
+    { name: 'POS Sales', value: salesRevenue, fill: '#16a34a' },
+    { name: 'Repairs', value: repairIncome, fill: '#7c3aed' },
+    { name: 'Other', value: Math.max(0, otherIncome - (summary.reloadCommission ?? 0)), fill: '#0e7490' },
+    { name: 'POS COGS', value: -posCogs, fill: '#dc2626' },
+    { name: 'Parts', value: -repairPartsCogs, fill: '#b91c1c' },
+    { name: 'OpEx', value: -opExpenses, fill: '#f97316' },
+    { name: 'Net', value: netProfit, fill: netProfit >= 0 ? '#7c3aed' : '#dc2626' },
   ]
 
-  type PLRow = { label: string; value?: number; pct?: number; bold?: boolean; separator?: boolean; positive?: boolean; indent?: boolean }
-  const plRows: PLRow[] = [
-    { label: 'Sales Revenue',        value: salesRevenue, positive: true                                  },
-    { label: 'Other Income',         value: otherIncome,  positive: true,  indent: true                  },
-    { label: 'Total Income',         value: totalIncome,  positive: true,  bold: true, separator: true    },
-    { label: 'Cost of Goods (COGS)', value: cogs,         positive: false, indent: true                  },
-    { label: 'Gross Profit',         value: grossProfit,  positive: grossProfit >= 0, bold: true          },
-    { label: 'Gross Margin',         pct: grossMargin,    positive: grossMargin >= 0, indent: true        },
-    { label: 'Operating Expenses',   value: opExpenses,   positive: false, indent: true, separator: true },
-    { label: 'Net Profit',           value: netProfit,    positive: netProfit >= 0,   bold: true          },
-    { label: 'Net Profit Margin',    pct: netMargin,      positive: netMargin >= 0,   indent: true        },
-  ]
-  const exportRows = plRows.filter(r => r.value !== undefined).map(r => [r.label, r.value!.toFixed(2)])
-
-  if (tabState.loading || tabState.error) {
-    return <ReportTabState loading={tabState.loading} error={tabState.error} label="P&amp;L report" onRetry={tabState.refetch} />
+  if (plFetch.loading || plFetch.error) {
+    return <ReportTabState loading={plFetch.loading} error={plFetch.error} label="P&amp;L report" onRetry={plFetch.refetch} />
   }
 
   return (
     <div className="space-y-5">
-      {/* KPI cards with prev period delta */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: 'Sales Revenue', val: salesRevenue, d: delta(salesRevenue, prev?.salesRevenue ?? 0), color: 'text-green-600 dark:text-green-400'  },
-          { label: 'Gross Profit',  val: grossProfit,  d: delta(grossProfit,  prev?.grossProfit  ?? 0), color: 'text-cyan-600 dark:text-cyan-400', sub: `${grossMargin}% margin` },
-          { label: 'Op. Expenses',  val: opExpenses,   d: delta(opExpenses,   prev?.opExpenses   ?? 0), color: 'text-orange-500 dark:text-orange-400' },
-          { label: 'Net Profit',    val: netProfit,    d: delta(netProfit,    prev?.profit       ?? 0), color: netProfit >= 0 ? 'text-violet-600 dark:text-violet-400' : 'text-red-500', sub: `${netMargin}% net margin` },
-        ].map(({ label, val, d, color, sub }) => (
+          { label: 'Sales Revenue', val: salesRevenue, d: delta(salesRevenue, previous?.salesRevenue ?? 0), color: 'text-green-600 dark:text-green-400' },
+          { label: 'Gross Profit', val: grossProfit, d: delta(grossProfit, previous?.grossProfit ?? 0), color: 'text-cyan-600 dark:text-cyan-400', sub: `${grossMargin}% margin` },
+          { label: 'Op. Expenses', val: opExpenses, d: delta(opExpenses, previous?.opExpenses ?? 0), color: 'text-orange-500 dark:text-orange-400' },
+          { label: 'Net Profit', val: netProfit, d: delta(netProfit, previous?.profit ?? 0), color: netProfit >= 0 ? 'text-violet-600 dark:text-violet-400' : 'text-red-500', sub: `${netMargin}% net margin` },
+        ].map(({ label, val, d: badge, color, sub }) => (
           <div key={label} className="card p-4">
             <p className="text-[11px] mb-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
             <div className="flex items-baseline gap-1 flex-wrap">
               <p className={`text-lg font-bold ${color}`}>{formatCurrency(val)}</p>
-              <DeltaBadge d={d} />
+              <DeltaBadge d={badge} />
             </div>
             {sub && <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
           </div>
         ))}
       </div>
 
-      {/* Waterfall chart */}
+      {insights.length > 0 && (
+        <div className="card p-5">
+          <SectionTitle title="Business Insights" />
+          <div className="space-y-2">
+            {insights.map((text, i) => (
+              <p key={i} className="text-xs" style={{ color: 'var(--text-secondary)' }}>{text}</p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {repairAccrual.jobs > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatCard label="Repair Jobs" value={String(repairAccrual.jobs)} icon={Wrench} color="violet" />
+          <StatCard label="Repair Collected" value={formatCurrency(repairAccrual.collected)} icon={DollarSign} color="blue" />
+          <StatCard label="Repair Parts Cost" value={formatCurrency(repairAccrual.partsBuy)} icon={Package} color="red" />
+          <StatCard label="Repair Net Profit" value={formatCurrency(repairAccrual.netProfit)} icon={TrendingUp} color="green" />
+        </div>
+      )}
+
       <div className="card p-5">
         <SectionTitle title="P&L Waterfall" sub="Revenue flow → costs → profit" />
         <ResponsiveContainer width="100%" height={220}>
@@ -953,38 +1064,50 @@ function PLTab({ fromDate, toDate, branchId }: { fromDate: string; toDate: strin
         </ResponsiveContainer>
       </div>
 
-      {/* P&L Statement */}
       <div className="card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <SectionTitle title="Profit & Loss Statement" sub={`${fromDate} → ${toDate}  ·  vs prev ${periodDays}d`} />
-          <ExportCSV filename="pl-report.csv" headers={['Item','Amount (LKR)']} rows={exportRows} />
-        </div>
-        <div className="overflow-hidden rounded-xl" style={{ border: '1px solid var(--border-subtle)' }}>
-          {plRows.map((row, i) => (
-            <div key={i}
-              className={['flex justify-between items-center px-4 py-2.5', row.bold ? 'font-semibold' : ''].join(' ')}
-              style={{
-                borderTop: row.separator ? '2px solid var(--border-default)' : i > 0 ? '1px solid var(--border-subtle)' : 'none',
-                background: row.bold ? 'var(--bg-subtle)' : 'transparent',
-              }}>
-              <span className={`text-sm ${row.indent ? 'pl-5' : ''}`} style={{ color: row.bold ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-                {row.label}
-              </span>
-              {row.value !== undefined ? (
-                <span className={`text-sm font-semibold ${row.bold ? 'text-base' : ''} ${row.positive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {formatCurrency(row.value)}
-                </span>
-              ) : (
-                <span className={`text-sm font-medium ${row.positive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{row.pct}%</span>
-              )}
+        <SectionTitle title="Profit & Loss Statement" sub={`${fromDate} → ${toDate} · vs prev ${periodDays}d`} />
+        <PlStatementBody
+          lines={statement}
+          exportFilename={`pl-report-${fromDate}-${toDate}.csv`}
+          footer={previous ? (
+            <p className="text-[11px] mt-3 pt-3" style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)' }}>
+              Previous period: Revenue {formatCurrency(previous.salesRevenue ?? 0)} · Net {formatCurrency(previous.profit ?? 0)}
+            </p>
+          ) : undefined}
+        />
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-5">
+        <div className="card p-5">
+          <SectionTitle title="Income Breakdown" />
+          {incomeBreakdown.length === 0 ? (
+            <p className="text-xs text-center py-8" style={{ color: 'var(--text-muted)' }}>No income recorded</p>
+          ) : (
+            <div className="space-y-1.5">
+              {incomeBreakdown.map((item, i) => (
+                <div key={item.key} className="flex justify-between text-xs py-1.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  <span style={{ color: 'var(--text-primary)' }}>{item.label}</span>
+                  <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(item.amount)}</span>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
-        {prev && (
-          <p className="text-[11px] mt-3 pt-3" style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)' }}>
-            Previous period ({prevFromDate} → {prevToDate}): Revenue {formatCurrency(prev.salesRevenue ?? 0)} · Net {formatCurrency(prev.profit ?? 0)}
-          </p>
-        )}
+        <div className="card p-5">
+          <SectionTitle title="Expense Breakdown" />
+          {expenseBreakdown.length === 0 ? (
+            <p className="text-xs text-center py-8" style={{ color: 'var(--text-muted)' }}>No expenses recorded</p>
+          ) : (
+            <div className="space-y-1.5">
+              {expenseBreakdown.map(item => (
+                <div key={item.key} className="flex justify-between text-xs py-1.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  <span style={{ color: 'var(--text-primary)' }}>{item.label}</span>
+                  <span className="font-semibold text-red-600 dark:text-red-400">{formatCurrency(item.amount)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">
@@ -1003,19 +1126,14 @@ function PLTab({ fromDate, toDate, branchId }: { fromDate: string; toDate: strin
           <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>Efficiency Ratios</p>
           <div className="space-y-2">
             {[
-              { label: 'COGS % of Revenue', value: cogsRatio,   good: cogsRatio < 70   },
-              { label: 'OpEx % of Revenue', value: opexRatio,   good: opexRatio < 30   },
-              { label: 'Gross Margin',      value: grossMargin, good: grossMargin > 20 },
-              { label: 'Net Margin',        value: netMargin,   good: netMargin > 10   },
+              { label: 'POS COGS % of Revenue', value: cogsRatio, good: cogsRatio < 70 },
+              { label: 'OpEx % of Revenue', value: opexRatio, good: opexRatio < 30 },
+              { label: 'Gross Margin', value: grossMargin, good: grossMargin > 20 },
+              { label: 'Net Margin', value: netMargin, good: netMargin > 10 },
             ].map(({ label, value, good }) => (
               <div key={label} className="flex justify-between items-center">
                 <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{label}</span>
-                <div className="flex items-center gap-2">
-                  <div className="w-20 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-subtle)' }}>
-                    <div className="h-full rounded-full" style={{ width: `${Math.min(Math.abs(value), 100)}%`, background: good ? '#15803d' : '#b91c1c' }} />
-                  </div>
-                  <span className={`text-xs font-semibold w-8 text-right ${good ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{value}%</span>
-                </div>
+                <span className={`text-xs font-semibold ${good ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{value}%</span>
               </div>
             ))}
           </div>

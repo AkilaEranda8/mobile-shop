@@ -13,15 +13,25 @@ export type RepairPartLine = {
 }
 
 export type RepairPartsReport = {
+  /** Original estimate / quote */
   serviceCharge: number
+  /** Discount applied on payment (quote − collected) */
+  discount: number
+  /** Amount customer pays after discount */
+  customerRevenue: number
   lines: RepairPartLine[]
   partsSellTotal: number
   partsBuyTotal: number
   partsProfit: number
-  /** Labour portion left in the customer quote after parts sell value */
+  /** Labour share in quote (quote − parts sell reference) */
   labourFromEstimate: number
-  /** Net job profit = customer quote − parts inventory cost */
+  /** Labour after discount (customer revenue − parts sell) */
+  labourShare: number
+  /** Same as partsProfit */
+  partsMargin: number
+  /** Net profit = customer revenue − parts buy */
   totalProfit: number
+  netProfit: number
   estimateAfterParts: number
 }
 
@@ -40,8 +50,19 @@ function resolveUnitBuy(
 export function buildRepairPartsReport(
   repair: Pick<RepairTicket, 'estimatedCost' | 'spareParts' | 'actualCost' | 'status'>,
   getBuyPrice?: (productId: string) => number | undefined,
+  opts?: { pendingDiscount?: number },
 ): RepairPartsReport {
-  const serviceCharge = Number(repair.estimatedCost ?? 0) || 0
+  const quote = Number(repair.estimatedCost ?? 0) || 0
+  const isPaid = repair.status === 'DELIVERED'
+
+  let discount = 0
+  if (isPaid && repair.actualCost != null) {
+    discount = Math.max(0, quote - Number(repair.actualCost))
+  } else if (opts?.pendingDiscount != null && opts.pendingDiscount > 0) {
+    discount = Math.min(quote, Math.max(0, Number(opts.pendingDiscount)))
+  }
+
+  const customerRevenue = Math.max(0, quote - discount)
   const lines: RepairPartLine[] = (repair.spareParts ?? []).map((raw) => {
     const part = raw as PartRow
     const qty = Number(part.quantity) || 1
@@ -64,20 +85,25 @@ export function buildRepairPartsReport(
 
   const partsSellTotal = lines.reduce((s, l) => s + l.sellTotal, 0)
   const partsBuyTotal = lines.reduce((s, l) => s + l.buyTotal, 0)
-  const partsProfit = partsSellTotal - partsBuyTotal
-  const labourFromEstimate = serviceCharge - partsSellTotal
-  const totalProfit = serviceCharge - partsBuyTotal
-  const estimateAfterParts = labourFromEstimate
+  const partsMargin = partsSellTotal - partsBuyTotal
+  const labourFromEstimate = quote - partsSellTotal
+  const labourShare = customerRevenue - partsSellTotal
+  const netProfit = customerRevenue - partsBuyTotal
 
   return {
-    serviceCharge,
+    serviceCharge: quote,
+    discount,
+    customerRevenue,
     lines,
     partsSellTotal,
     partsBuyTotal,
-    partsProfit,
+    partsProfit: partsMargin,
     labourFromEstimate,
-    totalProfit,
-    estimateAfterParts,
+    labourShare,
+    partsMargin,
+    totalProfit: netProfit,
+    netProfit,
+    estimateAfterParts: labourFromEstimate,
   }
 }
 
@@ -86,6 +112,8 @@ export function aggregateRepairPartsReports(reports: RepairPartsReport[]) {
     (acc, r) => ({
       jobCount: acc.jobCount + 1,
       serviceCharge: acc.serviceCharge + r.serviceCharge,
+      discount: acc.discount + r.discount,
+      customerRevenue: acc.customerRevenue + r.customerRevenue,
       partsSellTotal: acc.partsSellTotal + r.partsSellTotal,
       partsBuyTotal: acc.partsBuyTotal + r.partsBuyTotal,
       partsProfit: acc.partsProfit + r.partsProfit,
@@ -96,6 +124,8 @@ export function aggregateRepairPartsReports(reports: RepairPartsReport[]) {
     {
       jobCount: 0,
       serviceCharge: 0,
+      discount: 0,
+      customerRevenue: 0,
       partsSellTotal: 0,
       partsBuyTotal: 0,
       partsProfit: 0,

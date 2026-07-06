@@ -124,11 +124,44 @@ export async function createWarrantiesFromSaleItems(
     throw new AppError('Customer is required when selling warranty-eligible products', 400)
   }
 
+  return createWarrantyRows(tx, {
+    tenantId: opts.tenantId,
+    saleId: opts.saleId,
+    invoiceNumber: opts.invoiceNumber,
+    customerId: opts.customerId,
+    customerName: opts.customerName,
+    customerPhone: opts.customerPhone,
+    rows: eligible,
+    checkImeiConflict: true,
+  })
+}
+
+async function createWarrantyRows(
+  tx: Prisma.TransactionClient,
+  opts: {
+    tenantId: string
+    saleId: string
+    invoiceNumber: string
+    customerId: string
+    customerName: string
+    customerPhone?: string
+    rows: Array<{
+      productId?: string | null
+      productName: string
+      brandName: string
+      imei?: string
+      months: number
+    }>
+    checkImeiConflict?: boolean
+  },
+) {
   const created = []
   const start = new Date()
 
-  for (const row of eligible) {
-    if (row.imei) await assertNoActiveWarrantyForImei(tx, opts.tenantId, row.imei)
+  for (const row of opts.rows) {
+    if (opts.checkImeiConflict && row.imei) {
+      await assertNoActiveWarrantyForImei(tx, opts.tenantId, row.imei)
+    }
 
     const end = new Date(start)
     end.setMonth(end.getMonth() + row.months)
@@ -143,7 +176,7 @@ export async function createWarrantiesFromSaleItems(
         customerId: opts.customerId,
         customerName: opts.customerName,
         customerPhone: opts.customerPhone ?? '',
-        productId: row.productId,
+        productId: row.productId ?? undefined,
         productName: row.productName,
         brandName: row.brandName,
         imei: row.imei,
@@ -158,6 +191,85 @@ export async function createWarrantiesFromSaleItems(
   }
 
   return created
+}
+
+/** Register one combined repair warranty in Warranty Management on payment. */
+export async function createWarrantiesFromRepair(
+  tx: Prisma.TransactionClient,
+  opts: {
+    tenantId: string
+    saleId: string
+    invoiceNumber: string
+    ticketNumber: string
+    customerId?: string | null
+    customerName: string
+    customerPhone?: string
+    deviceBrand: string
+    deviceModel: string
+    imei?: string | null
+    serviceWarrantyMonths: number
+    spareParts: Array<{
+      productId: string
+      productName: string
+      quantity: number
+      warrantyMonths?: number
+      warrantyNote?: string | null
+    }>
+  },
+) {
+  const feat = await tx.tenantFeature.findFirst({
+    where: { tenantId: opts.tenantId, feature: 'WARRANTY', enabled: true },
+  })
+  if (!feat) return []
+
+  const serviceMonths = Math.max(0, Number(opts.serviceWarrantyMonths) || 0)
+  const partLines: string[] = []
+  let maxPartMonths = 0
+
+  for (const part of opts.spareParts) {
+    const months = Math.max(0, Number(part.warrantyMonths) || 0)
+    if (months > maxPartMonths) maxPartMonths = months
+    const qty = Math.max(1, Number(part.quantity) || 1)
+    const note = part.warrantyNote?.trim()
+    if (months > 0) {
+      partLines.push(`${part.productName} x${qty} (${months} mo${note ? ` — ${note}` : ''})`)
+    } else if (note) {
+      partLines.push(`${part.productName} x${qty} (${note})`)
+    }
+  }
+
+  const monthsDuration = Math.max(serviceMonths, maxPartMonths)
+  if (monthsDuration <= 0) return []
+
+  if (!opts.customerId) {
+    throw new AppError('Customer is required to register repair warranty', 400)
+  }
+
+  const deviceLabel = `${opts.deviceBrand} ${opts.deviceModel}`.trim()
+  const summaryParts = [
+    `Ticket ${opts.ticketNumber}`,
+    serviceMonths > 0 ? `Service: ${serviceMonths} mo` : null,
+    partLines.length > 0 ? `Parts: ${partLines.join(', ')}` : null,
+  ].filter(Boolean)
+
+  const productName = `Repair – ${deviceLabel} | ${summaryParts.join(' | ')}`
+
+  return createWarrantyRows(tx, {
+    tenantId: opts.tenantId,
+    saleId: opts.saleId,
+    invoiceNumber: opts.invoiceNumber,
+    customerId: opts.customerId,
+    customerName: opts.customerName,
+    customerPhone: opts.customerPhone,
+    rows: [{
+      productId: null,
+      productName,
+      brandName: opts.deviceBrand || 'Repair',
+      imei: opts.imei?.trim() || undefined,
+      months: monthsDuration,
+    }],
+    checkImeiConflict: false,
+  })
 }
 
 export async function voidWarrantiesForSaleReturn(

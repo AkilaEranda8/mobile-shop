@@ -24,7 +24,7 @@ import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { getInvoiceSettings, fetchInvoiceSettings, resolveInvoiceTemplate, type InvoiceSettings } from '@/lib/invoiceSettings'
 import { buildRepairInvoiceSale, resolveRepairWarrantyMonths, REPAIR_WARRANTY_OPTIONS, repairWarrantyMonths } from '@/lib/repair-invoice.util'
-import { normalizeRepairTicket, repairNextStatus, repairPartsLocked, repairProgressStep, repairStatusHistory, REPAIR_PROGRESS_FLOW } from '@/lib/repair.util'
+import { normalizeRepairTicket, repairNextStatus, repairPartsLocked, repairPaymentSummary, repairProgressStep, repairStatusHistory, repairTicketEditable, REPAIR_PROGRESS_FLOW } from '@/lib/repair.util'
 import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
 import InvoiceA4View from '@/components/invoice/InvoiceA4View'
 import RepairPartsProfitPanel from '@/components/repairs/RepairPartsProfitPanel'
@@ -1217,10 +1217,9 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
     setSavingWarranty(true)
     try {
       const res: any = await repairsApi.update(repair.id, { warrantyMonths: months })
-      const updated = (res?.data ?? res) as RepairTicket
-      onRepairUpdate(updated)
+      onRepairUpdate(normalizeRepairTicket(res?.data ?? res))
       toast.success('Warranty period updated')
-    } catch { toast.error('Failed to update warranty') }
+    } catch (err: any) { toast.error(err?.message ?? 'Failed to update warranty') }
     finally { setSavingWarranty(false) }
   }
   /* ── collect payment state ── */
@@ -1262,7 +1261,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
       else onRefresh()
       toast.success(`${selProduct.name} added`)
       setShowAddPart(false); setPartSearch(''); setSelProduct(null); setPartQty(1); setPartCost('')
-    } catch { toast.error('Failed to add part') }
+    } catch (err: any) { toast.error(err?.message ?? 'Failed to add part') }
     finally { setAddingPart(false) }
   }
 
@@ -1274,7 +1273,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
       if (updated) onRepairUpdate(updated)
       else onRefresh()
       toast.success('Part removed')
-    } catch { toast.error('Failed to remove part') }
+    } catch (err: any) { toast.error(err?.message ?? 'Failed to remove part') }
     finally { setRemovingId(null) }
   }
   const currentIdx = repairProgressStep(repair.status)
@@ -1296,9 +1295,8 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
   }
 
   const { serviceFee, partsTotal, estimatedCost, subtotal } = calcRepairTotals(repair)
-  const isPaid      = repair.status === 'DELIVERED'
-  const balanceDue  = isPaid ? 0 : estimatedCost
-  const displayTotal = isPaid ? (Number(repair.actualCost) || estimatedCost) : estimatedCost
+  const payment = repairPaymentSummary(repair)
+  const { quote, billTotal, paid, due, discount: paidDiscount, isPaid, isPartial, isFull } = payment
   const activeTemplate = resolveInvoiceTemplate(invSettings, tenantSlug)
   const repairSale = buildRepairInvoiceSale(repair, invSettings, { isPaid })
   const discountAmt  = Number(discount) || 0
@@ -1323,13 +1321,19 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
         paymentMethod: payMethod,
         paidAmount: payNow,
       })
-      toast.success(creditAmount > 0
-        ? `Payment recorded — ${formatCurrency(creditAmount)} added to customer credit`
-        : 'Payment collected — sale recorded!')
+      const hasWarranty = (repair.warrantyMonths ?? 0) > 0
+        || (repair.spareParts ?? []).some(p => (p.warrantyMonths ?? 0) > 0)
+      let msg = creditAmount > 0
+        ? `Payment recorded — ${formatCurrency(creditAmount)} on customer credit`
+        : 'Payment collected successfully'
+      if (hasWarranty && repair.customerId) {
+        msg += ' — warranty registered in Warranty Management'
+      }
+      toast.success(msg)
       setShowPayment(false)
       onRefresh()
       onClose()
-    } catch { toast.error('Failed to collect payment') }
+    } catch (err: any) { toast.error(err?.message ?? 'Failed to collect payment') }
     finally { setCollecting(false) }
   }
 
@@ -1346,7 +1350,9 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
             <ArrowLeft size={15} /> Back to Tickets
           </button>
           <div className="flex items-center gap-2">
-            <button onClick={onEdit} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-colors" style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-subtle)' }}>
+            <button onClick={onEdit} disabled={!repairTicketEditable(repair.status)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-colors disabled:opacity-40"
+              style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-subtle)' }}>
               <Pencil size={11} /> Edit
             </button>
             <button onClick={downloadQuote} disabled={downloading} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-colors disabled:opacity-50" style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-subtle)' }}>
@@ -1421,7 +1427,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
               <div className="p-3" style={{ borderLeft: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                 <p className="text-[10px] font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Payment Status</p>
                 <p className={`text-xs font-bold ${isPaid ? 'text-green-600 dark:text-green-400' : ''}`} style={!isPaid ? { color: 'var(--text-primary)' } : {}}>
-                  {isPaid ? 'Paid in Full' : 'Pending'}
+                  {!isPaid ? 'Pending' : isPartial ? 'Partial / Credit' : 'Paid in Full'}
                 </p>
               </div>
             </div>
@@ -1666,7 +1672,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                     <div><label className="block text-[11px] font-bold mb-1" style={{ color: 'var(--text-muted)' }}>Quantity</label><input type="number" min={1} className="input-field" value={partQty} onChange={e => setPartQty(Number(e.target.value))} /></div>
                     <div><label className="block text-[11px] font-bold mb-1" style={{ color: 'var(--text-muted)' }}>Part Price (LKR)</label><input type="number" min={0} className="input-field" placeholder={selProduct ? String(selProduct.sellingPrice ?? selProduct.buyingPrice ?? '') : '0'} value={partCost} onChange={e => setPartCost(e.target.value)} /></div>
                   </div>
-                  <button onClick={handleAddPart} disabled={!selProduct || addingPart}
+                  <button onClick={handleAddPart} disabled={!selProduct || addingPart || (selProduct && Number(selProduct.stock) < partQty)}
                     className="w-full py-2 text-sm rounded-lg text-white font-bold flex items-center justify-center gap-2 disabled:opacity-50"
                     style={{ background: '#7c3aed' }}>
                     {addingPart ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}Add to Repair
@@ -1737,7 +1743,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                 <div className="px-4 py-3" style={{ background: 'var(--bg-subtle)' }}>
                   <div className="flex justify-between font-black text-base">
                     <span style={{ color: 'var(--text-primary)' }}>Customer Total</span>
-                    <span className="text-violet-600 dark:text-violet-400">{formatCurrency(isPaid ? displayTotal : estimatedCost)}</span>
+                    <span className="text-violet-600 dark:text-violet-400">{formatCurrency(isPaid ? billTotal : quote)}</span>
                   </div>
                   {(repair.spareParts?.length ?? 0) > 0 && (
                     <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>Parts buy/sell in profit report below — not added to bill.</p>
@@ -1746,7 +1752,11 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
               </div>
             </div>
 
-            <RepairPartsProfitPanel repair={repair} getBuyPrice={getProductBuyPrice} />
+            <RepairPartsProfitPanel
+              repair={repair}
+              getBuyPrice={getProductBuyPrice}
+              pendingDiscount={!isPaid ? discountAmt : 0}
+            />
 
             {/* Technician Notes */}
             <div>
@@ -1823,22 +1833,43 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
               <div className="p-4 space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-bold" style={{ color: 'var(--text-secondary)' }}>Estimated Cost</span>
-                  <span className="text-sm font-black" style={{ color: 'var(--text-primary)' }}>{formatCurrency(estimatedCost)}</span>
+                  <span className="text-sm font-black" style={{ color: 'var(--text-primary)' }}>{formatCurrency(quote)}</span>
                 </div>
+                {isPaid && paidDiscount > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Discount</span>
+                    <span className="text-sm font-bold text-amber-600 dark:text-amber-400">−{formatCurrency(paidDiscount)}</span>
+                  </div>
+                )}
+                {isPaid && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Bill Total</span>
+                    <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(billTotal)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center">
                   <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Paid Amount</span>
-                  <span className="text-sm font-bold text-green-600 dark:text-green-400">{formatCurrency(isPaid ? displayTotal : 0)}</span>
+                  <span className="text-sm font-bold text-green-600 dark:text-green-400">{formatCurrency(isPaid ? paid : 0)}</span>
                 </div>
                 <div className="flex justify-between items-center pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
                   <span className="text-sm font-bold" style={{ color: 'var(--text-secondary)' }}>Balance Due</span>
-                  <span className={`text-sm font-black ${balanceDue > 0 ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>{formatCurrency(balanceDue)}</span>
+                  <span className={`text-sm font-black ${due > 0 ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>{formatCurrency(due)}</span>
                 </div>
-                {isPaid && (
+                {isPaid && isFull && (
                   <div className="flex items-center gap-2.5 p-3 rounded-xl border border-green-500/25 bg-green-500/10">
                     <CheckCircle size={16} className="text-green-600 shrink-0" />
                     <div>
                       <p className="text-xs font-bold text-green-700 dark:text-green-400">Paid in Full</p>
                       <p className="text-[10px] text-green-600/70">Thank you! Payment completed.</p>
+                    </div>
+                  </div>
+                )}
+                {isPaid && isPartial && (
+                  <div className="flex items-center gap-2.5 p-3 rounded-xl border border-amber-500/25 bg-amber-500/10">
+                    <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold text-amber-700 dark:text-amber-400">Partial Payment</p>
+                      <p className="text-[10px] text-amber-600/80">{formatCurrency(due)} remaining on customer credit</p>
                     </div>
                   </div>
                 )}
@@ -2000,8 +2031,8 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
                   </div>
                 )}
                 <div className="flex items-center gap-2.5">
-                  <Mail size={13} style={{ color: 'var(--text-muted)' }} />
-                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{repair.customerName.toLowerCase().replace(/\s+/g, '')}@example.com</span>
+                  <User size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{repair.customerName}</span>
                 </div>
                 <div className="flex items-center gap-2.5">
                   <MapPin size={13} style={{ color: 'var(--text-muted)' }} />
@@ -2034,6 +2065,7 @@ function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh
 function EditRepairModal({ repair, onClose, onSaved }: {
   repair: RepairTicket; onClose: () => void; onSaved: () => void
 }) {
+  const locked = !repairTicketEditable(repair.status)
   const [form, setForm] = useState({
     customerName:        repair.customerName    ?? '',
     customerPhone:       repair.customerPhone   ?? '',
@@ -2045,7 +2077,6 @@ function EditRepairModal({ repair, onClose, onSaved }: {
     technicianName:      repair.technicianName  ?? '',
     priority:            repair.priority        ?? 'NORMAL',
     estimatedCost:       String(repair.estimatedCost ?? ''),
-    actualCost:          String(repair.actualCost    ?? ''),
     estimatedCompletion: repair.estimatedCompletion ? repair.estimatedCompletion.slice(0, 10) : '',
     warrantyMonths:      repair.warrantyMonths != null ? String(repair.warrantyMonths) : '',
   })
@@ -2066,7 +2097,6 @@ function EditRepairModal({ repair, onClose, onSaved }: {
       await repairsApi.update(repair.id, {
         ...form,
         estimatedCost: form.estimatedCost ? Number(form.estimatedCost) : undefined,
-        actualCost:    form.actualCost    ? Number(form.actualCost)    : undefined,
         warrantyMonths: form.warrantyMonths !== '' ? Number(form.warrantyMonths) : null,
       })
       toast.success('Repair job updated')
@@ -2091,7 +2121,9 @@ function EditRepairModal({ repair, onClose, onSaved }: {
                 <h3 className="text-base font-black" style={{ color: 'var(--text-primary)' }}>Edit Repair Job</h3>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border border-violet-500/20 bg-violet-500/10 text-violet-400">{repair.ticketNumber}</span>
               </div>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Update the details of this repair ticket</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                {locked ? 'This ticket is completed or cancelled and cannot be edited' : 'Update the details of this repair ticket'}
+              </p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-lg transition-colors hover:bg-red-500/10 hover:text-red-400" style={{ color: 'var(--text-muted)' }}>
@@ -2099,6 +2131,16 @@ function EditRepairModal({ repair, onClose, onSaved }: {
           </button>
         </div>
 
+        {locked ? (
+          <div className="p-6">
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-200">
+              Completed and cancelled repairs are locked. Use the detail view to see payment and profit information.
+            </div>
+            <button type="button" onClick={onClose} className="mt-4 w-full h-11 rounded-xl border text-sm font-semibold" style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}>
+              Close
+            </button>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
 
           {/* ── Customer Information ── */}
@@ -2203,13 +2245,6 @@ function EditRepairModal({ repair, onClose, onSaved }: {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Actual Cost (LKR)</label>
-                <div className="relative">
-                  <DollarSign size={13} className="absolute left-3 top-1/2 -translate-y-1/2 [color:var(--text-muted)] pointer-events-none" />
-                  <input type="number" min={0} className="input-field pl-9 h-10" placeholder="0.00" value={form.actualCost} onChange={f('actualCost')} />
-                </div>
-              </div>
-              <div>
                 <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Service Warranty</label>
                 <select className="input-field h-10" value={form.warrantyMonths} onChange={f('warrantyMonths')}>
                   <option value="">Not set</option>
@@ -2244,6 +2279,7 @@ function EditRepairModal({ repair, onClose, onSaved }: {
           </div>
 
         </form>
+        )}
       </div>
     </div>
   )
@@ -2262,7 +2298,13 @@ export default function RepairsPage() {
   const [filtersReady, setFiltersReady] = useState(false)
 
   const openDetail = useCallback((repair: RepairTicket) => setDetailRepair(repair), [])
-  const openEdit = useCallback((repair: RepairTicket) => setEditRepair(repair), [])
+  const openEdit = useCallback((repair: RepairTicket) => {
+    if (!repairTicketEditable(repair.status)) {
+      toast.error('Completed or cancelled repairs cannot be edited')
+      return
+    }
+    setEditRepair(repair)
+  }, [])
 
   useEffect(() => {
     try {
@@ -2329,7 +2371,7 @@ export default function RepairsPage() {
     ready:     allRepairs.filter(r => r.status === 'READY').length,
     delivered: allRepairs.filter(r => r.status === 'DELIVERED').length,
     urgent:    allRepairs.filter(r => r.priority === 'URGENT').length,
-    revenue:   allRepairs.filter(r => r.status === 'DELIVERED').reduce((s, r) => s + (Number((r as any).actualCost) || calcRepairTotals(r).subtotal), 0),
+    revenue:   allRepairs.filter(r => r.status === 'DELIVERED').reduce((s, r) => s + (Number(r.paidAmount) ?? (Number(r.actualCost) || calcRepairTotals(r).subtotal)), 0),
   }), [allRepairs])
 
   const repairs = useMemo(() => {
@@ -2364,7 +2406,7 @@ export default function RepairsPage() {
         const res: any = await repairsApi.getById(id)
         setDetailRepair(normalizeRepairTicket(res?.data ?? detailRepair))
       }
-    } catch { toast.error('Status update failed') }
+    } catch (err: any) { toast.error(err?.message ?? 'Status update failed') }
   }
 
   const columns = useMemo<ColumnDef<RepairTicket>[]>(() => [

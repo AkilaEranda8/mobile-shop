@@ -20,6 +20,7 @@ import type { Warranty } from '@/types'
 import WarrantyCertificate, { printWarrantyCertificate } from '@/components/invoice/WarrantyCertificate'
 import { type InvoiceSettings, fetchInvoiceSettings, pushInvoiceSettings, DEFAULT_INVOICE_SETTINGS } from '@/lib/invoiceSettings'
 import { REPAIR_WARRANTY_OPTIONS } from '@/lib/repair-invoice.util'
+import { parseRepairWarrantyDevice } from '@/lib/repair.util'
 import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
 import { authStorage } from '@/lib/auth'
 import { Printer } from 'lucide-react'
@@ -64,7 +65,7 @@ function RepairWarrantyDefaults() {
         <div>
           <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Repair Service Warranty</p>
           <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-            Suggested period when setting warranty on a repair job (not applied on new tickets).
+            On payment, one combined warranty record is created in Warranty Management (when WARRANTY feature is on).
           </p>
         </div>
       </div>
@@ -841,13 +842,14 @@ export default function WarrantyPage() {
       {viewW    && <WarrantyDetailsModal warranty={viewW} onClose={() => setViewW(null)} onEdit={() => { setEditW(viewW); setViewW(null) }} onDelete={() => handleDelete(viewW)}
         onCreateRepair={(claim) => {
           const w = viewW
+          const { deviceBrand, deviceModel } = parseRepairWarrantyDevice(w?.productName, (w as any)?.brandName)
           const params = new URLSearchParams({
             fromWarranty: '1',
             warrantyClaimId: claim.id,
             customerName:  w?.customerName  || '',
             customerPhone: w?.customerPhone || '',
-            deviceBrand:   (w as any)?.brandName || '',
-            deviceModel:   w?.productName   || '',
+            deviceBrand,
+            deviceModel,
             imei:          (w as any)?.imei || '',
           })
           setViewW(null)

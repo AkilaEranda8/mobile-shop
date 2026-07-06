@@ -7,6 +7,10 @@ export interface BusinessFinancialSummary {
   salesRevenue: number
   grossSales: number
   otherIncome: number
+  repairIncome: number
+  billPaymentIncome: number
+  creditPayments: number
+  miscIncome: number
   reloadCommission: number
   salesCount: number
   cogs: number
@@ -15,6 +19,7 @@ export interface BusinessFinancialSummary {
   refundsTotal: number
   grossProfit: number
   netProfit: number
+  repairJobsCompleted: number
 }
 
 export interface DailyRevenueRow {
@@ -39,6 +44,10 @@ function emptySummary(): BusinessFinancialSummary {
     salesRevenue: 0,
     grossSales: 0,
     otherIncome: 0,
+    repairIncome: 0,
+    billPaymentIncome: 0,
+    creditPayments: 0,
+    miscIncome: 0,
     reloadCommission: 0,
     salesCount: 0,
     cogs: 0,
@@ -47,6 +56,7 @@ function emptySummary(): BusinessFinancialSummary {
     refundsTotal: 0,
     grossProfit: 0,
     netProfit: 0,
+    repairJobsCompleted: 0,
   }
 }
 
@@ -55,6 +65,10 @@ function addSummaries(a: BusinessFinancialSummary, b: BusinessFinancialSummary):
     salesRevenue: round2(a.salesRevenue + b.salesRevenue),
     grossSales: round2(a.grossSales + b.grossSales),
     otherIncome: round2(a.otherIncome + b.otherIncome),
+    repairIncome: round2(a.repairIncome + b.repairIncome),
+    billPaymentIncome: round2(a.billPaymentIncome + b.billPaymentIncome),
+    creditPayments: round2(a.creditPayments + b.creditPayments),
+    miscIncome: round2(a.miscIncome + b.miscIncome),
     reloadCommission: round2(a.reloadCommission + b.reloadCommission),
     salesCount: a.salesCount + b.salesCount,
     cogs: round2(a.cogs + b.cogs),
@@ -63,6 +77,7 @@ function addSummaries(a: BusinessFinancialSummary, b: BusinessFinancialSummary):
     refundsTotal: round2(a.refundsTotal + b.refundsTotal),
     grossProfit: round2(a.grossProfit + b.grossProfit),
     netProfit: round2(a.netProfit + b.netProfit),
+    repairJobsCompleted: a.repairJobsCompleted + b.repairJobsCompleted,
   }
 }
 
@@ -79,6 +94,10 @@ function mapPreviewToSummary(
     salesRevenue: s.totalSales,
     grossSales: p.grossSales,
     otherIncome,
+    repairIncome: round2(s.repairIncome),
+    billPaymentIncome: round2(s.billPaymentIncome),
+    creditPayments: round2(s.creditPayments),
+    miscIncome: round2(s.otherIncome),
     reloadCommission: p.reloadCommission,
     salesCount: s.salesCount,
     cogs: p.cogs,
@@ -87,6 +106,7 @@ function mapPreviewToSummary(
     refundsTotal: s.refundsTotal,
     grossProfit: p.grossProfit,
     netProfit: p.netProfit,
+    repairJobsCompleted: preview.repairs.repairsCompleted,
   }
 }
 
@@ -156,6 +176,10 @@ function mapClosingRecordToSummary(closed: {
     salesRevenue: closed.totalSales,
     grossSales: closed.grossSales,
     otherIncome,
+    repairIncome: round2(closed.repairIncome),
+    billPaymentIncome: round2(closed.billPaymentIncome),
+    creditPayments: 0,
+    miscIncome: round2(closed.otherIncome + closed.serviceIncome),
     reloadCommission: closed.reloadCommission,
     salesCount: closed.salesCount,
     cogs: closed.cogs,
@@ -164,6 +188,7 @@ function mapClosingRecordToSummary(closed: {
     refundsTotal: 0,
     grossProfit: closed.grossProfit,
     netProfit: closed.netProfit,
+    repairJobsCompleted: 0,
   }
 }
 
@@ -228,11 +253,18 @@ export function toFinanceSummaryResponse(
     salesRevenue: fin.salesRevenue,
     salesCount: fin.salesCount,
     otherIncome: ancillaryIncome,
+    repairIncome: fin.repairIncome,
+    billPaymentIncome: fin.billPaymentIncome,
+    creditPayments: fin.creditPayments,
+    miscIncome: fin.miscIncome,
+    reloadCommission: fin.reloadCommission,
     totalIncome,
+    posCogs: fin.cogs,
+    repairPartsCogs: fin.repairPartsCogs,
     cogs: totalCogs,
     opExpenses: fin.opExpenses,
     refundsTotal: fin.refundsTotal,
-    reloadCommission: fin.reloadCommission,
+    repairJobsCompleted: fin.repairJobsCompleted,
     totalExpense,
     grossProfit: fin.grossProfit,
     profit: fin.netProfit,

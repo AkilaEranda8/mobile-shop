@@ -1,8 +1,8 @@
 import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import { getPagination } from '../../utils/pagination'
-import { generateTicketNumber, generateInvoiceNumber } from '../../utils/counters'
-import { linkRepairToClaim } from '../warranty/warranty.service'
+import { generateTicketNumber } from '../../utils/counters'
+import { linkRepairToClaim, createWarrantiesFromRepair } from '../warranty/warranty.service'
 import { Request } from 'express'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 import { effectiveBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
@@ -21,11 +21,18 @@ export const repairsService = {
     const customerId = req.query.customerId as string | undefined
     const from = req.query.from as string | undefined
     const to = req.query.to as string | undefined
+    const completedFrom = req.query.completedFrom as string | undefined
+    const completedTo = req.query.completedTo as string | undefined
     const where: any = { tenantId, ...(status && { status }), ...(branchId && { branchId }), ...(customerId && { customerId }), ...(search && { OR: [{ ticketNumber: { contains: search, mode: 'insensitive' } }, { customerName: { contains: search, mode: 'insensitive' } }, { deviceBrand: { contains: search, mode: 'insensitive' } }, { deviceModel: { contains: search, mode: 'insensitive' } }] }) }
     if (from || to) {
       where.createdAt = {}
       if (from) where.createdAt.gte = new Date(`${from}T00:00:00.000Z`)
       if (to) where.createdAt.lte = new Date(`${to}T23:59:59.999Z`)
+    }
+    if (completedFrom || completedTo) {
+      where.completedAt = {}
+      if (completedFrom) where.completedAt.gte = new Date(`${completedFrom}T00:00:00.000Z`)
+      if (completedTo) where.completedAt.lte = new Date(`${completedTo}T23:59:59.999Z`)
     }
     const [data, total] = await Promise.all([
       prisma.repairTicket.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { notes: true, spareParts: true, history: true } }),
@@ -96,6 +103,14 @@ export const repairsService = {
   async update(tenantId: string, id: string, body: any) {
     const r = await prisma.repairTicket.findFirst({ where: { id, tenantId }, include: { spareParts: true } })
     if (!r) throw new AppError('Repair ticket not found', 404)
+    if (r.status === 'DELIVERED' || r.status === 'CANCELLED') {
+      const locked = ['estimatedCost', 'actualCost', 'paidAmount', 'dueAmount', 'warrantyMonths', 'imei', 'deviceBrand', 'deviceModel', 'deviceColor'] as const
+      for (const key of locked) {
+        if (body[key] !== undefined) {
+          throw new AppError(`Cannot change ${key} on a completed or cancelled repair`, 400)
+        }
+      }
+    }
     const { customerName, customerPhone, deviceBrand, deviceModel, deviceColor,
             imei, reportedIssue, technicianId, technicianName, priority,
             estimatedCost, actualCost, estimatedCompletion, source, warrantyMonths } = body
@@ -137,12 +152,11 @@ export const repairsService = {
     if (status === 'DELIVERED') {
       throw new AppError('Use Collect Payment to complete and deliver this repair', 400)
     }
-    const completedAt = status === 'DELIVERED' ? new Date() : undefined
     await prisma.$transaction([
-      prisma.repairTicket.update({ where: { id }, data: { status: status as any, ...(completedAt && { completedAt }) } }),
+      prisma.repairTicket.update({ where: { id }, data: { status: status as any } }),
       prisma.repairStatusHistory.create({ data: { repairId: id, status: status as any, changedBy, note } }),
     ])
-    if ((status === 'DELIVERED' || status === 'CANCELLED') && r.imei) {
+    if (status === 'CANCELLED' && r.imei) {
       await prisma.imeiRecord.updateMany({ where: { imei: r.imei }, data: { status: 'IN_STOCK' } }).catch(() => {})
     }
     const ticket = await prisma.repairTicket.findUnique({ where: { id }, include: { notes: true, spareParts: true, history: true } })
@@ -164,6 +178,9 @@ export const repairsService = {
     const product = await prisma.product.findFirst({ where: { id: body.productId, tenantId } })
     if (!product) throw new AppError('Product not found', 404)
     const qty      = Number(body.quantity) || 1
+    if (product.stock < qty) {
+      throw new AppError(`Insufficient stock for "${product.name}". Available: ${product.stock}, Required: ${qty}`, 400)
+    }
     const unitCost = body.unitCost != null && String(body.unitCost).trim() !== ''
       ? Number(body.unitCost)
       : (Number(product.sellingPrice) || Number(product.buyingPrice) || 0)
@@ -204,6 +221,8 @@ export const repairsService = {
     const r = await prisma.repairTicket.findFirst({ where: { id, tenantId }, include: { spareParts: true } })
     if (!r) throw new AppError('Repair ticket not found', 404)
     if (r.status === 'DELIVERED') throw new AppError('Payment has already been collected for this ticket', 400)
+    if (r.status === 'CANCELLED') throw new AppError('Cannot collect payment on a cancelled repair', 400)
+    if (r.status !== 'READY') throw new AppError('Repair must be marked Ready before collecting payment', 400)
     await assertBusinessDayOpenIfEnabled(tenantId, r.branchId)
 
     const serviceFee  = Number(r.estimatedCost) || 0
@@ -219,7 +238,7 @@ export const repairsService = {
     }
     const saleStatus  = dueAmount > 0 ? (paidAmount > 0 ? 'PARTIAL' : 'DUE') : 'PAID'
     const cashierName = body.cashierName || 'System'
-    const invoiceNumber = await generateInvoiceNumber(tenantId)
+    const invoiceNumber = r.ticketNumber
 
     const repairWarrantyMonths = r.warrantyMonths != null && r.warrantyMonths >= 0
       ? Math.max(0, Math.min(120, Number(r.warrantyMonths)))
@@ -232,7 +251,13 @@ export const repairsService = {
     await prisma.$transaction(async (tx: any) => {
       await tx.repairTicket.update({
         where: { id },
-        data: { actualCost: total, status: 'DELIVERED', completedAt: new Date() },
+        data: {
+          actualCost: total,
+          paidAmount,
+          dueAmount,
+          status: 'DELIVERED',
+          completedAt: new Date(),
+        },
       })
       await tx.repairStatusHistory.create({
         data: {
@@ -254,7 +279,7 @@ export const repairsService = {
           warrantyMonths: repairWarrantyMonths,
         })
       }
-      await tx.sale.create({
+      const sale = await tx.sale.create({
         data: {
           tenantId, branchId: r.branchId, invoiceNumber,
           customerId: r.customerId, customerName: r.customerName, customerPhone: r.customerPhone,
@@ -267,6 +292,26 @@ export const repairsService = {
             ? { create: [{ method: body.paymentMethod as any, amount: paidAmount }] }
             : undefined,
         },
+      })
+      await createWarrantiesFromRepair(tx, {
+        tenantId,
+        saleId: sale.id,
+        invoiceNumber,
+        ticketNumber: r.ticketNumber,
+        customerId: r.customerId,
+        customerName: r.customerName,
+        customerPhone: r.customerPhone,
+        deviceBrand: r.deviceBrand,
+        deviceModel: r.deviceModel,
+        imei: r.imei,
+        serviceWarrantyMonths: repairWarrantyMonths,
+        spareParts: r.spareParts.map((p) => ({
+          productId: p.productId,
+          productName: p.productName,
+          quantity: p.quantity,
+          warrantyMonths: (p as { warrantyMonths?: number }).warrantyMonths,
+          warrantyNote: (p as { warrantyNote?: string | null }).warrantyNote,
+        })),
       })
       if (r.customerId && dueAmount > 0) {
         await tx.customer.update({

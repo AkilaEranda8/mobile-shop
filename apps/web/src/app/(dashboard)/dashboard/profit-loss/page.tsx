@@ -9,12 +9,13 @@ import {
 import {
   TrendingUp, TrendingDown, DollarSign, Calendar, Download,
   AlertTriangle, Lightbulb, Receipt, PieChart as PieChartIcon,
-  CheckCircle, Wallet, BarChart3, Lock,
+  CheckCircle, Wallet, BarChart3, Lock, Wrench,
 } from 'lucide-react'
 import { usePlStatement, useCategorySales, useFeatureFlag } from '@/lib/hooks'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday, businessPeriodFrom, formatBusinessDateLabel } from '@/lib/business-date'
+import { PlStatementBody, type PlStatementLine } from '@/components/finance/PlStatementBody'
 
 const TOOLTIP_STYLE = {
   backgroundColor: 'var(--bg-card)',
@@ -125,6 +126,8 @@ export default function ProfitLossPage() {
   const insights: string[] = d?.insights ?? []
   const dailyTrend: any[] = d?.dailyTrend ?? []
   const categories: any[] = catData?.categories ?? []
+  const statement: PlStatementLine[] = d?.statement ?? []
+  const repairAccrual = d?.repairAccrual ?? { jobs: 0 }
 
   const salesRevenue = summary.salesRevenue ?? 0
   const otherIncome = summary.otherIncome ?? 0
@@ -134,6 +137,9 @@ export default function ProfitLossPage() {
   const opExpenses = summary.opExpenses ?? 0
   const netProfit = summary.profit ?? 0
   const refundsTotal = summary.refundsTotal ?? 0
+  const repairIncome = summary.repairIncome ?? 0
+  const repairPartsCogs = summary.repairPartsCogs ?? 0
+  const posCogs = summary.posCogs ?? (cogs - repairPartsCogs)
   const isLoss = netProfit < 0
 
   const grossMargin = margins.gross ?? 0
@@ -147,20 +153,15 @@ export default function ProfitLossPage() {
     return { pct, up: curr >= p }
   }
 
-  const plRows = [
-    { label: 'Sales Revenue', value: salesRevenue, positive: true },
-    { label: 'Other Income', value: otherIncome, positive: true, indent: true },
-    { label: 'Total Income', value: totalIncome, positive: true, bold: true, separator: true },
-    { label: 'Cost of Goods (COGS)', value: cogs, positive: false, indent: true },
-    { label: 'Refunds', value: refundsTotal, positive: false, indent: true },
-    { label: 'Gross Profit', value: grossProfit, positive: grossProfit >= 0, bold: true },
-    { label: 'Gross Margin', pct: grossMargin, positive: grossMargin >= 0, indent: true },
-    { label: 'Operating Expenses', value: opExpenses, positive: false, indent: true, separator: true },
-    { label: 'Net Profit / (Loss)', value: netProfit, positive: netProfit >= 0, bold: true },
-    { label: 'Net Profit Margin', pct: netMargin, positive: netMargin >= 0, indent: true },
+  const waterfallData = [
+    { name: 'POS Sales', value: salesRevenue, fill: '#16a34a' },
+    { name: 'Repairs', value: repairIncome, fill: '#7c3aed' },
+    { name: 'Other', value: Math.max(0, otherIncome - (summary.reloadCommission ?? 0)), fill: '#0e7490' },
+    { name: 'POS COGS', value: -posCogs, fill: '#dc2626' },
+    { name: 'Parts', value: -repairPartsCogs, fill: '#b91c1c' },
+    { name: 'OpEx', value: -opExpenses, fill: '#f97316' },
+    { name: 'Net', value: netProfit, fill: isLoss ? '#dc2626' : '#7c3aed' },
   ]
-
-  const exportRows = plRows.filter(r => r.value !== undefined).map(r => [r.label, r.value!.toFixed(2)])
 
   const chartTrend = useMemo(() => dailyTrend.map(row => ({
     date: formatBusinessDateLabel(row.date),
@@ -168,16 +169,6 @@ export default function ProfitLossPage() {
     Profit: row.profit ?? 0,
     Expenses: (row.cogs ?? 0) + (row.totalExpenses ?? 0) + (row.refundsTotal ?? 0),
   })), [dailyTrend])
-
-  const waterfallData = [
-    { name: 'Revenue', value: salesRevenue, fill: '#16a34a' },
-    { name: 'Other', value: otherIncome, fill: '#0e7490' },
-    { name: 'COGS', value: -cogs, fill: '#dc2626' },
-    { name: 'Refunds', value: -refundsTotal, fill: '#b91c1c' },
-    { name: 'Gross', value: grossProfit, fill: grossProfit >= 0 ? '#0891b2' : '#dc2626' },
-    { name: 'OpEx', value: -opExpenses, fill: '#f97316' },
-    { name: 'Net', value: netProfit, fill: isLoss ? '#dc2626' : '#7c3aed' },
-  ]
 
   const incomePie = incomeBreakdown.map((item, i) => ({
     name: item.label,
@@ -303,6 +294,19 @@ export default function ProfitLossPage() {
             </div>
           )}
 
+          {/* Repair accrual summary */}
+          {repairAccrual.jobs > 0 && (
+            <div className="card p-5">
+              <SectionTitle title="Repair Business (Accrual)" sub={`${repairAccrual.jobs} jobs completed in period`} />
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <StatCard label="Collected" value={formatCurrency(repairAccrual.collected)} icon={DollarSign} color="violet" />
+                <StatCard label="Parts Cost" value={formatCurrency(repairAccrual.partsBuy)} icon={Wrench} color="red" />
+                <StatCard label="Repair Net Profit" value={formatCurrency(repairAccrual.netProfit)} icon={TrendingUp} color="green" />
+                <StatCard label="Credit Outstanding" value={formatCurrency(repairAccrual.creditDue)} icon={Wallet} color="amber" />
+              </div>
+            </div>
+          )}
+
           {/* Waterfall */}
           <div className="card p-5">
             <SectionTitle title="P&amp;L Waterfall" sub="Revenue flow → costs → profit" />
@@ -322,36 +326,17 @@ export default function ProfitLossPage() {
 
           {/* P&L Statement */}
           <div className="card p-5">
-            <div className="flex items-center justify-between mb-4">
-              <SectionTitle title="Profit &amp; Loss Statement" sub={`${fromDate} → ${toDate}`} />
-              <ExportCSV filename={`pl-statement-${fromDate}-${toDate}.csv`} headers={['Item', 'Amount (LKR)']} rows={exportRows} />
-            </div>
-            <div className="overflow-hidden rounded-xl" style={{ border: '1px solid var(--border-subtle)' }}>
-              {plRows.map((row, i) => (
-                <div key={i}
-                  className={['flex justify-between items-center px-4 py-2.5', row.bold ? 'font-semibold' : ''].join(' ')}
-                  style={{
-                    borderTop: row.separator ? '2px solid var(--border-default)' : i > 0 ? '1px solid var(--border-subtle)' : 'none',
-                    background: row.bold ? 'var(--bg-subtle)' : 'transparent',
-                  }}>
-                  <span className={`text-sm ${row.indent ? 'pl-5' : ''}`} style={{ color: row.bold ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-                    {row.label}
-                  </span>
-                  {row.value !== undefined ? (
-                    <span className={`text-sm font-semibold ${row.bold ? 'text-base' : ''} ${row.positive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                      {formatCurrency(row.value)}
-                    </span>
-                  ) : (
-                    <span className={`text-sm font-medium ${row.positive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{row.pct}%</span>
-                  )}
-                </div>
-              ))}
-            </div>
-            {previous && (
-              <p className="text-[11px] mt-3 pt-3" style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)' }}>
-                Previous period: Revenue {formatCurrency(previous.salesRevenue ?? 0)} · Net {formatCurrency(previous.profit ?? 0)}
-              </p>
-            )}
+            <SectionTitle title="Profit &amp; Loss Statement" sub={`${fromDate} → ${toDate}`} />
+            <PlStatementBody
+              lines={statement}
+              exportFilename={`pl-statement-${fromDate}-${toDate}.csv`}
+              footer={previous ? (
+                <p className="text-[11px] mt-3 pt-3" style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)' }}>
+                  Previous period: Revenue {formatCurrency(previous.salesRevenue ?? 0)} · Net {formatCurrency(previous.profit ?? 0)}
+                  {' · '}Gross margin {grossMargin}% · Net margin {netMargin}%
+                </p>
+              ) : undefined}
+            />
           </div>
 
           {/* Status + Efficiency */}

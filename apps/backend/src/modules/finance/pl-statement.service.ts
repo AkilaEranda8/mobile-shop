@@ -9,6 +9,7 @@ import {
   getDailyRevenueBreakdown,
   getPeriodFinancials,
   toFinanceSummaryResponse,
+  type BusinessFinancialSummary,
 } from './business-financials.service'
 import { isTenantFeatureEnabled } from '../../utils/tenant-feature.util'
 
@@ -24,6 +25,153 @@ function isMobileProduct(product: { trackImei?: boolean; category?: { name?: str
 }
 
 type LineItem = { key: string; label: string; amount: number }
+
+export type PlStatementLine = {
+  section: 'income' | 'cost' | 'profit' | 'note'
+  label: string
+  amount?: number
+  bold?: boolean
+  highlight?: boolean
+  indent?: number
+  separator?: boolean
+}
+
+export type RepairAccrualSummary = {
+  jobs: number
+  quoted: number
+  discount: number
+  collected: number
+  cashPaid: number
+  creditDue: number
+  partsBuy: number
+  netProfit: number
+}
+
+async function buildRepairAccrualSummary(
+  tenantId: string,
+  fromKey: string,
+  toKey: string,
+  branchId?: string,
+): Promise<RepairAccrualSummary> {
+  const { start, end } = resolveQueryDateRange({ from: fromKey, to: toKey })
+  const bf = await branchFilter(tenantId, branchId)
+  const repairs = await prisma.repairTicket.findMany({
+    where: {
+      tenantId,
+      ...bf,
+      status: 'DELIVERED',
+      completedAt: { gte: start, lte: end },
+    },
+    include: { spareParts: { select: { quantity: true, unitBuyCost: true } } },
+  })
+
+  let quoted = 0
+  let discount = 0
+  let collected = 0
+  let cashPaid = 0
+  let creditDue = 0
+  let partsBuy = 0
+
+  for (const r of repairs) {
+    const quote = Number(r.estimatedCost) || 0
+    const bill = r.actualCost != null ? Number(r.actualCost) : quote
+    quoted += quote
+    discount += Math.max(0, quote - bill)
+    collected += bill
+    cashPaid += r.paidAmount != null ? Number(r.paidAmount) : bill
+    creditDue += r.dueAmount != null ? Number(r.dueAmount) : Math.max(0, bill - (r.paidAmount != null ? Number(r.paidAmount) : bill))
+    for (const p of r.spareParts) {
+      partsBuy += Number(p.quantity) * Number(p.unitBuyCost ?? 0)
+    }
+  }
+
+  return {
+    jobs: repairs.length,
+    quoted: round2(quoted),
+    discount: round2(discount),
+    collected: round2(collected),
+    cashPaid: round2(cashPaid),
+    creditDue: round2(creditDue),
+    partsBuy: round2(partsBuy),
+    netProfit: round2(collected - partsBuy),
+  }
+}
+
+function buildStatementLines(
+  summary: ReturnType<typeof toFinanceSummaryResponse>,
+  fin: BusinessFinancialSummary,
+  repairAccrual: RepairAccrualSummary,
+): PlStatementLine[] {
+  const lines: PlStatementLine[] = [
+    { section: 'income', label: 'POS Sales Revenue', amount: summary.salesRevenue, indent: 1 },
+  ]
+
+  if (summary.repairIncome > 0) {
+    lines.push({ section: 'income', label: 'Repair Income (Cash Received)', amount: summary.repairIncome, indent: 1 })
+  }
+  if (summary.billPaymentIncome > 0) {
+    lines.push({ section: 'income', label: 'Bill Payment Income', amount: summary.billPaymentIncome, indent: 1 })
+  }
+  if (summary.creditPayments > 0) {
+    lines.push({ section: 'income', label: 'Customer Credit Payments', amount: summary.creditPayments, indent: 1 })
+  }
+  if (summary.reloadCommission > 0) {
+    lines.push({ section: 'income', label: 'Reload Commission', amount: summary.reloadCommission, indent: 1 })
+  }
+  if (summary.miscIncome > 0) {
+    lines.push({ section: 'income', label: 'Other Income', amount: summary.miscIncome, indent: 1 })
+  }
+
+  lines.push({
+    section: 'income',
+    label: 'Total Income',
+    amount: summary.totalIncome,
+    bold: true,
+    separator: true,
+  })
+
+  lines.push({ section: 'cost', label: 'POS Cost of Goods Sold', amount: summary.posCogs, indent: 1 })
+  if (summary.repairPartsCogs > 0) {
+    lines.push({ section: 'cost', label: 'Repair Parts Cost', amount: summary.repairPartsCogs, indent: 1 })
+  }
+  if (summary.refundsTotal > 0) {
+    lines.push({ section: 'cost', label: 'Refunds', amount: summary.refundsTotal, indent: 1 })
+  }
+
+  lines.push({
+    section: 'profit',
+    label: 'Gross Profit',
+    amount: summary.grossProfit,
+    bold: true,
+    separator: true,
+  })
+
+  lines.push({ section: 'cost', label: 'Operating Expenses', amount: summary.opExpenses, indent: 1 })
+
+  lines.push({
+    section: 'profit',
+    label: 'Net Profit / (Loss)',
+    amount: summary.profit,
+    bold: true,
+    highlight: true,
+    separator: true,
+  })
+
+  if (repairAccrual.jobs > 0) {
+    lines.push({ section: 'note', label: `Repair jobs completed (accrual): ${repairAccrual.jobs}`, indent: 1 })
+    lines.push({ section: 'note', label: 'Repair collected (quotes − discounts)', amount: repairAccrual.collected, indent: 1 })
+    if (repairAccrual.discount > 0) {
+      lines.push({ section: 'note', label: 'Repair discounts', amount: repairAccrual.discount, indent: 1 })
+    }
+    lines.push({ section: 'note', label: 'Repair parts inventory cost', amount: repairAccrual.partsBuy, indent: 1 })
+    lines.push({ section: 'note', label: 'Repair net profit (collected − parts buy)', amount: repairAccrual.netProfit, indent: 1, bold: true })
+    if (repairAccrual.creditDue > 0) {
+      lines.push({ section: 'note', label: 'Repair credit outstanding', amount: repairAccrual.creditDue, indent: 1 })
+    }
+  }
+
+  return lines
+}
 
 async function branchFilter(tenantId: string, branchId?: string) {
   if (branchId) return { branchId }
@@ -211,6 +359,7 @@ export async function buildPlStatement(
   const fin = await getPeriodFinancials(tenantId, fromKey, toKey, branchId)
   const summary = toFinanceSummaryResponse(fin, { from: fromKey, to: toKey })
   const dailyTrend = await getDailyRevenueBreakdown(tenantId, fromKey, toKey, branchId)
+  const repairAccrual = await buildRepairAccrualSummary(tenantId, fromKey, toKey, branchId)
 
   const periodDays = listBusinessDays(fromKey, toKey).length
   const prevToKey = shiftBusinessDate(fromKey, -1)
@@ -232,6 +381,8 @@ export async function buildPlStatement(
     ? Math.round((summary.profit / summary.totalIncome) * 100)
     : 0
 
+  const statement = buildStatementLines(summary, fin, repairAccrual)
+
   return {
     summary,
     previous,
@@ -240,15 +391,7 @@ export async function buildPlStatement(
     incomeBreakdown,
     expenseBreakdown,
     insights,
-    statement: [
-      { section: 'income', label: 'Sales Revenue', amount: summary.salesRevenue, indent: 0 },
-      { section: 'income', label: 'Other Income (Repairs, Bills, Reload Commission)', amount: summary.otherIncome, indent: 1 },
-      { section: 'income', label: 'Total Income', amount: summary.totalIncome, bold: true },
-      { section: 'cost', label: 'Cost of Goods Sold (COGS)', amount: -summary.cogs, indent: 1 },
-      { section: 'cost', label: 'Refunds', amount: -summary.refundsTotal, indent: 1 },
-      { section: 'profit', label: 'Gross Profit', amount: summary.grossProfit, bold: true },
-      { section: 'cost', label: 'Operating Expenses', amount: -summary.opExpenses, indent: 1 },
-      { section: 'profit', label: 'Net Profit / (Loss)', amount: summary.profit, bold: true, highlight: true },
-    ],
+    repairAccrual,
+    statement,
   }
 }
