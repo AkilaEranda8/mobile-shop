@@ -1,20 +1,22 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
-import { Plus, Trash2, Upload, Loader2, ChevronDown, Info, GripVertical, Box, Eye, Lock, ArrowLeft, Download } from 'lucide-react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { Plus, Trash2, Upload, Loader2, ChevronDown, Info, GripVertical, Box, Eye, Lock, ArrowLeft, Download, RefreshCw } from 'lucide-react'
 import { productsApi, suppliersApi, uploadApi, deviceCatalogApi, tenantApi } from '@/lib/api'
 import { useCategories, useBrands, useSuppliers, useProductVariantSettings } from '@/lib/hooks'
 import { DEFAULT_PRODUCT_VARIANT_SETTINGS, pushProductVariantSettings } from '@/lib/productVariantSettings'
 import { authStorage } from '@/lib/auth'
 import { isKasthuriTenant } from '@/lib/invoiceSettings'
 import { getTenantSlugFromHost } from '@/lib/tenant-context'
-import type { Category } from '@/types'
+import type { Category, Product } from '@/types'
 import toast from 'react-hot-toast'
 import { ImeiProductTypeSelector } from './ImeiProductTypeSelector'
 import { MasterCatalogImportModal } from './MasterCatalogImportModal'
 import type { MasterCatalogFormDraft } from '@/lib/masterCatalogFormDraft'
 import { inferImeiProductType, imeiTypeToTrackFlag, type ImeiProductType } from '@/lib/productImei'
 import { PRODUCT_CONDITION_OPTS, type ProductCondition } from '@/lib/productCondition'
+import { buildProductCopyDraft, isProductCopyUnchanged, snapshotFromDraft, snapshotFromFormState } from '@/lib/productCopyDraft'
+import { variantSkuFromBase } from '@/lib/productCodes'
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 
@@ -22,7 +24,12 @@ interface VariantRow {
   id: string; storage: string; colorName: string; colorHex: string
   sku: string; sellingPrice: string; costPrice: string
 }
-interface AddProductModalProps { onClose: () => void; onSaved: () => void }
+interface AddProductModalProps {
+  onClose: () => void
+  onSaved: () => void
+  /** Pre-fill form from an existing product; save creates a new product. */
+  copyFrom?: Product
+}
 interface Brand { id: string; name: string }
 interface Supplier { id: string; name: string }
 interface DeviceBrand { id: string; name: string }
@@ -383,7 +390,12 @@ function ImageUploader({ imageUrl, onUploaded }: { imageUrl: string; onUploaded:
 
 /* ─── Main Component ─────────────────────────────────────────────────────── */
 
-export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
+export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalProps) {
+  const copyDraft = useMemo(
+    () => (copyFrom ? buildProductCopyDraft(copyFrom, genId) : null),
+    [copyFrom],
+  )
+
   const { data: catsData, refetch: refetchCats } = useCategories()
   const { data: brandsData, refetch: refetchBrands } = useBrands()
   const { data: suppliersRaw } = useSuppliers()
@@ -411,30 +423,106 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
 
   const allBrands = [...brands, ...extraBrands.filter(eb => !brands.find(b => b.id === eb.id))]
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(() => copyDraft?.form ?? {
     name: '', sku: '', barcodeValue: '', barcodeType: 'Code 128 (C128)', brandName: '',
     categoryName: '', subCategory: '', unit: 'Piece (Pc)',
     deviceModel: '', description: '', imageUrl: '',
   })
-  const [condition,     setCondition]     = useState<ProductCondition>('BRAND_NEW')
-  const [imeiType,      setImeiType]      = useState<ImeiProductType>('accessory')
-  const [imeiTouched,   setImeiTouched]   = useState(false)
-  const [warrantyTrack, setWarrantyTrack] = useState(true)
-  const [lowStock,      setLowStock]      = useState(true)
-  const [minStock,      setMinStock]      = useState('5')
-  const [manageStock,   setManageStock]   = useState('Yes')
-  const [initialQty,    setInitialQty]    = useState('0')
-  const [pricing, setPricing] = useState({ tax: 'None', taxType: 'Exclusive', purchaseEx: '', purchaseInc: '', sellingEx: '', margin: '' })
-  const [extra,   setExtra]   = useState({ supplierId: '', warranty: '1 Year', warrantyNote: '', hsCode: '', tags: '' })
-  const [variants, setVariants] = useState<VariantRow[]>([])
+  const [condition,     setCondition]     = useState<ProductCondition>(() => copyDraft?.condition ?? 'BRAND_NEW')
+  const [imeiType,      setImeiType]      = useState<ImeiProductType>(() => copyDraft?.imeiType ?? 'accessory')
+  const [imeiTouched,   setImeiTouched]   = useState(() => copyDraft?.imeiTouched ?? false)
+  const [warrantyTrack, setWarrantyTrack] = useState(() => copyDraft?.warrantyTrack ?? true)
+  const [lowStock,      setLowStock]      = useState(() => copyDraft?.lowStock ?? true)
+  const [minStock,      setMinStock]      = useState(() => copyDraft?.minStock ?? '5')
+  const [manageStock,   setManageStock]   = useState(() => copyDraft?.manageStock ?? 'Yes')
+  const [initialQty,    setInitialQty]    = useState(() => copyDraft?.initialQty ?? '0')
+  const [pricing, setPricing] = useState(() => copyDraft?.pricing ?? { tax: 'None', taxType: 'Exclusive', purchaseEx: '', purchaseInc: '', sellingEx: '', margin: '' })
+  const [extra,   setExtra]   = useState(() => copyDraft?.extra ?? { supplierId: '', warranty: '1 Year', warrantyNote: '', hsCode: '', tags: '' })
+  const [variants, setVariants] = useState<VariantRow[]>(() => copyDraft?.variants ?? [])
   const [showMasterImport, setShowMasterImport] = useState(false)
+  const [codesLoading, setCodesLoading] = useState(true)
+
+  const copyBaseline = useMemo(
+    () => (copyDraft ? snapshotFromDraft(copyDraft) : null),
+    [copyDraft],
+  )
+
+  const copyUnchanged = useMemo(() => {
+    if (!copyFrom || !copyBaseline) return false
+    const current = snapshotFromFormState({
+      form,
+      condition,
+      imeiType,
+      warrantyTrack,
+      lowStock,
+      minStock,
+      manageStock,
+      pricing,
+      extra,
+      variants,
+    })
+    return isProductCopyUnchanged(copyBaseline, current)
+  }, [
+    copyFrom,
+    copyBaseline,
+    form,
+    condition,
+    imeiType,
+    warrantyTrack,
+    lowStock,
+    minStock,
+    manageStock,
+    pricing,
+    extra,
+    variants,
+  ])
 
   const f = useCallback((k: string, v: string) => setForm(p => ({ ...p, [k]: v })), [])
 
+  const applyAutoCodes = useCallback((sku: string, barcode: string, resetVariants = false) => {
+    if (!sku) return
+    setForm(p => ({ ...p, sku, barcodeValue: barcode }))
+    setVariants(p => p.map(v => ({
+      ...v,
+      sku: resetVariants
+        ? variantSkuFromBase(sku, v.storage, v.colorName)
+        : (v.sku || variantSkuFromBase(sku, v.storage, v.colorName)),
+    })))
+  }, [])
+
+  const refreshCodes = useCallback(async () => {
+    setCodesLoading(true)
+    try {
+      const res: any = await productsApi.nextCodes()
+      const data = res?.data ?? res
+      applyAutoCodes(String(data?.sku ?? ''), String(data?.barcode ?? ''), true)
+      toast.success('New SKU & barcode generated')
+    } catch {
+      toast.error('Could not generate SKU / barcode')
+    } finally {
+      setCodesLoading(false)
+    }
+  }, [applyAutoCodes])
+
   useEffect(() => {
+    let cancelled = false
+    setCodesLoading(true)
+    productsApi.nextCodes()
+      .then((res: any) => {
+        if (cancelled) return
+        const data = res?.data ?? res
+        applyAutoCodes(String(data?.sku ?? ''), String(data?.barcode ?? ''), false)
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setCodesLoading(false) })
+    return () => { cancelled = true }
+  }, [applyAutoCodes])
+
+  useEffect(() => {
+    if (copyFrom) return
     if (cats.length > 0 && !form.categoryName) f('categoryName', cats[0].name)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cats.length])
+  }, [cats.length, copyFrom])
 
   useEffect(() => {
     const tenantId = authStorage.getUser()?.tenantId
@@ -473,9 +561,10 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
   })()
 
   useEffect(() => {
+    if (copyFrom) return
     if (allBrands.length > 0 && !form.brandName) f('brandName', allBrands[0].name)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allBrands.length])
+  }, [allBrands.length, copyFrom])
 
   useEffect(() => {
     if (imeiTouched) return
@@ -540,13 +629,19 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
     }
   }, [lowStock, minStock, warrantyTrack, extra.warranty, extra.warrantyNote, manageStock, initialQty])
 
-  const addVariant = () => setVariants(p => [...p, {
-    id: genId(),
-    storage: storageOpts.find(s => s === '128GB') ?? storageOpts[0] ?? '128GB',
-    colorName: colorOpts[0]?.name ?? 'Black',
-    colorHex: colorOpts[0]?.hex ?? '#1a1a1a',
-    sku: '', sellingPrice: pricing.sellingEx, costPrice: pricing.purchaseEx,
-  }])
+  const addVariant = () => {
+    const storage = storageOpts.find(s => s === '128GB') ?? storageOpts[0] ?? '128GB'
+    const colorName = colorOpts[0]?.name ?? 'Black'
+    setVariants(p => [...p, {
+      id: genId(),
+      storage,
+      colorName,
+      colorHex: colorOpts[0]?.hex ?? '#1a1a1a',
+      sku: form.sku ? variantSkuFromBase(form.sku, storage, colorName) : '',
+      sellingPrice: pricing.sellingEx,
+      costPrice: pricing.purchaseEx,
+    }])
+  }
   const delVariant = (id: string) => setVariants(p => p.filter(v => v.id !== id))
   const updVariant = (id: string, k: keyof VariantRow, val: string) => setVariants(p => p.map(v => v.id === id ? { ...v, [k]: val } : v))
   const updColor   = (id: string, name: string, hex: string) => setVariants(p => p.map(v => v.id === id ? { ...v, colorName: name, colorHex: hex } : v))
@@ -594,6 +689,10 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
     if (!form.name.trim())         { toast.error('Product name required'); return }
     if (!form.sku.trim())          { toast.error('SKU required'); return }
     if (!form.categoryName.trim()) { toast.error('Category required'); return }
+    if (copyFrom && copyUnchanged) {
+      toast.error('Change at least one product detail before saving. Same details would duplicate the original.')
+      return
+    }
 
     const defaultBuy  = resolveBuyPrice()
     const defaultSell = resolveSellPrice()
@@ -621,7 +720,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
     setLoading(true)
     try {
       await productsApi.create(buildPayload({
-        name: form.name, sku: form.sku, barcode: form.barcodeValue || form.sku,
+        name: form.name, sku: form.sku, barcode: form.barcodeValue.trim() || undefined,
         brandName: form.brandName, categoryName: form.categoryName,
         buyingPrice, sellingPrice, trackImei,
         subCategory: form.subCategory, deviceModel: form.deviceModel,
@@ -629,7 +728,7 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
         condition,
         variantRows: resolvedVariants,
       }))
-      toast.success(`"${form.name}" created!`)
+      toast.success(copyFrom ? `"${form.name}" saved as a new product` : `"${form.name}" created!`)
       onSaved(); onClose()
     } catch (e: any) { toast.error(e?.message ?? 'Failed') }
     finally { setLoading(false) }
@@ -686,8 +785,12 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
             <ArrowLeft size={18} />
           </button>
           <div className="min-w-0">
-            <h1 className="page-title">Create New Product</h1>
-            <p className="page-subtitle">Add a new product to your inventory. Import from catalog fills this form — you set prices and save.</p>
+            <h1 className="page-title">{copyFrom ? 'Duplicate Product' : 'Create New Product'}</h1>
+            <p className="page-subtitle">
+              {copyFrom
+                ? `Copied from "${copyFrom.name}" — all details loaded. Change name, price, or other fields before saving. New SKU & barcode are auto-generated. Stock starts at 0.`
+                : 'Add a new product to your inventory. Import from catalog fills this form — you set prices and save.'}
+            </p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2 sm:ml-auto pl-11 sm:pl-0">
@@ -695,13 +798,30 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
             <Download size={14} /> Import from Master Catalog
           </button>
           <button type="button" onClick={onClose} className="btn-secondary text-sm">Cancel</button>
-          <button type="button" onClick={submit} disabled={loading || !form.name.trim() || !form.sku.trim()}
+          <button
+            type="button"
+            onClick={submit}
+            disabled={loading || !form.name.trim() || !form.sku.trim() || (Boolean(copyFrom) && copyUnchanged)}
+            title={copyFrom && copyUnchanged ? 'Change product details before saving' : undefined}
             className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
             {loading ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
             Create Product
           </button>
         </div>
       </div>
+
+      {copyFrom && copyUnchanged && (
+        <div
+          className="flex items-start gap-2 rounded-lg px-4 py-3 text-sm"
+          style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.25)', color: 'var(--text-primary)' }}
+        >
+          <Info size={16} className="shrink-0 mt-0.5 text-amber-400" />
+          <span>
+            Product details are unchanged from the original. Edit name, price, category, or another field to enable save.
+            SKU and barcode are already new.
+          </span>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-5 items-start">
 
@@ -722,12 +842,24 @@ export function AddProductModal({ onClose, onSaved }: AddProductModalProps) {
                 </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <Lbl req>SKU</Lbl>
-                  <input style={inputStyle} placeholder="Enter SKU" value={form.sku} onChange={e => f('sku', e.target.value)} />
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <Lbl req>SKU</Lbl>
+                    <button
+                      type="button"
+                      onClick={refreshCodes}
+                      disabled={codesLoading}
+                      className="flex items-center gap-1 text-[10px] text-cyan-400 hover:text-cyan-300 disabled:opacity-50"
+                      title="Generate new tenant SKU & barcode"
+                    >
+                      {codesLoading ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
+                      Auto
+                    </button>
+                  </div>
+                  <input style={{ ...inputStyle, fontFamily: 'monospace' }} placeholder="Auto-generated per tenant" value={form.sku} onChange={e => f('sku', e.target.value)} />
                       </div>
                       <div>
-                        <Lbl tip="Scanned barcode number stored for POS lookup">Barcode</Lbl>
-                        <input style={{ ...inputStyle, fontFamily: 'monospace' }} placeholder="Scan or enter barcode"
+                        <Lbl tip="Scanned barcode number stored for POS lookup">Barcode (Auto)</Lbl>
+                        <input style={{ ...inputStyle, fontFamily: 'monospace' }} placeholder="Auto-generated per tenant"
                           value={form.barcodeValue} onChange={e => f('barcodeValue', e.target.value)} />
                       </div>
                 </div>

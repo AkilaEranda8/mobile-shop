@@ -535,6 +535,8 @@ export async function postRepairJournal(tenantId: string, repairId: string, acto
   const total = round2(Math.max(0, Number(r.actualCost ?? r.estimatedCost ?? 0)))
   const paid = round2(Math.max(0, Number(r.paidAmount ?? 0)))
   const due = round2(Math.max(0, Number(r.dueAmount ?? 0)))
+  const vat = round2(total * 18 / 118)
+  const netIncome = round2(total - vat)
 
   const lines: JournalDraftLine[] = []
 
@@ -545,7 +547,10 @@ export async function postRepairJournal(tenantId: string, repairId: string, acto
   if (due > 0) {
     lines.push({ accountId: await resolveAccountIdByKey(tenantId, 'ar'), debit: due, credit: 0, description: 'Repair receivable', customerId: r.customerId, metadata: { ticketNumber: r.ticketNumber } })
   }
-  lines.push({ accountId: await resolveAccountIdByKey(tenantId, 'repairIncome'), debit: 0, credit: total, description: 'Repair income', metadata: { ticketNumber: r.ticketNumber } })
+  lines.push({ accountId: await resolveAccountIdByKey(tenantId, 'repairIncome'), debit: 0, credit: netIncome, description: 'Repair income (net)', metadata: { ticketNumber: r.ticketNumber } })
+  if (vat > 0) {
+    lines.push({ accountId: await resolveAccountIdByKey(tenantId, 'vatOutput'), debit: 0, credit: vat, description: 'VAT on repair', metadata: { ticketNumber: r.ticketNumber } })
+  }
 
   const je = await createPostedJournalEntry({
     tenantId,
@@ -662,19 +667,30 @@ export async function postSaleReturnJournal(tenantId: string, returnId: string, 
   const itemTotal = round2(mobileRev + accessoryRev + serviceRev)
   const returnTotal = itemTotal > 0 ? itemTotal : refund
 
+  const saleTax = round2(Math.max(0, Number(ret.sale.tax ?? 0)))
+  const saleTotal = round2(Math.max(0, Number(ret.sale.total ?? 0)))
+  const vatReversal = saleTotal > 0 && saleTax > 0 ? round2(saleTax * (returnTotal / saleTotal)) : 0
+  const netReturn = round2(returnTotal - vatReversal)
+
   const lines: JournalDraftLine[] = []
 
   if (mobileRev > 0) {
-    lines.push({ accountId: await resolveAccountIdByKey(tenantId, 'salesReturns'), debit: mobileRev, credit: 0, description: 'Sales return — Mobile' })
+    const mobileNet = itemTotal > 0 ? round2(mobileRev * (netReturn / returnTotal)) : mobileRev
+    if (mobileNet > 0) lines.push({ accountId: await resolveAccountIdByKey(tenantId, 'salesReturns'), debit: mobileNet, credit: 0, description: 'Sales return — Mobile' })
   }
   if (accessoryRev > 0) {
-    lines.push({ accountId: await resolveAccountIdByKey(tenantId, 'salesReturns'), debit: accessoryRev, credit: 0, description: 'Sales return — Accessories' })
+    const accessoryNet = itemTotal > 0 ? round2(accessoryRev * (netReturn / returnTotal)) : accessoryRev
+    if (accessoryNet > 0) lines.push({ accountId: await resolveAccountIdByKey(tenantId, 'salesReturns'), debit: accessoryNet, credit: 0, description: 'Sales return — Accessories' })
   }
   if (serviceRev > 0) {
-    lines.push({ accountId: await resolveAccountIdByKey(tenantId, 'salesReturns'), debit: serviceRev, credit: 0, description: 'Sales return — Service' })
+    const serviceNet = itemTotal > 0 ? round2(serviceRev * (netReturn / returnTotal)) : serviceRev
+    if (serviceNet > 0) lines.push({ accountId: await resolveAccountIdByKey(tenantId, 'salesReturns'), debit: serviceNet, credit: 0, description: 'Sales return — Service' })
   }
-  if (itemTotal <= 0) {
-    lines.push({ accountId: await resolveAccountIdByKey(tenantId, 'salesReturns'), debit: refund, credit: 0, description: 'Sales return' })
+  if (itemTotal <= 0 && netReturn > 0) {
+    lines.push({ accountId: await resolveAccountIdByKey(tenantId, 'salesReturns'), debit: netReturn, credit: 0, description: 'Sales return' })
+  }
+  if (vatReversal > 0) {
+    lines.push({ accountId: await resolveAccountIdByKey(tenantId, 'vatOutput'), debit: vatReversal, credit: 0, description: 'VAT reversal on return' })
   }
 
   let creditAccountId: string

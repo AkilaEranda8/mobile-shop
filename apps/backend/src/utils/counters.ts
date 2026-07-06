@@ -71,3 +71,50 @@ export function generateWarrantyCode(): string {
   }
   return code
 }
+
+/** Short uppercase tenant prefix for product codes (max 6 chars). */
+export function tenantProductPrefix(slug: string): string {
+  const s = slug.replace(/[^a-z0-9]/gi, '').toUpperCase()
+  if (!s) return 'TNT'
+  return s.length <= 6 ? s : s.slice(0, 6)
+}
+
+async function seedProductCodeSeq(
+  tenantId: string,
+  redisKey: string,
+  prefix: string,
+  field: 'sku' | 'barcode',
+): Promise<void> {
+  const seeded = await redis.set(redisKey, '0', 'NX')
+  if (seeded !== 'OK') return
+
+  const products = await prisma.product.findMany({
+    where: { tenantId },
+    select: { sku: true, barcode: true },
+  })
+  const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const pattern = new RegExp(`^${escaped}-(\\d+)$`)
+  let max = 0
+  for (const p of products) {
+    const val = field === 'sku' ? p.sku : p.barcode
+    const m = val?.match(pattern)
+    if (m) max = Math.max(max, parseInt(m[1], 10))
+  }
+  await redis.set(redisKey, String(max))
+}
+
+export async function generateProductSku(tenantId: string, tenantSlug: string): Promise<string> {
+  const prefix = `${tenantProductPrefix(tenantSlug)}-SKU`
+  const key = `product_sku_seq:${tenantId}`
+  await seedProductCodeSeq(tenantId, key, prefix, 'sku')
+  const next = await redis.incr(key)
+  return `${prefix}-${String(next).padStart(5, '0')}`
+}
+
+export async function generateProductBarcode(tenantId: string, tenantSlug: string): Promise<string> {
+  const prefix = `${tenantProductPrefix(tenantSlug)}-BC`
+  const key = `product_bc_seq:${tenantId}`
+  await seedProductCodeSeq(tenantId, key, prefix, 'barcode')
+  const next = await redis.incr(key)
+  return `${prefix}-${String(next).padStart(5, '0')}`
+}

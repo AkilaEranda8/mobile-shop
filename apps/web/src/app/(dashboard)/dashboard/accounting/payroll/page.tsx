@@ -45,6 +45,9 @@ export default function PayrollPage() {
   const [lines, setLines] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
   const [applyStatutory, setApplyStatutory] = useState(true)
+  const [remitType, setRemitType] = useState<'EPF' | 'ETF'>('EPF')
+  const [remitAmount, setRemitAmount] = useState('')
+  const [remitDate, setRemitDate] = useState(businessToday())
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -98,6 +101,26 @@ export default function PayrollPage() {
       await load()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Payment failed')
+    } finally { setSubmitting(false) }
+  }
+
+  async function handleRemittance() {
+    if (!branchId) { toast.error('Select a branch'); return }
+    const amount = Number(remitAmount)
+    if (!amount || amount <= 0) { toast.error('Enter remittance amount'); return }
+    setSubmitting(true)
+    try {
+      await accountingApi.postStatutoryRemittance({
+        type: remitType,
+        amount,
+        branchId,
+        entryDate: remitDate,
+        paymentMethod: 'BANK_TRANSFER',
+      })
+      toast.success(`${remitType} remittance posted`)
+      setRemitAmount('')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Remittance failed')
     } finally { setSubmitting(false) }
   }
 
@@ -158,6 +181,29 @@ export default function PayrollPage() {
           )}
         </AccountingPanel>
       )}
+
+      <AccountingPanel title="EPF / ETF remittance">
+        <div className="p-5 flex flex-wrap items-end gap-3">
+          <label className="block">
+            <span className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Type</span>
+            <select value={remitType} onChange={e => setRemitType(e.target.value as 'EPF' | 'ETF')} className="input-field text-sm w-32">
+              <option value="EPF">EPF</option>
+              <option value="ETF">ETF</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Amount (LKR)</span>
+            <input type="number" value={remitAmount} onChange={e => setRemitAmount(e.target.value)} className="input-field text-sm w-36" />
+          </label>
+          <label className="block">
+            <span className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Date</span>
+            <input type="date" value={remitDate} onChange={e => setRemitDate(e.target.value)} className="input-field text-sm" />
+          </label>
+          <button type="button" onClick={handleRemittance} disabled={submitting} className="btn-primary text-sm">
+            Post remittance
+          </button>
+        </div>
+      </AccountingPanel>
 
       {showCreate && (
         <AccountingModal title="New payroll accrual" icon={Users} onClose={() => setShowCreate(false)} wide>

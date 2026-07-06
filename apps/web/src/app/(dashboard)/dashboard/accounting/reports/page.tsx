@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   BarChart3, DollarSign, Landmark, Loader2,
-  RefreshCw, Scale, TrendingUp,
+  RefreshCw, Scale, TrendingUp, Download,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useFeatureFlag } from '@/lib/hooks'
@@ -77,6 +77,54 @@ export default function AccountingReportsPage() {
 
   useEffect(() => { if (hasAccess) load() }, [hasAccess, load])
 
+  function downloadCsv() {
+    if (!report) return
+    let rows: string[][] = []
+    const filename = `gl-${tab}-${toDate}.csv`
+
+    if (tab === 'trial-balance') {
+      const d = report as TrialBalanceData
+      rows = [['Code', 'Account', 'Type', 'Debit', 'Credit'], ...d.lines.map(l => [
+        l.code, l.name, l.type, String(l.debitBalance), String(l.creditBalance),
+      ]), ['', 'Total', '', String(d.totals.debit), String(d.totals.credit)]]
+    } else if (tab === 'profit-loss') {
+      const d = report as PlData
+      rows = [['Code', 'Account', 'Amount'],
+        ...d.revenue.lines.map(l => [l.code, l.name, String(l.amount)]),
+        ['', 'Total Revenue', String(d.revenue.total)],
+        ...d.cogs.lines.map(l => [l.code, l.name, String(l.amount)]),
+        ['', 'Total COGS', String(d.cogs.total)],
+        ['', 'Gross Profit', String(d.grossProfit)],
+        ...d.operatingExpenses.lines.map(l => [l.code, l.name, String(l.amount)]),
+        ['', 'Net Income', String(d.netIncome)]]
+    } else if (tab === 'balance-sheet') {
+      const d = report as BsData
+      rows = [['Code', 'Account', 'Balance'],
+        ...d.assets.lines.map(l => [l.code, l.name, String(l.balance)]),
+        ['', 'Total Assets', String(d.assets.total)],
+        ...d.liabilities.lines.map(l => [l.code, l.name, String(l.balance)]),
+        ...d.equity.lines.map(l => [l.code, l.name, String(l.balance)]),
+        ['', 'Total L+E', String(d.totals.liabilitiesAndEquity)]]
+    } else {
+      const d = report as CfData
+      rows = [['Section', 'Item', 'Amount'],
+        ['Operating', 'Net', String(d.operating.net)],
+        ['Investing', 'Net', String(d.investing.net)],
+        ['Financing', 'Net', String(d.financing.net)],
+        ['', 'Net Change', String(d.netChangeInCash)],
+        ['', 'Closing Cash', String(d.closingCash)]]
+    }
+
+    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   if (!hasAccess) return <AccountingFeatureGate />
 
   return (
@@ -104,6 +152,12 @@ export default function AccountingReportsPage() {
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
               Refresh
             </button>
+            {report && (
+              <button type="button" onClick={downloadCsv} className="btn-secondary flex items-center gap-2 text-sm">
+                <Download size={14} />
+                Export CSV
+              </button>
+            )}
           </>
         }
       />
@@ -111,7 +165,11 @@ export default function AccountingReportsPage() {
       <AccountingTabs
         tabs={TABS.map(t => ({ id: t.id, label: t.label }))}
         value={tab}
-        onChange={setTab}
+        onChange={(id) => {
+          setTab(id)
+          setReport(null)
+          setLoading(true)
+        }}
       />
 
       <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -129,10 +187,10 @@ export default function AccountingReportsPage() {
         </div>
       ) : (
         <>
-          {tab === 'trial-balance' && <TrialBalanceView data={report as TrialBalanceData} />}
-          {tab === 'profit-loss' && <ProfitLossView data={report as PlData} />}
-          {tab === 'balance-sheet' && <BalanceSheetView data={report as BsData} />}
-          {tab === 'cash-flow' && <CashFlowView data={report as CfData} />}
+          {tab === 'trial-balance' && isTrialBalanceData(report) && <TrialBalanceView data={report} />}
+          {tab === 'profit-loss' && isPlData(report) && <ProfitLossView data={report} />}
+          {tab === 'balance-sheet' && isBsData(report) && <BalanceSheetView data={report} />}
+          {tab === 'cash-flow' && isCfData(report) && <CashFlowView data={report} />}
         </>
       )}
     </AccountingPageShell>
@@ -208,28 +266,32 @@ type BsData = {
 }
 
 function BalanceSheetView({ data }: { data: BsData }) {
+  const assets = data.assets?.lines ?? []
+  const liabilities = data.liabilities?.lines ?? []
+  const equityLines = data.equity?.lines ?? []
+  const openEarnings = data.equity?.openEarnings ?? 0
   const rows: (string | number)[][] = [
     ['—', 'Assets', ''],
-    ...data.assets.lines.map(l => [l.code, l.name, formatCurrency(l.balance)]),
-    ['', 'Total Assets', formatCurrency(data.assets.total)],
+    ...assets.map(l => [l.code, l.name, formatCurrency(l.balance ?? 0)]),
+    ['', 'Total Assets', formatCurrency(data.assets?.total ?? 0)],
     ['', '', ''],
     ['—', 'Liabilities', ''],
-    ...data.liabilities.lines.map(l => [l.code, l.name, formatCurrency(l.balance)]),
-    ['', 'Total Liabilities', formatCurrency(data.liabilities.total)],
+    ...liabilities.map(l => [l.code, l.name, formatCurrency(l.balance ?? 0)]),
+    ['', 'Total Liabilities', formatCurrency(data.liabilities?.total ?? 0)],
     ['', '', ''],
     ['—', 'Equity', ''],
-    ...data.equity.lines.map(l => [l.code, l.name, formatCurrency(l.balance)]),
-    ...(data.equity.openEarnings !== 0
-      ? [['', 'Current Earnings (unclosed)', formatCurrency(data.equity.openEarnings)]]
+    ...equityLines.map(l => [l.code, l.name, formatCurrency(l.balance ?? 0)]),
+    ...(openEarnings !== 0
+      ? [['', 'Current Earnings (unclosed)', formatCurrency(openEarnings)]]
       : []),
-    ['', 'Total Equity', formatCurrency(data.equity.total)],
-    ['', 'Liabilities + Equity', formatCurrency(data.totals.liabilitiesAndEquity)],
+    ['', 'Total Equity', formatCurrency(data.equity?.total ?? 0)],
+    ['', 'Liabilities + Equity', formatCurrency(data.totals?.liabilitiesAndEquity ?? 0)],
   ]
   return (
     <ReportTable
       headers={['Code', 'Account', 'Balance']}
       rows={rows}
-      balanced={data.totals.balanced}
+      balanced={data.totals?.balanced}
     />
   )
 }
@@ -244,24 +306,43 @@ type CfData = {
 }
 
 function CashFlowView({ data }: { data: CfData }) {
+  const operating = data.operating ?? { inflows: 0, outflows: 0, net: 0 }
+  const investing = data.investing ?? { inflows: 0, outflows: 0, net: 0 }
+  const financing = data.financing ?? { inflows: 0, outflows: 0, net: 0 }
   const rows: (string | number)[][] = [
-    ['Operating', 'Inflows', formatCurrency(data.operating.inflows)],
-    ['', 'Outflows', formatCurrency(data.operating.outflows)],
-    ['', 'Net Operating', formatCurrency(data.operating.net)],
+    ['Operating', 'Inflows', formatCurrency(operating.inflows)],
+    ['', 'Outflows', formatCurrency(operating.outflows)],
+    ['', 'Net Operating', formatCurrency(operating.net)],
     ['', '', ''],
-    ['Investing', 'Inflows', formatCurrency(data.investing.inflows)],
-    ['', 'Outflows', formatCurrency(data.investing.outflows)],
-    ['', 'Net Investing', formatCurrency(data.investing.net)],
+    ['Investing', 'Inflows', formatCurrency(investing.inflows)],
+    ['', 'Outflows', formatCurrency(investing.outflows)],
+    ['', 'Net Investing', formatCurrency(investing.net)],
     ['', '', ''],
-    ['Financing', 'Inflows', formatCurrency(data.financing.inflows)],
-    ['', 'Outflows', formatCurrency(data.financing.outflows)],
-    ['', 'Net Financing', formatCurrency(data.financing.net)],
+    ['Financing', 'Inflows', formatCurrency(financing.inflows)],
+    ['', 'Outflows', formatCurrency(financing.outflows)],
+    ['', 'Net Financing', formatCurrency(financing.net)],
     ['', '', ''],
-    ['', 'Net Change in Cash', formatCurrency(data.netChangeInCash)],
-    ['', 'Opening Cash', formatCurrency(data.openingCash)],
-    ['', 'Closing Cash', formatCurrency(data.closingCash)],
+    ['', 'Net Change in Cash', formatCurrency(data.netChangeInCash ?? 0)],
+    ['', 'Opening Cash', formatCurrency(data.openingCash ?? 0)],
+    ['', 'Closing Cash', formatCurrency(data.closingCash ?? 0)],
   ]
   return <ReportTable headers={['Section', 'Item', 'Amount']} rows={rows} highlightLast />
+}
+
+function isTrialBalanceData(data: unknown): data is TrialBalanceData {
+  return !!data && typeof data === 'object' && Array.isArray((data as TrialBalanceData).lines)
+}
+
+function isPlData(data: unknown): data is PlData {
+  return !!data && typeof data === 'object' && !!(data as PlData).revenue?.lines
+}
+
+function isBsData(data: unknown): data is BsData {
+  return !!data && typeof data === 'object' && !!(data as BsData).assets?.lines
+}
+
+function isCfData(data: unknown): data is CfData {
+  return !!data && typeof data === 'object' && !!(data as CfData).operating
 }
 
 function ReportTable({

@@ -16,6 +16,7 @@ import { normalizeBusinessDate, businessDateDb } from '../../utils/date-range'
 import { isTenantFeatureEnabled } from '../../utils/tenant-feature.util'
 import { saveAllocation } from '../profit-allocation/profit-allocation.service'
 import { effectiveBranchId } from '../../utils/active-branch'
+import { emitDailyClosingAccounting } from '../accounting/integration/accounting-events.service'
 
 function resolveBusinessDate(input?: string): string {
   return normalizeBusinessDate(input)
@@ -135,6 +136,11 @@ router.post('/close', authorize('OWNER', 'MANAGER'), async (req: Request, res: R
     const user = req.user!
     const dateKey = resolveBusinessDate(date)
     const preview = await closeBusinessDay(req.tenantId!, branchId, dateKey, user.userId, user.email, { openingCash, cashCount, notes })
+
+    const closing = await prisma.dailyClosing.findUnique({
+      where: { tenantId_branchId_date: { tenantId: req.tenantId!, branchId, date: businessDateDb(dateKey) } },
+    })
+    if (closing) void emitDailyClosingAccounting(req.tenantId!, closing.id, branchId, user.email)
 
     let allocationWarning: string | undefined
     const profitFeat = await isTenantFeatureEnabled(req.tenantId!, 'PROFIT_ALLOCATION')

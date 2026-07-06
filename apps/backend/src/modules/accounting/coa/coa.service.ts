@@ -2,6 +2,7 @@ import { prisma } from '../../../config/database'
 import { businessDateDb, normalizeBusinessDate } from '../../../utils/date-range'
 import { AppError } from '../../../middleware/error.middleware'
 import { normalBalance, round2 } from '../reports/gl-balances.util'
+import type { GlAccountSubtype, GlAccountType } from '@prisma/client'
 
 async function assertInitialized(tenantId: string) {
   const s = await prisma.accountingSettings.findUnique({ where: { tenantId } })
@@ -26,6 +27,48 @@ export async function updateGlAccount(
       ...(body.name !== undefined ? { name: body.name } : {}),
       ...(body.description !== undefined ? { description: body.description } : {}),
       ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
+    },
+  })
+}
+
+export async function createGlAccount(
+  tenantId: string,
+  body: {
+    code: string
+    name: string
+    type: GlAccountType
+    subtype?: GlAccountSubtype
+    parentAccountId?: string
+    branchId?: string
+    description?: string
+  },
+) {
+  await assertInitialized(tenantId)
+  const code = body.code.trim()
+  if (!code || !body.name.trim()) throw new AppError('Code and name are required', 400)
+
+  const existing = await prisma.glAccount.findUnique({
+    where: { tenantId_code: { tenantId, code } },
+  })
+  if (existing) throw new AppError(`Account code ${code} already exists`, 400)
+
+  if (body.parentAccountId) {
+    const parent = await prisma.glAccount.findFirst({ where: { id: body.parentAccountId, tenantId } })
+    if (!parent) throw new AppError('Parent account not found', 404)
+  }
+
+  return prisma.glAccount.create({
+    data: {
+      tenantId,
+      branchId: body.branchId ?? null,
+      code,
+      name: body.name.trim(),
+      type: body.type,
+      subtype: body.subtype ?? 'OTHER',
+      parentAccountId: body.parentAccountId ?? null,
+      description: body.description ?? null,
+      isSystem: false,
+      isControlAccount: false,
     },
   })
 }
@@ -154,15 +197,22 @@ export async function updateAccountingSettings(
   tenantId: string,
   body: {
     expenseCategoryMap?: Record<string, string>
+    defaultAccounts?: Record<string, string>
     requireApprovalAbove?: number | null
     autoPostEnabled?: boolean
   },
 ) {
   await assertInitialized(tenantId)
+  const current = await prisma.accountingSettings.findUnique({ where: { tenantId } })
+  const mergedDefaults = body.defaultAccounts !== undefined
+    ? { ...((current?.defaultAccounts ?? {}) as Record<string, string>), ...body.defaultAccounts }
+    : undefined
+
   return prisma.accountingSettings.update({
     where: { tenantId },
     data: {
       ...(body.expenseCategoryMap !== undefined ? { expenseCategoryMap: body.expenseCategoryMap } : {}),
+      ...(mergedDefaults !== undefined ? { defaultAccounts: mergedDefaults } : {}),
       ...(body.requireApprovalAbove !== undefined ? { requireApprovalAbove: body.requireApprovalAbove } : {}),
       ...(body.autoPostEnabled !== undefined ? { autoPostEnabled: body.autoPostEnabled } : {}),
     },

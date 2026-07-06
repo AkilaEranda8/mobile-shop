@@ -8,6 +8,7 @@ import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 import { effectiveBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
 import { createDailyReloadsFromSaleItems } from '../daily-reload/pos-reload.util'
 import { createWarrantiesFromSaleItems } from '../warranty/warranty.service'
+import { emitSaleAccounting } from '../accounting/integration/accounting-events.service'
 
 export const salesService = {
   async list(tenantId: string, req: Request) {
@@ -224,6 +225,7 @@ export const salesService = {
         })
       }
     } catch (e) { console.error('Finance transaction creation failed:', e) }
+    void emitSaleAccounting(tenantId, sale.id, branchId)
     return { ...sale, warranties }
   },
 }

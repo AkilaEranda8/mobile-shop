@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   BookOpen, Loader2, CheckCircle2, AlertTriangle, RefreshCw,
   Layers, FileText, Play, Database, Calendar, Users,
-  Landmark, Receipt, Wallet, Settings, BarChart3,
+  Landmark, Receipt, Wallet, Settings, BarChart3, Plus, Shield,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useFeatureFlag } from '@/lib/hooks'
@@ -60,6 +60,7 @@ const QUICK_LINKS = [
   { href: '/dashboard/accounting/petty-cash', icon: Wallet, label: 'Petty Cash', description: 'Float expenses & replenish' },
   { href: '/dashboard/accounting/payroll', icon: Users, label: 'Payroll', description: 'Accrual & salary payment' },
   { href: '/dashboard/accounting/periods', icon: Calendar, label: 'Periods', description: 'Soft & hard close' },
+  { href: '/dashboard/accounting/audit', icon: Shield, label: 'Audit Trail', description: 'Journal & period events' },
   { href: '/dashboard/accounting/settings', icon: Settings, label: 'Settings', description: 'Auto-post, approvals, mappings' },
 ]
 
@@ -77,6 +78,12 @@ export default function AccountingPage() {
   const [editName, setEditName] = useState('')
   const [outbox, setOutbox] = useState<Array<{ id: string; sourceType: string; eventType: string; status: string; attempts: number; lastError: string | null; createdAt: string }>>([])
   const [outboxStatus, setOutboxStatus] = useState('PENDING')
+  const [showCreateAccount, setShowCreateAccount] = useState(false)
+  const [newCode, setNewCode] = useState('')
+  const [newName, setNewName] = useState('')
+  const [newType, setNewType] = useState('EXPENSE')
+  const [newSubtype, setNewSubtype] = useState('OTHER')
+  const [creatingAccount, setCreatingAccount] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -147,6 +154,31 @@ export default function AccountingPage() {
       await load()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Update failed')
+    }
+  }
+
+  async function handleCreateAccount() {
+    if (!newCode.trim() || !newName.trim()) {
+      toast.error('Code and name are required')
+      return
+    }
+    setCreatingAccount(true)
+    try {
+      await accountingApi.createGlAccount({
+        code: newCode.trim(),
+        name: newName.trim(),
+        type: newType,
+        subtype: newSubtype,
+      })
+      toast.success('GL account created')
+      setShowCreateAccount(false)
+      setNewCode('')
+      setNewName('')
+      await load()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Create failed')
+    } finally {
+      setCreatingAccount(false)
     }
   }
 
@@ -253,7 +285,11 @@ export default function AccountingPage() {
               <Database className="text-amber-400 shrink-0" size={18} />
               <div className="flex-1 text-sm min-w-0">
                 <p className="font-medium text-amber-200">{status.outboxPending} journal(s) pending</p>
-                <p className="text-xs text-amber-400/80 mt-0.5">Run Sync & Post to mirror POS, purchases and repairs into the GL.</p>
+                <p className="text-xs text-amber-400/80 mt-0.5">
+                  {status.autoPostEnabled
+                    ? 'Auto-post is on — pending items will post on the next operational event or manual process.'
+                    : 'Run Sync & Post to mirror POS, purchases and repairs into the GL.'}
+                </p>
               </div>
               <button
                 type="button"
@@ -325,7 +361,14 @@ export default function AccountingPage() {
             <AccountingPanel
               title="Chart of Accounts"
               icon={FileText}
-              actions={<span className="text-xs" style={{ color: 'var(--text-muted)' }}>{accounts.length} accounts</span>}
+              actions={
+                <div className="flex items-center gap-2">
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{accounts.length} accounts</span>
+                  <button type="button" onClick={() => setShowCreateAccount(true)} className="btn-secondary text-xs flex items-center gap-1 py-1">
+                    <Plus size={12} /> Add
+                  </button>
+                </div>
+              }
             >
               <div className="max-h-[420px] overflow-y-auto">
                 <AccountingTable>
@@ -377,6 +420,47 @@ export default function AccountingPage() {
                 <div className="flex gap-3">
                   <button type="button" onClick={() => setEditAccount(null)} className="btn-secondary flex-1 text-sm">Cancel</button>
                   <button type="button" onClick={saveCoaEdit} className="btn-primary flex-1 text-sm">Save</button>
+                </div>
+              </div>
+            </AccountingModal>
+          )}
+
+          {showCreateAccount && (
+            <AccountingModal title="Add GL account" icon={Plus} onClose={() => setShowCreateAccount(false)}>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block">
+                    <span className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Code</span>
+                    <input className="input-field" value={newCode} onChange={e => setNewCode(e.target.value)} placeholder="e.g. 5150" />
+                  </label>
+                  <label className="block">
+                    <span className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Type</span>
+                    <select className="input-field" value={newType} onChange={e => setNewType(e.target.value)}>
+                      <option value="ASSET">Asset</option>
+                      <option value="LIABILITY">Liability</option>
+                      <option value="EQUITY">Equity</option>
+                      <option value="INCOME">Income</option>
+                      <option value="EXPENSE">Expense</option>
+                    </select>
+                  </label>
+                </div>
+                <label className="block">
+                  <span className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Name</span>
+                  <input className="input-field" value={newName} onChange={e => setNewName(e.target.value)} />
+                </label>
+                <label className="block">
+                  <span className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Subtype</span>
+                  <select className="input-field" value={newSubtype} onChange={e => setNewSubtype(e.target.value)}>
+                    {['CASH', 'BANK', 'AR', 'AP', 'INVENTORY', 'REVENUE', 'COGS', 'OPEX', 'OTHER'].map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => setShowCreateAccount(false)} className="btn-secondary flex-1 text-sm">Cancel</button>
+                  <button type="button" onClick={handleCreateAccount} disabled={creatingAccount} className="btn-primary flex-1 text-sm">
+                    {creatingAccount ? 'Creating…' : 'Create'}
+                  </button>
                 </div>
               </div>
             </AccountingModal>

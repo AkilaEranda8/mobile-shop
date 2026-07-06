@@ -6,6 +6,7 @@ import { AppError } from '../../middleware/error.middleware'
 import { getPagination } from '../../utils/pagination'
 import { generatePONumber } from '../../utils/counters'
 import { effectiveBranchId } from '../../utils/active-branch'
+import { emitPurchaseAccounting } from '../accounting/integration/accounting-events.service'
 
 const router = Router()
 router.use(authenticate)
@@ -239,6 +240,7 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
         where: { id: req.params.id, tenantId: req.tenantId! },
         include: { items: true },
       })
+      void emitPurchaseAccounting(req.tenantId!, req.params.id, po.branchId, req.user?.email)
       return sendSuccess(res, updated)
     }
 

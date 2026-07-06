@@ -11,6 +11,7 @@ import { getPeriodFinancials, toFinanceSummaryResponse } from './business-financ
 import { effectiveBranchId } from '../../utils/active-branch'
 import { createTransactionSchema } from './finance.schema'
 import { buildPlStatement } from './pl-statement.service'
+import { emitExpenseAccounting } from '../accounting/integration/accounting-events.service'
 
 const router = Router()
 router.use(authenticate)
@@ -48,7 +49,7 @@ router.post('/transactions', authorize('OWNER', 'MANAGER', 'CASHIER'), validate(
     if (!branchId) throw new AppError('branchId is required — select an active branch', 400)
 
     await assertBusinessDayOpenIfEnabled(req.tenantId!, branchId)
-    sendSuccess(res, await prisma.transaction.create({
+    const tx = await prisma.transaction.create({
       data: {
         tenantId: req.tenantId!,
         branchId,
@@ -60,7 +61,11 @@ router.post('/transactions', authorize('OWNER', 'MANAGER', 'CASHIER'), validate(
         reference: body.reference,
         performedBy: req.user!.email,
       },
-    }), 'Transaction recorded', 201)
+    })
+    if (body.type === 'EXPENSE') {
+      void emitExpenseAccounting(req.tenantId!, tx.id, branchId, req.user!.email)
+    }
+    sendSuccess(res, tx, 'Transaction recorded', 201)
   } catch (e) { next(e) }
 })
 

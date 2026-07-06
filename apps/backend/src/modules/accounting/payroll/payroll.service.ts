@@ -211,6 +211,46 @@ export async function payPayrollRun(
   })
 }
 
+export async function postStatutoryRemittance(
+  tenantId: string,
+  body: {
+    type: 'EPF' | 'ETF'
+    amount: number
+    branchId: string
+    entryDate: string
+    paymentMethod: PaymentMethod
+    memo?: string
+  },
+  actorEmail?: string,
+) {
+  await getSettings(tenantId)
+  const amount = round2(Number(body.amount))
+  if (amount <= 0) throw new AppError('Remittance amount must be positive', 400)
+
+  const payableKey = body.type === 'EPF' ? 'epfPayable' : 'etfPayable'
+  const payableGlId = await accountKey(tenantId, payableKey)
+  const bankGlId = await resolvePaymentGlAccountId(tenantId, body.branchId, body.paymentMethod)
+  const refId = randomUUID()
+
+  const lines: JournalDraftLine[] = [
+    { accountId: payableGlId, debit: amount, credit: 0, description: `${body.type} remittance` },
+    { accountId: bankGlId, debit: 0, credit: amount, description: `${body.type} payment — ${body.paymentMethod}` },
+  ]
+
+  return createPostedJournalEntry({
+    tenantId,
+    branchId: body.branchId,
+    entryDate: businessDateDb(normalizeBusinessDate(body.entryDate)),
+    sourceModule: 'PAYROLL',
+    sourceRefType: 'StatutoryRemittance',
+    sourceRefId: refId,
+    sourceEvent: body.type === 'EPF' ? 'EPF_REMITTED' : 'ETF_REMITTED',
+    memo: body.memo ?? `${body.type} statutory remittance`,
+    createdByEmail: actorEmail,
+    lines,
+  })
+}
+
 export async function listPayrollEmployees(tenantId: string) {
   const users = await prisma.user.findMany({
     where: { tenantId, isActive: true },

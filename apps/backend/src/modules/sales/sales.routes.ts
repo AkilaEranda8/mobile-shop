@@ -9,6 +9,7 @@ import { AppError } from '../../middleware/error.middleware'
 import { getPagination } from '../../utils/pagination'
 import { generateReturnNumber } from '../../utils/counters'
 import { voidWarrantiesForSaleReturn } from '../warranty/warranty.service'
+import { emitSaleReturnAccounting } from '../accounting/integration/accounting-events.service'
 
 const router = Router()
 router.use(authenticate)
@@ -199,6 +200,7 @@ router.post('/:id/returns', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req
       return ret
     })
 
+    void emitSaleReturnAccounting(req.tenantId!, saleReturn.id, branchId ?? sale.branchId, req.user?.email)
     sendSuccess(res, saleReturn, 'Return processed successfully', 201)
   } catch (e) { next(e) }
 })

@@ -34,8 +34,14 @@ async function resolveRetainedEarningsId(tenantId: string) {
 }
 
 async function pendingOutboxForPeriod(tenantId: string, fromKey: string, toKey: string) {
+  const from = businessDateDb(fromKey)
+  const toEnd = new Date(businessDateDb(toKey).getTime() + 24 * 60 * 60 * 1000 - 1)
   return prisma.accountingOutbox.count({
-    where: { tenantId, status: { in: ['PENDING', 'FAILED'] } },
+    where: {
+      tenantId,
+      status: { in: ['PENDING', 'FAILED'] },
+      createdAt: { gte: from, lte: toEnd },
+    },
   })
 }
 

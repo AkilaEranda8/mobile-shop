@@ -6,6 +6,7 @@ import { linkRepairToClaim, createWarrantiesFromRepair } from '../warranty/warra
 import { Request } from 'express'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 import { effectiveBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
+import { emitRepairAccounting } from '../accounting/integration/accounting-events.service'
 
 function serializeRepair<T extends Record<string, unknown>>(ticket: T) {
   if (!ticket) return ticket
@@ -377,6 +378,7 @@ export const repairsService = {
       data: { status: 'RESOLVED', resolution: `Repair completed — ${r.ticketNumber}` },
     }).catch(() => {})
     const ticket = await prisma.repairTicket.findUnique({ where: { id }, include: { notes: true, spareParts: true, history: true } })
+    void emitRepairAccounting(tenantId, id, r.branchId, body.cashierName)
     return serializeRepair(ticket!)
   },
 }

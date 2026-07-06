@@ -2,7 +2,7 @@
 
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, RotateCcw, ChevronDown, ChevronUp, GripVertical, Smartphone, Shield, Building2, ArrowLeftRight } from 'lucide-react'
+import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, RotateCcw, ChevronDown, ChevronUp, GripVertical, Smartphone, Shield, Building2, ArrowLeftRight, Copy } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -980,7 +980,7 @@ function DetailRow({ label, value, valueClass }: { label: string; value: React.R
   )
 }
 
-function ProductDetailModal({ product, onClose, onEdit }: { product: Product; onClose: () => void; onEdit?: () => void }) {
+function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Product; onClose: () => void; onEdit?: () => void; onCopy?: () => void }) {
   const [detail, setDetail] = useState<Product>(product)
   const [loadingDetail, setLoadingDetail] = useState(true)
 
@@ -1014,6 +1014,11 @@ function ProductDetailModal({ product, onClose, onEdit }: { product: Product; on
             {loadingDetail && <Loader2 size={13} className="animate-spin text-slate-500" />}
           </div>
           <div className="flex items-center gap-2">
+            {onCopy && (
+              <button onClick={onCopy} className="flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300 px-2.5 py-1.5 rounded-lg border border-cyan-500/20 hover:bg-cyan-500/10 transition-colors">
+                <Copy size={11} /> Copy
+              </button>
+            )}
             {onEdit && (
               <button onClick={onEdit} className="flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 px-2.5 py-1.5 rounded-lg border border-violet-500/20 hover:bg-violet-500/10 transition-colors">
                 <Edit size={11} /> Edit
@@ -1324,6 +1329,7 @@ export default function InventoryPage() {
   const searchParams = useSearchParams()
   const [showImport, setShowImport]   = useState(false)
   const [showAddProduct, setShowAddProduct] = useState(false)
+  const [copyProduct, setCopyProduct] = useState<Product | null>(null)
   const [showAddCat, setShowAddCat]   = useState(false)
   const [showManageCat, setShowManageCat] = useState(false)
   const [editProduct, setEditProduct] = useState<Product | null>(null)
@@ -1450,11 +1456,24 @@ export default function InventoryPage() {
 
   const closeAddProduct = useCallback(() => {
     setShowAddProduct(false)
+    setCopyProduct(null)
     if (searchParams.get('action')) {
       const q = searchParams.get('q')
       router.replace(q ? `/inventory?q=${encodeURIComponent(q)}` : '/inventory', { scroll: false })
     }
   }, [router, searchParams])
+
+  const openCopy = useCallback(async (product: Product) => {
+    setViewProduct(null)
+    setEditProduct(null)
+    setShowAddProduct(false)
+    try {
+      const res: any = await productsApi.getById(product.id)
+      setCopyProduct((res?.data ?? res ?? product) as Product)
+    } catch {
+      setCopyProduct(product)
+    }
+  }, [])
 
   useEffect(() => {
     const onSale = () => { refetch() }
@@ -1599,21 +1618,33 @@ export default function InventoryPage() {
     {
       id: 'actions',
       cell: ({ row }) => (
-        <TableActionsRow
-          showAction={{ action: () => setViewProduct(row.original.product) }}
-          editAction={{ action: () => setEditProduct(row.original.product) }}
-          deleteAction={{ action: () => handleDelete(row.original.product.id, row.original.product.name) }}
-        />
+        <div className="flex items-center gap-1">
+          <TableActionsRow
+            showAction={{ action: () => setViewProduct(row.original.product) }}
+            editAction={{ action: () => setEditProduct(row.original.product) }}
+            deleteAction={{ action: () => handleDelete(row.original.product.id, row.original.product.name) }}
+          />
+          <button
+            type="button"
+            title="Copy product"
+            onClick={() => openCopy(row.original.product)}
+            className="p-1.5 rounded-lg transition-colors hover:bg-cyan-500/10 text-cyan-400"
+          >
+            <Copy size={14} />
+          </button>
+        </div>
       ),
     },
-  ], [handleDelete, setViewProduct, setEditProduct])
+  ], [handleDelete, openCopy, setViewProduct, setEditProduct])
 
 
-  if (showAddProduct) {
+  if (showAddProduct || copyProduct) {
     return (
       <AddProductModal
+        key={copyProduct ? `copy-${copyProduct.id}` : showAddProduct ? 'new-product' : 'idle'}
         onClose={closeAddProduct}
         onSaved={() => { refetch(); closeAddProduct() }}
+        copyFrom={copyProduct ?? undefined}
       />
     )
   }
@@ -1624,7 +1655,14 @@ export default function InventoryPage() {
       {showAddCat    && <AddCategoryModal onClose={() => setShowAddCat(false)} onSaved={() => refetchCats()} />}
       {showManageCat && <ManageCategoriesModal onClose={() => setShowManageCat(false)} onChanged={() => { refetchCats(); refetch() }} />}
       {editProduct && <EditProductModal product={editProduct} onClose={() => setEditProduct(null)} onSaved={refetch} />}
-      {viewProduct && <ProductDetailModal product={viewProduct} onClose={() => setViewProduct(null)} onEdit={() => { setEditProduct(viewProduct); setViewProduct(null) }} />}
+      {viewProduct && (
+        <ProductDetailModal
+          product={viewProduct}
+          onClose={() => setViewProduct(null)}
+          onEdit={() => { setEditProduct(viewProduct); setViewProduct(null) }}
+          onCopy={() => openCopy(viewProduct)}
+        />
+      )}
 
       <ImeiHealthBanner onFixed={refetch} />
 

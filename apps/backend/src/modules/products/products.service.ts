@@ -5,7 +5,13 @@ import { Request } from 'express'
 import { inferTrackImeiFromMeta } from '../../utils/productImei'
 import { effectiveBranchId, assertBranchRecordAccess, getUserBranchIds } from '../../utils/active-branch'
 import { buildBranchCatalogData, findBranchCatalogProduct } from '../../utils/branch-catalog'
+import { generateProductBarcode, generateProductSku, tenantProductPrefix } from '../../utils/counters'
 import { Prisma } from '@prisma/client'
+
+async function loadTenantSlug(tenantId: string): Promise<string> {
+  const t = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { slug: true } })
+  return t?.slug ?? 'tenant'
+}
 
 async function upsertCatalogAtBranch(
   tx: Prisma.TransactionClient,
@@ -68,13 +74,29 @@ export const productsService = {
     return { ...base, imeiInStock, imeiGap: Math.max(0, raw.stock - imeiInStock) }
   },
 
+  async nextCodes(tenantId: string) {
+    const slug = await loadTenantSlug(tenantId)
+    const [sku, barcode] = await Promise.all([
+      generateProductSku(tenantId, slug),
+      generateProductBarcode(tenantId, slug),
+    ])
+    return { sku, barcode, prefix: tenantProductPrefix(slug) }
+  },
+
   async create(tenantId: string, body: any) {
+    const slug = await loadTenantSlug(tenantId)
     if (!body.sku?.trim()) {
-      body.sku = `SKU-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`
+      body.sku = await generateProductSku(tenantId, slug)
     } else {
       body.sku = body.sku.trim()
       const existing = await prisma.product.findFirst({ where: { tenantId, sku: body.sku, isActive: true } })
       if (existing) throw new AppError('SKU already in use', 409)
+    }
+
+    if (!body.barcode?.trim()) {
+      body.barcode = await generateProductBarcode(tenantId, slug)
+    } else {
+      body.barcode = body.barcode.trim()
     }
 
     if (body.mrp === undefined || body.mrp === null) body.mrp = body.sellingPrice

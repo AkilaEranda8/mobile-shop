@@ -242,6 +242,7 @@ export const productsApi = {
   createBrand: (body: { name: string }) => api.post('/products/brands', body),
   imeiHealth: () => api.get('/products/imei-health'),
   bulkInferTrackImei: () => api.post('/products/bulk-infer-track-imei', {}),
+  nextCodes: () => api.get('/products/next-codes'),
   importFromMaster: (body: unknown) => api.post('/products/import-from-master', body),
 }
 
@@ -476,6 +477,15 @@ export const accountingApi = {
     api.get(`/accounting/coa/accounts/${accountId}/ledger${params ? '?' + new URLSearchParams(params) : ''}`),
   updateGlAccount: (id: string, body: { name?: string; description?: string; isActive?: boolean }) =>
     api.patch(`/accounting/coa/accounts/${id}`, body),
+  createGlAccount: (body: {
+    code: string
+    name: string
+    type: string
+    subtype?: string
+    parentAccountId?: string
+    branchId?: string
+    description?: string
+  }) => api.post('/accounting/coa/accounts', body),
   accountingSettings: () => api.get('/accounting/settings'),
   updateAccountingSettings: (body: Record<string, unknown>) => api.patch('/accounting/settings', body),
   cashBankRegisters: () => api.get('/accounting/cash-bank/registers'),
@@ -534,6 +544,16 @@ export const accountingApi = {
   }) => api.post('/accounting/payroll/runs', body),
   payPayrollRun: (runId: string, body: { branchId?: string; entryDate: string; paymentMethod: string; memo?: string }) =>
     api.post(`/accounting/payroll/runs/${runId}/pay`, body),
+  postStatutoryRemittance: (body: {
+    type: 'EPF' | 'ETF'
+    amount: number
+    branchId?: string
+    entryDate: string
+    paymentMethod: string
+    memo?: string
+  }) => api.post('/accounting/payroll/statutory-remittance', body),
+  auditEvents: (params?: Record<string, string>) =>
+    api.get(`/accounting/audit${params ? '?' + new URLSearchParams(params) : ''}`),
 }
 
 export const dailyClosingApi = {

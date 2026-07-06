@@ -9,6 +9,8 @@ export async function readSaleReturnForAccounting(tenantId: string, returnId: st
           id: true,
           invoiceNumber: true,
           branchId: true,
+          tax: true,
+          total: true,
           items: { select: { productId: true, imei: true } },
         },
       },

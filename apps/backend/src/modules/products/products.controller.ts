@@ -75,6 +75,9 @@ export const productsController = {
   async bulkInferTrackImei(req: Request, res: Response, next: NextFunction) {
     try { sendSuccess(res, await productsService.bulkInferTrackImei(req.tenantId!), 'IMEI flags updated') } catch (e) { next(e) }
   },
+  async nextCodes(req: Request, res: Response, next: NextFunction) {
+    try { sendSuccess(res, await productsService.nextCodes(req.tenantId!)) } catch (e) { next(e) }
+  },
   async importFromMaster(req: Request, res: Response, next: NextFunction) {
     try {
       const tenantId = req.tenantId!

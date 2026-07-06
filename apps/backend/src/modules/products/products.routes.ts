@@ -14,6 +14,7 @@ router.get('/brands', productsController.getBrands)
 router.post('/brands', authorize('OWNER', 'MANAGER'), productsController.createBrand)
 router.get('/imei-health', productsController.getImeiHealth)
 router.post('/bulk-infer-track-imei', authorize('OWNER', 'MANAGER'), productsController.bulkInferTrackImei)
+router.get('/next-codes', productsController.nextCodes)
 
 router.get('/', productsController.list)
 router.post('/import-from-master', authorize('OWNER', 'MANAGER'), validate(importFromMasterSchema), productsController.importFromMaster)

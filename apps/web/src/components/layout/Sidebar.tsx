@@ -6,7 +6,7 @@ import {
   LayoutDashboard, ShoppingCart, Package, Users, Wrench,
   Shield, Truck, BarChart3, Settings, LogOut,
   CreditCard, Smartphone,   FileText, Building2,
-  UserCheck, ChevronLeft, ChevronRight, Receipt, MessageSquare, PackageCheck, RotateCcw, ArrowLeftRight, Layers, RefreshCw, Lock, PieChart, Sparkles, BookOpen, TrendingUp,
+  UserCheck, ChevronLeft, ChevronRight, Receipt, MessageSquare, PackageCheck, RotateCcw, ArrowLeftRight, Layers, RefreshCw, Lock, PieChart, Sparkles, BookOpen, TrendingUp, Landmark,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
@@ -59,6 +59,11 @@ const navItems = [
       { href: '/dashboard/profit-allocation', icon: PieChart, label: 'Profit Allocation', badge: 'NEW', feature: 'PROFIT_ALLOCATION' },
       { href: '/dashboard/daily-closing', icon: Lock,   label: 'Daily Closing', badge: 'NEW', feature: 'DAILY_CLOSING' },
       { href: '/dashboard/accounting', icon: BookOpen, label: 'Accounting', badge: 'NEW', feature: 'ACCOUNTING' },
+      { href: '/dashboard/accounting/journals', icon: FileText, label: 'GL Journals', feature: 'ACCOUNTING' },
+      { href: '/dashboard/accounting/reports', icon: BarChart3, label: 'GL Reports', feature: 'ACCOUNTING' },
+      { href: '/dashboard/accounting/ar-ap', icon: Users, label: 'AR / AP', feature: 'ACCOUNTING' },
+      { href: '/dashboard/accounting/cash-bank', icon: Landmark, label: 'Cash & Bank', feature: 'ACCOUNTING' },
+      { href: '/dashboard/accounting/audit', icon: Shield, label: 'Audit Trail', feature: 'ACCOUNTING' },
     ],
   },
   {

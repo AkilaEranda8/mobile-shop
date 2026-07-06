@@ -45,6 +45,7 @@ import {
   getAccountingSettingsDetail,
   updateAccountingSettings,
   updateGlAccount,
+  createGlAccount,
 } from './coa/coa.service'
 import {
   createBankAccount,
@@ -64,7 +65,9 @@ import {
   listPayrollEmployees,
   listPayrollRuns,
   payPayrollRun,
+  postStatutoryRemittance,
 } from './payroll/payroll.service'
+import { listAuditEvents } from './audit/audit.service'
 
 const router = Router()
 router.use(authenticate)
@@ -114,6 +117,35 @@ router.get('/coa/accounts/:id/ledger', authorize('OWNER', 'MANAGER'), async (req
 router.patch('/coa/accounts/:id', authorize('OWNER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     sendSuccess(res, await updateGlAccount(req.tenantId!, req.params.id, req.body))
+  } catch (e) { next(e) }
+})
+
+router.post('/coa/accounts', authorize('OWNER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const branchId = (req.body.branchId as string) || effectiveBranchId(req)
+    sendSuccess(
+      res,
+      await createGlAccount(req.tenantId!, { ...req.body, branchId: branchId ?? undefined }),
+      'GL account created',
+      201,
+    )
+  } catch (e) { next(e) }
+})
+
+router.get('/audit', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { skip, limit, page } = getPagination(req)
+    const result = await listAuditEvents(req.tenantId!, {
+      skip,
+      limit,
+      entityType: req.query.entityType as string | undefined,
+      eventType: req.query.eventType as string | undefined,
+    })
+    res.status(200).json({
+      success: true,
+      data: result.rows,
+      meta: { total: result.total, page, limit, totalPages: Math.ceil(result.total / limit) },
+    })
   } catch (e) { next(e) }
 })
 
@@ -275,6 +307,19 @@ router.post('/payroll/runs/:runId/pay', authorize('OWNER'), async (req: Request,
       res,
       await payPayrollRun(req.tenantId!, req.params.runId, { ...req.body, branchId }, req.user?.email),
       'Payroll paid',
+      201,
+    )
+  } catch (e) { next(e) }
+})
+
+router.post('/payroll/statutory-remittance', authorize('OWNER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const branchId = (req.body.branchId as string) || effectiveBranchId(req)
+    if (!branchId) throw new AppError('branchId is required', 400)
+    sendSuccess(
+      res,
+      await postStatutoryRemittance(req.tenantId!, { ...req.body, branchId }, req.user?.email),
+      'Statutory remittance posted',
       201,
     )
   } catch (e) { next(e) }
