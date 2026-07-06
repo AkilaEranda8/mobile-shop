@@ -49,6 +49,7 @@ const FEATURE_DEFS = [
   { key: 'DAILY_CLOSING',  label: 'Daily Closing',      desc: 'End-of-day business summary, cash count & day lock', optIn: true  },
   { key: 'PROFIT_ALLOCATION', label: 'Profit Allocation', desc: 'Daily profit allocation & fund management', optIn: true },
   { key: 'CUSTOMER_CREDIT', label: 'Customer Credit',    desc: 'Customer credit payments & outstanding', optIn: true  },
+  { key: 'ACCOUNTING',      label: 'Accounting (GL)',    desc: 'Double-entry general ledger, COA, journals & GL reports', optIn: true },
 ]
 const SALE_STATUS_BADGE: Record<string, string> = {
   PAID: 'badge-green', PARTIAL: 'badge-yellow', UNPAID: 'badge-red', REFUNDED: 'badge-gray',

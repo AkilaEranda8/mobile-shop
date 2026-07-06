@@ -10,6 +10,7 @@ import {
   buildFeatureMap,
   buildPriceMap,
 } from '../tenants/tenant-features'
+import { handleAccountingFeatureBatch } from '../accounting/accounting-feature.util'
 import { DEFAULT_MAINTENANCE_MESSAGE, getMaintenanceStatus, syncMaintenanceAnnouncement } from '../../utils/platform-config'
 import {
   authRateLimitKey,
@@ -295,6 +296,7 @@ router.put('/tenants/:id/features', async (req: Request, res: Response, next: Ne
         })
       })
     )
+    await handleAccountingFeatureBatch(req.params.id, features, (req as any).user?.email ?? 'admin')
     const rows = await prisma.tenantFeature.findMany({ where: { tenantId: req.params.id } })
     sendSuccess(res, { features: buildFeatureMap(rows), prices: buildPriceMap(rows) }, 'Features updated')
   } catch (e) { next(e) }

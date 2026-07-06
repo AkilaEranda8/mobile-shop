@@ -401,6 +401,141 @@ export const financeApi = {
     api.get(`/finance/daily-summaries${params ? '?' + new URLSearchParams(params) : ''}`),
 }
 
+export const accountingApi = {
+  status: () => api.get('/accounting/status'),
+  initialize: () => api.post('/accounting/initialize', {}),
+  coaAccounts: () => api.get('/accounting/coa/accounts'),
+  syncIntegration: (params?: Record<string, string>) =>
+    api.post(`/accounting/integration/sync${params ? '?' + new URLSearchParams(params) : ''}`, {}),
+  processIntegration: (body?: { limit?: number }) =>
+    api.post('/accounting/integration/process', body ?? {}),
+  outbox: (params?: Record<string, string>) =>
+    api.get(`/accounting/integration/outbox${params ? '?' + new URLSearchParams(params) : ''}`),
+  trialBalance: (params: Record<string, string>) =>
+    api.get(`/accounting/reports/trial-balance?${new URLSearchParams(params)}`),
+  profitLoss: (params: Record<string, string>) =>
+    api.get(`/accounting/reports/profit-loss?${new URLSearchParams(params)}`),
+  balanceSheet: (params: Record<string, string>) =>
+    api.get(`/accounting/reports/balance-sheet?${new URLSearchParams(params)}`),
+  cashFlow: (params: Record<string, string>) =>
+    api.get(`/accounting/reports/cash-flow?${new URLSearchParams(params)}`),
+  periods: () => api.get('/accounting/periods'),
+  periodPreview: (id: string) => api.get(`/accounting/periods/${id}/preview`),
+  softClosePeriod: (id: string) => api.post(`/accounting/periods/${id}/soft-close`, {}),
+  hardClosePeriod: (id: string) => api.post(`/accounting/periods/${id}/hard-close`, {}),
+  reopenPeriod: (id: string) => api.post(`/accounting/periods/${id}/reopen`, {}),
+  arSummary: (params?: Record<string, string>) =>
+    api.get(`/accounting/ar/summary${params ? '?' + new URLSearchParams(params) : ''}`),
+  arCustomer: (customerId: string, params?: Record<string, string>) =>
+    api.get(`/accounting/ar/customers/${customerId}${params ? '?' + new URLSearchParams(params) : ''}`),
+  apSummary: (params?: Record<string, string>) =>
+    api.get(`/accounting/ap/summary${params ? '?' + new URLSearchParams(params) : ''}`),
+  apSupplier: (supplierId: string, params?: Record<string, string>) =>
+    api.get(`/accounting/ap/suppliers/${supplierId}${params ? '?' + new URLSearchParams(params) : ''}`),
+  recordArPayment: (body: {
+    customerId: string
+    branchId?: string
+    amount: number
+    paymentMethod: string
+    reference?: string
+    notes?: string
+    allocations?: Array<{ saleId: string; amount: number }>
+  }) => api.post('/accounting/ar/payments', body),
+  recordApPayment: (body: {
+    supplierId: string
+    branchId?: string
+    amount: number
+    paymentMethod: string
+    reference?: string
+    notes?: string
+    allocations?: Array<{ purchaseOrderId: string; amount: number }>
+  }) => api.post('/accounting/ap/payments', body),
+  journals: (params?: Record<string, string>) =>
+    api.get(`/accounting/journals${params ? '?' + new URLSearchParams(params) : ''}`),
+  journal: (id: string) => api.get(`/accounting/journals/${id}`),
+  createManualJournal: (body: {
+    branchId?: string
+    entryDate: string
+    memo?: string
+    lines: Array<{
+      accountId: string
+      description?: string
+      debit?: number
+      credit?: number
+      customerId?: string
+      supplierId?: string
+    }>
+  }) => api.post('/accounting/journals/manual', body),
+  reverseJournal: (id: string, body?: { memo?: string }) =>
+    api.post(`/accounting/journals/${id}/reverse`, body ?? {}),
+  pendingJournals: () => api.get('/accounting/journals/pending-approval'),
+  approveJournal: (id: string) => api.post(`/accounting/journals/${id}/approve`, {}),
+  rejectJournal: (id: string, body?: { reason?: string }) =>
+    api.post(`/accounting/journals/${id}/reject`, body ?? {}),
+  accountLedger: (accountId: string, params?: Record<string, string>) =>
+    api.get(`/accounting/coa/accounts/${accountId}/ledger${params ? '?' + new URLSearchParams(params) : ''}`),
+  updateGlAccount: (id: string, body: { name?: string; description?: string; isActive?: boolean }) =>
+    api.patch(`/accounting/coa/accounts/${id}`, body),
+  accountingSettings: () => api.get('/accounting/settings'),
+  updateAccountingSettings: (body: Record<string, unknown>) => api.patch('/accounting/settings', body),
+  cashBankRegisters: () => api.get('/accounting/cash-bank/registers'),
+  createBankAccount: (body: { name: string; branchId?: string; accountNo?: string; bankName?: string }) =>
+    api.post('/accounting/cash-bank/accounts', body),
+  cashBankTransfer: (body: {
+    branchId?: string
+    entryDate: string
+    amount: number
+    fromType: string
+    toType: string
+    fromId?: string
+    toId?: string
+    memo?: string
+  }) => api.post('/accounting/cash-bank/transfers', body),
+  settleClearing: (body: {
+    branchId?: string
+    entryDate: string
+    clearingType: 'CARD' | 'UPI'
+    amount: number
+    bankAccountId?: string
+    memo?: string
+  }) => api.post('/accounting/cash-bank/settle-clearing', body),
+  reconcileBank: (body: {
+    branchId?: string
+    entryDate: string
+    statementBalance: number
+    bankAccountId?: string
+    memo?: string
+  }) => api.post('/accounting/cash-bank/reconcile', body),
+  taxCodes: () => api.get('/accounting/tax/codes'),
+  vatSummary: (params: Record<string, string>) =>
+    api.get(`/accounting/tax/vat-summary?${new URLSearchParams(params)}`),
+  vatPayment: (body: {
+    branchId?: string
+    entryDate: string
+    amount: number
+    paymentMethod: string
+    memo?: string
+    from?: string
+    to?: string
+  }) => api.post('/accounting/tax/vat-payment', body),
+  pettyCash: () => api.get('/accounting/petty-cash'),
+  pettyCashExpense: (body: { branchId?: string; entryDate: string; amount: number; description: string; category?: string }) =>
+    api.post('/accounting/petty-cash/expenses', body),
+  replenishPettyCash: (body: { branchId?: string; entryDate: string; amount: number; memo?: string }) =>
+    api.post('/accounting/petty-cash/replenish', body),
+  payrollRuns: () => api.get('/accounting/payroll/runs'),
+  payrollEmployees: () => api.get('/accounting/payroll/employees'),
+  createPayrollRun: (body: {
+    branchId?: string
+    entryDate: string
+    periodLabel: string
+    applyStatutory?: boolean
+    lines: Array<{ employeeName: string; userId?: string; amount: number }>
+  }) => api.post('/accounting/payroll/runs', body),
+  payPayrollRun: (runId: string, body: { branchId?: string; entryDate: string; paymentMethod: string; memo?: string }) =>
+    api.post(`/accounting/payroll/runs/${runId}/pay`, body),
+}
+
 export const dailyClosingApi = {
   preview: (params: Record<string, string>) =>
     api.get(`/daily-closing/preview?${new URLSearchParams(params)}`),

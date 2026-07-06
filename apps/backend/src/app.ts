@@ -38,6 +38,7 @@ import dailyClosingRoutes from './modules/daily-closing/daily-closing.routes'
 import profitAllocationRoutes from './modules/profit-allocation/profit-allocation.routes'
 import inventoryRoutes from './modules/inventory/stock-transfer.routes'
 import releaseNotesRoutes from './modules/release-notes/release-notes.routes'
+import accountingRoutes from './modules/accounting/accounting.routes'
 
 const app = express()
 
@@ -147,6 +148,7 @@ app.use(`${API}/services`, servicesRoutes)
 app.use(`${API}/daily-reloads`, dailyReloadRoutes)
 app.use(`${API}/daily-closing`, dailyClosingRoutes)
 app.use(`${API}/profit-allocation`, profitAllocationRoutes)
+app.use(`${API}/accounting`, accountingRoutes)
 app.use(`${API}/delivery`, deliveryRoutes)
 app.use(`${API}/device-catalog`, deviceCatalogRoutes)
 app.use(`${API}/master-catalog`, masterCatalogRoutes)

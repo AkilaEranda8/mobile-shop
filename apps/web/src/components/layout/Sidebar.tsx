@@ -58,6 +58,7 @@ const navItems = [
       { href: '/dashboard/expenses',  icon: Receipt,    label: 'Expenses',  badge: 'NEW', feature: 'FINANCE' },
       { href: '/dashboard/profit-allocation', icon: PieChart, label: 'Profit Allocation', badge: 'NEW', feature: 'PROFIT_ALLOCATION' },
       { href: '/dashboard/daily-closing', icon: Lock,   label: 'Daily Closing', badge: 'NEW', feature: 'DAILY_CLOSING' },
+      { href: '/dashboard/accounting', icon: BookOpen, label: 'Accounting', badge: 'NEW', feature: 'ACCOUNTING' },
     ],
   },
   {

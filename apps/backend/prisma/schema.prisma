@@ -184,6 +184,17 @@ model Tenant {
   profitTransactions ProfitTransaction[]
   profitWithdrawals  ProfitWithdrawal[]
   releaseReads       TenantReleaseRead[]
+  accountingSettings AccountingSettings?
+  accountingPeriods  AccountingPeriod[]
+  glAccounts         GlAccount[]
+  journalEntries     JournalEntry[]
+  accountingOutbox   AccountingOutbox[]
+  autoJournalRules   AutoJournalRule[]
+  auditEvents        AuditEvent[]
+  approvalRequests   ApprovalRequest[]
+  cashAccounts       CashAccount[]
+  bankAccounts       BankAccount[]
+  taxCodes           TaxCode[]
 }
 
 model TenantFeature {
@@ -248,6 +259,12 @@ model Branch {
   profitWithdrawals  ProfitWithdrawal[]
   imeiRecords    ImeiRecord[]
   exchanges      DeviceExchange[]
+  glAccounts     GlAccount[]
+  journalEntries JournalEntry[]
+  cashAccounts   CashAccount[]
+  bankAccounts   BankAccount[]
+  accountingOutbox AccountingOutbox[]
+  autoJournalRules AutoJournalRule[]
 }
 
 model User {
@@ -1515,4 +1532,352 @@ model TenantReleaseRead {
   @@unique([tenantId, releaseId])
   @@index([tenantId])
   @@index([releaseId])
+}
+
+// ─────────────── Accounting Module ───────────────
+
+enum GlAccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  INCOME
+  EXPENSE
+}
+
+enum GlAccountSubtype {
+  CASH
+  BANK
+  AR
+  AP
+  INVENTORY
+  TAX_INPUT
+  TAX_OUTPUT
+  PAYROLL
+  REVENUE
+  COGS
+  OPEX
+  CASH_VARIANCE
+  CONTRA_REVENUE
+  EQUITY
+  RETAINED
+  OTHER
+}
+
+enum JournalStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  POSTED
+  REVERSED
+}
+
+enum JournalSourceModule {
+  MANUAL
+  SALES
+  PURCHASE
+  REPAIR
+  EXPENSE
+  AR
+  AP
+  CASH_BANK
+  PETTY_CASH
+  PAYROLL
+  TAX
+  PERIOD_CLOSE
+  DAILY_CLOSING
+}
+
+enum AccountingPeriodStatus {
+  OPEN
+  SOFT_CLOSED
+  HARD_CLOSED
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum TaxCodeType {
+  OUTPUT
+  INPUT
+}
+
+model AccountingSettings {
+  id                   String   @id @default(cuid())
+  tenantId             String   @unique
+  baseCurrency         String   @default("LKR")
+  fiscalYearStartMonth Int      @default(1)
+  autoPostEnabled      Boolean  @default(true)
+  requireApprovalAbove Float?
+  initializedAt        DateTime?
+  defaultAccounts      Json     @default("{}")
+  expenseCategoryMap   Json     @default("{}")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model AccountingPeriod {
+  id        String                 @id @default(cuid())
+  tenantId  String
+  name      String
+  startDate DateTime               @db.Date
+  endDate   DateTime               @db.Date
+  status    AccountingPeriodStatus @default(OPEN)
+  closedBy  String?
+  closedAt  DateTime?
+  createdAt DateTime               @default(now())
+
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  journalEntries JournalEntry[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, status])
+}
+
+model GlAccount {
+  id               String           @id @default(cuid())
+  tenantId         String
+  branchId         String?
+  code             String
+  name             String
+  type             GlAccountType
+  subtype          GlAccountSubtype @default(OTHER)
+  parentAccountId  String?
+  isControlAccount Boolean          @default(false)
+  isActive         Boolean          @default(true)
+  isSystem         Boolean          @default(false)
+  description      String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch        Branch?       @relation(fields: [branchId], references: [id])
+  parentAccount GlAccount?    @relation("GlAccountHierarchy", fields: [parentAccountId], references: [id])
+  childAccounts GlAccount[]   @relation("GlAccountHierarchy")
+  journalLines  JournalLine[]
+  taxCodes      TaxCode[]
+  cashAccounts  CashAccount[]
+  bankAccounts  BankAccount[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, type])
+  @@index([tenantId, branchId])
+}
+
+model JournalEntry {
+  id             String              @id @default(cuid())
+  tenantId       String
+  branchId       String?
+  periodId       String
+  entryNo        String
+  entryDate      DateTime            @db.Date
+  sourceModule   JournalSourceModule @default(MANUAL)
+  sourceRefType  String?
+  sourceRefId    String?
+  sourceEvent    String?
+  memo           String?
+  status         JournalStatus       @default(DRAFT)
+  totalDebit     Float               @default(0)
+  totalCredit    Float               @default(0)
+  reversalOfId   String?
+  createdById    String?
+  createdByEmail String?
+  approvedById   String?
+  approvedAt     DateTime?
+  postedAt       DateTime?
+  postedById     String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch           Branch?           @relation(fields: [branchId], references: [id])
+  period           AccountingPeriod  @relation(fields: [periodId], references: [id])
+  lines            JournalLine[]
+  integrationLinks IntegrationLink[]
+
+  @@unique([tenantId, entryNo])
+  @@unique([tenantId, sourceRefType, sourceRefId, sourceEvent])
+  @@index([tenantId, entryDate, status])
+  @@index([tenantId, branchId, entryDate])
+}
+
+model JournalLine {
+  id          String   @id @default(cuid())
+  entryId     String
+  tenantId    String
+  branchId    String?
+  lineNo      Int
+  accountId   String
+  description String?
+  debit       Float    @default(0)
+  credit      Float    @default(0)
+  taxCodeId   String?
+  customerId  String?
+  supplierId  String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  entry   JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account GlAccount    @relation(fields: [accountId], references: [id])
+  taxCode TaxCode?     @relation(fields: [taxCodeId], references: [id])
+
+  @@index([tenantId, accountId])
+  @@index([entryId])
+}
+
+model AccountingOutbox {
+  id          String       @id @default(cuid())
+  tenantId    String
+  branchId    String?
+  sourceType  String
+  sourceId    String
+  eventType   String
+  payload     Json?
+  status      OutboxStatus @default(PENDING)
+  attempts    Int          @default(0)
+  lastError   String?
+  processedAt DateTime?
+  createdAt   DateTime     @default(now())
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch? @relation(fields: [branchId], references: [id])
+
+  @@unique([tenantId, sourceType, sourceId, eventType])
+  @@index([status, createdAt])
+}
+
+model IntegrationLink {
+  id             String   @id @default(cuid())
+  tenantId       String
+  sourceType     String
+  sourceId       String
+  eventType      String
+  journalEntryId String
+  createdAt      DateTime @default(now())
+
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, sourceType, sourceId, eventType])
+  @@index([journalEntryId])
+}
+
+model AutoJournalRule {
+  id                String              @id @default(cuid())
+  tenantId          String
+  branchId          String?
+  sourceModule      JournalSourceModule
+  eventType         String
+  name              String
+  enabled           Boolean             @default(true)
+  priority          Int                 @default(100)
+  conditionsJson    Json?
+  linesTemplateJson Json
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch? @relation(fields: [branchId], references: [id])
+
+  @@index([tenantId, eventType, enabled])
+}
+
+model CashAccount {
+  id          String  @id @default(cuid())
+  tenantId    String
+  branchId    String
+  name        String
+  glAccountId String
+  isActive    Boolean @default(true)
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch    Branch    @relation(fields: [branchId], references: [id])
+  glAccount GlAccount @relation(fields: [glAccountId], references: [id])
+
+  @@unique([tenantId, branchId, name])
+}
+
+model BankAccount {
+  id          String  @id @default(cuid())
+  tenantId    String
+  branchId    String?
+  name        String
+  accountNo   String?
+  bankName    String?
+  glAccountId String
+  isActive    Boolean @default(true)
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch    Branch?   @relation(fields: [branchId], references: [id])
+  glAccount GlAccount @relation(fields: [glAccountId], references: [id])
+
+  @@unique([tenantId, name])
+}
+
+model TaxCode {
+  id          String      @id @default(cuid())
+  tenantId    String
+  code        String
+  name        String
+  rate        Float
+  type        TaxCodeType
+  glAccountId String
+  isActive    Boolean     @default(true)
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  glAccount    GlAccount     @relation(fields: [glAccountId], references: [id])
+  journalLines JournalLine[]
+
+  @@unique([tenantId, code])
+}
+
+model AuditEvent {
+  id          String   @id @default(cuid())
+  tenantId    String
+  branchId    String?
+  actorUserId String?
+  actorEmail  String
+  eventType   String
+  entityType  String
+  entityId    String
+  beforeJson  Json?
+  afterJson   Json?
+  ip          String?
+  createdAt   DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, entityType, entityId])
+}
+
+model ApprovalRequest {
+  id            String         @id @default(cuid())
+  tenantId      String
+  branchId      String?
+  entityType    String
+  entityId      String
+  action        String
+  status        ApprovalStatus @default(PENDING)
+  requestedById String?
+  requestedBy   String
+  approvedById  String?
+  approvedBy    String?
+  reason        String?
+  createdAt     DateTime       @default(now())
+  resolvedAt    DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
 }

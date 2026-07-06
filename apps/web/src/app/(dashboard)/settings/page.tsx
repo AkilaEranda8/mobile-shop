@@ -572,6 +572,27 @@ export default function SettingsPage() {
                   </div>
                   <div className="flex items-center justify-between rounded-xl p-4 border border-white/10 bg-white/[0.02]">
                     <div>
+                      <p className="text-sm font-medium text-white">Accounting (GL)</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">Double-entry ledger, chart of accounts & GL-based financial reports</p>
+                    </div>
+                    <Switch
+                      checked={hasFeature('ACCOUNTING')}
+                      onChange={async (v) => {
+                        setFeatureSaving(true)
+                        try {
+                          await tenantApi.updateMyFeatures({ ACCOUNTING: v })
+                          refetchFeatures()
+                          toast.success(v ? 'Accounting module enabled' : 'Accounting module disabled')
+                        } catch {
+                          toast.error('Failed to update feature')
+                        } finally {
+                          setFeatureSaving(false)
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl p-4 border border-white/10 bg-white/[0.02]">
+                    <div>
                       <p className="text-sm font-medium text-white">Customer Credit</p>
                       <p className="text-[11px] text-slate-500 mt-0.5">Partial payments, outstanding balance & pay later</p>
                     </div>

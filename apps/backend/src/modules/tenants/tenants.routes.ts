@@ -6,6 +6,7 @@ import { updateInvoiceSettingsSchema } from './invoice-settings.schema'
 import { prisma } from '../../config/database'
 import { sendSuccess } from '../../utils/response'
 import { OPT_IN_FEATURES, buildFeatureMap, buildPriceMap } from './tenant-features'
+import { handleAccountingFeatureBatch } from '../accounting/accounting-feature.util'
 
 const router = Router()
 router.use(authenticate)
@@ -34,6 +35,7 @@ router.patch('/my-features', authorize('OWNER', 'MANAGER'), async (req: Request,
         }),
       ),
     )
+    await handleAccountingFeatureBatch(tenantId, updates, (req as any).user?.email ?? 'owner')
     const rows = await prisma.tenantFeature.findMany({ where: { tenantId } })
     sendSuccess(res, { features: buildFeatureMap(rows), prices: buildPriceMap(rows) }, 'Features updated')
   } catch (e) { next(e) }
