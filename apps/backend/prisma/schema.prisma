@@ -137,64 +137,65 @@ enum ProfitTxnType {
 // ─────────────── Tenant / Auth ───────────────
 
 model Tenant {
-  id                  String           @id @default(cuid())
-  name                String
-  slug                String           @unique
-  plan                SubscriptionPlan @default(TRIAL)
-  status              TenantStatus     @default(TRIAL)
-  trialEndsAt         DateTime?
-  subscriptionEndsAt  DateTime?
-  ownerEmail          String
-  ownerName           String
-  mrr                 Float            @default(0)
-  invoiceSettings     Json?
-  reloadSettings      Json?
+  id                     String           @id @default(cuid())
+  name                   String
+  slug                   String           @unique
+  plan                   SubscriptionPlan @default(TRIAL)
+  status                 TenantStatus     @default(TRIAL)
+  trialEndsAt            DateTime?
+  subscriptionEndsAt     DateTime?
+  ownerEmail             String
+  ownerName              String
+  mrr                    Float            @default(0)
+  invoiceSettings        Json?
+  reloadSettings         Json?
   productVariantSettings Json?
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
 
-  branches    Branch[]
-  users       User[]
-  categories  Category[]
-  brands      Brand[]
-  products    Product[]
-  customers   Customer[]
-  sales       Sale[]
-  repairs     RepairTicket[]
-  warranties  Warranty[]
-  deviceBrands DeviceBrand[]
-  deviceModels DeviceModel[]
-  suppliers   Supplier[]
-  purchaseOrders PurchaseOrder[]
-  transactions   Transaction[]
-  dailySummaries DailySummary[]
-  whatsAppConfig  WhatsAppConfig?
-  couriers        Courier[]
-  deliveryOrders  DeliveryOrder[]
-  supportNotes    SupportNote[]
-  saleReturns     SaleReturn[]
-  exchanges       DeviceExchange[]
-  features        TenantFeature[]
-  services        Service[]
-  dailyReloads    DailyReload[]
+  branches                    Branch[]
+  users                       User[]
+  categories                  Category[]
+  brands                      Brand[]
+  products                    Product[]
+  customers                   Customer[]
+  sales                       Sale[]
+  repairs                     RepairTicket[]
+  warranties                  Warranty[]
+  deviceBrands                DeviceBrand[]
+  deviceModels                DeviceModel[]
+  suppliers                   Supplier[]
+  purchaseOrders              PurchaseOrder[]
+  transactions                Transaction[]
+  dailySummaries              DailySummary[]
+  whatsAppConfig              WhatsAppConfig?
+  couriers                    Courier[]
+  deliveryOrders              DeliveryOrder[]
+  supportNotes                SupportNote[]
+  saleReturns                 SaleReturn[]
+  exchanges                   DeviceExchange[]
+  features                    TenantFeature[]
+  services                    Service[]
+  dailyReloads                DailyReload[]
   dailyReloadProviderPayments DailyReloadProviderPayment[]
-  dailyClosings   DailyClosing[]
-  profitFunds     ProfitFund[]
-  profitAllocations ProfitAllocation[]
-  profitTransactions ProfitTransaction[]
-  profitWithdrawals  ProfitWithdrawal[]
-  releaseReads       TenantReleaseRead[]
-  accountingSettings AccountingSettings?
-  accountingPeriods  AccountingPeriod[]
-  glAccounts         GlAccount[]
-  journalEntries     JournalEntry[]
-  accountingOutbox   AccountingOutbox[]
-  autoJournalRules   AutoJournalRule[]
-  auditEvents        AuditEvent[]
-  approvalRequests   ApprovalRequest[]
-  cashAccounts       CashAccount[]
-  bankAccounts       BankAccount[]
-  taxCodes           TaxCode[]
+  dailyClosings               DailyClosing[]
+  profitFunds                 ProfitFund[]
+  profitAllocations           ProfitAllocation[]
+  profitTransactions          ProfitTransaction[]
+  profitWithdrawals           ProfitWithdrawal[]
+  releaseReads                TenantReleaseRead[]
+  accountingSettings          AccountingSettings?
+  accountingPeriods           AccountingPeriod[]
+  glAccounts                  GlAccount[]
+  journalEntries              JournalEntry[]
+  accountingOutbox            AccountingOutbox[]
+  autoJournalRules            AutoJournalRule[]
+  auditEvents                 AuditEvent[]
+  approvalRequests            ApprovalRequest[]
+  cashAccounts                CashAccount[]
+  bankAccounts                BankAccount[]
+  taxCodes                    TaxCode[]
+  repairFaultOptions          RepairFaultOption[]
 }
 
 model TenantFeature {
@@ -227,44 +228,44 @@ model Service {
 }
 
 model Branch {
-  id              String   @id @default(cuid())
-  tenantId        String
-  name            String
-  address         String
-  city            String
-  state           String
-  phone           String
-  email           String?
-  isHeadquarters  Boolean  @default(false)
-  isDefault       Boolean  @default(false)
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  tenantId       String
+  name           String
+  address        String
+  city           String
+  state          String
+  phone          String
+  email          String?
+  isHeadquarters Boolean  @default(false)
+  isDefault      Boolean  @default(false)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  users    UserBranch[]
-  products Product[]
-  sales    Sale[]
-  repairs  RepairTicket[]
-  purchaseOrders PurchaseOrder[]
-  transactions   Transaction[]
-  stockMovements StockMovement[]
-  dailySummaries DailySummary[]
-  dailyClosings  DailyClosing[]
-  profitFunds    ProfitFund[]
-  profitAllocations ProfitAllocation[]
+  tenant                      Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users                       UserBranch[]
+  products                    Product[]
+  sales                       Sale[]
+  repairs                     RepairTicket[]
+  purchaseOrders              PurchaseOrder[]
+  transactions                Transaction[]
+  stockMovements              StockMovement[]
+  dailySummaries              DailySummary[]
+  dailyClosings               DailyClosing[]
+  profitFunds                 ProfitFund[]
+  profitAllocations           ProfitAllocation[]
   dailyReloadProviderPayments DailyReloadProviderPayment[]
-  dailyReloads DailyReload[]
-  profitTransactions ProfitTransaction[]
-  profitWithdrawals  ProfitWithdrawal[]
-  imeiRecords    ImeiRecord[]
-  exchanges      DeviceExchange[]
-  glAccounts     GlAccount[]
-  journalEntries JournalEntry[]
-  cashAccounts   CashAccount[]
-  bankAccounts   BankAccount[]
-  accountingOutbox AccountingOutbox[]
-  autoJournalRules AutoJournalRule[]
+  dailyReloads                DailyReload[]
+  profitTransactions          ProfitTransaction[]
+  profitWithdrawals           ProfitWithdrawal[]
+  imeiRecords                 ImeiRecord[]
+  exchanges                   DeviceExchange[]
+  glAccounts                  GlAccount[]
+  journalEntries              JournalEntry[]
+  cashAccounts                CashAccount[]
+  bankAccounts                BankAccount[]
+  accountingOutbox            AccountingOutbox[]
+  autoJournalRules            AutoJournalRule[]
 }
 
 model User {
@@ -279,11 +280,11 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branches       UserBranch[]
-  salesAssCashier Sale[]     @relation("SaleCashier")
-  repairs        RepairTicket[] @relation("RepairTechnician")
-  refreshTokens  RefreshToken[]
+  tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branches               UserBranch[]
+  salesAssCashier        Sale[]                  @relation("SaleCashier")
+  repairs                RepairTicket[]          @relation("RepairTechnician")
+  refreshTokens          RefreshToken[]
   announcementDismissals AnnouncementDismissal[]
 
   @@unique([tenantId, email])
@@ -341,37 +342,37 @@ model Brand {
 }
 
 model Product {
-  id              String   @id @default(cuid())
-  tenantId        String
-  branchId        String
-  name            String
-  sku             String
-  barcode         String?
-  categoryId      String
-  brandId         String
-  description     String?
-  buyingPrice     Float
-  sellingPrice    Float
-  mrp             Float
-  trackImei       Boolean  @default(false)
-  warrantyMonths  Int      @default(0)
-  warrantyNote    String?
-  imageUrl        String?
-  stock           Int      @default(0)
-  minStock        Int      @default(5)
-  isActive        Boolean  @default(true)
+  id                String           @id @default(cuid())
+  tenantId          String
+  branchId          String
+  name              String
+  sku               String
+  barcode           String?
+  categoryId        String
+  brandId           String
+  description       String?
+  buyingPrice       Float
+  sellingPrice      Float
+  mrp               Float
+  trackImei         Boolean          @default(false)
+  warrantyMonths    Int              @default(0)
+  warrantyNote      String?
+  imageUrl          String?
+  stock             Int              @default(0)
+  minStock          Int              @default(5)
+  isActive          Boolean          @default(true)
   storageVariations Json?
   colorVariations   Json?
   subCategory       String?
   deviceModel       String?
   condition         ProductCondition @default(BRAND_NEW)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
-  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch    Branch    @relation(fields: [branchId], references: [id])
-  category  Category  @relation(fields: [categoryId], references: [id])
-  brand     Brand     @relation(fields: [brandId], references: [id])
+  tenant         Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch         Branch            @relation(fields: [branchId], references: [id])
+  category       Category          @relation(fields: [categoryId], references: [id])
+  brand          Brand             @relation(fields: [brandId], references: [id])
   imeiRecords    ImeiRecord[]
   stockMovements StockMovement[]
   saleItems      SaleItem[]
@@ -384,23 +385,23 @@ model Product {
 }
 
 model ImeiRecord {
-  id          String     @id @default(cuid())
-  imei        String     @unique
-  productId   String
-  branchId    String
-  customerId  String?
-  saleId      String?
+  id              String     @id @default(cuid())
+  imei            String     @unique
+  productId       String
+  branchId        String
+  customerId      String?
+  saleId          String?
   purchaseOrderId String?
   poItemId        String?
-  status      ImeiStatus @default(IN_STOCK)
-  variation   String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  status          ImeiStatus @default(IN_STOCK)
+  variation       String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
-  product  Product   @relation(fields: [productId], references: [id])
-  branch   Branch    @relation(fields: [branchId], references: [id])
-  customer Customer? @relation(fields: [customerId], references: [id])
-  sale     Sale?     @relation(fields: [saleId], references: [id])
+  product       Product        @relation(fields: [productId], references: [id])
+  branch        Branch         @relation(fields: [branchId], references: [id])
+  customer      Customer?      @relation(fields: [customerId], references: [id])
+  sale          Sale?          @relation(fields: [saleId], references: [id])
   purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
 }
 
@@ -437,7 +438,7 @@ model Customer {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sales       Sale[]
   repairs     RepairTicket[]
   warranties  Warranty[]
@@ -513,7 +514,7 @@ model SalePayment {
 }
 
 model SaleReturn {
-  id           String           @id @default(cuid())
+  id           String        @id @default(cuid())
   tenantId     String
   branchId     String?
   saleId       String
@@ -523,7 +524,7 @@ model SaleReturn {
   refundMethod PaymentMethod
   processedBy  String
   notes        String?
-  createdAt    DateTime         @default(now())
+  createdAt    DateTime      @default(now())
 
   tenant Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sale   Sale             @relation(fields: [saleId], references: [id])
@@ -620,8 +621,8 @@ model MasterCatalogPhoneModel {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
-  brand    MasterCatalogBrand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  category MasterCatalogCategory @relation(fields: [categoryId], references: [id])
+  brand    MasterCatalogBrand          @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  category MasterCatalogCategory       @relation(fields: [categoryId], references: [id])
   variants MasterCatalogPhoneVariant[]
 
   @@unique([brandId, name])
@@ -693,10 +694,10 @@ model RepairTicket {
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
 
-  tenant     Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch     Branch          @relation(fields: [branchId], references: [id])
-  customer   Customer        @relation(fields: [customerId], references: [id])
-  technician User?           @relation("RepairTechnician", fields: [technicianId], references: [id])
+  tenant     Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch     Branch                @relation(fields: [branchId], references: [id])
+  customer   Customer              @relation(fields: [customerId], references: [id])
+  technician User?                 @relation("RepairTechnician", fields: [technicianId], references: [id])
   notes      RepairNote[]
   spareParts RepairSparePart[]
   history    RepairStatusHistory[]
@@ -716,70 +717,84 @@ model RepairNote {
 }
 
 model RepairSparePart {
-  id          String @id @default(cuid())
-  repairId    String
-  productId   String
-  productName String
-  quantity    Int
-  unitCost    Float
-  unitBuyCost Float  @default(0)
-  warrantyMonths Int    @default(0)
+  id             String  @id @default(cuid())
+  repairId       String
+  productId      String
+  productName    String
+  quantity       Int
+  unitCost       Float
+  unitBuyCost    Float   @default(0)
+  warrantyMonths Int     @default(0)
   warrantyNote   String?
-  total       Float
+  total          Float
 
   repair  RepairTicket @relation(fields: [repairId], references: [id], onDelete: Cascade)
   product Product      @relation(fields: [productId], references: [id])
 }
 
 model RepairStatusHistory {
-  id         String       @id @default(cuid())
-  repairId   String
-  status     RepairStatus
-  changedBy  String
-  note       String?
-  timestamp  DateTime     @default(now())
+  id        String       @id @default(cuid())
+  repairId  String
+  status    RepairStatus
+  changedBy String
+  note      String?
+  timestamp DateTime     @default(now())
 
   repair RepairTicket @relation(fields: [repairId], references: [id], onDelete: Cascade)
+}
+
+model RepairFaultOption {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
 }
 
 // ─────────────── Device Exchange ───────────────
 
 model DeviceExchange {
-  id             String   @id @default(cuid())
-  tenantId       String
-  branchId       String
-  exchangeNumber String
-  customerId     String?
-  customerName   String
-  customerPhone  String
-  customerAddress String?
-  oldProductName String?
-  oldBrand       String
-  oldModel       String
-  oldImei        String?
-  oldColor       String?
-  oldStorage     String?
-  oldCondition   String   @default("GOOD")
-  exchangeValue  Float    @default(0)
-  oldProductId   String?
+  id                  String   @id @default(cuid())
+  tenantId            String
+  branchId            String
+  exchangeNumber      String
+  customerId          String?
+  customerName        String
+  customerPhone       String
+  customerAddress     String?
+  oldProductName      String?
+  oldBrand            String
+  oldModel            String
+  oldImei             String?
+  oldColor            String?
+  oldStorage          String?
+  oldCondition        String   @default("GOOD")
+  exchangeValue       Float    @default(0)
+  oldProductId        String?
   tradeInImeiRecordId String?
-  newBrand       String?
-  newModel       String?
-  newImei        String?
-  newColor       String?
-  newStorage     String?
-  newDevicePrice Float?
-  soldProductId  String?
-  soldVariation  String?
-  balanceAmount  Float?
-  balanceDirection String?
-  invoiceNumber  String?
-  saleId         String?
-  notes          String?
-  status         String   @default("COMPLETED")
-  createdBy      String   @default("system")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  newBrand            String?
+  newModel            String?
+  newImei             String?
+  newColor            String?
+  newStorage          String?
+  newDevicePrice      Float?
+  soldProductId       String?
+  soldVariation       String?
+  balanceAmount       Float?
+  balanceDirection    String?
+  invoiceNumber       String?
+  saleId              String?
+  notes               String?
+  status              String   @default("COMPLETED")
+  createdBy           String   @default("system")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branch   Branch    @relation(fields: [branchId], references: [id])
@@ -818,16 +833,16 @@ model Warranty {
 }
 
 model WarrantyClaim {
-  id              String              @id @default(cuid())
-  warrantyId      String
-  issue           String
-  claimType       WarrantyClaimType   @default(HARDWARE)
-  status          WarrantyClaimStatus @default(OPEN)
-  repairTicketId  String?
-  assessedBy      String?
-  resolution      String?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  id             String              @id @default(cuid())
+  warrantyId     String
+  issue          String
+  claimType      WarrantyClaimType   @default(HARDWARE)
+  status         WarrantyClaimStatus @default(OPEN)
+  repairTicketId String?
+  assessedBy     String?
+  resolution     String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 
   warranty Warranty @relation(fields: [warrantyId], references: [id], onDelete: Cascade)
 }
@@ -835,50 +850,50 @@ model WarrantyClaim {
 // ─────────────── Supplier ───────────────
 
 model Supplier {
-  id                  String   @id @default(cuid())
-  tenantId            String
-  name                String
-  contactName         String
-  phone               String
-  email               String?
-  address             String?
-  city                String?
-  gstin               String?
-  totalOrders         Int      @default(0)
-  totalPurchaseValue  Float    @default(0)
-  outstandingDues     Float    @default(0)
-  isActive            Boolean  @default(true)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  tenantId           String
+  name               String
+  contactName        String
+  phone              String
+  email              String?
+  address            String?
+  city               String?
+  gstin              String?
+  totalOrders        Int      @default(0)
+  totalPurchaseValue Float    @default(0)
+  outstandingDues    Float    @default(0)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   purchaseOrders PurchaseOrder[]
 }
 
 model PurchaseOrder {
-  id               String              @id @default(cuid())
-  tenantId         String
-  branchId         String
-  poNumber         String
-  supplierId       String
-  supplierName     String
-  status           PurchaseOrderStatus @default(DRAFT)
-  subtotal         Float
-  tax              Float               @default(0)
-  total            Float
-  paidAmount       Float               @default(0)
-  dueAmount        Float
-  expectedDelivery DateTime?
-  receivedAt       DateTime?
+  id                String              @id @default(cuid())
+  tenantId          String
+  branchId          String
+  poNumber          String
+  supplierId        String
+  supplierName      String
+  status            PurchaseOrderStatus @default(DRAFT)
+  subtotal          Float
+  tax               Float               @default(0)
+  total             Float
+  paidAmount        Float               @default(0)
+  dueAmount         Float
+  expectedDelivery  DateTime?
+  receivedAt        DateTime?
   imeisRegisteredAt DateTime?
-  notes            String?
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
+  notes             String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
 
-  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch   Branch   @relation(fields: [branchId], references: [id])
-  supplier Supplier @relation(fields: [supplierId], references: [id])
-  items    POItem[]
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch      Branch       @relation(fields: [branchId], references: [id])
+  supplier    Supplier     @relation(fields: [supplierId], references: [id])
+  items       POItem[]
   imeiRecords ImeiRecord[]
 
   @@unique([tenantId, poNumber])
@@ -921,18 +936,18 @@ model Transaction {
 }
 
 model DailySummary {
-  id                String   @id @default(cuid())
-  tenantId          String
-  branchId          String
-  date              DateTime @db.Date
-  totalSales        Int      @default(0)
-  totalRevenue      Float    @default(0)
-  totalExpenses     Float    @default(0)
-  profit            Float    @default(0)
-  repairsCompleted  Int      @default(0)
-  newCustomers      Int      @default(0)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id               String   @id @default(cuid())
+  tenantId         String
+  branchId         String
+  date             DateTime @db.Date
+  totalSales       Int      @default(0)
+  totalRevenue     Float    @default(0)
+  totalExpenses    Float    @default(0)
+  profit           Float    @default(0)
+  repairsCompleted Int      @default(0)
+  newCustomers     Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branch Branch @relation(fields: [branchId], references: [id])
@@ -943,44 +958,44 @@ model DailySummary {
 // ─────────────── WhatsApp Integration ───────────────
 
 model WhatsAppConfig {
-  id               String    @id @default(cuid())
-  tenantId         String    @unique
-  connectionMode   String    @default("qr")
-  accessToken      String    @default("")
-  phoneNumberId    String    @default("")
-  wabaId           String    @default("")
-  verifyToken      String    @default("")
-  enabled          Boolean   @default(false)
-  autoSendInvoice  Boolean   @default(false)
-  sendPdfInvoice   Boolean   @default(false)
-  validatePhones   Boolean   @default(true)
-  invoiceTemplate  String    @default("")
-  status           String    @default("disconnected")
-  phoneNumber      String?
-  displayName      String?
-  qualityRating    String?
-  lastCheckedAt    DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  tenantId        String    @unique
+  connectionMode  String    @default("qr")
+  accessToken     String    @default("")
+  phoneNumberId   String    @default("")
+  wabaId          String    @default("")
+  verifyToken     String    @default("")
+  enabled         Boolean   @default(false)
+  autoSendInvoice Boolean   @default(false)
+  sendPdfInvoice  Boolean   @default(false)
+  validatePhones  Boolean   @default(true)
+  invoiceTemplate String    @default("")
+  status          String    @default("disconnected")
+  phoneNumber     String?
+  displayName     String?
+  qualityRating   String?
+  lastCheckedAt   DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   messages WhatsAppMessage[]
 }
 
 model WhatsAppMessage {
-  id           String   @id @default(cuid())
-  tenantId     String
-  configId     String
-  orderId      String?
-  to           String
-  customerName String?
-  type         String
-  preview      String
-  status       String   @default("sent")
+  id            String   @id @default(cuid())
+  tenantId      String
+  configId      String
+  orderId       String?
+  to            String
+  customerName  String?
+  type          String
+  preview       String
+  status        String   @default("sent")
   metaMessageId String?
-  amount       Float?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  amount        Float?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   config WhatsAppConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
 
@@ -1014,17 +1029,17 @@ enum NotificationStatus {
 }
 
 model Courier {
-  id          String   @id @default(cuid())
-  tenantId    String
-  name        String
-  code        String
-  logoUrl     String?
-  website     String?
-  phone       String?
-  isActive    Boolean  @default(true)
-  isDefault   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  code      String
+  logoUrl   String?
+  website   String?
+  phone     String?
+  isActive  Boolean  @default(true)
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   trackingPool   TrackingNumber[]
@@ -1053,45 +1068,45 @@ model TrackingNumber {
 }
 
 model DeliveryOrder {
-  id             String         @id @default(cuid())
-  tenantId       String
-  branchId       String?
-  orderNumber    String
+  id          String  @id @default(cuid())
+  tenantId    String
+  branchId    String?
+  orderNumber String
 
-  customerName   String
-  customerPhone  String
-  customerEmail  String?
+  customerName  String
+  customerPhone String
+  customerEmail String?
 
-  addressLine1   String
-  addressLine2   String?
-  city           String
-  district       String?
-  postalCode     String?
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  district     String?
+  postalCode   String?
 
-  subtotal       Float          @default(0)
-  deliveryCharge Float          @default(0)
-  totalAmount    Float          @default(0)
+  subtotal       Float   @default(0)
+  deliveryCharge Float   @default(0)
+  totalAmount    Float   @default(0)
   codAmount      Float?
-  isCOD          Boolean        @default(false)
+  isCOD          Boolean @default(false)
 
   courierId      String?
   trackingNumber String?
 
-  status         DeliveryStatus @default(PENDING)
-  notes          String?
-  createdById    String?
-  dispatchedAt   DateTime?
-  deliveredAt    DateTime?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  status       DeliveryStatus @default(PENDING)
+  notes        String?
+  createdById  String?
+  dispatchedAt DateTime?
+  deliveredAt  DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
-  tenant         Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  courier        Courier?              @relation(fields: [courierId], references: [id])
-  items          DeliveryItem[]
-  waybills       Waybill[]
-  notifications  DeliveryNotification[]
+  tenant          Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  courier         Courier?               @relation(fields: [courierId], references: [id])
+  items           DeliveryItem[]
+  waybills        Waybill[]
+  notifications   DeliveryNotification[]
   trackingNumbers TrackingNumber[]
-  sale           Sale?
+  sale            Sale?
 
   @@unique([tenantId, orderNumber])
   @@index([tenantId])
@@ -1099,25 +1114,25 @@ model DeliveryOrder {
 }
 
 model DeliveryItem {
-  id              String  @id @default(cuid())
+  id              String @id @default(cuid())
   deliveryOrderId String
   description     String
-  quantity        Int     @default(1)
-  unitPrice       Float   @default(0)
-  total           Float   @default(0)
+  quantity        Int    @default(1)
+  unitPrice       Float  @default(0)
+  total           Float  @default(0)
 
   deliveryOrder DeliveryOrder @relation(fields: [deliveryOrderId], references: [id], onDelete: Cascade)
 }
 
 model Waybill {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   tenantId        String
   deliveryOrderId String
   waybillNumber   String
-  reprintCount    Int      @default(0)
+  reprintCount    Int       @default(0)
   printedAt       DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   deliveryOrder DeliveryOrder @relation(fields: [deliveryOrderId], references: [id], onDelete: Cascade)
 
@@ -1218,38 +1233,38 @@ enum DailyClosingStatus {
 }
 
 model DailyClosing {
-  id                  String             @id @default(cuid())
-  tenantId            String
-  branchId            String
-  date                DateTime           @db.Date
-  status              DailyClosingStatus @default(DRAFT)
+  id       String             @id @default(cuid())
+  tenantId String
+  branchId String
+  date     DateTime           @db.Date
+  status   DailyClosingStatus @default(DRAFT)
 
-  totalSales          Float @default(0)
-  mobileSales         Float @default(0)
-  accessorySales      Float @default(0)
-  serviceIncome       Float @default(0)
-  repairIncome        Float @default(0)
-  billPaymentIncome   Float @default(0)
-  reloadSales         Float @default(0)
-  otherIncome         Float @default(0)
+  totalSales        Float @default(0)
+  mobileSales       Float @default(0)
+  accessorySales    Float @default(0)
+  serviceIncome     Float @default(0)
+  repairIncome      Float @default(0)
+  billPaymentIncome Float @default(0)
+  reloadSales       Float @default(0)
+  otherIncome       Float @default(0)
 
-  grossSales          Float @default(0)
-  cogs                Float @default(0)
-  grossProfit         Float @default(0)
-  reloadCommission    Float @default(0)
-  netProfit           Float @default(0)
-  totalExpenses       Float @default(0)
+  grossSales       Float @default(0)
+  cogs             Float @default(0)
+  grossProfit      Float @default(0)
+  reloadCommission Float @default(0)
+  netProfit        Float @default(0)
+  totalExpenses    Float @default(0)
 
-  openingCash         Float @default(0)
-  cashSales           Float @default(0)
-  bankDeposits        Float @default(0)
-  qrPayments          Float @default(0)
-  cardPayments        Float @default(0)
-  expectedCash        Float @default(0)
-  actualCash          Float @default(0)
-  cashVariance        Float @default(0)
-  cashInBank          Float @default(0)
-  closingBalance      Float @default(0)
+  openingCash    Float @default(0)
+  cashSales      Float @default(0)
+  bankDeposits   Float @default(0)
+  qrPayments     Float @default(0)
+  cardPayments   Float @default(0)
+  expectedCash   Float @default(0)
+  actualCash     Float @default(0)
+  cashVariance   Float @default(0)
+  cashInBank     Float @default(0)
+  closingBalance Float @default(0)
 
   mobilesSold         Int @default(0)
   imeisRegistered     Int @default(0)
@@ -1259,20 +1274,20 @@ model DailyClosing {
   newCustomers        Int @default(0)
   repairsCompleted    Int @default(0)
 
-  summaryJson         Json?
-  expenseBreakdown    Json?
-  reloadBreakdown     Json?
-  insightsJson        Json?
-  notes               String?
+  summaryJson      Json?
+  expenseBreakdown Json?
+  reloadBreakdown  Json?
+  insightsJson     Json?
+  notes            String?
 
-  closedBy            String?
-  closedByName        String?
-  closedAt            DateTime?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  closedBy     String?
+  closedByName String?
+  closedAt     DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  tenant    Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch    Branch                  @relation(fields: [branchId], references: [id])
+  tenant    Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch    Branch                 @relation(fields: [branchId], references: [id])
   cashCount DailyClosingCashCount?
   reports   DailyClosingReport[]
 
@@ -1348,30 +1363,30 @@ model ProfitFund {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
-  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch       Branch                 @relation(fields: [branchId], references: [id])
+  tenant          Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch          Branch                 @relation(fields: [branchId], references: [id])
   allocationLines ProfitAllocationLine[]
-  transactions ProfitTransaction[]
-  withdrawals  ProfitWithdrawal[]
+  transactions    ProfitTransaction[]
+  withdrawals     ProfitWithdrawal[]
 
   @@unique([tenantId, branchId, name])
   @@index([tenantId, branchId])
 }
 
 model ProfitAllocation {
-  id               String   @id @default(cuid())
-  tenantId         String
-  branchId         String
-  date             DateTime
-  todaySales       Float    @default(0)
-  todayProfit      Float    @default(0)
-  totalAllocated   Float    @default(0)
-  remainingProfit  Float    @default(0)
-  notes            String?
-  createdBy        String?
-  createdByName    String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id              String   @id @default(cuid())
+  tenantId        String
+  branchId        String
+  date            DateTime
+  todaySales      Float    @default(0)
+  todayProfit     Float    @default(0)
+  totalAllocated  Float    @default(0)
+  remainingProfit Float    @default(0)
+  notes           String?
+  createdBy       String?
+  createdByName   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   tenant Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branch Branch                 @relation(fields: [branchId], references: [id])
@@ -1441,20 +1456,20 @@ model ProfitWithdrawal {
 
 // ─────────────── Platform Announcements ───────────────
 model PlatformAnnouncement {
-  id          String    @id @default(cuid())
-  title       String
-  body        String
-  type        String    @default("INFO")
-  status      String    @default("DRAFT")
-  target      String    @default("ALL")
-  targetTenants String[] @default([])
-  dismissible Boolean   @default(true)
-  scheduledAt DateTime?
-  sentAt      DateTime?
-  seenCount   Int       @default(0)
-  createdBy   String    @default("Admin")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  title         String
+  body          String
+  type          String    @default("INFO")
+  status        String    @default("DRAFT")
+  target        String    @default("ALL")
+  targetTenants String[]  @default([])
+  dismissible   Boolean   @default(true)
+  scheduledAt   DateTime?
+  sentAt        DateTime?
+  seenCount     Int       @default(0)
+  createdBy     String    @default("Admin")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   dismissals AnnouncementDismissal[]
 }
@@ -1475,24 +1490,24 @@ model AnnouncementDismissal {
 
 // ─────────────── Release Notes ───────────────
 model Release {
-  id            String   @id @default(cuid())
-  version       String
-  title         String
-  summary       String
-  releaseDate   DateTime
-  status        String   @default("DRAFT")
-  popupEnabled  Boolean  @default(true)
-  active        Boolean  @default(true)
-  targetType    String   @default("ALL")
-  targetPlans   String[] @default([])
-  targetTenants String[] @default([])
+  id             String   @id @default(cuid())
+  version        String
+  title          String
+  summary        String
+  releaseDate    DateTime
+  status         String   @default("DRAFT")
+  popupEnabled   Boolean  @default(true)
+  active         Boolean  @default(true)
+  targetType     String   @default("ALL")
+  targetPlans    String[] @default([])
+  targetTenants  String[] @default([])
   targetBranches String[] @default([])
-  imageUrl      String?
-  videoUrl      String?
-  docUrl        String?
-  createdBy     String   @default("Admin")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  imageUrl       String?
+  videoUrl       String?
+  docUrl         String?
+  createdBy      String   @default("Admin")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   items ReleaseItem[]
   reads TenantReleaseRead[]
@@ -1612,17 +1627,17 @@ enum TaxCodeType {
 }
 
 model AccountingSettings {
-  id                   String   @id @default(cuid())
-  tenantId             String   @unique
-  baseCurrency         String   @default("LKR")
-  fiscalYearStartMonth Int      @default(1)
-  autoPostEnabled      Boolean  @default(true)
+  id                   String    @id @default(cuid())
+  tenantId             String    @unique
+  baseCurrency         String    @default("LKR")
+  fiscalYearStartMonth Int       @default(1)
+  autoPostEnabled      Boolean   @default(true)
   requireApprovalAbove Float?
   initializedAt        DateTime?
-  defaultAccounts      Json     @default("{}")
-  expenseCategoryMap   Json     @default("{}")
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  defaultAccounts      Json      @default("{}")
+  expenseCategoryMap   Json      @default("{}")
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }

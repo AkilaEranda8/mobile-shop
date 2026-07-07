@@ -152,6 +152,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
   const [issueOpen, setIssueOpen] = useState(false)
   const [issueQuery, setIssueQuery] = useState('')
   const [selectedIssues, setSelectedIssues] = useState<string[]>([])
+  const [tenantFaults, setTenantFaults] = useState<string[]>([])
   const FAULT_OPTIONS = [
     'DISPLAY CHANGE','DISPLAY FIXING ONLY','PIN REPLACEMENT','BATTERY SHORT FIX',
     'KEYBOARD ISSUE','TOUCH CHANGE','REPAIR SERVICE','CAMERA GLASS CHANGE',
@@ -161,12 +162,47 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
     'FLEX BONDING','MIC REPLACEMENT','MICRO CHARGING PIN REPLACEMENT','FINGER',
     'RINGER','ANTENNA CABLE','WHITE SCREEN',
   ]
+  const normalizeFault = (s: string) => s.trim().replace(/\s+/g, ' ').toUpperCase()
+  const allFaultOptions = useMemo(() => {
+    const uniq = new Set<string>()
+    ;[...FAULT_OPTIONS, ...tenantFaults].forEach(f => {
+      const n = normalizeFault(f)
+      if (n) uniq.add(n)
+    })
+    return Array.from(uniq)
+  }, [tenantFaults])
   const filteredFaults = issueQuery.trim()
-    ? FAULT_OPTIONS.filter(o => o.toLowerCase().includes(issueQuery.toLowerCase()))
-    : FAULT_OPTIONS
+    ? allFaultOptions.filter(o => o.toLowerCase().includes(issueQuery.toLowerCase()))
+    : allFaultOptions
+  const addCustomFault = async (raw: string) => {
+    const f = normalizeFault(raw)
+    if (!f) return
+    try {
+      await repairsApi.createFaultOption(f)
+      setTenantFaults(prev => (prev.includes(f) ? prev : [...prev, f]))
+    } catch {
+      // ignore: fallback to local list if server rejects/duplicates
+      setTenantFaults(prev => (prev.includes(f) ? prev : [...prev, f]))
+    }
+    setSelectedIssues(prev => (prev.includes(f) ? prev : [...prev, f]))
+    setIssueQuery('')
+    setIssueOpen(false)
+  }
   const toggleIssue = (v: string) => setSelectedIssues(p =>
     p.includes(v) ? p.filter(x => x !== v) : [...p, v]
   )
+
+  useEffect(() => {
+    let alive = true
+    repairsApi.faultOptions().then((res: any) => {
+      if (!alive) return
+      const rows = (res?.data?.data ?? res?.data ?? res ?? []) as Array<{ name?: string }>
+      const names = rows.map(r => normalizeFault(r.name ?? '')).filter(Boolean)
+      setTenantFaults(Array.from(new Set(names)))
+    }).catch(() => {})
+    return () => { alive = false }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const ACCESSORY_OPTIONS = ['Phone Only','Charger','Box','SIM','Memory Card','Back Cover','Battery','Stylus','Earphones'] as const
   const toggleAccessory = (a: string) => setAccessories(prev =>
     prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]
@@ -626,6 +662,21 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                               onMouseDown={e => e.stopPropagation()} />
                           </div>
                           <div className="overflow-y-auto" style={{ maxHeight: 220 }}>
+                            {issueQuery.trim() && !allFaultOptions.includes(normalizeFault(issueQuery)) && (
+                              <button
+                                type="button"
+                                onMouseDown={e => { e.preventDefault(); void addCustomFault(issueQuery) }}
+                                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-emerald-500/10 transition-colors text-left"
+                                style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                              >
+                                <div className="w-4 h-4 rounded flex items-center justify-center shrink-0 border border-emerald-500/30 bg-emerald-500/10">
+                                  <Plus size={10} className="text-emerald-400" />
+                                </div>
+                                <span className="text-sm text-emerald-400">
+                                  Add new fault: <span className="font-semibold">{normalizeFault(issueQuery)}</span>
+                                </span>
+                              </button>
+                            )}
                             {filteredFaults.map(fault => (
                               <button key={fault} type="button"
                                 onMouseDown={e => { e.preventDefault(); toggleIssue(fault) }}
@@ -637,7 +688,9 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                                 <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{fault}</span>
                               </button>
                             ))}
-                            {filteredFaults.length === 0 && <p className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>No faults found</p>}
+                            {filteredFaults.length === 0 && !issueQuery.trim() && (
+                              <p className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>No faults found</p>
+                            )}
                           </div>
                           {selectedIssues.length > 0 && (
                             <button type="button" onMouseDown={e => { e.preventDefault(); setSelectedIssues([]) }}
@@ -757,56 +810,6 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                         <input type="date" className="input-field pl-11 h-12" value={form.estimatedCompletion} onChange={f('estimatedCompletion')} />
                       </div>
                     </div>
-                  </div>
-                </div>
-              )}
-
-              {/* STEP 5 — Review */}
-              {(
-                <div className="rounded-xl border overflow-hidden mt-6" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                    <CheckCircle2 size={18} className="text-green-500" />
-                    <h4 className="font-bold" style={{ color: 'var(--text-primary)' }}>Review &amp; Confirm</h4>
-                    <span className="ml-auto text-xs font-medium text-green-500">All looks good — ready to submit</span>
-                  </div>
-                  <div className="p-5 space-y-5">
-                    {[
-                      { title: 'Customer', icon: User, color: 'text-violet-500', rows: [
-                        { label: 'Name',  value: (selectedCustomer?.name ?? newCust.name) || '—' },
-                        { label: 'Phone', value: (selectedCustomer?.phone ?? newCust.phone) || '—' },
-                      ]},
-                      { title: 'Device', icon: Smartphone, color: 'text-cyan-500', rows: [
-                        { label: 'Brand',       value: form.deviceBrand || '—' },
-                        { label: 'Model',       value: form.deviceModel || '—' },
-                        { label: 'IMEI',        value: form.imei || '—' },
-                        { label: 'Accessories', value: accessories.join(', ') || '—' },
-                      ]},
-                      { title: 'Issue', icon: AlertTriangle, color: 'text-orange-500', rows: [
-                        { label: 'Fault(s)', value: selectedIssues.join(', ') || '—' },
-                      ]},
-                      { title: 'Details', icon: Wrench, color: 'text-violet-500', rows: [
-                        { label: 'Technician',      value: form.technicianName || '—' },
-                        { label: 'Source',          value: SOURCE_OPTIONS.find(o => o.value === form.source)?.label ?? form.source },
-                        { label: 'Priority',        value: form.priority },
-                        { label: 'Estimated Cost',  value: form.estimatedCost ? formatCurrency(Number(form.estimatedCost)) : '—' },
-                        { label: 'Est. Completion', value: form.estimatedCompletion || '—' },
-                      ]},
-                    ].map(section => (
-                      <div key={section.title}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <section.icon size={13} className={section.color} />
-                          <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{section.title}</span>
-                        </div>
-                        <div className="rounded-xl border divide-y overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-                          {section.rows.map(row => (
-                            <div key={row.label} className="flex items-center justify-between px-4 py-2.5" style={{ background: 'var(--bg-subtle)' }}>
-                              <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{row.label}</span>
-                              <span className="text-xs font-semibold text-right max-w-[260px] truncate" style={{ color: 'var(--text-primary)' }}>{row.value}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
                   </div>
                 </div>
               )}

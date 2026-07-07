@@ -9,6 +9,12 @@ router.use(authenticate)
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try { const r = await repairsService.list(req.tenantId!, req); sendPaginated(res, r.data, r.total, r.page, r.limit) } catch (e) { next(e) }
 })
+router.get('/fault-options', async (req: Request, res: Response, next: NextFunction) => {
+  try { sendSuccess(res, await repairsService.listFaultOptions(req.tenantId!), 'Fault options') } catch (e) { next(e) }
+})
+router.post('/fault-options', async (req: Request, res: Response, next: NextFunction) => {
+  try { sendSuccess(res, await repairsService.createFaultOption(req.tenantId!, req.body), 'Fault option created', 201) } catch (e) { next(e) }
+})
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try { sendSuccess(res, await repairsService.create(req.tenantId!, req.body), 'Repair ticket created', 201) } catch (e) { next(e) }
 })

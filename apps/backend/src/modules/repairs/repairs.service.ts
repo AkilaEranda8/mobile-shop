@@ -8,6 +8,14 @@ import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 import { effectiveBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
 import { emitRepairAccounting } from '../accounting/integration/accounting-events.service'
 
+function normalizeFaultName(input: unknown) {
+  const s = String(input ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toUpperCase()
+  return s
+}
+
 function serializeRepair<T extends Record<string, unknown>>(ticket: T) {
   if (!ticket) return ticket
   const { history, ...rest } = ticket as T & { history?: unknown; statusHistory?: unknown }
@@ -15,6 +23,33 @@ function serializeRepair<T extends Record<string, unknown>>(ticket: T) {
 }
 
 export const repairsService = {
+  async listFaultOptions(tenantId: string) {
+    const rows = await (prisma as any).repairFaultOption.findMany({
+      where: { tenantId, isActive: true },
+      orderBy: [{ name: 'asc' }],
+      select: { id: true, name: true },
+    })
+    return rows
+  },
+
+  async createFaultOption(tenantId: string, body: any) {
+    const name = normalizeFaultName(body?.name)
+    if (!name) throw new AppError('Fault name is required', 400)
+    if (name.length > 80) throw new AppError('Fault name is too long', 400)
+
+    const existing = await (prisma as any).repairFaultOption.findFirst({
+      where: { tenantId, name },
+      select: { id: true, name: true },
+    })
+    if (existing) return existing
+
+    const created = await (prisma as any).repairFaultOption.create({
+      data: { tenantId, name, isActive: true },
+      select: { id: true, name: true },
+    })
+    return created
+  },
+
   async list(tenantId: string, req: Request) {
     const { skip, limit, page, search } = getPagination(req)
     const status = req.query.status as string | undefined

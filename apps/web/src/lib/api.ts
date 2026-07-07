@@ -317,6 +317,8 @@ export const repairsApi = {
     api.get(`/repairs${params ? '?' + new URLSearchParams(params) : ''}`),
   getById: (id: string) => api.get(`/repairs/${id}`),
   create: (body: unknown) => api.post('/repairs', body),
+  faultOptions: () => api.get('/repairs/fault-options'),
+  createFaultOption: (name: string) => api.post('/repairs/fault-options', { name }),
   update: (id: string, body: unknown) => api.put(`/repairs/${id}`, body),
   updateStatus: (id: string, status: string, note?: string) =>
     api.patch(`/repairs/${id}/status`, { status, note }),
