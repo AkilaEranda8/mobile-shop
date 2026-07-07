@@ -173,7 +173,6 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
   )
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
-  const [step, setStep]       = useState(1)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -309,6 +308,8 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedCustomer && customerMode === 'search') { setError('Please select or register a customer'); return }
+    if (!form.deviceBrand.trim() || !form.deviceModel.trim()) { setError('Please select a device brand and model'); return }
+    if (selectedIssues.length === 0) { setError('Please select at least one issue'); return }
     setLoading(true); setError('')
     try {
       const user = authStorage.getUser()
@@ -340,21 +341,6 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
     { icon: DollarSign,    label: 'Estimated Cost', value: form.estimatedCost ? formatCurrency(Number(form.estimatedCost)) : '' },
   ]
 
-  const STEPS = [
-    { n: 1, label: 'Customer' },
-    { n: 2, label: 'Device' },
-    { n: 3, label: 'Issue' },
-    { n: 4, label: 'Details' },
-    { n: 5, label: 'Review' },
-  ]
-
-  const canProceed = () => {
-    if (step === 1) return !!(selectedCustomer || (newCust.name.trim() && newCust.phone.trim()))
-    if (step === 2) return !!(form.deviceBrand.trim() && form.deviceModel.trim())
-    if (step === 3) return selectedIssues.length > 0
-    return true
-  }
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm">
       <div className="w-full max-w-6xl max-h-[96vh] overflow-y-auto rounded-2xl shadow-2xl flex flex-col" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
@@ -378,37 +364,6 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
 
         <form onSubmit={handleSubmit}>
 
-          {/* ── Stepper ── */}
-          <div className="px-8 py-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-            <div className="flex items-center">
-              {STEPS.map(({ n, label }, i) => (
-                <div key={n} className={`flex items-center ${i < 4 ? 'flex-1' : ''}`}>
-                  <button
-                    type="button"
-                    disabled={n >= step}
-                    onClick={() => { if (n < step) setStep(n) }}
-                    className={`flex items-center gap-2.5 shrink-0 text-left ${n < step ? 'cursor-pointer' : 'cursor-default'}`}
-                  >
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
-                      n < step  ? 'bg-violet-600 text-white shadow-md shadow-violet-500/30' :
-                      n === step ? 'bg-violet-600 text-white ring-4 ring-violet-500/20' :
-                      'border-2 [color:var(--text-muted)]'
-                    }`} style={n > step ? { borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' } : {}}>
-                      {n < step ? <Check size={14} /> : n}
-                    </div>
-                    <span className={`text-sm font-semibold ${n === step ? 'text-violet-500' : n < step ? 'text-violet-400' : ''}`}
-                      style={n > step ? { color: 'var(--text-secondary)' } : {}}>
-                      {label}
-                    </span>
-                  </button>
-                  {i < 4 && (
-                    <div className="flex-1 h-px mx-3 transition-all" style={{ background: n < step ? 'rgba(139,92,246,0.45)' : 'var(--border-subtle)' }} />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* ── Body ── */}
           <div className="grid grid-cols-12 gap-6 p-8">
 
@@ -416,7 +371,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
             <div className="col-span-12 lg:col-span-8">
 
               {/* STEP 1 — Customer */}
-              {step === 1 && (
+              {(
                 <div className="rounded-xl border overflow-visible" style={{ borderColor: 'var(--border-subtle)' }}>
                   <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                     <User size={18} className="text-violet-500" />
@@ -535,8 +490,8 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
               )}
 
               {/* STEP 2 — Device */}
-              {step === 2 && (
-                <div className="rounded-xl border overflow-visible" style={{ borderColor: 'var(--border-subtle)' }}>
+              {(
+                <div className="rounded-xl border overflow-visible mt-6" style={{ borderColor: 'var(--border-subtle)' }}>
                   <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                     <Smartphone size={18} className="text-violet-500" />
                     <h4 className="font-bold" style={{ color: 'var(--text-primary)' }}>Device Information</h4>
@@ -644,8 +599,8 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
               )}
 
               {/* STEP 3 — Issue */}
-              {step === 3 && (
-                <div className="rounded-xl border overflow-visible" style={{ borderColor: 'var(--border-subtle)' }}>
+              {(
+                <div className="rounded-xl border overflow-visible mt-6" style={{ borderColor: 'var(--border-subtle)' }}>
                   <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                     <AlertTriangle size={18} className="text-violet-500" />
                     <h4 className="font-bold" style={{ color: 'var(--text-primary)' }}>Reported Issue / Fault</h4>
@@ -709,8 +664,8 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
               )}
 
               {/* STEP 4 — Details */}
-              {step === 4 && (
-                <div className="rounded-xl border" style={{ borderColor: 'var(--border-subtle)' }}>
+              {(
+                <div className="rounded-xl border mt-6" style={{ borderColor: 'var(--border-subtle)' }}>
                   <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                     <Wrench size={18} className="text-violet-500" />
                     <h4 className="font-bold" style={{ color: 'var(--text-primary)' }}>Job Details</h4>
@@ -807,8 +762,8 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
               )}
 
               {/* STEP 5 — Review */}
-              {step === 5 && (
-                <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+              {(
+                <div className="rounded-xl border overflow-hidden mt-6" style={{ borderColor: 'var(--border-subtle)' }}>
                   <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                     <CheckCircle2 size={18} className="text-green-500" />
                     <h4 className="font-bold" style={{ color: 'var(--text-primary)' }}>Review &amp; Confirm</h4>
@@ -888,7 +843,9 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                   <AlertCircle size={18} className="text-violet-500 shrink-0 mt-0.5" />
                   <div>
                     <h4 className="font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Need Help?</h4>
-                    <p className="text-xs leading-relaxed mb-3" style={{ color: 'var(--text-secondary)' }}>Fill in each step and click Next. Required fields are marked with <span className="text-red-500">*</span></p>
+                    <p className="text-xs leading-relaxed mb-3" style={{ color: 'var(--text-secondary)' }}>
+                      Fill required fields and click <span className="font-semibold">Create Ticket</span>. Required fields are marked with <span className="text-red-500">*</span>
+                    </p>
                     <button type="button" className="text-xs font-bold text-violet-500 flex items-center gap-1.5">View Ticket Guidelines <ArrowRight size={13} /></button>
                   </div>
                 </div>
@@ -900,20 +857,22 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
           {error && <p className="px-8 pb-2 text-xs text-red-400">{error}</p>}
 
           <div className="px-8 pb-8 flex items-center justify-between gap-4">
-            {step === 1
-              ? <button type="button" onClick={onClose} className="h-11 px-8 rounded-xl border text-sm font-semibold transition-colors" style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}>Cancel</button>
-              : <button type="button" onClick={() => setStep(s => s - 1)} className="h-11 px-8 rounded-xl border text-sm font-semibold flex items-center gap-2 transition-colors hover:bg-violet-500/5" style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}><ChevronLeft size={16} /> Back</button>
-            }
-            {step < 5
-              ? <button type="button" disabled={!canProceed()} onClick={() => { setError(''); setStep(s => s + 1) }}
-                  className="h-11 px-10 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-40 shadow-lg shadow-violet-500/20 transition-all hover:opacity-90"
-                  style={{ background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)' }}>
-                  Next Step <ArrowRight size={15} />
-                </button>
-              : <button type="submit" disabled={loading} className="h-11 px-12 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-violet-500/20" style={{ background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)' }}>
-                  {loading ? <Loader2 size={14} className="animate-spin" /> : <><CheckCircle2 size={14} /> Create Ticket</>}
-                </button>
-            }
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-11 px-8 rounded-xl border text-sm font-semibold transition-colors hover:bg-white/5"
+              style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="h-11 px-12 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-violet-500/20 transition-all hover:opacity-90"
+              style={{ background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)' }}
+            >
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <><CheckCircle2 size={14} /> Create Ticket</>}
+            </button>
           </div>
 
         </form>

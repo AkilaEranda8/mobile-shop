@@ -154,14 +154,6 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
                     )})()}
                     {updating && <Loader2 size={12} className="animate-spin text-violet-400 ml-auto" />}
                   </div>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {Object.entries(statusConfig).filter(([k]) => k !== record.status).map(([k, v]) => (
-                      <button key={k} disabled={updating} onClick={() => handleStatusChange(k)}
-                        className={`text-[10px] px-2 py-1.5 rounded-lg border font-semibold transition-all disabled:opacity-40 hover:opacity-90 ${v.color} ${v.bg} ${v.border}`}>
-                        {v.label}
-                      </button>
-                    ))}
-                  </div>
                 </div>
               )}
             </div>

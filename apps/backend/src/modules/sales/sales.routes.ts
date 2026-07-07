@@ -10,6 +10,7 @@ import { getPagination } from '../../utils/pagination'
 import { generateReturnNumber } from '../../utils/counters'
 import { voidWarrantiesForSaleReturn } from '../warranty/warranty.service'
 import { emitSaleReturnAccounting } from '../accounting/integration/accounting-events.service'
+import { assertBranchRecordAccess } from '../../utils/active-branch'
 
 const router = Router()
 router.use(authenticate)
@@ -53,43 +54,91 @@ router.post('/:id/returns', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req
       include: { items: true },
     })
     if (!sale) throw new AppError('Sale not found', 404)
+    assertBranchRecordAccess(req, sale.branchId)
     if (sale.status === 'RETURNED') throw new AppError('This order has already been fully returned', 400)
     await assertBusinessDayOpenIfEnabled(req.tenantId!, sale.branchId)
 
     const { items, reason, refundMethod, notes } = req.body
     if (!items?.length) throw new AppError('No items provided for return', 400)
 
-    // Sum already-returned quantities per product from prior returns
+    const requested = (items as any[]).map((raw) => ({
+      saleItemId: raw?.saleItemId ? String(raw.saleItemId) : null,
+      productId: raw?.productId ? String(raw.productId) : null, // legacy fallback
+      productName: String(raw?.productName ?? ''),
+      quantity: Number(raw?.quantity ?? 0),
+      imei: raw?.imei ? String(raw.imei).trim() : null,
+    }))
+    if (requested.some(r => !r.quantity || r.quantity < 0)) throw new AppError('Invalid return quantity', 400)
+
+    const saleItemsById = new Map((sale.items ?? []).map((si: any) => [si.id, si]))
+
+    // Sum already-returned quantities from prior returns (prefer saleItemId when available)
     const priorReturns = await prisma.saleReturn.findMany({
       where: { saleId: sale.id },
       include: { items: true },
     })
-    const alreadyReturned: Record<string, number> = {}
+    const alreadyReturnedBySaleItem: Record<string, number> = {}
+    const alreadyReturnedByProductSku: Record<string, number> = {}
     for (const ret of priorReturns) {
       for (const ri of ret.items) {
-        if (ri.productId) alreadyReturned[ri.productId] = (alreadyReturned[ri.productId] ?? 0) + ri.quantity
+        const saleItemId = (ri as any).saleItemId as string | null | undefined
+        if (saleItemId) {
+          alreadyReturnedBySaleItem[saleItemId] = (alreadyReturnedBySaleItem[saleItemId] ?? 0) + ri.quantity
+          continue
+        }
+        if (ri.productId) {
+          const key = `${ri.productId}::${(sale.items.find((si: any) => si.productId === ri.productId)?.sku ?? '')}`
+          alreadyReturnedByProductSku[key] = (alreadyReturnedByProductSku[key] ?? 0) + ri.quantity
+        }
       }
     }
 
-    // Validate quantities against remaining returnable qty
-    for (const ri of items) {
-      const orig = sale.items.find((si: any) => si.productId === ri.productId)
-      if (!orig) throw new AppError(`Item "${ri.productName}" not found in original sale`, 400)
-      const available = orig.quantity - (alreadyReturned[ri.productId] ?? 0)
-      if (available <= 0) throw new AppError(`"${ri.productName}" has already been fully returned`, 400)
-      if (ri.quantity > available) throw new AppError(`Return qty for "${ri.productName}" exceeds available (${available} remaining)`, 400)
+    // Validate quantities + compute server-side refund lines from original sale items
+    const resolved = requested.map((ri) => {
+      let orig: any | undefined
+      if (ri.saleItemId) orig = saleItemsById.get(ri.saleItemId) as any
+      if (!orig && ri.productId) orig = (sale.items ?? []).find((si: any) => si.productId === ri.productId)
+      if (!orig) throw new AppError(`Item "${ri.productName || 'Unknown'}" not found in original sale`, 400)
+
+      const priorQty = ri.saleItemId
+        ? (alreadyReturnedBySaleItem[orig.id] ?? 0)
+        : (alreadyReturnedByProductSku[`${orig.productId}::${orig.sku ?? ''}`] ?? 0)
+      const available = Number(orig.quantity) - priorQty
+      if (available <= 0) throw new AppError(`"${orig.productName}" has already been fully returned`, 400)
+      if (ri.quantity > available) throw new AppError(`Return qty for "${orig.productName}" exceeds available (${available} remaining)`, 400)
+
+      const unitNet = Number(orig.quantity) > 0 ? Number(orig.total) / Number(orig.quantity) : Number(orig.unitPrice)
+      const lineTotal = Math.round(unitNet * ri.quantity * 100) / 100
+      return {
+        saleItemId: orig.id,
+        productId: orig.productId ?? null,
+        productName: orig.productName,
+        sku: orig.sku ?? '',
+        imei: (ri.imei || orig.imei || null) as string | null,
+        quantity: ri.quantity,
+        unitPrice: Number(orig.unitPrice),
+        total: lineTotal,
+      }
+    })
+
+    // IMEI enforcement: if original line had IMEI, qty must be 1 and IMEI must be specific
+    for (const r of resolved) {
+      if (!r.imei && (saleItemsById.get(r.saleItemId) as any)?.imei) {
+        throw new AppError(`IMEI required for "${r.productName}"`, 400)
+      }
+      if (((saleItemsById.get(r.saleItemId) as any)?.imei || r.imei) && r.quantity !== 1) {
+        throw new AppError(`IMEI products must be returned one unit per line: "${r.productName}"`, 400)
+      }
     }
 
     const returnNumber = await generateReturnNumber(req.tenantId!)
-    const refundAmount = items.reduce((s: number, i: any) => s + Number(i.total), 0)
-
-    const userBranch = await prisma.userBranch.findFirst({ where: { userId: req.user!.userId } })
-    const branchId = userBranch?.branchId ?? sale.branchId
+    const refundAmount = resolved.reduce((s: number, i: any) => s + Number(i.total), 0)
+    const branchId = sale.branchId
 
     // Determine new sale status: RETURNED only when all units are fully returned
     const totalSoldQty    = sale.items.reduce((s: number, i: any) => s + i.quantity, 0)
-    const totalNewQty     = items.reduce((s: number, i: any) => s + Number(i.quantity), 0)
-    const totalPriorQty   = Object.values(alreadyReturned).reduce((s: number, v) => s + (v as number), 0)
+    const totalNewQty     = resolved.reduce((s: number, i: any) => s + Number(i.quantity), 0)
+    const totalPriorQty   = Object.values(alreadyReturnedBySaleItem).reduce((s: number, v) => s + (v as number), 0)
     const newSaleStatus   = (totalPriorQty + totalNewQty >= totalSoldQty) ? 'RETURNED' : sale.status
     const isFullReturn    = newSaleStatus === 'RETURNED'
 
@@ -106,7 +155,8 @@ router.post('/:id/returns', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req
           processedBy:  req.user?.userId ?? 'system',
           notes:        notes ?? null,
           items: {
-            create: items.map((i: any) => ({
+            create: resolved.map((i: any) => ({
+              saleItemId:  i.saleItemId,
               productId:   i.productId ?? undefined,
               productName: i.productName,
               quantity:    Number(i.quantity),
@@ -119,16 +169,42 @@ router.post('/:id/returns', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req
       })
 
       // Restock products + StockMovements + reset IMEI
-      for (const ri of items) {
+      for (const ri of resolved) {
         if (ri.productId) {
+          const product = await tx.product.findUnique({
+            where: { id: ri.productId },
+            select: { storageVariations: true },
+          })
           await tx.product.update({
             where: { id: ri.productId },
             data:  { stock: { increment: Number(ri.quantity) } },
           })
+
+          // Restore variant stock (match by SKU, same logic as sales decrement)
+          if (product?.storageVariations && ri.sku) {
+            let updated = product.storageVariations as any[]
+            if (Array.isArray(updated)) {
+              let changed = false
+              updated = updated.map((v: any) => {
+                if (v?.sku && v.sku === ri.sku) {
+                  changed = true
+                  return { ...v, stock: Number(v.stock ?? 0) + Number(ri.quantity) }
+                }
+                return v
+              })
+              if (changed) {
+                await tx.product.update({
+                  where: { id: ri.productId },
+                  data: { storageVariations: updated },
+                })
+              }
+            }
+          }
+
           await tx.stockMovement.create({
             data: {
               productId:   ri.productId,
-              branchId:    branchId ?? sale.branchId,
+              branchId:    sale.branchId,
               type:        'RETURN',
               quantity:    Number(ri.quantity),
               reference:   returnNumber,
@@ -137,11 +213,10 @@ router.post('/:id/returns', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req
             },
           })
         }
-        // Use IMEI from request if provided, else find from original sale item
-        const imeiToReset = ri.imei ?? sale.items.find((si: any) => si.productId === ri.productId && si.imei)?.imei
+        const imeiToReset = ri.imei
         if (imeiToReset) {
           await tx.imeiRecord.updateMany({
-            where: { imei: imeiToReset },
+            where: { imei: imeiToReset, ...(ri.productId ? { productId: ri.productId } : {}) },
             data:  { status: 'IN_STOCK', saleId: null, customerId: null },
           })
         }
@@ -193,7 +268,7 @@ router.post('/:id/returns', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req
       }
 
       const returnedImeis = items
-        .map((ri: any) => ri.imei ?? sale.items.find((si: any) => si.productId === ri.productId && si.imei)?.imei)
+        .map((ri: any) => ri.imei)
         .filter(Boolean) as string[]
       await voidWarrantiesForSaleReturn(tx, req.tenantId!, sale.id, returnedImeis)
 

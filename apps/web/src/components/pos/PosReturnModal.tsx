@@ -62,13 +62,16 @@ export function PosReturnModal({ onClose, onDone }: { onClose: () => void; onDon
     setQtys(p => ({ ...p, [id]: Math.max(0, Math.min(max, (p[id] ?? 0) + delta)) }))
 
   const alreadyReturnedQty = useMemo(() => {
-    const map: Record<string, number> = {}
+    const bySaleItemId: Record<string, number> = {}
+    const byProductId: Record<string, number> = {}
     for (const ret of sale?.returns ?? []) {
       for (const ri of ret.items ?? []) {
-        if (ri.productId) map[ri.productId] = (map[ri.productId] ?? 0) + ri.quantity
+        const sid = (ri as any).saleItemId as string | undefined
+        if (sid) bySaleItemId[sid] = (bySaleItemId[sid] ?? 0) + ri.quantity
+        else if (ri.productId) byProductId[ri.productId] = (byProductId[ri.productId] ?? 0) + ri.quantity
       }
     }
-    return map
+    return { bySaleItemId, byProductId }
   }, [sale])
 
   const selectedItems = (sale?.items ?? []).filter((i: any) => qtys[i.id] > 0)
@@ -82,17 +85,11 @@ export function PosReturnModal({ onClose, onDone }: { onClose: () => void; onDon
     setLoading(true)
     try {
       await salesApi.processReturn(sale.id, {
-        items: selectedItems.map((i: any) => {
-          const unitNet = i.quantity > 0 ? i.total / i.quantity : i.unitPrice
-          return {
-            productId: i.productId,
-            productName: i.productName,
-            quantity: qtys[i.id],
-            unitPrice: i.unitPrice,
-            imei: i.imei,
-            total: unitNet * qtys[i.id],
-          }
-        }),
+        items: selectedItems.map((i: any) => ({
+          saleItemId: i.id,
+          quantity: qtys[i.id],
+          imei: i.imei,
+        })),
         reason,
         refundMethod,
         notes: notes.trim() || undefined,
@@ -163,7 +160,7 @@ export function PosReturnModal({ onClose, onDone }: { onClose: () => void; onDon
             </div>
             <div className="space-y-2">
               {(sale?.items ?? []).map((item: any) => {
-                const prev = alreadyReturnedQty[item.productId] ?? 0
+                const prev = alreadyReturnedQty.bySaleItemId[item.id] ?? alreadyReturnedQty.byProductId[item.productId] ?? 0
                 const maxReturn = Math.max(0, item.quantity - prev)
                 if (maxReturn <= 0) return null
                 return (

@@ -279,23 +279,23 @@ function ProcessReturnModal({ onClose, onDone }: { onClose: () => void; onDone: 
 function ReturnDetailModal({ ret, onClose }: { ret: any; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+      <div className="bg-white dark:bg-[#0f1623] border border-gray-200 dark:border-white/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
         <div className="h-1 w-full bg-gradient-to-r from-rose-500 to-orange-500" />
 
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-white/5">
+        <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-white/5">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/20 flex items-center justify-center">
-              <RotateCcw size={15} className="text-rose-400" />
+            <div className="w-9 h-9 rounded-xl bg-rose-100 dark:bg-rose-500/15 border border-rose-200 dark:border-rose-500/20 flex items-center justify-center">
+              <RotateCcw size={15} className="text-rose-500 dark:text-rose-400" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white">{ret.returnNumber}</h3>
-              <p className="text-xs text-slate-500">
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white">{ret.returnNumber}</h3>
+              <p className="text-xs text-gray-500 dark:text-slate-500">
                 {ret.sale?.invoiceNumber} · {ret.sale?.customerName || 'Walk-in'} · {formatDate(ret.createdAt)}
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:text-slate-500 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5">
             <X size={15} />
           </button>
         </div>
@@ -303,20 +303,20 @@ function ReturnDetailModal({ ret, onClose }: { ret: any; onClose: () => void }) 
         <div className="p-5 space-y-4">
           {/* Returned Items */}
           <div>
-            <p className="text-xs text-slate-400 uppercase tracking-wide mb-2">Returned Items</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-2">Returned Items</p>
             <div className="space-y-2">
               {(ret.items ?? []).map((item: any) => (
-                <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-white/3 border border-white/5">
+                <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-white/3 border border-gray-200 dark:border-white/5">
                   <div className="flex items-center gap-3">
-                    <div className="w-7 h-7 rounded-lg bg-rose-500/10 flex items-center justify-center">
-                      <Package size={12} className="text-rose-400" />
+                    <div className="w-7 h-7 rounded-lg bg-rose-100 dark:bg-rose-500/10 flex items-center justify-center">
+                      <Package size={12} className="text-rose-500 dark:text-rose-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-white">{item.productName}</p>
-                      <p className="text-[10px] text-slate-500">Qty: {item.quantity} × {formatCurrency(item.unitPrice)}</p>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{item.productName}</p>
+                      <p className="text-[10px] text-gray-500 dark:text-slate-500">Qty: {item.quantity} × {formatCurrency(item.unitPrice)}</p>
                     </div>
                   </div>
-                  <span className="text-sm font-bold text-rose-400">{formatCurrency(item.total)}</span>
+                  <span className="text-sm font-bold text-rose-600 dark:text-rose-400">{formatCurrency(item.total)}</span>
                 </div>
               ))}
             </div>
@@ -324,32 +324,32 @@ function ReturnDetailModal({ ret, onClose }: { ret: any; onClose: () => void }) 
 
           {/* Reason + Refund */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 rounded-lg bg-white/3 border border-white/5">
-              <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">Reason</p>
-              <p className="text-sm font-semibold text-white">{ret.reason}</p>
+            <div className="p-3 rounded-lg bg-gray-50 dark:bg-white/3 border border-gray-200 dark:border-white/5">
+              <p className="text-[10px] text-gray-500 dark:text-slate-500 uppercase tracking-wide mb-1">Reason</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">{ret.reason}</p>
             </div>
-            <div className="p-3 rounded-lg bg-white/3 border border-white/5">
-              <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">Refund Method</p>
+            <div className="p-3 rounded-lg bg-gray-50 dark:bg-white/3 border border-gray-200 dark:border-white/5">
+              <p className="text-[10px] text-gray-500 dark:text-slate-500 uppercase tracking-wide mb-1">Refund Method</p>
               <div className="flex items-center gap-1.5">
-                <span className="text-slate-400">{methodIcon[ret.refundMethod]}</span>
-                <p className="text-sm font-semibold text-white">{ret.refundMethod?.replace('_', ' ')}</p>
+                <span className="text-gray-500 dark:text-slate-400">{methodIcon[ret.refundMethod]}</span>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">{ret.refundMethod?.replace('_', ' ')}</p>
               </div>
             </div>
           </div>
 
           {/* Refund amount */}
-          <div className="flex items-center justify-between p-4 rounded-xl bg-rose-500/10 border border-rose-500/20">
+          <div className="flex items-center justify-between p-4 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20">
             <div className="flex items-center gap-2">
-              <AlertTriangle size={14} className="text-rose-400" />
-              <span className="text-sm font-semibold text-rose-300">Total Refunded</span>
+              <AlertTriangle size={14} className="text-rose-500 dark:text-rose-400" />
+              <span className="text-sm font-semibold text-rose-700 dark:text-rose-300">Total Refunded</span>
             </div>
-            <span className="text-xl font-black text-rose-400">{formatCurrency(ret.refundAmount)}</span>
+            <span className="text-xl font-black text-rose-600 dark:text-rose-400">{formatCurrency(ret.refundAmount)}</span>
           </div>
 
           {ret.notes && (
-            <div className="p-3 rounded-lg bg-white/3 border border-white/5">
-              <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">Notes</p>
-              <p className="text-sm text-slate-300 italic">{ret.notes}</p>
+            <div className="p-3 rounded-lg bg-gray-50 dark:bg-white/3 border border-gray-200 dark:border-white/5">
+              <p className="text-[10px] text-gray-500 dark:text-slate-500 uppercase tracking-wide mb-1">Notes</p>
+              <p className="text-sm text-gray-700 dark:text-slate-300 italic">{ret.notes}</p>
             </div>
           )}
         </div>

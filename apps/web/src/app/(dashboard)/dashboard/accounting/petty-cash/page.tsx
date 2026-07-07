@@ -12,7 +12,6 @@ import {
   AccountingPageShell,
   AccountingFeatureGate,
   AccountingPageHeader,
-  AccountingPanel,
   AccountingTable,
   AccountingTd,
   AccountingTh,
@@ -91,106 +90,105 @@ export default function PettyCashPage() {
 
   return (
     <AccountingPageShell>
-      <AccountingPageHeader
-        title="Petty Cash"
-        subtitle="Imprest float — expenses and replenishment"
-        icon={Wallet}
-        actions={
-          <div className="flex items-center gap-2 lg:hidden">
-            <button type="button" onClick={() => setShowExpense(true)} className="btn-primary text-sm">
-              Record expense
-            </button>
-            <button type="button" onClick={() => setShowReplenish(true)} className="btn-secondary text-sm">
-              Replenish
-            </button>
-            <button type="button" onClick={load} className="btn-secondary p-2.5 rounded-lg" aria-label="Refresh">
-              <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-            </button>
-          </div>
-        }
-      />
+      <div className="space-y-5 pb-4 min-h-[calc(100vh-8rem)] -m-4 lg:-m-6 p-4 lg:p-6 dash-bg">
+        <AccountingPageHeader
+          title="Petty Cash"
+          subtitle="Imprest float — expenses and replenishment"
+          icon={Wallet}
+          actions={
+            <div className="flex items-center gap-2 lg:hidden">
+              <button type="button" onClick={() => setShowExpense(true)} className="btn-primary text-sm">
+                Record expense
+              </button>
+              <button type="button" onClick={() => setShowReplenish(true)} className="btn-secondary text-sm">
+                Replenish
+              </button>
+              <button type="button" onClick={load} className="btn-secondary p-2.5 rounded-lg" aria-label="Refresh">
+                <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+              </button>
+            </div>
+          }
+        />
 
-      {!branchId ? (
-        <div className="card p-4 text-sm text-amber-400 border-amber-500/20 bg-amber-500/5">
-          Select an active branch to manage petty cash.
-        </div>
-      ) : loading ? (
-        <div className="flex justify-center py-16"><Loader2 className="animate-spin text-violet-400" /></div>
-      ) : (
-        <div className="grid lg:grid-cols-[minmax(260px,280px)_1fr] gap-5 items-start w-full">
-          <aside
-            className="rounded-2xl border overflow-hidden sticky top-4"
-            style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}
-          >
-            <div
-              className="px-4 py-5 border-b"
-              style={{
-                borderColor: 'var(--border-subtle)',
-                background: 'linear-gradient(135deg, rgba(124,58,237,0.16) 0%, rgba(124,58,237,0.03) 100%)',
-              }}
-            >
-              <p className="text-[10px] font-bold uppercase tracking-wider text-violet-400">Petty cash balance</p>
-              <p className={`text-2xl font-extrabold tabular-nums mt-1 ${balance < 0 ? 'text-rose-400' : 'text-violet-300'}`}>
+        {!branchId ? (
+          <div className="dash-card dash-alert p-4 text-sm text-amber-400 border-amber-500/20 bg-amber-500/5">
+            Select an active branch to manage petty cash.
+          </div>
+        ) : loading ? (
+          <div className="flex justify-center py-16"><Loader2 className="animate-spin text-violet-400" /></div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
+            <div className="dash-card dash-kpi p-4 flex flex-col dash-fade-1" style={{ ['--kpi-accent' as any]: 'linear-gradient(90deg, #7c3aed, #a78bfa)' }}>
+              <div className="flex items-start gap-2.5 mb-2">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(124,58,237,0.14)' }}>
+                  <Wallet size={16} className="text-violet-500 dark:text-violet-400" />
+                </div>
+                <span className="text-xs font-medium dash-text-secondary leading-tight mt-0.5">Current Balance</span>
+              </div>
+              <p className={`text-[22px] font-black tabular-nums leading-tight ${balance < 0 ? 'text-rose-500 dark:text-rose-400' : 'dash-text-primary'}`}>
                 {formatCurrency(balance)}
               </p>
-              <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-muted)' }}>{balanceLabel}</p>
+              <p className="text-[11px] dash-text-muted mt-0.5 font-medium">{balanceLabel}</p>
             </div>
 
-            <div className="p-3 space-y-3">
-              <label className="block">
-                <span className="block text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-muted)' }}>
-                  Posting date
-                </span>
-                <input type="date" value={entryDate} onChange={e => setEntryDate(e.target.value)} className="input-field text-sm w-full" />
-              </label>
-
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowExpense(true)}
-                  className="py-2 rounded-lg text-xs font-bold text-white transition-all active:scale-[0.98] shadow-sm hover:shadow"
-                  style={{ background: 'linear-gradient(180deg, #fb7185 0%, #e11d48 100%)' }}
-                >
-                  Expense
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowReplenish(true)}
-                  className="py-2 rounded-lg text-xs font-bold text-white transition-all active:scale-[0.98] shadow-sm hover:shadow"
-                  style={{ background: 'linear-gradient(180deg, #22c55e 0%, #16a34a 100%)' }}
-                >
-                  Replenish
-                </button>
+            <button
+              type="button"
+              onClick={() => setShowExpense(true)}
+              className="dash-card dash-action p-4 flex flex-col items-start text-left dash-fade-2"
+            >
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(225,29,72,0.10)' }}>
+                <Coins size={16} className="text-rose-500 dark:text-rose-400" />
               </div>
+              <p className="text-xs font-bold dash-text-primary mt-2">Record Expense</p>
+              <p className="text-[11px] dash-text-secondary mt-0.5">Post petty cash spend</p>
+            </button>
 
+            <button
+              type="button"
+              onClick={() => setShowReplenish(true)}
+              className="dash-card dash-action p-4 flex flex-col items-start text-left dash-fade-3"
+            >
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(22,163,74,0.10)' }}>
+                <Wallet size={16} className="text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <p className="text-xs font-bold dash-text-primary mt-2">Replenish Float</p>
+              <p className="text-[11px] dash-text-secondary mt-0.5">Restore from main cash</p>
+            </button>
+
+            <div className="dash-card p-4 flex items-start gap-3 dash-fade-4 col-span-2 sm:col-span-1 xl:col-span-3">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(6,182,212,0.10)' }}>
+                <Coins size={16} className="text-cyan-600 dark:text-cyan-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold dash-text-primary">Imprest tip</p>
+                <p className="text-[11px] dash-text-secondary mt-0.5">
+                  Record daily expenses, then replenish periodically to restore the agreed float amount.
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={load}
-                className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
+                className="ml-auto btn-secondary px-3 py-2 text-xs rounded-xl"
                 disabled={loading}
               >
-                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                Refresh
+                <span className="inline-flex items-center gap-1.5">
+                  <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+                  Refresh
+                </span>
               </button>
-
-              <div className="rounded-xl border px-3 py-2.5 flex items-start gap-2.5" style={{ borderColor: 'var(--border-subtle)', background: 'rgba(255,255,255,0.02)' }}>
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-violet-500/10 border border-violet-500/20">
-                  <Coins size={16} className="text-violet-400" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Imprest tip</p>
-                  <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                    Record day-to-day spend as expenses. Replenish periodically from main cash to restore the float.
-                  </p>
-                </div>
-              </div>
             </div>
-          </aside>
+          </div>
+        )}
 
-          <div className="space-y-5 min-w-0">
-            <AccountingPanel title="Recent activity">
+        {!branchId || loading ? null : (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div className="dash-card lg:col-span-12 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold dash-text-primary">Recent activity</h3>
+                <span className="text-[11px] dash-text-muted">Last {Math.min(20, recent.length)} entries</span>
+              </div>
               {recent.length === 0 ? (
-                <p className="p-6 text-sm" style={{ color: 'var(--text-muted)' }}>No recent petty cash entries.</p>
+                <div className="py-10 text-center text-sm dash-text-secondary">No recent petty cash entries.</div>
               ) : (
                 <AccountingTable>
                   <thead>
@@ -215,10 +213,10 @@ export default function PettyCashPage() {
                   </tbody>
                 </AccountingTable>
               )}
-            </AccountingPanel>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {showExpense && (
         <AccountingModal title="Record petty cash expense" icon={Wallet} onClose={() => setShowExpense(false)}>
