@@ -163,6 +163,11 @@ const PLAN_COLOR: Record<string, string> = {
   ENTERPRISE: 'text-violet-400',
 }
 
+// UX: hide the "NEW" badge across the sidebar.
+// Keep other badges (POS/etc) if they exist.
+const SHOW_NEW_BADGES = false
+const shouldShowBadge = (badge?: string) => !!badge && (badge !== 'NEW' || SHOW_NEW_BADGES)
+
 export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
@@ -325,7 +330,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                       >
                         <item.icon size={17} className={cn('flex-shrink-0 transition-colors', sectionActive ? 'text-violet-400' : 'text-slate-500 group-hover:text-slate-300')} />
                         <span className="text-sm font-medium flex-1 truncate text-left">{item.label}</span>
-                        {item.badge && (
+                        {shouldShowBadge(item.badge) && (
                           <span className="text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 bg-cyan-500/15 text-cyan-400 border border-cyan-500/20">
                             {item.badge}
                           </span>
@@ -353,7 +358,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                               >
                                 <sub.icon size={15} className={cn('flex-shrink-0', subActive ? 'text-violet-400' : 'text-slate-500 group-hover:text-slate-300')} />
                                 <span className="text-sm font-medium flex-1 truncate">{sub.label}</span>
-                                {sub.badge && (
+                                {shouldShowBadge(sub.badge) && (
                                   <span className="text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 bg-cyan-500/15 text-cyan-400 border border-cyan-500/20">
                                     {sub.badge}
                                   </span>
@@ -374,7 +379,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                     {!collapsed && (
                       <>
                         <span className="text-sm font-medium flex-1 truncate">{item.label}</span>
-                        {'badge' in item && item.badge && (
+                        {'badge' in item && shouldShowBadge(item.badge) && (
                           <span className={cn(
                             'text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0',
                             item.badge === 'NEW'

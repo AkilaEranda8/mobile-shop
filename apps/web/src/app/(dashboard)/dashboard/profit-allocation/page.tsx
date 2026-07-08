@@ -546,35 +546,8 @@ export default function ProfitAllocationPage() {
           </p>
         </div>
 
-        {/* Unified date range filter */}
+        {/* Date range presets removed (keep action buttons) */}
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-          <div className="flex gap-1 p-1 rounded-xl flex-wrap" style={{ background: 'var(--bg-subtle)' }}>
-            {PERIOD_PRESETS.map(p => (
-              <button key={p.id} type="button" onClick={() => applyPreset(p.id)}
-                className="px-3 py-1.5 text-xs rounded-lg font-medium whitespace-nowrap transition-colors"
-                style={!isCustomRange && periodPreset === p.id
-                  ? { background: '#6d28d9', color: '#fff' }
-                  : { color: 'var(--text-muted)' }}>
-                {p.label}
-              </button>
-            ))}
-            <button type="button" onClick={() => setIsCustomRange(true)}
-              className="px-3 py-1.5 text-xs rounded-lg font-medium whitespace-nowrap transition-colors flex items-center gap-1"
-              style={isCustomRange ? { background: '#6d28d9', color: '#fff' } : { color: 'var(--text-muted)' }}>
-              <Calendar size={11} /> Custom
-            </button>
-          </div>
-          {isCustomRange && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
-              <input type="date" value={dateFrom} max={dateTo || todayStr}
-                onChange={e => { setDateFrom(e.target.value); if (e.target.value > dateTo) setDateTo(e.target.value) }}
-                className="text-xs bg-transparent outline-none cursor-pointer max-w-[130px]" style={{ color: 'var(--text-primary)' }} />
-              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>→</span>
-              <input type="date" value={dateTo} min={dateFrom} max={todayStr}
-                onChange={e => setDateTo(e.target.value)}
-                className="text-xs bg-transparent outline-none cursor-pointer max-w-[130px]" style={{ color: 'var(--text-primary)' }} />
-            </div>
-          )}
           {isSingleDay && (
             <>
               <button onClick={handleRefreshFromSystem} disabled={calcLoading || !branchId} className="btn-secondary flex items-center gap-2 text-sm">
