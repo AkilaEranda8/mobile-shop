@@ -1,12 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   LayoutDashboard, ShoppingCart, Package, Users, Wrench,
   Shield, Truck, BarChart3, Settings, LogOut,
   CreditCard, Smartphone,   FileText, Building2,
-  UserCheck, ChevronLeft, ChevronRight, ChevronDown, Receipt, MessageSquare, PackageCheck, RotateCcw, ArrowLeftRight, Layers, RefreshCw, Lock, PieChart, Sparkles, BookOpen, TrendingUp, Landmark, Wallet, Calendar, ReceiptText,
+  UserCheck, ChevronLeft, ChevronRight, ChevronDown, Receipt, MessageSquare, PackageCheck, RotateCcw, ArrowLeftRight, Layers, RefreshCw, Lock, PieChart, Sparkles, BookOpen, TrendingUp, Landmark, Wallet, Calendar, ReceiptText, Plus, ClipboardList,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
@@ -17,7 +17,7 @@ import { useTenantFeatures } from '@/lib/hooks'
 import { usePos } from '@/lib/use-pos'
 import type { LucideIcon } from 'lucide-react'
 
-type NavSubItem = { href: string; icon: LucideIcon; label: string }
+type NavSubItem = { href: string; icon: LucideIcon; label: string; feature?: string; badge?: string }
 
 type NavItem = {
   href: string
@@ -31,6 +31,12 @@ type NavItem = {
 }
 
 type NavGroup = { label: string; items: NavItem[] }
+
+const inventorySubmenu: NavSubItem[] = [
+  { href: '/inventory', icon: Package, label: 'All Products' },
+  { href: '/inventory/add-product', icon: Plus, label: 'Add Product' },
+  { href: '/dashboard/stock-transfer', icon: ArrowLeftRight, label: 'Stock Transfer', badge: 'NEW' },
+]
 
 const accountingSubmenu: NavSubItem[] = [
   { href: '/dashboard/accounting', icon: BookOpen, label: 'Overview' },
@@ -66,10 +72,15 @@ const navItems: NavGroup[] = [
   {
     label: 'Inventory',
     items: [
-      { href: '/dashboard/inventory',  icon: Package,    label: 'Inventory' },
-      { href: '/dashboard/stock-transfer', icon: ArrowLeftRight, label: 'Stock Transfer', badge: 'NEW' },
-      { href: '/dashboard/imei',       icon: Smartphone, label: 'IMEI Tracker',    badge: 'NEW', feature: 'IMEI' },
-      { href: '/dashboard/suppliers',  icon: Truck,      label: 'Suppliers & PO',              feature: 'SUPPLIERS' },
+      {
+        href: '/inventory',
+        icon: Package,
+        label: 'Inventory',
+        submenu: inventorySubmenu,
+      },
+      { href: '/dashboard/suppliers?tab=suppliers', icon: Truck, label: 'Suppliers', feature: 'SUPPLIERS' },
+      { href: '/dashboard/suppliers?tab=orders', icon: ClipboardList, label: 'Purchase Orders', feature: 'SUPPLIERS' },
+      { href: '/dashboard/imei', icon: Smartphone, label: 'IMEI Tracker', badge: 'NEW', feature: 'IMEI' },
     ],
   },
   {
@@ -155,6 +166,7 @@ const PLAN_COLOR: Record<string, string> = {
 export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const user = authStorage.getUser()
   const [shopName, setShopName] = useState('')
   const [plan, setPlan]         = useState('')
@@ -166,6 +178,14 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   useEffect(() => {
     if (pathname.startsWith('/dashboard/accounting')) {
       setExpandedMenus(prev => ({ ...prev, accounting: true }))
+    }
+    if (
+      pathname === '/inventory' ||
+      pathname.startsWith('/inventory/') ||
+      pathname.startsWith('/dashboard/inventory') ||
+      pathname.startsWith('/dashboard/stock-transfer')
+    ) {
+      setExpandedMenus(prev => ({ ...prev, inventory: true }))
     }
   }, [pathname])
 
@@ -200,14 +220,32 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   }
 
   const isActive = (href: string) => {
-    if (href === '/dashboard') return pathname === '/dashboard'
-    if (href === '/dashboard/accounting') {
+    const [path, query] = href.split('?')
+    if (path === '/dashboard/suppliers' || path === '/suppliers') {
+      const onSuppliersPage =
+        pathname === '/dashboard/suppliers' ||
+        pathname.startsWith('/dashboard/suppliers/') ||
+        pathname === '/suppliers' ||
+        pathname.startsWith('/suppliers/')
+      if (!onSuppliersPage) return false
+      const tab = new URLSearchParams(query ?? '').get('tab') ?? 'suppliers'
+      const currentTab = searchParams.get('tab') ?? 'suppliers'
+      return tab === currentTab
+    }
+    if (path === '/dashboard') return pathname === '/dashboard'
+    if (path === '/dashboard/accounting') {
       return pathname === '/dashboard/accounting' || pathname === '/dashboard/accounting/'
     }
-    return pathname.startsWith(href)
+    if (path === '/inventory') {
+      return pathname === '/inventory' || pathname.startsWith('/dashboard/inventory')
+    }
+    if (path === '/inventory/add-product') {
+      return pathname === '/inventory/add-product' || pathname === '/dashboard/inventory/add-product'
+    }
+    return pathname === path || pathname.startsWith(`${path}/`)
   }
 
-  const isAccountingSection = pathname.startsWith('/dashboard/accounting')
+  const inventorySectionPaths = ['/inventory', '/dashboard/inventory', '/dashboard/stock-transfer']
 
   return (
     <aside className={cn(
@@ -262,7 +300,14 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                 if (item.submenu?.length) {
                   const menuKey = item.label.toLowerCase().replace(/\s+/g, '-')
                   const open = expandedMenus[menuKey] ?? false
-                  const sectionActive = item.href === '/dashboard/accounting' ? isAccountingSection : item.submenu.some(s => isActive(s.href))
+                  const visibleSubmenu = item.submenu.filter(sub =>
+                    !sub.feature || hasFeature(sub.feature),
+                  )
+                  if (visibleSubmenu.length === 0) return null
+                  const sectionActive =
+                    (item.href === '/inventory' && inventorySectionPaths.some(p => pathname === p || pathname.startsWith(`${p}/`)))
+                    || visibleSubmenu.some(s => isActive(s.href))
+                    || isActive(item.href)
 
                   if (collapsed) {
                     return (
@@ -307,7 +352,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                       </button>
                       {open && (
                         <div className="ml-3 pl-3 border-l border-white/10 space-y-0.5 my-0.5">
-                          {item.submenu.map(sub => {
+                          {visibleSubmenu.map(sub => {
                             const subActive = isActive(sub.href)
                             return (
                               <Link
@@ -320,6 +365,11 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                               >
                                 <sub.icon size={15} className={cn('flex-shrink-0', subActive ? 'text-violet-400' : 'text-slate-500 group-hover:text-slate-300')} />
                                 <span className="text-sm font-medium flex-1 truncate">{sub.label}</span>
+                                {sub.badge && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 bg-cyan-500/15 text-cyan-400 border border-cyan-500/20">
+                                    {sub.badge}
+                                  </span>
+                                )}
                               </Link>
                             )
                           })}

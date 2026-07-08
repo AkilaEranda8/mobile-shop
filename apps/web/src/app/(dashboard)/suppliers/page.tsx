@@ -1275,6 +1275,11 @@ export default function SuppliersPage() {
   const allProducts: PoProduct[] = (productsData?.data ?? []) as PoProduct[]
 
   useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab === 'orders' || tab === 'suppliers') {
+      setActiveTab(tab)
+    }
+
     const action = searchParams.get('action')
     if (action === 'add' || action === 'add-supplier' || searchParams.get('new') === '1') {
       setActiveTab('suppliers')
@@ -1551,7 +1556,10 @@ export default function SuppliersPage() {
         {[['suppliers', 'Suppliers'], ['orders', 'Purchase Orders']].map(([key, label]) => (
           <button
             key={key}
-            onClick={() => setActiveTab(key as 'suppliers' | 'orders')}
+            onClick={() => {
+              setActiveTab(key as 'suppliers' | 'orders')
+              router.replace(`/dashboard/suppliers?tab=${key}`, { scroll: false })
+            }}
             className={`px-4 py-1.5 text-xs rounded-lg transition-colors ${activeTab === key ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white'}`}
           >
             {label}

@@ -1,7 +1,7 @@
-'use client'
+﻿'use client'
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import {
   Plus, Clock, CheckCircle, PhoneCall, Loader2, X, Check, ChevronDown, ChevronLeft,
   Eye, Edit, ChevronRight, Smartphone, User, Wrench, DollarSign, AlertTriangle,
@@ -27,7 +27,7 @@ import { buildRepairInvoiceSale, resolveRepairWarrantyMonths, REPAIR_WARRANTY_OP
 import { normalizeRepairTicket, repairNextStatus, repairPartsLocked, repairPaymentSummary, repairProgressStep, repairStatusHistory, repairTicketEditable, REPAIR_PROGRESS_FLOW } from '@/lib/repair.util'
 import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
 import InvoiceA4View from '@/components/invoice/InvoiceA4View'
-import RepairPartsProfitPanel from '@/components/repairs/RepairPartsProfitPanel'
+import EditRepairModal from '@/components/repairs/EditRepairModal'
 import type { Customer } from '@/types'
 import toast from 'react-hot-toast'
 import type { RepairTicket } from '@/types'
@@ -42,7 +42,7 @@ function calcRepairTotals(repair: Pick<RepairTicket, 'estimatedCost' | 'sparePar
   return { serviceFee, partsTotal, estimatedTotal: estimatedCost, subtotal: estimatedCost, estimatedCost }
 }
 
-/* ── Thermal Receipt Printer ─────────────────────────────────────── */
+/* â”€â”€ Thermal Receipt Printer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function printRepairReceipt(repair: RepairTicket, settings: InvoiceSettings) {
   const paperWidth = settings.thermalWidthRepair || '80mm'
   const bodyWidth  = paperWidth === '58mm' ? '216px' : '302px'
@@ -127,7 +127,7 @@ const SOURCE_OPTIONS = [
 ]
 
 function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; onSaved: () => void; prefill?: { customerName?: string; customerPhone?: string; deviceBrand?: string; deviceModel?: string; imei?: string; warrantyClaimId?: string } }) {
-  // ── customer search state ──
+  // â”€â”€ customer search state â”€â”€
   const [customerMode, setCustomerMode] = useState<'search' | 'new'>('search')
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [searchQuery, setSearchQuery]   = useState('')
@@ -138,7 +138,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
   const [registeringCust, setRegisteringCust] = useState(false)
   const dropRef = useRef<HTMLDivElement>(null)
 
-  // ── ticket form state ──
+  // â”€â”€ ticket form state â”€â”€
   const [form, setForm] = useState({
     deviceBrand: prefill?.deviceBrand || '', deviceModel: prefill?.deviceModel || '', imei: prefill?.imei || '',
     priority: 'NORMAL', estimatedCost: '',
@@ -219,7 +219,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(p => ({ ...p, [k]: e.target.value }))
 
-  // ── technician staff state ──
+  // â”€â”€ technician staff state â”€â”€
   const [technicians, setTechnicians] = useState<any[]>([])
   const [techOpen, setTechOpen]       = useState(false)
   const [techQuery, setTechQuery]     = useState('')
@@ -240,7 +240,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
     setTechQuery(t.name); setTechOpen(false)
   }
 
-  // ── device catalog state ──
+  // â”€â”€ device catalog state â”€â”€
   const [brands, setBrands]       = useState<any[]>([])
   const [models, setModels]       = useState<any[]>([])
   const [brandOpen, setBrandOpen] = useState(false)
@@ -269,7 +269,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
     ? models.filter(m => m.name.toLowerCase().includes(modelQuery.toLowerCase()))
     : models
 
-  // ── pre-fill from props ──
+  // â”€â”€ pre-fill from props â”€â”€
   useEffect(() => {
     if (prefill?.deviceBrand) setBrandQuery(prefill.deviceBrand)
     if (prefill?.deviceModel) setModelQuery(prefill.deviceModel)
@@ -390,7 +390,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
             </div>
             <div>
               <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>New Repair Ticket</h3>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Customer → device → fault → review</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Customer â†’ device â†’ fault â†’ review</p>
             </div>
           </div>
           <button type="button" onClick={onClose} className="p-1.5 rounded-lg transition-colors hover:bg-white/5" style={{ color: 'var(--text-muted)' }}>
@@ -400,13 +400,13 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
 
         <form onSubmit={handleSubmit}>
 
-          {/* ── Body ── */}
+          {/* â”€â”€ Body â”€â”€ */}
           <div className="grid grid-cols-12 gap-6 p-8">
 
-            {/* Left column — step content */}
+            {/* Left column â€” step content */}
             <div className="col-span-12 lg:col-span-8">
 
-              {/* STEP 1 — Customer */}
+              {/* STEP 1 â€” Customer */}
               {(
                 <div className="rounded-xl border overflow-visible" style={{ borderColor: 'var(--border-subtle)' }}>
                   <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
@@ -456,7 +456,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                                         </div>
                                         <div className="flex-1 min-w-0">
                                           <p className="text-sm truncate" style={{ color: 'var(--text-primary)' }}>{c.name}</p>
-                                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{c.phone}{c.email ? ` · ${c.email}` : ''}</p>
+                                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{c.phone}{c.email ? ` Â· ${c.email}` : ''}</p>
                                         </div>
                                         <span className="text-[10px] shrink-0" style={{ color: 'var(--text-muted)' }}>{c.totalRepairs ?? 0} repairs</span>
                                       </button>
@@ -497,7 +497,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                             <div className="relative">
                               <Phone size={15} className="absolute left-4 top-1/2 -translate-y-1/2 [color:var(--text-muted)]" />
                               <div className="absolute left-10 top-1/2 -translate-y-1/2 flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                                <span>🇱🇰</span><span>+94</span>
+                                <span>ðŸ‡±ðŸ‡°</span><span>+94</span>
                               </div>
                               <input required className="input-field pl-24 pr-11 h-12" placeholder="Enter phone number" value={newCust.phone}
                                 onChange={e => setNewCust(p => ({ ...p, phone: e.target.value }))} />
@@ -525,7 +525,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                 </div>
               )}
 
-              {/* STEP 2 — Device */}
+              {/* STEP 2 â€” Device */}
               {(
                 <div className="rounded-xl border overflow-visible mt-6" style={{ borderColor: 'var(--border-subtle)' }}>
                   <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
@@ -603,7 +603,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                         className="input-field w-full h-12 flex items-center justify-between text-left">
                         <span className={accessories.length === 0 ? '[color:var(--text-muted)] text-sm' : 'text-sm'}
                           style={{ color: accessories.length === 0 ? undefined : 'var(--text-primary)' }}>
-                          {accessories.length === 0 ? 'Select accessories…' : accessories.join(', ')}
+                          {accessories.length === 0 ? 'Select accessoriesâ€¦' : accessories.join(', ')}
                         </span>
                         <ChevronDown size={14} className={`[color:var(--text-muted)] shrink-0 transition-transform ${accOpen ? 'rotate-180' : ''}`} />
                       </button>
@@ -634,7 +634,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                 </div>
               )}
 
-              {/* STEP 3 — Issue */}
+              {/* STEP 3 â€” Issue */}
               {(
                 <div className="rounded-xl border overflow-visible mt-6" style={{ borderColor: 'var(--border-subtle)' }}>
                   <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
@@ -648,7 +648,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                         className="input-field w-full h-12 flex items-center justify-between text-left">
                         <span className={selectedIssues.length === 0 ? '[color:var(--text-muted)] text-sm truncate pr-2' : 'text-sm truncate pr-2'}
                           style={{ color: selectedIssues.length === 0 ? undefined : 'var(--text-primary)' }}>
-                          {selectedIssues.length === 0 ? 'Select fault / issue…' : selectedIssues.join(', ')}
+                          {selectedIssues.length === 0 ? 'Select fault / issueâ€¦' : selectedIssues.join(', ')}
                         </span>
                         <ChevronDown size={14} className={`[color:var(--text-muted)] shrink-0 transition-transform ${issueOpen ? 'rotate-180' : ''}`} />
                       </button>
@@ -656,7 +656,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                         <div className="absolute z-30 top-full mt-1 left-0 right-0 rounded-xl shadow-2xl overflow-hidden"
                           style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
                           <div className="p-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                            <input autoFocus className="input-field text-sm py-1.5" placeholder="Search faults…"
+                            <input autoFocus className="input-field text-sm py-1.5" placeholder="Search faultsâ€¦"
                               value={issueQuery}
                               onChange={e => setIssueQuery(e.target.value)}
                               onMouseDown={e => e.stopPropagation()} />
@@ -716,7 +716,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                 </div>
               )}
 
-              {/* STEP 4 — Details */}
+              {/* STEP 4 â€” Details */}
               {(
                 <div className="rounded-xl border mt-6" style={{ borderColor: 'var(--border-subtle)' }}>
                   <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
@@ -729,7 +729,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                       <div className="relative">
                         <Wrench size={13} className="absolute left-3 top-1/2 -translate-y-1/2 [color:var(--text-muted)] pointer-events-none" />
                         <input className="input-field pl-9 h-12"
-                          placeholder={technicians.length === 0 ? 'No technicians found' : 'Select technician…'}
+                          placeholder={technicians.length === 0 ? 'No technicians found' : 'Select technicianâ€¦'}
                           value={techQuery}
                           onChange={e => { setTechQuery(e.target.value); setForm(p => ({ ...p, technicianId: '', technicianName: e.target.value })); setTechOpen(true) }}
                           onFocus={() => setTechOpen(true)}
@@ -816,7 +816,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
 
             </div>
 
-            {/* Right column — always visible */}
+            {/* Right column â€” always visible */}
             <div className="col-span-12 lg:col-span-4 space-y-5">
               <div className="rounded-xl border p-5" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
                 <div className="flex items-center gap-3 mb-5">
@@ -828,7 +828,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                     <div key={label} className="flex items-center gap-3 text-sm">
                       <Icon size={14} style={{ color: 'var(--text-muted)' }} />
                       <span className="flex-1 text-xs" style={{ color: 'var(--text-secondary)' }}>{label}</span>
-                      <span className="max-w-[140px] truncate text-xs font-semibold text-right" style={{ color: value ? 'var(--text-primary)' : 'var(--text-muted)' }}>{value || '—'}</span>
+                      <span className="max-w-[140px] truncate text-xs font-semibold text-right" style={{ color: value ? 'var(--text-primary)' : 'var(--text-muted)' }}>{value || 'â€”'}</span>
                     </div>
                   ))}
                 </div>
@@ -922,1344 +922,22 @@ const STATUS_CHIPS: { id: RepairStatusFilter; label: string }[] = [
 
 const ACTIVE_STATUSES = ['RECEIVED', 'DIAGNOSED', 'IN_REPAIR', 'QC']
 
-/* ── Repair Details Modal ─────────────────────────────────────────────── */
-function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh, onRepairUpdate, allRepairs }: {
-  repair: RepairTicket
-  onClose: () => void
-  onEdit: () => void
-  onStatusChange: (id: string, status: string) => Promise<void>
-  onRefresh: () => void
-  onRepairUpdate: (repair: RepairTicket) => void
-  allRepairs?: RepairTicket[]
-}) {
-  const quoteRef    = useRef<HTMLDivElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [downloading,   setDownloading]   = useState(false)
-  const [waSending,     setWaSending]     = useState<'quote' | 'invoice' | null>(null)
-  const [waSendPdf,     setWaSendPdf]     = useState(false)
-  const [invSettings, setInvSettings]   = useState<InvoiceSettings>(() => getInvoiceSettings())
-  const [tenantSlug, setTenantSlug]     = useState<string | undefined>()
-  const [photos,        setPhotos]        = useState<string[]>(repair.photos ?? [])
-  const [uploading,     setUploading]     = useState(false)
-  const [lightboxUrl,   setLightboxUrl]   = useState<string | null>(null)
-
-  useEffect(() => {
-    const user = authStorage.getUser()
-    if (!user?.tenantId) return
-    const load = () => {
-      fetchInvoiceSettings(user.tenantId, getActiveBranchId()).then(setInvSettings).catch(() => {})
-    }
-    load()
-    window.addEventListener('invoice-settings-updated', load)
-    import('@/lib/api').then(({ tenantApi }) => {
-      tenantApi.get(user.tenantId).then((res: any) => {
-        setTenantSlug((res?.data ?? res)?.slug)
-      }).catch(() => {})
-    })
-    whatsappApi.getConfig()
-      .then((r: any) => setWaSendPdf(!!(r?.data ?? r)?.sendPdfInvoice))
-      .catch(() => {})
-    return () => window.removeEventListener('invoice-settings-updated', load)
-  }, [])
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? [])
-    if (!files.length) return
-    setUploading(true)
-    try {
-      const urls: string[] = []
-      for (const file of files) {
-        const { url } = await uploadApi.repairPhoto(file)
-        urls.push(url)
-      }
-      const updated = [...photos, ...urls]
-      await repairsApi.updatePhotos(repair.id, updated)
-      setPhotos(updated)
-      toast.success(`${urls.length} file${urls.length > 1 ? 's' : ''} uploaded`)
-    } catch (err: any) { toast.error(err?.message ?? 'Upload failed') }
-    finally { setUploading(false); if (fileInputRef.current) fileInputRef.current.value = '' }
-  }
-
-  const handleDeletePhoto = async (url: string) => {
-    const updated = photos.filter(p => p !== url)
-    try {
-      await repairsApi.updatePhotos(repair.id, updated)
-      setPhotos(updated)
-    } catch { toast.error('Delete failed') }
-  }
-
-  const sendQuoteWhatsApp = async () => {
-    const phone = formatWhatsAppPhone(repair.customerPhone ?? '')
-    if (!phone) { toast.error('Customer phone required to send quote via WhatsApp'); return }
-
-    const { serviceFee, estimatedCost } = calcRepairTotals(repair)
-    const fmt = (n: number) => `LKR ${n.toLocaleString('en-LK')}`
-    const partsLines = (repair.spareParts ?? []).length > 0
-      ? `\n\n*Parts used (inventory):*\n` + repair.spareParts!.map((p: any) => `  - ${p.productName} x${p.quantity}`).join('\n')
-      : ''
-    const msg = [
-      `*Repair Quote — ${invSettings.shopName || 'Service Center'}*`,
-      ``,
-      `*Ticket:* ${repair.ticketNumber}`,
-      `*Customer:* ${repair.customerName}`,
-      `*Device:* ${repair.deviceBrand} ${repair.deviceModel}`,
-      repair.imei ? `*IMEI:* ${repair.imei}` : null,
-      ``,
-      `*Issue:* ${repair.reportedIssue}`,
-      resolveRepairWarrantyMonths(repair, invSettings) > 0
-        ? `*Warranty:* ${formatWarrantyPeriodLabel(resolveRepairWarrantyMonths(repair, invSettings))} on repair service`
-        : null,
-      ``,
-      `*Service Charge:* ${fmt(serviceFee)}` + partsLines,
-      ``,
-      `*Estimated Cost:* *${fmt(estimatedCost)}*`,
-      repair.technicianName ? `*Technician:* ${repair.technicianName}` : null,
-      ``,
-      `_For any queries, please contact us._`,
-      invSettings.phone ? `Tel: ${invSettings.phone}` : null,
-    ].filter(Boolean).join('\n')
-
-    setWaSending('quote')
-    try {
-      await whatsappApi.sendMessage({
-        phone,
-        message:      msg,
-        customerName: repair.customerName,
-        referenceId:  repair.ticketNumber,
-        type:         'quote',
-        amount:       estimatedCost,
-      })
-      toast.success('Quote sent via WhatsApp')
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Failed to send quote — connect WhatsApp in Settings first')
-    } finally {
-      setWaSending(null)
-    }
-  }
-
-  const sendInvoiceWhatsApp = async () => {
-    const phone = formatWhatsAppPhone(repair.customerPhone ?? '')
-    if (!phone) { toast.error('Customer phone required to send invoice via WhatsApp'); return }
-
-    const fmt = (n: number) => `LKR ${n.toLocaleString('en-LK')}`
-    const { serviceFee, subtotal } = calcRepairTotals(repair)
-    const discount   = repair.actualCost != null && repair.actualCost < subtotal ? subtotal - Number(repair.actualCost) : 0
-    const grandTotal = discount > 0 ? Number(repair.actualCost) : subtotal
-
-    const itemLines = [
-      serviceFee > 0
-        ? `  - Repair Service (${repair.deviceBrand} ${repair.deviceModel}): ${fmt(serviceFee)}`
-        : null,
-      repair.reportedIssue?.trim()
-        ? `    Fault / Service: ${repair.reportedIssue.trim()}`
-        : null,
-      resolveRepairWarrantyMonths(repair, invSettings) > 0
-        ? `    Warranty: ${formatWarrantyPeriodLabel(resolveRepairWarrantyMonths(repair, invSettings))} on repair service`
-        : null,
-      ...(repair.spareParts ?? []).map((p: any) => `  - ${p.productName} x${p.quantity} (inventory)`),
-    ].filter(Boolean).join('\n')
-
-    const bankSection = invSettings.bankName
-      ? `\n\n*Payment Details:*\n  Bank: ${invSettings.bankName}\n  Acc: ${invSettings.accNumber || '—'}\n  Name: ${invSettings.accHolder || '—'}`
-      : ''
-
-    const msg = [
-      `*INVOICE — ${invSettings.shopName || 'Service Center'}*`,
-      invSettings.phone ? `Tel: ${invSettings.phone}` : null,
-      ``,
-      `*Invoice No:* ${repair.ticketNumber}`,
-      `*Customer:* ${repair.customerName}`,
-      repair.customerPhone ? `*Phone:* ${repair.customerPhone}` : null,
-      ``,
-      `*Items:*`,
-      itemLines,
-      ``,
-      discount > 0 ? `*Subtotal:* ${fmt(subtotal)}` : null,
-      discount > 0 ? `*Discount:* -${fmt(discount)}` : null,
-      `*Total: ${fmt(grandTotal)}*`,
-      bankSection,
-      ``,
-      ...(invSettings.terms?.length ? invSettings.terms.map((t: string) => `_${t}_`) : [`_Thank you for choosing our repair services!_`]),
-    ].filter(v => v !== null && v !== undefined).join('\n')
-
-    setWaSending('invoice')
-    try {
-      let pdfBase64: string | undefined
-      let pdfFilename: string | undefined
-      if (waSendPdf && quoteRef.current) {
-        await new Promise(r => setTimeout(r, 150))
-        try {
-          const pdf = await captureElementAsPdfBase64(
-            quoteRef.current,
-            `Repair-${repair.ticketNumber}.pdf`,
-          )
-          pdfBase64 = pdf.base64
-          pdfFilename = pdf.filename
-        } catch {
-          toast.error('PDF generation failed — sending text only')
-        }
-      }
-
-      await whatsappApi.sendInvoice({
-        orderId:      repair.ticketNumber,
-        phone,
-        customerName: repair.customerName,
-        amount:       grandTotal,
-        message:      msg,
-        pdfBase64,
-        pdfFilename,
-      })
-      toast.success(pdfBase64 ? 'Invoice PDF sent via WhatsApp' : 'Invoice sent via WhatsApp')
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Failed to send invoice — connect WhatsApp in Settings first')
-    } finally {
-      setWaSending(null)
-    }
-  }
-
-  const downloadQuote = async () => {
-    if (!quoteRef.current) return
-    setDownloading(true)
-    try {
-      const { default: html2canvas } = await import('html2canvas')
-      const { jsPDF } = await import('jspdf')
-      const A4_W_PX = 794, A4_W_MM = 210, A4_H_MM = 297
-      const wrapper = document.createElement('div')
-      wrapper.style.cssText = `position:fixed;top:-9999px;left:-9999px;width:${A4_W_PX}px;overflow:visible;`
-      const clone = quoteRef.current!.cloneNode(true) as HTMLElement
-      clone.style.width        = `${A4_W_PX}px`
-      clone.style.maxWidth     = `${A4_W_PX}px`
-      clone.style.minWidth     = `${A4_W_PX}px`
-      clone.style.borderRadius = '0'
-      clone.style.boxShadow    = 'none'
-      clone.style.margin       = '0'
-      wrapper.appendChild(clone)
-      document.body.appendChild(wrapper)
-      await new Promise(r => setTimeout(r, 100))
-      const canvas = await html2canvas(clone, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false, width: A4_W_PX, windowWidth: A4_W_PX })
-      document.body.removeChild(wrapper)
-      const imgData = canvas.toDataURL('image/jpeg', 0.95)
-      const imgH_MM = (canvas.height / canvas.width) * A4_W_MM
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-      if (imgH_MM <= A4_H_MM * 1.15) {
-        /* content is ≤ 1 page (or only slightly over) — scale to fill exactly one A4 page */
-        pdf.addImage(imgData, 'JPEG', 0, 0, A4_W_MM, Math.min(imgH_MM, A4_H_MM))
-      } else {
-        const scale = canvas.width / A4_W_MM
-        let yMM = 0
-        while (yMM < imgH_MM) {
-          const sliceHMM = Math.min(A4_H_MM, imgH_MM - yMM)
-          const tmp = document.createElement('canvas')
-          tmp.width = canvas.width; tmp.height = Math.ceil(sliceHMM * scale)
-          tmp.getContext('2d')!.drawImage(canvas, 0, yMM * scale, canvas.width, sliceHMM * scale, 0, 0, canvas.width, sliceHMM * scale)
-          if (yMM > 0) pdf.addPage()
-          pdf.addImage(tmp.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, A4_W_MM, sliceHMM)
-          yMM += sliceHMM
-        }
-      }
-      pdf.save(`Repair_${repair.ticketNumber}.pdf`)
-      toast.success('Quote downloaded!')
-    } catch { toast.error('Download failed') }
-    finally { setDownloading(false) }
-  }
-
-  const [changingStatus, setChangingStatus] = useState(false)
-  const [savingWarranty, setSavingWarranty] = useState(false)
-  const shopDefaultWarranty = repairWarrantyMonths(invSettings)
-
-  const handleWarrantyChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const raw = e.target.value
-    const months = raw === '' ? null : Number(raw)
-    setSavingWarranty(true)
-    try {
-      const res: any = await repairsApi.update(repair.id, { warrantyMonths: months })
-      onRepairUpdate(normalizeRepairTicket(res?.data ?? res))
-      toast.success('Warranty period updated')
-    } catch (err: any) { toast.error(err?.message ?? 'Failed to update warranty') }
-    finally { setSavingWarranty(false) }
-  }
-  /* ── collect payment state ── */
-  const [showPayment, setShowPayment] = useState(false)
-  const [discount,    setDiscount]    = useState('')
-  const [payMethod,   setPayMethod]   = useState<'CASH'|'CARD'|'UPI'|'BANK_TRANSFER'>('CASH')
-  const [amountPaying, setAmountPaying] = useState('')
-  const [collecting,  setCollecting]  = useState(false)
-  const hasCustomerCredit = useFeatureFlag('CUSTOMER_CREDIT')
-  /* ── spare parts state ── */
-  const [showAddPart, setShowAddPart]       = useState(false)
-  const [partSearch,  setPartSearch]        = useState('')
-  const [partQty,     setPartQty]           = useState(1)
-  const [partCost,    setPartCost]          = useState('')
-  const [selProduct,  setSelProduct]        = useState<any>(null)
-  const [addingPart,  setAddingPart]        = useState(false)
-  const [removingId,  setRemovingId]        = useState<string | null>(null)
-  const { data: productsData } = useProducts()
-  const allProducts: any[] = (productsData?.data ?? []) as any[]
-  const getProductBuyPrice = useCallback((productId: string) => {
-    const p = allProducts.find((x: any) => x.id === productId)
-    return p?.buyingPrice != null ? Number(p.buyingPrice) : undefined
-  }, [allProducts])
-  const filteredProducts = partSearch.length > 1
-    ? allProducts.filter(p => String(p.name ?? '').toLowerCase().includes(partSearch.toLowerCase()) || String(p.sku ?? '').toLowerCase().includes(partSearch.toLowerCase())).slice(0, 8)
-    : []
-
-  const handleAddPart = async () => {
-    if (!selProduct) return
-    setAddingPart(true)
-    try {
-      const res: any = await repairsApi.addPart(repair.id, {
-        productId: selProduct.id,
-        quantity:  partQty,
-        unitCost:  partCost ? Number(partCost) : undefined,
-      })
-      const updated = res?.data ? normalizeRepairTicket(res.data) : undefined
-      if (updated) onRepairUpdate(updated)
-      else onRefresh()
-      toast.success(`${selProduct.name} added`)
-      setShowAddPart(false); setPartSearch(''); setSelProduct(null); setPartQty(1); setPartCost('')
-    } catch (err: any) { toast.error(err?.message ?? 'Failed to add part') }
-    finally { setAddingPart(false) }
-  }
-
-  const handleRemovePart = async (partId: string) => {
-    setRemovingId(partId)
-    try {
-      const res: any = await repairsApi.removePart(repair.id, partId)
-      const updated = res?.data ? normalizeRepairTicket(res.data) : undefined
-      if (updated) onRepairUpdate(updated)
-      else onRefresh()
-      toast.success('Part removed')
-    } catch (err: any) { toast.error(err?.message ?? 'Failed to remove part') }
-    finally { setRemovingId(null) }
-  }
-  const currentIdx = repairProgressStep(repair.status)
-  const nextStatus = repairNextStatus(repair.status)
-  const statusHistory = repairStatusHistory(repair)
-  const partsLocked = repairPartsLocked(repair.status)
-
-  const handleNext = async () => {
-    if (!nextStatus) return
-    setChangingStatus(true)
-    await onStatusChange(repair.id, nextStatus)
-    setChangingStatus(false)
-  }
-
-  const handleCancel = async () => {
-    setChangingStatus(true)
-    await onStatusChange(repair.id, 'CANCELLED')
-    setChangingStatus(false)
-  }
-
-  const { serviceFee, partsTotal, estimatedCost, subtotal } = calcRepairTotals(repair)
-  const payment = repairPaymentSummary(repair)
-  const { quote, billTotal, paid, due, discount: paidDiscount, isPaid, isPartial, isFull } = payment
-  const activeTemplate = resolveInvoiceTemplate(invSettings, tenantSlug)
-  const repairSale = buildRepairInvoiceSale(repair, invSettings, { isPaid })
-  const discountAmt  = Number(discount) || 0
-  const finalAmount  = Math.max(0, subtotal - discountAmt)
-  const payNow = (() => {
-    if (!hasCustomerCredit) return finalAmount
-    const v = parseFloat(amountPaying)
-    if (isNaN(v) || amountPaying.trim() === '') return finalAmount
-    return Math.min(Math.max(0, v), finalAmount)
-  })()
-  const creditAmount = hasCustomerCredit ? Math.max(0, finalAmount - payNow) : 0
-
-  const handleCollectPayment = async () => {
-    if (creditAmount > 0 && !repair.customerId) {
-      toast.error('Customer is required for credit payment')
-      return
-    }
-    setCollecting(true)
-    try {
-      await repairsApi.collectPayment(repair.id, {
-        discount: discountAmt,
-        paymentMethod: payMethod,
-        paidAmount: payNow,
-      })
-      const hasWarranty = (repair.warrantyMonths ?? 0) > 0
-        || (repair.spareParts ?? []).some(p => (p.warrantyMonths ?? 0) > 0)
-      let msg = creditAmount > 0
-        ? `Payment recorded — ${formatCurrency(creditAmount)} on customer credit`
-        : 'Payment collected successfully'
-      if (hasWarranty && repair.customerId) {
-        msg += ' — warranty registered in Warranty Management'
-      }
-      toast.success(msg)
-      setShowPayment(false)
-      onRefresh()
-      onClose()
-    } catch (err: any) { toast.error(err?.message ?? 'Failed to collect payment') }
-    finally { setCollecting(false) }
-  }
-
-  const STEP_ICONS = [Smartphone, Wrench, CheckCircle2]
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-5xl max-h-[96vh] overflow-y-auto rounded-2xl shadow-2xl flex flex-col" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-        <div className="h-1 w-full bg-gradient-to-r from-violet-500 to-purple-600 flex-shrink-0" />
-
-        {/* ══ TOP HEADER BAR ══ */}
-        <div className="flex items-center justify-between px-5 py-3.5 sticky top-0 z-10 flex-shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-card)' }}>
-          <button onClick={onClose} className="flex items-center gap-2 text-sm font-medium transition-opacity hover:opacity-70" style={{ color: 'var(--text-secondary)' }}>
-            <ArrowLeft size={15} /> Back to Tickets
-          </button>
-          <div className="flex items-center gap-2">
-            <button onClick={onEdit} disabled={!repairTicketEditable(repair.status)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-colors disabled:opacity-40"
-              style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-subtle)' }}>
-              <Pencil size={11} /> Edit
-            </button>
-            <button onClick={downloadQuote} disabled={downloading} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-colors disabled:opacity-50" style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-subtle)' }}>
-              {downloading ? <Loader2 size={11} className="animate-spin" /> : <FileText size={11} />} PDF
-            </button>
-            <button onClick={sendQuoteWhatsApp} disabled={waSending !== null} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-50">
-              {waSending === 'quote' ? <Loader2 size={11} className="animate-spin" /> : <MessageSquare size={11} />} Quote
-            </button>
-            <button onClick={sendInvoiceWhatsApp} disabled={waSending !== null} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-green-700 hover:bg-green-600 text-white transition-colors disabled:opacity-50">
-              {waSending === 'invoice' ? <Loader2 size={11} className="animate-spin" /> : <MessageSquare size={11} />}
-              {waSending === 'invoice' ? 'Sending…' : waSendPdf ? 'Invoice PDF' : 'Invoice'}
-            </button>
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors" style={{ borderColor: 'var(--border-default)', color: 'var(--text-muted)', background: 'var(--bg-subtle)' }}>
-              <MoreVertical size={14} />
-            </button>
-          </div>
-        </div>
-
-        {/* ══ 2-COLUMN BODY ══ */}
-        <div className="grid grid-cols-5">
-
-          {/* ── LEFT MAIN (3/5) ── */}
-          <div className="col-span-3 p-6 space-y-6" style={{ borderRight: '1px solid var(--border-subtle)' }}>
-
-            {/* Title + Badges */}
-            <div>
-              <p className="text-[12px] font-bold text-violet-500 font-mono mb-1">{repair.ticketNumber}</p>
-              <h2 className="text-[22px] font-black mb-3 leading-tight" style={{ color: 'var(--text-primary)' }}>{repair.deviceBrand} {repair.deviceModel}</h2>
-              <div className="flex flex-wrap gap-2">
-                <span className={`flex items-center gap-1.5 text-xs px-3 py-1 rounded-full border font-semibold ${getRepairStatusColor(repair.status)}`}>
-                  <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80" /> {statusLabels[repair.status]}
-                </span>
-                {repair.priority && repair.priority !== 'NORMAL' && (
-                  <span className={`flex items-center gap-1.5 text-xs px-3 py-1 rounded-full border font-semibold ${priorityBadge(repair.priority)}`}>
-                    <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80" /> {repair.priority}
-                  </span>
-                )}
-                {isPaid && (
-                  <span className="flex items-center gap-1.5 text-xs px-3 py-1 rounded-full border border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-400 font-semibold">
-                    <Check size={11} /> Paid
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Info bar */}
-            <div className="grid grid-cols-4 gap-0 rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-              {[
-                { label: 'Date Received',  value: new Date(repair.createdAt).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' }) },
-                { label: 'Est. Completion',value: repair.estimatedCompletion ? new Date(repair.estimatedCompletion).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' }) : '—' },
-              ].map((item, i) => (
-                <div key={item.label} className="p-3" style={{ borderLeft: i > 0 ? '1px solid var(--border-subtle)' : undefined, background: 'var(--bg-subtle)' }}>
-                  <p className="text-[10px] font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>{item.label}</p>
-                  <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{item.value}</p>
-                </div>
-              ))}
-              <div className="p-3" style={{ borderLeft: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                <p className="text-[10px] font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Warranty</p>
-                <select
-                  className="text-xs font-bold w-full bg-transparent outline-none cursor-pointer disabled:opacity-50"
-                  style={{ color: repair.warrantyMonths == null ? 'var(--text-muted)' : 'var(--text-primary)' }}
-                  value={repair.warrantyMonths != null ? String(repair.warrantyMonths) : ''}
-                  disabled={savingWarranty || isPaid}
-                  onChange={handleWarrantyChange}
-                >
-                  <option value="">Not set{shopDefaultWarranty > 0 ? ` (shop default: ${formatWarrantyPeriodLabel(shopDefaultWarranty)})` : ''}</option>
-                  {REPAIR_WARRANTY_OPTIONS.map(m => (
-                    <option key={m} value={m}>{m === 0 ? 'No warranty' : formatWarrantyPeriodLabel(m)}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="p-3" style={{ borderLeft: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                <p className="text-[10px] font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Payment Status</p>
-                <p className={`text-xs font-bold ${isPaid ? 'text-green-600 dark:text-green-400' : ''}`} style={!isPaid ? { color: 'var(--text-primary)' } : {}}>
-                  {!isPaid ? 'Pending' : isPartial ? 'Partial / Credit' : 'Paid in Full'}
-                </p>
-              </div>
-            </div>
-
-            {/* Ticket Details */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <SlidersHorizontal size={13} className="text-violet-500" />
-                <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Ticket Details</p>
-              </div>
-              <div className="grid grid-cols-2 gap-2.5">
-                {[
-                  { label: 'Ticket #',   value: repair.ticketNumber,   icon: Hash },
-                  { label: 'Technician', value: repair.technicianName || '—', icon: User },
-                  { label: 'Customer',   value: repair.customerName,   icon: User },
-                  { label: 'Source',     value: SOURCE_OPTIONS.find(o => o.value === repair.source)?.label ?? repair.source ?? 'Walk-in', icon: MapPin },
-                  ...(repair.imei ? [{ label: 'IMEI', value: repair.imei, icon: Smartphone }] : []),
-                ].map(({ label, value, icon: Icon }) => (
-                  <div key={label} className="rounded-xl p-3 border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                    <p className="text-[10px] mb-0.5 flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
-                      <Icon size={9} /> {label}
-                    </p>
-                    <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{value}</p>
-                  </div>
-                ))}
-                {repair.accessories && (
-                  <div className="col-span-2 rounded-xl p-3 border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                    <p className="text-[10px] mb-1.5 flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
-                      <Package size={9} /> Accessories Received
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {repair.accessories.split(', ').map((a: string) => (
-                        <span key={a} className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-violet-500/10 text-violet-600 dark:text-violet-300 border border-violet-500/20">{a}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Repair Progress */}
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <Zap size={13} className="text-violet-500" />
-                <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Repair Progress</p>
-              </div>
-              <div className="relative flex items-start justify-between px-2">
-                <div className="absolute left-7 right-7 top-5 h-[2px] rounded-full" style={{ background: 'var(--border-default)' }} />
-                <div className="absolute left-7 top-5 h-[2px] rounded-full bg-violet-500 transition-all duration-500"
-                  style={{ width: currentIdx <= 0 ? '0%' : `${Math.min(100, (Math.min(currentIdx, STATUS_FLOW.length - 1) / (STATUS_FLOW.length - 1)) * 90)}%` }} />
-                {STATUS_FLOW.map((s, i) => {
-                  const StepIcon = STEP_ICONS[i]
-                  const done     = currentIdx > i || (repair.status === 'DELIVERED' && i < STATUS_FLOW.length)
-                  const active   = currentIdx === i && repair.status !== 'DELIVERED'
-                  const stepTime = statusHistory.find((h: any) => h.status === s)?.timestamp
-                  return (
-                    <div key={s} className="flex-1 flex flex-col items-center gap-1.5 relative z-10">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${
-                        active ? 'bg-indigo-600 border-indigo-600 shadow-lg shadow-indigo-500/30'
-                        : done  ? 'bg-violet-500 border-indigo-500'
-                        : 'border-gray-300 dark:border-slate-600'}`}
-                        style={!active && !done ? { background: 'var(--bg-card)' } : {}}>
-                        {done   ? <CheckCircle size={16} className="text-white" />
-                                 : <StepIcon size={15} className={active ? 'text-white' : 'text-gray-400 dark:[color:var(--text-muted)]'} />}
-                      </div>
-                      <span className={`text-[11px] font-bold ${active ? 'text-violet-600 dark:text-violet-400' : done ? 'text-indigo-400' : ''}`}
-                        style={!active && !done ? { color: 'var(--text-muted)' } : {}}>{statusLabels[s]}</span>
-                      {stepTime
-                        ? <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{new Date(stepTime).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                        : <span className="text-[10px] text-gray-300 dark:[color:var(--text-muted)]">Pending</span>}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Action buttons */}
-            {repair.status !== 'DELIVERED' && repair.status !== 'CANCELLED' && (
-              <div className="space-y-3">
-                <div className="flex gap-2">
-                  {repair.status === 'READY' ? (
-                    <button onClick={() => setShowPayment(v => !v)} disabled={collecting}
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
-                      style={{ background: showPayment ? 'var(--bg-subtle)' : 'linear-gradient(135deg,#16a34a,#15803d)', border: showPayment ? '1px solid var(--border-default)' : 'none', color: showPayment ? 'var(--text-secondary)' : 'white' }}>
-                      <DollarSign size={14} />{showPayment ? 'Hide Payment' : 'Collect Payment'}
-                    </button>
-                  ) : nextStatus ? (
-                    <button onClick={handleNext} disabled={changingStatus}
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
-                      style={{ background: 'linear-gradient(135deg,#6d28d9,#7c3aed)', color: '#ffffff' }}>
-                      {changingStatus ? <Loader2 size={14} className="animate-spin" /> : <ArrowRight size={14} />}
-                      Move to {statusLabels[nextStatus]}
-                    </button>
-                  ) : null}
-                  <button onClick={handleCancel} disabled={changingStatus}
-                    className="px-4 py-2.5 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-500/10 transition-all disabled:opacity-50 border border-red-500/25">
-                    Cancel
-                  </button>
-                </div>
-                {showPayment && repair.status === 'READY' && (
-                  <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-default)' }}>
-                    <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                      <p className="text-xs font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Collect Payment</p>
-                    </div>
-                    <div className="p-4 space-y-4">
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm pt-2 font-bold" style={{ color: 'var(--text-primary)' }}>
-                          <span>Estimated Cost</span>
-                          <span>{formatCurrency(estimatedCost)}</span>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--text-muted)' }}>Discount Amount</label>
-                        <input type="number" min={0} max={subtotal} value={discount} onChange={e => setDiscount(e.target.value)} placeholder="0" className="input-field" />
-                      </div>
-                      {discountAmt > 0 && (
-                        <div className="flex justify-between items-center px-3 py-2.5 rounded-xl border border-green-500/20" style={{ background: 'rgba(34,197,94,0.05)' }}>
-                          <span className="text-sm font-bold text-green-600">Amount Due</span>
-                          <span className="text-lg font-black text-green-600">{formatCurrency(finalAmount)}</span>
-                        </div>
-                      )}
-                      {hasCustomerCredit && repair.customerId && finalAmount > 0 && (
-                        <div className="rounded-xl border p-3 space-y-2" style={{ borderColor: creditAmount > 0 ? 'rgba(245,158,11,0.35)' : 'var(--border-subtle)', background: creditAmount > 0 ? 'rgba(245,158,11,0.06)' : 'var(--bg-subtle)' }}>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Paying now</span>
-                            <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Bill {formatCurrency(finalAmount)}</span>
-                          </div>
-                          <input
-                            type="number"
-                            min={0}
-                            max={finalAmount}
-                            step="0.01"
-                            value={amountPaying}
-                            onChange={e => setAmountPaying(e.target.value)}
-                            placeholder="Amount customer pays now"
-                            className="input-field"
-                          />
-                          {creditAmount > 0 && (
-                            <div className="flex justify-between text-xs">
-                              <span style={{ color: 'var(--text-secondary)' }}>Added to customer credit</span>
-                              <span className="font-bold text-amber-600">{formatCurrency(creditAmount)}</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      <div>
-                        <p className="text-xs font-bold mb-2" style={{ color: 'var(--text-muted)' }}>Payment Method</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          {([{ key: 'CASH', label: 'Cash' }, { key: 'CARD', label: 'Card' }, { key: 'UPI', label: 'UPI' }, { key: 'BANK_TRANSFER', label: 'Bank Transfer' }] as const).map(({ key: m, label }) => (
-                            <button key={m} type="button" onClick={() => setPayMethod(m)}
-                              className="py-1.5 px-2.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5"
-                              style={payMethod === m ? { background: '#7c3aed', border: '2px solid #7c3aed', color: '#fff' } : { background: 'var(--bg-subtle)', border: '2px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
-                              {label}{payMethod === m && <CheckCircle size={11} className="ml-auto" />}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <button onClick={handleCollectPayment} disabled={collecting}
-                        className="w-full py-3 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60"
-                        style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)' }}>
-                        {collecting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
-                        {collecting ? 'Processing…' : creditAmount > 0
-                          ? `Confirm — Pay ${formatCurrency(payNow)} + Credit ${formatCurrency(creditAmount)}`
-                          : `Confirm & Collect ${formatCurrency(payNow)}`}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Reported Issue */}
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle size={13} className="text-violet-500" />
-                <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Reported Issue</p>
-              </div>
-              <p className="text-sm font-semibold leading-relaxed uppercase" style={{ color: 'var(--text-primary)' }}>{repair.reportedIssue}</p>
-            </div>
-
-            {/* Items */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Wrench size={13} className="text-violet-500" />
-                  <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-                    Items ({(repair.spareParts?.length ?? 0) + (serviceFee > 0 ? 1 : 0)})
-                  </p>
-                </div>
-                <button onClick={() => setShowAddPart(v => !v)} disabled={partsLocked}
-                  className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-bold rounded-lg transition-colors disabled:opacity-40"
-                  style={{ background: showAddPart ? 'rgba(239,68,68,0.08)' : 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: showAddPart ? '#ef4444' : 'var(--text-secondary)' }}>
-                  {showAddPart ? <><X size={10} />Cancel</> : <><Plus size={10} />Add Part</>}
-                </button>
-              </div>
-              <p className="text-[11px] mb-3" style={{ color: 'var(--text-muted)' }}>
-                {partsLocked
-                  ? 'Repair completed — parts are locked.'
-                  : 'Sell/buy tracked for profit report. Customer pays the quote only. Stock deducts on payment.'}
-              </p>
-
-              {showAddPart && !partsLocked && (
-                <div className="rounded-xl p-4 mb-3 space-y-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-                  <div className="relative">
-                    <input className="input-field text-sm" placeholder="Search inventory by name or SKU…"
-                      value={selProduct ? selProduct.name : partSearch}
-                      onChange={e => { setPartSearch(e.target.value); setSelProduct(null) }} />
-                    {filteredProducts.length > 0 && !selProduct && (
-                      <div className="absolute z-10 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                        {filteredProducts.map((p: any) => (
-                          <button key={p.id} type="button"
-                            onClick={() => { setSelProduct(p); setPartSearch(''); setPartCost(String(p.sellingPrice ?? p.buyingPrice ?? '')) }}
-                            className="w-full text-left px-4 py-2.5 transition-colors" style={{ borderBottom: '1px solid var(--border-subtle)' }}
-                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-subtle)')}
-                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                            <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{p.name}</p>
-                            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                              {p.sku ? `${p.sku} · ` : ''}Stock: {p.stock} · Sell: {formatCurrency(p.sellingPrice ?? 0)} · Buy: {formatCurrency(p.buyingPrice ?? 0)}
-                              {Number(p.warrantyMonths) > 0 ? ` · Warranty: ${formatWarrantyPeriodLabel(Number(p.warrantyMonths))}` : ''}
-                            </p>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  {selProduct && (
-                    <div className="rounded-lg px-3 py-2 space-y-1" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                      <div className="flex items-center gap-2">
-                        <Package size={11} className="text-violet-500 shrink-0" />
-                        <span className="text-xs flex-1 truncate font-semibold" style={{ color: 'var(--text-primary)' }}>{selProduct.name}</span>
-                        <button onClick={() => setSelProduct(null)} style={{ color: 'var(--text-muted)' }}><X size={11} /></button>
-                      </div>
-                      {(Number(selProduct.warrantyMonths) > 0 || selProduct.warrantyNote) && (
-                        <p className="text-[10px] pl-5" style={{ color: 'var(--text-muted)' }}>
-                          {Number(selProduct.warrantyMonths) > 0 && <>Warranty: {formatWarrantyPeriodLabel(Number(selProduct.warrantyMonths))}</>}
-                          {selProduct.warrantyNote ? `${Number(selProduct.warrantyMonths) > 0 ? ' · ' : ''}Note: ${selProduct.warrantyNote}` : ''}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div><label className="block text-[11px] font-bold mb-1" style={{ color: 'var(--text-muted)' }}>Quantity</label><input type="number" min={1} className="input-field" value={partQty} onChange={e => setPartQty(Number(e.target.value))} /></div>
-                    <div><label className="block text-[11px] font-bold mb-1" style={{ color: 'var(--text-muted)' }}>Part Price (LKR)</label><input type="number" min={0} className="input-field" placeholder={selProduct ? String(selProduct.sellingPrice ?? selProduct.buyingPrice ?? '') : '0'} value={partCost} onChange={e => setPartCost(e.target.value)} /></div>
-                  </div>
-                  <button onClick={handleAddPart} disabled={!selProduct || addingPart || (selProduct && Number(selProduct.stock) < partQty)}
-                    className="w-full py-2 text-sm rounded-lg text-white font-bold flex items-center justify-center gap-2 disabled:opacity-50"
-                    style={{ background: '#7c3aed' }}>
-                    {addingPart ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}Add to Repair
-                  </button>
-                </div>
-              )}
-
-              <div className="rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border-subtle)' }}>
-                <div className="grid grid-cols-12 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>
-                  <div className="col-span-6">Item / Part</div>
-                  <div className="col-span-2 text-center">QTY</div>
-                  <div className="col-span-2 text-right">Unit Price</div>
-                  <div className="col-span-2 text-right">Total</div>
-                </div>
-                {serviceFee > 0 && (
-                  <div className="grid grid-cols-12 px-4 py-3.5 items-center border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                    <div className="col-span-6">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
-                          <Wrench size={13} className="text-green-600" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Repair Service – {repair.deviceBrand} {repair.deviceModel}</p>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Labor & Service</span>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-600 dark:text-green-400 font-semibold border border-green-500/20">Service</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="col-span-2 text-center text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>1</div>
-                    <div className="col-span-2 text-right text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(serviceFee)}</div>
-                    <div className="col-span-2 text-right text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(serviceFee)}</div>
-                  </div>
-                )}
-                {repair.spareParts?.length > 0 ? repair.spareParts.map((part: any) => (
-                  <div key={part.id} className="grid grid-cols-12 px-4 py-3.5 items-center border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                    <div className="col-span-6">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
-                          <Package size={13} className="text-violet-500" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{part.productName}</p>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-600 dark:text-violet-400 font-semibold border border-violet-500/20">Stock tracking</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="col-span-2 text-center text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>{part.quantity}</div>
-                    <div className="col-span-2 text-right text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>—</div>
-                    <div className="col-span-2 text-right flex items-center justify-end gap-2">
-                      <span className="text-xs font-bold" style={{ color: 'var(--text-muted)' }}>—</span>
-                      {!partsLocked && (
-                      <button onClick={() => handleRemovePart(part.id)} disabled={removingId === part.id}
-                        className="w-5 h-5 rounded flex items-center justify-center transition-colors hover:bg-red-500/10 hover:text-red-500 disabled:opacity-40"
-                        style={{ color: 'var(--text-muted)' }}>
-                        {removingId === part.id ? <Loader2 size={10} className="animate-spin" /> : <X size={10} />}
-                      </button>
-                      )}
-                    </div>
-                  </div>
-                )) : !showAddPart && serviceFee <= 0 && (
-                  <div className="py-8 text-center">
-                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>No items yet</p>
-                    <button onClick={() => setShowAddPart(true)} className="text-xs font-bold text-violet-500 hover:text-violet-400 mt-1">+ Add spare part</button>
-                  </div>
-                )}
-                <div className="px-4 py-3" style={{ background: 'var(--bg-subtle)' }}>
-                  <div className="flex justify-between font-black text-base">
-                    <span style={{ color: 'var(--text-primary)' }}>Customer Total</span>
-                    <span className="text-violet-600 dark:text-violet-400">{formatCurrency(isPaid ? billTotal : quote)}</span>
-                  </div>
-                  {(repair.spareParts?.length ?? 0) > 0 && (
-                    <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>Parts buy/sell in profit report below — not added to bill.</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <RepairPartsProfitPanel
-              repair={repair}
-              getBuyPrice={getProductBuyPrice}
-              pendingDiscount={!isPaid ? discountAmt : 0}
-            />
-
-            {/* Technician Notes */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <ClipboardList size={13} className="text-violet-500" />
-                <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Technician Notes</p>
-              </div>
-              {repair.notes?.length > 0 ? (
-                <div className="space-y-2">
-                  {repair.notes.map((note: any) => (
-                    <div key={note.id} className="rounded-xl p-3.5 border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                      <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{note.text}</p>
-                      <p className="text-[10px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
-                        {new Date(note.createdAt).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' })} · {note.authorName}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : statusHistory.filter((h: any) => h.note).length > 0 ? (
-                <div className="space-y-2">
-                  {statusHistory.filter((h: any) => h.note).map((h: any, i: number) => (
-                    <div key={i} className="rounded-xl p-3.5 border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                      <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{h.note}</p>
-                      <p className="text-[10px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
-                        {new Date(h.timestamp).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' })} · {h.changedBy}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-xl p-3.5 border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                  <p className="text-sm italic" style={{ color: 'var(--text-muted)' }}>No technician notes yet.</p>
-                </div>
-              )}
-            </div>
-
-            {/* IMEI Device History */}
-            {repair.imei && (() => {
-              const history = (allRepairs ?? []).filter(r => r.imei === repair.imei && r.id !== repair.id)
-              if (history.length === 0) return null
-              return (
-                <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <History size={13} className="text-violet-500" />
-                    <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Device History — IMEI {repair.imei}</p>
-                    <span className="ml-auto text-[10px] font-bold text-violet-600 bg-violet-500/10 px-2 py-0.5 rounded">{history.length} past repair{history.length > 1 ? 's' : ''}</span>
-                  </div>
-                  <div className="space-y-2">
-                    {history.slice(0, 5).map(h => (
-                      <div key={h.id} className="flex items-center gap-3 text-xs">
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded border shrink-0 ${getRepairStatusColor(h.status)}`}>{statusLabels[h.status] ?? h.status}</span>
-                        <span className="truncate flex-1" style={{ color: 'var(--text-secondary)' }}>{h.reportedIssue}</span>
-                        <span className="shrink-0" style={{ color: 'var(--text-muted)' }}>{formatDate(h.createdAt)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })()}
-          </div>
-
-          {/* ── RIGHT SIDEBAR (2/5) ── */}
-          <div className="col-span-2 p-5 space-y-4">
-
-            {/* Payment Summary */}
-            <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-              <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                <div className="flex items-center gap-2">
-                  <DollarSign size={13} className="text-violet-500" />
-                  <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Payment Summary</p>
-                </div>
-                <button className="w-6 h-6 rounded flex items-center justify-center" style={{ color: 'var(--text-muted)' }}><MoreVertical size={13} /></button>
-              </div>
-              <div className="p-4 space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-bold" style={{ color: 'var(--text-secondary)' }}>Estimated Cost</span>
-                  <span className="text-sm font-black" style={{ color: 'var(--text-primary)' }}>{formatCurrency(quote)}</span>
-                </div>
-                {isPaid && paidDiscount > 0 && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Discount</span>
-                    <span className="text-sm font-bold text-amber-600 dark:text-amber-400">−{formatCurrency(paidDiscount)}</span>
-                  </div>
-                )}
-                {isPaid && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Bill Total</span>
-                    <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(billTotal)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between items-center">
-                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Paid Amount</span>
-                  <span className="text-sm font-bold text-green-600 dark:text-green-400">{formatCurrency(isPaid ? paid : 0)}</span>
-                </div>
-                <div className="flex justify-between items-center pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <span className="text-sm font-bold" style={{ color: 'var(--text-secondary)' }}>Balance Due</span>
-                  <span className={`text-sm font-black ${due > 0 ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>{formatCurrency(due)}</span>
-                </div>
-                {isPaid && isFull && (
-                  <div className="flex items-center gap-2.5 p-3 rounded-xl border border-green-500/25 bg-green-500/10">
-                    <CheckCircle size={16} className="text-green-600 shrink-0" />
-                    <div>
-                      <p className="text-xs font-bold text-green-700 dark:text-green-400">Paid in Full</p>
-                      <p className="text-[10px] text-green-600/70">Thank you! Payment completed.</p>
-                    </div>
-                  </div>
-                )}
-                {isPaid && isPartial && (
-                  <div className="flex items-center gap-2.5 p-3 rounded-xl border border-amber-500/25 bg-amber-500/10">
-                    <AlertTriangle size={16} className="text-amber-600 shrink-0" />
-                    <div>
-                      <p className="text-xs font-bold text-amber-700 dark:text-amber-400">Partial Payment</p>
-                      <p className="text-[10px] text-amber-600/80">{formatCurrency(due)} remaining on customer credit</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-              <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                <p className="text-[11px] font-black uppercase tracking-widest flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
-                  <Zap size={12} className="text-violet-500" /> Quick Actions
-                </p>
-              </div>
-              <div className="p-3 grid grid-cols-3 gap-2">
-                {[
-                  { icon: User,         label: 'Customer Info', action: () => {} },
-                  { icon: MessageSquare,label: 'Send SMS',      action: sendQuoteWhatsApp },
-                  { icon: Phone,        label: 'WhatsApp',      action: sendInvoiceWhatsApp },
-                  { icon: ClipboardList,label: 'Add Note',      action: () => {} },
-                  { icon: Printer,      label: 'Print Ticket',  action: () => printRepairReceipt(repair, invSettings) },
-                  { icon: MoreVertical, label: 'More',          action: () => {} },
-                ].map(({ icon: Icon, label, action }) => (
-                  <button key={label} onClick={action}
-                    className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl border transition-colors hover:border-indigo-500/40"
-                    style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--bg-card)' }}>
-                      <Icon size={14} style={{ color: 'var(--text-secondary)' }} />
-                    </div>
-                    <span className="text-[9px] font-semibold text-center leading-tight" style={{ color: 'var(--text-muted)' }}>{label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Device Condition */}
-            <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-              <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                <div className="flex items-center gap-2">
-                  <Shield size={12} className="text-violet-500" />
-                  <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Device Condition</p>
-                </div>
-                <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">Good</span>
-              </div>
-              <div className="p-4 space-y-2.5">
-                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>No physical damage</p>
-                <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--bg-subtle)' }}>
-                  <div className="h-full rounded-full bg-green-500" style={{ width: '85%' }} />
-                </div>
-              </div>
-            </div>
-
-            {/* Attachments */}
-            <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-              <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                <p className="text-[11px] font-black uppercase tracking-widest flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
-                  <Upload size={12} className="text-violet-500" /> Attachments ({photos.length})
-                </p>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold text-indigo-400 border border-indigo-500/20 bg-violet-500/10 hover:bg-violet-500/20 transition-colors disabled:opacity-50"
-                >
-                  {uploading ? <Loader2 size={10} className="animate-spin" /> : <Upload size={10} />}
-                  {uploading ? 'Uploading…' : 'Add Files'}
-                </button>
-              </div>
-              <div className="p-4">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept="image/png,image/jpeg,image/jpg,image/webp,application/pdf"
-                  className="hidden"
-                  onChange={handleFileChange}
-                />
-                {photos.length > 0 ? (
-                  <div className="grid grid-cols-3 gap-2">
-                    {photos.map((url, i) => {
-                      const isPdf = url.toLowerCase().endsWith('.pdf')
-                      return (
-                        <div key={i} className="relative group aspect-square rounded-lg overflow-hidden border" style={{ borderColor: 'var(--border-subtle)' }}>
-                          {isPdf ? (
-                            <a href={url} target="_blank" rel="noopener noreferrer"
-                              className="flex flex-col items-center justify-center w-full h-full gap-1 text-[10px] font-medium hover:bg-white/5 transition-colors"
-                              style={{ background: 'var(--bg-subtle)', color: 'var(--text-secondary)' }}>
-                              <FileText size={22} className="text-red-400" />
-                              PDF
-                            </a>
-                          ) : (
-                            <button onClick={() => setLightboxUrl(url)} className="w-full h-full">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={url} alt={`Attachment ${i + 1}`} className="w-full h-full object-cover" />
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleDeletePhoto(url)}
-                            className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow"
-                          >
-                            <X size={10} />
-                          </button>
-                        </div>
-                      )
-                    })}
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploading}
-                      className="aspect-square rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-1 text-[10px] transition-colors hover:border-indigo-500/50 hover:bg-violet-500/5 disabled:opacity-50"
-                      style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}
-                    >
-                      {uploading ? <Loader2 size={16} className="animate-spin text-indigo-400" /> : <Upload size={16} />}
-                      {uploading ? '' : 'Add more'}
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    className="w-full rounded-xl border-2 border-dashed p-5 flex flex-col items-center gap-2 text-center transition-colors hover:border-indigo-500/40 hover:bg-violet-500/5 disabled:opacity-50"
-                    style={{ borderColor: 'var(--border-subtle)' }}
-                  >
-                    {uploading ? <Loader2 size={22} className="animate-spin text-indigo-400" /> : <Upload size={22} style={{ color: 'var(--text-muted)' }} />}
-                    <div>
-                      <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>{uploading ? 'Uploading files…' : 'Click to upload files'}</p>
-                      {!uploading && <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>JPG, PNG, WebP, PDF · Max 10 MB each</p>}
-                    </div>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Lightbox */}
-            {lightboxUrl && (
-              <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 backdrop-blur-sm" onClick={() => setLightboxUrl(null)}>
-                <button className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20" onClick={() => setLightboxUrl(null)}>
-                  <X size={20} />
-                </button>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={lightboxUrl} alt="Attachment" className="max-w-[90vw] max-h-[90vh] rounded-xl shadow-2xl object-contain" onClick={e => e.stopPropagation()} />
-              </div>
-            )}
-
-            {/* Customer Contact */}
-            <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-              <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                <p className="text-[11px] font-black uppercase tracking-widest flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
-                  <User size={12} className="text-violet-500" /> Customer Contact
-                </p>
-              </div>
-              <div className="p-4 space-y-3">
-                {repair.customerPhone && (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <Phone size={13} style={{ color: 'var(--text-muted)' }} />
-                      <a href={`tel:${repair.customerPhone}`} className="text-sm font-semibold hover:text-violet-500 transition-colors" style={{ color: 'var(--text-primary)' }}>{repair.customerPhone}</a>
-                    </div>
-                    <button onClick={sendInvoiceWhatsApp} className="w-7 h-7 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-center">
-                      <MessageSquare size={12} className="text-green-600" />
-                    </button>
-                  </div>
-                )}
-                <div className="flex items-center gap-2.5">
-                  <User size={13} style={{ color: 'var(--text-muted)' }} />
-                  <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{repair.customerName}</span>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <MapPin size={13} style={{ color: 'var(--text-muted)' }} />
-                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                    {SOURCE_OPTIONS.find(o => o.value === repair.source)?.label ?? 'Walk-in'}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Hidden PDF template */}
-        <div style={{ position: 'fixed', left: '-9999px', top: 0, pointerEvents: 'none', zIndex: -1, width: 794 }}>
-          <InvoiceA4View
-            ref={quoteRef}
-            sale={repairSale}
-            settings={invSettings}
-            tenantSlug={tenantSlug}
-            template={activeTemplate}
-            hideControls
-          />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/* ── Edit Repair Modal ────────────────────────────────────────────────── */
-function EditRepairModal({ repair, onClose, onSaved }: {
-  repair: RepairTicket; onClose: () => void; onSaved: () => void
-}) {
-  const locked = !repairTicketEditable(repair.status)
-  const [form, setForm] = useState({
-    customerName:        repair.customerName    ?? '',
-    customerPhone:       repair.customerPhone   ?? '',
-    deviceBrand:         repair.deviceBrand     ?? '',
-    deviceModel:         repair.deviceModel     ?? '',
-    deviceColor:         (repair as any).deviceColor ?? '',
-    imei:                repair.imei            ?? '',
-    reportedIssue:       repair.reportedIssue   ?? '',
-    technicianName:      repair.technicianName  ?? '',
-    priority:            repair.priority        ?? 'NORMAL',
-    estimatedCost:       String(repair.estimatedCost ?? ''),
-    estimatedCompletion: repair.estimatedCompletion ? repair.estimatedCompletion.slice(0, 10) : '',
-    warrantyMonths:      repair.warrantyMonths != null ? String(repair.warrantyMonths) : '',
-  })
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-    setForm(p => ({ ...p, [k]: e.target.value }))
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setLoading(true)
-    try {
-      await repairsApi.update(repair.id, {
-        ...form,
-        estimatedCost: form.estimatedCost ? Number(form.estimatedCost) : undefined,
-        warrantyMonths: form.warrantyMonths !== '' ? Number(form.warrantyMonths) : null,
-      })
-      toast.success('Repair job updated')
-      onSaved(); onClose()
-    } catch (err: any) { toast.error(err?.message ?? 'Update failed') }
-    finally { setLoading(false) }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="rounded-2xl w-full max-w-2xl shadow-2xl max-h-[92vh] overflow-y-auto flex flex-col" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-        <div className="h-1 w-full bg-gradient-to-r from-violet-500 to-purple-600 flex-shrink-0" />
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b sticky top-0 z-10 flex-shrink-0" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-violet-500/10 border border-violet-500/15 shrink-0">
-              <Pencil size={18} className="text-violet-500" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h3 className="text-base font-black" style={{ color: 'var(--text-primary)' }}>Edit Repair Job</h3>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border border-violet-500/20 bg-violet-500/10 text-violet-400">{repair.ticketNumber}</span>
-              </div>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                {locked ? 'This ticket is completed or cancelled and cannot be edited' : 'Update the details of this repair ticket'}
-              </p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 rounded-lg transition-colors hover:bg-red-500/10 hover:text-red-400" style={{ color: 'var(--text-muted)' }}>
-            <X size={18} />
-          </button>
-        </div>
-
-        {locked ? (
-          <div className="p-6">
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-200">
-              Completed and cancelled repairs are locked. Use the detail view to see payment and profit information.
-            </div>
-            <button type="button" onClick={onClose} className="mt-4 w-full h-11 rounded-xl border text-sm font-semibold" style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}>
-              Close
-            </button>
-          </div>
-        ) : (
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-
-          {/* ── Customer Information ── */}
-          <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-            <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-              <User size={15} className="text-violet-500" />
-              <h4 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Customer Information</h4>
-            </div>
-            <div className="p-4 grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Customer Name <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <User size={13} className="absolute left-3 top-1/2 -translate-y-1/2 [color:var(--text-muted)] pointer-events-none" />
-                  <input required type="text" className="input-field pl-9 h-10" placeholder="Customer name" value={form.customerName} onChange={f('customerName')} />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Phone <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <Phone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 [color:var(--text-muted)] pointer-events-none" />
-                  <input required type="text" className="input-field pl-9 h-10" placeholder="Phone number" value={form.customerPhone} onChange={f('customerPhone')} />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ── Device Information ── */}
-          <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-            <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-              <Smartphone size={15} className="text-violet-500" />
-              <h4 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Device Information</h4>
-            </div>
-            <div className="p-4 grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Brand <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <Smartphone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 [color:var(--text-muted)] pointer-events-none" />
-                  <input required type="text" className="input-field pl-9 h-10" placeholder="e.g. Samsung" value={form.deviceBrand} onChange={f('deviceBrand')} />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Model <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <Hash size={13} className="absolute left-3 top-1/2 -translate-y-1/2 [color:var(--text-muted)] pointer-events-none" />
-                  <input required type="text" className="input-field pl-9 h-10" placeholder="e.g. Galaxy S24" value={form.deviceModel} onChange={f('deviceModel')} />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>IMEI <span style={{ color: 'var(--text-muted)' }}>(Optional)</span></label>
-                <div className="relative">
-                  <Hash size={13} className="absolute left-3 top-1/2 -translate-y-1/2 [color:var(--text-muted)] pointer-events-none" />
-                  <input type="text" className="input-field pl-9 h-10 font-mono" placeholder="15-digit IMEI" maxLength={17} value={form.imei} onChange={f('imei')} />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Color <span style={{ color: 'var(--text-muted)' }}>(Optional)</span></label>
-                <input type="text" className="input-field h-10" placeholder="e.g. Phantom Black" value={form.deviceColor} onChange={f('deviceColor')} />
-              </div>
-            </div>
-          </div>
-
-          {/* ── Reported Issue ── */}
-          <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-            <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-              <AlertTriangle size={15} className="text-violet-500" />
-              <h4 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Reported Issue</h4>
-            </div>
-            <div className="p-4">
-              <textarea required className="input-field w-full resize-none text-sm" rows={3}
-                placeholder="Describe the fault or issue reported by the customer…"
-                value={form.reportedIssue} onChange={f('reportedIssue')} />
-            </div>
-          </div>
-
-          {/* ── Job Details ── */}
-          <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-            <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-              <Wrench size={15} className="text-violet-500" />
-              <h4 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Job Details</h4>
-            </div>
-            <div className="p-4 grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Technician</label>
-                <div className="relative">
-                  <Wrench size={13} className="absolute left-3 top-1/2 -translate-y-1/2 [color:var(--text-muted)] pointer-events-none" />
-                  <input type="text" className="input-field pl-9 h-10" placeholder="Assign technician" value={form.technicianName} onChange={f('technicianName')} />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Priority</label>
-                <select className="input-field h-10" value={form.priority} onChange={f('priority')}>
-                  {(['LOW','NORMAL','HIGH','URGENT'] as const).map(p => (
-                    <option key={p} value={p}>{p.charAt(0) + p.slice(1).toLowerCase()}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Estimated Cost (LKR)</label>
-                <div className="relative">
-                  <DollarSign size={13} className="absolute left-3 top-1/2 -translate-y-1/2 [color:var(--text-muted)] pointer-events-none" />
-                  <input type="number" min={0} className="input-field pl-9 h-10" placeholder="0.00" value={form.estimatedCost} onChange={f('estimatedCost')} />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Service Warranty</label>
-                <select className="input-field h-10" value={form.warrantyMonths} onChange={f('warrantyMonths')}>
-                  <option value="">Not set</option>
-                  {REPAIR_WARRANTY_OPTIONS.map(m => (
-                    <option key={m} value={m}>{m === 0 ? 'No warranty' : formatWarrantyPeriodLabel(m)}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="col-span-2">
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Estimated Completion</label>
-                <div className="relative">
-                  <Calendar size={13} className="absolute left-3 top-1/2 -translate-y-1/2 [color:var(--text-muted)] pointer-events-none" />
-                  <input type="date" className="input-field pl-9 h-10" value={form.estimatedCompletion} onChange={f('estimatedCompletion')} />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose}
-              className="flex-1 h-11 rounded-xl border text-sm font-semibold transition-colors hover:bg-white/5"
-              style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}>
-              Cancel
-            </button>
-            <button type="submit" disabled={loading}
-              className="flex-1 h-11 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-violet-500/20 transition-all hover:opacity-90"
-              style={{ background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)' }}>
-              {loading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-              Save Changes
-            </button>
-          </div>
-
-        </form>
-        )}
-      </div>
-    </div>
-  )
-}
 
 export default function RepairsPage() {
   const hasAccess = useFeatureFlag('REPAIRS')
   const searchParams = useSearchParams()
+  const router = useRouter()
   const { data: repairsData, loading, refetch } = useRepairs()
   const [showAddModal, setShowAddModal]     = useState(false)
   const [prefillData, setPrefillData]       = useState<any>(null)
-  const [detailRepair, setDetailRepair]     = useState<RepairTicket | null>(null)
   const [editRepair,   setEditRepair]       = useState<RepairTicket | null>(null)
   const [search, setSearch]         = useState('')
   const [statusFilter, setStatusFilter] = useState<RepairStatusFilter>('all')
   const [filtersReady, setFiltersReady] = useState(false)
 
-  const openDetail = useCallback((repair: RepairTicket) => setDetailRepair(repair), [])
+  const openDetail = useCallback((repair: RepairTicket) => {
+    router.push(`/dashboard/repairs/${repair.id}`)
+  }, [router])
   const openEdit = useCallback((repair: RepairTicket) => {
     if (!repairTicketEditable(repair.status)) {
       toast.error('Completed or cancelled repairs cannot be edited')
@@ -2314,18 +992,8 @@ export default function RepairsPage() {
 
   useEffect(() => {
     const id = searchParams.get('id') || searchParams.get('ticketId')
-    if (!id) return
-    const found = allRepairs.find(r => r.id === id)
-    if (found) {
-      setDetailRepair(found)
-      return
-    }
-    if (!allRepairs.length && loading) return
-    repairsApi.getById(id).then((res: any) => {
-      const ticket = normalizeRepairTicket(res?.data ?? res)
-      if (ticket?.id) setDetailRepair(ticket)
-    }).catch(() => {})
-  }, [searchParams, allRepairs, loading])
+    if (id) router.replace(`/dashboard/repairs/${id}`)
+  }, [searchParams, router])
 
   const stats = useMemo(() => ({
     total:     allRepairs.length,
@@ -2358,18 +1026,6 @@ export default function RepairsPage() {
 
   const hasActiveFilters = statusFilter !== 'all' || search.trim().length > 0
   const clearFilters = () => { setStatusFilter('all'); setSearch('') }
-
-  const handleStatusUpdate = async (id: string, status: string) => {
-    try {
-      await repairsApi.updateStatus(id, status)
-      toast.success(`Status → ${statusLabels[status]}`)
-      refetch()
-      if (detailRepair?.id === id) {
-        const res: any = await repairsApi.getById(id)
-        setDetailRepair(normalizeRepairTicket(res?.data ?? detailRepair))
-      }
-    } catch (err: any) { toast.error(err?.message ?? 'Status update failed') }
-  }
 
   const columns = useMemo<ColumnDef<RepairTicket>[]>(() => [
     {
@@ -2480,14 +1136,13 @@ export default function RepairsPage() {
   return (
     <div className="space-y-6">
       {showAddModal  && <NewTicketModal onClose={() => { setShowAddModal(false); setPrefillData(null) }} onSaved={refetch} prefill={prefillData ?? undefined} />}
-      {detailRepair  && <RepairDetailsModal repair={detailRepair} allRepairs={allRepairs} onClose={() => setDetailRepair(null)} onEdit={() => { setEditRepair(detailRepair); setDetailRepair(null) }} onStatusChange={handleStatusUpdate} onRepairUpdate={setDetailRepair} onRefresh={async () => { refetch(); const res: any = await repairsApi.getById(detailRepair.id); setDetailRepair(normalizeRepairTicket(res?.data ?? detailRepair)) }} />}
       {editRepair    && <EditRepairModal   repair={editRepair}   onClose={() => setEditRepair(null)}   onSaved={() => { refetch(); setEditRepair(null) }} />}
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
           <h1 className="page-title">Repair Jobs</h1>
-          <p className="page-subtitle">{stats.total} tickets · {stats.active} in progress · {stats.ready} ready for pickup</p>
+          <p className="page-subtitle">{stats.total} tickets Â· {stats.active} in progress Â· {stats.ready} ready for pickup</p>
         </div>
         <div className="flex gap-2 sm:ml-auto">
           <button type="button" onClick={() => refetch()} disabled={loading}
@@ -2559,7 +1214,7 @@ export default function RepairsPage() {
       <ToolbarSearch
         value={search}
         onChange={setSearch}
-        placeholder="Search ticket, customer, phone, device…"
+        placeholder="Search ticket, customer, phone, deviceâ€¦"
         className="max-w-md"
       />
 
