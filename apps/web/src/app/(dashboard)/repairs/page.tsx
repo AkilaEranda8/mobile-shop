@@ -1,7 +1,7 @@
-'use client'
+﻿'use client'
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import {
   Plus, Clock, CheckCircle, PhoneCall, Loader2, X, Check, ChevronDown, ChevronLeft,
   Eye, Edit, ChevronRight, Smartphone, User, Wrench, DollarSign, AlertTriangle,
@@ -28,6 +28,7 @@ import { normalizeRepairTicket, repairNextStatus, repairPartsLocked, repairPayme
 import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
 import InvoiceA4View from '@/components/invoice/InvoiceA4View'
 import EditRepairModal from '@/components/repairs/EditRepairModal'
+import RepairDetailsModal from '@/components/repairs/RepairDetailsModal'
 import type { Customer } from '@/types'
 import toast from 'react-hot-toast'
 import type { RepairTicket } from '@/types'
@@ -926,18 +927,16 @@ const ACTIVE_STATUSES = ['RECEIVED', 'DIAGNOSED', 'IN_REPAIR', 'QC']
 export default function RepairsPage() {
   const hasAccess = useFeatureFlag('REPAIRS')
   const searchParams = useSearchParams()
-  const router = useRouter()
   const { data: repairsData, loading, refetch } = useRepairs()
   const [showAddModal, setShowAddModal]     = useState(false)
   const [prefillData, setPrefillData]       = useState<any>(null)
+  const [detailRepair, setDetailRepair]     = useState<RepairTicket | null>(null)
   const [editRepair,   setEditRepair]       = useState<RepairTicket | null>(null)
   const [search, setSearch]         = useState('')
   const [statusFilter, setStatusFilter] = useState<RepairStatusFilter>('all')
   const [filtersReady, setFiltersReady] = useState(false)
 
-  const openDetail = useCallback((repair: RepairTicket) => {
-    router.push(`/dashboard/repairs/${repair.id}`)
-  }, [router])
+  const openDetail = useCallback((repair: RepairTicket) => setDetailRepair(repair), [])
   const openEdit = useCallback((repair: RepairTicket) => {
     if (!repairTicketEditable(repair.status)) {
       toast.error('Completed or cancelled repairs cannot be edited')
@@ -992,8 +991,18 @@ export default function RepairsPage() {
 
   useEffect(() => {
     const id = searchParams.get('id') || searchParams.get('ticketId')
-    if (id) router.replace(`/dashboard/repairs/${id}`)
-  }, [searchParams, router])
+    if (!id) return
+    const found = allRepairs.find(r => r.id === id)
+    if (found) {
+      setDetailRepair(found)
+      return
+    }
+    if (!allRepairs.length && loading) return
+    repairsApi.getById(id).then((res: any) => {
+      const ticket = normalizeRepairTicket(res?.data ?? res)
+      if (ticket?.id) setDetailRepair(ticket)
+    }).catch(() => {})
+  }, [searchParams, allRepairs, loading])
 
   const stats = useMemo(() => ({
     total:     allRepairs.length,
@@ -1136,6 +1145,32 @@ export default function RepairsPage() {
   return (
     <div className="space-y-6">
       {showAddModal  && <NewTicketModal onClose={() => { setShowAddModal(false); setPrefillData(null) }} onSaved={refetch} prefill={prefillData ?? undefined} />}
+      {detailRepair  && (
+        <RepairDetailsModal
+          repair={detailRepair}
+          allRepairs={allRepairs}
+          onClose={() => setDetailRepair(null)}
+          onEdit={() => { setEditRepair(detailRepair); setDetailRepair(null) }}
+          onStatusChange={async (id, status) => {
+            try {
+              await repairsApi.updateStatus(id, status)
+              toast.success(`Status → ${statusLabels[status]}`)
+              refetch()
+              if (detailRepair?.id === id) {
+                const res: any = await repairsApi.getById(id)
+                setDetailRepair(normalizeRepairTicket(res?.data ?? detailRepair))
+              }
+            } catch (err: any) { toast.error(err?.message ?? 'Status update failed') }
+          }}
+          onRepairUpdate={setDetailRepair}
+          onRefresh={async () => {
+            refetch()
+            if (!detailRepair?.id) return
+            const res: any = await repairsApi.getById(detailRepair.id)
+            setDetailRepair(normalizeRepairTicket(res?.data ?? detailRepair))
+          }}
+        />
+      )}
       {editRepair    && <EditRepairModal   repair={editRepair}   onClose={() => setEditRepair(null)}   onSaved={() => { refetch(); setEditRepair(null) }} />}
 
       {/* Header */}

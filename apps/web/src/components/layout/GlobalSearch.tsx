@@ -137,7 +137,7 @@ export default function GlobalSearch() {
             type: 'repair',
             label: r.ticketNumber || 'Repair ticket',
             sub: [r.customerName, r.deviceBrand, r.deviceModel].filter(Boolean).join(' · '),
-            href: `/dashboard/repairs/${r.id}`,
+            href: `/dashboard/repairs?id=${r.id}`,
             icon: Wrench,
           })
         }

@@ -132,7 +132,7 @@ function calcRepairTotals(repair: Pick<RepairTicket, 'estimatedCost' | 'sparePar
   const serviceFee = estimatedCost
   return { serviceFee, partsTotal, estimatedTotal: estimatedCost, subtotal: estimatedCost, estimatedCost }
 }
-export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChange, onRefresh, onRepairUpdate, allRepairs }: {
+export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChange, onRefresh, onRepairUpdate, allRepairs, showPageHeader = true }: {
   repair: RepairTicket
   onBack: () => void
   onEdit: () => void
@@ -140,6 +140,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
   onRefresh: () => void
   onRepairUpdate: (repair: RepairTicket) => void
   allRepairs?: RepairTicket[]
+  showPageHeader?: boolean
 }) {
   const quoteRef    = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -509,62 +510,8 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
 
   const STEP_ICONS = [Smartphone, Wrench, CheckCircle2]
 
-  return (
-    <div className="space-y-6">
-      {/* Page header (match dashboard system) */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <button
-            type="button"
-            onClick={onBack}
-            className="btn-secondary text-sm inline-flex items-center gap-2"
-          >
-            <ArrowLeft size={14} /> Back
-          </button>
-          <h1 className="page-title mt-3 truncate">{repair.deviceBrand} {repair.deviceModel}</h1>
-          <p className="page-subtitle mt-1">
-            {repair.ticketNumber} · {statusLabels[repair.status] ?? repair.status}{isPaid ? ' · Paid' : ''}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 sm:pt-1">
-          <button
-            type="button"
-            onClick={onEdit}
-            disabled={!repairTicketEditable(repair.status)}
-            className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40"
-          >
-            <Pencil size={14} /> Edit
-          </button>
-          <button
-            type="button"
-            onClick={downloadQuote}
-            disabled={downloading}
-            className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-50"
-          >
-            {downloading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />} PDF
-          </button>
-          <button
-            type="button"
-            onClick={sendQuoteWhatsApp}
-            disabled={waSending !== null}
-            className="px-4 py-2 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-50 inline-flex items-center gap-2"
-          >
-            {waSending === 'quote' ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />} Quote
-          </button>
-          <button
-            type="button"
-            onClick={sendInvoiceWhatsApp}
-            disabled={waSending !== null}
-            className="px-4 py-2 rounded-xl text-sm font-bold bg-green-700 hover:bg-green-600 text-white transition-colors disabled:opacity-50 inline-flex items-center gap-2"
-          >
-            {waSending === 'invoice' ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />}
-            {waSending === 'invoice' ? 'Sending…' : waSendPdf ? 'Invoice PDF' : 'Invoice'}
-          </button>
-        </div>
-      </div>
-
-      <div className="card overflow-hidden flex flex-col min-h-0">
+  const mainCard = (
+    <div className="card overflow-hidden flex flex-col min-h-0">
         <div className="h-1 w-full bg-gradient-to-r from-violet-500 to-purple-600 flex-shrink-0" />
 
         {/* 2-COLUMN BODY */}
@@ -1253,6 +1200,66 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
           />
         </div>
       </div>
+  )
+
+  if (!showPageHeader) return mainCard
+
+  return (
+    <div className="space-y-6">
+      {/* Page header (match dashboard system) */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <button
+            type="button"
+            onClick={onBack}
+            className="btn-secondary text-sm inline-flex items-center gap-2"
+          >
+            <ArrowLeft size={14} /> Back
+          </button>
+          <h1 className="page-title mt-3 truncate">{repair.deviceBrand} {repair.deviceModel}</h1>
+          <p className="page-subtitle mt-1">
+            {repair.ticketNumber} · {statusLabels[repair.status] ?? repair.status}{isPaid ? ' · Paid' : ''}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 sm:pt-1">
+          <button
+            type="button"
+            onClick={onEdit}
+            disabled={!repairTicketEditable(repair.status)}
+            className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40"
+          >
+            <Pencil size={14} /> Edit
+          </button>
+          <button
+            type="button"
+            onClick={downloadQuote}
+            disabled={downloading}
+            className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-50"
+          >
+            {downloading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />} PDF
+          </button>
+          <button
+            type="button"
+            onClick={sendQuoteWhatsApp}
+            disabled={waSending !== null}
+            className="px-4 py-2 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+          >
+            {waSending === 'quote' ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />} Quote
+          </button>
+          <button
+            type="button"
+            onClick={sendInvoiceWhatsApp}
+            disabled={waSending !== null}
+            className="px-4 py-2 rounded-xl text-sm font-bold bg-green-700 hover:bg-green-600 text-white transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+          >
+            {waSending === 'invoice' ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />}
+            {waSending === 'invoice' ? 'Sending…' : waSendPdf ? 'Invoice PDF' : 'Invoice'}
+          </button>
+        </div>
+      </div>
+
+      {mainCard}
     </div>
   )
 }
