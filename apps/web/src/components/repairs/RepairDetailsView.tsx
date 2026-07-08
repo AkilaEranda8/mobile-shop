@@ -511,7 +511,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
 
   return (
     <div className="space-y-4">
-      <div className="w-full max-w-5xl mx-auto rounded-2xl shadow-2xl flex flex-col" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+      <div className="w-full rounded-2xl shadow-2xl flex flex-col min-h-0" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
         <div className="h-1 w-full bg-gradient-to-r from-violet-500 to-purple-600 flex-shrink-0" />
 
         {/* â•â• TOP HEADER BAR â•â• */}
@@ -542,10 +542,10 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
         </div>
 
         {/* â•â• 2-COLUMN BODY â•â• */}
-        <div className="grid grid-cols-5">
+        <div className="grid grid-cols-1 xl:grid-cols-12">
 
           {/* â”€â”€ LEFT MAIN (3/5) â”€â”€ */}
-          <div className="col-span-3 p-6 space-y-6" style={{ borderRight: '1px solid var(--border-subtle)' }}>
+          <div className="xl:col-span-8 p-6 space-y-6 border-b xl:border-b-0 xl:border-r" style={{ borderColor: 'var(--border-subtle)' }}>
 
             {/* Title + Badges */}
             <div>
@@ -989,7 +989,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
           </div>
 
           {/* â”€â”€ RIGHT SIDEBAR (2/5) â”€â”€ */}
-          <div className="col-span-2 p-5 space-y-4">
+          <div className="xl:col-span-4 p-5 space-y-4">
 
             {/* Payment Summary */}
             <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>

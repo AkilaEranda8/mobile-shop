@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, ShoppingCart, Package, Users, Wrench,
   Shield, Truck, BarChart3, Settings, LogOut,
@@ -78,8 +78,8 @@ const navItems: NavGroup[] = [
         label: 'Inventory',
         submenu: inventorySubmenu,
       },
-      { href: '/dashboard/suppliers?tab=suppliers', icon: Truck, label: 'Suppliers', feature: 'SUPPLIERS' },
-      { href: '/dashboard/suppliers?tab=orders', icon: ClipboardList, label: 'Purchase Orders', feature: 'SUPPLIERS' },
+      { href: '/dashboard/suppliers', icon: Truck, label: 'Suppliers', feature: 'SUPPLIERS' },
+      { href: '/dashboard/purchase-orders', icon: ClipboardList, label: 'Purchase Orders', feature: 'SUPPLIERS' },
       { href: '/dashboard/imei', icon: Smartphone, label: 'IMEI Tracker', badge: 'NEW', feature: 'IMEI' },
     ],
   },
@@ -166,7 +166,6 @@ const PLAN_COLOR: Record<string, string> = {
 export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const searchParams = useSearchParams()
   const user = authStorage.getUser()
   const [shopName, setShopName] = useState('')
   const [plan, setPlan]         = useState('')
@@ -220,18 +219,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   }
 
   const isActive = (href: string) => {
-    const [path, query] = href.split('?')
-    if (path === '/dashboard/suppliers' || path === '/suppliers') {
-      const onSuppliersPage =
-        pathname === '/dashboard/suppliers' ||
-        pathname.startsWith('/dashboard/suppliers/') ||
-        pathname === '/suppliers' ||
-        pathname.startsWith('/suppliers/')
-      if (!onSuppliersPage) return false
-      const tab = new URLSearchParams(query ?? '').get('tab') ?? 'suppliers'
-      const currentTab = searchParams.get('tab') ?? 'suppliers'
-      return tab === currentTab
-    }
+    const path = href.split('?')[0]
     if (path === '/dashboard') return pathname === '/dashboard'
     if (path === '/dashboard/accounting') {
       return pathname === '/dashboard/accounting' || pathname === '/dashboard/accounting/'
