@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -42,7 +42,7 @@ function calcRepairTotals(repair: Pick<RepairTicket, 'estimatedCost' | 'sparePar
   return { serviceFee, partsTotal, estimatedTotal: estimatedCost, subtotal: estimatedCost, estimatedCost }
 }
 
-/* â”€â”€ Thermal Receipt Printer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* Thermal Receipt Printer */
 function printRepairReceipt(repair: RepairTicket, settings: InvoiceSettings) {
   const paperWidth = settings.thermalWidthRepair || '80mm'
   const bodyWidth  = paperWidth === '58mm' ? '216px' : '302px'
@@ -127,7 +127,7 @@ const SOURCE_OPTIONS = [
 ]
 
 function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; onSaved: () => void; prefill?: { customerName?: string; customerPhone?: string; deviceBrand?: string; deviceModel?: string; imei?: string; warrantyClaimId?: string } }) {
-  // â”€â”€ customer search state â”€â”€
+  // customer search state
   const [customerMode, setCustomerMode] = useState<'search' | 'new'>('search')
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [searchQuery, setSearchQuery]   = useState('')
@@ -138,7 +138,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
   const [registeringCust, setRegisteringCust] = useState(false)
   const dropRef = useRef<HTMLDivElement>(null)
 
-  // â”€â”€ ticket form state â”€â”€
+  // ticket form state
   const [form, setForm] = useState({
     deviceBrand: prefill?.deviceBrand || '', deviceModel: prefill?.deviceModel || '', imei: prefill?.imei || '',
     priority: 'NORMAL', estimatedCost: '',
@@ -219,7 +219,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(p => ({ ...p, [k]: e.target.value }))
 
-  // â”€â”€ technician staff state â”€â”€
+  // technician staff state
   const [technicians, setTechnicians] = useState<any[]>([])
   const [techOpen, setTechOpen]       = useState(false)
   const [techQuery, setTechQuery]     = useState('')
@@ -240,7 +240,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
     setTechQuery(t.name); setTechOpen(false)
   }
 
-  // â”€â”€ device catalog state â”€â”€
+  // device catalog state
   const [brands, setBrands]       = useState<any[]>([])
   const [models, setModels]       = useState<any[]>([])
   const [brandOpen, setBrandOpen] = useState(false)
@@ -269,7 +269,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
     ? models.filter(m => m.name.toLowerCase().includes(modelQuery.toLowerCase()))
     : models
 
-  // â”€â”€ pre-fill from props â”€â”€
+  // pre-fill from props
   useEffect(() => {
     if (prefill?.deviceBrand) setBrandQuery(prefill.deviceBrand)
     if (prefill?.deviceModel) setModelQuery(prefill.deviceModel)
@@ -390,7 +390,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
             </div>
             <div>
               <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>New Repair Ticket</h3>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Customer â†’ device â†’ fault â†’ review</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Customer → device → fault → review</p>
             </div>
           </div>
           <button type="button" onClick={onClose} className="p-1.5 rounded-lg transition-colors hover:bg-white/5" style={{ color: 'var(--text-muted)' }}>
@@ -400,13 +400,13 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
 
         <form onSubmit={handleSubmit}>
 
-          {/* â”€â”€ Body â”€â”€ */}
+          {/* Body */}
           <div className="grid grid-cols-12 gap-6 p-8">
 
-            {/* Left column â€” step content */}
+            {/* Left column — step content */}
             <div className="col-span-12 lg:col-span-8">
 
-              {/* STEP 1 â€” Customer */}
+              {/* STEP 1 — Customer */}
               {(
                 <div className="rounded-xl border overflow-visible" style={{ borderColor: 'var(--border-subtle)' }}>
                   <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
@@ -456,7 +456,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                                         </div>
                                         <div className="flex-1 min-w-0">
                                           <p className="text-sm truncate" style={{ color: 'var(--text-primary)' }}>{c.name}</p>
-                                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{c.phone}{c.email ? ` Â· ${c.email}` : ''}</p>
+                                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{c.phone}{c.email ? ` · ${c.email}` : ''}</p>
                                         </div>
                                         <span className="text-[10px] shrink-0" style={{ color: 'var(--text-muted)' }}>{c.totalRepairs ?? 0} repairs</span>
                                       </button>
@@ -525,7 +525,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                 </div>
               )}
 
-              {/* STEP 2 â€” Device */}
+              {/* STEP 2 — Device */}
               {(
                 <div className="rounded-xl border overflow-visible mt-6" style={{ borderColor: 'var(--border-subtle)' }}>
                   <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
@@ -603,7 +603,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                         className="input-field w-full h-12 flex items-center justify-between text-left">
                         <span className={accessories.length === 0 ? '[color:var(--text-muted)] text-sm' : 'text-sm'}
                           style={{ color: accessories.length === 0 ? undefined : 'var(--text-primary)' }}>
-                          {accessories.length === 0 ? 'Select accessoriesâ€¦' : accessories.join(', ')}
+                          {accessories.length === 0 ? 'Select accessories…' : accessories.join(', ')}
                         </span>
                         <ChevronDown size={14} className={`[color:var(--text-muted)] shrink-0 transition-transform ${accOpen ? 'rotate-180' : ''}`} />
                       </button>
@@ -634,7 +634,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                 </div>
               )}
 
-              {/* STEP 3 â€” Issue */}
+              {/* STEP 3 — Issue */}
               {(
                 <div className="rounded-xl border overflow-visible mt-6" style={{ borderColor: 'var(--border-subtle)' }}>
                   <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
@@ -648,7 +648,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                         className="input-field w-full h-12 flex items-center justify-between text-left">
                         <span className={selectedIssues.length === 0 ? '[color:var(--text-muted)] text-sm truncate pr-2' : 'text-sm truncate pr-2'}
                           style={{ color: selectedIssues.length === 0 ? undefined : 'var(--text-primary)' }}>
-                          {selectedIssues.length === 0 ? 'Select fault / issueâ€¦' : selectedIssues.join(', ')}
+                          {selectedIssues.length === 0 ? 'Select fault / issue…' : selectedIssues.join(', ')}
                         </span>
                         <ChevronDown size={14} className={`[color:var(--text-muted)] shrink-0 transition-transform ${issueOpen ? 'rotate-180' : ''}`} />
                       </button>
@@ -656,7 +656,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                         <div className="absolute z-30 top-full mt-1 left-0 right-0 rounded-xl shadow-2xl overflow-hidden"
                           style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
                           <div className="p-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                            <input autoFocus className="input-field text-sm py-1.5" placeholder="Search faultsâ€¦"
+                            <input autoFocus className="input-field text-sm py-1.5" placeholder="Search faults…"
                               value={issueQuery}
                               onChange={e => setIssueQuery(e.target.value)}
                               onMouseDown={e => e.stopPropagation()} />
@@ -716,7 +716,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                 </div>
               )}
 
-              {/* STEP 4 â€” Details */}
+              {/* STEP 4 — Details */}
               {(
                 <div className="rounded-xl border mt-6" style={{ borderColor: 'var(--border-subtle)' }}>
                   <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
@@ -729,7 +729,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                       <div className="relative">
                         <Wrench size={13} className="absolute left-3 top-1/2 -translate-y-1/2 [color:var(--text-muted)] pointer-events-none" />
                         <input className="input-field pl-9 h-12"
-                          placeholder={technicians.length === 0 ? 'No technicians found' : 'Select technicianâ€¦'}
+                          placeholder={technicians.length === 0 ? 'No technicians found' : 'Select technician…'}
                           value={techQuery}
                           onChange={e => { setTechQuery(e.target.value); setForm(p => ({ ...p, technicianId: '', technicianName: e.target.value })); setTechOpen(true) }}
                           onFocus={() => setTechOpen(true)}
@@ -816,7 +816,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
 
             </div>
 
-            {/* Right column â€” always visible */}
+            {/* Right column — always visible */}
             <div className="col-span-12 lg:col-span-4 space-y-5">
               <div className="rounded-xl border p-5" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
                 <div className="flex items-center gap-3 mb-5">
@@ -828,7 +828,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                     <div key={label} className="flex items-center gap-3 text-sm">
                       <Icon size={14} style={{ color: 'var(--text-muted)' }} />
                       <span className="flex-1 text-xs" style={{ color: 'var(--text-secondary)' }}>{label}</span>
-                      <span className="max-w-[140px] truncate text-xs font-semibold text-right" style={{ color: value ? 'var(--text-primary)' : 'var(--text-muted)' }}>{value || 'â€”'}</span>
+                      <span className="max-w-[140px] truncate text-xs font-semibold text-right" style={{ color: value ? 'var(--text-primary)' : 'var(--text-muted)' }}>{value || '—'}</span>
                     </div>
                   ))}
                 </div>
@@ -1142,7 +1142,7 @@ export default function RepairsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
           <h1 className="page-title">Repair Jobs</h1>
-          <p className="page-subtitle">{stats.total} tickets Â· {stats.active} in progress Â· {stats.ready} ready for pickup</p>
+          <p className="page-subtitle">{stats.total} tickets · {stats.active} in progress · {stats.ready} ready for pickup</p>
         </div>
         <div className="flex gap-2 sm:ml-auto">
           <button type="button" onClick={() => refetch()} disabled={loading}
@@ -1214,7 +1214,7 @@ export default function RepairsPage() {
       <ToolbarSearch
         value={search}
         onChange={setSearch}
-        placeholder="Search ticket, customer, phone, deviceâ€¦"
+        placeholder="Search ticket, customer, phone, device…"
         className="max-w-md"
       />
 

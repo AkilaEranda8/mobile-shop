@@ -213,7 +213,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
       ? `\n\n*Parts used (inventory):*\n` + repair.spareParts!.map((p: any) => `  - ${p.productName} x${p.quantity}`).join('\n')
       : ''
     const msg = [
-      `*Repair Quote â€” ${invSettings.shopName || 'Service Center'}*`,
+      `*Repair Quote — ${invSettings.shopName || 'Service Center'}*`,
       ``,
       `*Ticket:* ${repair.ticketNumber}`,
       `*Customer:* ${repair.customerName}`,
@@ -246,7 +246,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
       })
       toast.success('Quote sent via WhatsApp')
     } catch (err: any) {
-      toast.error(err?.message ?? 'Failed to send quote â€” connect WhatsApp in Settings first')
+      toast.error(err?.message ?? 'Failed to send quote — connect WhatsApp in Settings first')
     } finally {
       setWaSending(null)
     }
@@ -275,11 +275,11 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
     ].filter(Boolean).join('\n')
 
     const bankSection = invSettings.bankName
-      ? `\n\n*Payment Details:*\n  Bank: ${invSettings.bankName}\n  Acc: ${invSettings.accNumber || 'â€”'}\n  Name: ${invSettings.accHolder || 'â€”'}`
+      ? `\n\n*Payment Details:*\n  Bank: ${invSettings.bankName}\n  Acc: ${invSettings.accNumber || '—'}\n  Name: ${invSettings.accHolder || '—'}`
       : ''
 
     const msg = [
-      `*INVOICE â€” ${invSettings.shopName || 'Service Center'}*`,
+      `*INVOICE — ${invSettings.shopName || 'Service Center'}*`,
       invSettings.phone ? `Tel: ${invSettings.phone}` : null,
       ``,
       `*Invoice No:* ${repair.ticketNumber}`,
@@ -311,7 +311,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
           pdfBase64 = pdf.base64
           pdfFilename = pdf.filename
         } catch {
-          toast.error('PDF generation failed â€” sending text only')
+          toast.error('PDF generation failed — sending text only')
         }
       }
 
@@ -326,7 +326,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
       })
       toast.success(pdfBase64 ? 'Invoice PDF sent via WhatsApp' : 'Invoice sent via WhatsApp')
     } catch (err: any) {
-      toast.error(err?.message ?? 'Failed to send invoice â€” connect WhatsApp in Settings first')
+      toast.error(err?.message ?? 'Failed to send invoice — connect WhatsApp in Settings first')
     } finally {
       setWaSending(null)
     }
@@ -357,7 +357,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
       const imgH_MM = (canvas.height / canvas.width) * A4_W_MM
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
       if (imgH_MM <= A4_H_MM * 1.15) {
-        /* content is â‰¤ 1 page (or only slightly over) â€” scale to fill exactly one A4 page */
+        /* content is ≤ 1 page (or only slightly over) — scale to fill exactly one A4 page */
         pdf.addImage(imgData, 'JPEG', 0, 0, A4_W_MM, Math.min(imgH_MM, A4_H_MM))
       } else {
         const scale = canvas.width / A4_W_MM
@@ -393,14 +393,14 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
     } catch (err: any) { toast.error(err?.message ?? 'Failed to update warranty') }
     finally { setSavingWarranty(false) }
   }
-  /* â”€â”€ collect payment state â”€â”€ */
+  /* collect payment state */
   const [showPayment, setShowPayment] = useState(false)
   const [discount,    setDiscount]    = useState('')
   const [payMethod,   setPayMethod]   = useState<'CASH'|'CARD'|'UPI'|'BANK_TRANSFER'>('CASH')
   const [amountPaying, setAmountPaying] = useState('')
   const [collecting,  setCollecting]  = useState(false)
   const hasCustomerCredit = useFeatureFlag('CUSTOMER_CREDIT')
-  /* â”€â”€ spare parts state â”€â”€ */
+  /* spare parts state */
   const [showAddPart, setShowAddPart]       = useState(false)
   const [partSearch,  setPartSearch]        = useState('')
   const [partQty,     setPartQty]           = useState(1)
@@ -510,41 +510,67 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
   const STEP_ICONS = [Smartphone, Wrench, CheckCircle2]
 
   return (
-    <div className="space-y-4">
-      <div className="w-full rounded-2xl shadow-2xl flex flex-col min-h-0" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-        <div className="h-1 w-full bg-gradient-to-r from-violet-500 to-purple-600 flex-shrink-0" />
-
-        {/* â•â• TOP HEADER BAR â•â• */}
-        <div className="flex items-center justify-between px-5 py-3.5 sticky top-0 z-10 flex-shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-card)' }}>
-          <button onClick={onBack} className="flex items-center gap-2 text-sm font-medium transition-opacity hover:opacity-70" style={{ color: 'var(--text-secondary)' }}>
-            <ArrowLeft size={15} /> Back to Tickets
+    <div className="space-y-6">
+      {/* Page header (match dashboard system) */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <button
+            type="button"
+            onClick={onBack}
+            className="btn-secondary text-sm inline-flex items-center gap-2"
+          >
+            <ArrowLeft size={14} /> Back
           </button>
-          <div className="flex items-center gap-2">
-            <button onClick={onEdit} disabled={!repairTicketEditable(repair.status)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-colors disabled:opacity-40"
-              style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-subtle)' }}>
-              <Pencil size={11} /> Edit
-            </button>
-            <button onClick={downloadQuote} disabled={downloading} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-colors disabled:opacity-50" style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-subtle)' }}>
-              {downloading ? <Loader2 size={11} className="animate-spin" /> : <FileText size={11} />} PDF
-            </button>
-            <button onClick={sendQuoteWhatsApp} disabled={waSending !== null} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-50">
-              {waSending === 'quote' ? <Loader2 size={11} className="animate-spin" /> : <MessageSquare size={11} />} Quote
-            </button>
-            <button onClick={sendInvoiceWhatsApp} disabled={waSending !== null} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-green-700 hover:bg-green-600 text-white transition-colors disabled:opacity-50">
-              {waSending === 'invoice' ? <Loader2 size={11} className="animate-spin" /> : <MessageSquare size={11} />}
-              {waSending === 'invoice' ? 'Sendingâ€¦' : waSendPdf ? 'Invoice PDF' : 'Invoice'}
-            </button>
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors" style={{ borderColor: 'var(--border-default)', color: 'var(--text-muted)', background: 'var(--bg-subtle)' }}>
-              <MoreVertical size={14} />
-            </button>
-          </div>
+          <h1 className="page-title mt-3 truncate">{repair.deviceBrand} {repair.deviceModel}</h1>
+          <p className="page-subtitle mt-1">
+            {repair.ticketNumber} · {statusLabels[repair.status] ?? repair.status}{isPaid ? ' · Paid' : ''}
+          </p>
         </div>
 
-        {/* â•â• 2-COLUMN BODY â•â• */}
+        <div className="flex flex-wrap items-center gap-2 sm:pt-1">
+          <button
+            type="button"
+            onClick={onEdit}
+            disabled={!repairTicketEditable(repair.status)}
+            className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40"
+          >
+            <Pencil size={14} /> Edit
+          </button>
+          <button
+            type="button"
+            onClick={downloadQuote}
+            disabled={downloading}
+            className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-50"
+          >
+            {downloading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />} PDF
+          </button>
+          <button
+            type="button"
+            onClick={sendQuoteWhatsApp}
+            disabled={waSending !== null}
+            className="px-4 py-2 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+          >
+            {waSending === 'quote' ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />} Quote
+          </button>
+          <button
+            type="button"
+            onClick={sendInvoiceWhatsApp}
+            disabled={waSending !== null}
+            className="px-4 py-2 rounded-xl text-sm font-bold bg-green-700 hover:bg-green-600 text-white transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+          >
+            {waSending === 'invoice' ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />}
+            {waSending === 'invoice' ? 'Sending…' : waSendPdf ? 'Invoice PDF' : 'Invoice'}
+          </button>
+        </div>
+      </div>
+
+      <div className="card overflow-hidden flex flex-col min-h-0">
+        <div className="h-1 w-full bg-gradient-to-r from-violet-500 to-purple-600 flex-shrink-0" />
+
+        {/* 2-COLUMN BODY */}
         <div className="grid grid-cols-1 xl:grid-cols-12">
 
-          {/* â”€â”€ LEFT MAIN (3/5) â”€â”€ */}
+          {/* LEFT MAIN */}
           <div className="xl:col-span-8 p-6 space-y-6 border-b xl:border-b-0 xl:border-r" style={{ borderColor: 'var(--border-subtle)' }}>
 
             {/* Title + Badges */}
@@ -572,7 +598,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
             <div className="grid grid-cols-4 gap-0 rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
               {[
                 { label: 'Date Received',  value: new Date(repair.createdAt).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' }) },
-                { label: 'Est. Completion',value: repair.estimatedCompletion ? new Date(repair.estimatedCompletion).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' }) : 'â€”' },
+                { label: 'Est. Completion',value: repair.estimatedCompletion ? new Date(repair.estimatedCompletion).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' }) : '—' },
               ].map((item, i) => (
                 <div key={item.label} className="p-3" style={{ borderLeft: i > 0 ? '1px solid var(--border-subtle)' : undefined, background: 'var(--bg-subtle)' }}>
                   <p className="text-[10px] font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>{item.label}</p>
@@ -611,7 +637,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
               <div className="grid grid-cols-2 gap-2.5">
                 {[
                   { label: 'Ticket #',   value: repair.ticketNumber,   icon: Hash },
-                  { label: 'Technician', value: repair.technicianName || 'â€”', icon: User },
+                  { label: 'Technician', value: repair.technicianName || '—', icon: User },
                   { label: 'Customer',   value: repair.customerName,   icon: User },
                   { label: 'Source',     value: SOURCE_OPTIONS.find(o => o.value === repair.source)?.label ?? repair.source ?? 'Walk-in', icon: MapPin },
                   ...(repair.imei ? [{ label: 'IMEI', value: repair.imei, icon: Smartphone }] : []),
@@ -681,7 +707,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                   {repair.status === 'READY' ? (
                     <button onClick={() => setShowPayment(v => !v)} disabled={collecting}
                       className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
-                      style={{ background: showPayment ? 'var(--bg-subtle)' : 'linear-gradient(135deg,#16a34a,#15803d)', border: showPayment ? '1px solid var(--border-default)' : 'none', color: showPayment ? 'var(--text-secondary)' : 'white' }}>
+                      style={{ background: showPayment ? 'var(--bg-subtle)' : 'linear-gradient(135deg,#16a34a,#15803d)', border: showPayment ? '1px solid var(--border-default)' : 'none', color: showPayment ? 'var(--text-secondary)' : '#ffffff' }}>
                       <DollarSign size={14} />{showPayment ? 'Hide Payment' : 'Collect Payment'}
                     </button>
                   ) : nextStatus ? (
@@ -756,11 +782,11 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                         </div>
                       </div>
                       <button onClick={handleCollectPayment} disabled={collecting}
-                        className="w-full py-3 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60"
-                        style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)' }}>
+                        className="w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60"
+                        style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)', color: '#ffffff' }}>
                         {collecting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
-                        {collecting ? 'Processingâ€¦' : creditAmount > 0
-                          ? `Confirm â€” Pay ${formatCurrency(payNow)} + Credit ${formatCurrency(creditAmount)}`
+                        {collecting ? 'Processing…' : creditAmount > 0
+                          ? `Confirm — Pay ${formatCurrency(payNow)} + Credit ${formatCurrency(creditAmount)}`
                           : `Confirm & Collect ${formatCurrency(payNow)}`}
                       </button>
                     </div>
@@ -795,14 +821,14 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
               </div>
               <p className="text-[11px] mb-3" style={{ color: 'var(--text-muted)' }}>
                 {partsLocked
-                  ? 'Repair completed â€” parts are locked.'
+                  ? 'Repair completed — parts are locked.'
                   : 'Sell/buy tracked for profit report. Customer pays the quote only. Stock deducts on payment.'}
               </p>
 
               {showAddPart && !partsLocked && (
                 <div className="rounded-xl p-4 mb-3 space-y-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
                   <div className="relative">
-                    <input className="input-field text-sm" placeholder="Search inventory by name or SKUâ€¦"
+                    <input className="input-field text-sm" placeholder="Search inventory by name or SKU…"
                       value={selProduct ? selProduct.name : partSearch}
                       onChange={e => { setPartSearch(e.target.value); setSelProduct(null) }} />
                     {filteredProducts.length > 0 && !selProduct && (
@@ -815,8 +841,8 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                             <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{p.name}</p>
                             <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                              {p.sku ? `${p.sku} Â· ` : ''}Stock: {p.stock} Â· Sell: {formatCurrency(p.sellingPrice ?? 0)} Â· Buy: {formatCurrency(p.buyingPrice ?? 0)}
-                              {Number(p.warrantyMonths) > 0 ? ` Â· Warranty: ${formatWarrantyPeriodLabel(Number(p.warrantyMonths))}` : ''}
+                              {p.sku ? `${p.sku} · ` : ''}Stock: {p.stock} · Sell: {formatCurrency(p.sellingPrice ?? 0)} · Buy: {formatCurrency(p.buyingPrice ?? 0)}
+                              {Number(p.warrantyMonths) > 0 ? ` · Warranty: ${formatWarrantyPeriodLabel(Number(p.warrantyMonths))}` : ''}
                             </p>
                           </button>
                         ))}
@@ -833,7 +859,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                       {(Number(selProduct.warrantyMonths) > 0 || selProduct.warrantyNote) && (
                         <p className="text-[10px] pl-5" style={{ color: 'var(--text-muted)' }}>
                           {Number(selProduct.warrantyMonths) > 0 && <>Warranty: {formatWarrantyPeriodLabel(Number(selProduct.warrantyMonths))}</>}
-                          {selProduct.warrantyNote ? `${Number(selProduct.warrantyMonths) > 0 ? ' Â· ' : ''}Note: ${selProduct.warrantyNote}` : ''}
+                          {selProduct.warrantyNote ? `${Number(selProduct.warrantyMonths) > 0 ? ' · ' : ''}Note: ${selProduct.warrantyNote}` : ''}
                         </p>
                       )}
                     </div>
@@ -865,7 +891,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                           <Wrench size={13} className="text-green-600" />
                         </div>
                         <div>
-                          <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Repair Service â€“ {repair.deviceBrand} {repair.deviceModel}</p>
+                          <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Repair Service – {repair.deviceBrand} {repair.deviceModel}</p>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Labor & Service</span>
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-600 dark:text-green-400 font-semibold border border-green-500/20">Service</span>
@@ -892,9 +918,9 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                       </div>
                     </div>
                     <div className="col-span-2 text-center text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>{part.quantity}</div>
-                    <div className="col-span-2 text-right text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>â€”</div>
+                    <div className="col-span-2 text-right text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>—</div>
                     <div className="col-span-2 text-right flex items-center justify-end gap-2">
-                      <span className="text-xs font-bold" style={{ color: 'var(--text-muted)' }}>â€”</span>
+                      <span className="text-xs font-bold" style={{ color: 'var(--text-muted)' }}>—</span>
                       {!partsLocked && (
                       <button onClick={() => handleRemovePart(part.id)} disabled={removingId === part.id}
                         className="w-5 h-5 rounded flex items-center justify-center transition-colors hover:bg-red-500/10 hover:text-red-500 disabled:opacity-40"
@@ -916,7 +942,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                     <span className="text-violet-600 dark:text-violet-400">{formatCurrency(isPaid ? billTotal : quote)}</span>
                   </div>
                   {(repair.spareParts?.length ?? 0) > 0 && (
-                    <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>Parts buy/sell in profit report below â€” not added to bill.</p>
+                    <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>Parts buy/sell in profit report below — not added to bill.</p>
                   )}
                 </div>
               </div>
@@ -940,7 +966,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                     <div key={note.id} className="rounded-xl p-3.5 border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                       <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{note.text}</p>
                       <p className="text-[10px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
-                        {new Date(note.createdAt).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' })} Â· {note.authorName}
+                        {new Date(note.createdAt).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' })} · {note.authorName}
                       </p>
                     </div>
                   ))}
@@ -951,7 +977,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                     <div key={i} className="rounded-xl p-3.5 border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                       <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{h.note}</p>
                       <p className="text-[10px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
-                        {new Date(h.timestamp).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' })} Â· {h.changedBy}
+                        {new Date(h.timestamp).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' })} · {h.changedBy}
                       </p>
                     </div>
                   ))}
@@ -971,7 +997,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                 <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                   <div className="flex items-center gap-2 mb-3">
                     <History size={13} className="text-violet-500" />
-                    <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Device History â€” IMEI {repair.imei}</p>
+                    <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Device History — IMEI {repair.imei}</p>
                     <span className="ml-auto text-[10px] font-bold text-violet-600 bg-violet-500/10 px-2 py-0.5 rounded">{history.length} past repair{history.length > 1 ? 's' : ''}</span>
                   </div>
                   <div className="space-y-2">
@@ -988,7 +1014,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
             })()}
           </div>
 
-          {/* â”€â”€ RIGHT SIDEBAR (2/5) â”€â”€ */}
+          {/* RIGHT SIDEBAR */}
           <div className="xl:col-span-4 p-5 space-y-4">
 
             {/* Payment Summary */}
@@ -1008,7 +1034,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                 {isPaid && paidDiscount > 0 && (
                   <div className="flex justify-between items-center">
                     <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Discount</span>
-                    <span className="text-sm font-bold text-amber-600 dark:text-amber-400">âˆ’{formatCurrency(paidDiscount)}</span>
+                    <span className="text-sm font-bold text-amber-600 dark:text-amber-400">−{formatCurrency(paidDiscount)}</span>
                   </div>
                 )}
                 {isPaid && (
@@ -1103,7 +1129,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold text-indigo-400 border border-indigo-500/20 bg-violet-500/10 hover:bg-violet-500/20 transition-colors disabled:opacity-50"
                 >
                   {uploading ? <Loader2 size={10} className="animate-spin" /> : <Upload size={10} />}
-                  {uploading ? 'Uploadingâ€¦' : 'Add Files'}
+                  {uploading ? 'Uploading…' : 'Add Files'}
                 </button>
               </div>
               <div className="p-4">
@@ -1162,8 +1188,8 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                   >
                     {uploading ? <Loader2 size={22} className="animate-spin text-indigo-400" /> : <Upload size={22} style={{ color: 'var(--text-muted)' }} />}
                     <div>
-                      <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>{uploading ? 'Uploading filesâ€¦' : 'Click to upload files'}</p>
-                      {!uploading && <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>JPG, PNG, WebP, PDF Â· Max 10 MB each</p>}
+                      <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>{uploading ? 'Uploading files…' : 'Click to upload files'}</p>
+                      {!uploading && <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>JPG, PNG, WebP, PDF · Max 10 MB each</p>}
                     </div>
                   </button>
                 )}

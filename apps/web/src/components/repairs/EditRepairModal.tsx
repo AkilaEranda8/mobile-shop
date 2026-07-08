@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect } from 'react'
 import { X, Pencil, Loader2, CheckCircle2, User, Phone, Smartphone, Hash, AlertTriangle, Wrench, DollarSign, Calendar, Save } from 'lucide-react'
@@ -8,7 +8,7 @@ import { REPAIR_WARRANTY_OPTIONS } from '@/lib/repair-invoice.util'
 import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
 import type { RepairTicket } from '@/types'
 import toast from 'react-hot-toast'
-/* â”€â”€ Edit Repair Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* Edit Repair Modal */
 export default function EditRepairModal({ repair, onClose, onSaved }: {
   repair: RepairTicket; onClose: () => void; onSaved: () => void
 }) {
@@ -90,7 +90,7 @@ export default function EditRepairModal({ repair, onClose, onSaved }: {
         ) : (
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
 
-          {/* â”€â”€ Customer Information â”€â”€ */}
+          {/* Customer Information */}
           <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
             <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
               <User size={15} className="text-violet-500" />
@@ -114,7 +114,7 @@ export default function EditRepairModal({ repair, onClose, onSaved }: {
             </div>
           </div>
 
-          {/* â”€â”€ Device Information â”€â”€ */}
+          {/* Device Information */}
           <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
             <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
               <Smartphone size={15} className="text-violet-500" />
@@ -149,7 +149,7 @@ export default function EditRepairModal({ repair, onClose, onSaved }: {
             </div>
           </div>
 
-          {/* â”€â”€ Reported Issue â”€â”€ */}
+          {/* Reported Issue */}
           <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
             <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
               <AlertTriangle size={15} className="text-violet-500" />
@@ -157,12 +157,12 @@ export default function EditRepairModal({ repair, onClose, onSaved }: {
             </div>
             <div className="p-4">
               <textarea required className="input-field w-full resize-none text-sm" rows={3}
-                placeholder="Describe the fault or issue reported by the customerâ€¦"
+                placeholder="Describe the fault or issue reported by the customer…"
                 value={form.reportedIssue} onChange={f('reportedIssue')} />
             </div>
           </div>
 
-          {/* â”€â”€ Job Details â”€â”€ */}
+          {/* Job Details */}
           <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
             <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
               <Wrench size={15} className="text-violet-500" />
