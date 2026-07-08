@@ -205,6 +205,14 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
     })
   }, [])
 
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
+
   const downloadInvoice = async () => {
     if (!invoiceRef.current) return
     setDownloading(true)
@@ -245,117 +253,310 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
     finally { setDownloading(false) }
   }
 
+  const printInvoice = () => {
+    if (!invoiceRef.current) return
+    const printContents = invoiceRef.current.innerHTML
+    const w = window.open('', '_blank', 'width=900,height=1200')
+    if (!w) return
+    w.document.write(`
+      <html><head><title>Invoice ${sale.invoiceNumber}</title>
+      <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3/dist/tailwind.min.css" rel="stylesheet">
+      <style>
+        body { margin: 0; background: white; font-family: 'Segoe UI', sans-serif; }
+        @page { size: A4; margin: 15mm; }
+        @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+      </style>
+      </head><body>${printContents}</body></html>
+    `)
+    w.document.close()
+    w.focus()
+    setTimeout(() => { w.print(); w.close() }, 400)
+  }
+
+  const paymentStatus = sale?.dueAmount > 0 ? 'Partial' : 'Paid'
+  const paymentStatusClass = sale?.dueAmount > 0
+    ? 'bg-amber-50 text-amber-700 border-amber-200'
+    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+
+  const safeText = (v: any) => (v === null || v === undefined || v === '' ? '—' : String(v))
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-white text-slate-900 border border-slate-200 rounded-xl w-full max-w-6xl shadow-2xl max-h-[92vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623] z-10">
-          <div className="flex items-center gap-2">
-            <Receipt size={15} className="text-violet-400" />
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-slate-200 sticky top-0 bg-white z-10">
+          <div className="flex items-start gap-2">
+            <Receipt size={16} className="text-emerald-600 mt-0.5" />
             <div>
-              <p className="text-xs font-mono text-violet-400">{sale.invoiceNumber}</p>
-              <p className="text-sm font-bold text-white">{sale.customerName || 'Walk-in Customer'}</p>
+              <p className="text-sm font-semibold">
+                Sell Details ( Invoice No : <span className="font-mono">{safeText(sale.invoiceNumber)}</span> )
+              </p>
+              <p className="text-[11px] text-slate-500">
+                {safeText(sale.customerName || 'Walk-in Customer')}
+              </p>
             </div>
           </div>
+
           <div className="flex items-center gap-2">
-            <span className={`text-xs px-2.5 py-1 rounded-full border font-semibold ${statusColors[sale.status] ?? ''}`}>
-              {sale.status}
+            <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${paymentStatusClass}`}>
+              {paymentStatus}
             </span>
-            <button onClick={downloadInvoice} disabled={downloading}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 border border-violet-500/20 transition-colors disabled:opacity-50 font-semibold">
-              {downloading ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />}
-              {downloading ? 'Generating…' : 'Download PDF'}
-            </button>
-            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5">
-              <X size={15} />
+            <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${statusColors[sale.status] ?? 'bg-slate-50 border-slate-200 text-slate-600'}`}>
+              {safeText(sale.status)}
+            </span>
+            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100">
+              <X size={16} />
             </button>
           </div>
         </div>
 
-        <div className="p-5 space-y-4">
-          {/* Meta */}
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: 'Date',     value: formatDate(sale.createdAt),     icon: Calendar },
-              { label: 'Cashier',  value: sale.cashierName,               icon: User     },
-              { label: 'Invoice',  value: sale.invoiceNumber,             icon: Hash     },
-              { label: 'Customer', value: sale.customerName || 'Walk-in', icon: User     },
-            ].map(({ label, value, icon: Icon }) => (
-              <div key={label} className="bg-white/3 rounded-xl p-3 border border-white/5">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Icon size={10} className="text-slate-500" />
-                  <p className="text-[10px] text-slate-500 uppercase tracking-wide">{label}</p>
-                </div>
-                <p className="text-xs font-semibold text-slate-200 truncate">{value}</p>
+        <div className="p-4 sm:p-5 space-y-4">
+          {/* Top meta row */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div className="space-y-1 text-[12px]">
+              <div className="flex items-center gap-1.5">
+                <Calendar size={13} className="text-slate-400" />
+                <span className="text-slate-500">Date:</span>
+                <span className="font-medium">{safeText(formatDate(sale.createdAt))}</span>
               </div>
-            ))}
-          </div>
-
-          {/* Items */}
-          <div className="bg-white/3 rounded-xl border border-white/5 overflow-hidden">
-            <div className="px-3 py-2 border-b border-white/5">
-              <p className="text-[10px] text-slate-500 uppercase tracking-wide">Items ({sale.items?.length ?? 0})</p>
+              <div className="flex items-center gap-1.5">
+                <Hash size={13} className="text-slate-400" />
+                <span className="text-slate-500">Invoice No:</span>
+                <span className="font-mono">{safeText(sale.invoiceNumber)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Receipt size={13} className="text-slate-400" />
+                <span className="text-slate-500">Status:</span>
+                <span className="font-medium">{safeText(sale.status)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <CreditCard size={13} className="text-slate-400" />
+                <span className="text-slate-500">Payment status:</span>
+                <span className="font-medium">{paymentStatus}</span>
+              </div>
             </div>
-            {sale.items?.map((item: any) => (
-              <div key={item.id} className="flex items-center justify-between px-3 py-2.5 border-b border-white/3 last:border-0">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-slate-200 truncate">{item.productName}</p>
-                  <p className="text-[10px] text-slate-500 font-mono">{item.sku}{item.imei ? ` · ${item.imei}` : ''}</p>
-                </div>
-                <div className="text-right flex-shrink-0 ml-2">
-                  <p className="text-xs font-bold text-white">{formatCurrency(item.total)}</p>
-                  <p className="text-[10px] text-slate-500">{item.quantity} × {formatCurrency(item.unitPrice)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
 
-          {/* Totals */}
-          <div className="bg-white/3 rounded-xl border border-white/5 p-3 space-y-1.5">
-            {[
-              { label: 'Subtotal', value: formatCurrency(sale.subtotal) },
-              { label: 'Discount', value: `- ${formatCurrency(sale.discount)}`, hide: !sale.discount },
-              { label: 'Tax',      value: `+ ${formatCurrency(sale.tax)}`,      hide: !sale.tax      },
-            ].filter(r => !r.hide).map(({ label, value }) => (
-              <div key={label} className="flex justify-between text-xs text-slate-400">
-                <span>{label}</span><span>{value}</span>
+            <div className="space-y-1 text-[12px]">
+              <div className="flex items-center gap-1.5">
+                <User size={13} className="text-slate-400" />
+                <span className="text-slate-500">Customer name:</span>
+                <span className="font-medium">{safeText(sale.customerName || 'Walk-in Customer')}</span>
               </div>
-            ))}
-            <div className="flex justify-between text-sm font-bold text-white pt-1.5 border-t border-white/5">
-              <span>Total</span><span>{formatCurrency(sale.total)}</span>
+              <div className="flex items-center gap-1.5">
+                <Package size={13} className="text-slate-400" />
+                <span className="text-slate-500">Address:</span>
+                <span className="font-medium">{safeText(sale.customerAddress)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <User size={13} className="text-slate-400" />
+                <span className="text-slate-500">Service staff:</span>
+                <span className="font-medium">{safeText(sale.cashierName)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Truck size={13} className="text-slate-400" />
+                <span className="text-slate-500">Shipping:</span>
+                <span className="font-medium">{safeText(sale.shippingMethod || sale.source === 'DELIVERY' ? 'Delivery' : '')}</span>
+              </div>
             </div>
-            {sale.dueAmount > 0 && (
-              <div className="flex justify-between text-xs text-yellow-400">
-                <span>Due</span><span>{formatCurrency(sale.dueAmount)}</span>
+
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-[12px]">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-2 mb-2">
+                <span className="text-slate-600 font-semibold">Quick totals</span>
+                <span className="text-slate-500 text-[11px]">{safeText(sale.currency || 'LKR')}</span>
               </div>
-            )}
+              <div className="space-y-1">
+                <div className="flex justify-between"><span className="text-slate-500">Subtotal</span><span className="font-medium">{formatCurrency(sale.subtotal ?? 0)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Discount</span><span className="font-medium">{formatCurrency(sale.discount ?? 0)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Order Tax</span><span className="font-medium">{formatCurrency(sale.tax ?? 0)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Shipping</span><span className="font-medium">{formatCurrency(sale.shippingFee ?? 0)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Round Off</span><span className="font-medium">{formatCurrency(sale.roundOff ?? 0)}</span></div>
+                <div className="flex justify-between pt-2 border-t border-slate-200"><span className="font-semibold">Total Payable</span><span className="font-semibold">{formatCurrency(sale.total ?? 0)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Total paid</span><span className="font-medium">{formatCurrency(sale.paidAmount ?? (sale.total ?? 0) - (sale.dueAmount ?? 0))}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Total remaining</span><span className="font-medium">{formatCurrency(sale.dueAmount ?? 0)}</span></div>
+              </div>
+            </div>
           </div>
 
-          {/* Payments */}
-          {sale.payments?.length > 0 && (
-            <div className="space-y-1.5">
-              <p className="text-[10px] text-slate-500 uppercase tracking-wide">Payments</p>
-              {sale.payments.map((p: any) => (
-                <div key={p.id} className="flex items-center justify-between px-3 py-2 bg-white/3 rounded-xl border border-white/5">
-                  <div className="flex items-center gap-2 text-slate-300">
-                    {methodIcon[p.method] ?? <CreditCard size={11} />}
-                    <span className="text-xs">{p.method}</span>
-                    {p.reference && <span className="text-[10px] text-slate-500 font-mono">{p.reference}</span>}
+          {/* Products + Payments + Totals layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Left column: products + payment table + notes */}
+            <div className="lg:col-span-2 space-y-4">
+              {/* Products */}
+              <div className="rounded-lg border border-slate-200 overflow-hidden">
+                <div className="bg-emerald-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide">
+                  Products
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-[860px] w-full text-[12px]">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr className="text-slate-600">
+                        <th className="px-3 py-2 text-left w-10">#</th>
+                        <th className="px-3 py-2 text-left">Product</th>
+                        <th className="px-3 py-2 text-left">Lot &amp; Expiry</th>
+                        <th className="px-3 py-2 text-right">Quantity</th>
+                        <th className="px-3 py-2 text-right">Unit Price</th>
+                        <th className="px-3 py-2 text-right">Discount</th>
+                        <th className="px-3 py-2 text-right">Tax</th>
+                        <th className="px-3 py-2 text-right">Price inc. tax</th>
+                        <th className="px-3 py-2 text-right">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(sale.items ?? []).map((item: any, idx: number) => {
+                        const qty = Number(item.quantity ?? 0)
+                        const unit = Number(item.unitPrice ?? 0)
+                        const subtotal = Number(item.total ?? qty * unit)
+                        const itemDiscount = Number(item.discount ?? 0)
+                        const itemTax = Number(item.tax ?? 0)
+                        const priceIncTax = qty > 0 ? (subtotal + itemTax) / qty : (unit + (itemTax || 0))
+                        return (
+                          <tr key={item.id ?? idx} className="border-b border-slate-100 last:border-0">
+                            <td className="px-3 py-2 text-slate-500">{idx + 1}</td>
+                            <td className="px-3 py-2">
+                              <div className="font-medium">{safeText(item.productName)}</div>
+                              {(item.sku || item.imei) && (
+                                <div className="text-[10px] text-slate-500 font-mono">
+                                  {safeText(item.sku)}{item.imei ? ` · ${item.imei}` : ''}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-slate-500">{safeText(item.lotExpiry || item.lot || item.expiry)}</td>
+                            <td className="px-3 py-2 text-right">{safeText(qty ? qty.toFixed(2) + ' Qty' : '')}</td>
+                            <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(unit)}</td>
+                            <td className="px-3 py-2 text-right whitespace-nowrap">{itemDiscount ? formatCurrency(itemDiscount) : '0.00'}</td>
+                            <td className="px-3 py-2 text-right whitespace-nowrap">{itemTax ? formatCurrency(itemTax) : '0.00'}</td>
+                            <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(priceIncTax)}</td>
+                            <td className="px-3 py-2 text-right whitespace-nowrap font-semibold">{formatCurrency(subtotal)}</td>
+                          </tr>
+                        )
+                      })}
+                      {(!sale.items || sale.items.length === 0) && (
+                        <tr>
+                          <td colSpan={9} className="px-3 py-6 text-center text-slate-500">No items</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Payment info */}
+              <div className="rounded-lg border border-slate-200 overflow-hidden">
+                <div className="bg-emerald-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide">
+                  Payment info
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-[720px] w-full text-[12px]">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr className="text-slate-600">
+                        <th className="px-3 py-2 text-left w-10">#</th>
+                        <th className="px-3 py-2 text-left">Date</th>
+                        <th className="px-3 py-2 text-left">Reference No</th>
+                        <th className="px-3 py-2 text-right">Amount</th>
+                        <th className="px-3 py-2 text-left">Payment mode</th>
+                        <th className="px-3 py-2 text-left">Payment note</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(sale.payments ?? []).map((p: any, idx: number) => (
+                        <tr key={p.id ?? idx} className="border-b border-slate-100 last:border-0">
+                          <td className="px-3 py-2 text-slate-500">{idx + 1}</td>
+                          <td className="px-3 py-2">{safeText(p.date ? formatDate(p.date) : formatDate(sale.createdAt))}</td>
+                          <td className="px-3 py-2 font-mono text-slate-600">{safeText(p.reference)}</td>
+                          <td className="px-3 py-2 text-right whitespace-nowrap font-medium">{formatCurrency(p.amount ?? 0)}</td>
+                          <td className="px-3 py-2">{safeText(p.method)}</td>
+                          <td className="px-3 py-2 text-slate-500">{safeText(p.note)}</td>
+                        </tr>
+                      ))}
+                      {(!sale.payments || sale.payments.length === 0) && (
+                        <tr>
+                          <td colSpan={6} className="px-3 py-6 text-center text-slate-500">No payments</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="rounded-lg border border-slate-200 p-3">
+                  <p className="text-[11px] font-semibold text-slate-600 mb-1">Sell note:</p>
+                  <p className="text-[12px] text-slate-700">{safeText(sale.notes)}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 p-3">
+                  <p className="text-[11px] font-semibold text-slate-600 mb-1">Staff note:</p>
+                  <p className="text-[12px] text-slate-700">{safeText(sale.staffNote)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Right column: totals (detailed) */}
+            <div className="rounded-lg border border-slate-200 overflow-hidden h-fit">
+              <div className="bg-slate-50 px-3 py-2 border-b border-slate-200 flex items-center justify-between">
+                <p className="text-[12px] font-semibold text-slate-700">Total</p>
+                <p className="text-[12px] font-semibold text-slate-700">{formatCurrency(sale.total ?? 0)}</p>
+              </div>
+              <div className="p-3 text-[12px] space-y-2">
+                {[
+                  { label: 'Discount', value: sale.discount ?? 0 },
+                  { label: 'Service Charge', value: sale.serviceCharge ?? 0 },
+                  { label: 'Order Tax', value: sale.tax ?? 0 },
+                  { label: 'Shipping', value: sale.shippingFee ?? 0 },
+                  { label: 'Round Off', value: sale.roundOff ?? 0 },
+                ].map(r => (
+                  <div key={r.label} className="flex items-center justify-between">
+                    <span className="text-slate-500">{r.label}:</span>
+                    <span className="font-medium">{formatCurrency(Number(r.value ?? 0))}</span>
                   </div>
-                  <span className="text-xs font-semibold text-white">{formatCurrency(p.amount)}</span>
+                ))}
+                <div className="pt-2 border-t border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold">Total Payable:</span>
+                    <span className="font-semibold">{formatCurrency(sale.total ?? 0)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Total paid:</span>
+                    <span className="font-medium">{formatCurrency(sale.paidAmount ?? (sale.total ?? 0) - (sale.dueAmount ?? 0))}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Total remaining:</span>
+                    <span className="font-medium">{formatCurrency(sale.dueAmount ?? 0)}</span>
+                  </div>
                 </div>
-              ))}
+              </div>
             </div>
-          )}
+          </div>
 
-          {sale.notes && (
-            <div className="p-3 bg-white/3 rounded-xl border border-white/5">
-              <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">Notes</p>
-              <p className="text-xs text-slate-300">{sale.notes}</p>
-            </div>
-          )}
+          {/* Bottom actions */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-end pt-2">
+            <button
+              type="button"
+              onClick={printInvoice}
+              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-slate-200 bg-white hover:bg-slate-50 font-semibold"
+            >
+              <Eye size={14} />
+              Print Invoice
+            </button>
+            <button
+              type="button"
+              onClick={downloadInvoice}
+              disabled={downloading}
+              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-semibold disabled:opacity-60"
+            >
+              {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              {downloading ? 'Generating…' : 'Download PDF'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-slate-200 bg-white hover:bg-slate-50 font-semibold"
+            >
+              Close
+            </button>
+          </div>
 
-          {/* Hidden invoice for PDF capture */}
+          {/* Hidden invoice for PDF capture / print */}
           <div style={{ position: 'fixed', left: '-9999px', top: 0, pointerEvents: 'none' }}>
             <InvoiceA4View
               ref={invoiceRef}
