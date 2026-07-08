@@ -54,8 +54,6 @@ export default function RepairDetailsModal({ repair, onClose, onEdit, onStatusCh
                 <X size={16} />
               </button>
             </div>
-            {/* Accent divider like system details views */}
-            <div className="h-1 w-full bg-gradient-to-r from-violet-500 to-purple-600" />
           </div>
 
           <RepairDetailsView

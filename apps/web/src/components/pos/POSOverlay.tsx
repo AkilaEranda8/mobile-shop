@@ -1433,7 +1433,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
     const serviceId = isService ? product.id : undefined
     setCart(prev => {
       const trackImei = Boolean(product.trackImei)
-      if (!imei && !trackImei) {
+      if (!imei) {
         // Match by productId + variation key so each variant is a separate cart line
         const varKey = variation ? `${variation.storage}::${variation.colorName}` : ''
         const existing = prev.find(i => i.isService
@@ -1476,13 +1476,42 @@ function POSContent({ onClose }: { onClose: () => void }) {
       const productId = rec?.productId
       const product = products.find((p: any) => p.id === productId)
       if (product) {
-        addToCart(product, imei)
-        toast.success(`Added: ${product.name} — IMEI linked`)
+        // Prefer attaching IMEI into an existing cart line for the same product (qty>1 -> split)
+        const target = cart.find(i => i.productId === product.id && !i.imei)
+        if (target) {
+          setCart(prev => prev.flatMap(i => {
+            if (i.cartId !== target.cartId) return [i]
+            if (i.quantity > 1) {
+              const newCartId = `${product.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+              return [
+                { ...i, quantity: i.quantity - 1 },
+                { ...i, cartId: newCartId, imei, quantity: 1 },
+              ]
+            }
+            return [{ ...i, imei }]
+          }))
+          toast.success(`IMEI linked to ${product.name}`)
+        } else {
+          addToCart(product, imei)
+          toast.success(`Added: ${product.name} — IMEI linked`)
+        }
       } else {
         const targetIdx = cart.findIndex(i => !i.imei)
         if (targetIdx !== -1) {
-          setCart(prev => prev.map((item, idx) => idx === targetIdx ? { ...item, imei } : item))
-          toast(`IMEI attached to ${cart[targetIdx].name}`)
+          const targetCartId = cart[targetIdx].cartId
+          const targetItem   = cart[targetIdx]
+          setCart(prev => prev.flatMap(i => {
+            if (i.cartId !== targetCartId) return [i]
+            if (i.quantity > 1) {
+              const newCartId = `${targetCartId}-imei-${Date.now()}`
+              return [
+                { ...i, quantity: i.quantity - 1 },
+                { ...i, cartId: newCartId, imei, quantity: 1 },
+              ]
+            }
+            return [{ ...i, imei }]
+          }))
+          toast(`IMEI attached to ${targetItem.name}`)
         } else {
           toast.error('IMEI not found. Add a product to cart first, then scan.')
         }
@@ -1490,8 +1519,20 @@ function POSContent({ onClose }: { onClose: () => void }) {
     } catch {
       const targetIdx = cart.findIndex(i => !i.imei)
       if (targetIdx !== -1) {
-        setCart(prev => prev.map((item, idx) => idx === targetIdx ? { ...item, imei } : item))
-        toast(`IMEI attached to ${cart[targetIdx].name}`)
+        const targetCartId = cart[targetIdx].cartId
+        const targetItem   = cart[targetIdx]
+        setCart(prev => prev.flatMap(i => {
+          if (i.cartId !== targetCartId) return [i]
+          if (i.quantity > 1) {
+            const newCartId = `${targetCartId}-imei-${Date.now()}`
+            return [
+              { ...i, quantity: i.quantity - 1 },
+              { ...i, cartId: newCartId, imei, quantity: 1 },
+            ]
+          }
+          return [{ ...i, imei }]
+        }))
+        toast(`IMEI attached to ${targetItem.name}`)
       } else {
         toast.error('IMEI not registered. Add a product to cart first.')
       }

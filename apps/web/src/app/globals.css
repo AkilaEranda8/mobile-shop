@@ -223,7 +223,16 @@
   }
 
   .sidebar-item-active {
-    @apply bg-violet-600/20 text-violet-600 dark:text-violet-300 border border-violet-500/30;
+    /* Light mode: make active state stand out clearly */
+    background: rgba(109,40,217,0.16);
+    color: #6d28d9;
+    border: 1px solid rgba(109,40,217,0.42);
+  }
+
+  .dark .sidebar-item-active {
+    background: rgba(109,40,217,0.20);
+    color: #c4b5fd;
+    border: 1px solid rgba(109,40,217,0.30);
   }
 
   .badge-status {
@@ -304,18 +313,9 @@ html:not(.dark) header {
   box-shadow: 0 1px 6px rgba(0,0,0,0.07);
 }
 html:not(.dark) aside {
+  background: #f8fafc !important;
   box-shadow: 2px 0 12px rgba(0,0,0,0.06);
 }
-
-/* ── Light mode: override hardcoded dark-only Tailwind classes ──────── */
-html:not(.dark) .text-white     { color: #000000; }
-html:not(.dark) .text-slate-50  { color: #000000; }
-html:not(.dark) .text-slate-100 { color: #111827; }
-html:not(.dark) .text-slate-200 { color: #1e293b; }
-html:not(.dark) .text-slate-300 { color: #334155; }
-html:not(.dark) .text-slate-400 { color: #475569; }
-html:not(.dark) .text-slate-500 { color: #64748b; }
-html:not(.dark) .text-slate-600 { color: #64748b; }
 
 /* ── Keep white text on colored/filled button backgrounds ──────────── */
 html:not(.dark) .btn-primary,
