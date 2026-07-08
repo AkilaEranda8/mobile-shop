@@ -172,7 +172,7 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
               <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
                 <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{user?.name ?? 'User'}</p>
                 <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{user?.email ?? ''}</p>
-                <span className="inline-block mt-1.5 text-[10px] px-2 py-0.5 rounded-full capitalize bg-violet-600/20 text-violet-700 dark:text-violet-300 border border-violet-500/20">{roleLabel}</span>
+                <span className="inline-block mt-1.5 text-[10px] px-2 py-0.5 rounded-full capitalize bg-violet-600/20 text-violet-300 border border-violet-500/20">{roleLabel}</span>
               </div>
               <div className="p-1">
                 {[

@@ -250,7 +250,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       {/* Collapse Toggle */}
       <button
         onClick={onToggle}
-        className="absolute -right-3 top-16 z-10 w-6 h-6 border rounded-full flex items-center justify-center text-slate-500 hover:text-violet-600 dark:hover:text-white hover:border-violet-500/40 transition-all shadow-lg hidden lg:flex"
+        className="absolute -right-3 top-16 z-10 w-6 h-6 border rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:border-violet-500/40 transition-all shadow-lg hidden lg:flex"
         style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
       >
         {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
@@ -266,7 +266,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
-            <span className="font-bold text-base truncate block" style={{ color: 'var(--text-primary)' }}>{shopName || 'My Shop'}</span>
+            <span className="text-white font-bold text-base truncate block">{shopName || 'My Shop'}</span>
             {plan && <span className={`block text-xs -mt-0.5 font-medium capitalize ${PLAN_COLOR[plan] ?? 'text-slate-400'}`}>{plan.charAt(0) + plan.slice(1).toLowerCase()}</span>}
           </div>
         )}
@@ -287,7 +287,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                 {group.label}
               </p>
             )}
-            {collapsed && <div className="my-1 h-px bg-slate-200/80 dark:bg-white/5 mx-2" />}
+            {collapsed && <div className="my-1 h-px bg-white/5 mx-2" />}
             <div className="space-y-0.5">
               {visibleItems.map((item) => {
                 if (item.submenu?.length) {
@@ -328,7 +328,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                           sectionActive && 'sidebar-item-active',
                         )}
                       >
-                        <item.icon size={17} className={cn('flex-shrink-0 transition-colors', sectionActive ? 'text-violet-600 dark:text-violet-300' : 'text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300')} />
+                        <item.icon size={17} className={cn('flex-shrink-0 transition-colors', sectionActive ? 'text-violet-600 dark:text-violet-300' : 'text-slate-500 group-hover:text-slate-300')} />
                         <span className="text-sm font-medium flex-1 truncate text-left">{item.label}</span>
                         {shouldShowBadge(item.badge) && (
                           <span className="text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 bg-cyan-500/15 text-cyan-400 border border-cyan-500/20">
@@ -356,7 +356,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                                   subActive && 'sidebar-item-active',
                                 )}
                               >
-                                <sub.icon size={15} className={cn('flex-shrink-0', subActive ? 'text-violet-600 dark:text-violet-300' : 'text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300')} />
+                                <sub.icon size={15} className={cn('flex-shrink-0', subActive ? 'text-violet-600 dark:text-violet-300' : 'text-slate-500 group-hover:text-slate-300')} />
                                 <span className="text-sm font-medium flex-1 truncate">{sub.label}</span>
                                 {shouldShowBadge(sub.badge) && (
                                   <span className="text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 bg-cyan-500/15 text-cyan-400 border border-cyan-500/20">
@@ -375,7 +375,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                 const active = ('openPos' in item && item.openPos) ? posOpen : isActive(item.href)
                 const inner = (
                   <>
-                    <item.icon size={17} className={cn('flex-shrink-0 transition-colors', active ? 'text-violet-600 dark:text-violet-300' : 'text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300')} />
+                    <item.icon size={17} className={cn('flex-shrink-0 transition-colors', active ? 'text-violet-600 dark:text-violet-300' : 'text-slate-500 group-hover:text-slate-300')} />
                     {!collapsed && (
                       <>
                         <span className="text-sm font-medium flex-1 truncate">{item.label}</span>
