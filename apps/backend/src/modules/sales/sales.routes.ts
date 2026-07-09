@@ -138,7 +138,10 @@ router.post('/:id/returns', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req
     // Determine new sale status: RETURNED only when all units are fully returned
     const totalSoldQty    = sale.items.reduce((s: number, i: any) => s + i.quantity, 0)
     const totalNewQty     = resolved.reduce((s: number, i: any) => s + Number(i.quantity), 0)
-    const totalPriorQty   = Object.values(alreadyReturnedBySaleItem).reduce((s: number, v) => s + (v as number), 0)
+    const totalPriorBySaleItem = Object.values(alreadyReturnedBySaleItem).reduce((s: number, v) => s + (v as number), 0)
+    const totalPriorBySku      = Object.values(alreadyReturnedByProductSku).reduce((s: number, v) => s + (v as number), 0)
+    // Prefer the more precise saleItemId tracking when available; otherwise fall back to productId+SKU grouping.
+    const totalPriorQty   = totalPriorBySaleItem > 0 ? totalPriorBySaleItem : totalPriorBySku
     const newSaleStatus   = (totalPriorQty + totalNewQty >= totalSoldQty) ? 'RETURNED' : sale.status
     const isFullReturn    = newSaleStatus === 'RETURNED'
 
@@ -156,7 +159,6 @@ router.post('/:id/returns', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req
           notes:        notes ?? null,
           items: {
             create: resolved.map((i: any) => ({
-              saleItemId:  i.saleItemId,
               productId:   i.productId ?? undefined,
               productName: i.productName,
               quantity:    Number(i.quantity),
