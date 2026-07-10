@@ -58,6 +58,8 @@ export interface InvoiceSettings {
   thermalShowWebsite:   boolean
   thermalShowWarranty:  boolean
   thermalFontSize:      'sm' | 'md' | 'lg'
+  /** Logo height on thermal receipts */
+  thermalLogoSize:      'sm' | 'md' | 'lg' | 'xl'
   /** Default repair service warranty shown on repair invoices (months) */
   repairWarrantyMonths?: number
   /** When true, POS prints the bill automatically after each completed sale */
@@ -126,6 +128,7 @@ export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   thermalShowWebsite:   true,
   thermalShowWarranty:  true,
   thermalFontSize:      'md',
+  thermalLogoSize:      'md',
   repairWarrantyMonths: 3,
   posAutoPrintBill:     true,
 }
@@ -185,6 +188,21 @@ export function applyKasthuriPreset(settings: InvoiceSettings, tenantSlug?: stri
     merged.warrantyServiceTerms = [...(KASTHURI_INVOICE_PRESET.warrantyServiceTerms ?? [])]
   }
   return merged
+}
+
+export type ThermalLogoSize = InvoiceSettings['thermalLogoSize']
+
+export function thermalLogoMaxHeight(size?: ThermalLogoSize): number {
+  switch (size) {
+    case 'sm': return 36
+    case 'lg': return 80
+    case 'xl': return 120
+    default: return 52
+  }
+}
+
+export function thermalBodyFontWeight(): number {
+  return 600
 }
 
 export function mergeReceiptSettings(

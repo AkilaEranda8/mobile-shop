@@ -43,6 +43,36 @@ export function ThermalReceiptPreview({ settings }: { settings: InvoiceSettings 
   )
 }
 
+export function ThermalLogoSizePicker({ settings, onChange, compact = false }: {
+  settings: InvoiceSettings
+  onChange: (patch: Partial<InvoiceSettings>) => void
+  compact?: boolean
+}) {
+  const options = [
+    { v: 'sm' as const, label: 'Small', hint: '36px' },
+    { v: 'md' as const, label: 'Medium', hint: '52px' },
+    { v: 'lg' as const, label: 'Large', hint: '80px' },
+    { v: 'xl' as const, label: 'Extra large', hint: '120px' },
+  ]
+  return (
+    <div>
+      <label className="block text-xs text-slate-400 mb-2">Logo size on thermal print</label>
+      <div className="flex gap-2 flex-wrap">
+        {options.map(({ v, label, hint }) => (
+          <button key={v} type="button" onClick={() => onChange({ thermalLogoSize: v })}
+            className={`${compact ? 'flex-1 min-w-[68px]' : 'flex-1 min-w-[72px]'} py-2 rounded-xl text-xs font-semibold border transition-all ${(settings.thermalLogoSize || 'md') === v ? 'bg-violet-600 border-violet-500 text-white' : 'bg-white/5 border-white/10 text-slate-400 hover:border-violet-500/40'}`}
+            title={`${hint} max height`}>
+            {label}
+          </button>
+        ))}
+      </div>
+      <p className="text-[10px] text-slate-500 mt-2">
+        Choose how large the logo prints at the top of thermal receipts. Save settings, then print again.
+      </p>
+    </div>
+  )
+}
+
 export default function ThermalReceiptCustomizer({ settings, onChange, showPreview = true }: Props) {
   return (
     <div className="space-y-4">
@@ -111,6 +141,8 @@ export default function ThermalReceiptCustomizer({ settings, onChange, showPrevi
             ))}
           </div>
         </div>
+
+        <ThermalLogoSizePicker settings={settings} onChange={onChange} />
 
         <div>
           <label className="block text-xs text-slate-400 mb-2">Show on receipt</label>

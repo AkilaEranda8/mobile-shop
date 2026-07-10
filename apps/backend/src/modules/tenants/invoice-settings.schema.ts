@@ -43,5 +43,6 @@ export const updateInvoiceSettingsSchema = z.object({
   thermalShowWebsite: z.boolean().optional(),
   thermalShowWarranty: z.boolean().optional(),
   thermalFontSize: z.enum(['sm', 'md', 'lg']).optional(),
+  thermalLogoSize: z.enum(['sm', 'md', 'lg', 'xl']).optional(),
   posAutoPrintBill: z.boolean().optional(),
 })
