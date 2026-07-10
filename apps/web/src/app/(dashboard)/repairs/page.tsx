@@ -355,7 +355,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
         customerId:    selectedCustomer?.id,
         customerName:  selectedCustomer?.name  ?? newCust.name,
         customerPhone: selectedCustomer?.phone ?? newCust.phone,
-        estimatedCost: form.estimatedCost ? Number(form.estimatedCost) : undefined,
+        estimatedCost: form.estimatedCost !== '' ? Number(form.estimatedCost) : 0,
         reportedIssue: selectedIssues.join(', '),
         accessories:   accessories.length > 0 ? accessories.join(', ') : undefined,
         branchId: getActiveBranchId(),
@@ -800,9 +800,9 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Estimated Cost (LKR)</label>
-                      <input type="number" min="0" step="0.01" className="input-field h-12" placeholder="2500" value={form.estimatedCost} onChange={f('estimatedCost')} />
-                      <p className="text-[10px] mt-1.5" style={{ color: 'var(--text-muted)' }}>Repair service charge. Parts are tracked separately and not added to this total.</p>
+                      <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Estimated Cost (LKR) <span className="font-normal" style={{ color: 'var(--text-muted)' }}>— optional</span></label>
+                      <input type="number" min="0" step="0.01" className="input-field h-12" placeholder="Set later in job details" value={form.estimatedCost} onChange={f('estimatedCost')} />
+                      <p className="text-[10px] mt-1.5" style={{ color: 'var(--text-muted)' }}>Leave blank to set later in the repair details view. Parts are tracked separately.</p>
                     </div>
                     <div className="col-span-2">
                       <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Estimated Completion</label>
