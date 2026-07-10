@@ -112,6 +112,27 @@ export default function ThermalReceiptCustomizer({ settings, onChange, showPrevi
           </div>
         </div>
 
+        {settings.thermalShowLogo !== false && (
+          <div>
+            <label className="block text-xs text-slate-400 mb-2">Logo size on thermal print</label>
+            <div className="flex gap-2 flex-wrap">
+              {([
+                { v: 'sm' as const, label: 'Small', hint: '28px' },
+                { v: 'md' as const, label: 'Medium', hint: '44px' },
+                { v: 'lg' as const, label: 'Large', hint: '68px' },
+                { v: 'xl' as const, label: 'Extra large', hint: '96px' },
+              ]).map(({ v, label, hint }) => (
+                <button key={v} type="button" onClick={() => onChange({ thermalLogoSize: v })}
+                  className={`flex-1 min-w-[72px] py-2 rounded-xl text-xs font-semibold border transition-all ${(settings.thermalLogoSize || 'md') === v ? 'bg-violet-600 border-violet-500 text-white' : 'bg-white/5 border-white/10 text-slate-400 hover:border-violet-500/40'}`}
+                  title={`${hint} max height`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-slate-500 mt-2">Adjust how large the shop logo appears at the top of thermal receipts. Save shop info to apply on print.</p>
+          </div>
+        )}
+
         <div>
           <label className="block text-xs text-slate-400 mb-2">Show on receipt</label>
           <div className="grid sm:grid-cols-2 gap-x-4 gap-y-2">

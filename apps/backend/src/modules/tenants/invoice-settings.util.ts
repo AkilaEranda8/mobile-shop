@@ -78,6 +78,7 @@ export interface InvoiceSettings {
   thermalShowWebsite: boolean
   thermalShowWarranty: boolean
   thermalFontSize: 'sm' | 'md' | 'lg'
+  thermalLogoSize: 'sm' | 'md' | 'lg' | 'xl'
   repairWarrantyMonths: number
   posAutoPrintBill: boolean
 }
@@ -126,6 +127,7 @@ export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   thermalShowWebsite: true,
   thermalShowWarranty: true,
   thermalFontSize: 'md',
+  thermalLogoSize: 'md',
   repairWarrantyMonths: 3,
   posAutoPrintBill: true,
 }
@@ -172,6 +174,7 @@ export function normalizeInvoiceSettings(raw: unknown, tenantSlug?: string | nul
   const thermalWidthPOS = src.thermalWidthPOS
   const thermalWidthRepair = src.thermalWidthRepair
   const thermalFontSize = src.thermalFontSize
+  const thermalLogoSize = src.thermalLogoSize
 
   return {
     ...base,
@@ -214,6 +217,7 @@ export function normalizeInvoiceSettings(raw: unknown, tenantSlug?: string | nul
     thermalShowWebsite: bool(src.thermalShowWebsite, base.thermalShowWebsite),
     thermalShowWarranty: bool(src.thermalShowWarranty, base.thermalShowWarranty),
     thermalFontSize: thermalFontSize === 'sm' || thermalFontSize === 'lg' ? thermalFontSize : 'md',
+    thermalLogoSize: thermalLogoSize === 'sm' || thermalLogoSize === 'lg' || thermalLogoSize === 'xl' ? thermalLogoSize : 'md',
     repairWarrantyMonths: Math.max(0, Math.min(120, num(src.repairWarrantyMonths, base.repairWarrantyMonths))),
     posAutoPrintBill: bool(src.posAutoPrintBill, base.posAutoPrintBill),
   }

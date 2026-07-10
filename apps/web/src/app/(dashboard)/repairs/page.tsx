@@ -22,7 +22,7 @@ import { whatsappApi, formatWhatsAppPhone } from '@/lib/whatsapp-api'
 import { captureElementAsPdfBase64 } from '@/lib/invoice-pdf'
 import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
-import { getInvoiceSettings, fetchInvoiceSettings, resolveInvoiceTemplate, type InvoiceSettings } from '@/lib/invoiceSettings'
+import { getInvoiceSettings, fetchInvoiceSettings, resolveInvoiceTemplate, thermalLogoMaxHeight, type InvoiceSettings } from '@/lib/invoiceSettings'
 import { buildRepairInvoiceSale, resolveRepairWarrantyMonths, REPAIR_WARRANTY_OPTIONS, repairWarrantyMonths } from '@/lib/repair-invoice.util'
 import { normalizeRepairTicket, repairNextStatus, repairPartsLocked, repairPaymentSummary, repairProgressStep, repairStatusHistory, repairTicketEditable, REPAIR_PROGRESS_FLOW } from '@/lib/repair.util'
 import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
@@ -56,6 +56,10 @@ function printRepairReceipt(repair: RepairTicket, settings: InvoiceSettings) {
   const warrantyLine = warrantyMonths > 0
     ? `<div class="row"><span>Warranty:</span><span>${warrantyMonths} month${warrantyMonths === 1 ? '' : 's'} on repair service</span></div>`
     : ''
+  const logoHeight = thermalLogoMaxHeight(settings.thermalLogoSize)
+  const logoBlock = settings.thermalShowLogo !== false && settings.logo
+    ? `<div class="center" style="margin-bottom:4px"><img src="${settings.logo}" alt="logo" style="max-height:${logoHeight}px;max-width:90%;object-fit:contain"/></div>`
+    : ''
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/>
 <title>Repair Receipt</title>
 <style>
@@ -74,6 +78,7 @@ function printRepairReceipt(repair: RepairTicket, settings: InvoiceSettings) {
   .total-row td { font-weight:bold; font-size:12px; border-top:1px solid #000; padding-top:3px; }
   .status { display:inline-block; border:1px solid #000; padding:1px 6px; font-size:10px; }
 </style></head><body>
+${logoBlock}
 <div class="center"><div class="big">${settings.shopName || 'Service Center'}</div>
 ${settings.phone ? `<div>${settings.phone}</div>` : ''}
 ${settings.address ? `<div>${settings.address}</div>` : ''}</div>

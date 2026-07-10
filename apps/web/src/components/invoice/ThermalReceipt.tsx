@@ -2,7 +2,7 @@
 
 import React, { forwardRef } from 'react'
 import type { InvoiceSettings, ShopContext } from '@/lib/invoiceSettings'
-import { mergeReceiptSettings, HEXALYTE_SOFTWARE_FOOTER } from '@/lib/invoiceSettings'
+import { mergeReceiptSettings, HEXALYTE_SOFTWARE_FOOTER, thermalLogoMaxHeight } from '@/lib/invoiceSettings'
 import { formatWarrantyPeriodLabel, matchWarrantyMonths } from '@/components/pos/cart-rules'
 import { productConditionLabel } from '@/lib/productCondition'
 
@@ -127,6 +127,7 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
     const f = (n: number) => fmt(n, currency)
     const paper = (settings.thermalWidthPOS === 'stockForm' ? '58mm' : (settings.thermalWidthPOS || '58mm')) as '58mm' | '80mm'
     const fs = thermalFontScale(settings.thermalFontSize || 'md')
+    const logoHeight = thermalLogoMaxHeight(settings.thermalLogoSize)
     const show = {
       logo: settings.thermalShowLogo !== false,
       slogan: settings.thermalShowSlogan !== false,
@@ -172,7 +173,7 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
         {show.logo && settings.logo && (
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={settings.logo} alt="logo" style={{ display: 'block', maxHeight: 44, maxWidth: '90%', objectFit: 'contain' }} />
+            <img src={settings.logo} alt="logo" style={{ display: 'block', maxHeight: logoHeight, maxWidth: '90%', objectFit: 'contain' }} />
           </div>
         )}
         <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: fs.title }}>
@@ -328,6 +329,7 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
   const currency = settings.currency || 'LKR'
   const f = (n: number) => esc(currency + ' ' + fmtAmt(n))
   const fs = thermalFontScale(settings.thermalFontSize || 'md')
+  const logoHeight = thermalLogoMaxHeight(settings.thermalLogoSize)
   const show = {
     logo: settings.thermalShowLogo !== false,
     slogan: settings.thermalShowSlogan !== false,
@@ -431,7 +433,7 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
   </style>
 </head>
 <body>
-  ${show.logo && settings.logo ? `<div style="margin-bottom:6px;display:flex;justify-content:center"><img src="${esc(settings.logo)}" style="display:block;max-height:44px;max-width:90%;object-fit:contain"/></div>` : ''}
+  ${show.logo && settings.logo ? `<div style="margin-bottom:6px;display:flex;justify-content:center"><img src="${esc(settings.logo)}" style="display:block;max-height:${logoHeight}px;max-width:90%;object-fit:contain"/></div>` : ''}
   <div class="center bold large wrap">${esc(settings.shopName || 'My Shop')}</div>
   ${show.slogan && settings.slogan ? `<div class="center small wrap">${esc(settings.slogan)}</div>` : ''}
   ${show.address && settings.address ? `<div class="center small wrap">${esc(settings.address)}</div>` : ''}
