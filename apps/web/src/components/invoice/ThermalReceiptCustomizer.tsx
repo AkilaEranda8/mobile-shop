@@ -142,6 +142,17 @@ export default function ThermalReceiptCustomizer({ settings, onChange, showPrevi
           </div>
         </div>
 
+        <div className="flex items-center justify-between gap-4 py-3 px-4 rounded-xl border border-white/10 bg-white/[0.03]">
+          <div>
+            <p className="text-sm font-medium text-white">Bold thermal text</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">Makes receipt text darker and easier to read on thermal printers.</p>
+          </div>
+          <Switch
+            checked={settings.thermalFontBold !== false}
+            onChange={v => onChange({ thermalFontBold: v })}
+          />
+        </div>
+
         <ThermalLogoSizePicker settings={settings} onChange={onChange} />
 
         <div>

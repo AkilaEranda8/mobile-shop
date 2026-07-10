@@ -58,6 +58,8 @@ export interface InvoiceSettings {
   thermalShowWebsite:   boolean
   thermalShowWarranty:  boolean
   thermalFontSize:      'sm' | 'md' | 'lg'
+  /** Darker / bolder text on thermal receipts */
+  thermalFontBold:      boolean
   /** Logo height on thermal receipts */
   thermalLogoSize:      'sm' | 'md' | 'lg' | 'xl'
   /** Default repair service warranty shown on repair invoices (months) */
@@ -128,6 +130,7 @@ export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   thermalShowWebsite:   true,
   thermalShowWarranty:  true,
   thermalFontSize:      'md',
+  thermalFontBold:      true,
   thermalLogoSize:      'md',
   repairWarrantyMonths: 3,
   posAutoPrintBill:     true,
@@ -199,6 +202,10 @@ export function thermalLogoMaxHeight(size?: ThermalLogoSize): number {
     case 'xl': return 120
     default: return 52
   }
+}
+
+export function thermalBodyFontWeight(bold?: boolean): number {
+  return bold !== false ? 600 : 400
 }
 
 export function mergeReceiptSettings(

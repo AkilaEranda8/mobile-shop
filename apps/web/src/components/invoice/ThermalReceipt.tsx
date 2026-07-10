@@ -2,7 +2,7 @@
 
 import React, { forwardRef } from 'react'
 import type { InvoiceSettings, ShopContext } from '@/lib/invoiceSettings'
-import { mergeReceiptSettings, HEXALYTE_SOFTWARE_FOOTER, thermalLogoMaxHeight } from '@/lib/invoiceSettings'
+import { mergeReceiptSettings, HEXALYTE_SOFTWARE_FOOTER, thermalLogoMaxHeight, thermalBodyFontWeight } from '@/lib/invoiceSettings'
 import { formatWarrantyPeriodLabel, matchWarrantyMonths } from '@/components/pos/cart-rules'
 import { productConditionLabel } from '@/lib/productCondition'
 
@@ -128,6 +128,8 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
     const paper = (settings.thermalWidthPOS === 'stockForm' ? '58mm' : (settings.thermalWidthPOS || '58mm')) as '58mm' | '80mm'
     const fs = thermalFontScale(settings.thermalFontSize || 'md')
     const logoHeight = thermalLogoMaxHeight(settings.thermalLogoSize)
+    const bodyWeight = thermalBodyFontWeight(settings.thermalFontBold)
+    const metaColor = settings.thermalFontBold !== false ? '#000' : '#333'
     const show = {
       logo: settings.thermalShowLogo !== false,
       slogan: settings.thermalShowSlogan !== false,
@@ -160,6 +162,7 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
         style={{
           fontFamily: "'Courier New', Courier, monospace",
           fontSize: `${fs.base}px`,
+          fontWeight: bodyWeight,
           lineHeight: '1.45',
           width: thermalBodyWidth(paper),
           maxWidth: '100%',
@@ -180,16 +183,16 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
           {settings.shopName || 'My Shop'}
         </div>
         {show.slogan && settings.slogan && (
-          <div style={{ textAlign: 'center', fontSize: fs.small }}>{settings.slogan}</div>
+          <div style={{ textAlign: 'center', fontSize: fs.small, fontWeight: bodyWeight }}>{settings.slogan}</div>
         )}
         {show.address && settings.address && (
-          <div style={{ textAlign: 'center', fontSize: fs.small, wordBreak: 'break-word' }}>{settings.address}</div>
+          <div style={{ textAlign: 'center', fontSize: fs.small, fontWeight: bodyWeight, wordBreak: 'break-word' }}>{settings.address}</div>
         )}
         {show.phone && settings.phone && (
-          <div style={{ textAlign: 'center', fontSize: fs.small }}>Tel: {settings.phone}</div>
+          <div style={{ textAlign: 'center', fontSize: fs.small, fontWeight: bodyWeight }}>Tel: {settings.phone}</div>
         )}
         {show.email && settings.email && (
-          <div style={{ textAlign: 'center', fontSize: fs.small, wordBreak: 'break-all' }}>{settings.email}</div>
+          <div style={{ textAlign: 'center', fontSize: fs.small, fontWeight: bodyWeight, wordBreak: 'break-all' }}>{settings.email}</div>
         )}
 
         <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }} />
@@ -212,23 +215,23 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
         {sale.items.map((item, i) => (
           <div key={i} style={{ marginBottom: 6 }}>
             <div style={{ fontWeight: 'bold' }}>{item.productName}</div>
-            {show.sku && item.sku && <div style={{ fontSize: fs.small, color: '#333' }}>SKU: {item.sku}</div>}
+            {show.sku && item.sku && <div style={{ fontSize: fs.small, color: metaColor, fontWeight: bodyWeight }}>SKU: {item.sku}</div>}
             {!item.productName.includes(' · ') && (item.storage || item.color) && (
-              <div style={{ fontSize: fs.small, color: '#333' }}>
+              <div style={{ fontSize: fs.small, color: metaColor, fontWeight: bodyWeight }}>
                 {[item.storage, item.color].filter(Boolean).join(' · ')}
               </div>
             )}
             {item.condition && (
-              <div style={{ fontSize: fs.small, color: '#333' }}>Condition: {productConditionLabel(item.condition)}</div>
+              <div style={{ fontSize: fs.small, color: metaColor, fontWeight: bodyWeight }}>Condition: {productConditionLabel(item.condition)}</div>
             )}
-            {item.itemNotes && <div style={{ fontSize: fs.small, color: '#333' }}>{item.itemNotes}</div>}
-            {show.imei && item.imei && <div style={{ fontSize: fs.small, color: '#333' }}>IMEI: {item.imei}</div>}
+            {item.itemNotes && <div style={{ fontSize: fs.small, color: metaColor, fontWeight: bodyWeight }}>{item.itemNotes}</div>}
+            {show.imei && item.imei && <div style={{ fontSize: fs.small, color: metaColor, fontWeight: bodyWeight }}>IMEI: {item.imei}</div>}
             {(item.warrantyMonths ?? 0) > 0 && (
               <>
-                <div style={{ fontSize: fs.small, color: '#333' }}>
+                <div style={{ fontSize: fs.small, color: metaColor, fontWeight: bodyWeight }}>
                   Warranty: {formatWarrantyPeriodLabel(item.warrantyMonths!)}
                 </div>
-                <div style={{ fontSize: fs.small, color: '#333' }}>
+                <div style={{ fontSize: fs.small, color: metaColor, fontWeight: bodyWeight }}>
                   Valid until: {fmtWarrantyDate(item.warrantyEndDate, sale.createdAt, item.warrantyMonths)}
                 </div>
               </>
@@ -330,6 +333,8 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
   const f = (n: number) => esc(currency + ' ' + fmtAmt(n))
   const fs = thermalFontScale(settings.thermalFontSize || 'md')
   const logoHeight = thermalLogoMaxHeight(settings.thermalLogoSize)
+  const bodyWeight = thermalBodyFontWeight(settings.thermalFontBold)
+  const metaColor = settings.thermalFontBold !== false ? '#000' : '#333'
   const show = {
     logo: settings.thermalShowLogo !== false,
     slogan: settings.thermalShowSlogan !== false,
@@ -400,6 +405,7 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
     body {
       font-family: 'Courier New', Courier, monospace;
       font-size: ${fs.base}px;
+      font-weight: ${bodyWeight};
       line-height: 1.45;
       max-width: ${bodyWidth};
       margin: 0 auto;
@@ -411,7 +417,7 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
     }
     .center { text-align: center; }
     .bold   { font-weight: bold; }
-    .small  { font-size: ${fs.small}px; }
+    .small  { font-size: ${fs.small}px; font-weight: ${bodyWeight}; }
     .large  { font-size: ${fs.title}px; }
     .total  { font-size: ${fs.total}px; }
     .wrap   { word-break: break-word; overflow-wrap: anywhere; }
@@ -424,7 +430,7 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
     .row > span:last-child  { text-align: right; min-width: 0; word-break: break-all; }
     .item   { margin-bottom: 6px; }
     .item-name { font-weight: bold; }
-    .item-meta { font-size: 11px; color: #333; }
+    .item-meta { font-size: ${fs.small}px; color: ${metaColor}; font-weight: ${bodyWeight}; }
     .item-line { margin-top: 2px; }
     @media print {
       @page { margin: 2mm; size: ${paperWidth} auto; }
