@@ -57,7 +57,7 @@ function printRepairReceipt(repair: RepairTicket, settings: InvoiceSettings) {
     ? `<div class="row"><span>Warranty:</span><span>${warrantyMonths} month${warrantyMonths === 1 ? '' : 's'} on repair service</span></div>`
     : ''
   const logoHeight = thermalLogoMaxHeight(settings.thermalLogoSize)
-  const bodyWeight = thermalBodyFontWeight(settings.thermalFontBold)
+  const bodyWeight = thermalBodyFontWeight()
   const logoBlock = settings.thermalShowLogo !== false && settings.logo
     ? `<div class="center" style="margin-bottom:4px"><img src="${settings.logo}" alt="logo" style="max-height:${logoHeight}px;max-width:90%;object-fit:contain"/></div>`
     : ''
@@ -66,7 +66,7 @@ function printRepairReceipt(repair: RepairTicket, settings: InvoiceSettings) {
 <style>
   @page { size: ${paperWidth} auto; margin: 4mm 3mm; }
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: 'Courier New', monospace; font-size: 11px; font-weight: ${bodyWeight}; color:#000; width:${bodyWidth}; }
+  body { font-family: 'Courier New', monospace; font-size: 12px; font-weight: ${bodyWeight}; color:#000; width:${bodyWidth}; }
   .center { text-align:center; }
   .bold { font-weight:bold; }
   .big { font-size:14px; font-weight:bold; }
