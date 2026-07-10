@@ -194,10 +194,10 @@ export type ThermalLogoSize = InvoiceSettings['thermalLogoSize']
 
 export function thermalLogoMaxHeight(size?: ThermalLogoSize): number {
   switch (size) {
-    case 'sm': return 28
-    case 'lg': return 68
-    case 'xl': return 96
-    default: return 44
+    case 'sm': return 36
+    case 'lg': return 80
+    case 'xl': return 120
+    default: return 52
   }
 }
 
