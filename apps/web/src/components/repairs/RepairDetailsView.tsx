@@ -381,7 +381,14 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
 
   const [changingStatus, setChangingStatus] = useState(false)
   const [savingWarranty, setSavingWarranty] = useState(false)
+  const [estimatedCostDraft, setEstimatedCostDraft] = useState(() => String(repair.estimatedCost ?? ''))
+  const [savingEstimatedCost, setSavingEstimatedCost] = useState(false)
   const shopDefaultWarranty = repairWarrantyMonths(invSettings)
+  const canEditEstimatedCost = repairTicketEditable(repair.status)
+
+  useEffect(() => {
+    setEstimatedCostDraft(String(repair.estimatedCost ?? ''))
+  }, [repair.estimatedCost])
 
   const handleWarrantyChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const raw = e.target.value
@@ -394,6 +401,58 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
     } catch (err: any) { toast.error(err?.message ?? 'Failed to update warranty') }
     finally { setSavingWarranty(false) }
   }
+
+  const handleEstimatedCostSave = async () => {
+    if (!canEditEstimatedCost) return
+    const trimmed = estimatedCostDraft.trim()
+    const value = trimmed === '' ? 0 : Number(trimmed)
+    if (!Number.isFinite(value) || value < 0) {
+      toast.error('Enter a valid estimated cost')
+      setEstimatedCostDraft(String(repair.estimatedCost ?? ''))
+      return
+    }
+    if (value === Number(repair.estimatedCost ?? 0)) return
+    setSavingEstimatedCost(true)
+    try {
+      const res: any = await repairsApi.update(repair.id, { estimatedCost: value })
+      onRepairUpdate(normalizeRepairTicket(res?.data ?? res))
+      toast.success('Estimated cost updated')
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to update estimated cost')
+      setEstimatedCostDraft(String(repair.estimatedCost ?? ''))
+    } finally {
+      setSavingEstimatedCost(false)
+    }
+  }
+
+  const estimatedCostEditor = canEditEstimatedCost ? (
+    <div className="flex items-center gap-1.5 min-w-0">
+      <span className="text-[10px] font-bold shrink-0" style={{ color: 'var(--text-muted)' }}>LKR</span>
+      <input
+        type="number"
+        min={0}
+        step="0.01"
+        className="text-sm font-black w-full min-w-0 bg-transparent outline-none border-b border-violet-500/30 focus:border-violet-500 text-right"
+        style={{ color: 'var(--text-primary)' }}
+        value={estimatedCostDraft}
+        disabled={savingEstimatedCost}
+        onChange={(e) => setEstimatedCostDraft(e.target.value)}
+        onBlur={handleEstimatedCostSave}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            ;(e.currentTarget as HTMLInputElement).blur()
+          }
+        }}
+        placeholder="0"
+        aria-label="Estimated cost"
+      />
+      {savingEstimatedCost && <Loader2 size={12} className="animate-spin shrink-0" style={{ color: 'var(--text-muted)' }} />}
+    </div>
+  ) : (
+    <span className="text-sm font-black" style={{ color: 'var(--text-primary)' }}>{formatCurrency(Number(repair.estimatedCost ?? 0))}</span>
+  )
+
   /* collect payment state */
   const [showPayment, setShowPayment] = useState(false)
   const [discount,    setDiscount]    = useState('')
@@ -510,6 +569,44 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
 
   const STEP_ICONS = [Smartphone, Wrench, CheckCircle2]
 
+  const repairHeaderActions = (
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        onClick={onEdit}
+        disabled={!repairTicketEditable(repair.status)}
+        className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40"
+      >
+        <Pencil size={14} /> Edit
+      </button>
+      <button
+        type="button"
+        onClick={downloadQuote}
+        disabled={downloading}
+        className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-50"
+      >
+        {downloading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />} PDF
+      </button>
+      <button
+        type="button"
+        onClick={sendQuoteWhatsApp}
+        disabled={waSending !== null}
+        className="px-4 py-2 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+      >
+        {waSending === 'quote' ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />} Quote
+      </button>
+      <button
+        type="button"
+        onClick={sendInvoiceWhatsApp}
+        disabled={waSending !== null}
+        className="px-4 py-2 rounded-xl text-sm font-bold bg-green-700 hover:bg-green-600 text-white transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+      >
+        {waSending === 'invoice' ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />}
+        {waSending === 'invoice' ? 'Sending…' : waSendPdf ? 'Invoice PDF' : 'Invoice'}
+      </button>
+    </div>
+  )
+
   const mainCard = (
     <div className="card overflow-hidden flex flex-col min-h-0">
         <div className="h-1 w-full bg-gradient-to-r from-violet-500 to-purple-600 flex-shrink-0" />
@@ -542,7 +639,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
             </div>
 
             {/* Info bar */}
-            <div className="grid grid-cols-4 gap-0 rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-0 rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
               {[
                 { label: 'Date Received',  value: new Date(repair.createdAt).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' }) },
                 { label: 'Est. Completion',value: repair.estimatedCompletion ? new Date(repair.estimatedCompletion).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' }) : '—' },
@@ -552,6 +649,32 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                   <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{item.value}</p>
                 </div>
               ))}
+              <div className="p-3" style={{ borderLeft: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                <p className="text-[10px] font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Est. Cost</p>
+                {canEditEstimatedCost ? (
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    className="text-xs font-bold w-full bg-transparent outline-none border-b border-violet-500/30 focus:border-violet-500"
+                    style={{ color: 'var(--text-primary)' }}
+                    value={estimatedCostDraft}
+                    disabled={savingEstimatedCost}
+                    onChange={(e) => setEstimatedCostDraft(e.target.value)}
+                    onBlur={handleEstimatedCostSave}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        ;(e.currentTarget as HTMLInputElement).blur()
+                      }
+                    }}
+                    placeholder="0"
+                    aria-label="Estimated cost"
+                  />
+                ) : (
+                  <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(quote)}</p>
+                )}
+              </div>
               <div className="p-3" style={{ borderLeft: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                 <p className="text-[10px] font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Warranty</p>
                 <select
@@ -974,10 +1097,13 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                 <button className="w-6 h-6 rounded flex items-center justify-center" style={{ color: 'var(--text-muted)' }}><MoreVertical size={13} /></button>
               </div>
               <div className="p-4 space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-bold" style={{ color: 'var(--text-secondary)' }}>Estimated Cost</span>
-                  <span className="text-sm font-black" style={{ color: 'var(--text-primary)' }}>{formatCurrency(quote)}</span>
+                <div className="flex justify-between items-center gap-3">
+                  <span className="text-sm font-bold shrink-0" style={{ color: 'var(--text-secondary)' }}>Estimated Cost</span>
+                  <div className="min-w-[7rem] max-w-[10rem]">{estimatedCostEditor}</div>
                 </div>
+                {canEditEstimatedCost && (
+                  <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Set or update the repair service charge here when the quote is ready.</p>
+                )}
                 {isPaid && paidDiscount > 0 && (
                   <div className="flex justify-between items-center">
                     <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Discount</span>
@@ -1028,12 +1154,12 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
               </div>
               <div className="p-3 grid grid-cols-3 gap-2">
                 {[
-                  { icon: User,         label: 'Customer Info', action: () => {} },
-                  { icon: MessageSquare,label: 'Send SMS',      action: sendQuoteWhatsApp },
-                  { icon: Phone,        label: 'WhatsApp',      action: sendInvoiceWhatsApp },
-                  { icon: ClipboardList,label: 'Add Note',      action: () => {} },
-                  { icon: Printer,      label: 'Print Ticket',  action: () => printRepairReceipt(repair, invSettings) },
-                  { icon: MoreVertical, label: 'More',          action: () => {} },
+                  { icon: FileText,      label: 'Download PDF',  action: downloadQuote },
+                  { icon: MessageSquare, label: 'Quote WhatsApp', action: sendQuoteWhatsApp },
+                  { icon: Phone,         label: 'Invoice WhatsApp', action: sendInvoiceWhatsApp },
+                  { icon: Printer,       label: 'Print Ticket',  action: () => printRepairReceipt(repair, invSettings) },
+                  { icon: User,          label: 'Customer Info', action: () => {} },
+                  { icon: ClipboardList, label: 'Add Note',      action: () => {} },
                 ].map(({ icon: Icon, label, action }) => (
                   <button key={label} onClick={action}
                     className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl border transition-colors hover:border-indigo-500/40"
@@ -1202,7 +1328,19 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
       </div>
   )
 
-  if (!showPageHeader) return mainCard
+  if (!showPageHeader) {
+    return (
+      <div>
+        <div
+          className="sticky top-0 z-10 px-3 sm:px-4 py-2 border-b flex flex-wrap items-center justify-end gap-2"
+          style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}
+        >
+          {repairHeaderActions}
+        </div>
+        {mainCard}
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -1223,39 +1361,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:pt-1">
-          <button
-            type="button"
-            onClick={onEdit}
-            disabled={!repairTicketEditable(repair.status)}
-            className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40"
-          >
-            <Pencil size={14} /> Edit
-          </button>
-          <button
-            type="button"
-            onClick={downloadQuote}
-            disabled={downloading}
-            className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-50"
-          >
-            {downloading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />} PDF
-          </button>
-          <button
-            type="button"
-            onClick={sendQuoteWhatsApp}
-            disabled={waSending !== null}
-            className="px-4 py-2 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-50 inline-flex items-center gap-2"
-          >
-            {waSending === 'quote' ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />} Quote
-          </button>
-          <button
-            type="button"
-            onClick={sendInvoiceWhatsApp}
-            disabled={waSending !== null}
-            className="px-4 py-2 rounded-xl text-sm font-bold bg-green-700 hover:bg-green-600 text-white transition-colors disabled:opacity-50 inline-flex items-center gap-2"
-          >
-            {waSending === 'invoice' ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />}
-            {waSending === 'invoice' ? 'Sending…' : waSendPdf ? 'Invoice PDF' : 'Invoice'}
-          </button>
+          {repairHeaderActions}
         </div>
       </div>
 
