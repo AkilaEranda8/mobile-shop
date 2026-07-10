@@ -68,9 +68,9 @@ function thermalBodyWidth(paper: '58mm' | '80mm' | 'stockForm') {
 }
 
 function thermalFontScale(size: InvoiceSettings['thermalFontSize']) {
-  if (size === 'sm') return { base: 11, title: 14, total: 14, small: 10 }
-  if (size === 'lg') return { base: 15, title: 18, total: 18, small: 12 }
-  return { base: 13, title: 16, total: 16, small: 11 }
+  if (size === 'sm') return { base: 12, title: 15, total: 15, small: 11 }
+  if (size === 'lg') return { base: 16, title: 19, total: 19, small: 13 }
+  return { base: 14, title: 17, total: 17, small: 12 }
 }
 
 function fmtWarrantyDate(iso?: string, fallbackCreatedAt?: string, months?: number): string {
@@ -128,8 +128,8 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
     const paper = (settings.thermalWidthPOS === 'stockForm' ? '58mm' : (settings.thermalWidthPOS || '58mm')) as '58mm' | '80mm'
     const fs = thermalFontScale(settings.thermalFontSize || 'md')
     const logoHeight = thermalLogoMaxHeight(settings.thermalLogoSize)
-    const bodyWeight = thermalBodyFontWeight(settings.thermalFontBold)
-    const metaColor = settings.thermalFontBold !== false ? '#000' : '#333'
+    const bodyWeight = thermalBodyFontWeight()
+    const metaColor = '#000'
     const show = {
       logo: settings.thermalShowLogo !== false,
       slogan: settings.thermalShowSlogan !== false,
@@ -333,8 +333,8 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
   const f = (n: number) => esc(currency + ' ' + fmtAmt(n))
   const fs = thermalFontScale(settings.thermalFontSize || 'md')
   const logoHeight = thermalLogoMaxHeight(settings.thermalLogoSize)
-  const bodyWeight = thermalBodyFontWeight(settings.thermalFontBold)
-  const metaColor = settings.thermalFontBold !== false ? '#000' : '#333'
+  const bodyWeight = thermalBodyFontWeight()
+  const metaColor = '#000'
   const show = {
     logo: settings.thermalShowLogo !== false,
     slogan: settings.thermalShowSlogan !== false,
