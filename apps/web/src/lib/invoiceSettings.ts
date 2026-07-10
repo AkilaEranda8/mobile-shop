@@ -187,6 +187,17 @@ export function applyKasthuriPreset(settings: InvoiceSettings, tenantSlug?: stri
   return merged
 }
 
+export type ThermalLogoSize = InvoiceSettings['thermalLogoSize']
+
+export function thermalLogoMaxHeight(size?: ThermalLogoSize): number {
+  switch (size) {
+    case 'sm': return 36
+    case 'lg': return 80
+    case 'xl': return 120
+    default: return 52
+  }
+}
+
 export function mergeReceiptSettings(
   settings: InvoiceSettings,
   ctx?: ShopContext,

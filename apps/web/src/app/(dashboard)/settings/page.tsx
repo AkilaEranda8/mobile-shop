@@ -12,7 +12,7 @@ import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { useTenantFeatures } from '@/lib/hooks'
 import { type InvoiceSettings, getInvoiceSettings, fetchInvoiceCustomizeSettings, pushInvoiceSettings } from '@/lib/invoiceSettings'
-import ThermalReceiptCustomizer, { ThermalReceiptPreview } from '@/components/invoice/ThermalReceiptCustomizer'
+import ThermalReceiptCustomizer, { ThermalReceiptPreview, ThermalLogoSizePicker } from '@/components/invoice/ThermalReceiptCustomizer'
 import InvoiceTemplatePicker from '@/components/invoice/InvoiceTemplatePicker'
 import { Switch } from '@/components/ui/Switch'
 import {
@@ -833,6 +833,9 @@ export default function SettingsPage() {
                       <p className="text-[10px] text-slate-600">Max 2 MB · PNG, JPG, SVG, WebP</p>
                     </div>
                   </div>
+                  {invoiceForm.logo && (
+                    <ThermalLogoSizePicker settings={invoiceForm} onChange={setInv} compact />
+                  )}
                 </div>
 
                 <div className="grid sm:grid-cols-2 gap-4">
