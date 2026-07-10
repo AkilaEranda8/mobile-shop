@@ -510,6 +510,44 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
 
   const STEP_ICONS = [Smartphone, Wrench, CheckCircle2]
 
+  const repairHeaderActions = (
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        onClick={onEdit}
+        disabled={!repairTicketEditable(repair.status)}
+        className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40"
+      >
+        <Pencil size={14} /> Edit
+      </button>
+      <button
+        type="button"
+        onClick={downloadQuote}
+        disabled={downloading}
+        className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-50"
+      >
+        {downloading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />} PDF
+      </button>
+      <button
+        type="button"
+        onClick={sendQuoteWhatsApp}
+        disabled={waSending !== null}
+        className="px-4 py-2 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+      >
+        {waSending === 'quote' ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />} Quote
+      </button>
+      <button
+        type="button"
+        onClick={sendInvoiceWhatsApp}
+        disabled={waSending !== null}
+        className="px-4 py-2 rounded-xl text-sm font-bold bg-green-700 hover:bg-green-600 text-white transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+      >
+        {waSending === 'invoice' ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />}
+        {waSending === 'invoice' ? 'Sending…' : waSendPdf ? 'Invoice PDF' : 'Invoice'}
+      </button>
+    </div>
+  )
+
   const mainCard = (
     <div className="card overflow-hidden flex flex-col min-h-0">
         <div className="h-1 w-full bg-gradient-to-r from-violet-500 to-purple-600 flex-shrink-0" />
@@ -1028,12 +1066,12 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
               </div>
               <div className="p-3 grid grid-cols-3 gap-2">
                 {[
-                  { icon: User,         label: 'Customer Info', action: () => {} },
-                  { icon: MessageSquare,label: 'Send SMS',      action: sendQuoteWhatsApp },
-                  { icon: Phone,        label: 'WhatsApp',      action: sendInvoiceWhatsApp },
-                  { icon: ClipboardList,label: 'Add Note',      action: () => {} },
-                  { icon: Printer,      label: 'Print Ticket',  action: () => printRepairReceipt(repair, invSettings) },
-                  { icon: MoreVertical, label: 'More',          action: () => {} },
+                  { icon: FileText,      label: 'Download PDF',  action: downloadQuote },
+                  { icon: MessageSquare, label: 'Quote WhatsApp', action: sendQuoteWhatsApp },
+                  { icon: Phone,         label: 'Invoice WhatsApp', action: sendInvoiceWhatsApp },
+                  { icon: Printer,       label: 'Print Ticket',  action: () => printRepairReceipt(repair, invSettings) },
+                  { icon: User,          label: 'Customer Info', action: () => {} },
+                  { icon: ClipboardList, label: 'Add Note',      action: () => {} },
                 ].map(({ icon: Icon, label, action }) => (
                   <button key={label} onClick={action}
                     className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl border transition-colors hover:border-indigo-500/40"
@@ -1202,7 +1240,19 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
       </div>
   )
 
-  if (!showPageHeader) return mainCard
+  if (!showPageHeader) {
+    return (
+      <div>
+        <div
+          className="sticky top-0 z-10 px-3 sm:px-4 py-2 border-b flex flex-wrap items-center justify-end gap-2"
+          style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}
+        >
+          {repairHeaderActions}
+        </div>
+        {mainCard}
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -1223,39 +1273,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:pt-1">
-          <button
-            type="button"
-            onClick={onEdit}
-            disabled={!repairTicketEditable(repair.status)}
-            className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40"
-          >
-            <Pencil size={14} /> Edit
-          </button>
-          <button
-            type="button"
-            onClick={downloadQuote}
-            disabled={downloading}
-            className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-50"
-          >
-            {downloading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />} PDF
-          </button>
-          <button
-            type="button"
-            onClick={sendQuoteWhatsApp}
-            disabled={waSending !== null}
-            className="px-4 py-2 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-50 inline-flex items-center gap-2"
-          >
-            {waSending === 'quote' ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />} Quote
-          </button>
-          <button
-            type="button"
-            onClick={sendInvoiceWhatsApp}
-            disabled={waSending !== null}
-            className="px-4 py-2 rounded-xl text-sm font-bold bg-green-700 hover:bg-green-600 text-white transition-colors disabled:opacity-50 inline-flex items-center gap-2"
-          >
-            {waSending === 'invoice' ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />}
-            {waSending === 'invoice' ? 'Sending…' : waSendPdf ? 'Invoice PDF' : 'Invoice'}
-          </button>
+          {repairHeaderActions}
         </div>
       </div>
 
