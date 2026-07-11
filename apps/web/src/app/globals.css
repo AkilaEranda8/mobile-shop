@@ -319,8 +319,27 @@ html:not(.dark) header {
   box-shadow: 0 1px 6px rgba(0,0,0,0.07);
 }
 html:not(.dark) aside {
+  background: #f8fafc !important;
   box-shadow: 2px 0 12px rgba(0,0,0,0.06);
 }
+
+/* ── Light mode: remap hardcoded dark-theme text utilities ─────────── */
+html:not(.dark) .text-white     { color: var(--text-primary); }
+html:not(.dark) .text-slate-50  { color: var(--text-primary); }
+html:not(.dark) .text-slate-100 { color: #111827; }
+html:not(.dark) .text-slate-200 { color: #1e293b; }
+html:not(.dark) .text-slate-300 { color: #334155; }
+html:not(.dark) .text-slate-400 { color: #475569; }
+html:not(.dark) .text-slate-500 { color: #64748b; }
+html:not(.dark) .text-slate-600 { color: #64748b; }
+html:not(.dark) .hover\:text-white:hover { color: var(--text-primary) !important; }
+html:not(.dark) .group:hover .group-hover\:text-slate-300 { color: #334155; }
+
+/* Dark hex surfaces remapped to light cards — keep text readable */
+html:not(.dark) [class*="#0f1623"] .text-white,
+html:not(.dark) [class*="#0a0f1a"] .text-white,
+html:not(.dark) [class*="#141b2d"] .text-white,
+html:not(.dark) [class*="#1a2235"] .text-white { color: var(--text-primary) !important; }
 
 /* ── Keep white text on colored/filled button backgrounds ──────────── */
 html:not(.dark) .btn-primary,
@@ -348,7 +367,13 @@ html:not(.dark) [class*="bg-yellow-"] .text-white,
 html:not(.dark) [class*="bg-indigo-"][class*="text-white"],
 html:not(.dark) [class*="bg-indigo-"] .text-white,
 html:not(.dark) button[style*="linear-gradient"][style*="6d28d9"],
-html:not(.dark) button[style*="linear-gradient"][style*="6d28d9"] * { color: #ffffff !important; }
+html:not(.dark) button[style*="linear-gradient"][style*="6d28d9"] *,
+html:not(.dark) button[style*="linear-gradient"][style*="7c3aed"],
+html:not(.dark) button[style*="linear-gradient"][style*="7c3aed"] *,
+html:not(.dark) button[style*="linear-gradient"][style*="8b5cf6"],
+html:not(.dark) button[style*="linear-gradient"][style*="8b5cf6"] *,
+html:not(.dark) button[style*="linear-gradient"][style*="5b21b6"],
+html:not(.dark) button[style*="linear-gradient"][style*="5b21b6"] * { color: #ffffff !important; }
 html:not(.dark) button[style*="linear-gradient"][style*="16a34a"],
 html:not(.dark) button[style*="linear-gradient"][style*="16a34a"] *,
 html:not(.dark) button[style*="linear-gradient"][style*="15803d"],
