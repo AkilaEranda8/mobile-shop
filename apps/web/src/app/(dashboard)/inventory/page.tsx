@@ -1474,7 +1474,7 @@ export default function InventoryPage() {
         }
       }
     }
-    return rows
+    return rows.sort((a, b) => compareSkuOrder(a.product.sku, b.product.sku))
   }, [filteredProducts])
 
   const hasActiveFilters = categoryFilter !== 'all' || brandFilter !== 'all' || statusFilter !== 'all' || textSearch.trim().length > 0
@@ -1566,6 +1566,7 @@ export default function InventoryPage() {
     {
       id: 'orderNum',
       accessorFn: (row) => parseSkuOrderNumber(row.product.sku) ?? 999999,
+      sortingFn: (a, b) => compareSkuOrder(a.original.product.sku, b.original.product.sku),
       header: ({ column }) => <DataTableColumnHeader column={column} title="#" />,
       cell: ({ row }) => {
         const n = parseSkuOrderNumber(row.original.product.sku)
@@ -1902,8 +1903,11 @@ export default function InventoryPage() {
         columns={columns}
         isLoading={loading}
         pageCount={Math.ceil((flatRows.length || 1) / 20)}
+        pageSize={20}
         searchableColumns={[]}
         showFilter={false}
+        withIndex={false}
+        config={{ features: { sorting: false } }}
       />
     </div>
   )
