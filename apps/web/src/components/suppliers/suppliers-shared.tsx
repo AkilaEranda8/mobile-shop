@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus, Search, Truck, Phone, Mail, Package, Eye, Edit, Loader2, X, ChevronDown, Trash2, FileText, MapPin, Globe, Hash, ShoppingBag, TrendingUp, AlertCircle, Calendar, CheckCircle, Save, PackageCheck, ShieldAlert, CreditCard, Banknote, Receipt, Smartphone, ClipboardList } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
@@ -17,6 +17,37 @@ import type { Supplier, PurchaseOrder, POItem } from '@/types'
 import { isImeiHealthBannerDismissed, dismissImeiHealthBanner } from '@/lib/productImei'
 
 export type PoProduct = { id: string; trackImei?: boolean; name?: string }
+
+/** PO unit cost: prefer variant cost when > 0, else product buying price, else blank for manual entry. */
+export function normalizeStorageVariations(raw: unknown): any[] {
+  if (Array.isArray(raw)) return raw
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  }
+  return []
+}
+
+export function resolvePoUnitCost(product: { buyingPrice?: number | string | null }, variation?: { costPrice?: number | string | null }) {
+  const varCost = variation?.costPrice != null && variation.costPrice !== '' ? Number(variation.costPrice) : NaN
+  const buyCost = product?.buyingPrice != null && product.buyingPrice !== '' ? Number(product.buyingPrice) : NaN
+  if (Number.isFinite(varCost) && varCost > 0) return varCost
+  if (Number.isFinite(buyCost) && buyCost > 0) return buyCost
+  return ''
+}
+
+export function resolvePoUnitCostFromProduct(product: { buyingPrice?: number | string | null; storageVariations?: unknown }) {
+  const vars = normalizeStorageVariations(product.storageVariations)
+  for (const v of vars) {
+    const resolved = resolvePoUnitCost(product, v)
+    if (resolved !== '') return resolved
+  }
+  return resolvePoUnitCost(product)
+}
 
 export function resolvePoProduct(item: POItem, products: PoProduct[]) {
   if (item.productId) return products.find(p => p.id === item.productId)
@@ -846,8 +877,8 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
   const [items, setItems] = useState<{
     productId: string
     productName: string
-    quantity: number
-    unitCost: number
+    quantity: number | string
+    unitCost: number | string
     storage?: string
     colorName?: string
     sku?: string
@@ -858,7 +889,39 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
   const [openIdx, setOpenIdx]         = useState<number | null>(null)
   const [quickSearch, setQuickSearch] = useState('')
   const [quickOpen, setQuickOpen]     = useState(false)
+  const [quickHighlight, setQuickHighlight] = useState(0)
+  const [rowHighlight, setRowHighlight]       = useState<Record<number, number>>({})
+  const quickSearchRef = useRef<HTMLInputElement>(null)
+  const qtyRefs = useRef<Record<number, HTMLInputElement | null>>({})
+  const costRefs = useRef<Record<number, HTMLInputElement | null>>({})
   const branchId = getActiveBranchId() ?? ''
+
+  const focusQty = (i: number) => {
+    setTimeout(() => {
+      qtyRefs.current[i]?.focus()
+      qtyRefs.current[i]?.select()
+    }, 50)
+  }
+
+  const focusCost = (i: number) => {
+    setTimeout(() => {
+      costRefs.current[i]?.focus()
+      costRefs.current[i]?.select()
+    }, 50)
+  }
+
+  const focusAfterProductAdd = (i: number, unitCost: number | string) => {
+    if (unitCost === '' || Number(unitCost) <= 0) focusCost(i)
+    else focusQty(i)
+  }
+
+  const focusQuickSearch = () => {
+    setTimeout(() => {
+      quickSearchRef.current?.focus()
+      quickSearchRef.current?.select()
+      setQuickOpen(true)
+    }, 50)
+  }
 
   const { data: productsData } = useProducts({ limit: '2000' })
   const allProducts: any[] = (productsData?.data ?? []) as any[]
@@ -874,14 +937,15 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
   }
 
   const selectProduct = (i: number, product: any) => {
-    const vars: any[] = Array.isArray(product.storageVariations) ? product.storageVariations : []
+    const vars = normalizeStorageVariations(product.storageVariations)
     const firstVar = vars[0]
+    const unitCost = resolvePoUnitCostFromProduct(product)
     setItems(prev => prev.map((row, idx) =>
       idx === i ? {
         ...row,
         productId:   product.id,
         productName: product.name,
-        unitCost:    firstVar?.costPrice ?? product.buyingPrice ?? 0,
+        unitCost,
         _variations: vars,
         storage:     firstVar?.storage ?? undefined,
         colorName:   firstVar?.colorName ?? undefined,
@@ -890,6 +954,8 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
     ))
     setSearches(prev => prev.map((s, idx) => idx === i ? product.name : s))
     setOpenIdx(null)
+    setRowHighlight(prev => ({ ...prev, [i]: 0 }))
+    focusAfterProductAdd(i, unitCost)
   }
 
   const updateItem = (i: number, k: string, v: string | number) =>
@@ -901,26 +967,33 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
   }
 
   const quickAddProduct = (product: any) => {
-    const vars: any[] = Array.isArray(product.storageVariations) ? product.storageVariations : []
+    const vars = normalizeStorageVariations(product.storageVariations)
     const firstVar = vars[0]
+    const unitCost = resolvePoUnitCostFromProduct(product)
     const existing = items.findIndex(r => r.productId === product.id && !r.storage)
+    let targetIdx = existing
     if (existing >= 0 && vars.length === 0) {
-      setItems(prev => prev.map((r, i) => i === existing ? { ...r, quantity: r.quantity + 1 } : r))
+      setItems(prev => prev.map((r, i) => i === existing ? { ...r, quantity: Number(r.quantity) + 1 } : r))
+      const existingCost = items[existing]?.unitCost
+      focusAfterProductAdd(existing, existingCost === '' || Number(existingCost) <= 0 ? '' : existingCost)
     } else {
+      targetIdx = items.length
       setItems(p => [...p, {
         productId:   product.id,
         productName: product.name,
         quantity:    1,
-        unitCost:    firstVar?.costPrice ?? product.buyingPrice ?? 0,
+        unitCost,
         _variations: vars,
         storage:     firstVar?.storage ?? undefined,
         colorName:   firstVar?.colorName ?? undefined,
         sku:         firstVar?.sku ?? undefined,
       }])
       setSearches(p => [...p, product.name])
+      focusAfterProductAdd(targetIdx, unitCost)
     }
     setQuickSearch('')
     setQuickOpen(false)
+    setQuickHighlight(0)
   }
 
   const quickFiltered = quickSearch.trim()
@@ -930,6 +1003,12 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
         String(p.brandName ?? '').toLowerCase().includes(quickSearch.toLowerCase())
       ).slice(0, 8)
     : allProducts.slice(0, 8)
+
+  useEffect(() => { setQuickHighlight(0) }, [quickSearch])
+
+  useEffect(() => {
+    setTimeout(() => quickSearchRef.current?.focus(), 100)
+  }, [])
 
   const removeItem = (i: number) => {
     setItems(p => p.filter((_, idx) => idx !== i))
@@ -944,6 +1023,11 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
     const unlinked = items.filter(r => !r.productId)
     if (unlinked.length) {
       toast.error('Select each product from the search list (do not type names manually)')
+      return
+    }
+    const missingCost = items.filter(r => !Number(r.unitCost))
+    if (missingCost.length) {
+      toast.error('Enter buying price (unit cost) for each item')
       return
     }
     setLoading(true)
@@ -1015,30 +1099,47 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
             </div>
 
             {/* Quick product search */}
-            <div className="relative mb-3">
+            <div className="relative mb-1">
               <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
               <input
+                ref={quickSearchRef}
                 className="input-field pl-8 text-sm w-full"
-                placeholder="Search & add productâ€¦"
+                placeholder="Search & add product…"
                 value={quickSearch}
                 onChange={e => { setQuickSearch(e.target.value); setQuickOpen(true) }}
                 onFocus={() => setQuickOpen(true)}
                 onBlur={() => setTimeout(() => setQuickOpen(false), 150)}
+                onKeyDown={e => {
+                  const list = quickFiltered
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault()
+                    setQuickOpen(true)
+                    setQuickHighlight(h => Math.min(h + 1, Math.max(list.length - 1, 0)))
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault()
+                    setQuickHighlight(h => Math.max(h - 1, 0))
+                  } else if (e.key === 'Enter' && list.length > 0) {
+                    e.preventDefault()
+                    quickAddProduct(list[quickHighlight] ?? list[0])
+                  } else if (e.key === 'Escape') {
+                    setQuickOpen(false)
+                  }
+                }}
               />
               {quickOpen && quickFiltered.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 rounded-xl shadow-2xl z-50 overflow-hidden max-h-52 overflow-y-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                  {quickFiltered.map((p: any) => (
+                  {quickFiltered.map((p: any, hi: number) => (
                     <button key={p.id} type="button"
                       onMouseDown={() => quickAddProduct(p)}
-                      className="w-full px-3 py-2.5 text-left hover:bg-violet-500/15 transition-colors flex items-center justify-between gap-2"
+                      className={`w-full px-3 py-2.5 text-left transition-colors flex items-center justify-between gap-2 ${hi === quickHighlight ? 'bg-violet-500/20' : 'hover:bg-violet-500/15'}`}
                       style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                       <div className="min-w-0">
-                        <p className="text-sm text-slate-200 truncate font-medium">{p.name}</p>
-                        <p className="text-[10px] text-slate-500">{p.sku} Â· {p.brandName}{p.trackImei ? ' Â· IMEI' : ''}</p>
+                        <p className="text-sm text-[var(--text-primary)] truncate font-medium">{p.name}</p>
+                        <p className="text-[10px] text-slate-500">{p.sku} · {p.brandName}{p.trackImei ? ' · IMEI' : ''}</p>
                       </div>
                       <div className="text-right flex-shrink-0 flex items-center gap-2">
                         <div>
-                          <p className="text-xs text-violet-400 font-semibold">{formatCurrency(p.buyingPrice)}</p>
+                          <p className="text-xs text-violet-400 font-semibold">{formatCurrency(resolvePoUnitCostFromProduct(p) || 0)}</p>
                           <p className="text-[10px] text-slate-600">stock: {p.stock}</p>
                         </div>
                         <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center shrink-0">
@@ -1050,12 +1151,15 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                 </div>
               )}
             </div>
+            <p className="text-[10px] text-[var(--text-muted)] mb-3">
+              ↑↓ select product · Enter add · Enter on qty → buying price → next item
+            </p>
 
             {/* Column headers */}
             <div className="grid grid-cols-12 gap-3 mb-1 px-2">
               <span className="col-span-5 text-[10px] text-[var(--text-muted)] uppercase tracking-wide">Product</span>
               <span className="col-span-2 text-[10px] text-[var(--text-muted)] uppercase tracking-wide text-center">Qty</span>
-              <span className="col-span-3 text-[10px] text-[var(--text-muted)] uppercase tracking-wide">Unit Cost</span>
+              <span className="col-span-3 text-[10px] text-[var(--text-muted)] uppercase tracking-wide">Buying Price</span>
               <span className="col-span-2 text-[10px] text-[var(--text-muted)] uppercase tracking-wide text-right">Total</span>
             </div>
 
@@ -1080,17 +1184,35 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                             setSearches(prev => prev.map((s, idx) => idx === i ? v : s))
                             setItems(prev => prev.map((row, idx) => idx === i ? { ...row, productName: v, productId: '', _variations: [] } : row))
                             setOpenIdx(i)
+                            setRowHighlight(prev => ({ ...prev, [i]: 0 }))
                           }}
                           onBlur={() => setTimeout(() => setOpenIdx(null), 150)}
+                          onKeyDown={e => {
+                            const list = getFiltered(i)
+                            const hi = rowHighlight[i] ?? 0
+                            if (e.key === 'ArrowDown') {
+                              e.preventDefault()
+                              setOpenIdx(i)
+                              setRowHighlight(prev => ({ ...prev, [i]: Math.min((prev[i] ?? 0) + 1, Math.max(list.length - 1, 0)) }))
+                            } else if (e.key === 'ArrowUp') {
+                              e.preventDefault()
+                              setRowHighlight(prev => ({ ...prev, [i]: Math.max((prev[i] ?? 0) - 1, 0) }))
+                            } else if (e.key === 'Enter' && list.length > 0) {
+                              e.preventDefault()
+                              selectProduct(i, list[hi] ?? list[0])
+                            } else if (e.key === 'Escape') {
+                              setOpenIdx(null)
+                            }
+                          }}
                         />
                         {openIdx === i && getFiltered(i).length > 0 && (
                           <div className="absolute top-full left-0 right-0 mt-1 rounded-xl shadow-2xl z-50 overflow-hidden max-h-48 overflow-y-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                            {getFiltered(i).map((p: any) => (
+                            {getFiltered(i).map((p: any, hi: number) => (
                               <button
                                 key={p.id}
                                 type="button"
                                 onMouseDown={() => selectProduct(i, p)}
-                                className="w-full px-3 py-2.5 text-left hover:bg-violet-500/10 transition-colors flex items-center justify-between gap-2"
+                                className={`w-full px-3 py-2.5 text-left transition-colors flex items-center justify-between gap-2 ${hi === (rowHighlight[i] ?? 0) ? 'bg-violet-500/15' : 'hover:bg-violet-500/10'}`}
                                 style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
                               >
                                 <div className="min-w-0">
@@ -1098,7 +1220,7 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                                   <p className="text-[10px] text-slate-500">{p.sku}{p.brandName ? ` Â· ${p.brandName}` : ''}{p.trackImei ? ' Â· IMEI' : ''}</p>
                                 </div>
                                 <div className="text-right flex-shrink-0">
-                                  <p className="text-[10px] text-violet-400 font-semibold">{formatCurrency(p.buyingPrice)}</p>
+                                  <p className="text-[10px] text-violet-400 font-semibold">{formatCurrency(resolvePoUnitCostFromProduct(p) || 0)}</p>
                                   <p className="text-[10px] text-slate-600">stock: {p.stock}</p>
                                 </div>
                               </button>
@@ -1114,23 +1236,46 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                     {/* Qty */}
                     <div className="col-span-2">
                       <input
+                        ref={el => { qtyRefs.current[i] = el }}
                         required type="number" min="1"
-                        className="input-field text-sm text-center w-full"
+                        className="input-field text-sm text-center w-full text-[var(--text-primary)]"
+                        style={{ background: 'var(--bg-card)' }}
                         placeholder="1"
                         value={item.quantity}
                         onChange={e => updateItem(i, 'quantity', e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            costRefs.current[i]?.focus()
+                            costRefs.current[i]?.select()
+                          }
+                        }}
                       />
                     </div>
 
-                    {/* Unit Cost */}
+                    {/* Buying Price */}
                     <div className="col-span-3">
                       <input
-                        required type="number" min="0"
-                        className="input-field text-sm w-full"
-                        placeholder="0"
+                        ref={el => { costRefs.current[i] = el }}
+                        required type="number" min="0" step="1"
+                        className="input-field text-sm w-full text-[var(--text-primary)] font-semibold tabular-nums"
+                        style={{ background: 'var(--bg-card)' }}
+                        placeholder="Enter price"
                         value={item.unitCost}
                         onChange={e => updateItem(i, 'unitCost', e.target.value)}
+                        onFocus={e => e.target.select()}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            focusQuickSearch()
+                          }
+                        }}
                       />
+                      {Number(item.unitCost) > 0 && (
+                        <p className="text-[10px] font-semibold text-violet-600 mt-0.5 tabular-nums">
+                          {formatCurrency(Number(item.unitCost))}
+                        </p>
+                      )}
                     </div>
 
                     {/* Total + delete */}
@@ -1144,8 +1289,8 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                   </div>
 
                   {/* â”€â”€ Variation selectors (only when product has variants) â”€â”€ */}
-                  {(item._variations?.length ?? 0) > 0 && (() => {
-                    const vars = item._variations!
+                  {(normalizeStorageVariations(item._variations).length ?? 0) > 0 && (() => {
+                    const vars = normalizeStorageVariations(item._variations)
                     const storageOpts = [...new Set(vars.filter((v: any) => v.storage).map((v: any) => v.storage as string))]
                     const colorOpts = vars.filter((v: any) => v.storage === item.storage && v.colorName)
                     return (
@@ -1160,12 +1305,14 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                                 <button key={s} type="button"
                                   onClick={() => {
                                     const firstColorForStorage = vars.find((v: any) => v.storage === s)
+                                    const product = allProducts.find(p => p.id === item.productId)
+                                    const nextCost = resolvePoUnitCost(product ?? {}, firstColorForStorage)
                                     setItems(prev => prev.map((row, idx) => idx === i ? {
                                       ...row,
                                       storage:   s,
                                       colorName: firstColorForStorage?.colorName ?? '',
                                       sku:       firstColorForStorage?.sku ?? '',
-                                      unitCost:  firstColorForStorage?.costPrice ?? row.unitCost,
+                                      unitCost:  nextCost !== '' ? nextCost : row.unitCost,
                                     } : row))
                                   }}
                                   className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all"
@@ -1185,11 +1332,15 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                               {colorOpts.map((v: any) => (
                                 <button key={v.colorName ?? v.sku ?? Math.random()} type="button"
                                   onClick={() => {
+                                    const nextCost = resolvePoUnitCost(
+                                      allProducts.find(p => p.id === item.productId) ?? { buyingPrice: undefined },
+                                      v,
+                                    )
                                     setItems(prev => prev.map((row, idx) => idx === i ? {
                                       ...row,
                                       colorName: v.colorName,
                                       sku:       v.sku ?? row.sku,
-                                      unitCost:  v.costPrice ?? row.unitCost,
+                                      unitCost:  nextCost !== '' ? nextCost : row.unitCost,
                                     } : row))
                                   }}
                                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all"
@@ -1232,8 +1383,8 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
               ))}
             </div>
 
-            <div className="flex justify-end mt-3 pt-3 border-t border-white/5">
-              <span className="text-sm font-bold text-white">Total: {formatCurrency(subtotal)}</span>
+            <div className="flex justify-end mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+              <span className="text-sm font-bold text-[var(--text-primary)]">Total: {formatCurrency(subtotal)}</span>
             </div>
           </div>
 

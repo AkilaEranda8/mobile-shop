@@ -288,6 +288,12 @@ html:not(.dark) .card:hover {
 html:not(.dark) .input-field {
   background: #ffffff;
   border: 1.5px solid rgba(0,0,0,0.13);
+  color: #111827 !important;
+  -webkit-text-fill-color: #111827;
+}
+html:not(.dark) .input-field::placeholder {
+  color: #94a3b8 !important;
+  -webkit-text-fill-color: #94a3b8;
 }
 html:not(.dark) .input-field:focus {
   border-color: #7c3aed;
