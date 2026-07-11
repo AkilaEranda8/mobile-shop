@@ -22,6 +22,7 @@ import { AddProductModal } from '@/components/inventory/AddProductModal'
 import { ImeiProductTypeSelector } from '@/components/inventory/ImeiProductTypeSelector'
 import { imeiTypeToTrackFlag, trackFlagToImeiType, inferImeiProductType, isImeiHealthBannerDismissed, dismissImeiHealthBanner, type ImeiProductType } from '@/lib/productImei'
 import { PRODUCT_CONDITION_OPTS, type ProductCondition, productConditionLabel } from '@/lib/productCondition'
+import { compareSkuOrder, formatSkuOrderLabel, parseSkuOrderNumber } from '@/lib/productCodes'
 import {
   PRODUCT_CSV_COLUMNS,
   PRODUCT_CSV_TEMPLATE,
@@ -1435,7 +1436,7 @@ export default function InventoryPage() {
       if (!productSearchHaystack(p).includes(q)) return false
     }
     return true
-  }), [products, categoryFilter, brandFilter, statusFilter, textSearch])
+  }).sort((a, b) => compareSkuOrder(a.sku, b.sku)), [products, categoryFilter, brandFilter, statusFilter, textSearch])
 
   /* Flatten: each variant becomes its own table row */
   const flatRows = useMemo<FlatRow[]>(() => {
@@ -1562,6 +1563,21 @@ export default function InventoryPage() {
   }
 
   const columns = useMemo<ColumnDef<FlatRow>[]>(() => [
+    {
+      id: 'orderNum',
+      accessorFn: (row) => parseSkuOrderNumber(row.product.sku) ?? 999999,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="#" />,
+      cell: ({ row }) => {
+        const n = parseSkuOrderNumber(row.original.product.sku)
+        if (n == null) return <span className="text-xs text-[var(--text-muted)]">—</span>
+        return (
+          <span className="text-xs font-mono font-semibold text-[var(--text-secondary)] tabular-nums">
+            {formatSkuOrderLabel(row.original.product.sku, n)}
+          </span>
+        )
+      },
+      size: 64,
+    },
     {
       id: 'name',
       accessorFn: (row) => row.displayName,
