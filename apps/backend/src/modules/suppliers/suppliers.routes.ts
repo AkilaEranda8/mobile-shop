@@ -7,6 +7,7 @@ import { getPagination } from '../../utils/pagination'
 import { generatePONumber } from '../../utils/counters'
 import { effectiveBranchId } from '../../utils/active-branch'
 import { emitPurchaseAccounting } from '../accounting/integration/accounting-events.service'
+import { applyPurchaseOrderReceive } from '../../utils/po-receive.util'
 
 const router = Router()
 router.use(authenticate)
@@ -132,8 +133,46 @@ router.post('/purchase-orders', authorize('OWNER', 'MANAGER'), async (req: Reque
       },
       include: { items: true },
     })
+
+    if (po.status === 'RECEIVED') {
+      await prisma.$transaction(async (tx) => {
+        await applyPurchaseOrderReceive({
+          tx,
+          tenantId: req.tenantId!,
+          poId: po.id,
+          poNumber: po.poNumber,
+          branchId: po.branchId,
+          performedBy: req.user?.userId ?? 'system',
+          items: po.items,
+          resolveProduct: async (item) => {
+            let productId = item.productId ?? undefined
+            let resolvedBranchId = po.branchId
+            if (!productId && item.productName) {
+              const found = await tx.product.findFirst({
+                where: { tenantId: req.tenantId!, name: { equals: item.productName, mode: 'insensitive' }, isActive: true },
+              })
+              if (found) {
+                productId = found.id
+                resolvedBranchId = found.branchId ?? po.branchId
+              }
+            }
+            if (!productId) return null
+            return { productId, branchId: resolvedBranchId }
+          },
+        })
+        await tx.purchaseOrder.update({
+          where: { id: po.id },
+          data: { receivedAt: new Date() },
+        })
+      })
+      void emitPurchaseAccounting(req.tenantId!, po.id, po.branchId, req.user?.email)
+    }
+
     await recalcSupplierStats(supplierId, req.tenantId!)
-    sendSuccess(res, po, 'Purchase order created', 201)
+    const result = po.status === 'RECEIVED'
+      ? await prisma.purchaseOrder.findFirst({ where: { id: po.id }, include: { items: true } })
+      : po
+    sendSuccess(res, result, 'Purchase order created', 201)
   } catch (e) { next(e) }
 })
 
@@ -150,80 +189,38 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
 
     if (isReceiving) {
       await prisma.$transaction(async (tx) => {
-        const resolvedItems: { item: typeof po.items[0]; productId: string; branchId: string }[] = []
-        for (const item of po.items) {
-          let productId = (item.productId as string | null) || undefined
-          let branchId  = po.branchId
+        await applyPurchaseOrderReceive({
+          tx,
+          tenantId: req.tenantId!,
+          poId: po.id,
+          poNumber: po.poNumber,
+          branchId: po.branchId,
+          performedBy: req.user?.userId ?? 'system',
+          items: po.items,
+          resolveProduct: async (item) => {
+            let productId = item.productId ?? undefined
+            let branchId = po.branchId
 
-          if (!productId && item.productName) {
-            const found = await tx.product.findFirst({
-              where: { tenantId: req.tenantId!, name: { equals: item.productName, mode: 'insensitive' }, isActive: true },
-            })
-            if (found) { productId = found.id; branchId = found.branchId ?? po.branchId }
-          }
-          if (!productId) throw new AppError(`Cannot receive PO: product not linked for "${item.productName}"`, 400)
-
-          if (!branchId) {
-            const branch = await tx.branch.findFirst({ where: { tenantId: req.tenantId! } })
-            if (branch) branchId = branch.id
-          }
-          if (!branchId) throw new AppError('No branch found for stock update', 400)
-
-          resolvedItems.push({ item, productId, branchId })
-        }
-
-        const byProduct = new Map<string, typeof resolvedItems>()
-        for (const r of resolvedItems) {
-          if (!byProduct.has(r.productId)) byProduct.set(r.productId, [])
-          byProduct.get(r.productId)!.push(r)
-        }
-
-        for (const [productId, group] of byProduct) {
-          const p = await tx.product.findUnique({ where: { id: productId } })
-          if (!p) throw new AppError(`Product ${productId} not found during receive`, 404)
-
-          const totalQty = group.reduce((s, r) => s + r.item.quantity, 0)
-          let updatedVariations = (p as any).storageVariations as any[] | null
-          if (updatedVariations && Array.isArray(updatedVariations)) {
-            for (const { item } of group) {
-              updatedVariations = updatedVariations.map((v: any) => {
-                const match = (item.sku && v.sku === item.sku) ||
-                              (item.storage && item.colorName &&
-                               v.storage === item.storage && v.colorName === item.colorName)
-                if (match) return { ...v, stock: (v.stock || 0) + item.quantity }
-                return v
+            if (!productId && item.productName) {
+              const found = await tx.product.findFirst({
+                where: { tenantId: req.tenantId!, name: { equals: item.productName, mode: 'insensitive' }, isActive: true },
               })
+              if (found) {
+                productId = found.id
+                branchId = found.branchId ?? po.branchId
+              }
             }
-          }
+            if (!productId) return null
 
-          await tx.product.update({
-            where: { id: productId },
-            data: {
-              stock: { increment: totalQty },
-              ...(updatedVariations ? { storageVariations: updatedVariations } : {}),
-            },
-          })
+            if (!branchId) {
+              const branch = await tx.branch.findFirst({ where: { tenantId: req.tenantId! } })
+              if (branch) branchId = branch.id
+            }
+            if (!branchId) throw new AppError('No branch found for stock update', 400)
 
-          const branchId = group[0].branchId
-          await tx.stockMovement.createMany({
-            data: group.map(({ item }) => ({
-              productId,
-              branchId,
-              type:        'PURCHASE' as const,
-              quantity:    item.quantity,
-              reference:   `${po.id}:${item.id}`,
-              note:        `Received via PO ${po.poNumber} (${item.sku ?? item.storage ?? item.productName})`,
-              performedBy: req.user?.userId ?? 'system',
-            })),
-          })
-
-          for (const { item } of group) {
-            await tx.pOItem.update({
-              where: { id: item.id },
-              data:  { receivedQuantity: item.quantity },
-            })
-          }
-        }
+            return { productId, branchId }
+          },
+        })
 
         await tx.purchaseOrder.update({
           where: { id: req.params.id },
