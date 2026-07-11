@@ -8,6 +8,16 @@ import { generatePONumber } from '../../utils/counters'
 import { effectiveBranchId } from '../../utils/active-branch'
 import { emitPurchaseAccounting } from '../accounting/integration/accounting-events.service'
 
+function round2(n: number) {
+  return Math.round(n * 100) / 100
+}
+
+function weightedBuyingPrice(oldStock: number, oldBuyingPrice: number, incomingQty: number, incomingCost: number) {
+  const nextStock = oldStock + incomingQty
+  if (nextStock <= 0) return round2(incomingQty > 0 ? incomingCost / incomingQty : oldBuyingPrice)
+  return round2((oldStock * oldBuyingPrice + incomingCost) / nextStock)
+}
+
 const router = Router()
 router.use(authenticate)
 
@@ -183,6 +193,8 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
           if (!p) throw new AppError(`Product ${productId} not found during receive`, 404)
 
           const totalQty = group.reduce((s, r) => s + r.item.quantity, 0)
+          const incomingCost = group.reduce((s, r) => s + r.item.quantity * r.item.unitCost, 0)
+          const nextBuyingPrice = weightedBuyingPrice(p.stock, p.buyingPrice, totalQty, incomingCost)
           let updatedVariations = (p as any).storageVariations as any[] | null
           if (updatedVariations && Array.isArray(updatedVariations)) {
             for (const { item } of group) {
@@ -200,6 +212,7 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
             where: { id: productId },
             data: {
               stock: { increment: totalQty },
+              buyingPrice: nextBuyingPrice,
               ...(updatedVariations ? { storageVariations: updatedVariations } : {}),
             },
           })
