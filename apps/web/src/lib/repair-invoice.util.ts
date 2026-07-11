@@ -1,5 +1,6 @@
 import type { InvoiceSettings } from '@/lib/invoiceSettings'
 import type { RepairTicket } from '@/types'
+import { formatRepairServiceItemName } from '@/lib/repair.util'
 
 export const REPAIR_WARRANTY_OPTIONS = [0, 1, 3, 6, 12, 24] as const
 
@@ -52,7 +53,7 @@ export function buildRepairInvoiceSale(
 
   if (serviceFee > 0) {
     items.push({
-      productName: `Repair Service – ${repair.deviceBrand} ${repair.deviceModel}`,
+      productName: formatRepairServiceItemName(repair.deviceBrand, repair.deviceModel),
       description: repair.reportedIssue?.trim() || undefined,
       quantity: 1,
       unitPrice: serviceFee,

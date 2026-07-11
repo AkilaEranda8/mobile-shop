@@ -7,6 +7,7 @@ import { Request } from 'express'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 import { effectiveBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
 import { emitRepairAccounting } from '../accounting/integration/accounting-events.service'
+import { formatRepairServiceItemName } from '../../utils/repair-item-label'
 
 function normalizeFaultName(input: unknown) {
   const s = String(input ?? '')
@@ -306,7 +307,7 @@ export const repairsService = {
       const saleItems: any[] = []
       if (serviceFee > 0) {
         saleItems.push({
-          productName: `Repair Service – ${r.deviceBrand} ${r.deviceModel}`,
+          productName: formatRepairServiceItemName(r.deviceBrand, r.deviceModel),
           sku: r.ticketNumber,
           quantity: 1,
           unitPrice: serviceFee,
