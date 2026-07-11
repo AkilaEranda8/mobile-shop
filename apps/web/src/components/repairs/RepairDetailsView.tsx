@@ -15,7 +15,7 @@ import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { getInvoiceSettings, fetchInvoiceSettings, resolveInvoiceTemplate, type InvoiceSettings } from '@/lib/invoiceSettings'
 import { buildRepairInvoiceSale, resolveRepairWarrantyMonths, REPAIR_WARRANTY_OPTIONS, repairWarrantyMonths } from '@/lib/repair-invoice.util'
-import { normalizeRepairTicket, repairNextStatus, repairPartsLocked, repairPaymentSummary, repairProgressStep, repairStatusHistory, repairTicketEditable, REPAIR_PROGRESS_FLOW } from '@/lib/repair.util'
+import { normalizeRepairTicket, repairNextStatus, repairPartsLocked, repairPaymentSummary, repairProgressStep, repairStatusHistory, repairTicketEditable, REPAIR_PROGRESS_FLOW, formatRepairServiceItemName, REPAIR_SERVICE_ITEM_LABEL } from '@/lib/repair.util'
 import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
 import InvoiceA4View from '@/components/invoice/InvoiceA4View'
 import RepairPartsProfitPanel from '@/components/repairs/RepairPartsProfitPanel'
@@ -105,7 +105,7 @@ ${repair.accessories ? `<div class="row"><span>Accessories:</span><span>${repair
 <div class="line"></div>
 <div class="bold med">CHARGES</div>
 <table><tbody>
-  <tr><td>Repair Service</td><td style="text-align:right">1</td><td style="text-align:right">${fmt(serviceFee)}</td></tr>
+  <tr><td>${REPAIR_SERVICE_ITEM_LABEL}</td><td style="text-align:right">1</td><td style="text-align:right">${fmt(serviceFee)}</td></tr>
   <tr class="total-row"><td colspan="2">TOTAL</td><td>${fmt(subtotal)}</td></tr>
 </tbody></table>
 ${partsRows}
@@ -264,7 +264,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
 
     const itemLines = [
       serviceFee > 0
-        ? `  - Repair Service (${repair.deviceBrand} ${repair.deviceModel}): ${fmt(serviceFee)}`
+        ? `  - ${REPAIR_SERVICE_ITEM_LABEL} (${repair.deviceBrand} ${repair.deviceModel}): ${fmt(serviceFee)}`
         : null,
       repair.reportedIssue?.trim()
         ? `    Fault / Service: ${repair.reportedIssue.trim()}`
@@ -838,7 +838,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                           <Wrench size={13} className="text-green-600" />
                         </div>
                         <div>
-                          <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Repair Service – {repair.deviceBrand} {repair.deviceModel}</p>
+                          <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{formatRepairServiceItemName(repair.deviceBrand, repair.deviceModel)}</p>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Labor & Service</span>
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-600 dark:text-green-400 font-semibold border border-green-500/20">Service</span>
