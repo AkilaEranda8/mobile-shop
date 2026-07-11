@@ -19,12 +19,34 @@ import { isImeiHealthBannerDismissed, dismissImeiHealthBanner } from '@/lib/prod
 export type PoProduct = { id: string; trackImei?: boolean; name?: string }
 
 /** PO unit cost: prefer variant cost when > 0, else product buying price, else blank for manual entry. */
-export function resolvePoUnitCost(product: { buyingPrice?: number | null }, variation?: { costPrice?: number | null }) {
-  const varCost = variation?.costPrice != null ? Number(variation.costPrice) : NaN
-  const buyCost = product?.buyingPrice != null ? Number(product.buyingPrice) : NaN
+export function normalizeStorageVariations(raw: unknown): any[] {
+  if (Array.isArray(raw)) return raw
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  }
+  return []
+}
+
+export function resolvePoUnitCost(product: { buyingPrice?: number | string | null }, variation?: { costPrice?: number | string | null }) {
+  const varCost = variation?.costPrice != null && variation.costPrice !== '' ? Number(variation.costPrice) : NaN
+  const buyCost = product?.buyingPrice != null && product.buyingPrice !== '' ? Number(product.buyingPrice) : NaN
   if (Number.isFinite(varCost) && varCost > 0) return varCost
   if (Number.isFinite(buyCost) && buyCost > 0) return buyCost
   return ''
+}
+
+export function resolvePoUnitCostFromProduct(product: { buyingPrice?: number | string | null; storageVariations?: unknown }) {
+  const vars = normalizeStorageVariations(product.storageVariations)
+  for (const v of vars) {
+    const resolved = resolvePoUnitCost(product, v)
+    if (resolved !== '') return resolved
+  }
+  return resolvePoUnitCost(product)
 }
 
 export function resolvePoProduct(item: POItem, products: PoProduct[]) {
@@ -915,9 +937,9 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
   }
 
   const selectProduct = (i: number, product: any) => {
-    const vars: any[] = Array.isArray(product.storageVariations) ? product.storageVariations : []
+    const vars = normalizeStorageVariations(product.storageVariations)
     const firstVar = vars[0]
-    const unitCost = resolvePoUnitCost(product, firstVar)
+    const unitCost = resolvePoUnitCostFromProduct(product)
     setItems(prev => prev.map((row, idx) =>
       idx === i ? {
         ...row,
@@ -945,9 +967,9 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
   }
 
   const quickAddProduct = (product: any) => {
-    const vars: any[] = Array.isArray(product.storageVariations) ? product.storageVariations : []
+    const vars = normalizeStorageVariations(product.storageVariations)
     const firstVar = vars[0]
-    const unitCost = resolvePoUnitCost(product, firstVar)
+    const unitCost = resolvePoUnitCostFromProduct(product)
     const existing = items.findIndex(r => r.productId === product.id && !r.storage)
     let targetIdx = existing
     if (existing >= 0 && vars.length === 0) {
@@ -1117,7 +1139,7 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                       </div>
                       <div className="text-right flex-shrink-0 flex items-center gap-2">
                         <div>
-                          <p className="text-xs text-violet-400 font-semibold">{formatCurrency(resolvePoUnitCost(p, p.storageVariations?.[0]) || 0)}</p>
+                          <p className="text-xs text-violet-400 font-semibold">{formatCurrency(resolvePoUnitCostFromProduct(p) || 0)}</p>
                           <p className="text-[10px] text-slate-600">stock: {p.stock}</p>
                         </div>
                         <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center shrink-0">
@@ -1198,7 +1220,7 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                                   <p className="text-[10px] text-slate-500">{p.sku}{p.brandName ? ` Â· ${p.brandName}` : ''}{p.trackImei ? ' Â· IMEI' : ''}</p>
                                 </div>
                                 <div className="text-right flex-shrink-0">
-                                  <p className="text-[10px] text-violet-400 font-semibold">{formatCurrency(resolvePoUnitCost(p, p.storageVariations?.[0]) || 0)}</p>
+                                  <p className="text-[10px] text-violet-400 font-semibold">{formatCurrency(resolvePoUnitCostFromProduct(p) || 0)}</p>
                                   <p className="text-[10px] text-slate-600">stock: {p.stock}</p>
                                 </div>
                               </button>
@@ -1216,7 +1238,8 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                       <input
                         ref={el => { qtyRefs.current[i] = el }}
                         required type="number" min="1"
-                        className="input-field text-sm text-center w-full"
+                        className="input-field text-sm text-center w-full text-[var(--text-primary)]"
+                        style={{ background: 'var(--bg-card)' }}
                         placeholder="1"
                         value={item.quantity}
                         onChange={e => updateItem(i, 'quantity', e.target.value)}
@@ -1235,7 +1258,8 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                       <input
                         ref={el => { costRefs.current[i] = el }}
                         required type="number" min="0" step="1"
-                        className="input-field text-sm w-full"
+                        className="input-field text-sm w-full text-[var(--text-primary)] font-semibold tabular-nums"
+                        style={{ background: 'var(--bg-card)' }}
                         placeholder="Enter price"
                         value={item.unitCost}
                         onChange={e => updateItem(i, 'unitCost', e.target.value)}
@@ -1247,6 +1271,11 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                           }
                         }}
                       />
+                      {Number(item.unitCost) > 0 && (
+                        <p className="text-[10px] font-semibold text-violet-600 mt-0.5 tabular-nums">
+                          {formatCurrency(Number(item.unitCost))}
+                        </p>
+                      )}
                     </div>
 
                     {/* Total + delete */}
@@ -1260,8 +1289,8 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                   </div>
 
                   {/* â”€â”€ Variation selectors (only when product has variants) â”€â”€ */}
-                  {(item._variations?.length ?? 0) > 0 && (() => {
-                    const vars = item._variations!
+                  {(normalizeStorageVariations(item._variations).length ?? 0) > 0 && (() => {
+                    const vars = normalizeStorageVariations(item._variations)
                     const storageOpts = [...new Set(vars.filter((v: any) => v.storage).map((v: any) => v.storage as string))]
                     const colorOpts = vars.filter((v: any) => v.storage === item.storage && v.colorName)
                     return (
@@ -1276,10 +1305,8 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                                 <button key={s} type="button"
                                   onClick={() => {
                                     const firstColorForStorage = vars.find((v: any) => v.storage === s)
-                                    const nextCost = resolvePoUnitCost(
-                                      { buyingPrice: allProducts.find(p => p.id === item.productId)?.buyingPrice },
-                                      firstColorForStorage,
-                                    )
+                                    const product = allProducts.find(p => p.id === item.productId)
+                                    const nextCost = resolvePoUnitCost(product ?? {}, firstColorForStorage)
                                     setItems(prev => prev.map((row, idx) => idx === i ? {
                                       ...row,
                                       storage:   s,
@@ -1306,7 +1333,7 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                                 <button key={v.colorName ?? v.sku ?? Math.random()} type="button"
                                   onClick={() => {
                                     const nextCost = resolvePoUnitCost(
-                                      { buyingPrice: allProducts.find(p => p.id === item.productId)?.buyingPrice },
+                                      allProducts.find(p => p.id === item.productId) ?? { buyingPrice: undefined },
                                       v,
                                     )
                                     setItems(prev => prev.map((row, idx) => idx === i ? {
