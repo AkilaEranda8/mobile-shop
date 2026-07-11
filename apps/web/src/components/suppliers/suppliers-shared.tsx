@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus, Search, Truck, Phone, Mail, Package, Eye, Edit, Loader2, X, ChevronDown, Trash2, FileText, MapPin, Globe, Hash, ShoppingBag, TrendingUp, AlertCircle, Calendar, CheckCircle, Save, PackageCheck, ShieldAlert, CreditCard, Banknote, Receipt, Smartphone, ClipboardList } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
@@ -858,7 +858,27 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
   const [openIdx, setOpenIdx]         = useState<number | null>(null)
   const [quickSearch, setQuickSearch] = useState('')
   const [quickOpen, setQuickOpen]     = useState(false)
+  const [quickHighlight, setQuickHighlight] = useState(0)
+  const [rowHighlight, setRowHighlight]       = useState<Record<number, number>>({})
+  const quickSearchRef = useRef<HTMLInputElement>(null)
+  const qtyRefs = useRef<Record<number, HTMLInputElement | null>>({})
+  const costRefs = useRef<Record<number, HTMLInputElement | null>>({})
   const branchId = getActiveBranchId() ?? ''
+
+  const focusQty = (i: number) => {
+    setTimeout(() => {
+      qtyRefs.current[i]?.focus()
+      qtyRefs.current[i]?.select()
+    }, 50)
+  }
+
+  const focusQuickSearch = () => {
+    setTimeout(() => {
+      quickSearchRef.current?.focus()
+      quickSearchRef.current?.select()
+      setQuickOpen(true)
+    }, 50)
+  }
 
   const { data: productsData } = useProducts({ limit: '2000' })
   const allProducts: any[] = (productsData?.data ?? []) as any[]
@@ -890,6 +910,8 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
     ))
     setSearches(prev => prev.map((s, idx) => idx === i ? product.name : s))
     setOpenIdx(null)
+    setRowHighlight(prev => ({ ...prev, [i]: 0 }))
+    focusQty(i)
   }
 
   const updateItem = (i: number, k: string, v: string | number) =>
@@ -904,9 +926,11 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
     const vars: any[] = Array.isArray(product.storageVariations) ? product.storageVariations : []
     const firstVar = vars[0]
     const existing = items.findIndex(r => r.productId === product.id && !r.storage)
+    let targetIdx = existing
     if (existing >= 0 && vars.length === 0) {
       setItems(prev => prev.map((r, i) => i === existing ? { ...r, quantity: r.quantity + 1 } : r))
     } else {
+      targetIdx = items.length
       setItems(p => [...p, {
         productId:   product.id,
         productName: product.name,
@@ -921,6 +945,8 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
     }
     setQuickSearch('')
     setQuickOpen(false)
+    setQuickHighlight(0)
+    focusQty(targetIdx)
   }
 
   const quickFiltered = quickSearch.trim()
@@ -930,6 +956,12 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
         String(p.brandName ?? '').toLowerCase().includes(quickSearch.toLowerCase())
       ).slice(0, 8)
     : allProducts.slice(0, 8)
+
+  useEffect(() => { setQuickHighlight(0) }, [quickSearch])
+
+  useEffect(() => {
+    setTimeout(() => quickSearchRef.current?.focus(), 100)
+  }, [])
 
   const removeItem = (i: number) => {
     setItems(p => p.filter((_, idx) => idx !== i))
@@ -1015,26 +1047,43 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
             </div>
 
             {/* Quick product search */}
-            <div className="relative mb-3">
+            <div className="relative mb-1">
               <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
               <input
+                ref={quickSearchRef}
                 className="input-field pl-8 text-sm w-full"
-                placeholder="Search & add productâ€¦"
+                placeholder="Search & add product…"
                 value={quickSearch}
                 onChange={e => { setQuickSearch(e.target.value); setQuickOpen(true) }}
                 onFocus={() => setQuickOpen(true)}
                 onBlur={() => setTimeout(() => setQuickOpen(false), 150)}
+                onKeyDown={e => {
+                  const list = quickFiltered
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault()
+                    setQuickOpen(true)
+                    setQuickHighlight(h => Math.min(h + 1, Math.max(list.length - 1, 0)))
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault()
+                    setQuickHighlight(h => Math.max(h - 1, 0))
+                  } else if (e.key === 'Enter' && list.length > 0) {
+                    e.preventDefault()
+                    quickAddProduct(list[quickHighlight] ?? list[0])
+                  } else if (e.key === 'Escape') {
+                    setQuickOpen(false)
+                  }
+                }}
               />
               {quickOpen && quickFiltered.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 rounded-xl shadow-2xl z-50 overflow-hidden max-h-52 overflow-y-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                  {quickFiltered.map((p: any) => (
+                  {quickFiltered.map((p: any, hi: number) => (
                     <button key={p.id} type="button"
                       onMouseDown={() => quickAddProduct(p)}
-                      className="w-full px-3 py-2.5 text-left hover:bg-violet-500/15 transition-colors flex items-center justify-between gap-2"
+                      className={`w-full px-3 py-2.5 text-left transition-colors flex items-center justify-between gap-2 ${hi === quickHighlight ? 'bg-violet-500/20' : 'hover:bg-violet-500/15'}`}
                       style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                       <div className="min-w-0">
-                        <p className="text-sm text-slate-200 truncate font-medium">{p.name}</p>
-                        <p className="text-[10px] text-slate-500">{p.sku} Â· {p.brandName}{p.trackImei ? ' Â· IMEI' : ''}</p>
+                        <p className="text-sm text-[var(--text-primary)] truncate font-medium">{p.name}</p>
+                        <p className="text-[10px] text-slate-500">{p.sku} · {p.brandName}{p.trackImei ? ' · IMEI' : ''}</p>
                       </div>
                       <div className="text-right flex-shrink-0 flex items-center gap-2">
                         <div>
@@ -1050,6 +1099,9 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                 </div>
               )}
             </div>
+            <p className="text-[10px] text-[var(--text-muted)] mb-3">
+              ↑↓ select product · Enter add · Enter on qty → cost → next item
+            </p>
 
             {/* Column headers */}
             <div className="grid grid-cols-12 gap-3 mb-1 px-2">
@@ -1080,17 +1132,35 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                             setSearches(prev => prev.map((s, idx) => idx === i ? v : s))
                             setItems(prev => prev.map((row, idx) => idx === i ? { ...row, productName: v, productId: '', _variations: [] } : row))
                             setOpenIdx(i)
+                            setRowHighlight(prev => ({ ...prev, [i]: 0 }))
                           }}
                           onBlur={() => setTimeout(() => setOpenIdx(null), 150)}
+                          onKeyDown={e => {
+                            const list = getFiltered(i)
+                            const hi = rowHighlight[i] ?? 0
+                            if (e.key === 'ArrowDown') {
+                              e.preventDefault()
+                              setOpenIdx(i)
+                              setRowHighlight(prev => ({ ...prev, [i]: Math.min((prev[i] ?? 0) + 1, Math.max(list.length - 1, 0)) }))
+                            } else if (e.key === 'ArrowUp') {
+                              e.preventDefault()
+                              setRowHighlight(prev => ({ ...prev, [i]: Math.max((prev[i] ?? 0) - 1, 0) }))
+                            } else if (e.key === 'Enter' && list.length > 0) {
+                              e.preventDefault()
+                              selectProduct(i, list[hi] ?? list[0])
+                            } else if (e.key === 'Escape') {
+                              setOpenIdx(null)
+                            }
+                          }}
                         />
                         {openIdx === i && getFiltered(i).length > 0 && (
                           <div className="absolute top-full left-0 right-0 mt-1 rounded-xl shadow-2xl z-50 overflow-hidden max-h-48 overflow-y-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                            {getFiltered(i).map((p: any) => (
+                            {getFiltered(i).map((p: any, hi: number) => (
                               <button
                                 key={p.id}
                                 type="button"
                                 onMouseDown={() => selectProduct(i, p)}
-                                className="w-full px-3 py-2.5 text-left hover:bg-violet-500/10 transition-colors flex items-center justify-between gap-2"
+                                className={`w-full px-3 py-2.5 text-left transition-colors flex items-center justify-between gap-2 ${hi === (rowHighlight[i] ?? 0) ? 'bg-violet-500/15' : 'hover:bg-violet-500/10'}`}
                                 style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
                               >
                                 <div className="min-w-0">
@@ -1114,22 +1184,37 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                     {/* Qty */}
                     <div className="col-span-2">
                       <input
+                        ref={el => { qtyRefs.current[i] = el }}
                         required type="number" min="1"
                         className="input-field text-sm text-center w-full"
                         placeholder="1"
                         value={item.quantity}
                         onChange={e => updateItem(i, 'quantity', e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            costRefs.current[i]?.focus()
+                            costRefs.current[i]?.select()
+                          }
+                        }}
                       />
                     </div>
 
                     {/* Unit Cost */}
                     <div className="col-span-3">
                       <input
+                        ref={el => { costRefs.current[i] = el }}
                         required type="number" min="0"
                         className="input-field text-sm w-full"
                         placeholder="0"
                         value={item.unitCost}
                         onChange={e => updateItem(i, 'unitCost', e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            focusQuickSearch()
+                          }
+                        }}
                       />
                     </div>
 
@@ -1232,8 +1317,8 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
               ))}
             </div>
 
-            <div className="flex justify-end mt-3 pt-3 border-t border-white/5">
-              <span className="text-sm font-bold text-white">Total: {formatCurrency(subtotal)}</span>
+            <div className="flex justify-end mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+              <span className="text-sm font-bold text-[var(--text-primary)]">Total: {formatCurrency(subtotal)}</span>
             </div>
           </div>
 
