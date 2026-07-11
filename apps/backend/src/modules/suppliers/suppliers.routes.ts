@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express'
+import { Prisma } from '@prisma/client'
 import { prisma } from '../../config/database'
 import { sendSuccess, sendPaginated } from '../../utils/response'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
@@ -7,6 +8,10 @@ import { getPagination } from '../../utils/pagination'
 import { generatePONumber } from '../../utils/counters'
 import { effectiveBranchId } from '../../utils/active-branch'
 import { emitPurchaseAccounting } from '../accounting/integration/accounting-events.service'
+import {
+  applyPoReceiveToVariations,
+  hasVariants,
+} from '../../utils/product-variants'
 
 const router = Router()
 router.use(authenticate)
@@ -183,25 +188,30 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
           if (!p) throw new AppError(`Product ${productId} not found during receive`, 404)
 
           const totalQty = group.reduce((s, r) => s + r.item.quantity, 0)
-          let updatedVariations = (p as any).storageVariations as any[] | null
-          if (updatedVariations && Array.isArray(updatedVariations)) {
+          let updatedVariations: Prisma.JsonValue = p.storageVariations
+
+          if (hasVariants(updatedVariations)) {
             for (const { item } of group) {
-              updatedVariations = updatedVariations.map((v: any) => {
-                const match = (item.sku && v.sku === item.sku) ||
-                              (item.storage && item.colorName &&
-                               v.storage === item.storage && v.colorName === item.colorName)
-                if (match) return { ...v, stock: (v.stock || 0) + item.quantity }
-                return v
-              })
+              const result = applyPoReceiveToVariations(updatedVariations, {
+                sku: item.sku,
+                storage: item.storage,
+                colorName: item.colorName,
+              }, item.quantity)
+              updatedVariations = result.variations as Prisma.JsonValue
             }
+          }
+
+          const productUpdate: Prisma.ProductUpdateInput = {
+            stock: p.trackImei ? { increment: totalQty } : p.stock + totalQty,
+          }
+
+          if (hasVariants(updatedVariations)) {
+            productUpdate.storageVariations = updatedVariations as Prisma.InputJsonValue
           }
 
           await tx.product.update({
             where: { id: productId },
-            data: {
-              stock: { increment: totalQty },
-              ...(updatedVariations ? { storageVariations: updatedVariations } : {}),
-            },
+            data: productUpdate,
           })
 
           const branchId = group[0].branchId

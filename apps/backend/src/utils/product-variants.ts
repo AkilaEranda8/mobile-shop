@@ -158,3 +158,89 @@ export function imeiMatchesVariant(
   const v = record.variation
   return v === key || v === variant.sku || v === `${variant.storage}::${variant.colorName}`
 }
+
+export type PoItemVariantRef = {
+  sku?: string | null
+  storage?: string | null
+  colorName?: string | null
+}
+
+function normalizeStorageToken(value: string): string {
+  return value.toLowerCase().replace(/\s+/g, '').replace(/gb$/i, '').trim()
+}
+
+function storageMatches(a: string, b: string): boolean {
+  return a === b || normalizeStorageToken(a) === normalizeStorageToken(b)
+}
+
+function colorMatches(a: string, b: string): boolean {
+  return a.toLowerCase().trim() === b.toLowerCase().trim()
+}
+
+function variantMatchesPoItem(variant: VariantRow, item: PoItemVariantRef): boolean {
+  if (item.sku && variant.sku && variant.sku === item.sku) return true
+  if (item.storage && item.colorName) {
+    return storageMatches(variant.storage, item.storage) && colorMatches(variant.colorName, item.colorName)
+  }
+  if (item.storage) return storageMatches(variant.storage, item.storage)
+  if (item.colorName) return colorMatches(variant.colorName, item.colorName)
+  return false
+}
+
+/** Resolve a PO line item to a variant key (SKU, storage/color, or single-variant fallback). */
+export function resolvePoItemToVariantKey(
+  variations: unknown,
+  item: PoItemVariantRef,
+): string | null {
+  if (!hasVariants(variations)) return null
+  const variants = variations as VariantRow[]
+
+  if (item.sku) {
+    const bySku = variants.find(v => v.sku && v.sku === item.sku)
+    if (bySku) return variantKey(bySku)
+  }
+
+  const direct = variants.find(v => variantMatchesPoItem(v, item))
+  if (direct) return variantKey(direct)
+
+  if (variants.length === 1) return variantKey(variants[0])
+
+  return null
+}
+
+/** Apply received PO quantity to the matching variant row. */
+export function applyPoReceiveToVariations(
+  variations: unknown,
+  item: PoItemVariantRef,
+  quantity: number,
+): { variations: unknown; matched: boolean } {
+  const key = resolvePoItemToVariantKey(variations, item)
+  if (!key) return { variations, matched: false }
+  return {
+    variations: adjustVariantStock(variations, key, quantity),
+    matched: true,
+  }
+}
+
+export function sumVariantStock(variations: unknown): number {
+  if (!Array.isArray(variations)) return 0
+  return (variations as VariantRow[]).reduce((sum, v) => sum + (v.stock ?? 0), 0)
+}
+
+/** Move parent stock surplus into variants when variant rows were never updated (legacy PO receives). */
+export function reconcileVariantStockWithParent(
+  variations: unknown,
+  parentStock: number,
+): unknown {
+  if (!hasVariants(variations)) return variations
+  const variants = variations as VariantRow[]
+  const variantTotal = sumVariantStock(variations)
+  const surplus = parentStock - variantTotal
+  if (surplus <= 0) return variations
+
+  const key = variants.length === 1
+    ? variantKey(variants[0])
+    : variantKey(variants.reduce((best, v) => ((v.stock ?? 0) > (best.stock ?? 0) ? v : best), variants[0]))
+
+  return adjustVariantStock(variations, key, surplus)
+}
