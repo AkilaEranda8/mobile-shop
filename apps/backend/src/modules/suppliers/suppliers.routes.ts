@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express'
+import { Prisma } from '@prisma/client'
 import { prisma } from '../../config/database'
 import { sendSuccess, sendPaginated } from '../../utils/response'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
@@ -266,7 +267,7 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
           if (!p) throw new AppError(`Product ${productId} not found during receive`, 404)
 
           const totalQty = group.reduce((s, r) => s + r.item.quantity, 0)
-          let updatedVariations = p.storageVariations
+          let updatedVariations: Prisma.JsonValue = p.storageVariations
 
           if (hasVariants(updatedVariations)) {
             for (const { item } of group) {
@@ -275,16 +276,16 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
                 storage: item.storage,
                 colorName: item.colorName,
               }, item.quantity)
-              updatedVariations = result.variations
+              updatedVariations = result.variations as Prisma.JsonValue
             }
           }
 
-          const productUpdate: { stock: number | { increment: number }; storageVariations?: unknown } = {
+          const productUpdate: Prisma.ProductUpdateInput = {
             stock: p.trackImei ? { increment: totalQty } : p.stock + totalQty,
           }
 
           if (hasVariants(updatedVariations)) {
-            productUpdate.storageVariations = updatedVariations
+            productUpdate.storageVariations = updatedVariations as Prisma.InputJsonValue
           }
 
           await tx.product.update({
