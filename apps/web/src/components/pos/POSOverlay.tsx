@@ -81,6 +81,7 @@ function autoPrintPosReceipt(sale: PosReceiptSale, settings: InvoiceSettings, ct
 }
 
 import type { ProductVariation } from '@/types'
+import { filterImeisForVariant, imeiMatchesProductVariant, parseImeiListResponse } from '@/lib/product-imei-match'
 
 const DAY_END_DENOMS: Array<{ key: string; label: string; value: number }> = [
   { key: 'd5000', label: '5000', value: 5000 },
@@ -396,33 +397,7 @@ function VariationPickerModal({
 
   const selected = variations.find(v => v.storage === selStorage && v.colorName === selColor)
 
-  const variantLabels = (v?: ProductVariation): string[] => {
-    if (!v) return []
-    const labels: string[] = []
-    if (v.sku?.trim()) labels.push(v.sku.trim())
-    labels.push(`${v.storage}::${v.colorName}`)
-    return [...new Set(labels)]
-  }
-
-  const imeiMatchesVariant = (rec: { variation?: string | null }, v?: ProductVariation) => {
-    if (!v) return false
-    const recVar = (rec.variation ?? '').trim()
-    if (!recVar) return false
-    if (variantLabels(v).includes(recVar)) return true
-    const [rStorage, rColor] = recVar.split('::').map(s => s.trim())
-    return rStorage === v.storage && rColor === v.colorName
-  }
-
-  const availableImeis = (() => {
-    if (!selected) return []
-    const matched = imeis.filter(i => imeiMatchesVariant(i, selected))
-    if (matched.length > 0) return matched
-    // Legacy: IMEIs registered without a variation label — show when this variant has stock
-    if ((selected.stock ?? 0) > 0) {
-      return imeis.filter(i => !(i.variation ?? '').trim())
-    }
-    return []
-  })()
+  const availableImeis = filterImeisForVariant(imeis, selected, { variantCount: variations.length })
 
   // Keep color valid when storage changes (don't override a valid color)
   useEffect(() => {
@@ -442,13 +417,15 @@ function VariationPickerModal({
   useEffect(() => {
     if (product?.trackImei) {
       setLoadingImeis(true)
-      const params: Record<string, string> = { productId: product.id, status: 'IN_STOCK', limit: '9999' }
-      if (branchId) params.branchId = branchId
+      const params: Record<string, string> = { productId: product.id, status: 'IN_STOCK', limit: '5000' }
+      const effectiveBranch = branchId || undefined
+      if (effectiveBranch) params.branchId = effectiveBranch
       imeiApi.list(params)
         .then((res: any) => {
-          const list = Array.isArray(res?.data) ? res.data : []
-          setImeis(branchId ? list.filter((i: any) => i.branchId === branchId) : list)
+          const list = parseImeiListResponse(res)
+          setImeis(effectiveBranch ? list.filter((i: any) => i.branchId === effectiveBranch) : list)
         })
+        .catch(() => setImeis([]))
         .finally(() => setLoadingImeis(false))
     }
   }, [product, branchId])
@@ -583,6 +560,7 @@ function VariationPickerModal({
               ) : availableImeis.length === 0 ? (
                 <p className="text-xs text-red-400">
                   No IN_STOCK IMEIs for {selected?.storage} / {selected?.colorName}.
+                  {(selected?.stock ?? 0) > 0 && ' Stock is recorded but IMEIs are not registered — use Purchase Orders → Register IMEI first.'}
                 </p>
               ) : (
                 <>
@@ -1467,6 +1445,16 @@ function POSContent({ onClose }: { onClose: () => void }) {
     })
   }
 
+  const resolveVariationFromImei = (product: any, variation?: string | null): ProductVariation | undefined => {
+    const vars: ProductVariation[] = Array.isArray(product.storageVariations) ? product.storageVariations : []
+    if (!vars.length) return undefined
+    if (variation) {
+      const match = vars.find(v => imeiMatchesProductVariant({ variation }, v))
+      if (match) return match
+    }
+    return vars.length === 1 ? vars[0] : undefined
+  }
+
   const handleImeiScan = async (scanned: string) => {
     const imei = scanned.trim()
     if (!imei) return
@@ -1497,7 +1485,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           }))
           toast.success(`IMEI linked to ${product.name}`)
         } else {
-          addToCart(product, imei)
+          addToCart(product, imei, resolveVariationFromImei(product, rec?.variation))
           toast.success(`Added: ${product.name} — IMEI linked`)
         }
       } else {
@@ -2811,6 +2799,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       <div>
                         <p className="text-xs font-semibold text-slate-200">{item.productName}</p>
                         <p className="text-[10px] text-slate-500">{item.quantity} × {formatCurrency(item.unitPrice)}</p>
+                        {item.imei && <p className="text-[10px] font-mono text-slate-400 mt-0.5">IMEI: {item.imei}</p>}
                       </div>
                       <p className="text-xs font-bold text-white">{formatCurrency(item.total)}</p>
                     </div>
