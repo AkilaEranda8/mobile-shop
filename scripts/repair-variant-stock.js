@@ -52,7 +52,7 @@ async function main() {
   let repaired = 0
   for (const product of products) {
     const variations = product.storageVariations
-    if (product.trackImei || !hasVariants(variations)) continue
+    if (!hasVariants(variations)) continue
 
     const variantTotal = sumVariantStock(variations)
     if (product.stock <= variantTotal) continue
@@ -63,7 +63,7 @@ async function main() {
       data: { storageVariations: updated },
     })
     repaired++
-    console.log(`Repaired ${product.name} (${product.id}) parent=${product.stock} variants=${variantTotal}`)
+    console.log(`Repaired ${product.name} (${product.id}) parent=${product.stock} variants=${variantTotal}${product.trackImei ? ' [IMEI]' : ''}`)
   }
 
   console.log(`Done. Repaired ${repaired} product(s).`)
