@@ -24,7 +24,7 @@ import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { getInvoiceSettings, fetchInvoiceSettings, resolveInvoiceTemplate, type InvoiceSettings } from '@/lib/invoiceSettings'
 import { buildRepairInvoiceSale, resolveRepairWarrantyMonths, REPAIR_WARRANTY_OPTIONS, repairWarrantyMonths } from '@/lib/repair-invoice.util'
-import { normalizeRepairTicket, repairNextStatus, repairPartsLocked, repairPaymentSummary, repairProgressStep, repairStatusHistory, repairTicketEditable, REPAIR_PROGRESS_FLOW } from '@/lib/repair.util'
+import { normalizeRepairTicket, repairNextStatus, repairPartsLocked, repairPaymentSummary, repairProgressStep, repairStatusHistory, repairTicketEditable, REPAIR_PROGRESS_FLOW, REPAIR_SERVICE_ITEM_LABEL } from '@/lib/repair.util'
 import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
 import InvoiceA4View from '@/components/invoice/InvoiceA4View'
 import EditRepairModal from '@/components/repairs/EditRepairModal'
@@ -98,7 +98,7 @@ ${repair.accessories ? `<div class="row"><span>Accessories:</span><span>${repair
 <div class="line"></div>
 <div class="bold med">CHARGES</div>
 <table><tbody>
-  <tr><td>Repair Service</td><td style="text-align:right">1</td><td style="text-align:right">${fmt(serviceFee)}</td></tr>
+  <tr><td>${REPAIR_SERVICE_ITEM_LABEL}</td><td style="text-align:right">1</td><td style="text-align:right">${fmt(serviceFee)}</td></tr>
   <tr class="total-row"><td colspan="2">TOTAL</td><td>${fmt(subtotal)}</td></tr>
 </tbody></table>
 ${partsRows}

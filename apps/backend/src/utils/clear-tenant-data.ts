@@ -40,6 +40,9 @@ export async function clearTenantTrialData(tenantId: string): Promise<ClearTenan
 
     counts.dailyClosings = (await tx.dailyClosing.deleteMany({ where: { tenantId } })).count
     counts.dailyReloads = (await tx.dailyReload.deleteMany({ where: { tenantId } })).count
+    counts.dailyReloadProviderPayments = (await tx.dailyReloadProviderPayment.deleteMany({
+      where: { tenantId },
+    })).count
     counts.dailySummaries = (await tx.dailySummary.deleteMany({ where: { tenantId } })).count
     counts.profitTransactions = (await tx.profitTransaction.deleteMany({ where: { tenantId } })).count
     counts.profitWithdrawals = (await tx.profitWithdrawal.deleteMany({ where: { tenantId } })).count
@@ -62,6 +65,35 @@ export async function clearTenantTrialData(tenantId: string): Promise<ClearTenan
     counts.refreshTokens = (await tx.refreshToken.deleteMany({
       where: { user: { tenantId } },
     })).count
+
+    // Accounting & report data (journal entries cascade to lines + integration links)
+    counts.integrationLinks = (await tx.integrationLink.deleteMany({ where: { tenantId } })).count
+    counts.journalLines = (await tx.journalLine.deleteMany({ where: { tenantId } })).count
+    counts.journalEntries = (await tx.journalEntry.deleteMany({ where: { tenantId } })).count
+    counts.accountingOutbox = (await tx.accountingOutbox.deleteMany({ where: { tenantId } })).count
+    counts.cashAccounts = (await tx.cashAccount.deleteMany({ where: { tenantId } })).count
+    counts.bankAccounts = (await tx.bankAccount.deleteMany({ where: { tenantId } })).count
+    counts.taxCodes = (await tx.taxCode.deleteMany({ where: { tenantId } })).count
+    counts.autoJournalRules = (await tx.autoJournalRule.deleteMany({ where: { tenantId } })).count
+    counts.auditEvents = (await tx.auditEvent.deleteMany({ where: { tenantId } })).count
+    counts.approvalRequests = (await tx.approvalRequest.deleteMany({ where: { tenantId } })).count
+
+    await tx.glAccount.updateMany({
+      where: { tenantId },
+      data: { parentAccountId: null },
+    })
+    counts.glAccounts = (await tx.glAccount.deleteMany({ where: { tenantId } })).count
+    counts.accountingPeriods = (await tx.accountingPeriod.deleteMany({ where: { tenantId } })).count
+
+    const accountingReset = await tx.accountingSettings.updateMany({
+      where: { tenantId },
+      data: {
+        initializedAt: null,
+        defaultAccounts: {},
+        expenseCategoryMap: {},
+      },
+    })
+    counts.accountingSettingsReset = accountingReset.count
   })
 
   return counts
