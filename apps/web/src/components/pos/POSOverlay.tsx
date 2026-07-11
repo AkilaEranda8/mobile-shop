@@ -50,6 +50,36 @@ function receiptCustomerCity(customer?: { city?: string; address?: string } | nu
   return customer?.city?.trim() || customer?.address?.trim() || ''
 }
 
+function posSellableStock(item: { trackImei?: boolean; stock?: number; imeiInStock?: number; storageVariations?: unknown }, hasIMEI: boolean): number {
+  if (item.trackImei && hasIMEI) {
+    if (typeof item.imeiInStock === 'number') return item.imeiInStock
+    const vars = Array.isArray(item.storageVariations) ? item.storageVariations as Array<{ stock?: number }> : []
+    if (vars.length > 0) return vars.reduce((sum, v) => sum + (v.stock ?? 0), 0)
+  }
+  return item.stock ?? 0
+}
+
+function posStockLabel(item: { trackImei?: boolean; stock?: number; imeiInStock?: number; storageVariations?: unknown }, hasIMEI: boolean): { label: string; color: string; isOut: boolean; isLow: boolean } {
+  const qty = posSellableStock(item, hasIMEI)
+  const isOut = qty === 0
+  const isLow = !isOut && qty <= 4
+  const color = isOut ? POS_THEME.muted : isLow ? POS_THEME.amber : POS_THEME.green
+  if (item.trackImei && hasIMEI) {
+    return {
+      label: isOut ? 'No IMEI registered' : `${qty} IMEI in stock`,
+      color,
+      isOut,
+      isLow,
+    }
+  }
+  return {
+    label: isOut ? 'Out of stock' : isLow ? `Low stock (${qty})` : `In stock (${qty})`,
+    color,
+    isOut,
+    isLow,
+  }
+}
+
 function cartToReceiptItems(cart: CartItem[]) {
   return cart.map(i => ({
     productName: i.name,
@@ -2509,15 +2539,18 @@ function POSContent({ onClose }: { onClose: () => void }) {
               </div>
             ) : pagedProducts.map((item: any) => {
                   const isService = selectedCategory === 'SERVICES'
-                  const isLow  = !isService && item.stock > 0 && item.stock <= 4
-                  const isHot  = !isService && item.stock >= 25
-                  const isOut  = !isService && item.stock === 0
                   const vars   = Array.isArray(item.storageVariations) ? item.storageVariations : []
+                  const stockInfo = isService
+                    ? { label: '', color: POS_THEME.muted, isOut: false, isLow: false }
+                    : posStockLabel(item, hasIMEI)
+                  const isOut  = !isService && stockInfo.isOut
+                  const isLow  = !isService && stockInfo.isLow
+                  const isHot  = !isService && !isOut && posSellableStock(item, hasIMEI) >= 25
                   const { gradient, iconColor, Icon: CardIcon } = isService ? { gradient: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, iconColor: '#c4b5fd', Icon: Wrench } : getProductCardStyle(item)
                   const isFav  = favorites.has(item.id)
                   const price  = formatCurrency(isService ? item.price : item.sellingPrice)
-                  const stockLabel = isOut ? 'Out of stock' : isLow ? `Low stock (${item.stock})` : `In stock (${item.stock})`
-                  const stockColor = isOut ? POS_THEME.muted : isLow ? POS_THEME.amber : POS_THEME.green
+                  const stockLabel = stockInfo.label
+                  const stockColor = stockInfo.color
                   const handlePick = () => {
                     if (isOut) return
                     if (vars.length > 0) { setVariationPickerProduct(item); return }
