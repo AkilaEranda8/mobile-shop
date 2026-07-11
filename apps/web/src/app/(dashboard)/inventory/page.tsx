@@ -1809,12 +1809,14 @@ export default function InventoryPage() {
         data={flatRows}
         columns={columns}
         isLoading={loading}
-        pageCount={Math.ceil((flatRows.length || 1) / 20)}
-        pageSize={20}
+        pageSize={50}
         searchableColumns={[]}
         showFilter={false}
         withIndex={false}
-        config={{ features: { sorting: false } }}
+        config={{
+          features: { sorting: false },
+          pagination: { defaultPageSize: 50, pageSizeOptions: [20, 50, 100, 200] },
+        }}
       />
     </div>
   )
