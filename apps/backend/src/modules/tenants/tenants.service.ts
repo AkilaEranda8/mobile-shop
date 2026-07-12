@@ -2,6 +2,11 @@ import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import { normalizeReloadSettings } from '../daily-reload/reload-settings.util'
 import { normalizeProductVariantSettings } from '../products/product-variant-settings.util'
+import {
+  applyProductCodeSettings,
+  normalizeProductCodeSettings,
+} from '../products/product-code-settings.util'
+import { peekProductCodes } from '../../utils/counters'
 import { getUserBranchIds } from '../../utils/active-branch'
 import {
   INVOICE_TEMPLATE_OPTIONS,
@@ -92,6 +97,32 @@ export const tenantsService = {
       select: { productVariantSettings: true },
     })
     return normalizeProductVariantSettings(t.productVariantSettings)
+  },
+
+  async getProductCodeSettings(tenantId: string) {
+    const t = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { productCodeSettings: true, slug: true },
+    })
+    if (!t) throw new AppError('Tenant not found', 404)
+    const settings = normalizeProductCodeSettings(t.productCodeSettings)
+    const peek = await peekProductCodes(tenantId, t.slug)
+    return { ...settings, nextSku: peek.sku, nextBarcode: peek.barcode, prefix: peek.prefix }
+  },
+
+  async updateProductCodeSettings(tenantId: string, body: Record<string, unknown>) {
+    const t = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { slug: true },
+    })
+    if (!t) throw new AppError('Tenant not found', 404)
+    const normalized = normalizeProductCodeSettings(body)
+    await prisma.tenant.update({
+      where: { id: tenantId },
+      data: { productCodeSettings: normalized as any },
+    })
+    await applyProductCodeSettings(tenantId, t.slug, normalized)
+    return this.getProductCodeSettings(tenantId)
   },
 
   // Branch CRUD

@@ -52,5 +52,7 @@ router.get('/:id/reload-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER
 router.patch('/:id/reload-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER'), tenantsController.updateReloadSettings)
 router.get('/:id/product-variant-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'), tenantsController.getProductVariantSettings)
 router.patch('/:id/product-variant-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER'), tenantsController.updateProductVariantSettings)
+router.get('/:id/product-code-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'), tenantsController.getProductCodeSettings)
+router.patch('/:id/product-code-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER'), tenantsController.updateProductCodeSettings)
 
 export default router
