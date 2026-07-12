@@ -5,7 +5,7 @@ import { Request } from 'express'
 import { inferTrackImeiFromMeta } from '../../utils/productImei'
 import { effectiveBranchId, assertBranchRecordAccess, getUserBranchIds } from '../../utils/active-branch'
 import { buildBranchCatalogData, findBranchCatalogProduct } from '../../utils/branch-catalog'
-import { generateProductBarcode, generateProductSku, tenantProductPrefix } from '../../utils/counters'
+import { generateProductBarcode, generateProductSku, peekProductCodes } from '../../utils/counters'
 import { Prisma } from '@prisma/client'
 
 async function loadTenantSlug(tenantId: string): Promise<string> {
@@ -76,11 +76,7 @@ export const productsService = {
 
   async nextCodes(tenantId: string) {
     const slug = await loadTenantSlug(tenantId)
-    const [sku, barcode] = await Promise.all([
-      generateProductSku(tenantId, slug),
-      generateProductBarcode(tenantId, slug),
-    ])
-    return { sku, barcode, prefix: tenantProductPrefix(slug) }
+    return peekProductCodes(tenantId, slug)
   },
 
   async create(tenantId: string, body: any) {
