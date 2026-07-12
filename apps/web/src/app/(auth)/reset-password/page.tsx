@@ -72,7 +72,7 @@ function ResetPasswordForm() {
               </p>
               <Link href="/login"
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white transition-all"
-                style={{ background: 'linear-gradient(135deg, #7c3aed, #0e7490)', boxShadow: '0 4px 20px rgba(124,58,237,0.3)' }}>
+                style={{ background: 'var(--brand-gradient)', boxShadow: '0 4px 20px var(--sidebar-active-border)' }}>
                 <span>Sign in now</span>
                 <ArrowRight size={15} />
               </Link>
@@ -82,8 +82,8 @@ function ResetPasswordForm() {
             <>
               <div className="mb-7">
                 <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4"
-                  style={{ background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.25)' }}>
-                  <Lock size={20} style={{ color: '#a78bfa' }} />
+                  style={{ background: 'var(--brand-glow)', border: '1px solid var(--sidebar-active-border)' }}>
+                  <Lock size={20} style={{ color: 'var(--brand-light)' }} />
                 </div>
                 <h1 className="text-2xl font-bold" style={{ color: '#ffffff' }}>Set new password</h1>
                 <p className="text-sm mt-1" style={{ color: '#64748b' }}>
@@ -152,7 +152,7 @@ function ResetPasswordForm() {
                   type="submit"
                   disabled={loading || !token}
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-60"
-                  style={{ background: 'linear-gradient(135deg, #7c3aed, #0e7490)', boxShadow: '0 4px 20px rgba(124,58,237,0.3)' }}
+                  style={{ background: 'var(--brand-gradient)', boxShadow: '0 4px 20px var(--sidebar-active-border)' }}
                 >
                   {loading
                     ? <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} />
@@ -170,7 +170,7 @@ function ResetPasswordForm() {
             <Link href="/login"
               className="inline-flex items-center gap-1.5 text-sm transition-colors"
               style={{ color: '#64748b' }}
-              onMouseEnter={e => (e.currentTarget.style.color = '#a78bfa')}
+              onMouseEnter={e => (e.currentTarget.style.color = 'var(--brand-light)')}
               onMouseLeave={e => (e.currentTarget.style.color = '#64748b')}>
               <ArrowLeft size={13} />
               Back to sign in

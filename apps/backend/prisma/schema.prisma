@@ -150,6 +150,7 @@ model Tenant {
   invoiceSettings        Json?
   reloadSettings         Json?
   productVariantSettings Json?
+  productCodeSettings    Json?
   createdAt              DateTime         @default(now())
   updatedAt              DateTime         @updatedAt
 

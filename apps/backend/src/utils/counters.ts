@@ -1,10 +1,28 @@
-import { prisma } from '../config/database'
 import { redis } from '../config/redis'
+import { prisma } from '../config/database'
+import {
+  analyzeProductSkus,
+  deserializeSkuFormat,
+  serializeSkuFormat,
+  type SkuCodeFormat,
+} from './product-sku-seq'
+import {
+  fetchTenantProductCodeSettings,
+  syncProductCodeCounters,
+  type ProductCodeSettings,
+} from '../modules/products/product-code-settings.util'
+
+export {
+  analyzeProductSkus,
+  formatSkuFromSeq,
+  parseProductSkuSequence,
+  type SkuCodeFormat,
+} from './product-sku-seq'
 
 function nextSeq(last: string | undefined, prefix: string): string {
   let seq = 1
   if (last) {
-    const tail = last.slice(prefix.length + 1) // strip "PREFIX-"
+    const tail = last.slice(prefix.length + 1)
     const n = parseInt(tail, 10)
     if (!isNaN(n)) seq = n + 1
   }
@@ -13,10 +31,8 @@ function nextSeq(last: string | undefined, prefix: string): string {
 
 export async function generateInvoiceNumber(tenantId: string): Promise<string> {
   const key = `inv_seq:${tenantId}`
-  // Seed Redis counter from DB on first use (SET NX = only if key absent)
   const seeded = await redis.set(key, '0', 'NX')
   if (seeded === 'OK') {
-    // Key was just created — initialize from existing sale count / max number
     const all = await prisma.sale.findMany({ where: { tenantId }, select: { invoiceNumber: true } })
     let max = all.length
     for (const s of all) {
@@ -25,7 +41,6 @@ export async function generateInvoiceNumber(tenantId: string): Promise<string> {
     }
     await redis.set(key, String(max))
   }
-  // Atomic increment — no race condition regardless of concurrency
   const next = await redis.incr(key)
   return `INV-${String(next).padStart(5, '0')}`
 }
@@ -79,42 +94,73 @@ export function tenantProductPrefix(slug: string): string {
   return s.length <= 6 ? s : s.slice(0, 6)
 }
 
-async function seedProductCodeSeq(
-  tenantId: string,
-  redisKey: string,
-  prefix: string,
-  field: 'sku' | 'barcode',
-): Promise<void> {
-  const seeded = await redis.set(redisKey, '0', 'NX')
-  if (seeded !== 'OK') return
+function skuFormatRedisKey(tenantId: string) {
+  return `product_sku_fmt:${tenantId}`
+}
 
-  const products = await prisma.product.findMany({
-    where: { tenantId },
-    select: { sku: true, barcode: true },
-  })
-  const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const pattern = new RegExp(`^${escaped}-(\\d+)$`)
-  let max = 0
-  for (const p of products) {
-    const val = field === 'sku' ? p.sku : p.barcode
-    const m = val?.match(pattern)
-    if (m) max = Math.max(max, parseInt(m[1], 10))
+function skuSeqRedisKey(tenantId: string) {
+  return `product_sku_seq:${tenantId}`
+}
+
+function barcodeSeqRedisKey(tenantId: string) {
+  return `product_bc_seq:${tenantId}`
+}
+
+async function loadSkuFormat(tenantId: string, tenantSlug: string): Promise<SkuCodeFormat> {
+  const defaultPrefix = `${tenantProductPrefix(tenantSlug)}-SKU`
+  const fmtKey = skuFormatRedisKey(tenantId)
+  const storedFmt = await redis.get(fmtKey)
+  if (storedFmt) return deserializeSkuFormat(storedFmt, defaultPrefix)
+
+  const products = await prisma.product.findMany({ where: { tenantId }, select: { sku: true } })
+  const analysis = analyzeProductSkus(products.map(p => p.sku), defaultPrefix)
+  const format = products.length > 0
+    ? analysis.format
+    : { type: 'prefixed' as const, prefix: defaultPrefix, pad: 5 }
+  await redis.set(fmtKey, serializeSkuFormat(format))
+  return format
+}
+
+function formatBarcode(prefix: string, seq: number, pad = 5): string {
+  return `${prefix}-${String(seq).padStart(pad, '0')}`
+}
+
+function formatSkuWithSettings(format: SkuCodeFormat, seq: number, settings: ProductCodeSettings): string {
+  const padded = String(seq).padStart(settings.skuPad, '0')
+  if (format.type === 'numeric') return padded
+  return `${format.prefix}-${padded}`
+}
+
+async function resolveNextSkuState(tenantId: string, tenantSlug: string) {
+  const settings = await fetchTenantProductCodeSettings(tenantId)
+  const synced = await syncProductCodeCounters(tenantId, tenantSlug, settings)
+  const format = await loadSkuFormat(tenantId, tenantSlug)
+  const nextSeq = synced.skuSeq + 1
+  return { format, nextSeq, settings, barcodeSeq: synced.barcodeSeq + 1 }
+}
+
+export async function peekProductCodes(tenantId: string, tenantSlug: string): Promise<{ sku: string; barcode: string; prefix: string }> {
+  const { format, nextSeq, settings, barcodeSeq } = await resolveNextSkuState(tenantId, tenantSlug)
+  const bcPrefix = `${tenantProductPrefix(tenantSlug)}-BC`
+  return {
+    sku: formatSkuWithSettings(format, nextSeq, settings),
+    barcode: formatBarcode(bcPrefix, barcodeSeq),
+    prefix: tenantProductPrefix(tenantSlug),
   }
-  await redis.set(redisKey, String(max))
 }
 
 export async function generateProductSku(tenantId: string, tenantSlug: string): Promise<string> {
-  const prefix = `${tenantProductPrefix(tenantSlug)}-SKU`
-  const key = `product_sku_seq:${tenantId}`
-  await seedProductCodeSeq(tenantId, key, prefix, 'sku')
-  const next = await redis.incr(key)
-  return `${prefix}-${String(next).padStart(5, '0')}`
+  const settings = await fetchTenantProductCodeSettings(tenantId)
+  await syncProductCodeCounters(tenantId, tenantSlug, settings)
+  const format = await loadSkuFormat(tenantId, tenantSlug)
+  const next = await redis.incr(skuSeqRedisKey(tenantId))
+  return formatSkuWithSettings(format, next, settings)
 }
 
 export async function generateProductBarcode(tenantId: string, tenantSlug: string): Promise<string> {
+  const settings = await fetchTenantProductCodeSettings(tenantId)
+  await syncProductCodeCounters(tenantId, tenantSlug, settings)
   const prefix = `${tenantProductPrefix(tenantSlug)}-BC`
-  const key = `product_bc_seq:${tenantId}`
-  await seedProductCodeSeq(tenantId, key, prefix, 'barcode')
-  const next = await redis.incr(key)
-  return `${prefix}-${String(next).padStart(5, '0')}`
+  const next = await redis.incr(barcodeSeqRedisKey(tenantId))
+  return formatBarcode(prefix, next)
 }

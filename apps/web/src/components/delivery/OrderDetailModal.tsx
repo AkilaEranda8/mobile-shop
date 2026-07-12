@@ -56,7 +56,7 @@ export default function OrderDetailModal({ order, onClose, onAssignTracking, onG
             {!order.trackingNumber && (
               <button onClick={() => onAssignTracking(order)}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg font-semibold text-white transition-all"
-                style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', boxShadow: '0 2px 8px rgba(124,58,237,0.3)' }}>
+                style={{ background: 'var(--brand-gradient)', boxShadow: '0 2px 8px var(--sidebar-active-border)' }}>
                 <Hash size={11} /> Assign Tracking
               </button>
             )}

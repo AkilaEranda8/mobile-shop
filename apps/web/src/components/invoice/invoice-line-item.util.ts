@@ -1,3 +1,5 @@
+import { isRepairServiceItemName } from '@/lib/repair.util'
+
 /** Parse fault / service detail stored on repair sale notes. */
 export function extractRepairFaultFromSale(sale: { notes?: string }): string | undefined {
   if (!sale.notes) return undefined
@@ -11,7 +13,7 @@ export function isRepairSparePartLine(
   sale?: { source?: string },
 ): boolean {
   if (item.isRepairPart) return true
-  return sale?.source === 'REPAIR' && !String(item.productName || '').startsWith('Repair Service')
+  return sale?.source === 'REPAIR' && !isRepairServiceItemName(item.productName)
 }
 
 /** Normalize repair sale lines: service billed, spare parts listed by name only. */
@@ -19,7 +21,7 @@ export function repairInvoiceSaleItems(sale: { source?: string; items?: any[] })
   const items = sale.items ?? []
   if (sale.source !== 'REPAIR') return items
   return items.map((i) => {
-    if (String(i.productName || '').startsWith('Repair Service')) return i
+    if (isRepairServiceItemName(i.productName)) return i
     return {
       ...i,
       unitPrice: 0,
@@ -55,7 +57,7 @@ export function mapSaleItemForInvoice(
 
   if (inlineFault) {
     detailParts.push(`Fault / Service: ${inlineFault}`)
-  } else if (ctx?.index === 0 && title.startsWith('Repair Service') && ctx.sale) {
+  } else if (ctx?.index === 0 && isRepairServiceItemName(title) && ctx.sale) {
     const fault = extractRepairFaultFromSale(ctx.sale)
     if (fault) detailParts.push(`Fault / Service: ${fault}`)
   }

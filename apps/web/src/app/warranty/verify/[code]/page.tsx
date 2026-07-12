@@ -48,7 +48,7 @@ export default function WarrantyVerifyPage() {
     <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--bg-base, #0f1117)' }}>
       <div className="w-full max-w-md rounded-2xl border p-6 shadow-2xl" style={{ background: 'var(--bg-card, #1a1f2e)', borderColor: 'var(--border-default, #2a3142)' }}>
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(109,40,217,0.15)' }}>
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'var(--brand-glow)' }}>
             <Shield size={22} className="text-violet-400" />
           </div>
           <div>

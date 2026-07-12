@@ -24,7 +24,7 @@ import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { getInvoiceSettings, fetchInvoiceSettings, resolveInvoiceTemplate, type InvoiceSettings } from '@/lib/invoiceSettings'
 import { buildRepairInvoiceSale, resolveRepairWarrantyMonths, REPAIR_WARRANTY_OPTIONS, repairWarrantyMonths } from '@/lib/repair-invoice.util'
-import { normalizeRepairTicket, repairNextStatus, repairPartsLocked, repairPaymentSummary, repairProgressStep, repairStatusHistory, repairTicketEditable, REPAIR_PROGRESS_FLOW } from '@/lib/repair.util'
+import { normalizeRepairTicket, repairNextStatus, repairPartsLocked, repairPaymentSummary, repairProgressStep, repairStatusHistory, repairTicketEditable, REPAIR_PROGRESS_FLOW, REPAIR_SERVICE_ITEM_LABEL } from '@/lib/repair.util'
 import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
 import InvoiceA4View from '@/components/invoice/InvoiceA4View'
 import EditRepairModal from '@/components/repairs/EditRepairModal'
@@ -98,7 +98,7 @@ ${repair.accessories ? `<div class="row"><span>Accessories:</span><span>${repair
 <div class="line"></div>
 <div class="bold med">CHARGES</div>
 <table><tbody>
-  <tr><td>Repair Service</td><td style="text-align:right">1</td><td style="text-align:right">${fmt(serviceFee)}</td></tr>
+  <tr><td>${REPAIR_SERVICE_ITEM_LABEL}</td><td style="text-align:right">1</td><td style="text-align:right">${fmt(serviceFee)}</td></tr>
   <tr class="total-row"><td colspan="2">TOTAL</td><td>${fmt(subtotal)}</td></tr>
 </tbody></table>
 ${partsRows}
@@ -477,7 +477,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                           </div>
                           <button type="button" onClick={() => { setCustomerMode('new'); clearCustomer() }}
                             className="h-12 px-4 rounded-xl border text-sm font-semibold flex items-center gap-2 text-violet-500 bg-violet-500/5 hover:bg-violet-500/10 transition-colors"
-                            style={{ borderColor: 'rgba(139,92,246,0.25)' }}>
+                            style={{ borderColor: 'var(--sidebar-active-border)' }}>
                             <Plus size={15} /> New Customer
                           </button>
                         </div>
@@ -593,7 +593,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                           <Hash size={15} className="absolute left-4 top-1/2 -translate-y-1/2 [color:var(--text-muted)]" />
                           <input className="input-field pl-11 h-12 font-mono" placeholder="Enter 15-digit IMEI number" maxLength={17} value={form.imei} onChange={f('imei')} />
                         </div>
-                        <button type="button" className="h-12 px-4 rounded-xl border text-sm font-semibold flex items-center gap-2 text-violet-500 bg-violet-500/5" style={{ borderColor: 'rgba(139,92,246,0.25)' }}>
+                        <button type="button" className="h-12 px-4 rounded-xl border text-sm font-semibold flex items-center gap-2 text-violet-500 bg-violet-500/5" style={{ borderColor: 'var(--sidebar-active-border)' }}>
                           <Hash size={16} /> Scan IMEI
                         </button>
                       </div>
@@ -834,7 +834,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                   ))}
                 </div>
                 {form.estimatedCompletion && (
-                  <div className="mt-5 rounded-xl border p-3 bg-violet-500/5" style={{ borderColor: 'rgba(139,92,246,0.25)' }}>
+                  <div className="mt-5 rounded-xl border p-3 bg-violet-500/5" style={{ borderColor: 'var(--sidebar-active-border)' }}>
                     <div className="flex items-center gap-2 text-violet-500 text-xs font-semibold mb-1">
                       <Clock size={13} /> Estimated Completion
                     </div>
@@ -873,7 +873,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
               type="submit"
               disabled={loading}
               className="h-11 px-12 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-violet-500/20 transition-all hover:opacity-90"
-              style={{ background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)' }}
+              style={{ background: 'var(--brand-gradient)' }}
             >
               {loading ? <Loader2 size={14} className="animate-spin" /> : <><CheckCircle2 size={14} /> Create Ticket</>}
             </button>
@@ -1132,7 +1132,7 @@ export default function RepairsPage() {
 
   if (!hasAccess) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-      <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(109,40,217,0.1)' }}>
+      <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'var(--brand-glow)' }}>
         <Wrench size={26} className="text-violet-500" />
       </div>
       <div className="text-center">
@@ -1194,7 +1194,7 @@ export default function RepairsPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
         {([
-          { icon: Wrench,      label: 'Total Jobs',  value: String(stats.total),           color: '#6d28d9', bg: 'rgba(109,40,217,0.08)', border: 'rgba(109,40,217,0.20)', filter: 'all' as RepairStatusFilter },
+          { icon: Wrench,      label: 'Total Jobs',  value: String(stats.total),           color: 'var(--brand-primary-light)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)', filter: 'all' as RepairStatusFilter },
           { icon: Clock,       label: 'In Progress', value: String(stats.active),          color: '#1d4ed8', bg: 'rgba(29,78,216,0.08)',  border: 'rgba(29,78,216,0.20)',  filter: 'active' as RepairStatusFilter },
           { icon: CheckCircle, label: 'Ready',       value: String(stats.ready),           color: '#15803d', bg: 'rgba(21,128,61,0.08)',  border: 'rgba(21,128,61,0.20)',  filter: 'READY' as RepairStatusFilter },
           { icon: Smartphone,  label: 'Delivered',   value: String(stats.delivered),       color: '#0e7490', bg: 'rgba(14,116,144,0.08)', border: 'rgba(14,116,144,0.20)', filter: 'DELIVERED' as RepairStatusFilter },
@@ -1229,7 +1229,7 @@ export default function RepairsPage() {
               onClick={() => setStatusFilter(opt.id)}
               className="px-3 py-1.5 text-xs rounded-lg font-medium whitespace-nowrap transition-colors"
               style={statusFilter === opt.id
-                ? { background: '#6d28d9', color: '#fff' }
+                ? { background: 'var(--brand-primary-light)', color: '#fff' }
                 : { color: 'var(--text-muted)' }}>
               {opt.label}
             </button>

@@ -50,6 +50,36 @@ function receiptCustomerCity(customer?: { city?: string; address?: string } | nu
   return customer?.city?.trim() || customer?.address?.trim() || ''
 }
 
+function posSellableStock(item: { trackImei?: boolean; stock?: number; imeiInStock?: number; storageVariations?: unknown }, hasIMEI: boolean): number {
+  if (item.trackImei && hasIMEI) {
+    if (typeof item.imeiInStock === 'number') return item.imeiInStock
+    const vars = Array.isArray(item.storageVariations) ? item.storageVariations as Array<{ stock?: number }> : []
+    if (vars.length > 0) return vars.reduce((sum, v) => sum + (v.stock ?? 0), 0)
+  }
+  return item.stock ?? 0
+}
+
+function posStockLabel(item: { trackImei?: boolean; stock?: number; imeiInStock?: number; storageVariations?: unknown }, hasIMEI: boolean): { label: string; color: string; isOut: boolean; isLow: boolean } {
+  const qty = posSellableStock(item, hasIMEI)
+  const isOut = qty === 0
+  const isLow = !isOut && qty <= 4
+  const color = isOut ? POS_THEME.muted : isLow ? POS_THEME.amber : POS_THEME.green
+  if (item.trackImei && hasIMEI) {
+    return {
+      label: isOut ? 'No IMEI registered' : `${qty} IMEI in stock`,
+      color,
+      isOut,
+      isLow,
+    }
+  }
+  return {
+    label: isOut ? 'Out of stock' : isLow ? `Low stock (${qty})` : `In stock (${qty})`,
+    color,
+    isOut,
+    isLow,
+  }
+}
+
 function cartToReceiptItems(cart: CartItem[]) {
   return cart.map(i => ({
     productName: i.name,
@@ -80,6 +110,7 @@ function autoPrintPosReceipt(sale: PosReceiptSale, settings: InvoiceSettings, ct
 }
 
 import type { ProductVariation } from '@/types'
+import { filterImeisForVariant, imeiMatchesProductVariant, parseImeiListResponse } from '@/lib/product-imei-match'
 
 const DAY_END_DENOMS: Array<{ key: string; label: string; value: number }> = [
   { key: 'd5000', label: '5000', value: 5000 },
@@ -395,33 +426,7 @@ function VariationPickerModal({
 
   const selected = variations.find(v => v.storage === selStorage && v.colorName === selColor)
 
-  const variantLabels = (v?: ProductVariation): string[] => {
-    if (!v) return []
-    const labels: string[] = []
-    if (v.sku?.trim()) labels.push(v.sku.trim())
-    labels.push(`${v.storage}::${v.colorName}`)
-    return [...new Set(labels)]
-  }
-
-  const imeiMatchesVariant = (rec: { variation?: string | null }, v?: ProductVariation) => {
-    if (!v) return false
-    const recVar = (rec.variation ?? '').trim()
-    if (!recVar) return false
-    if (variantLabels(v).includes(recVar)) return true
-    const [rStorage, rColor] = recVar.split('::').map(s => s.trim())
-    return rStorage === v.storage && rColor === v.colorName
-  }
-
-  const availableImeis = (() => {
-    if (!selected) return []
-    const matched = imeis.filter(i => imeiMatchesVariant(i, selected))
-    if (matched.length > 0) return matched
-    // Legacy: IMEIs registered without a variation label — show when this variant has stock
-    if ((selected.stock ?? 0) > 0) {
-      return imeis.filter(i => !(i.variation ?? '').trim())
-    }
-    return []
-  })()
+  const availableImeis = filterImeisForVariant(imeis, selected, { variantCount: variations.length })
 
   // Keep color valid when storage changes (don't override a valid color)
   useEffect(() => {
@@ -441,13 +446,15 @@ function VariationPickerModal({
   useEffect(() => {
     if (product?.trackImei) {
       setLoadingImeis(true)
-      const params: Record<string, string> = { productId: product.id, status: 'IN_STOCK', limit: '9999' }
-      if (branchId) params.branchId = branchId
+      const params: Record<string, string> = { productId: product.id, status: 'IN_STOCK', limit: '5000' }
+      const effectiveBranch = branchId || undefined
+      if (effectiveBranch) params.branchId = effectiveBranch
       imeiApi.list(params)
         .then((res: any) => {
-          const list = Array.isArray(res?.data) ? res.data : []
-          setImeis(branchId ? list.filter((i: any) => i.branchId === branchId) : list)
+          const list = parseImeiListResponse(res)
+          setImeis(effectiveBranch ? list.filter((i: any) => i.branchId === effectiveBranch) : list)
         })
+        .catch(() => setImeis([]))
         .finally(() => setLoadingImeis(false))
     }
   }, [product, branchId])
@@ -492,7 +499,7 @@ function VariationPickerModal({
     if (n.includes('red') || n.includes('rose')) return '#ef4444'
     if (n.includes('blue') || n.includes('sky') || n.includes('pacific')) return '#3b82f6'
     if (n.includes('green') || n.includes('midnight') || n.includes('alpine')) return '#10b981'
-    if (n.includes('purple') || n.includes('violet')) return '#8b5cf6'
+    if (n.includes('purple') || n.includes('violet')) return 'var(--brand-light)'
     if (n.includes('pink')) return '#ec4899'
     if (n.includes('orange')) return '#f97316'
     return '#6b7280'
@@ -582,12 +589,13 @@ function VariationPickerModal({
               ) : availableImeis.length === 0 ? (
                 <p className="text-xs text-red-400">
                   No IN_STOCK IMEIs for {selected?.storage} / {selected?.colorName}.
+                  {(selected?.stock ?? 0) > 0 && ' Stock is recorded but IMEIs are not registered — use Purchase Orders → Register IMEI first.'}
                 </p>
               ) : (
                 <>
                   {/* Scan to pick from variant stock */}
                   <div className="flex gap-2 items-center px-3 h-10 rounded-xl border"
-                    style={{ background: 'rgba(124,58,237,0.08)', borderColor: 'rgba(124,58,237,0.25)' }}>
+                    style={{ background: 'var(--brand-glow)', borderColor: 'var(--sidebar-active-border)' }}>
                     <Hash size={13} className="text-violet-400 flex-shrink-0" />
                     <input
                       ref={imeiScanRef}
@@ -1462,6 +1470,16 @@ function POSContent({ onClose }: { onClose: () => void }) {
     })
   }
 
+  const resolveVariationFromImei = (product: any, variation?: string | null): ProductVariation | undefined => {
+    const vars: ProductVariation[] = Array.isArray(product.storageVariations) ? product.storageVariations : []
+    if (!vars.length) return undefined
+    if (variation) {
+      const match = vars.find(v => imeiMatchesProductVariant({ variation }, v))
+      if (match) return match
+    }
+    return vars.length === 1 ? vars[0] : undefined
+  }
+
   const handleImeiScan = async (scanned: string) => {
     const imei = scanned.trim()
     if (!imei) return
@@ -1492,7 +1510,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           }))
           toast.success(`IMEI linked to ${product.name}`)
         } else {
-          addToCart(product, imei)
+          addToCart(product, imei, resolveVariationFromImei(product, rec?.variation))
           toast.success(`Added: ${product.name} — IMEI linked`)
         }
       } else {
@@ -2372,7 +2390,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         style={{ background: POS_THEME.card, borderColor: POS_THEME.border, color: '#ffffff' }}
         title="Select customer (F2)">
         <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
-          style={{ background: selectedCustomer ? 'rgba(124,58,237,0.3)' : POS_THEME.bg, color: '#ffffff' }}>
+          style={{ background: selectedCustomer ? 'var(--sidebar-active-border)' : POS_THEME.bg, color: '#ffffff' }}>
           {selectedCustomer ? selectedCustomer.name[0]?.toUpperCase() : <User size={10} />}
         </div>
         <span className="max-w-[110px] truncate">{selectedCustomer ? selectedCustomer.name : 'Walk-in Customer'}</span>
@@ -2521,15 +2539,18 @@ function POSContent({ onClose }: { onClose: () => void }) {
               </div>
             ) : pagedProducts.map((item: any) => {
                   const isService = selectedCategory === 'SERVICES'
-                  const isLow  = !isService && item.stock > 0 && item.stock <= 4
-                  const isHot  = !isService && item.stock >= 25
-                  const isOut  = !isService && item.stock === 0
                   const vars   = Array.isArray(item.storageVariations) ? item.storageVariations : []
+                  const stockInfo = isService
+                    ? { label: '', color: POS_THEME.muted, isOut: false, isLow: false }
+                    : posStockLabel(item, hasIMEI)
+                  const isOut  = !isService && stockInfo.isOut
+                  const isLow  = !isService && stockInfo.isLow
+                  const isHot  = !isService && !isOut && posSellableStock(item, hasIMEI) >= 25
                   const { gradient, iconColor, Icon: CardIcon } = isService ? { gradient: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, iconColor: '#c4b5fd', Icon: Wrench } : getProductCardStyle(item)
                   const isFav  = favorites.has(item.id)
                   const price  = formatCurrency(isService ? item.price : item.sellingPrice)
-                  const stockLabel = isOut ? 'Out of stock' : isLow ? `Low stock (${item.stock})` : `In stock (${item.stock})`
-                  const stockColor = isOut ? POS_THEME.muted : isLow ? POS_THEME.amber : POS_THEME.green
+                  const stockLabel = stockInfo.label
+                  const stockColor = stockInfo.color
                   const handlePick = () => {
                     if (isOut) return
                     if (vars.length > 0) { setVariationPickerProduct(item); return }
@@ -2750,6 +2771,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       <div>
                         <p className="text-xs font-semibold text-slate-200">{item.productName}</p>
                         <p className="text-[10px] text-slate-500">{item.quantity} × {formatCurrency(item.unitPrice)}</p>
+                        {item.imei && <p className="text-[10px] font-mono text-slate-400 mt-0.5">IMEI: {item.imei}</p>}
                       </div>
                       <p className="text-xs font-bold text-white">{formatCurrency(item.total)}</p>
                     </div>
@@ -2788,7 +2810,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     {waSending ? 'Sending…' : waSendPdf ? 'Send WhatsApp Invoice (PDF)' : 'Send WhatsApp Invoice'}
                   </button>
                 )}
-                <button onClick={handleNewSale} className="w-full py-3 rounded-2xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[.99]" style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: '0 4px 20px rgba(124,58,237,.4)' }}>+ New Sale (F10)</button>
+                <button onClick={handleNewSale} className="w-full py-3 rounded-2xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[.99]" style={{ background: 'var(--brand-gradient)', boxShadow: '0 4px 20px var(--brand-glow)' }}>+ New Sale (F10)</button>
               </div>
               {completedSale && (
                 <div style={{ position: 'fixed', left: '-9999px', top: 0, width: 794, pointerEvents: 'none' }}>
@@ -2854,7 +2876,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         <p className="text-xs text-white/50 mt-1 text-center">Outstanding balance — press F9 to collect</p>
                         <button type="button" onClick={() => { setCartView('checkout'); setIncludeOutstanding(true) }}
                           className="mt-4 px-4 py-2.5 rounded-xl text-sm font-bold text-white"
-                          style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)' }}>
+                          style={{ background: 'var(--brand-gradient)' }}>
                           Collect Outstanding <kbd className="ml-1 px-1 rounded text-[10px]" style={{ background: 'rgba(0,0,0,0.25)' }}>F9</kbd>
                         </button>
                       </>
@@ -3040,7 +3062,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   </div>
                   <button type="button" onClick={() => { setCartView('checkout'); setTimeout(() => payNowRef.current?.focus(), 80) }}
                     className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-bold text-sm transition-all hover:opacity-95"
-                    style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: '0 4px 20px rgba(124,58,237,.4)' }}>
+                    style={{ background: 'var(--brand-gradient)', boxShadow: '0 4px 20px var(--brand-glow)' }}>
                     Checkout
                     <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold" style={{ background: 'rgba(0,0,0,0.25)' }}>F9</kbd>
                     <ChevronRight size={16} />
@@ -3079,7 +3101,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   <div className="relative rounded-xl border p-2.5" style={{ borderColor: needsCustomerForPartial ? 'rgba(245,158,11,.5)' : POS_THEME.border, background: POS_THEME.card }}>
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(124,58,237,0.25)' }}>
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--sidebar-active-border)' }}>
                           <User size={14} className="text-white" />
                         </div>
                         <div className="min-w-0">
@@ -3368,7 +3390,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   {checkoutError && <p className="text-xs text-white text-center">{checkoutError}</p>}
                   <button type="button" onClick={handleCheckout} disabled={checkoutLoading || (cart.length === 0 && outstandingPaying <= 0)}
                     className="w-full flex items-center justify-center gap-2 px-5 py-4 rounded-2xl text-white font-bold text-base transition-all disabled:opacity-60"
-                    style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: checkoutLoading ? 'none' : '0 8px 28px rgba(124,58,237,.45)' }}>
+                    style={{ background: 'var(--brand-gradient)', boxShadow: checkoutLoading ? 'none' : '0 8px 28px var(--brand-glow)' }}>
                     {checkoutLoading ? <Loader2 size={18} className="animate-spin" /> : null}
                     <span>{checkoutLoading ? 'Processing…' : `Pay Now (F3 / Enter)`}</span>
                   </button>
@@ -3387,7 +3409,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         <div className="fixed bottom-4 left-3 right-3 z-30 md:hidden">
           <button onClick={() => setMobileView('cart')}
             className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl font-bold"
-            style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: '0 8px 30px rgba(124,58,237,.55)', color: '#ffffff' }}>
+            style={{ background: 'var(--brand-gradient)', boxShadow: '0 8px 30px var(--brand-glow)', color: '#ffffff' }}>
             <div className="flex items-center gap-2" style={{ color: '#ffffff' }}>
               <ShoppingBag size={17} color="#ffffff" />
               <span className="text-sm" style={{ color: '#ffffff' }}>{cart.length} item{cart.length !== 1 ? 's' : ''}</span>
@@ -3803,7 +3825,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       {showDocPreview && (() => {
         const docNum = genDocNumber(showDocPreview === 'QUOTE' ? 'QT' : 'DFT')
         const label  = showDocPreview === 'QUOTE' ? 'QUOTE' : 'DRAFT INVOICE'
-        const color  = showDocPreview === 'QUOTE' ? '#2563eb' : '#7c3aed'
+        const color  = showDocPreview === 'QUOTE' ? '#2563eb' : 'var(--brand-primary)'
         return (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm overflow-y-auto">
             <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 bg-black/80 border-b border-white/10 backdrop-blur">

@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import {
   Save, Building2, User, Bell, Shield, Palette, CreditCard, Users,
   Loader2, Eye, EyeOff, Trash2, Plus, X, CheckCircle, Check, FileText, Smartphone, ChevronRight, BookOpen,
+  Package,
 } from 'lucide-react'
 import { authApi, usersApi, tenantApi, uploadApi, deviceCatalogApi, plansApi, branchesApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
@@ -27,6 +28,20 @@ import {
   fetchProductVariantSettings,
   pushProductVariantSettings,
 } from '@/lib/productVariantSettings'
+import {
+  type AppearanceSettings,
+  DEFAULT_APPEARANCE,
+  getStoredAppearance,
+  saveAppearance as persistAppearance,
+  type AccentKey,
+  ACCENT_PALETTES,
+} from '@/lib/appearance'
+import {
+  type ProductCodeSettingsView,
+  DEFAULT_PRODUCT_CODE_SETTINGS,
+  fetchProductCodeSettings,
+  pushProductCodeSettings,
+} from '@/lib/productCodeSettings'
 import { ImageIcon, Trash2 as TrashIcon } from 'lucide-react'
 import toast from 'react-hot-toast'
 import UserManualPanel from '@/components/settings/UserManualPanel'
@@ -47,7 +62,6 @@ const tabs = [
 
 
 const NOTIF_KEY = 'hx_notif_prefs'
-const APPEARANCE_KEY = 'hx_appearance'
 
 const planColors: Record<string, string> = {
   TRIAL:      'bg-yellow-500/10 border-yellow-500/20 text-yellow-400',
@@ -85,6 +99,8 @@ export default function SettingsPage() {
   const [shopSaving, setShopSaving] = useState(false)
   const [reloadSettings, setReloadSettings] = useState<ReloadSettings>(DEFAULT_RELOAD_SETTINGS)
   const [reloadSaving, setReloadSaving] = useState(false)
+  const [productCodeSettings, setProductCodeSettings] = useState<ProductCodeSettingsView>(DEFAULT_PRODUCT_CODE_SETTINGS)
+  const [productCodeSaving, setProductCodeSaving] = useState(false)
 
   useEffect(() => {
     if (!tenantId) return
@@ -116,6 +132,31 @@ export default function SettingsPage() {
       .then(setReloadSettings)
       .catch(() => {})
   }, [tenantId, hasFeature('DAILY_RELOAD')])
+
+  useEffect(() => {
+    if (!tenantId) return
+    fetchProductCodeSettings(tenantId)
+      .then(setProductCodeSettings)
+      .catch(() => {})
+  }, [tenantId])
+
+  const saveProductCodeSettings = async () => {
+    if (!tenant) return
+    setProductCodeSaving(true)
+    try {
+      const saved = await pushProductCodeSettings(tenant.id, {
+        skuStartNumber: productCodeSettings.skuStartNumber,
+        barcodeStartNumber: productCodeSettings.barcodeStartNumber,
+        skuPad: productCodeSettings.skuPad,
+      })
+      setProductCodeSettings(saved)
+      toast.success('Product SKU & barcode settings saved')
+    } catch {
+      toast.error('Failed to save product code settings')
+    } finally {
+      setProductCodeSaving(false)
+    }
+  }
 
   const saveReloadSettings = async () => {
     if (!tenant) return
@@ -202,14 +243,15 @@ export default function SettingsPage() {
   }
 
   /* ── Appearance ── */
-  const defaultAppearance = { accent: 'violet', compactMode: false, animations: true }
-  const [appearance, setAppearance] = useState<Record<string, any>>(() => {
-    if (typeof window === 'undefined') return defaultAppearance
-    try { return { ...defaultAppearance, ...JSON.parse(localStorage.getItem(APPEARANCE_KEY) ?? '{}') } } catch { return defaultAppearance }
-  })
+  const [appearance, setAppearance] = useState<AppearanceSettings>(() => getStoredAppearance())
   const saveAppearance = () => {
-    localStorage.setItem(APPEARANCE_KEY, JSON.stringify(appearance))
+    persistAppearance(appearance)
     toast.success('Appearance preferences saved')
+  }
+  const selectAccent = (accent: AccentKey) => {
+    const next = { ...appearance, accent }
+    setAppearance(next)
+    persistAppearance(next)
   }
 
   /* ── Team ── */
@@ -376,6 +418,99 @@ export default function SettingsPage() {
                   <input type="email" className="input-field" value={shopForm.ownerEmail} onChange={e => setShopForm(p => ({ ...p, ownerEmail: e.target.value }))} />
                 </div>
               </div>
+
+              {canManageFeatures && (
+                <div
+                  className="rounded-xl p-4 border space-y-4"
+                  style={{ borderColor: 'var(--sidebar-active-border)', background: 'var(--brand-glow)' }}
+                >
+                  <div>
+                    <p className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                      <Package size={14} className="text-violet-600 dark:text-violet-400" />
+                      Product SKU & Barcode Numbers
+                    </p>
+                    <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                      Set the starting numbers for your shop. Each new product auto-generates the next SKU and barcode from these values.
+                    </p>
+                  </div>
+                  <div className="grid sm:grid-cols-3 gap-3">
+                    <label className="block">
+                      <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>SKU starting number</span>
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={productCodeSettings.skuStartNumber}
+                        onChange={e => setProductCodeSettings(prev => ({
+                          ...prev,
+                          skuStartNumber: Math.max(1, parseInt(e.target.value, 10) || 1),
+                        }))}
+                        className="input-field mt-1"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Barcode starting number</span>
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={productCodeSettings.barcodeStartNumber}
+                        onChange={e => setProductCodeSettings(prev => ({
+                          ...prev,
+                          barcodeStartNumber: Math.max(1, parseInt(e.target.value, 10) || 1),
+                        }))}
+                        className="input-field mt-1"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>SKU digit padding</span>
+                      <input
+                        type="number"
+                        min={3}
+                        max={12}
+                        step={1}
+                        value={productCodeSettings.skuPad}
+                        onChange={e => setProductCodeSettings(prev => ({
+                          ...prev,
+                          skuPad: Math.min(12, Math.max(3, parseInt(e.target.value, 10) || 5)),
+                        }))}
+                        className="input-field mt-1"
+                      />
+                    </label>
+                  </div>
+                  {(productCodeSettings.nextSku || productCodeSettings.nextBarcode) && (
+                    <div className="grid sm:grid-cols-2 gap-2 text-[11px]">
+                      <div
+                        className="rounded-lg px-3 py-2 border"
+                        style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)' }}
+                      >
+                        <span style={{ color: 'var(--text-muted)' }}>Next SKU: </span>
+                        <span className="font-mono font-semibold text-violet-700 dark:text-violet-300">{productCodeSettings.nextSku}</span>
+                      </div>
+                      <div
+                        className="rounded-lg px-3 py-2 border"
+                        style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)' }}
+                      >
+                        <span style={{ color: 'var(--text-muted)' }}>Next barcode: </span>
+                        <span className="font-mono font-semibold text-violet-700 dark:text-violet-300">{productCodeSettings.nextBarcode}</span>
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                    Example: starting number 1 with 5-digit padding gives 00001, 00002, … Barcodes use your shop prefix (e.g. {productCodeSettings.prefix ?? 'SHOP'}-BC-00001).
+                  </p>
+                  <button
+                    type="button"
+                    onClick={saveProductCodeSettings}
+                    disabled={productCodeSaving}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-50"
+                  >
+                    {productCodeSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                    Save Product Numbers
+                  </button>
+                </div>
+              )}
+
               {(featurePrices.POS != null || featurePrices.SERVICES != null) && (
                 <div className="pt-4 border-t border-white/5 space-y-2">
                   <h3 className="text-sm font-semibold text-white">Plan Add-ons</h3>
@@ -981,33 +1116,33 @@ export default function SettingsPage() {
                 <div>
                   <label className="block text-xs text-slate-400 mb-3">Accent Color</label>
                   <div className="flex gap-3 flex-wrap">
-                    {[
-                      { key: 'violet', color: 'bg-violet-500',  label: 'Violet'  },
-                      { key: 'blue',   color: 'bg-blue-500',    label: 'Blue'    },
-                      { key: 'cyan',   color: 'bg-cyan-500',    label: 'Cyan'    },
-                      { key: 'emerald',color: 'bg-emerald-500', label: 'Green'   },
-                      { key: 'rose',   color: 'bg-rose-500',    label: 'Rose'    },
-                      { key: 'orange', color: 'bg-orange-500',  label: 'Orange'  },
-                    ].map(({ key, color, label }) => (
-                      <button key={key} onClick={() => setAppearance(p => ({ ...p, accent: key }))}
+                    {([
+                      { key: 'violet' as const,  label: 'Violet'  },
+                      { key: 'blue' as const,    label: 'Blue'    },
+                      { key: 'cyan' as const,    label: 'Cyan'    },
+                      { key: 'emerald' as const, label: 'Green'   },
+                      { key: 'rose' as const,    label: 'Rose'    },
+                      { key: 'orange' as const,  label: 'Orange'  },
+                    ]).map(({ key, label }) => (
+                      <button key={key} onClick={() => selectAccent(key)}
                         className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs transition-colors ${appearance.accent === key ? 'border-white/30 bg-white/10 text-white' : 'border-white/5 text-slate-400 hover:border-white/15'}`}>
-                        <span className={`w-3.5 h-3.5 rounded-full ${color} flex-shrink-0`} />
+                        <span className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: ACCENT_PALETTES[key].primary }} />
                         {label}
                         {appearance.accent === key && <Check size={10} className="text-white" />}
                       </button>
                     ))}
                   </div>
                 </div>
-                {[
-                  { key: 'compactMode', label: 'Compact Mode',          desc: 'Reduce spacing and padding throughout the UI' },
-                  { key: 'animations',  label: 'Enable Animations',     desc: 'Smooth transitions and micro-interactions'    },
-                ].map(({ key, label, desc }) => (
+                {([
+                  { key: 'compactMode' as const, label: 'Compact Mode',          desc: 'Reduce spacing and padding throughout the UI' },
+                  { key: 'animations' as const,  label: 'Enable Animations',     desc: 'Smooth transitions and micro-interactions'    },
+                ]).map(({ key, label, desc }) => (
                   <div key={key} className="flex items-center justify-between py-3 border-b border-white/5 last:border-0">
                     <div>
                       <p className="text-sm text-slate-200">{label}</p>
                       <p className="text-xs text-slate-500">{desc}</p>
                     </div>
-                    <Switch checked={appearance[key] ?? false} onChange={v => setAppearance(p => ({ ...p, [key]: v }))} />
+                    <Switch checked={appearance[key]} onChange={v => setAppearance(p => ({ ...p, [key]: v }))} />
                   </div>
                 ))}
               </div>
@@ -1094,7 +1229,7 @@ export default function SettingsPage() {
                       label: 'Pro',
                       price: 'Rs. 4,999',
                       period: '/month',
-                      color: '#8b5cf6',
+                      color: 'var(--brand-light)',
                       bg: 'rgba(139,92,246,0.08)',
                       border: 'rgba(139,92,246,0.30)',
                       features: ['3 Branches', '15 Users', 'Everything in Starter', 'P&L Reports', 'Cash Flow', 'Branch Filtering', 'CSV Exports'],
