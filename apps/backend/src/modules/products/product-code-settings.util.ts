@@ -1,6 +1,6 @@
 import { prisma } from '../../config/database'
 import { redis } from '../../config/redis'
-import { analyzeProductSkus, type SkuCodeFormat } from '../../utils/product-sku-seq'
+import { analyzeProductSkus, serializeSkuFormat, type SkuCodeFormat } from '../../utils/product-sku-seq'
 
 export interface ProductCodeSettings {
   skuStartNumber: number
@@ -105,7 +105,6 @@ export async function syncProductCodeCounters(
   await redis.set(bcKey, String(nextBcSeq))
 
   if (products.length > 0 || !(await redis.get(fmtKey))) {
-    const { serializeSkuFormat } = await import('../../utils/product-sku-seq')
     await redis.set(fmtKey, serializeSkuFormat(skuAnalysis.format))
   }
 
