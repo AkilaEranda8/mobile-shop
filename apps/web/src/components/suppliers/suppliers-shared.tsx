@@ -546,7 +546,7 @@ export function ConfirmReceiveModal({ po, onConfirm, onCancel, loading }: {
           <p className="text-xs text-slate-500 text-center mb-5">
             {isRetroactive
               ? 'This PO is already marked RECEIVED. Restock will only run if it was not applied before.'
-              : 'This will mark the order as received and add all items to your inventory stock.'}
+              : 'Stock will update and barcodes will be generated for accessory/battery items (SKU or new BC code), then label print opens.'}
           </p>
 
           {/* PO summary */}

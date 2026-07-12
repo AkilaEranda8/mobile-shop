@@ -4,7 +4,8 @@ import { sendSuccess, sendPaginated } from '../../utils/response'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
 import { AppError } from '../../middleware/error.middleware'
 import { getPagination } from '../../utils/pagination'
-import { generatePONumber, generateProductBarcode } from '../../utils/counters'
+import { generatePONumber } from '../../utils/counters'
+import { buildLabelsFromPoItems, ensureProductBarcode } from '../../utils/po-labels.util'
 import { effectiveBranchId } from '../../utils/active-branch'
 import { emitPurchaseAccounting } from '../accounting/integration/accounting-events.service'
 
@@ -137,6 +138,67 @@ router.post('/purchase-orders', authorize('OWNER', 'MANAGER'), async (req: Reque
   } catch (e) { next(e) }
 })
 
+router.get('/purchase-orders/:id/labels', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenantId = req.tenantId!
+    const po = await prisma.purchaseOrder.findFirst({
+      where: { id: req.params.id, tenantId },
+      include: { items: true },
+    })
+    if (!po) throw new AppError('Purchase order not found', 404)
+    if (!['RECEIVED', 'CLOSED'].includes(po.status)) {
+      throw new AppError('Receive this PO first, then print barcodes', 400)
+    }
+
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { slug: true } })
+    const tenantSlug = tenant?.slug ?? 'tenant'
+
+    const resolved: Array<typeof po.items[0] & { productId: string }> = []
+    for (const item of po.items) {
+      let productId = item.productId as string | null
+      if (!productId && item.productName) {
+        const found = await prisma.product.findFirst({
+          where: { tenantId, name: { equals: item.productName, mode: 'insensitive' }, isActive: true },
+        })
+        if (found) productId = found.id
+      }
+      if (productId) resolved.push({ ...item, productId })
+    }
+
+    const productIds = [...new Set(resolved.map(i => i.productId))]
+    if (!productIds.length) throw new AppError('No products linked on this PO', 400)
+
+    await prisma.$transaction(async (tx) => {
+      const products = await tx.product.findMany({ where: { id: { in: productIds } } })
+      for (const p of products) {
+        if (!p.trackImei) {
+          await ensureProductBarcode(tx, tenantId, tenantSlug, {
+            id: p.id,
+            name: p.name,
+            sku: p.sku,
+            barcode: p.barcode,
+            sellingPrice: Number(p.sellingPrice),
+            trackImei: p.trackImei,
+          })
+        }
+      }
+    })
+
+    const products = await prisma.product.findMany({ where: { id: { in: productIds } } })
+    const productMap = new Map(products.map(p => [p.id, {
+      id: p.id,
+      name: p.name,
+      sku: p.sku,
+      barcode: p.barcode,
+      sellingPrice: Number(p.sellingPrice),
+      trackImei: p.trackImei,
+    }]))
+
+    const labelsToPrint = buildLabelsFromPoItems(resolved, productMap)
+    sendSuccess(res, { poNumber: po.poNumber, labelsToPrint })
+  } catch (e) { next(e) }
+})
+
 router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const po = await prisma.purchaseOrder.findFirst({
@@ -151,6 +213,7 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
     if (isReceiving) {
       const labelsToPrint: Array<{
         productId: string
+        poItemId: string
         barcode: string
         name: string
         sku: string
@@ -233,22 +296,31 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
             })),
           })
 
-          let barcode = (p.barcode as string | null)?.trim() || ''
-          if (!p.trackImei && !barcode) {
-            barcode = await generateProductBarcode(req.tenantId!, tenantSlug)
-            await tx.product.update({ where: { id: productId }, data: { barcode } })
+          let barcode = ''
+          if (!p.trackImei) {
+            barcode = (await ensureProductBarcode(tx, req.tenantId!, tenantSlug, {
+              id: p.id,
+              name: p.name,
+              sku: p.sku,
+              barcode: p.barcode,
+              sellingPrice: Number(p.sellingPrice),
+              trackImei: p.trackImei,
+            })) ?? ''
           }
 
           if (!p.trackImei && barcode) {
-            labelsToPrint.push({
-              productId,
-              barcode,
-              name: p.name,
-              sku: p.sku,
-              price: Number(p.sellingPrice),
-              qty: totalQty,
-              trackImei: false,
-            })
+            for (const { item } of group) {
+              labelsToPrint.push({
+                productId,
+                poItemId: item.id,
+                barcode,
+                name: item.productName || p.name,
+                sku: item.sku?.trim() || p.sku,
+                price: Number(p.sellingPrice),
+                qty: item.quantity,
+                trackImei: false,
+              })
+            }
           }
 
           for (const { item } of group) {

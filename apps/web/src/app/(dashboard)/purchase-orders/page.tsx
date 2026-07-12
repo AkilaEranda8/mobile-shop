@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Plus, Truck, Loader2, CheckCircle, Smartphone, FileText, Package, AlertCircle, X } from 'lucide-react'
+import { Plus, Truck, Loader2, CheckCircle, Smartphone, FileText, Package, AlertCircle, X, Printer } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -42,8 +42,38 @@ export default function PurchaseOrdersPage() {
   const { data: ordersData, loading: ordersLoading, refetch: refetchOrders } = usePurchaseOrders()
   const { data: productsData } = useProducts({ limit: '2000' })
   const suppliers = (suppliersData?.data ?? []) as import('@/types').Supplier[]
-  const purchaseOrders: PurchaseOrder[] = (ordersData?.data ?? []) as PurchaseOrder[]
   const allProducts: SharedPoProduct[] = (productsData?.data ?? []) as SharedPoProduct[]
+
+  const mapPoLabels = (raw: any[]): BarcodeLabelItem[] =>
+    raw.map((l: any) => ({
+      barcode: l.barcode,
+      name: l.name,
+      sku: l.sku,
+      price: l.price,
+      qty: l.qty ?? 1,
+    }))
+
+  const printPoLabels = (labels: BarcodeLabelItem[], poNumber: string) => {
+    if (!labels.length) {
+      toast.error('මේ PO එකේ print කරන්න barcode labels නැහැ')
+      return
+    }
+    printBarcodeLabels(labels)
+    const total = labels.reduce((s, l) => s + (l.qty ?? 1), 0)
+    toast.success(`${poNumber}: ${total} barcode label(s) printing`)
+  }
+
+  const handlePrintPoLabels = async (po: PurchaseOrder) => {
+    try {
+      const res: any = await suppliersApi.getPoLabels(po.id)
+      const payload = res?.data ?? res
+      printPoLabels(mapPoLabels(payload?.labelsToPrint ?? []), po.poNumber)
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Could not load PO barcodes')
+    }
+  }
+
+  const purchaseOrders: PurchaseOrder[] = (ordersData?.data ?? []) as PurchaseOrder[]
 
   useEffect(() => {
     const tab = searchParams.get('tab')
@@ -90,19 +120,8 @@ export default function PurchaseOrdersPage() {
       refetchOrders()
       const payload = res?.data ?? res
       const updated = (payload?.id ? payload : payload?.purchaseOrder ?? confirmPO) as PurchaseOrder
-      const labels: BarcodeLabelItem[] = Array.isArray(payload?.labelsToPrint)
-        ? payload.labelsToPrint.map((l: any) => ({
-            barcode: l.barcode,
-            name: l.name,
-            sku: l.sku,
-            price: l.price,
-            qty: l.qty ?? 1,
-          }))
-        : []
-      if (labels.length > 0) {
-        printBarcodeLabels(labels)
-        toast.success(`Printing ${labels.reduce((s, l) => s + (l.qty ?? 1), 0)} barcode label(s)`)
-      }
+      const labels = mapPoLabels(payload?.labelsToPrint ?? [])
+      if (labels.length > 0) printPoLabels(labels, confirmPO.poNumber)
       if (poHasImeiProducts(updated, allProducts) && poCanRegisterImei(updated, allProducts)) {
         setRegisterImeiPO(updated)
       }
@@ -191,6 +210,17 @@ export default function PurchaseOrdersPage() {
                 )}
               </button>
             )}
+            {(po.status === 'RECEIVED' || po.status === 'CLOSED') && (
+              <button
+                type="button"
+                onClick={() => handlePrintPoLabels(po)}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-colors"
+                title="Generate barcodes for this PO and print labels"
+              >
+                <Printer size={10} />
+                Print Barcodes
+              </button>
+            )}
             {(po.status === 'RECEIVED' || po.status === 'CLOSED') && imeiExpected > 0 && !canRegisterImei && (
               <span className="flex items-center gap-1 text-[10px] text-green-400 px-2 py-0.5">
                 <CheckCircle size={10} /> IMEI done
@@ -203,7 +233,7 @@ export default function PurchaseOrdersPage() {
         )
       },
     },
-  ], [openPoInvoice, markReceiving, allProducts, router])
+  ], [openPoInvoice, markReceiving, allProducts, router, handlePrintPoLabels])
 
   return (
     <div className="space-y-6">
