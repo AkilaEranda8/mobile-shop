@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   LayoutDashboard, ShoppingCart, Package, Users, Wrench,
   Shield, Truck, BarChart3, Settings, LogOut,
@@ -168,9 +168,15 @@ const PLAN_COLOR: Record<string, string> = {
 const SHOW_NEW_BADGES = false
 const shouldShowBadge = (badge?: string) => !!badge && (badge !== 'NEW' || SHOW_NEW_BADGES)
 
+function isInventoryListPath(path: string) {
+  return path === '/inventory' || path === '/dashboard/inventory'
+}
+
 export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const navAction = searchParams.get('action')
   const user = authStorage.getUser()
   const [shopName, setShopName] = useState('')
   const [plan, setPlan]         = useState('')
@@ -230,9 +236,14 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       return pathname === '/dashboard/accounting' || pathname === '/dashboard/accounting/'
     }
     if (path === '/inventory') {
-      return pathname === '/inventory' || pathname.startsWith('/dashboard/inventory')
+      if (navAction === 'add-product' || navAction === 'add') return false
+      if (pathname === '/inventory/add-product' || pathname === '/dashboard/inventory/add-product') return false
+      return isInventoryListPath(pathname)
     }
     if (path === '/inventory/add-product') {
+      if (navAction === 'add-product' || navAction === 'add') {
+        return isInventoryListPath(pathname)
+      }
       return pathname === '/inventory/add-product' || pathname === '/dashboard/inventory/add-product'
     }
     return pathname === path || pathname.startsWith(`${path}/`)
@@ -297,9 +308,10 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                     !sub.feature || hasFeature(sub.feature),
                   )
                   if (visibleSubmenu.length === 0) return null
+                  const submenuActive = visibleSubmenu.some(s => isActive(s.href))
                   const sectionActive =
                     (item.href === '/inventory' && inventorySectionPaths.some(p => pathname === p || pathname.startsWith(`${p}/`)))
-                    || visibleSubmenu.some(s => isActive(s.href))
+                    || submenuActive
                     || isActive(item.href)
 
                   if (collapsed) {
@@ -323,12 +335,9 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                       <button
                         type="button"
                         onClick={() => toggleMenu(menuKey)}
-                        className={cn(
-                          'sidebar-item group w-full text-left',
-                          sectionActive && 'sidebar-item-active',
-                        )}
+                        className="sidebar-item group w-full text-left"
                       >
-                        <item.icon size={17} className={cn('flex-shrink-0 transition-colors', sectionActive ? 'text-violet-600 dark:text-violet-300' : 'text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300')} />
+                        <item.icon size={17} className={cn('flex-shrink-0 transition-colors', open || sectionActive ? 'text-violet-600 dark:text-violet-300' : 'text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300')} />
                         <span className="text-sm font-medium flex-1 truncate text-left">{item.label}</span>
                         {shouldShowBadge(item.badge) && (
                           <span className="text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 bg-cyan-500/15 text-cyan-400 border border-cyan-500/20">

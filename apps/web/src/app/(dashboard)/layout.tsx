@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
@@ -45,12 +45,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Sidebar - desktop */}
       <div className={`hidden lg:flex flex-col flex-shrink-0 transition-all duration-300`}>
-        <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
+        <Suspense fallback={null}>
+          <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
+        </Suspense>
       </div>
 
       {/* Sidebar - mobile */}
       <div className={`fixed left-0 top-0 h-full z-40 lg:hidden transition-transform duration-300 ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <Sidebar collapsed={false} />
+        <Suspense fallback={null}>
+          <Sidebar collapsed={false} />
+        </Suspense>
       </div>
 
       {/* Main content */}
