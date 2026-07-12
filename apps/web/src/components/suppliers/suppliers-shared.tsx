@@ -40,13 +40,20 @@ export function resolvePoUnitCost(product: { buyingPrice?: number | string | nul
   return ''
 }
 
-export function resolvePoUnitCostFromProduct(product: { buyingPrice?: number | string | null; storageVariations?: unknown }) {
+export function resolvePoUnitCostFromProduct(product: { buyingPrice?: number | string | null; stock?: number; storageVariations?: unknown }) {
   const vars = normalizeStorageVariations(product.storageVariations)
   for (const v of vars) {
     const resolved = resolvePoUnitCost(product, v)
     if (resolved !== '') return resolved
   }
   return resolvePoUnitCost(product)
+}
+
+/** Stock available for PO/sales — sum variant rows when product has storage variations. */
+export function effectiveProductStock(product: { stock?: number; storageVariations?: unknown }): number {
+  const vars = normalizeStorageVariations(product.storageVariations)
+  if (vars.length > 0) return vars.reduce((sum, v) => sum + (Number(v.stock) || 0), 0)
+  return Number(product.stock) || 0
 }
 
 export function resolvePoProduct(item: POItem, products: PoProduct[]) {
@@ -1140,7 +1147,7 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                       <div className="text-right flex-shrink-0 flex items-center gap-2">
                         <div>
                           <p className="text-xs text-violet-400 font-semibold">{formatCurrency(resolvePoUnitCostFromProduct(p) || 0)}</p>
-                          <p className="text-[10px] text-slate-600">stock: {p.stock}</p>
+                          <p className="text-[10px] text-slate-600">stock: {effectiveProductStock(p)}</p>
                         </div>
                         <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center shrink-0">
                           <Plus size={12} className="text-violet-400" />
@@ -1221,7 +1228,7 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                                 </div>
                                 <div className="text-right flex-shrink-0">
                                   <p className="text-[10px] text-violet-400 font-semibold">{formatCurrency(resolvePoUnitCostFromProduct(p) || 0)}</p>
-                                  <p className="text-[10px] text-slate-600">stock: {p.stock}</p>
+                                  <p className="text-[10px] text-slate-600">stock: {effectiveProductStock(p)}</p>
                                 </div>
                               </button>
                             ))}

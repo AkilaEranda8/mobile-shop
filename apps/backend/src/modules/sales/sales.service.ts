@@ -9,6 +9,7 @@ import { effectiveBranchId, assertBranchRecordAccess } from '../../utils/active-
 import { createDailyReloadsFromSaleItems } from '../daily-reload/pos-reload.util'
 import { createWarrantiesFromSaleItems } from '../warranty/warranty.service'
 import { emitSaleAccounting } from '../accounting/integration/accounting-events.service'
+import { hasVariants, sumVariantStock } from '../../utils/product-variants'
 
 export const salesService = {
   async list(tenantId: string, req: Request) {
@@ -129,36 +130,43 @@ export const salesService = {
         if (!item.productId) continue  // service items have no productId — skip stock ops
         const product = await tx.product.findUnique({ where: { id: item.productId }, select: { stock: true, name: true, storageVariations: true } })
         if (!product) continue         // productId present but not found — skip safely
-        // Atomic conditional decrement prevents overselling under concurrent checkouts.
-        const dec = await tx.product.updateMany({
-          where: { id: item.productId, stock: { gte: item.quantity } },
-          data:  { stock: { decrement: item.quantity } },
-        })
-        if (dec.count === 0) {
-          throw new AppError(`Insufficient stock for "${product.name}". Available: ${product.stock}, Requested: ${item.quantity}`, 400)
+
+        const variantMode = hasVariants(product.storageVariations)
+        const available = variantMode ? sumVariantStock(product.storageVariations) : product.stock
+        if (available < item.quantity) {
+          throw new AppError(`Insufficient stock for "${product.name}". Available: ${available}, Requested: ${item.quantity}`, 400)
         }
 
-        // Update variant stock — match by SKU or storage+colorName (same as PO receive)
-        if (product.storageVariations) {
+        if (variantMode) {
           let updatedVariations = product.storageVariations as any[]
-          if (Array.isArray(updatedVariations)) {
-            let changed = false
-            updatedVariations = updatedVariations.map((v: any) => {
-              const matchSku = item.sku && v.sku === item.sku
-              const matchProps = (item as any).variationLabel &&
-                `${v.storage}::${v.colorName}` === (item as any).variationLabel
-              if (matchSku || matchProps) {
-                changed = true
-                return { ...v, stock: Math.max(0, (v.stock || 0) - item.quantity) }
-              }
-              return v
-            })
-            if (changed) {
-              await tx.product.update({
-                where: { id: item.productId },
-                data: { storageVariations: updatedVariations }
-              })
+          let changed = false
+          updatedVariations = updatedVariations.map((v: any) => {
+            const matchSku = item.sku && v.sku === item.sku
+            const matchProps = (item as any).variationLabel &&
+              `${v.storage}::${v.colorName}` === (item as any).variationLabel
+            if (matchSku || matchProps) {
+              changed = true
+              return { ...v, stock: Math.max(0, (v.stock || 0) - item.quantity) }
             }
+            return v
+          })
+          if (!changed) {
+            throw new AppError(`Insufficient stock for "${product.name}". Variant not found for this sale line`, 400)
+          }
+          await tx.product.update({
+            where: { id: item.productId },
+            data: {
+              storageVariations: updatedVariations,
+              stock: sumVariantStock(updatedVariations),
+            },
+          })
+        } else {
+          const dec = await tx.product.updateMany({
+            where: { id: item.productId, stock: { gte: item.quantity } },
+            data:  { stock: { decrement: item.quantity } },
+          })
+          if (dec.count === 0) {
+            throw new AppError(`Insufficient stock for "${product.name}". Available: ${product.stock}, Requested: ${item.quantity}`, 400)
           }
         }
         await tx.stockMovement.create({ data: { productId: item.productId, branchId, type: 'SALE', quantity: -item.quantity, reference: invoiceNumber, performedBy: cashierName } })

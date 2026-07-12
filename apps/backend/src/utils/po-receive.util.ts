@@ -6,6 +6,7 @@ import {
   type VariantRow,
   variantKey,
   resolvePoItemToVariantKey,
+  sumVariantStock,
 } from './product-variants'
 
 export function round2(n: number) {
@@ -120,19 +121,26 @@ export async function applyPurchaseOrderReceive(opts: {
     const product = await opts.tx.product.findUnique({ where: { id: productId } })
     if (!product) throw new AppError(`Product ${productId} not found during receive`, 404)
 
+    const variantModeBefore = hasVariants(product.storageVariations)
+    const oldStock = variantModeBefore ? sumVariantStock(product.storageVariations) : product.stock
     const totalQty = group.reduce((s, r) => s + r.item.quantity, 0)
     const incomingCost = group.reduce((s, r) => s + r.item.quantity * r.item.unitCost, 0)
-    const nextBuyingPrice = weightedBuyingPrice(product.stock, product.buyingPrice, totalQty, incomingCost)
+    const nextBuyingPrice = weightedBuyingPrice(oldStock, product.buyingPrice, totalQty, incomingCost)
     const updatedVariations = applyVariationReceive(product.storageVariations, group, product.buyingPrice)
+    const variantMode = hasVariants(updatedVariations)
 
     await opts.tx.product.update({
       where: { id: productId },
       data: {
-        stock: { increment: totalQty },
         buyingPrice: nextBuyingPrice,
-        ...(hasVariants(updatedVariations)
-          ? { storageVariations: updatedVariations as Prisma.InputJsonValue }
-          : {}),
+        ...(variantMode
+          ? {
+              storageVariations: updatedVariations as Prisma.InputJsonValue,
+              stock: sumVariantStock(updatedVariations),
+            }
+          : {
+              stock: { increment: totalQty },
+            }),
       },
     })
 
