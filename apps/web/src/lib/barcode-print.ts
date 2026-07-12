@@ -84,6 +84,14 @@ ${valid.map(labelHtml).join('')}
   w.document.close()
 }
 
+export function effectiveBarcodeValue(product: {
+  barcode?: string | null
+  sku?: string
+}): string | null {
+  const code = product.barcode?.trim() || product.sku?.trim()
+  return code || null
+}
+
 export function toBarcodeLabelItem(product: {
   name: string
   barcode?: string | null
@@ -91,13 +99,65 @@ export function toBarcodeLabelItem(product: {
   sellingPrice?: number
   stock?: number
 }, qty?: number): BarcodeLabelItem | null {
-  const barcode = product.barcode?.trim()
+  const barcode = effectiveBarcodeValue(product)
   if (!barcode) return null
+  const copies = qty ?? product.stock ?? 1
   return {
     barcode,
     name: product.name,
     sku: product.sku,
     price: product.sellingPrice,
-    qty: qty ?? product.stock ?? 1,
+    qty: Math.max(1, copies),
   }
 }
+
+export type BuildBarcodeLabelsOptions = {
+  /** When true, print one label per unit in stock (default). When false, one label each. */
+  qtyFromStock?: boolean
+  /** Skip IMEI-tracked devices in bulk jobs (shelf labels use product barcode; units use IMEI). */
+  skipTrackImei?: boolean
+  /** Max labels per product (default 99). */
+  maxPerProduct?: number
+}
+
+export function buildBarcodeLabelsFromProducts(
+  products: Array<{
+    name: string
+    barcode?: string | null
+    sku?: string
+    sellingPrice?: number
+    stock?: number
+    trackImei?: boolean
+  }>,
+  opts: BuildBarcodeLabelsOptions = {},
+): { labels: BarcodeLabelItem[]; skipped: number; totalLabels: number } {
+  const qtyFromStock = opts.qtyFromStock !== false
+  const skipTrackImei = opts.skipTrackImei !== false
+  const maxPerProduct = opts.maxPerProduct ?? 99
+  const labels: BarcodeLabelItem[] = []
+  let skipped = 0
+
+  for (const p of products) {
+    if (skipTrackImei && p.trackImei) { skipped++; continue }
+    const stock = Math.max(0, p.stock ?? 0)
+    if (qtyFromStock && stock === 0) { skipped++; continue }
+    const label = toBarcodeLabelItem(p, qtyFromStock ? stock : 1)
+    if (!label) { skipped++; continue }
+    label.qty = Math.min(label.qty ?? 1, maxPerProduct)
+    labels.push(label)
+  }
+
+  const totalLabels = labels.reduce((s, l) => s + (l.qty ?? 1), 0)
+  return { labels, skipped, totalLabels }
+}
+
+export function printBarcodeLabelsForProducts(
+  products: Parameters<typeof buildBarcodeLabelsFromProducts>[0],
+  opts?: BuildBarcodeLabelsOptions,
+): { ok: boolean; totalLabels: number; skipped: number; productCount: number } {
+  const { labels, skipped, totalLabels } = buildBarcodeLabelsFromProducts(products, opts)
+  if (!labels.length) return { ok: false, totalLabels: 0, skipped, productCount: 0 }
+  printBarcodeLabels(labels)
+  return { ok: true, totalLabels, skipped, productCount: labels.length }
+}
+

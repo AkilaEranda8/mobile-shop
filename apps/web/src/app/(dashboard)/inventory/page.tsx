@@ -32,7 +32,7 @@ import {
   type ProductCsvRow,
 } from '@/lib/productCsvImport'
 import { findProductByCode, normalizeScanCode, productSearchHaystack } from '@/lib/barcode-scan'
-import { printBarcodeLabels, toBarcodeLabelItem } from '@/lib/barcode-print'
+import { printBarcodeLabels, printBarcodeLabelsForProducts, toBarcodeLabelItem, effectiveBarcodeValue } from '@/lib/barcode-print'
 import { BarcodeLabelPreview } from '@/components/inventory/BarcodeLabelPreview'
 
 /* ── CSV Export ─────────────────────────────────────────────────────── */
@@ -1027,17 +1027,18 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
                 <Edit size={11} /> Edit
               </button>
             )}
-            {detail.barcode && (
+            {effectiveBarcodeValue(detail) && (
               <button
                 type="button"
                 onClick={() => {
-                  const label = toBarcodeLabelItem(detail, 1)
+                  const qty = Math.max(1, detail.stock ?? 1)
+                  const label = toBarcodeLabelItem(detail, qty)
                   if (label) printBarcodeLabels([label])
-                  else toast.error('No barcode to print')
+                  else toast.error('No barcode or SKU to print')
                 }}
                 className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 px-2.5 py-1.5 rounded-lg border border-amber-500/20 hover:bg-amber-500/10 transition-colors"
               >
-                <Printer size={11} /> Print Label
+                <Printer size={11} /> Print {detail.stock > 0 ? `${detail.stock} Label${detail.stock !== 1 ? 's' : ''}` : 'Label'}
               </button>
             )}
             <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
@@ -1127,10 +1128,10 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
 
           <DetailSection title="Product Information" icon={<Package size={12} className="text-violet-400" />}>
             <DetailRow label="SKU" value={detail.sku} valueClass="font-mono" />
-            <DetailRow label="Barcode" value={detail.barcode || '—'} valueClass="font-mono" />
-            {detail.barcode && (
+            <DetailRow label="Barcode" value={effectiveBarcodeValue(detail) || '—'} valueClass="font-mono" />
+            {effectiveBarcodeValue(detail) && (
               <div className="px-4 py-3 border-t border-white/5 bg-white/[0.02] flex justify-center">
-                <BarcodeLabelPreview value={detail.barcode} className="rounded-lg bg-white px-3 py-2" />
+                <BarcodeLabelPreview value={effectiveBarcodeValue(detail)} className="rounded-lg bg-white px-3 py-2" />
               </div>
             )}
             <DetailRow label="Brand" value={p.brandName} />
@@ -1388,6 +1389,34 @@ export default function InventoryPage() {
     } catch {
       /* keep filtered list */
     }
+  }
+
+  const handlePrintStockBarcodes = () => {
+    const result = printBarcodeLabelsForProducts(filteredProducts, {
+      qtyFromStock: true,
+      skipTrackImei: true,
+    })
+    if (!result.ok) {
+      toast.error('In-stock products with barcode/SKU නැහැ — stock > 0 products බලන්න')
+      return
+    }
+    const skipNote = result.skipped > 0 ? ` (${result.skipped} skipped)` : ''
+    toast.success(`Printing ${result.totalLabels} label(s) — ${result.productCount} product(s)${skipNote}`)
+  }
+
+  const printRowBarcodeLabels = (row: FlatRow) => {
+    const p = row.product
+    const name = row.variation
+      ? `${p.name} · ${row.variation.storage} / ${row.variation.colorName}`
+      : row.displayName
+    const qty = Math.max(1, row.displayStock)
+    const label = toBarcodeLabelItem({ ...p, name }, qty)
+    if (!label) {
+      toast.error('No barcode or SKU for this product')
+      return
+    }
+    printBarcodeLabels([label])
+    toast.success(`Printing ${qty} label(s) for ${name}`)
   }
 
   const brands = useMemo(
@@ -1677,10 +1706,20 @@ export default function InventoryPage() {
           >
             <Copy size={14} />
           </button>
+          {row.original.displayStock > 0 && effectiveBarcodeValue(row.original.product) && !row.original.product.trackImei && (
+            <button
+              type="button"
+              title={`Print ${row.original.displayStock} barcode label(s)`}
+              onClick={() => printRowBarcodeLabels(row.original)}
+              className="p-1.5 rounded-lg transition-colors hover:bg-amber-500/10 text-amber-400"
+            >
+              <Printer size={14} />
+            </button>
+          )}
         </div>
       ),
     },
-  ], [handleDelete, openCopy, setViewProduct, setEditProduct])
+  ], [handleDelete, openCopy, setViewProduct, setEditProduct, printRowBarcodeLabels])
 
 
   if (showAddProduct || copyProduct) {
@@ -1728,6 +1767,14 @@ export default function InventoryPage() {
           </button>
           <button onClick={() => exportProductsCSV(filteredProducts)} disabled={filteredProducts.length === 0} className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40">
             <Download size={14} />Export
+          </button>
+          <button
+            onClick={handlePrintStockBarcodes}
+            disabled={filteredProducts.filter(p => (p.stock ?? 0) > 0 && !p.trackImei).length === 0}
+            className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40"
+            title="Print one barcode label per unit in stock (filtered products)"
+          >
+            <Printer size={14} />Print Stock Barcodes
           </button>
           <button
             onClick={() => {
