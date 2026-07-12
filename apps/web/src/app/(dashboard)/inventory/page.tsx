@@ -1580,7 +1580,7 @@ export default function InventoryPage() {
             </div>
             <div className="min-w-0">
               <button
-                className="text-sm font-medium text-slate-200 hover:text-violet-400 text-left transition-colors leading-tight"
+                className="text-sm font-medium text-gray-800 dark:text-slate-200 hover:text-violet-600 dark:hover:text-violet-400 text-left transition-colors leading-tight"
                 onClick={() => setViewProduct(product)}
                 onDoubleClick={(e) => { e.preventDefault(); setEditProduct(product) }}
               >
@@ -1629,7 +1629,7 @@ export default function InventoryPage() {
       id: 'sellingPrice',
       accessorFn: (row) => row.displayPrice,
       header: ({ column }) => <DataTableColumnHeader column={column} title="Price" />,
-      cell: ({ row }) => <span className="text-sm font-semibold text-white">{formatCurrency(row.original.displayPrice)}</span>,
+      cell: ({ row }) => <span className="text-sm font-semibold text-gray-900 dark:text-white">{formatCurrency(row.original.displayPrice)}</span>,
     },
     {
       id: 'stock',

@@ -138,7 +138,7 @@ export default function PurchaseOrdersPage() {
       accessorKey: 'poNumber',
       header: ({ column }) => <DataTableColumnHeader column={column} title="PO Number" />,
       cell: ({ row }) => (
-        <button type="button" className="text-xs font-mono text-violet-300 hover:underline" onClick={() => openPoInvoice(row.original.id)}>
+        <button type="button" className="text-xs font-mono text-violet-600 dark:text-violet-300 hover:underline" onClick={() => openPoInvoice(row.original.id)}>
           {row.original.poNumber}
         </button>
       ),
@@ -149,7 +149,7 @@ export default function PurchaseOrdersPage() {
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Truck size={13} className="text-slate-500 flex-shrink-0" />
-          <span className="text-sm text-slate-200">{row.original.supplierName}</span>
+          <span className="text-sm text-gray-800 dark:text-slate-200">{row.original.supplierName}</span>
         </div>
       ),
     },
@@ -157,17 +157,17 @@ export default function PurchaseOrdersPage() {
       id: 'itemCount',
       accessorFn: (row) => row.items.length,
       header: ({ column }) => <DataTableColumnHeader column={column} title="Items" />,
-      cell: ({ row }) => <span className="text-xs text-slate-400">{row.original.items.length} items</span>,
+      cell: ({ row }) => <span className="text-xs text-gray-600 dark:text-slate-400">{row.original.items.length} items</span>,
     },
     {
       accessorKey: 'total',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Total" />,
-      cell: ({ row }) => <span className="text-sm font-semibold text-white">{formatCurrency(row.original.total)}</span>,
+      cell: ({ row }) => <span className="text-sm font-semibold text-gray-900 dark:text-white">{formatCurrency(row.original.total)}</span>,
     },
     {
       accessorKey: 'createdAt',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Order Date" />,
-      cell: ({ row }) => <span className="text-xs text-slate-400">{formatDate(row.original.createdAt)}</span>,
+      cell: ({ row }) => <span className="text-xs text-gray-600 dark:text-slate-400">{formatDate(row.original.createdAt)}</span>,
     },
     {
       accessorKey: 'status',

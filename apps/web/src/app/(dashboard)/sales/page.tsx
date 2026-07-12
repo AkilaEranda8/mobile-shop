@@ -679,8 +679,8 @@ export default function SalesPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Customer" />,
       cell: ({ row }) => (
         <div>
-          <p className="text-xs font-semibold text-slate-200">{row.original.customerName || 'Walk-in'}</p>
-          {row.original.customerPhone && <p className="text-[10px] text-slate-500">{row.original.customerPhone}</p>}
+          <p className="text-xs font-semibold text-gray-800 dark:text-slate-200">{row.original.customerName || 'Walk-in'}</p>
+          {row.original.customerPhone && <p className="text-[10px] text-gray-500 dark:text-slate-500">{row.original.customerPhone}</p>}
         </div>
       ),
     },
@@ -692,7 +692,7 @@ export default function SalesPage() {
         const totalRefunded = (s.returns ?? []).reduce((sum: number, r: any) => sum + (r.refundAmount ?? 0), 0)
         return (
           <div>
-            <p className="text-xs font-bold text-white whitespace-nowrap">{formatCurrency(s.total)}</p>
+            <p className="text-xs font-bold text-gray-900 dark:text-white whitespace-nowrap">{formatCurrency(s.total)}</p>
             {totalRefunded > 0 && <p className="text-[10px] text-rose-400 whitespace-nowrap">Refunded: {formatCurrency(totalRefunded)}</p>}
             {s.dueAmount > 0 && <p className="text-[10px] text-yellow-400 whitespace-nowrap">Due: {formatCurrency(s.dueAmount)}</p>}
           </div>
