@@ -21,7 +21,7 @@ const TOOLTIP_STYLE = {
   fontSize: '12px',
   color: 'var(--text-primary)',
 }
-const COLORS = ['#6d28d9','#1d4ed8','#0e7490','#15803d','#b45309','#b91c1c','#7c3aed','#0369a1','#065f46','#92400e']
+const COLORS = ['var(--brand-primary-light)','#1d4ed8','#0e7490','#15803d','#b45309','#b91c1c','var(--brand-primary)','#0369a1','#065f46','#92400e']
 const PERIODS = [
   { label: 'Today', days: '1'   },
   { label: '7D',    days: '7'   },
@@ -161,13 +161,13 @@ export default function CategoryReportPage() {
             {PERIODS.map(p => (
               <button key={p.days} onClick={() => { setPeriod(p.days); setIsCustom(false) }}
                 className="px-3 py-1.5 text-xs rounded-lg font-medium transition-colors"
-                style={!isCustom && period === p.days ? { background: '#6d28d9', color: '#fff' } : { color: 'var(--text-muted)' }}>
+                style={!isCustom && period === p.days ? { background: 'var(--brand-primary-light)', color: '#fff' } : { color: 'var(--text-muted)' }}>
                 {p.label}
               </button>
             ))}
             <button onClick={() => setIsCustom(true)}
               className="px-3 py-1.5 text-xs rounded-lg font-medium transition-colors flex items-center gap-1"
-              style={isCustom ? { background: '#6d28d9', color: '#fff' } : { color: 'var(--text-muted)' }}>
+              style={isCustom ? { background: 'var(--brand-primary-light)', color: '#fff' } : { color: 'var(--text-muted)' }}>
               <Calendar size={11} /> Custom
             </button>
           </div>
@@ -194,7 +194,7 @@ export default function CategoryReportPage() {
                 value={selectedCat}
                 onChange={e => setSelectedCat(e.target.value)}
                 className="bg-transparent text-xs outline-none cursor-pointer font-medium"
-                style={{ color: selectedCat ? '#6d28d9' : 'var(--text-muted)', minWidth: 120 }}
+                style={{ color: selectedCat ? 'var(--brand-primary-light)' : 'var(--text-muted)', minWidth: 120 }}
               >
                 <option value="">All Categories</option>
                 {categories.map((c: any) => (
@@ -211,7 +211,7 @@ export default function CategoryReportPage() {
         </div>
       </div>
 
-      <div className="rounded-xl px-4 py-3 flex gap-3 items-start text-xs leading-relaxed" style={{ background: 'rgba(109,40,217,0.08)', border: '1px solid rgba(109,40,217,0.2)' }}>
+      <div className="rounded-xl px-4 py-3 flex gap-3 items-start text-xs leading-relaxed" style={{ background: 'var(--brand-glow)', border: '1px solid var(--sidebar-active-border)' }}>
         <Info size={16} className="flex-shrink-0 mt-0.5 text-violet-600 dark:text-violet-400" />
         <div style={{ color: 'var(--text-secondary)' }}>
           <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Product categories vs Profit Allocation buckets</p>
@@ -274,7 +274,7 @@ export default function CategoryReportPage() {
                     <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} tickFormatter={v => formatCurrency(v)} width={72} />
                     <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any, n: any, p: any) => [formatCurrency(v), p.payload.fullName || n]} />
                     <Legend wrapperStyle={{ fontSize: 11 }} />
-                    <Bar dataKey="Revenue" fill="#6d28d9" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="Revenue" fill="var(--brand-primary-light)" radius={[3, 3, 0, 0]} />
                     <Bar dataKey="Profit"  fill="#16a34a" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>

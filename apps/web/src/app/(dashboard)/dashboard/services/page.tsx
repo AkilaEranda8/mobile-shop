@@ -26,7 +26,7 @@ interface Service {
 }
 
 const CATEGORY_COLORS: Record<string, { color: string; bg: string; border: string }> = {
-  General:  { color: '#6d28d9', bg: 'rgba(109,40,217,0.10)', border: 'rgba(109,40,217,0.25)' },
+  General:  { color: 'var(--brand-primary-light)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)' },
   Printing: { color: '#1d4ed8', bg: 'rgba(29,78,216,0.10)',  border: 'rgba(29,78,216,0.25)' },
   Design:   { color: '#c2410c', bg: 'rgba(194,65,12,0.10)',  border: 'rgba(194,65,12,0.25)' },
   Binding:  { color: '#15803d', bg: 'rgba(21,128,61,0.10)',  border: 'rgba(21,128,61,0.25)' },
@@ -99,7 +99,7 @@ export default function ServicesPage() {
       accessorKey: 'name',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Service" />,
       cell: ({ row: { original: s } }) => {
-        const { color, bg, border } = hasServices ? getColor(s.category) : { color: '#7c3aed', bg: 'rgba(109,40,217,0.10)', border: 'rgba(109,40,217,0.25)' }
+        const { color, bg, border } = hasServices ? getColor(s.category) : { color: 'var(--brand-primary)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)' }
         return (
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: bg, border: `1px solid ${border}` }}>
@@ -179,7 +179,7 @@ export default function ServicesPage() {
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         {[
-          { label: 'Total Services', value: String(services.length), icon: <Wrench size={15} />,       color: '#6d28d9', bg: 'rgba(109,40,217,0.08)', border: 'rgba(109,40,217,0.20)' },
+          { label: 'Total Services', value: String(services.length), icon: <Wrench size={15} />,       color: 'var(--brand-primary-light)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)' },
           { label: 'Active',         value: String(activeCount),      icon: <CheckCircle2 size={15} />, color: '#15803d', bg: 'rgba(21,128,61,0.08)',  border: 'rgba(21,128,61,0.20)'  },
           { label: 'Inactive',       value: String(inactiveCount),    icon: <XCircle size={15} />,      color: '#b91c1c', bg: 'rgba(185,28,28,0.08)', border: 'rgba(185,28,28,0.20)'  },
         ].map(({ label, value, icon, color, bg, border }) => (
@@ -237,8 +237,8 @@ export default function ServicesPage() {
             {/* Modal Header */}
             <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(109,40,217,0.10)', border: '1px solid rgba(109,40,217,0.25)' }}>
-                  <Wrench size={14} style={{ color: '#7c3aed' }} />
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'var(--brand-glow)', border: '1px solid var(--sidebar-active-border)' }}>
+                  <Wrench size={14} style={{ color: 'var(--brand-primary)' }} />
                 </div>
                 <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
                   {editing.id.startsWith('new') ? 'New Service' : 'Edit Service'}

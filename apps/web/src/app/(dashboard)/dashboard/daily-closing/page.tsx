@@ -310,8 +310,8 @@ export default function DailyClosingPage() {
   if (!hasAccess) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(109,40,217,0.1)' }}>
-          <Lock size={26} style={{ color: '#7c3aed' }} />
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'var(--brand-glow)' }}>
+          <Lock size={26} style={{ color: 'var(--brand-primary)' }} />
         </div>
         <div className="text-center">
           <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Daily Closing</h2>
@@ -405,7 +405,7 @@ export default function DailyClosingPage() {
           {/* ── Top KPI row ── */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <KpiCard icon={ShoppingCart} label="Total Sales" value={formatCurrency(d?.sales?.totalSales ?? 0)}
-              sub={`${d?.sales?.salesCount ?? 0} orders`} color="#8b5cf6" bg="rgba(139,92,246,0.1)" />
+              sub={`${d?.sales?.salesCount ?? 0} orders`} color="var(--brand-light)" bg="rgba(139,92,246,0.1)" />
             <KpiCard icon={TrendingUp} label="Net Profit" value={formatCurrency(d?.profit?.netProfit ?? 0)}
               sub={showReload ? `Commission ${formatCurrency(d?.profit?.reloadCommission ?? 0)}` : 'After expenses & COGS'}
               color="#10b981" bg="rgba(16,185,129,0.1)" />
@@ -419,7 +419,7 @@ export default function DailyClosingPage() {
 
           {/* ── Insights ── */}
           {(visibleInsights.length > 0) && (
-            <div className="card rounded-2xl p-4 border-violet-500/20" style={{ background: 'rgba(109,40,217,0.04)' }}>
+            <div className="card rounded-2xl p-4 border-violet-500/20" style={{ background: 'var(--brand-glow)' }}>
               <div className="flex items-center gap-2 mb-2">
                 <Sparkles size={14} className="text-violet-500" />
                 <span className="text-xs font-bold text-violet-600 dark:text-violet-400">AI Insights</span>
@@ -857,7 +857,7 @@ export default function DailyClosingPage() {
               <SectionTitle title="Linked System Modules" sub="Data pulled automatically — no manual re-entry" />
               <div className={`grid grid-cols-2 gap-3 mb-4 ${showReload ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
                 <KpiCard icon={ShoppingCart} label="POS Orders" value={String(d.dataSources.salesOrders ?? 0)}
-                  sub={formatCurrency(d.dataSources.posSalesTotal ?? 0)} color="#8b5cf6" bg="rgba(139,92,246,0.1)" />
+                  sub={formatCurrency(d.dataSources.posSalesTotal ?? 0)} color="var(--brand-light)" bg="rgba(139,92,246,0.1)" />
                 <KpiCard icon={BarChart3} label="Finance Tx" value={String(d.dataSources.financeTransactions ?? 0)} color="#3b82f6" bg="rgba(59,130,246,0.1)" />
                 {showReload && (
                   <KpiCard icon={PhoneCall} label="Reloads" value={String(d.dataSources.reloadRecords ?? 0)} color="#10b981" bg="rgba(16,185,129,0.1)" />

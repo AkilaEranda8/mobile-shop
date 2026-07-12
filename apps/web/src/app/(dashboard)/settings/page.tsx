@@ -34,6 +34,7 @@ import {
   getStoredAppearance,
   saveAppearance as persistAppearance,
   type AccentKey,
+  ACCENT_PALETTES,
 } from '@/lib/appearance'
 import {
   type ProductCodeSettingsView,
@@ -421,7 +422,7 @@ export default function SettingsPage() {
               {canManageFeatures && (
                 <div
                   className="rounded-xl p-4 border space-y-4"
-                  style={{ borderColor: 'rgba(109,40,217,0.28)', background: 'rgba(109,40,217,0.06)' }}
+                  style={{ borderColor: 'var(--sidebar-active-border)', background: 'var(--brand-glow)' }}
                 >
                   <div>
                     <p className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
@@ -1115,17 +1116,17 @@ export default function SettingsPage() {
                 <div>
                   <label className="block text-xs text-slate-400 mb-3">Accent Color</label>
                   <div className="flex gap-3 flex-wrap">
-                    {[
-                      { key: 'violet', color: 'bg-violet-500',  label: 'Violet'  },
-                      { key: 'blue',   color: 'bg-blue-500',    label: 'Blue'    },
-                      { key: 'cyan',   color: 'bg-cyan-500',    label: 'Cyan'    },
-                      { key: 'emerald',color: 'bg-emerald-500', label: 'Green'   },
-                      { key: 'rose',   color: 'bg-rose-500',    label: 'Rose'    },
-                      { key: 'orange', color: 'bg-orange-500',  label: 'Orange'  },
-                    ].map(({ key, color, label }) => (
-                      <button key={key} onClick={() => selectAccent(key as AccentKey)}
+                    {([
+                      { key: 'violet' as const,  label: 'Violet'  },
+                      { key: 'blue' as const,    label: 'Blue'    },
+                      { key: 'cyan' as const,    label: 'Cyan'    },
+                      { key: 'emerald' as const, label: 'Green'   },
+                      { key: 'rose' as const,    label: 'Rose'    },
+                      { key: 'orange' as const,  label: 'Orange'  },
+                    ]).map(({ key, label }) => (
+                      <button key={key} onClick={() => selectAccent(key)}
                         className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs transition-colors ${appearance.accent === key ? 'border-white/30 bg-white/10 text-white' : 'border-white/5 text-slate-400 hover:border-white/15'}`}>
-                        <span className={`w-3.5 h-3.5 rounded-full ${color} flex-shrink-0`} />
+                        <span className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: ACCENT_PALETTES[key].primary }} />
                         {label}
                         {appearance.accent === key && <Check size={10} className="text-white" />}
                       </button>
@@ -1228,7 +1229,7 @@ export default function SettingsPage() {
                       label: 'Pro',
                       price: 'Rs. 4,999',
                       period: '/month',
-                      color: '#8b5cf6',
+                      color: 'var(--brand-light)',
                       bg: 'rgba(139,92,246,0.08)',
                       border: 'rgba(139,92,246,0.30)',
                       features: ['3 Branches', '15 Users', 'Everything in Starter', 'P&L Reports', 'Cash Flow', 'Branch Filtering', 'CSV Exports'],

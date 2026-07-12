@@ -409,7 +409,7 @@ export default function ExchangesPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           { label: 'Total Exchanges', value: String(stats.total),       icon: <ArrowLeftRight size={15} />, color: '#d97706', bg: 'rgba(217,119,6,0.08)',  border: 'rgba(217,119,6,0.22)'  },
-          { label: 'Trade-in Value',  value: formatCurrency(stats.totalBuy),  icon: <Package size={15} />,      color: '#7c3aed', bg: 'rgba(124,58,237,0.08)', border: 'rgba(124,58,237,0.22)' },
+          { label: 'Trade-in Value',  value: formatCurrency(stats.totalBuy),  icon: <Package size={15} />,      color: 'var(--brand-primary)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)' },
           { label: 'With Invoice',    value: String(stats.withInvoice), icon: <Receipt size={15} />,      color: '#15803d', bg: 'rgba(21,128,61,0.08)',  border: 'rgba(21,128,61,0.22)'  },
           { label: 'Shop Refunds',    value: String(stats.refunds),     icon: <Smartphone size={15} />,   color: '#e11d48', bg: 'rgba(225,29,72,0.08)',  border: 'rgba(225,29,72,0.22)'  },
         ].map(({ label, value, icon, color, bg, border }) => (

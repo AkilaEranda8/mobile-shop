@@ -76,7 +76,7 @@ type TxRow = {
 }
 
 const FUND_TYPE_COLORS: Record<string, { color: string; bg: string; border: string }> = {
-  FIXED_AMOUNT: { color: '#6d28d9', bg: 'rgba(109,40,217,0.08)', border: 'rgba(109,40,217,0.20)' },
+  FIXED_AMOUNT: { color: 'var(--brand-primary-light)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)' },
   PERCENTAGE:   { color: '#15803d', bg: 'rgba(21,128,61,0.08)', border: 'rgba(21,128,61,0.20)' },
   MANUAL:       { color: '#0284c7', bg: 'rgba(2,132,199,0.08)', border: 'rgba(2,132,199,0.20)' },
 }
@@ -177,8 +177,8 @@ function MovementModal({
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-              style={{ background: 'rgba(109,40,217,0.10)', border: '1px solid rgba(109,40,217,0.25)' }}>
-              <Wallet size={14} style={{ color: '#6d28d9' }} />
+              style={{ background: 'var(--brand-glow)', border: '1px solid var(--sidebar-active-border)' }}>
+              <Wallet size={14} style={{ color: 'var(--brand-primary-light)' }} />
             </div>
             <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{titles[mode]} — {fund.name}</h3>
           </div>
@@ -509,8 +509,8 @@ export default function ProfitAllocationPage() {
   if (!hasAccess) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(109,40,217,0.10)', border: '1px solid rgba(109,40,217,0.25)' }}>
-          <PieChartIcon size={24} style={{ color: '#6d28d9' }} />
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'var(--brand-glow)', border: '1px solid var(--sidebar-active-border)' }}>
+          <PieChartIcon size={24} style={{ color: 'var(--brand-primary-light)' }} />
         </div>
         <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Profit Allocation not enabled</p>
         <p className="text-xs text-center max-w-sm" style={{ color: 'var(--text-muted)' }}>
@@ -521,7 +521,7 @@ export default function ProfitAllocationPage() {
   }
 
   const kpiCards = [
-    { label: isSingleDay ? "Today's Sales" : 'Period Sales', value: formatCurrency(activeDashboard?.todaySales ?? 0), icon: <Banknote size={16} />, color: '#6d28d9', bg: 'rgba(109,40,217,0.08)', border: 'rgba(109,40,217,0.20)' },
+    { label: isSingleDay ? "Today's Sales" : 'Period Sales', value: formatCurrency(activeDashboard?.todaySales ?? 0), icon: <Banknote size={16} />, color: 'var(--brand-primary-light)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)' },
     { label: isSingleDay ? "Today's Profit" : 'Period Profit', value: formatCurrency(activeDashboard?.todayProfit ?? 0), icon: <TrendingUp size={16} />, color: '#15803d', bg: 'rgba(21,128,61,0.08)', border: 'rgba(21,128,61,0.20)' },
     { label: 'Total Allocated', value: formatCurrency(activeDashboard?.totalAllocated ?? 0), icon: <PieChartIcon size={16} />, color: '#1d4ed8', bg: 'rgba(29,78,216,0.08)', border: 'rgba(29,78,216,0.20)' },
     { label: 'Remaining Profit', value: formatCurrency(activeDashboard?.remainingProfit ?? 0), icon: <Wallet size={16} />, color: '#d97706', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.20)' },
@@ -538,7 +538,7 @@ export default function ProfitAllocationPage() {
             {isSingleDay ? formatDate(viewDate) : `${formatDate(dateFrom)} → ${formatDate(dateTo)}`}
             {activeDashboard?.dataSource && !tableLoading && (
               <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
-                style={{ background: 'rgba(109,40,217,0.10)', color: '#6d28d9', border: '1px solid rgba(109,40,217,0.25)' }}>
+                style={{ background: 'var(--brand-glow)', color: 'var(--brand-primary-light)', border: '1px solid var(--sidebar-active-border)' }}>
                 {DATA_SOURCE_LABEL[activeDashboard.dataSource] ?? activeDashboard.dataSource}
                 {activeDashboard.salesCount != null ? ` · ${activeDashboard.salesCount} sales` : ''}
               </span>
@@ -614,7 +614,7 @@ export default function ProfitAllocationPage() {
                 <button key={f.id} onClick={() => setTypeFilter(f.id)}
                   className="px-3 py-1.5 text-xs rounded-lg font-medium whitespace-nowrap transition-colors"
                   style={typeFilter === f.id
-                    ? { background: '#6d28d9', color: '#fff' }
+                    ? { background: 'var(--brand-primary-light)', color: '#fff' }
                     : { color: 'var(--text-muted)' }}>
                   {f.label}
                 </button>
@@ -721,7 +721,7 @@ export default function ProfitAllocationPage() {
             <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Allocation Settings</h3>
             {canManageFunds && (
               <button onClick={() => { setEditingFund(null); setFundForm({ name: '', type: 'MANUAL', fixedAmount: '0', percentage: '0', sortOrder: String(funds.length), description: '', isActive: true }) }}
-                className="text-xs flex items-center gap-1 font-semibold" style={{ color: '#6d28d9' }}>
+                className="text-xs flex items-center gap-1 font-semibold" style={{ color: 'var(--brand-primary-light)' }}>
                 <Plus size={12} /> Add Fund
               </button>
             )}
@@ -731,7 +731,7 @@ export default function ProfitAllocationPage() {
               <button key={t} onClick={() => setFundTab(t)}
                 className="px-3 py-1.5 text-xs rounded-lg font-medium whitespace-nowrap transition-colors"
                 style={fundTab === t
-                  ? { background: '#6d28d9', color: '#fff', border: '1px solid #6d28d9' }
+                  ? { background: 'var(--brand-primary-light)', color: '#fff', border: '1px solid var(--brand-primary-light)' }
                   : { background: 'var(--bg-subtle)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>
                 {t === 'ALL' ? 'All Funds' : t === 'FIXED_AMOUNT' ? 'Fixed' : t === 'PERCENTAGE' ? 'Percentage' : 'Manual'}
               </button>
@@ -756,7 +756,7 @@ export default function ProfitAllocationPage() {
                 </div>
                 {canManageFunds && (
                   <div className="flex gap-1 shrink-0">
-                    <button onClick={() => openEditFund(f)} className="p-1.5 rounded-lg hover:bg-violet-500/10"><Edit2 size={13} style={{ color: '#6d28d9' }} /></button>
+                    <button onClick={() => openEditFund(f)} className="p-1.5 rounded-lg hover:bg-violet-500/10"><Edit2 size={13} style={{ color: 'var(--brand-primary-light)' }} /></button>
                     <button onClick={() => deleteFund(f.id)} className="p-1.5 rounded-lg hover:bg-red-500/10"><Trash2 size={13} style={{ color: '#b91c1c' }} /></button>
                   </div>
                 )}

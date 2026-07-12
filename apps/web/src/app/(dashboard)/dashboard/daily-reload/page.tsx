@@ -255,7 +255,7 @@ export default function DailyReloadPage() {
       cell: ({ row: { original: r } }) => (
         <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{
           background: r.reloadType === 'RECHARGE_CARD' ? 'rgba(139,92,246,0.12)' : 'rgba(20,184,166,0.12)',
-          color: r.reloadType === 'RECHARGE_CARD' ? '#8b5cf6' : '#14b8a6',
+          color: r.reloadType === 'RECHARGE_CARD' ? 'var(--brand-light)' : '#14b8a6',
         }}>
           {r.reloadType === 'RECHARGE_CARD' ? 'Recharge Card' : 'Reload'}
         </span>
@@ -352,7 +352,7 @@ export default function DailyReloadPage() {
   if (!hasAccess) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
       <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.1)' }}>
-        <PhoneCall size={26} style={{ color: '#8b5cf6' }} />
+        <PhoneCall size={26} style={{ color: 'var(--brand-light)' }} />
       </div>
       <div className="text-center">
         <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Daily Reload</h2>
@@ -408,7 +408,7 @@ export default function DailyReloadPage() {
       {tab !== 'settlement' && (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { icon: PhoneCall,     label: 'Total Reloads',  value: summary.total.toString(),      color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' },
+          { icon: PhoneCall,     label: 'Total Reloads',  value: summary.total.toString(),      color: 'var(--brand-light)', bg: 'rgba(139,92,246,0.1)' },
           { icon: TrendingUp,    label: 'Reload Total',   value: formatAmt(summary.totalAmount), color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
           { icon: TrendingUp,    label: 'Commission (Earned)',  value: formatAmt(summary.commission),  color: '#10b981', bg: 'rgba(16,185,129,0.1)' },
           { icon: CheckCircle2,  label: 'Net to Provider', value: formatAmt(netPayable), color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
@@ -461,7 +461,7 @@ export default function DailyReloadPage() {
                 onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
                 onClick={() => fileRef.current?.click()}
                 className="border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all"
-                style={{ borderColor: dragOver ? 'var(--brand-primary)' : 'var(--border-default)', background: dragOver ? 'rgba(139,92,246,0.05)' : 'transparent' }}
+                style={{ borderColor: dragOver ? 'var(--brand-primary)' : 'var(--border-default)', background: dragOver ? 'var(--brand-glow)' : 'transparent' }}
               >
                 <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }} />
                 {uploading ? (

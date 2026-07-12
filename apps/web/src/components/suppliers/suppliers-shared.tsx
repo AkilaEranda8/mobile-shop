@@ -229,7 +229,7 @@ export function IMEIRegisterModal({ po, products, onClose, onSaved }: {
     if (n.includes('red')   || n.includes('rose'))          return '#ef4444'
     if (n.includes('blue')  || n.includes('sky'))           return '#3b82f6'
     if (n.includes('green') || n.includes('midnight'))      return '#10b981'
-    if (n.includes('purple')|| n.includes('violet'))        return '#8b5cf6'
+    if (n.includes('purple')|| n.includes('violet'))        return 'var(--brand-light)'
     if (n.includes('pink'))                                  return '#ec4899'
     if (n.includes('orange'))                                return '#f97316'
     return '#6b7280'
@@ -375,7 +375,7 @@ export function IMEIRegisterModal({ po, products, onClose, onSaved }: {
 
           {/* Progress bar */}
           {totalSlots > 0 && (
-            <div className="rounded-xl p-3 border" style={{ background: 'rgba(139,92,246,0.05)', borderColor: 'rgba(139,92,246,0.15)' }}>
+            <div className="rounded-xl p-3 border" style={{ background: 'var(--brand-glow)', borderColor: 'rgba(139,92,246,0.15)' }}>
               <div className="flex justify-between text-[10px] mb-1.5">
                 <span style={{ color: 'var(--text-muted)' }}>Overall progress</span>
                 <span className={filledSlots === totalSlots ? 'text-green-400 font-bold' : 'text-violet-400'}>
@@ -384,7 +384,7 @@ export function IMEIRegisterModal({ po, products, onClose, onSaved }: {
               </div>
               <div className="h-1.5 rounded-full bg-[var(--border-default)] overflow-hidden">
                 <div className="h-full rounded-full transition-all duration-300"
-                  style={{ width: `${(filledSlots / totalSlots) * 100}%`, background: filledSlots === totalSlots ? '#22c55e' : '#8b5cf6' }} />
+                  style={{ width: `${(filledSlots / totalSlots) * 100}%`, background: filledSlots === totalSlots ? '#22c55e' : 'var(--brand-light)' }} />
               </div>
             </div>
           )}
@@ -1356,7 +1356,7 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                                       if (n.includes('red') || n.includes('rose')) return '#ef4444'
                                       if (n.includes('blue') || n.includes('sky')) return '#3b82f6'
                                       if (n.includes('green') || n.includes('midnight')) return '#10b981'
-                                      if (n.includes('purple') || n.includes('violet')) return '#8b5cf6'
+                                      if (n.includes('purple') || n.includes('violet')) return 'var(--brand-light)'
                                       if (n.includes('pink')) return '#ec4899'
                                       if (n.includes('orange')) return '#f97316'
                                       return '#6b7280'

@@ -147,7 +147,7 @@ export default function DashboardPage() {
 
   const repairDonut = [
     { name: 'In Repair',        value: repairStats.inProg,    color: '#3b82f6' },
-    { name: 'Received',         value: repairStats.received,  color: '#8b5cf6' },
+    { name: 'Received',         value: repairStats.received,  color: 'var(--brand-light)' },
     { name: 'Diagnosed',        value: repairStats.diagnosed, color: '#a855f7' },
     { name: 'Quality Check',    value: repairStats.qc,        color: '#f59e0b' },
     { name: 'Ready for Pickup', value: repairStats.ready,     color: '#22c55e' },
@@ -199,7 +199,7 @@ export default function DashboardPage() {
       {/* ── KPI Strip (6 cards) ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
         {[
-          { label: 'Sales (30 Days)',      value: formatCurrency(totalRevenue),            sub: `${profitMargin}% profit margin`,              icon: ShoppingCart, iconBg: '#ede9fe', iconColor: '#7c3aed', spark: sparkRev,  sparkColor: '#7c3aed' },
+          { label: 'Sales (30 Days)',      value: formatCurrency(totalRevenue),            sub: `${profitMargin}% profit margin`,              icon: ShoppingCart, iconBg: '#ede9fe', iconColor: 'var(--brand-primary)', spark: sparkRev,  sparkColor: 'var(--brand-primary)' },
           { label: 'Profit (30 Days)',     value: formatCurrency(totalProfit),             sub: `Cost: ${formatCurrency(totalCost)}`,           icon: TrendingUp,   iconBg: '#dcfce7', iconColor: '#16a34a', spark: sparkProf, sparkColor: '#22c55e' },
           { label: 'Total Orders',        value: String(s?.totalSalesCount ?? s?.todaySalesCount ?? 0), sub: `${s?.todaySalesCount ?? 0} today`,   icon: Receipt,      iconBg: '#dbeafe', iconColor: '#2563eb', spark: [],        sparkColor: '#3b82f6' },
           { label: 'Active Repairs',      value: String(repairStats.active),               sub: `${repairStats.ready} ready for pickup`,       icon: Wrench,       iconBg: '#ffedd5', iconColor: '#ea580c', spark: [],        sparkColor: '#f97316' },
@@ -237,14 +237,14 @@ export default function DashboardPage() {
               <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false}/>
               <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`}/>
               <Tooltip formatter={(v: any) => formatCurrency(v)} contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}/>
-              <Line type="monotone" dataKey="sales"  stroke="#7c3aed" strokeWidth={2.5} dot={{ r: 4, fill: '#7c3aed', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Total Sales"/>
+              <Line type="monotone" dataKey="sales"  stroke="var(--brand-primary)" strokeWidth={2.5} dot={{ r: 4, fill: 'var(--brand-primary)', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Total Sales"/>
               <Line type="monotone" dataKey="cost"   stroke="#3b82f6" strokeWidth={2}   dot={{ r: 3, fill: '#3b82f6', strokeWidth: 0 }} activeDot={{ r: 5 }} name="Total Cost"/>
               <Line type="monotone" dataKey="profit" stroke="#22c55e" strokeWidth={2}   dot={{ r: 3, fill: '#22c55e', strokeWidth: 0 }} activeDot={{ r: 5 }} name="Total Profit"/>
             </LineChart>
           </ResponsiveContainer>
           <div className="grid grid-cols-4 gap-2 mt-4 pt-4 border-t border-gray-50 dark:border-slate-700">
             {[
-              { label: 'Total Sales',   value: formatCurrency(totalRevenue), color: '#7c3aed' },
+              { label: 'Total Sales',   value: formatCurrency(totalRevenue), color: 'var(--brand-primary)' },
               { label: 'Total Cost',    value: formatCurrency(totalCost),    color: '#3b82f6' },
               { label: 'Total Profit',  value: formatCurrency(totalProfit),  color: '#22c55e' },
               { label: 'Profit Margin', value: `${profitMargin}%`,           color: '#f59e0b' },
@@ -335,7 +335,7 @@ export default function DashboardPage() {
                       <p className="text-xs font-semibold text-gray-800 dark:text-slate-200 truncate">{p.productName ?? 'Unknown'}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <div className="flex-1 h-1.5 bg-gray-100 dark:bg-slate-600 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #7c3aed, #a78bfa)' }}/>
+                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'var(--kpi-accent)' }}/>
                         </div>
                         <span className="text-[10px] text-gray-400 flex-shrink-0">{p.quantitySold ?? p.totalQty ?? 0} units</span>
                       </div>
@@ -436,13 +436,13 @@ export default function DashboardPage() {
       {/* ── Quick Actions bar ── */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
         {[
-          { href: '/dashboard/pos',       icon: ShoppingCart, label: 'New Sale',     sub: 'Create Invoice', iconBg: '#ede9fe', iconColor: '#7c3aed', openPos: true },
+          { href: '/dashboard/pos',       icon: ShoppingCart, label: 'New Sale',     sub: 'Create Invoice', iconBg: '#ede9fe', iconColor: 'var(--brand-primary)', openPos: true },
           { href: '/dashboard/customers?action=add', icon: Users,        label: 'Add Customer', sub: 'Register New',   iconBg: '#dbeafe', iconColor: '#2563eb' },
           { href: '/dashboard/inventory?action=add-product', icon: Package,      label: 'Add Product',  sub: 'New Item',       iconBg: '#dcfce7', iconColor: '#16a34a' },
           { href: '/dashboard/repairs?action=new',   icon: Wrench,       label: 'New Repair',   sub: 'Create Ticket',  iconBg: '#ffedd5', iconColor: '#ea580c' },
           { href: '/dashboard/finance?action=add-expense',   icon: DollarSign,   label: 'Expenses',     sub: 'Add Expense',    iconBg: '#ffe4e6', iconColor: '#e11d48' },
           { href: '/dashboard/reports?tab=overview',   icon: BarChart2,    label: 'Reports',      sub: 'View Reports',   iconBg: '#cffafe', iconColor: '#0891b2' },
-          ...(hasDailyClosing ? [{ href: '/dashboard/daily-closing', icon: Lock, label: 'Daily Closing', sub: 'Close Day', iconBg: '#f3e8ff', iconColor: '#7c3aed' }] : []),
+          ...(hasDailyClosing ? [{ href: '/dashboard/daily-closing', icon: Lock, label: 'Daily Closing', sub: 'Close Day', iconBg: '#f3e8ff', iconColor: 'var(--brand-primary)' }] : []),
         ].map(a => {
           const cardClass = `${CARD} p-4 flex flex-col items-center gap-2 text-center hover:shadow-md hover:border-violet-200 dark:hover:border-violet-500/30 transition-all active:scale-95`
           const cardInner = (

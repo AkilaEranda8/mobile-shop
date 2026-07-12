@@ -499,7 +499,7 @@ function VariationPickerModal({
     if (n.includes('red') || n.includes('rose')) return '#ef4444'
     if (n.includes('blue') || n.includes('sky') || n.includes('pacific')) return '#3b82f6'
     if (n.includes('green') || n.includes('midnight') || n.includes('alpine')) return '#10b981'
-    if (n.includes('purple') || n.includes('violet')) return '#8b5cf6'
+    if (n.includes('purple') || n.includes('violet')) return 'var(--brand-light)'
     if (n.includes('pink')) return '#ec4899'
     if (n.includes('orange')) return '#f97316'
     return '#6b7280'
@@ -595,7 +595,7 @@ function VariationPickerModal({
                 <>
                   {/* Scan to pick from variant stock */}
                   <div className="flex gap-2 items-center px-3 h-10 rounded-xl border"
-                    style={{ background: 'rgba(124,58,237,0.08)', borderColor: 'rgba(124,58,237,0.25)' }}>
+                    style={{ background: 'var(--brand-glow)', borderColor: 'var(--sidebar-active-border)' }}>
                     <Hash size={13} className="text-violet-400 flex-shrink-0" />
                     <input
                       ref={imeiScanRef}
@@ -2390,7 +2390,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         style={{ background: POS_THEME.card, borderColor: POS_THEME.border, color: '#ffffff' }}
         title="Select customer (F2)">
         <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
-          style={{ background: selectedCustomer ? 'rgba(124,58,237,0.3)' : POS_THEME.bg, color: '#ffffff' }}>
+          style={{ background: selectedCustomer ? 'var(--sidebar-active-border)' : POS_THEME.bg, color: '#ffffff' }}>
           {selectedCustomer ? selectedCustomer.name[0]?.toUpperCase() : <User size={10} />}
         </div>
         <span className="max-w-[110px] truncate">{selectedCustomer ? selectedCustomer.name : 'Walk-in Customer'}</span>
@@ -2810,7 +2810,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     {waSending ? 'Sending…' : waSendPdf ? 'Send WhatsApp Invoice (PDF)' : 'Send WhatsApp Invoice'}
                   </button>
                 )}
-                <button onClick={handleNewSale} className="w-full py-3 rounded-2xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[.99]" style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: '0 4px 20px rgba(124,58,237,.4)' }}>+ New Sale (F10)</button>
+                <button onClick={handleNewSale} className="w-full py-3 rounded-2xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[.99]" style={{ background: 'var(--brand-gradient)', boxShadow: '0 4px 20px var(--brand-glow)' }}>+ New Sale (F10)</button>
               </div>
               {completedSale && (
                 <div style={{ position: 'fixed', left: '-9999px', top: 0, width: 794, pointerEvents: 'none' }}>
@@ -2876,7 +2876,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         <p className="text-xs text-white/50 mt-1 text-center">Outstanding balance — press F9 to collect</p>
                         <button type="button" onClick={() => { setCartView('checkout'); setIncludeOutstanding(true) }}
                           className="mt-4 px-4 py-2.5 rounded-xl text-sm font-bold text-white"
-                          style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)' }}>
+                          style={{ background: 'var(--brand-gradient)' }}>
                           Collect Outstanding <kbd className="ml-1 px-1 rounded text-[10px]" style={{ background: 'rgba(0,0,0,0.25)' }}>F9</kbd>
                         </button>
                       </>
@@ -3062,7 +3062,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   </div>
                   <button type="button" onClick={() => { setCartView('checkout'); setTimeout(() => payNowRef.current?.focus(), 80) }}
                     className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-bold text-sm transition-all hover:opacity-95"
-                    style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: '0 4px 20px rgba(124,58,237,.4)' }}>
+                    style={{ background: 'var(--brand-gradient)', boxShadow: '0 4px 20px var(--brand-glow)' }}>
                     Checkout
                     <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold" style={{ background: 'rgba(0,0,0,0.25)' }}>F9</kbd>
                     <ChevronRight size={16} />
@@ -3101,7 +3101,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   <div className="relative rounded-xl border p-2.5" style={{ borderColor: needsCustomerForPartial ? 'rgba(245,158,11,.5)' : POS_THEME.border, background: POS_THEME.card }}>
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(124,58,237,0.25)' }}>
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--sidebar-active-border)' }}>
                           <User size={14} className="text-white" />
                         </div>
                         <div className="min-w-0">
@@ -3390,7 +3390,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   {checkoutError && <p className="text-xs text-white text-center">{checkoutError}</p>}
                   <button type="button" onClick={handleCheckout} disabled={checkoutLoading || (cart.length === 0 && outstandingPaying <= 0)}
                     className="w-full flex items-center justify-center gap-2 px-5 py-4 rounded-2xl text-white font-bold text-base transition-all disabled:opacity-60"
-                    style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: checkoutLoading ? 'none' : '0 8px 28px rgba(124,58,237,.45)' }}>
+                    style={{ background: 'var(--brand-gradient)', boxShadow: checkoutLoading ? 'none' : '0 8px 28px var(--brand-glow)' }}>
                     {checkoutLoading ? <Loader2 size={18} className="animate-spin" /> : null}
                     <span>{checkoutLoading ? 'Processing…' : `Pay Now (F3 / Enter)`}</span>
                   </button>
@@ -3409,7 +3409,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         <div className="fixed bottom-4 left-3 right-3 z-30 md:hidden">
           <button onClick={() => setMobileView('cart')}
             className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl font-bold"
-            style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', boxShadow: '0 8px 30px rgba(124,58,237,.55)', color: '#ffffff' }}>
+            style={{ background: 'var(--brand-gradient)', boxShadow: '0 8px 30px var(--brand-glow)', color: '#ffffff' }}>
             <div className="flex items-center gap-2" style={{ color: '#ffffff' }}>
               <ShoppingBag size={17} color="#ffffff" />
               <span className="text-sm" style={{ color: '#ffffff' }}>{cart.length} item{cart.length !== 1 ? 's' : ''}</span>
@@ -3825,7 +3825,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       {showDocPreview && (() => {
         const docNum = genDocNumber(showDocPreview === 'QUOTE' ? 'QT' : 'DFT')
         const label  = showDocPreview === 'QUOTE' ? 'QUOTE' : 'DRAFT INVOICE'
-        const color  = showDocPreview === 'QUOTE' ? '#2563eb' : '#7c3aed'
+        const color  = showDocPreview === 'QUOTE' ? '#2563eb' : 'var(--brand-primary)'
         return (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm overflow-y-auto">
             <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 bg-black/80 border-b border-white/10 backdrop-blur">

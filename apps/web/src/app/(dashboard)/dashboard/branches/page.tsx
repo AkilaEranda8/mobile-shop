@@ -142,7 +142,7 @@ function BranchModal({
             </button>
             <button type="submit" disabled={loading}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)' }}>
+              style={{ background: 'var(--brand-gradient)' }}>
               {loading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
               {isEdit ? 'Save Changes' : 'Create Branch'}
             </button>
@@ -251,7 +251,7 @@ export default function BranchesPage() {
           {branches.map(branch => (
             <div key={branch.id}
               className={`rounded-2xl p-5 space-y-3 transition-all ${!branch.isActive ? 'opacity-50' : ''}`}
-              style={{ background: 'var(--bg-card)', border: `1px solid ${branch.isHeadquarters ? 'rgba(124,58,237,0.4)' : 'var(--border-default)'}` }}>
+              style={{ background: 'var(--bg-card)', border: `1px solid ${branch.isHeadquarters ? 'var(--sidebar-active-border)' : 'var(--border-default)'}` }}>
 
               {/* Card header */}
               <div className="flex items-start justify-between gap-2">

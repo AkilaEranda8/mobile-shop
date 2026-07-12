@@ -44,7 +44,7 @@ const TOOLTIP_STYLE = {
   color: 'var(--text-primary)',
 }
 
-const PIE_COLORS   = ['#6d28d9','#1d4ed8','#b45309','#0e7490','#15803d','#b91c1c','#7c3aed','#0369a1']
+const PIE_COLORS   = ['var(--brand-primary-light)','#1d4ed8','#b45309','#0e7490','#15803d','#b91c1c','var(--brand-primary)','#0369a1']
 const STATUS_LABEL: Record<string, string> = {
   RECEIVED:'Received', DIAGNOSED:'Diagnosed', IN_REPAIR:'In Repair',
   QC:'QC Check', READY:'Ready', DELIVERED:'Delivered', CANCELLED:'Cancelled',
@@ -195,7 +195,7 @@ function DailyReloadTab({ fromDate, toDate, branchId }: { fromDate: string; toDa
               <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} tickFormatter={v => formatCurrency(v)} width={70} />
               <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any) => formatCurrency(v)} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="Amount"     fill="#6d28d9" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Amount"     fill="var(--brand-primary-light)" radius={[4, 4, 0, 0]} />
               <Bar dataKey="Commission" fill="#16a34a" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -287,8 +287,8 @@ function SalesTab({ days, fromDate, toDate, branchId }: { days: string; fromDate
           <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="gRev" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor="#7c3aed" stopOpacity={0.25} />
-                <stop offset="95%" stopColor="#7c3aed" stopOpacity={0}    />
+                <stop offset="5%"  stopColor="var(--brand-primary)" stopOpacity={0.25} />
+                <stop offset="95%" stopColor="var(--brand-primary)" stopOpacity={0}    />
               </linearGradient>
               <linearGradient id="gProfit" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%"  stopColor="#15803d" stopOpacity={0.2} />
@@ -300,7 +300,7 @@ function SalesTab({ days, fromDate, toDate, branchId }: { days: string; fromDate
             <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} tickFormatter={v => formatCurrency(v)} width={70} />
             <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any) => formatCurrency(v)} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
-            <Area type="monotone" dataKey="Revenue"  stroke="#7c3aed" fill="url(#gRev)"    strokeWidth={2} dot={false} />
+            <Area type="monotone" dataKey="Revenue"  stroke="var(--brand-primary)" fill="url(#gRev)"    strokeWidth={2} dot={false} />
             <Area type="monotone" dataKey="Profit"   stroke="#16a34a" fill="url(#gProfit)" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
             <Area type="monotone" dataKey="Expenses" stroke="#dc2626" fill="none"           strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
           </AreaChart>
@@ -320,7 +320,7 @@ function SalesTab({ days, fromDate, toDate, branchId }: { days: string; fromDate
               <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} tickFormatter={v => formatCurrency(v)} />
               <YAxis type="category" dataKey="productName" width={100} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} />
               <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any) => formatCurrency(v)} />
-              <Bar dataKey="revenue" fill="#7c3aed" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="revenue" fill="var(--brand-primary)" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
           <div className="space-y-1 overflow-y-auto max-h-56">
@@ -380,7 +380,7 @@ function InventoryTab({ branchId }: { branchId?: string }) {
               <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} />
               <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} tickFormatter={v => formatCurrency(v)} width={70} />
               <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any, n: any) => n === 'stockValue' ? formatCurrency(v) : v} />
-              <Bar dataKey="stockValue" name="Stock Value" fill="#6d28d9" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="stockValue" name="Stock Value" fill="var(--brand-primary-light)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -596,7 +596,7 @@ function RepairsTab({ branchId, fromDate, toDate }: { branchId?: string; fromDat
                 <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} tickFormatter={v => formatCurrency(v)} width={70} />
                 <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any) => formatCurrency(v)} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="collected" name="Collected" fill="#6d28d9" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="collected" name="Collected" fill="var(--brand-primary-light)" radius={[4, 4, 0, 0]} />
                 <Line type="monotone" dataKey="profit" name="Net Profit" stroke="#16a34a" strokeWidth={2} dot={false} />
               </ComposedChart>
             </ResponsiveContainer>
@@ -890,8 +890,8 @@ function OverviewTab({ days, fromDate, toDate, branchId }: { days: string; fromD
             <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="ovRev" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#7c3aed" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#7c3aed" stopOpacity={0}    />
+                  <stop offset="5%"  stopColor="var(--brand-primary)" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="var(--brand-primary)" stopOpacity={0}    />
                 </linearGradient>
                 <linearGradient id="ovPro" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%"  stopColor="#16a34a" stopOpacity={0.2} />
@@ -903,7 +903,7 @@ function OverviewTab({ days, fromDate, toDate, branchId }: { days: string; fromD
               <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} tickFormatter={v => formatCurrency(v)} width={72} />
               <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any) => formatCurrency(v)} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Area type="monotone" dataKey="Revenue" stroke="#7c3aed" fill="url(#ovRev)" strokeWidth={2} dot={false} />
+              <Area type="monotone" dataKey="Revenue" stroke="var(--brand-primary)" fill="url(#ovRev)" strokeWidth={2} dot={false} />
               <Area type="monotone" dataKey="Profit"  stroke="#16a34a" fill="url(#ovPro)" strokeWidth={2} dot={false} />
               <Area type="monotone" dataKey="Cost"    stroke="#dc2626" fill="none"         strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
             </AreaChart>
@@ -927,7 +927,7 @@ function OverviewTab({ days, fromDate, toDate, branchId }: { days: string; fromD
           <SectionTitle title="Quick Stats" />
           <div className="grid grid-cols-2 gap-3">
             {[
-              { label: "Today's Sales",     value: (dash?.todaySalesCount ?? 0).toString(),         color: '#7c3aed' },
+              { label: "Today's Sales",     value: (dash?.todaySalesCount ?? 0).toString(),         color: 'var(--brand-primary)' },
               { label: 'All-time Revenue',   value: formatCurrency(dash?.totalRevenue ?? 0),         color: '#15803d' },
               { label: 'Stock Value',        value: formatCurrency(inv?.totalStockValue ?? 0),        color: '#0e7490' },
               { label: 'Ready Pickups',      value: (dash?.readyForPickup ?? 0).toString(),           color: '#b45309' },
@@ -996,12 +996,12 @@ function PLTab({ fromDate, toDate, branchId }: { fromDate: string; toDate: strin
 
   const waterfallData = [
     { name: 'POS Sales', value: salesRevenue, fill: '#16a34a' },
-    { name: 'Repairs', value: repairIncome, fill: '#7c3aed' },
+    { name: 'Repairs', value: repairIncome, fill: 'var(--brand-primary)' },
     { name: 'Other', value: Math.max(0, otherIncome - (summary.reloadCommission ?? 0)), fill: '#0e7490' },
     { name: 'POS COGS', value: -posCogs, fill: '#dc2626' },
     { name: 'Parts', value: -repairPartsCogs, fill: '#b91c1c' },
     { name: 'OpEx', value: -opExpenses, fill: '#f97316' },
-    { name: 'Net', value: netProfit, fill: netProfit >= 0 ? '#7c3aed' : '#dc2626' },
+    { name: 'Net', value: netProfit, fill: netProfit >= 0 ? 'var(--brand-primary)' : '#dc2626' },
   ]
 
   if (plFetch.loading || plFetch.error) {
@@ -1198,7 +1198,7 @@ function CashFlowTab({ fromDate, toDate, branchId }: { fromDate: string; toDate:
               <ReferenceLine yAxisId="left" y={0} stroke="var(--border-default)" strokeWidth={1} />
               <Bar yAxisId="left" dataKey="cashIn"  name="Cash In"    fill="#16a34a" opacity={0.75} radius={[3,3,0,0]} />
               <Bar yAxisId="left" dataKey="cashOut" name="Cash Out"   fill="#dc2626" opacity={0.75} radius={[3,3,0,0]} />
-              <Line yAxisId="right" type="monotone" dataKey="cumulative" name="Cumulative Net" stroke="#7c3aed" strokeWidth={2} dot={false} />
+              <Line yAxisId="right" type="monotone" dataKey="cumulative" name="Cumulative Net" stroke="var(--brand-primary)" strokeWidth={2} dot={false} />
             </ComposedChart>
           </ResponsiveContainer>
         )}
@@ -1300,13 +1300,13 @@ function ReportsPageContent() {
             {PERIODS.map(p => (
               <button key={p.days} onClick={() => handlePeriod(p.days)}
                 className="px-3 py-1.5 text-xs rounded-lg font-medium transition-colors"
-                style={!isCustom && period === p.days ? { background: '#6d28d9', color: '#fff' } : { color: 'var(--text-muted)' }}>
+                style={!isCustom && period === p.days ? { background: 'var(--brand-primary-light)', color: '#fff' } : { color: 'var(--text-muted)' }}>
                 {p.label}
               </button>
             ))}
             <button onClick={() => setIsCustom(true)}
               className="px-3 py-1.5 text-xs rounded-lg font-medium transition-colors flex items-center gap-1"
-              style={isCustom ? { background: '#6d28d9', color: '#fff' } : { color: 'var(--text-muted)' }}>
+              style={isCustom ? { background: 'var(--brand-primary-light)', color: '#fff' } : { color: 'var(--text-muted)' }}>
               <Calendar size={11} /> Custom
             </button>
           </div>

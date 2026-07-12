@@ -660,7 +660,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                   ) : nextStatus ? (
                     <button onClick={handleNext} disabled={changingStatus}
                       className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
-                      style={{ background: 'linear-gradient(135deg,#6d28d9,#7c3aed)', color: '#ffffff' }}>
+                      style={{ background: 'var(--brand-gradient)', color: '#ffffff' }}>
                       {changingStatus ? <Loader2 size={14} className="animate-spin" /> : <ArrowRight size={14} />}
                       Move to {statusLabels[nextStatus]}
                     </button>
@@ -722,7 +722,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                           {([{ key: 'CASH', label: 'Cash' }, { key: 'CARD', label: 'Card' }, { key: 'UPI', label: 'UPI' }, { key: 'BANK_TRANSFER', label: 'Bank Transfer' }] as const).map(({ key: m, label }) => (
                             <button key={m} type="button" onClick={() => setPayMethod(m)}
                               className="py-1.5 px-2.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5"
-                              style={payMethod === m ? { background: '#7c3aed', border: '2px solid #7c3aed', color: '#fff' } : { background: 'var(--bg-subtle)', border: '2px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                              style={payMethod === m ? { background: 'var(--brand-primary)', border: '2px solid var(--brand-primary)', color: '#fff' } : { background: 'var(--bg-subtle)', border: '2px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
                               {label}{payMethod === m && <CheckCircle size={11} className="ml-auto" />}
                             </button>
                           ))}
@@ -817,7 +817,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                   </div>
                   <button onClick={handleAddPart} disabled={!selProduct || addingPart || (selProduct && Number(selProduct.stock) < partQty)}
                     className="w-full py-2 text-sm rounded-lg text-white font-bold flex items-center justify-center gap-2 disabled:opacity-50"
-                    style={{ background: '#7c3aed' }}>
+                    style={{ background: 'var(--brand-primary)' }}>
                     {addingPart ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}Add to Repair
                   </button>
                 </div>

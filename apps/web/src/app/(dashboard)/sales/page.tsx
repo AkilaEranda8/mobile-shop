@@ -649,7 +649,7 @@ export default function SalesPage() {
             </button>
             {s.source === 'DELIVERY' && (
               <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded font-semibold"
-                style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.2)' }}>
+                style={{ background: 'var(--brand-glow)', color: 'var(--brand-light)', border: '1px solid var(--sidebar-active-border)' }}>
                 <Truck size={9} /> Delivery
               </span>
             )}
@@ -780,7 +780,7 @@ export default function SalesPage() {
               onClick={() => setStatusFilter(opt.id)}
               className="px-3 py-1.5 text-xs rounded-lg font-medium whitespace-nowrap transition-colors"
               style={statusFilter === opt.id
-                ? { background: '#6d28d9', color: '#fff' }
+                ? { background: 'var(--brand-primary-light)', color: '#fff' }
                 : { color: 'var(--text-muted)' }}>
               {opt.label}
             </button>
