@@ -67,10 +67,10 @@ export function FilterDropdown({
 
   const labelColor = isDark
     ? '#ffffff'
-    : (active ? '#8b5cf6' : 'var(--text-primary)')
+    : (active ? 'var(--brand-light)' : 'var(--text-primary)')
   const iconColor = isDark
     ? '#ffffff'
-    : (active ? '#8b5cf6' : 'var(--text-muted)')
+    : (active ? 'var(--brand-light)' : 'var(--text-muted)')
 
   const pick = (idx: number) => {
     const opt = options[idx]
@@ -126,7 +126,7 @@ export function FilterDropdown({
         style={{
           background: isDark ? 'rgba(255,255,255,0.05)' : 'var(--bg-subtle)',
           border: active
-            ? '1px solid rgba(109,40,217,0.35)'
+            ? '1px solid var(--sidebar-active-border)'
             : isDark ? '1px solid rgba(255,255,255,0.10)' : '1px solid var(--border-subtle)',
         }}>
         <Icon size={13} style={{ color: iconColor }} />
@@ -180,10 +180,10 @@ export function FilterDropdown({
                 onClick={() => pick(idx)}
                 className="w-full text-left px-3 py-2 text-xs transition-colors hover:opacity-90"
                 style={{
-                  color: isDark ? '#ffffff' : (isSelected ? '#8b5cf6' : 'var(--text-primary)'),
+                  color: isDark ? '#ffffff' : (isSelected ? 'var(--brand-light)' : 'var(--text-primary)'),
                   background: isHighlighted
-                    ? 'rgba(109,40,217,0.18)'
-                    : isSelected ? 'rgba(109,40,217,0.12)' : 'transparent',
+                    ? 'var(--brand-glow)'
+                    : isSelected ? 'var(--brand-glow)' : 'transparent',
                 }}>
                 {opt.label}
               </button>

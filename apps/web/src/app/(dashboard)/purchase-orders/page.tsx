@@ -317,7 +317,7 @@ export default function PurchaseOrdersPage() {
             onClick={() => setPoStatusFilter(opt.id)}
             className="px-3 py-1.5 text-xs rounded-lg font-medium whitespace-nowrap transition-colors"
             style={poStatusFilter === opt.id
-              ? { background: '#6d28d9', color: '#fff' }
+              ? { background: 'var(--brand-primary-light)', color: '#fff' }
               : { color: 'var(--text-muted)' }}>
             {opt.label}
           </button>

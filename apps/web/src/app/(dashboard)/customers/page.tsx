@@ -279,7 +279,7 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                       onClose()
                     }}
                     className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold text-white transition-colors"
-                    style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)' }}
+                    style={{ background: 'var(--brand-gradient)' }}
                   >
                     <ShoppingBag size={12} /> New Sale for {customer.name?.split(' ')[0]}
                   </button>
@@ -482,7 +482,7 @@ function AddCustomerModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
 
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="h-10 px-6 rounded-xl border text-sm font-semibold transition-colors" style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}>Cancel</button>
-            <button type="submit" disabled={loading} className="flex-1 h-10 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60" style={{ background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)' }}>
+            <button type="submit" disabled={loading} className="flex-1 h-10 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60" style={{ background: 'var(--brand-gradient)' }}>
               {loading ? <Loader2 size={14} className="animate-spin" /> : <><CheckCircle2 size={14} /> Save Customer</>}
             </button>
           </div>
@@ -729,7 +729,7 @@ export default function CustomersPage() {
               onClick={() => setSegment(s.key)}
               className="px-3 py-1.5 text-xs rounded-lg font-medium whitespace-nowrap transition-colors"
               style={segment === s.key
-                ? { background: '#6d28d9', color: '#fff' }
+                ? { background: 'var(--brand-primary-light)', color: '#fff' }
                 : { color: 'var(--text-muted)' }}>
               {s.label}
             </button>

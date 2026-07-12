@@ -690,13 +690,13 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
             </div>
             {showBranchPicker && (
               <div className="col-span-2 rounded-xl p-3 space-y-2"
-                style={{ background: 'rgba(109,40,217,0.06)', border: '1px solid rgba(109,40,217,0.18)' }}>
+                style={{ background: 'var(--brand-glow)', border: '1px solid var(--brand-glow)' }}>
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
                     Stock location
                   </p>
                   <span className="text-[10px] px-2 py-0.5 rounded-full font-medium flex items-center gap-1"
-                    style={{ background: 'rgba(109,40,217,0.12)', color: '#a78bfa', border: '1px solid rgba(109,40,217,0.25)' }}>
+                    style={{ background: 'var(--brand-glow)', color: 'var(--brand-light)', border: '1px solid var(--sidebar-active-border)' }}>
                     <Building2 size={10} />
                     {stockBranchName}
                     {hasInventory && (
@@ -1054,7 +1054,7 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
               <img src={detail.imageUrl} alt={detail.name} className="h-full w-full object-contain" />
             ) : (
               <>
-                <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle at 30% 50%, #7c3aed 0%, transparent 60%)' }} />
+                <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle at 30% 50%, var(--brand-primary) 0%, transparent 60%)' }} />
                 <div className="flex flex-col items-center gap-1">
                   <Package size={32} className="text-violet-400 opacity-80" />
                   <p className="text-xs text-violet-300 font-mono">{detail.sku}</p>
@@ -1091,7 +1091,7 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
               <div className="flex items-center justify-center gap-1 mb-1"><ArrowDownRight size={11} className="text-slate-500" /><span className="text-[10px] text-slate-500 uppercase tracking-wide">Buying</span></div>
               <p className="text-sm font-bold text-gray-900 dark:text-white">{formatCurrency(detail.buyingPrice)}</p>
             </div>
-            <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)' }}>
+            <div className="rounded-xl p-3 text-center" style={{ background: 'var(--brand-glow)', border: '1px solid var(--sidebar-active-border)' }}>
               <div className="flex items-center justify-center gap-1 mb-1"><ShoppingCart size={11} className="text-violet-400" /><span className="text-[10px] text-violet-400 uppercase tracking-wide">Selling</span></div>
               <p className="text-sm font-bold text-violet-300">{formatCurrency(detail.sellingPrice)}</p>
             </div>
@@ -1213,7 +1213,7 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
                       {variations.map((v, i) => (
                         <tr key={v.id ?? i} style={{ borderBottom: i < variations.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
                           <td style={{ padding: '8px 10px' }}>
-                            <span className="text-[11px] px-2 py-0.5 rounded-md font-medium" style={{ background: 'rgba(124,58,237,0.1)', color: '#a78bfa' }}>{v.storage}</span>
+                            <span className="text-[11px] px-2 py-0.5 rounded-md font-medium" style={{ background: 'var(--brand-glow)', color: 'var(--brand-light)' }}>{v.storage}</span>
                           </td>
                           <td style={{ padding: '8px 10px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1224,7 +1224,7 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
                           <td style={{ padding: '8px 10px', fontFamily: 'monospace', color: 'var(--text-muted)', fontSize: 10 }}>
                             {v.sku ?? '—'}
                           </td>
-                          <td style={{ padding: '8px 10px', fontWeight: 700, color: '#a78bfa' }}>
+                          <td style={{ padding: '8px 10px', fontWeight: 700, color: 'var(--brand-light)' }}>
                             {formatCurrency(v.sellingPrice)}
                           </td>
                           <td style={{ padding: '8px 10px', color: 'var(--text-muted)' }}>
@@ -1605,7 +1605,7 @@ export default function InventoryPage() {
               </button>
               {variation ? (
                 <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                  <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'rgba(124,58,237,0.15)', color: '#a78bfa' }}>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'var(--brand-glow)', color: 'var(--brand-light)' }}>
                     {variation.storage}
                   </span>
                   <div className="flex items-center gap-1">
@@ -1854,7 +1854,7 @@ export default function InventoryPage() {
               onClick={() => setStatusFilter(opt.id)}
               className="px-3 py-1.5 text-xs rounded-lg font-medium whitespace-nowrap transition-colors"
               style={statusFilter === opt.id
-                ? { background: '#6d28d9', color: '#fff' }
+                ? { background: 'var(--brand-primary-light)', color: '#fff' }
                 : { color: 'var(--text-muted)' }}>
               {opt.label}
             </button>

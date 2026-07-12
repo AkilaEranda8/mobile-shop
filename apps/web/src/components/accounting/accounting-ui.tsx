@@ -6,9 +6,9 @@ import { ArrowLeft, Lock, X, Wallet, Landmark, CreditCard } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 
 export const VIOLET_ACCENT = {
-  color: '#7c3aed',
-  bg: 'rgba(124,58,237,0.08)',
-  border: 'rgba(124,58,237,0.22)',
+  color: 'var(--brand-primary)',
+  bg: 'var(--brand-glow)',
+  border: 'var(--sidebar-active-border)',
 }
 
 export const GREEN_ACCENT = {
@@ -193,8 +193,8 @@ export function CashBankSummaryStrip({
       <div
         className="rounded-xl border p-4 flex items-center gap-3 col-span-2"
         style={{
-          background: 'linear-gradient(135deg, rgba(124,58,237,0.18) 0%, rgba(124,58,237,0.04) 100%)',
-          borderColor: 'rgba(124,58,237,0.35)',
+          background: 'linear-gradient(135deg, var(--brand-glow) 0%, transparent 100%)',
+          borderColor: 'var(--sidebar-active-border)',
         }}
       >
         <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0 text-violet-400">
@@ -245,7 +245,7 @@ export function CashBankSidebar({
         className="px-4 py-5 border-b"
         style={{
           borderColor: 'var(--border-subtle)',
-          background: 'linear-gradient(135deg, rgba(124,58,237,0.16) 0%, rgba(124,58,237,0.03) 100%)',
+          background: 'linear-gradient(135deg, var(--brand-glow) 0%, transparent 100%)',
         }}
       >
         <p className="text-[10px] font-bold uppercase tracking-wider text-violet-400">Total liquidity</p>
@@ -606,8 +606,8 @@ export function AccountingTabs<T extends string>({
           onClick={() => onChange(t.id)}
           className="px-4 py-2.5 text-sm font-medium transition-colors -mb-px"
           style={{
-            borderBottom: `2px solid ${value === t.id ? '#7c3aed' : 'transparent'}`,
-            color: value === t.id ? '#a78bfa' : 'var(--text-muted)',
+            borderBottom: `2px solid ${value === t.id ? 'var(--brand-primary)' : 'transparent'}`,
+            color: value === t.id ? 'var(--brand-light)' : 'var(--text-muted)',
           }}
         >
           {t.label}

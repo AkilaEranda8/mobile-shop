@@ -219,7 +219,7 @@ export default function EditRepairModal({ repair, onClose, onSaved }: {
             </button>
             <button type="submit" disabled={loading}
               className="flex-1 h-11 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-violet-500/20 transition-all hover:opacity-90"
-              style={{ background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)' }}>
+              style={{ background: 'var(--brand-gradient)' }}>
               {loading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
               Save Changes
             </button>

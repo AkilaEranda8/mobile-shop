@@ -445,6 +445,10 @@ html:not(.dark) button[style*="linear-gradient"][style*="8b5cf6"],
 html:not(.dark) button[style*="linear-gradient"][style*="8b5cf6"] *,
 html:not(.dark) button[style*="linear-gradient"][style*="5b21b6"],
 html:not(.dark) button[style*="linear-gradient"][style*="5b21b6"] * { color: #ffffff !important; }
+html:not(.dark) button[style*="var(--brand-primary)"],
+html:not(.dark) button[style*="var(--brand-primary)"] *,
+html:not(.dark) button[style*="var(--brand-gradient)"],
+html:not(.dark) button[style*="var(--brand-gradient)"] * { color: #ffffff !important; }
 html:not(.dark) button[style*="linear-gradient"][style*="16a34a"],
 html:not(.dark) button[style*="linear-gradient"][style*="16a34a"] *,
 html:not(.dark) button[style*="linear-gradient"][style*="15803d"],
@@ -482,8 +486,8 @@ html:not(.dark) .text-blue-400    { color: #1d4ed8 !important; }
 html:not(.dark) .text-blue-300    { color: #1e40af !important; }
 html:not(.dark) .text-purple-400  { color: #7e22ce !important; }
 html:not(.dark) .text-purple-300  { color: #6b21a8 !important; }
-html:not(.dark) .text-violet-400  { color: #6d28d9 !important; }
-html:not(.dark) .text-violet-300  { color: #5b21b6 !important; }
+html:not(.dark) .text-violet-400  { color: var(--sidebar-active-text) !important; }
+html:not(.dark) .text-violet-300  { color: var(--sidebar-active-text) !important; }
 html:not(.dark) .text-orange-400  { color: #c2410c !important; }
 html:not(.dark) .text-orange-300  { color: #9a3412 !important; }
 html:not(.dark) .text-red-400     { color: #b91c1c !important; }
@@ -508,8 +512,8 @@ html:not(.dark) .bg-blue-500\/20   { background-color: rgba(29,78,216,0.10)  !im
 html:not(.dark) .bg-purple-500\/10,
 html:not(.dark) .bg-purple-500\/20 { background-color: rgba(126,34,206,0.10) !important; }
 html:not(.dark) .bg-violet-500\/10,
-html:not(.dark) .bg-violet-500\/20 { background-color: rgba(109,40,217,0.10) !important; }
-html:not(.dark) .bg-violet-600\/20 { background-color: rgba(124,58,237,0.12) !important; }
+html:not(.dark) .bg-violet-500\/20 { background-color: color-mix(in srgb, var(--brand-light) 12%, transparent) !important; }
+html:not(.dark) .bg-violet-600\/20 { background-color: color-mix(in srgb, var(--brand-primary) 12%, transparent) !important; }
 html:not(.dark) .bg-orange-500\/10,
 html:not(.dark) .bg-orange-500\/20 { background-color: rgba(194,65,12,0.10)  !important; }
 html:not(.dark) .bg-red-500\/10,
@@ -529,7 +533,7 @@ html:not(.dark) .border-blue-500\/30   { border-color: rgba(29,78,216,0.30)  !im
 html:not(.dark) .border-purple-500\/20,
 html:not(.dark) .border-purple-500\/30 { border-color: rgba(126,34,206,0.30) !important; }
 html:not(.dark) .border-violet-500\/20,
-html:not(.dark) .border-violet-500\/30 { border-color: rgba(109,40,217,0.30) !important; }
+html:not(.dark) .border-violet-500\/30 { border-color: color-mix(in srgb, var(--brand-light) 30%, transparent) !important; }
 html:not(.dark) .border-orange-500\/20,
 html:not(.dark) .border-orange-500\/30 { border-color: rgba(194,65,12,0.30)  !important; }
 html:not(.dark) .border-red-500\/20,
@@ -543,7 +547,7 @@ html:not(.dark) [class*="#0a0f1a"] { background-color: var(--bg-surface) !import
 html:not(.dark) [class*="#080c14"] { background-color: var(--bg-primary) !important; }
 html:not(.dark) [class*="#141b2d"] { background-color: var(--bg-card-hover) !important; }
 html:not(.dark) [class*="#1a2235"] { background-color: var(--bg-card-hover) !important; }
-html:not(.dark) [class*="#1e1b4b"] { background-color: rgba(124,58,237,0.08) !important; }
+html:not(.dark) [class*="#1e1b4b"] { background-color: var(--brand-glow) !important; }
 
 /* Sticky headers inside modals */
 html:not(.dark) [class*="#0f1623"][class*="sticky"] { background-color: var(--bg-card) !important; }
@@ -604,8 +608,8 @@ html:not(.dark) [data-scheme="dark"] .border-white\/25        { border-color: rg
 html:not(.dark) [data-scheme="dark"] .bg-white\/10            { background-color: rgba(255,255,255,0.10) !important; }
 html:not(.dark) [data-scheme="dark"] .bg-white\/15            { background-color: rgba(255,255,255,0.15) !important; }
 html:not(.dark) [data-scheme="dark"] .hover\:bg-white\/10:hover { background-color: rgba(255,255,255,0.10) !important; }
-html:not(.dark) [data-scheme="dark"] .bg-violet-500           { background-color: #8b5cf6 !important; }
-html:not(.dark) [data-scheme="dark"] .bg-violet-400           { background-color: #a78bfa !important; }
+html:not(.dark) [data-scheme="dark"] .bg-violet-500           { background-color: var(--brand-light) !important; }
+html:not(.dark) [data-scheme="dark"] .bg-violet-400           { background-color: var(--brand-light) !important; }
 html:not(.dark) [data-scheme="dark"] .shadow-violet-500\/40   { box-shadow: 0 0 0 0 transparent !important; }
 
 /* ── POS overlay – mockup dark theme (immune to light-mode overrides) ── */
@@ -648,24 +652,24 @@ html:not(.dark) [data-pos="dark"] .bg-white\/10                        { backgro
 html:not(.dark) [data-pos="dark"] .hover\:bg-white\/5:hover           { background-color: rgba(255,255,255,0.05) !important; }
 html:not(.dark) [data-pos="dark"] .hover\:bg-white\/10:hover          { background-color: rgba(255,255,255,0.10) !important; }
 html:not(.dark) [data-pos="dark"] .bg-emerald-500\/10                 { background-color: rgba(16,185,129,0.10) !important; }
-html:not(.dark) [data-pos="dark"] .bg-violet-500\/10                  { background-color: rgba(124,58,237,0.10) !important; }
+html:not(.dark) [data-pos="dark"] .bg-violet-500\/10                  { background-color: var(--brand-glow) !important; }
 html:not(.dark) [data-pos="dark"] .border-emerald-500\/20             { border-color: rgba(16,185,129,0.20) !important; }
-html:not(.dark) [data-pos="dark"] .border-violet-500\/20              { border-color: rgba(124,58,237,0.20) !important; }
+html:not(.dark) [data-pos="dark"] .border-violet-500\/20              { border-color: var(--sidebar-active-border) !important; }
 
 @layer utilities {
   .text-balance { text-wrap: balance; }
 
-  [data-pos="dark"] .pos-price { color: #7C3AED; }
+  [data-pos="dark"] .pos-price { color: var(--brand-primary); }
 
   /* ── Brand gradient text ── */
   .brand-gradient-text {
-    background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 40%, #06b6d4 100%);
+    background: linear-gradient(135deg, var(--brand-light) 0%, var(--brand-primary) 40%, #06b6d4 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
   .brand-gradient-text-warm {
-    background: linear-gradient(135deg, #f59e0b 0%, #7c3aed 60%, #06b6d4 100%);
+    background: linear-gradient(135deg, #f59e0b 0%, var(--brand-primary) 60%, #06b6d4 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -673,17 +677,17 @@ html:not(.dark) [data-pos="dark"] .border-violet-500\/20              { border-c
 
   /* ── Brand gradient backgrounds ── */
   .brand-gradient-bg {
-    background: linear-gradient(135deg, #4c1d95 0%, #1e1b4b 50%, #0c4a6e 100%);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--brand-primary) 70%, #000) 0%, #1e1b4b 50%, #0c4a6e 100%);
   }
   .brand-gradient-card {
-    background: linear-gradient(135deg, rgba(124,58,237,0.12) 0%, rgba(6,182,212,0.06) 100%);
-    border: 1px solid rgba(124,58,237,0.2);
+    background: linear-gradient(135deg, var(--brand-glow) 0%, rgba(6,182,212,0.06) 100%);
+    border: 1px solid var(--sidebar-active-border);
   }
   .brand-glow-card {
-    box-shadow: 0 0 0 1px rgba(124,58,237,0.15), 0 4px 24px rgba(124,58,237,0.12);
+    box-shadow: 0 0 0 1px var(--brand-glow), 0 4px 24px var(--brand-glow);
   }
   .brand-glow-card:hover {
-    box-shadow: 0 0 0 1px rgba(124,58,237,0.3), 0 8px 32px rgba(124,58,237,0.18);
+    box-shadow: 0 0 0 1px var(--sidebar-active-border), 0 8px 32px var(--brand-glow);
   }
 
   /* ── KPI accent bars ── */
@@ -694,7 +698,7 @@ html:not(.dark) [data-pos="dark"] .border-violet-500\/20              { border-c
 
   /* ── Health score ring ── */
   .health-ring {
-    background: conic-gradient(#7c3aed var(--health-pct, 72%), rgba(255,255,255,0.06) 0);
+    background: conic-gradient(var(--brand-primary) var(--health-pct, 72%), rgba(255,255,255,0.06) 0);
     border-radius: 50%;
   }
 
@@ -921,4 +925,99 @@ html:not(.dark) [data-pos="dark"] .border-violet-500\/20              { border-c
   .health-gradient-excellent { stop-color: #22c55e; }
   .health-gradient-good      { stop-color: #f59e0b; }
   .health-gradient-warning   { stop-color: #ef4444; }
+}
+
+/* ── Accent-aware remap: violet utilities follow selected brand color ── */
+.brand-gradient-btn {
+  background: var(--brand-gradient) !important;
+  color: #ffffff !important;
+}
+.brand-gradient-btn-shadow {
+  background: var(--brand-gradient) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 20px var(--brand-glow) !important;
+}
+
+.bg-violet-400,
+.bg-violet-500,
+.bg-violet-600,
+.bg-violet-700 { background-color: var(--brand-primary) !important; }
+.hover\:bg-violet-400:hover,
+.hover\:bg-violet-500:hover,
+.hover\:bg-violet-600:hover,
+.hover\:bg-violet-700:hover { background-color: var(--brand-light) !important; }
+
+.bg-violet-500\/3  { background-color: color-mix(in srgb, var(--brand-light) 3%, transparent) !important; }
+.bg-violet-500\/5  { background-color: color-mix(in srgb, var(--brand-light) 5%, transparent) !important; }
+.bg-violet-500\/10 { background-color: color-mix(in srgb, var(--brand-light) 10%, transparent) !important; }
+.bg-violet-500\/15 { background-color: color-mix(in srgb, var(--brand-light) 15%, transparent) !important; }
+.bg-violet-500\/20 { background-color: color-mix(in srgb, var(--brand-light) 20%, transparent) !important; }
+.bg-violet-500\/30 { background-color: color-mix(in srgb, var(--brand-light) 30%, transparent) !important; }
+.bg-violet-600\/20 { background-color: color-mix(in srgb, var(--brand-primary) 20%, transparent) !important; }
+.hover\:bg-violet-500\/3:hover  { background-color: color-mix(in srgb, var(--brand-light) 3%, transparent) !important; }
+.hover\:bg-violet-500\/5:hover  { background-color: color-mix(in srgb, var(--brand-light) 5%, transparent) !important; }
+.hover\:bg-violet-500\/10:hover { background-color: color-mix(in srgb, var(--brand-light) 10%, transparent) !important; }
+.hover\:bg-violet-500\/15:hover { background-color: color-mix(in srgb, var(--brand-light) 15%, transparent) !important; }
+.hover\:bg-violet-500\/20:hover { background-color: color-mix(in srgb, var(--brand-light) 20%, transparent) !important; }
+
+.text-violet-200,
+.text-violet-300 { color: var(--sidebar-active-text) !important; }
+.text-violet-400,
+.text-violet-500 { color: var(--brand-light) !important; }
+.text-violet-600,
+.text-violet-700 { color: var(--sidebar-active-text) !important; }
+.hover\:text-violet-300:hover,
+.hover\:text-violet-400:hover,
+.hover\:text-violet-500:hover { color: var(--brand-light) !important; }
+
+.border-violet-400,
+.border-violet-500,
+.border-violet-600 { border-color: var(--brand-primary) !important; }
+.border-violet-500\/15 { border-color: color-mix(in srgb, var(--brand-light) 15%, transparent) !important; }
+.border-violet-500\/20 { border-color: color-mix(in srgb, var(--brand-light) 20%, transparent) !important; }
+.border-violet-500\/25 { border-color: color-mix(in srgb, var(--brand-light) 25%, transparent) !important; }
+.border-violet-500\/30 { border-color: color-mix(in srgb, var(--brand-light) 30%, transparent) !important; }
+.border-violet-500\/40 { border-color: color-mix(in srgb, var(--brand-light) 40%, transparent) !important; }
+.border-violet-500\/50 { border-color: color-mix(in srgb, var(--brand-light) 50%, transparent) !important; }
+.hover\:border-violet-500\/30:hover { border-color: color-mix(in srgb, var(--brand-light) 30%, transparent) !important; }
+.hover\:border-violet-500\/40:hover { border-color: color-mix(in srgb, var(--brand-light) 40%, transparent) !important; }
+.hover\:border-violet-500\/50:hover { border-color: color-mix(in srgb, var(--brand-light) 50%, transparent) !important; }
+
+.from-violet-400,
+.from-violet-500,
+.from-violet-600 { --tw-gradient-from: var(--brand-light) var(--tw-gradient-from-position) !important; --tw-gradient-to: rgb(255 255 255 / 0) var(--tw-gradient-to-position) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
+.to-violet-400,
+.to-violet-500,
+.to-violet-600 { --tw-gradient-to: var(--brand-primary) var(--tw-gradient-to-position) !important; }
+.bg-gradient-to-r.from-violet-400,
+.bg-gradient-to-r.from-violet-500,
+.bg-gradient-to-br.from-violet-500 { background-image: var(--brand-gradient) !important; }
+
+.accent-violet-500,
+.accent-violet-600 { accent-color: var(--brand-primary) !important; }
+.ring-violet-500,
+.focus\:ring-violet-500:focus,
+.focus\:border-violet-500:focus { --tw-ring-color: var(--brand-primary) !important; border-color: var(--brand-primary) !important; }
+
+html:not(.dark) .text-violet-300,
+html:not(.dark) .text-violet-400,
+html:not(.dark) .text-violet-600 { color: var(--sidebar-active-text) !important; }
+html:not(.dark) .bg-violet-500\/10,
+html:not(.dark) .bg-violet-500\/20,
+html:not(.dark) .bg-violet-600\/20 { background-color: color-mix(in srgb, var(--brand-light) 12%, transparent) !important; }
+html:not(.dark) .border-violet-500\/20,
+html:not(.dark) .border-violet-500\/30 { border-color: color-mix(in srgb, var(--brand-light) 30%, transparent) !important; }
+html:not(.dark) [class*="#1e1b4b"] { background-color: color-mix(in srgb, var(--brand-primary) 8%, transparent) !important; }
+
+html:not(.dark) [data-modal="dark"] .text-violet-300,
+html:not(.dark) [data-modal="dark"] .text-violet-400 { color: var(--brand-light) !important; }
+html:not(.dark) [data-modal="dark"] .border-violet-500\/20,
+html:not(.dark) [data-modal="dark"] .border-violet-500\/25 { border-color: color-mix(in srgb, var(--brand-light) 25%, transparent) !important; }
+html:not(.dark) [data-modal="dark"] .bg-violet-500\/10,
+html:not(.dark) [data-modal="dark"] .bg-violet-500\/20,
+html:not(.dark) [data-modal="dark"] .bg-violet-500\/30 { background-color: color-mix(in srgb, var(--brand-light) 20%, transparent) !important; }
+html:not(.dark) [data-modal="dark"] .bg-violet-500 { background-color: var(--brand-light) !important; }
+
+.dark .dash-tooltip {
+  border: 1px solid color-mix(in srgb, var(--brand-primary) 20%, transparent) !important;
 }

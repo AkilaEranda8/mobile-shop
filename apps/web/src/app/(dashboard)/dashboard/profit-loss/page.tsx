@@ -25,7 +25,7 @@ const TOOLTIP_STYLE = {
   color: 'var(--text-primary)',
 }
 
-const COLORS = ['#6d28d9', '#1d4ed8', '#0e7490', '#15803d', '#b45309', '#b91c1c', '#7c3aed', '#0369a1']
+const COLORS = ['var(--brand-primary-light)', '#1d4ed8', '#0e7490', '#15803d', '#b45309', '#b91c1c', 'var(--brand-primary)', '#0369a1']
 const PERIODS = [
   { label: 'Today', days: '1' },
   { label: '7D', days: '7' },
@@ -155,12 +155,12 @@ export default function ProfitLossPage() {
 
   const waterfallData = [
     { name: 'POS Sales', value: salesRevenue, fill: '#16a34a' },
-    { name: 'Repairs', value: repairIncome, fill: '#7c3aed' },
+    { name: 'Repairs', value: repairIncome, fill: 'var(--brand-primary)' },
     { name: 'Other', value: Math.max(0, otherIncome - (summary.reloadCommission ?? 0)), fill: '#0e7490' },
     { name: 'POS COGS', value: -posCogs, fill: '#dc2626' },
     { name: 'Parts', value: -repairPartsCogs, fill: '#b91c1c' },
     { name: 'OpEx', value: -opExpenses, fill: '#f97316' },
-    { name: 'Net', value: netProfit, fill: isLoss ? '#dc2626' : '#7c3aed' },
+    { name: 'Net', value: netProfit, fill: isLoss ? '#dc2626' : 'var(--brand-primary)' },
   ]
 
   const chartTrend = useMemo(() => dailyTrend.map(row => ({
@@ -192,13 +192,13 @@ export default function ProfitLossPage() {
             {PERIODS.map(p => (
               <button key={p.days} type="button" onClick={() => { setPeriod(p.days); setIsCustom(false) }}
                 className="px-3 py-1.5 text-xs rounded-lg font-medium transition-colors"
-                style={!isCustom && period === p.days ? { background: '#6d28d9', color: '#fff' } : { color: 'var(--text-muted)' }}>
+                style={!isCustom && period === p.days ? { background: 'var(--brand-primary-light)', color: '#fff' } : { color: 'var(--text-muted)' }}>
                 {p.label}
               </button>
             ))}
             <button type="button" onClick={() => setIsCustom(true)}
               className="px-3 py-1.5 text-xs rounded-lg font-medium transition-colors flex items-center gap-1"
-              style={isCustom ? { background: '#6d28d9', color: '#fff' } : { color: 'var(--text-muted)' }}>
+              style={isCustom ? { background: 'var(--brand-primary-light)', color: '#fff' } : { color: 'var(--text-muted)' }}>
               <Calendar size={11} /> Custom
             </button>
           </div>
@@ -387,8 +387,8 @@ export default function ProfitLossPage() {
                 <AreaChart data={chartTrend} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="plProfit" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.25} />
-                      <stop offset="95%" stopColor="#7c3aed" stopOpacity={0} />
+                      <stop offset="5%" stopColor="var(--brand-primary)" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="var(--brand-primary)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
@@ -397,7 +397,7 @@ export default function ProfitLossPage() {
                   <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any) => formatCurrency(v)} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   <ReferenceLine y={0} stroke="var(--border-default)" strokeDasharray="4 2" />
-                  <Area type="monotone" dataKey="Profit" stroke="#7c3aed" fill="url(#plProfit)" strokeWidth={2} dot={false} />
+                  <Area type="monotone" dataKey="Profit" stroke="var(--brand-primary)" fill="url(#plProfit)" strokeWidth={2} dot={false} />
                   <Area type="monotone" dataKey="Revenue" stroke="#16a34a" fill="none" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
                   <Area type="monotone" dataKey="Expenses" stroke="#dc2626" fill="none" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
                 </AreaChart>

@@ -117,8 +117,8 @@ export default function StatsTab() {
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} width={28} />
-              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(124,58,237,0.06)' }} />
-              <Bar dataKey="sent"      name="Sent"      fill="#7c3aed" radius={[3, 3, 0, 0]} />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--brand-glow)' }} />
+              <Bar dataKey="sent"      name="Sent"      fill="var(--brand-primary)" radius={[3, 3, 0, 0]} />
               <Bar dataKey="delivered" name="Delivered" fill="#22c55e" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>

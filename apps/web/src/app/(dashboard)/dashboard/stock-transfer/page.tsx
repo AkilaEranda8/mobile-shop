@@ -592,7 +592,7 @@ export default function StockTransferPage() {
       cell: ({ row }) => (
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: 'rgba(109,40,217,0.10)', border: '1px solid rgba(109,40,217,0.20)' }}>
+            style={{ background: 'var(--brand-glow)', border: '1px solid var(--sidebar-active-border)' }}>
             <Package size={13} className="text-violet-400" />
           </div>
           <div>
@@ -706,7 +706,7 @@ export default function StockTransferPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: 'Products Ready', value: loadingProducts ? '…' : String(products.length), icon: <Package size={15} />, color: '#7c3aed', bg: 'rgba(124,58,237,0.08)', border: 'rgba(124,58,237,0.22)' },
+          { label: 'Products Ready', value: loadingProducts ? '…' : String(products.length), icon: <Package size={15} />, color: 'var(--brand-primary)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)' },
           { label: 'Transfers In', value: String(transferIn), icon: <ArrowDownRight size={15} />, color: '#15803d', bg: 'rgba(21,128,61,0.08)', border: 'rgba(21,128,61,0.22)' },
           { label: 'Transfers Out', value: String(transferOut), icon: <ArrowUpRight size={15} />, color: '#b45309', bg: 'rgba(180,83,9,0.08)', border: 'rgba(180,83,9,0.22)' },
           { label: 'Units Moved', value: String(totalQty), icon: <ArrowLeftRight size={15} />, color: '#1d4ed8', bg: 'rgba(29,78,216,0.08)', border: 'rgba(29,78,216,0.22)' },

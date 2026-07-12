@@ -20,7 +20,7 @@ import { financeApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import type { Transaction as AppTransaction } from '@/types'
 
-const COLORS = ['#7c3aed', '#06b6d4', '#10b981', '#f59e0b', '#ef4444']
+const COLORS = ['var(--brand-primary)', '#06b6d4', '#10b981', '#f59e0b', '#ef4444']
 
 function AddTransactionModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState({ type: 'EXPENSE', category: 'Misc', amount: '', description: '', paymentMethod: 'CASH' })
@@ -266,9 +266,9 @@ export default function FinancePage() {
             value: formatCurrency(profit),
             sub: `Margin: ${margin}%`,
             icon: <Wallet size={18} />,
-            color: profit >= 0 ? '#6d28d9' : '#b91c1c',
-            bg: profit >= 0 ? 'rgba(109,40,217,0.08)' : 'rgba(185,28,28,0.08)',
-            border: profit >= 0 ? 'rgba(109,40,217,0.20)' : 'rgba(185,28,28,0.20)',
+            color: profit >= 0 ? 'var(--brand-primary-light)' : '#b91c1c',
+            bg: profit >= 0 ? 'var(--brand-glow)' : 'rgba(185,28,28,0.08)',
+            border: profit >= 0 ? 'var(--sidebar-active-border)' : 'rgba(185,28,28,0.20)',
           },
         ].map(({ label, value, sub, icon, color, bg, border }) => (
           <div key={label} className="card p-5" style={{ borderColor: border, background: bg }}>
@@ -290,7 +290,7 @@ export default function FinancePage() {
           <button key={key} onClick={() => setTab(key)}
             className="flex items-center gap-1.5 px-4 py-1.5 text-xs rounded-lg font-medium transition-colors"
             style={tab === key
-              ? { background: '#6d28d9', color: '#fff' }
+              ? { background: 'var(--brand-primary-light)', color: '#fff' }
               : { color: 'var(--text-muted)' }}>
             <Icon size={12} />{label}
           </button>
@@ -317,7 +317,7 @@ export default function FinancePage() {
                     <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Bar dataKey="revenue"  fill="#6d28d9" name="Revenue"  radius={[3,3,0,0]} />
+                    <Bar dataKey="revenue"  fill="var(--brand-primary-light)" name="Revenue"  radius={[3,3,0,0]} />
                     <Bar dataKey="expenses" fill="#ef4444" name="Expenses" radius={[3,3,0,0]} opacity={0.75} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -365,7 +365,7 @@ export default function FinancePage() {
                   <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
                   <Tooltip contentStyle={TOOLTIP_STYLE} />
-                  <Line type="monotone" dataKey="profit" stroke="#6d28d9" strokeWidth={2} dot={{ r: 3, fill: '#6d28d9' }} name="Profit" />
+                  <Line type="monotone" dataKey="profit" stroke="var(--brand-primary-light)" strokeWidth={2} dot={{ r: 3, fill: 'var(--brand-primary-light)' }} name="Profit" />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -404,7 +404,7 @@ export default function FinancePage() {
                 <button key={f} onClick={() => setTypeFilter(f)}
                   className="px-3 py-1.5 text-xs rounded-lg font-medium transition-colors"
                   style={typeFilter === f
-                    ? { background: f === 'INCOME' ? '#15803d' : f === 'EXPENSE' ? '#b91c1c' : '#6d28d9', color: '#fff' }
+                    ? { background: f === 'INCOME' ? '#15803d' : f === 'EXPENSE' ? '#b91c1c' : 'var(--brand-primary-light)', color: '#fff' }
                     : { color: 'var(--text-muted)' }}>
                   {f}
                 </button>

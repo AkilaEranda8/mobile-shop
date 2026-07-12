@@ -154,7 +154,7 @@ export default function LoginPage() {
                 <label className="text-xs font-medium" style={{ color: '#94a3b8' }}>Password</label>
                 <Link href="/forgot-password" className="text-xs transition-colors"
                   style={{ color: '#7c6aee' }}
-                  onMouseEnter={e => (e.currentTarget.style.color = '#a78bfa')}
+                  onMouseEnter={e => (e.currentTarget.style.color = 'var(--brand-light)')}
                   onMouseLeave={e => (e.currentTarget.style.color = '#7c6aee')}>
                   Forgot password?
                 </Link>
@@ -185,7 +185,7 @@ export default function LoginPage() {
               type="submit"
               disabled={loading || maintenance?.enabled}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-60"
-              style={{ background: 'linear-gradient(135deg, #7c3aed, #0e7490)', boxShadow: '0 4px 20px rgba(124,58,237,0.3)' }}
+              style={{ background: 'var(--brand-gradient)', boxShadow: '0 4px 20px var(--sidebar-active-border)' }}
             >
               {loading
                 ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
