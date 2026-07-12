@@ -9,13 +9,63 @@ import { generatePONumber } from '../../utils/counters'
 import { buildLabelsFromPoItems, ensureProductBarcode } from '../../utils/po-labels.util'
 import { effectiveBranchId } from '../../utils/active-branch'
 import { emitPurchaseAccounting } from '../accounting/integration/accounting-events.service'
-import {
-  applyPoReceiveToVariations,
-  hasVariants,
-} from '../../utils/product-variants'
+import { applyPurchaseOrderReceive } from '../../utils/po-receive.util'
 
 const router = Router()
 router.use(authenticate)
+
+async function resolvePoItemProduct(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  poBranchId: string,
+  item: { productId?: string | null; productName: string },
+): Promise<{ productId: string; branchId: string } | null> {
+  let productId = item.productId ?? undefined
+  let branchId = poBranchId
+
+  if (!productId && item.productName) {
+    const found = await tx.product.findFirst({
+      where: { tenantId, name: { equals: item.productName, mode: 'insensitive' }, isActive: true },
+    })
+    if (found) {
+      productId = found.id
+      branchId = found.branchId ?? poBranchId
+    }
+  }
+  if (!productId) return null
+
+  if (!branchId) {
+    const branch = await tx.branch.findFirst({ where: { tenantId } })
+    if (branch) branchId = branch.id
+  }
+  if (!branchId) throw new AppError('No branch found for stock update', 400)
+
+  return { productId, branchId }
+}
+
+function mapPoItemsForReceive(items: Array<{
+  id: string
+  productId: string | null
+  productName: string
+  quantity: number
+  receivedQuantity: number
+  unitCost: number | Prisma.Decimal
+  sku?: string | null
+  storage?: string | null
+  colorName?: string | null
+}>) {
+  return items.map(item => ({
+    id: item.id,
+    productId: item.productId,
+    productName: item.productName,
+    quantity: item.quantity,
+    receivedQuantity: item.receivedQuantity ?? 0,
+    unitCost: Number(item.unitCost) || 0,
+    sku: item.sku,
+    storage: item.storage,
+    colorName: item.colorName,
+  }))
+}
 
 async function recalcSupplierStats(supplierId: string, tenantId: string) {
   const agg = await prisma.purchaseOrder.aggregate({
@@ -138,8 +188,32 @@ router.post('/purchase-orders', authorize('OWNER', 'MANAGER'), async (req: Reque
       },
       include: { items: true },
     })
+
+    if (po.status === 'RECEIVED') {
+      await prisma.$transaction(async (tx) => {
+        await applyPurchaseOrderReceive({
+          tx,
+          tenantId: req.tenantId!,
+          poId: po.id,
+          poNumber: po.poNumber,
+          branchId: po.branchId,
+          performedBy: req.user?.userId ?? 'system',
+          items: mapPoItemsForReceive(po.items),
+          resolveProduct: (item) => resolvePoItemProduct(tx, req.tenantId!, po.branchId, item),
+        })
+        await tx.purchaseOrder.update({
+          where: { id: po.id },
+          data: { receivedAt: new Date() },
+        })
+      })
+      void emitPurchaseAccounting(req.tenantId!, po.id, po.branchId, req.user?.email)
+    }
+
     await recalcSupplierStats(supplierId, req.tenantId!)
-    sendSuccess(res, po, 'Purchase order created', 201)
+    const result = po.status === 'RECEIVED'
+      ? await prisma.purchaseOrder.findFirst({ where: { id: po.id }, include: { items: true } })
+      : po
+    sendSuccess(res, result, 'Purchase order created', 201)
   } catch (e) { next(e) }
 })
 
@@ -234,111 +308,44 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
       const tenantSlug = tenant?.slug ?? 'tenant'
 
       await prisma.$transaction(async (tx) => {
-        const resolvedItems: { item: typeof po.items[0]; productId: string; branchId: string }[] = []
+        await applyPurchaseOrderReceive({
+          tx,
+          tenantId: req.tenantId!,
+          poId: po.id,
+          poNumber: po.poNumber,
+          branchId: po.branchId,
+          performedBy: req.user?.userId ?? 'system',
+          items: mapPoItemsForReceive(po.items),
+          resolveProduct: (item) => resolvePoItemProduct(tx, req.tenantId!, po.branchId, item),
+        })
+
         for (const item of po.items) {
-          let productId = (item.productId as string | null) || undefined
-          let branchId  = po.branchId
+          const resolved = await resolvePoItemProduct(tx, req.tenantId!, po.branchId, item)
+          if (!resolved) continue
 
-          if (!productId && item.productName) {
-            const found = await tx.product.findFirst({
-              where: { tenantId: req.tenantId!, name: { equals: item.productName, mode: 'insensitive' }, isActive: true },
-            })
-            if (found) { productId = found.id; branchId = found.branchId ?? po.branchId }
-          }
-          if (!productId) throw new AppError(`Cannot receive PO: product not linked for "${item.productName}"`, 400)
+          const p = await tx.product.findUnique({ where: { id: resolved.productId } })
+          if (!p || p.trackImei) continue
 
-          if (!branchId) {
-            const branch = await tx.branch.findFirst({ where: { tenantId: req.tenantId! } })
-            if (branch) branchId = branch.id
-          }
-          if (!branchId) throw new AppError('No branch found for stock update', 400)
+          const barcode = (await ensureProductBarcode(tx, req.tenantId!, tenantSlug, {
+            id: p.id,
+            name: p.name,
+            sku: p.sku,
+            barcode: p.barcode,
+            sellingPrice: Number(p.sellingPrice),
+            trackImei: p.trackImei,
+          })) ?? ''
+          if (!barcode) continue
 
-          resolvedItems.push({ item, productId, branchId })
-        }
-
-        const byProduct = new Map<string, typeof resolvedItems>()
-        for (const r of resolvedItems) {
-          if (!byProduct.has(r.productId)) byProduct.set(r.productId, [])
-          byProduct.get(r.productId)!.push(r)
-        }
-
-        for (const [productId, group] of byProduct) {
-          const p = await tx.product.findUnique({ where: { id: productId } })
-          if (!p) throw new AppError(`Product ${productId} not found during receive`, 404)
-
-          const totalQty = group.reduce((s, r) => s + r.item.quantity, 0)
-          let updatedVariations: Prisma.JsonValue = p.storageVariations
-
-          if (hasVariants(updatedVariations)) {
-            for (const { item } of group) {
-              const result = applyPoReceiveToVariations(updatedVariations, {
-                sku: item.sku,
-                storage: item.storage,
-                colorName: item.colorName,
-              }, item.quantity)
-              updatedVariations = result.variations as Prisma.JsonValue
-            }
-          }
-
-          const productUpdate: Prisma.ProductUpdateInput = {
-            stock: p.trackImei ? { increment: totalQty } : p.stock + totalQty,
-          }
-
-          if (hasVariants(updatedVariations)) {
-            productUpdate.storageVariations = updatedVariations as Prisma.InputJsonValue
-          }
-
-          await tx.product.update({
-            where: { id: productId },
-            data: productUpdate,
+          labelsToPrint.push({
+            productId: resolved.productId,
+            poItemId: item.id,
+            barcode,
+            name: item.productName || p.name,
+            sku: item.sku?.trim() || p.sku,
+            price: Number(p.sellingPrice),
+            qty: item.quantity,
+            trackImei: false,
           })
-
-          const branchId = group[0].branchId
-          await tx.stockMovement.createMany({
-            data: group.map(({ item }) => ({
-              productId,
-              branchId,
-              type:        'PURCHASE' as const,
-              quantity:    item.quantity,
-              reference:   `${po.id}:${item.id}`,
-              note:        `Received via PO ${po.poNumber} (${item.sku ?? item.storage ?? item.productName})`,
-              performedBy: req.user?.userId ?? 'system',
-            })),
-          })
-
-          let barcode = ''
-          if (!p.trackImei) {
-            barcode = (await ensureProductBarcode(tx, req.tenantId!, tenantSlug, {
-              id: p.id,
-              name: p.name,
-              sku: p.sku,
-              barcode: p.barcode,
-              sellingPrice: Number(p.sellingPrice),
-              trackImei: p.trackImei,
-            })) ?? ''
-          }
-
-          if (!p.trackImei && barcode) {
-            for (const { item } of group) {
-              labelsToPrint.push({
-                productId,
-                poItemId: item.id,
-                barcode,
-                name: item.productName || p.name,
-                sku: item.sku?.trim() || p.sku,
-                price: Number(p.sellingPrice),
-                qty: item.quantity,
-                trackImei: false,
-              })
-            }
-          }
-
-          for (const { item } of group) {
-            await tx.pOItem.update({
-              where: { id: item.id },
-              data:  { receivedQuantity: item.quantity },
-            })
-          }
         }
 
         await tx.purchaseOrder.update({

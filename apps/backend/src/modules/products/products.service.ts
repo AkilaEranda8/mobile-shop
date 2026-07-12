@@ -6,7 +6,13 @@ import { inferTrackImeiFromMeta } from '../../utils/productImei'
 import { effectiveBranchId, assertBranchRecordAccess, getUserBranchIds } from '../../utils/active-branch'
 import { buildBranchCatalogData, findBranchCatalogProduct } from '../../utils/branch-catalog'
 import { generateProductBarcode, generateProductSku, peekProductCodes } from '../../utils/counters'
+import { hasVariants, sumVariantStock } from '../../utils/product-variants'
 import { Prisma } from '@prisma/client'
+
+function withEffectiveStock<T extends { stock: number; storageVariations?: unknown }>(p: T): T {
+  if (!hasVariants(p.storageVariations)) return p
+  return { ...p, stock: sumVariantStock(p.storageVariations) }
+}
 
 async function loadTenantSlug(tenantId: string): Promise<string> {
   const t = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { slug: true } })
@@ -55,10 +61,10 @@ export const productsService = {
       : []
     const imeiMap = new Map(imeiCounts.map(c => [c.productId, c._count._all]))
     const data = raw.map((p: any) => {
-      const base = { ...p, categoryName: p.category?.name, brandName: p.brand?.name }
+      const base = withEffectiveStock({ ...p, categoryName: p.category?.name, brandName: p.brand?.name })
       if (!p.trackImei) return base
       const imeiInStock = imeiMap.get(p.id) ?? 0
-      return { ...base, imeiInStock, imeiGap: Math.max(0, p.stock - imeiInStock) }
+      return { ...base, imeiInStock, imeiGap: Math.max(0, base.stock - imeiInStock) }
     })
     return { data, total, page, limit }
   },
@@ -66,7 +72,7 @@ export const productsService = {
   async getById(tenantId: string, id: string) {
     const raw = await prisma.product.findFirst({ where: { id, tenantId }, include: { category: { select: { name: true } }, brand: { select: { name: true } } } }) as any
     if (!raw) throw new AppError('Product not found', 404)
-    const base = { ...raw, categoryName: raw.category?.name, brandName: raw.brand?.name }
+    const base = withEffectiveStock({ ...raw, categoryName: raw.category?.name, brandName: raw.brand?.name })
     if (!raw.trackImei) return base
     const imeiInStock = await prisma.imeiRecord.count({
       where: { productId: id, status: 'IN_STOCK', branchId: raw.branchId },
@@ -298,6 +304,9 @@ export const productsService = {
     if (imageUrl          !== undefined) data.imageUrl          = imageUrl
     if (storageVariations !== undefined) data.storageVariations = storageVariations
     if (colorVariations   !== undefined) data.colorVariations   = colorVariations
+    if (storageVariations !== undefined && hasVariants(storageVariations)) {
+      data.stock = sumVariantStock(storageVariations)
+    }
     if (body.subCategory  !== undefined) data.subCategory       = body.subCategory
     if (body.deviceModel  !== undefined) data.deviceModel       = body.deviceModel
     if (body.condition    !== undefined) {
