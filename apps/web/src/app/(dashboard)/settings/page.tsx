@@ -412,19 +412,22 @@ export default function SettingsPage() {
               </div>
 
               {canManageFeatures && (
-                <div className="rounded-xl p-4 border border-violet-500/20 bg-violet-500/5 space-y-4">
+                <div
+                  className="rounded-xl p-4 border space-y-4"
+                  style={{ borderColor: 'rgba(109,40,217,0.28)', background: 'rgba(109,40,217,0.06)' }}
+                >
                   <div>
-                    <p className="text-sm font-semibold text-white flex items-center gap-2">
-                      <Package size={14} className="text-violet-400" />
+                    <p className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                      <Package size={14} className="text-violet-600 dark:text-violet-400" />
                       Product SKU & Barcode Numbers
                     </p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
                       Set the starting numbers for your shop. Each new product auto-generates the next SKU and barcode from these values.
                     </p>
                   </div>
                   <div className="grid sm:grid-cols-3 gap-3">
                     <label className="block">
-                      <span className="text-xs font-medium text-slate-400">SKU starting number</span>
+                      <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>SKU starting number</span>
                       <input
                         type="number"
                         min={1}
@@ -438,7 +441,7 @@ export default function SettingsPage() {
                       />
                     </label>
                     <label className="block">
-                      <span className="text-xs font-medium text-slate-400">Barcode starting number</span>
+                      <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Barcode starting number</span>
                       <input
                         type="number"
                         min={1}
@@ -452,7 +455,7 @@ export default function SettingsPage() {
                       />
                     </label>
                     <label className="block">
-                      <span className="text-xs font-medium text-slate-400">SKU digit padding</span>
+                      <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>SKU digit padding</span>
                       <input
                         type="number"
                         min={3}
@@ -469,17 +472,23 @@ export default function SettingsPage() {
                   </div>
                   {(productCodeSettings.nextSku || productCodeSettings.nextBarcode) && (
                     <div className="grid sm:grid-cols-2 gap-2 text-[11px]">
-                      <div className="rounded-lg px-3 py-2 border border-white/10 bg-white/[0.03]">
-                        <span className="text-slate-500">Next SKU: </span>
-                        <span className="font-mono text-violet-300">{productCodeSettings.nextSku}</span>
+                      <div
+                        className="rounded-lg px-3 py-2 border"
+                        style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)' }}
+                      >
+                        <span style={{ color: 'var(--text-muted)' }}>Next SKU: </span>
+                        <span className="font-mono font-semibold text-violet-700 dark:text-violet-300">{productCodeSettings.nextSku}</span>
                       </div>
-                      <div className="rounded-lg px-3 py-2 border border-white/10 bg-white/[0.03]">
-                        <span className="text-slate-500">Next barcode: </span>
-                        <span className="font-mono text-violet-300">{productCodeSettings.nextBarcode}</span>
+                      <div
+                        className="rounded-lg px-3 py-2 border"
+                        style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)' }}
+                      >
+                        <span style={{ color: 'var(--text-muted)' }}>Next barcode: </span>
+                        <span className="font-mono font-semibold text-violet-700 dark:text-violet-300">{productCodeSettings.nextBarcode}</span>
                       </div>
                     </div>
                   )}
-                  <p className="text-[10px] text-slate-500">
+                  <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
                     Example: starting number 1 with 5-digit padding gives 00001, 00002, … Barcodes use your shop prefix (e.g. {productCodeSettings.prefix ?? 'SHOP'}-BC-00001).
                   </p>
                   <button
