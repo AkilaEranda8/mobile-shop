@@ -1,5 +1,5 @@
 /* Hexalyte offline service worker — caches app shell and static assets */
-const VERSION = 'hexalyte-v2'
+const VERSION = 'hexalyte-v3'
 const STATIC_CACHE = `${VERSION}-static`
 const PAGES_CACHE = `${VERSION}-pages`
 const PRECACHE_URLS = ['/offline.html', '/logo.png', '/manifest.webmanifest']
