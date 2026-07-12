@@ -1,5 +1,5 @@
 /* Hexalyte offline service worker — network-first when online so deploys reach clients */
-const VERSION = 'hexalyte-v5'
+const VERSION = 'hexalyte-v6'
 const STATIC_CACHE = `${VERSION}-static`
 const PAGES_CACHE = `${VERSION}-pages`
 const PRECACHE_URLS = ['/offline.html', '/logo.png', '/manifest.webmanifest']
