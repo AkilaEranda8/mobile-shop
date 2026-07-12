@@ -9,18 +9,22 @@ export type BarcodeLabelItem = {
   qty?: number
 }
 
+/** Thermal sticker size used for shelf barcode labels. */
+export const BARCODE_LABEL_WIDTH_MM = 38
+export const BARCODE_LABEL_HEIGHT_MM = 25
+
 export function renderBarcodeSvg(value: string, opts?: { height?: number; width?: number }): string {
   if (!value?.trim()) return ''
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
   try {
     JsBarcode(svg, value.trim(), {
       format: 'CODE128',
-      width: opts?.width ?? 1.35,
-      height: opts?.height ?? 32,
+      width: opts?.width ?? 1.1,
+      height: opts?.height ?? 24,
       displayValue: true,
-      fontSize: 9,
-      textMargin: 1,
-      margin: 2,
+      fontSize: 7,
+      textMargin: 0,
+      margin: 1,
       background: '#ffffff',
       lineColor: '#000000',
     })
@@ -67,13 +71,13 @@ export function printBarcodeLabels(items: BarcodeLabelItem[]) {
   const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"/><title>Barcode Labels</title>
 <style>
-  @page { size: 50mm 30mm; margin: 1mm; }
+  @page { size: ${BARCODE_LABEL_WIDTH_MM}mm ${BARCODE_LABEL_HEIGHT_MM}mm; margin: 0.5mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, Helvetica, sans-serif; color: #000; }
   .label {
-    width: 48mm;
-    height: 28mm;
-    padding: 1.2mm 1.8mm 2mm;
+    width: ${BARCODE_LABEL_WIDTH_MM - 2}mm;
+    height: ${BARCODE_LABEL_HEIGHT_MM - 2}mm;
+    padding: 0.8mm 1.2mm 1.4mm;
     page-break-after: always;
     position: relative;
     display: flex;
@@ -85,42 +89,42 @@ export function printBarcodeLabels(items: BarcodeLabelItem[]) {
     flex-shrink: 0;
     text-align: center;
     line-height: 0;
-    margin-bottom: 0.8mm;
+    margin-bottom: 0.5mm;
   }
   .barcode svg {
     max-width: 100%;
     height: auto;
-    max-height: 11mm;
+    max-height: 8mm;
   }
   .name {
-    font-size: 6.5pt;
+    font-size: 5.5pt;
     font-weight: 700;
-    line-height: 1.15;
+    line-height: 1.1;
     word-break: break-word;
     overflow-wrap: anywhere;
     display: -webkit-box;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
   .sku {
-    font-size: 6pt;
+    font-size: 5pt;
     font-weight: 600;
-    margin-top: 0.6mm;
+    margin-top: 0.4mm;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
   .price {
-    font-size: 6pt;
+    font-size: 5pt;
     font-weight: 600;
-    margin-top: 0.4mm;
+    margin-top: 0.2mm;
   }
   .seq {
     position: absolute;
-    right: 1.8mm;
-    bottom: 1mm;
-    font-size: 5.5pt;
+    right: 1.2mm;
+    bottom: 0.6mm;
+    font-size: 5pt;
     font-weight: 600;
     color: #222;
   }
