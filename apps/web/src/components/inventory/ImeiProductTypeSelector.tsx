@@ -37,7 +37,7 @@ export function ImeiProductTypeSelector({
       icon: Smartphone,
       title: 'Phone / Tablet',
       desc: 'Has IMEI — required at POS sale & PO receive',
-      accent: '#8b5cf6',
+      accent: 'var(--brand-light)',
     },
     {
       type: 'accessory',

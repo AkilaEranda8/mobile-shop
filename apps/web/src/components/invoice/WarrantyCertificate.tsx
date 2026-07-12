@@ -50,7 +50,7 @@ export function printWarrantyCertificate(warranty: Warranty, settings: InvoiceSe
       width: 794px; min-height: 1123px; margin: 0 auto;
       display: flex; flex-direction: column;
     }
-    .top-bar { height: 8px; background: linear-gradient(90deg,#1e1b4b,#4f46e5,#7c3aed,#4f46e5,#1e1b4b); }
+    .top-bar { height: 8px; background: linear-gradient(90deg,#1e1b4b,#4f46e5,var(--brand-primary),#4f46e5,#1e1b4b); }
     .header { padding: 36px 50px 28px; border-bottom: 2px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; }
     .logo-area { display:flex; align-items:center; gap:14px; }
     .logo-area img { height:72px; width:72px; object-fit:contain; }
@@ -104,7 +104,7 @@ export function printWarrantyCertificate(warranty: Warranty, settings: InvoiceSe
     .footer { background:#f1f5f9; border-top:2px solid #e2e8f0; padding:14px 50px; display:flex; justify-content:space-between; align-items:center; }
     .footer-left  { font-size:9px; color:#94a3b8; max-width:380px; line-height:1.5; }
     .footer-right { font-size:9px; color:#94a3b8; text-align:right; }
-    .bottom-bar { height:5px; background:linear-gradient(90deg,#1e1b4b,#4f46e5,#7c3aed,#4f46e5,#1e1b4b); }
+    .bottom-bar { height:5px; background:linear-gradient(90deg,#1e1b4b,#4f46e5,var(--brand-primary),#4f46e5,#1e1b4b); }
   </style>
 </head>
 <body>
@@ -312,7 +312,7 @@ const WarrantyCertificate = forwardRef<HTMLDivElement, WarrantyCertificateProps>
 
         <div ref={certRef} style={{ fontFamily: "'Segoe UI', Arial, sans-serif", background: '#fff', width: '794px', minHeight: '1123px', margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
           {/* Top colour bar */}
-          <div style={{ height: 8, background: 'linear-gradient(90deg,#1e1b4b,#4f46e5,#7c3aed,#4f46e5,#1e1b4b)' }} />
+          <div style={{ height: 8, background: 'linear-gradient(90deg,#1e1b4b,#4f46e5,var(--brand-primary),#4f46e5,#1e1b4b)' }} />
 
           {/* ── Header ── */}
           <div style={{ padding: '36px 50px 28px', borderBottom: '2px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -455,7 +455,7 @@ const WarrantyCertificate = forwardRef<HTMLDivElement, WarrantyCertificateProps>
               {settings.website && <div>🌐 {settings.website}</div>}
             </div>
           </div>
-          <div style={{ height: 5, background: 'linear-gradient(90deg,#1e1b4b,#4f46e5,#7c3aed,#4f46e5,#1e1b4b)' }} />
+          <div style={{ height: 5, background: 'linear-gradient(90deg,#1e1b4b,#4f46e5,var(--brand-primary),#4f46e5,#1e1b4b)' }} />
         </div>
       </div>
     )

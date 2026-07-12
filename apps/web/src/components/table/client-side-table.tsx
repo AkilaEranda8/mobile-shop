@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Search } from 'lucide-react'
 import {
   ClientSideTable as BaseClientSideTable,
@@ -66,6 +66,29 @@ function enhanceFilterColumns<T>(
 
 type BaseProps<TData, TValue> = React.ComponentProps<typeof BaseClientSideTable<TData, TValue>>
 
+/**
+ * react-table-craft defaults per_page to 10 when no router is configured, ignoring the
+ * pageSize prop. Provide a noop router with per_page so row slicing matches pageCount.
+ */
+function useTablePageSizeRouter(pageSize: number) {
+  const searchParamsRef = useRef<URLSearchParams | null>(null)
+  if (!searchParamsRef.current) {
+    searchParamsRef.current = new URLSearchParams(`per_page=${pageSize}&page=1`)
+  } else if (searchParamsRef.current.get('per_page') !== String(pageSize)) {
+    searchParamsRef.current.set('per_page', String(pageSize))
+  }
+
+  return useMemo(
+    () => ({
+      push: () => {},
+      replace: () => {},
+      getSearchParams: () => searchParamsRef.current!,
+      getPathname: () => '',
+    }),
+    [],
+  )
+}
+
 export function ClientSideTable<TData, TValue>(props: BaseProps<TData, TValue>) {
   const {
     searchableColumns = [],
@@ -76,9 +99,13 @@ export function ClientSideTable<TData, TValue>(props: BaseProps<TData, TValue>) 
     pageCount: _pageCount,
     isQuerySearch: _isQuerySearch,
     searchableQuery: _searchableQuery,
+    config: userConfig,
+    pageSize: pageSizeProp,
     ...rest
   } = props
   const [filters, setFilters] = useState<Record<string, string>>({})
+  const resolvedPageSize = pageSizeProp ?? 10
+  const tableRouter = useTablePageSizeRouter(resolvedPageSize)
 
   const enhancedColumns = useMemo(
     () => enhanceFilterColumns(_columns as ColumnDef<TData, unknown>[], filterableColumns),
@@ -96,7 +123,18 @@ export function ClientSideTable<TData, TValue>(props: BaseProps<TData, TValue>) 
     [_data, enhancedColumns, searchableColumns, filters],
   )
 
-  const pageCount = Math.max(1, Math.ceil(filteredData.length / (props.pageSize ?? 10)))
+  const mergedConfig = useMemo(
+    () => ({
+      ...userConfig,
+      router: userConfig?.router ?? tableRouter,
+      pagination: {
+        pageSizeOptions: [10, 20, 30, 40, 50, 100],
+        defaultPageSize: resolvedPageSize,
+        ...userConfig?.pagination,
+      },
+    }),
+    [userConfig, tableRouter, resolvedPageSize],
+  )
 
   return (
     <div className="space-y-3">
@@ -126,9 +164,10 @@ export function ClientSideTable<TData, TValue>(props: BaseProps<TData, TValue>) 
 
       <BaseClientSideTable
         {...rest}
+        pageSize={resolvedPageSize}
+        config={mergedConfig}
         data={filteredData}
         columns={enhancedColumns as BaseProps<TData, TValue>['columns']}
-        pageCount={pageCount}
         searchableColumns={[]}
         isQuerySearch={false}
         showFilter={showFilter !== false && filterableColumns.length > 0}

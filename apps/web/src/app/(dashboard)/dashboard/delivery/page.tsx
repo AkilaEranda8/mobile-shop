@@ -210,7 +210,7 @@ export default function DeliveryPage() {
           {!row.original.trackingNumber && (
             <button title="Assign Tracking" onClick={() => setShowTracking(row.original)}
               className="p-1.5 rounded-lg transition-colors"
-              style={{ color: '#a78bfa' }}>
+              style={{ color: 'var(--brand-light)' }}>
               <Hash size={13} />
             </button>
           )}
@@ -315,7 +315,7 @@ export default function DeliveryPage() {
       cell: ({ row }) => row.original.status !== 'SENT' ? (
         <button onClick={() => handleRetryNotif(row.original.id)}
           className="text-xs px-2.5 py-1 rounded-lg font-medium text-white"
-          style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)' }}>
+          style={{ background: 'var(--brand-gradient)' }}>
           Retry
         </button>
       ) : null,
@@ -370,7 +370,7 @@ export default function DeliveryPage() {
             { label: 'Total',           value: stats.total,            icon: Package,      color: 'var(--text-secondary)' },
             { label: 'Pending',         value: stats.pending,          icon: Clock,        color: '#facc15' },
             { label: 'Awaiting Track.', value: stats.awaitingTracking, icon: Hash,         color: '#fb923c' },
-            { label: 'Dispatched',      value: stats.dispatched,       icon: Truck,        color: '#a78bfa' },
+            { label: 'Dispatched',      value: stats.dispatched,       icon: Truck,        color: 'var(--brand-light)' },
             { label: 'Delivered',       value: stats.delivered,        icon: CheckCircle2, color: '#4ade80' },
           ] as const).map(({ label, value, icon: Icon, color }) => (
             <div key={label} className="rounded-xl p-4 flex items-center gap-3"
@@ -394,8 +394,8 @@ export default function DeliveryPage() {
           <button key={t} onClick={() => setTab(t)}
             className="px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px"
             style={{
-              borderBottomColor: tab === t ? '#7c3aed' : 'transparent',
-              color: tab === t ? '#a78bfa' : 'var(--text-muted)',
+              borderBottomColor: tab === t ? 'var(--brand-primary)' : 'transparent',
+              color: tab === t ? 'var(--brand-light)' : 'var(--text-muted)',
             }}>{t}</button>
         ))}
       </div>

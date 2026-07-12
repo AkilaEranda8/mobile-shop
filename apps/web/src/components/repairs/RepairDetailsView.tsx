@@ -15,7 +15,7 @@ import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { getInvoiceSettings, fetchInvoiceSettings, resolveInvoiceTemplate, type InvoiceSettings } from '@/lib/invoiceSettings'
 import { buildRepairInvoiceSale, resolveRepairWarrantyMonths, REPAIR_WARRANTY_OPTIONS, repairWarrantyMonths } from '@/lib/repair-invoice.util'
-import { normalizeRepairTicket, repairNextStatus, repairPartsLocked, repairPaymentSummary, repairProgressStep, repairStatusHistory, repairTicketEditable, REPAIR_PROGRESS_FLOW } from '@/lib/repair.util'
+import { normalizeRepairTicket, repairNextStatus, repairPartsLocked, repairPaymentSummary, repairProgressStep, repairStatusHistory, repairTicketEditable, REPAIR_PROGRESS_FLOW, formatRepairServiceItemName, REPAIR_SERVICE_ITEM_LABEL } from '@/lib/repair.util'
 import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
 import InvoiceA4View from '@/components/invoice/InvoiceA4View'
 import RepairPartsProfitPanel from '@/components/repairs/RepairPartsProfitPanel'
@@ -105,7 +105,7 @@ ${repair.accessories ? `<div class="row"><span>Accessories:</span><span>${repair
 <div class="line"></div>
 <div class="bold med">CHARGES</div>
 <table><tbody>
-  <tr><td>Repair Service</td><td style="text-align:right">1</td><td style="text-align:right">${fmt(serviceFee)}</td></tr>
+  <tr><td>${REPAIR_SERVICE_ITEM_LABEL}</td><td style="text-align:right">1</td><td style="text-align:right">${fmt(serviceFee)}</td></tr>
   <tr class="total-row"><td colspan="2">TOTAL</td><td>${fmt(subtotal)}</td></tr>
 </tbody></table>
 ${partsRows}
@@ -264,7 +264,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
 
     const itemLines = [
       serviceFee > 0
-        ? `  - Repair Service (${repair.deviceBrand} ${repair.deviceModel}): ${fmt(serviceFee)}`
+        ? `  - ${REPAIR_SERVICE_ITEM_LABEL} (${repair.deviceBrand} ${repair.deviceModel}): ${fmt(serviceFee)}`
         : null,
       repair.reportedIssue?.trim()
         ? `    Fault / Service: ${repair.reportedIssue.trim()}`
@@ -660,7 +660,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                   ) : nextStatus ? (
                     <button onClick={handleNext} disabled={changingStatus}
                       className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
-                      style={{ background: 'linear-gradient(135deg,#6d28d9,#7c3aed)', color: '#ffffff' }}>
+                      style={{ background: 'var(--brand-gradient)', color: '#ffffff' }}>
                       {changingStatus ? <Loader2 size={14} className="animate-spin" /> : <ArrowRight size={14} />}
                       Move to {statusLabels[nextStatus]}
                     </button>
@@ -722,7 +722,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                           {([{ key: 'CASH', label: 'Cash' }, { key: 'CARD', label: 'Card' }, { key: 'UPI', label: 'UPI' }, { key: 'BANK_TRANSFER', label: 'Bank Transfer' }] as const).map(({ key: m, label }) => (
                             <button key={m} type="button" onClick={() => setPayMethod(m)}
                               className="py-1.5 px-2.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5"
-                              style={payMethod === m ? { background: '#7c3aed', border: '2px solid #7c3aed', color: '#fff' } : { background: 'var(--bg-subtle)', border: '2px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                              style={payMethod === m ? { background: 'var(--brand-primary)', border: '2px solid var(--brand-primary)', color: '#fff' } : { background: 'var(--bg-subtle)', border: '2px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
                               {label}{payMethod === m && <CheckCircle size={11} className="ml-auto" />}
                             </button>
                           ))}
@@ -817,7 +817,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                   </div>
                   <button onClick={handleAddPart} disabled={!selProduct || addingPart || (selProduct && Number(selProduct.stock) < partQty)}
                     className="w-full py-2 text-sm rounded-lg text-white font-bold flex items-center justify-center gap-2 disabled:opacity-50"
-                    style={{ background: '#7c3aed' }}>
+                    style={{ background: 'var(--brand-primary)' }}>
                     {addingPart ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}Add to Repair
                   </button>
                 </div>
@@ -838,7 +838,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                           <Wrench size={13} className="text-green-600" />
                         </div>
                         <div>
-                          <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Repair Service – {repair.deviceBrand} {repair.deviceModel}</p>
+                          <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{formatRepairServiceItemName(repair.deviceBrand, repair.deviceModel)}</p>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Labor & Service</span>
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-600 dark:text-green-400 font-semibold border border-green-500/20">Service</span>

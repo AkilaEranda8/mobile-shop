@@ -86,7 +86,7 @@ function colorDot(name: string): string {
   if (n.includes('red') || n.includes('rose')) return '#ef4444'
   if (n.includes('blue') || n.includes('sky') || n.includes('pacific')) return '#3b82f6'
   if (n.includes('green') || n.includes('midnight') || n.includes('alpine')) return '#10b981'
-  if (n.includes('purple') || n.includes('violet')) return '#8b5cf6'
+  if (n.includes('purple') || n.includes('violet')) return 'var(--brand-light)'
   if (n.includes('pink')) return '#ec4899'
   if (n.includes('orange')) return '#f97316'
   return '#6b7280'

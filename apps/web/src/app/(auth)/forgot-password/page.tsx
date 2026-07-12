@@ -52,7 +52,7 @@ export default function ForgotPasswordPage() {
               <h2 className="text-xl font-bold mb-2" style={{ color: '#f1f5f9' }}>Check your inbox</h2>
               <p className="text-sm leading-relaxed mb-6" style={{ color: '#64748b' }}>
                 We sent a password reset link to <br />
-                <span style={{ color: '#a78bfa' }}>{email}</span>.<br />
+                <span style={{ color: 'var(--brand-light)' }}>{email}</span>.<br />
                 The link expires in <strong style={{ color: '#94a3b8' }}>15 minutes</strong>.
               </p>
               <p className="text-xs mb-6" style={{ color: '#475569' }}>
@@ -69,8 +69,8 @@ export default function ForgotPasswordPage() {
             <>
               <div className="mb-7">
                 <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4"
-                  style={{ background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.25)' }}>
-                  <Shield size={20} style={{ color: '#a78bfa' }} />
+                  style={{ background: 'var(--brand-glow)', border: '1px solid var(--sidebar-active-border)' }}>
+                  <Shield size={20} style={{ color: 'var(--brand-light)' }} />
                 </div>
                 <h1 className="text-2xl font-bold" style={{ color: '#ffffff' }}>Forgot password?</h1>
                 <p className="text-sm mt-1" style={{ color: '#64748b' }}>
@@ -111,7 +111,7 @@ export default function ForgotPasswordPage() {
                   type="submit"
                   disabled={loading}
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-60"
-                  style={{ background: 'linear-gradient(135deg, #7c3aed, #0e7490)', boxShadow: '0 4px 20px rgba(124,58,237,0.3)' }}
+                  style={{ background: 'var(--brand-gradient)', boxShadow: '0 4px 20px var(--sidebar-active-border)' }}
                 >
                   {loading
                     ? <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} />
@@ -128,7 +128,7 @@ export default function ForgotPasswordPage() {
           <Link href="/login"
             className="inline-flex items-center gap-1.5 text-sm transition-colors"
             style={{ color: '#64748b' }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#a78bfa')}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--brand-light)')}
             onMouseLeave={e => (e.currentTarget.style.color = '#64748b')}>
             <ArrowLeft size={13} />
             Back to sign in

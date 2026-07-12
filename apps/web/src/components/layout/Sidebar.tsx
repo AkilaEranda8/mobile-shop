@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   LayoutDashboard, ShoppingCart, Package, Users, Wrench,
   Shield, Truck, BarChart3, Settings, LogOut,
@@ -168,9 +168,15 @@ const PLAN_COLOR: Record<string, string> = {
 const SHOW_NEW_BADGES = false
 const shouldShowBadge = (badge?: string) => !!badge && (badge !== 'NEW' || SHOW_NEW_BADGES)
 
+function isInventoryListPath(path: string) {
+  return path === '/inventory' || path === '/dashboard/inventory'
+}
+
 export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const navAction = searchParams.get('action')
   const user = authStorage.getUser()
   const [shopName, setShopName] = useState('')
   const [plan, setPlan]         = useState('')
@@ -230,9 +236,14 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       return pathname === '/dashboard/accounting' || pathname === '/dashboard/accounting/'
     }
     if (path === '/inventory') {
-      return pathname === '/inventory' || pathname.startsWith('/dashboard/inventory')
+      if (navAction === 'add-product' || navAction === 'add') return false
+      if (pathname === '/inventory/add-product' || pathname === '/dashboard/inventory/add-product') return false
+      return isInventoryListPath(pathname)
     }
     if (path === '/inventory/add-product') {
+      if (navAction === 'add-product' || navAction === 'add') {
+        return isInventoryListPath(pathname)
+      }
       return pathname === '/inventory/add-product' || pathname === '/dashboard/inventory/add-product'
     }
     return pathname === path || pathname.startsWith(`${path}/`)
@@ -250,7 +261,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       {/* Collapse Toggle */}
       <button
         onClick={onToggle}
-        className="absolute -right-3 top-16 z-10 w-6 h-6 border rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:border-violet-500/40 transition-all shadow-lg hidden lg:flex"
+        className="absolute -right-3 top-16 z-10 w-6 h-6 border rounded-full flex items-center justify-center text-slate-500 hover:accent-text dark:hover:text-white accent-border transition-all shadow-lg hidden lg:flex"
         style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
       >
         {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
@@ -261,12 +272,12 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
         <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden shadow-lg" style={{ background: logo ? 'transparent' : undefined }}>
           {logo
             ? <img src={logo} alt={shopName} className="w-full h-full object-contain" />
-            : <div className="w-full h-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center"><span className="text-white font-black text-sm">{(shopName || 'H').charAt(0).toUpperCase()}</span></div>
+            : <div className="w-full h-full accent-gradient-br flex items-center justify-center"><span className="text-white font-black text-sm">{(shopName || 'H').charAt(0).toUpperCase()}</span></div>
           }
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
-            <span className="text-white font-bold text-base truncate block">{shopName || 'My Shop'}</span>
+            <span className="font-bold text-base truncate block" style={{ color: 'var(--text-primary)' }}>{shopName || 'My Shop'}</span>
             {plan && <span className={`block text-xs -mt-0.5 font-medium capitalize ${PLAN_COLOR[plan] ?? 'text-slate-400'}`}>{plan.charAt(0) + plan.slice(1).toLowerCase()}</span>}
           </div>
         )}
@@ -287,7 +298,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                 {group.label}
               </p>
             )}
-            {collapsed && <div className="my-1 h-px bg-white/5 mx-2" />}
+            {collapsed && <div className="my-1 h-px bg-slate-200/80 dark:bg-white/5 mx-2" />}
             <div className="space-y-0.5">
               {visibleItems.map((item) => {
                 if (item.submenu?.length) {
@@ -297,9 +308,10 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                     !sub.feature || hasFeature(sub.feature),
                   )
                   if (visibleSubmenu.length === 0) return null
+                  const submenuActive = visibleSubmenu.some(s => isActive(s.href))
                   const sectionActive =
                     (item.href === '/inventory' && inventorySectionPaths.some(p => pathname === p || pathname.startsWith(`${p}/`)))
-                    || visibleSubmenu.some(s => isActive(s.href))
+                    || submenuActive
                     || isActive(item.href)
 
                   if (collapsed) {
@@ -313,7 +325,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                         )}
                         title={item.label}
                       >
-                        <item.icon size={17} className={cn('flex-shrink-0', sectionActive ? 'text-violet-600 dark:text-violet-300' : 'text-slate-500')} />
+                        <item.icon size={17} className={cn('flex-shrink-0', sectionActive ? 'accent-text' : 'text-slate-500')} />
                       </Link>
                     )
                   }
@@ -323,12 +335,9 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                       <button
                         type="button"
                         onClick={() => toggleMenu(menuKey)}
-                        className={cn(
-                          'sidebar-item group w-full text-left',
-                          sectionActive && 'sidebar-item-active',
-                        )}
+                        className="sidebar-item group w-full text-left"
                       >
-                        <item.icon size={17} className={cn('flex-shrink-0 transition-colors', sectionActive ? 'text-violet-600 dark:text-violet-300' : 'text-slate-500 group-hover:text-slate-300')} />
+                        <item.icon size={17} className={cn('flex-shrink-0 transition-colors', open || sectionActive ? 'accent-text' : 'text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300')} />
                         <span className="text-sm font-medium flex-1 truncate text-left">{item.label}</span>
                         {shouldShowBadge(item.badge) && (
                           <span className="text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 bg-cyan-500/15 text-cyan-400 border border-cyan-500/20">
@@ -356,7 +365,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                                   subActive && 'sidebar-item-active',
                                 )}
                               >
-                                <sub.icon size={15} className={cn('flex-shrink-0', subActive ? 'text-violet-600 dark:text-violet-300' : 'text-slate-500 group-hover:text-slate-300')} />
+                                <sub.icon size={15} className={cn('flex-shrink-0', subActive ? 'accent-text' : 'text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300')} />
                                 <span className="text-sm font-medium flex-1 truncate">{sub.label}</span>
                                 {shouldShowBadge(sub.badge) && (
                                   <span className="text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 bg-cyan-500/15 text-cyan-400 border border-cyan-500/20">
@@ -375,7 +384,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                 const active = ('openPos' in item && item.openPos) ? posOpen : isActive(item.href)
                 const inner = (
                   <>
-                    <item.icon size={17} className={cn('flex-shrink-0 transition-colors', active ? 'text-violet-600 dark:text-violet-300' : 'text-slate-500 group-hover:text-slate-300')} />
+                    <item.icon size={17} className={cn('flex-shrink-0 transition-colors', active ? 'accent-text' : 'text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300')} />
                     {!collapsed && (
                       <>
                         <span className="text-sm font-medium flex-1 truncate">{item.label}</span>
@@ -384,7 +393,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                             'text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0',
                             item.badge === 'NEW'
                               ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/20'
-                              : 'bg-violet-600/20 text-violet-400 border border-violet-500/20'
+                              : 'accent-badge'
                           )}>
                             {item.badge}
                           </span>

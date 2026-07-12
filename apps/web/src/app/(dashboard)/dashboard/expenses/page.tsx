@@ -16,14 +16,14 @@ const categories = ['All', 'Rent', 'Salary', 'Utilities', 'Marketing', 'Inventor
 
 const CAT_COLORS: Record<string, string> = {
   Rent:      '#b91c1c',
-  Salary:    '#6d28d9',
+  Salary:    'var(--brand-primary-light)',
   Utilities: '#1d4ed8',
   Marketing: '#b45309',
   Inventory: '#15803d',
   Repairs:   '#c2410c',
   Misc:      '#475569',
 }
-const CHART_COLORS = ['#b91c1c','#6d28d9','#1d4ed8','#b45309','#15803d','#c2410c','#475569']
+const CHART_COLORS = ['#b91c1c','var(--brand-primary-light)','#1d4ed8','#b45309','#15803d','#c2410c','#475569']
 
 const TOOLTIP_STYLE = {
   backgroundColor: 'var(--bg-card)',
@@ -190,7 +190,7 @@ export default function ExpensesPage() {
         {[
           { label: 'Operating Expenses', value: formatCurrency(operatingExpenses), icon: <TrendingDown size={16} />, color: '#b91c1c', bg: 'rgba(185,28,28,0.08)', border: 'rgba(185,28,28,0.20)' },
           { label: 'Largest Category', value: categoryTotals[0]?.cat ?? '—', icon: <Tag size={16} />, color: '#c2410c', bg: 'rgba(194,65,12,0.08)', border: 'rgba(194,65,12,0.20)' },
-          { label: 'Records (MTD)', value: String(allExpenses.length), icon: <Receipt size={16} />, color: '#6d28d9', bg: 'rgba(109,40,217,0.08)', border: 'rgba(109,40,217,0.20)' },
+          { label: 'Records (MTD)', value: String(allExpenses.length), icon: <Receipt size={16} />, color: 'var(--brand-primary-light)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)' },
           { label: 'Net Profit (MTD)', value: formatCurrency(netProfit), icon: <ArrowDownRight size={16} />, color: netProfit >= 0 ? '#15803d' : '#b91c1c', bg: netProfit >= 0 ? 'rgba(21,128,61,0.08)' : 'rgba(185,28,28,0.08)', border: netProfit >= 0 ? 'rgba(21,128,61,0.20)' : 'rgba(185,28,28,0.20)' },
         ].map(({ label, value, icon, color, bg, border }) => (
           <div key={label} className="card p-4" style={{ borderColor: border, background: bg }}>
@@ -253,7 +253,7 @@ export default function ExpensesPage() {
                 <button key={c} onClick={() => setCategory(c)}
                   className="px-3 py-1.5 text-xs rounded-lg font-medium whitespace-nowrap transition-colors"
                   style={category === c
-                    ? { background: '#6d28d9', color: '#fff', border: '1px solid #6d28d9' }
+                    ? { background: 'var(--brand-primary-light)', color: '#fff', border: '1px solid var(--brand-primary-light)' }
                     : { background: 'var(--bg-subtle)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>
                   {c}
                 </button>
