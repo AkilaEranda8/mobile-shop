@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import {
   Save, Building2, User, Bell, Shield, Palette, CreditCard, Users,
   Loader2, Eye, EyeOff, Trash2, Plus, X, CheckCircle, Check, FileText, Smartphone, ChevronRight, BookOpen,
+  Package,
 } from 'lucide-react'
 import { authApi, usersApi, tenantApi, uploadApi, deviceCatalogApi, plansApi, branchesApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
@@ -27,6 +28,12 @@ import {
   fetchProductVariantSettings,
   pushProductVariantSettings,
 } from '@/lib/productVariantSettings'
+import {
+  type ProductCodeSettingsView,
+  DEFAULT_PRODUCT_CODE_SETTINGS,
+  fetchProductCodeSettings,
+  pushProductCodeSettings,
+} from '@/lib/productCodeSettings'
 import { ImageIcon, Trash2 as TrashIcon } from 'lucide-react'
 import toast from 'react-hot-toast'
 import UserManualPanel from '@/components/settings/UserManualPanel'
@@ -85,6 +92,8 @@ export default function SettingsPage() {
   const [shopSaving, setShopSaving] = useState(false)
   const [reloadSettings, setReloadSettings] = useState<ReloadSettings>(DEFAULT_RELOAD_SETTINGS)
   const [reloadSaving, setReloadSaving] = useState(false)
+  const [productCodeSettings, setProductCodeSettings] = useState<ProductCodeSettingsView>(DEFAULT_PRODUCT_CODE_SETTINGS)
+  const [productCodeSaving, setProductCodeSaving] = useState(false)
 
   useEffect(() => {
     if (!tenantId) return
@@ -116,6 +125,31 @@ export default function SettingsPage() {
       .then(setReloadSettings)
       .catch(() => {})
   }, [tenantId, hasFeature('DAILY_RELOAD')])
+
+  useEffect(() => {
+    if (!tenantId) return
+    fetchProductCodeSettings(tenantId)
+      .then(setProductCodeSettings)
+      .catch(() => {})
+  }, [tenantId])
+
+  const saveProductCodeSettings = async () => {
+    if (!tenant) return
+    setProductCodeSaving(true)
+    try {
+      const saved = await pushProductCodeSettings(tenant.id, {
+        skuStartNumber: productCodeSettings.skuStartNumber,
+        barcodeStartNumber: productCodeSettings.barcodeStartNumber,
+        skuPad: productCodeSettings.skuPad,
+      })
+      setProductCodeSettings(saved)
+      toast.success('Product SKU & barcode settings saved')
+    } catch {
+      toast.error('Failed to save product code settings')
+    } finally {
+      setProductCodeSaving(false)
+    }
+  }
 
   const saveReloadSettings = async () => {
     if (!tenant) return
@@ -376,6 +410,99 @@ export default function SettingsPage() {
                   <input type="email" className="input-field" value={shopForm.ownerEmail} onChange={e => setShopForm(p => ({ ...p, ownerEmail: e.target.value }))} />
                 </div>
               </div>
+
+              {canManageFeatures && (
+                <div
+                  className="rounded-xl p-4 border space-y-4"
+                  style={{ borderColor: 'rgba(109,40,217,0.28)', background: 'rgba(109,40,217,0.06)' }}
+                >
+                  <div>
+                    <p className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                      <Package size={14} className="text-violet-600 dark:text-violet-400" />
+                      Product SKU & Barcode Numbers
+                    </p>
+                    <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                      Set the starting numbers for your shop. Each new product auto-generates the next SKU and barcode from these values.
+                    </p>
+                  </div>
+                  <div className="grid sm:grid-cols-3 gap-3">
+                    <label className="block">
+                      <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>SKU starting number</span>
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={productCodeSettings.skuStartNumber}
+                        onChange={e => setProductCodeSettings(prev => ({
+                          ...prev,
+                          skuStartNumber: Math.max(1, parseInt(e.target.value, 10) || 1),
+                        }))}
+                        className="input-field mt-1"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Barcode starting number</span>
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={productCodeSettings.barcodeStartNumber}
+                        onChange={e => setProductCodeSettings(prev => ({
+                          ...prev,
+                          barcodeStartNumber: Math.max(1, parseInt(e.target.value, 10) || 1),
+                        }))}
+                        className="input-field mt-1"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>SKU digit padding</span>
+                      <input
+                        type="number"
+                        min={3}
+                        max={12}
+                        step={1}
+                        value={productCodeSettings.skuPad}
+                        onChange={e => setProductCodeSettings(prev => ({
+                          ...prev,
+                          skuPad: Math.min(12, Math.max(3, parseInt(e.target.value, 10) || 5)),
+                        }))}
+                        className="input-field mt-1"
+                      />
+                    </label>
+                  </div>
+                  {(productCodeSettings.nextSku || productCodeSettings.nextBarcode) && (
+                    <div className="grid sm:grid-cols-2 gap-2 text-[11px]">
+                      <div
+                        className="rounded-lg px-3 py-2 border"
+                        style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)' }}
+                      >
+                        <span style={{ color: 'var(--text-muted)' }}>Next SKU: </span>
+                        <span className="font-mono font-semibold text-violet-700 dark:text-violet-300">{productCodeSettings.nextSku}</span>
+                      </div>
+                      <div
+                        className="rounded-lg px-3 py-2 border"
+                        style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)' }}
+                      >
+                        <span style={{ color: 'var(--text-muted)' }}>Next barcode: </span>
+                        <span className="font-mono font-semibold text-violet-700 dark:text-violet-300">{productCodeSettings.nextBarcode}</span>
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                    Example: starting number 1 with 5-digit padding gives 00001, 00002, … Barcodes use your shop prefix (e.g. {productCodeSettings.prefix ?? 'SHOP'}-BC-00001).
+                  </p>
+                  <button
+                    type="button"
+                    onClick={saveProductCodeSettings}
+                    disabled={productCodeSaving}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-50"
+                  >
+                    {productCodeSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                    Save Product Numbers
+                  </button>
+                </div>
+              )}
+
               {(featurePrices.POS != null || featurePrices.SERVICES != null) && (
                 <div className="pt-4 border-t border-white/5 space-y-2">
                   <h3 className="text-sm font-semibold text-white">Plan Add-ons</h3>

@@ -73,4 +73,10 @@ export const tenantsController = {
   async updateProductVariantSettings(req: Request, res: Response, next: NextFunction) {
     try { assertTenantAccess(req); sendSuccess(res, await tenantsService.updateProductVariantSettings(req.params.id, req.body)) } catch (e) { next(e) }
   },
+  async getProductCodeSettings(req: Request, res: Response, next: NextFunction) {
+    try { assertTenantAccess(req); sendSuccess(res, await tenantsService.getProductCodeSettings(req.params.id)) } catch (e) { next(e) }
+  },
+  async updateProductCodeSettings(req: Request, res: Response, next: NextFunction) {
+    try { assertTenantAccess(req); sendSuccess(res, await tenantsService.updateProductCodeSettings(req.params.id, req.body)) } catch (e) { next(e) }
+  },
 }

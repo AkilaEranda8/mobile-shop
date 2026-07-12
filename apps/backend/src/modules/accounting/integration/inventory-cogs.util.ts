@@ -14,7 +14,7 @@ export function isMobileProduct(product: { trackImei?: boolean; category?: { nam
 export function isSparePartProduct(product: { category?: { name?: string; slug?: string } | null } | null) {
   if (!product) return false
   const cat = `${product.category?.name ?? ''} ${product.category?.slug ?? ''}`.toLowerCase()
-  return /spare|part|component/.test(cat)
+  return /spare|part|component|battery|batteries|screen|display|lcd|charging\s*port|flex|cable|connector/.test(cat)
 }
 
 export type CogsLineItem = {
