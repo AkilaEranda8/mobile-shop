@@ -29,6 +29,13 @@ import {
   pushProductVariantSettings,
 } from '@/lib/productVariantSettings'
 import {
+  type AppearanceSettings,
+  DEFAULT_APPEARANCE,
+  getStoredAppearance,
+  saveAppearance as persistAppearance,
+  type AccentKey,
+} from '@/lib/appearance'
+import {
   type ProductCodeSettingsView,
   DEFAULT_PRODUCT_CODE_SETTINGS,
   fetchProductCodeSettings,
@@ -54,7 +61,6 @@ const tabs = [
 
 
 const NOTIF_KEY = 'hx_notif_prefs'
-const APPEARANCE_KEY = 'hx_appearance'
 
 const planColors: Record<string, string> = {
   TRIAL:      'bg-yellow-500/10 border-yellow-500/20 text-yellow-400',
@@ -236,14 +242,15 @@ export default function SettingsPage() {
   }
 
   /* ── Appearance ── */
-  const defaultAppearance = { accent: 'violet', compactMode: false, animations: true }
-  const [appearance, setAppearance] = useState<Record<string, any>>(() => {
-    if (typeof window === 'undefined') return defaultAppearance
-    try { return { ...defaultAppearance, ...JSON.parse(localStorage.getItem(APPEARANCE_KEY) ?? '{}') } } catch { return defaultAppearance }
-  })
+  const [appearance, setAppearance] = useState<AppearanceSettings>(() => getStoredAppearance())
   const saveAppearance = () => {
-    localStorage.setItem(APPEARANCE_KEY, JSON.stringify(appearance))
+    persistAppearance(appearance)
     toast.success('Appearance preferences saved')
+  }
+  const selectAccent = (accent: AccentKey) => {
+    const next = { ...appearance, accent }
+    setAppearance(next)
+    persistAppearance(next)
   }
 
   /* ── Team ── */
@@ -1116,7 +1123,7 @@ export default function SettingsPage() {
                       { key: 'rose',   color: 'bg-rose-500',    label: 'Rose'    },
                       { key: 'orange', color: 'bg-orange-500',  label: 'Orange'  },
                     ].map(({ key, color, label }) => (
-                      <button key={key} onClick={() => setAppearance(p => ({ ...p, accent: key }))}
+                      <button key={key} onClick={() => selectAccent(key as AccentKey)}
                         className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs transition-colors ${appearance.accent === key ? 'border-white/30 bg-white/10 text-white' : 'border-white/5 text-slate-400 hover:border-white/15'}`}>
                         <span className={`w-3.5 h-3.5 rounded-full ${color} flex-shrink-0`} />
                         {label}
@@ -1125,16 +1132,16 @@ export default function SettingsPage() {
                     ))}
                   </div>
                 </div>
-                {[
-                  { key: 'compactMode', label: 'Compact Mode',          desc: 'Reduce spacing and padding throughout the UI' },
-                  { key: 'animations',  label: 'Enable Animations',     desc: 'Smooth transitions and micro-interactions'    },
-                ].map(({ key, label, desc }) => (
+                {([
+                  { key: 'compactMode' as const, label: 'Compact Mode',          desc: 'Reduce spacing and padding throughout the UI' },
+                  { key: 'animations' as const,  label: 'Enable Animations',     desc: 'Smooth transitions and micro-interactions'    },
+                ]).map(({ key, label, desc }) => (
                   <div key={key} className="flex items-center justify-between py-3 border-b border-white/5 last:border-0">
                     <div>
                       <p className="text-sm text-gray-800 dark:text-slate-200">{label}</p>
                       <p className="text-xs text-gray-500 dark:text-slate-500">{desc}</p>
                     </div>
-                    <Switch checked={appearance[key] ?? false} onChange={v => setAppearance(p => ({ ...p, [key]: v }))} />
+                    <Switch checked={appearance[key]} onChange={v => setAppearance(p => ({ ...p, [key]: v }))} />
                   </div>
                 ))}
               </div>
