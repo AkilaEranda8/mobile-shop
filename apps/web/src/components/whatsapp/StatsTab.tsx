@@ -79,7 +79,7 @@ export default function StatsTab() {
     <div className="flex flex-col items-center justify-center py-24 gap-3">
       <MessageSquare size={36} className="text-slate-600" />
       <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>No statistics yet</p>
-      <p className="text-xs text-slate-500">Connect WhatsApp and send messages to see stats here</p>
+      <p className="text-xs text-gray-500 dark:text-slate-500">Connect WhatsApp and send messages to see stats here</p>
     </div>
   )
 
@@ -96,7 +96,7 @@ export default function StatsTab() {
               </div>
             </div>
             <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
-            <p className="text-[11px] text-slate-500 leading-tight">{label}</p>
+            <p className="text-[11px] text-gray-500 dark:text-slate-500 leading-tight">{label}</p>
           </motion.div>
         ))}
       </div>
@@ -109,7 +109,7 @@ export default function StatsTab() {
           <div className="flex items-center justify-between mb-5">
             <div>
               <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Monthly Activity</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Messages sent vs delivered per month</p>
+              <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">Messages sent vs delivered per month</p>
             </div>
           </div>
           <ResponsiveContainer width="100%" height={200}>
@@ -124,7 +124,7 @@ export default function StatsTab() {
           </ResponsiveContainer>
           <div className="flex items-center gap-4 mt-3 justify-center">
             <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-violet-600" /><span className="text-xs text-slate-500">Sent</span></div>
-            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-green-500" /><span className="text-xs text-slate-500">Delivered</span></div>
+            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-green-500" /><span className="text-xs text-gray-500 dark:text-slate-500">Delivered</span></div>
           </div>
         </motion.div>
 
@@ -148,7 +148,7 @@ export default function StatsTab() {
                       <span className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>{msg.customerName}</span>
                       <span className="text-[10px] text-slate-600 flex-shrink-0">{timeAgo(msg.timestamp)}</span>
                     </div>
-                    <p className="text-[11px] text-slate-500 truncate mt-0.5">{msg.preview}</p>
+                    <p className="text-[11px] text-gray-500 dark:text-slate-500 truncate mt-0.5">{msg.preview}</p>
                     <span className={`badge-status ${sc.bg} border ${sc.border} ${sc.color} text-[9px] mt-1`}>{msg.status}</span>
                   </div>
                 </div>

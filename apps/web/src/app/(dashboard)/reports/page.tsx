@@ -766,7 +766,7 @@ function DeliveryTab({ fromDate, toDate, branchId }: { fromDate: string; toDate:
                 <Legend wrapperStyle={{ fontSize: 11 }} />
               </PieChart>
             </ResponsiveContainer>
-          ) : <p className="text-xs text-slate-500 text-center py-16">No delivery data</p>}
+          ) : <p className="text-xs text-gray-500 dark:text-slate-500 text-center py-16">No delivery data</p>}
         </div>
 
         {/* COD vs Prepaid */}
@@ -794,7 +794,7 @@ function DeliveryTab({ fromDate, toDate, branchId }: { fromDate: string; toDate:
                 </div>
               </div>
             </>
-          ) : <p className="text-xs text-slate-500 text-center py-16">No delivery data</p>}
+          ) : <p className="text-xs text-gray-500 dark:text-slate-500 text-center py-16">No delivery data</p>}
         </div>
       </div>
 

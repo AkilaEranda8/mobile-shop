@@ -425,18 +425,18 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
               <Banknote size={16} className="text-emerald-400" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white">Record Payment</h3>
-              <p className="text-xs text-slate-500">{supplier.name}</p>
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white">Record Payment</h3>
+              <p className="text-xs text-gray-500 dark:text-slate-500">{supplier.name}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={15} /></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/5"><X size={15} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {/* Outstanding POs */}
           {unpaidPOs.length > 0 ? (
             <div>
-              <label className="block text-xs text-slate-400 uppercase tracking-wide mb-2">Apply to Purchase Orders</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 uppercase tracking-wide mb-2">Apply to Purchase Orders</label>
               <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                 {unpaidPOs.map(po => (
                   <label key={po.id} className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer transition-colors ${
@@ -466,7 +466,7 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
 
           {/* Amount */}
           <div>
-            <label className="block text-xs text-slate-400 mb-1.5">
+            <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">
               Payment Amount
               {totalDue > 0 && (
                 <button type="button" onClick={() => setAmount(totalDue.toFixed(2))}
@@ -481,7 +481,7 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
 
           {/* Method */}
           <div>
-            <label className="block text-xs text-slate-400 mb-1.5">Payment Method</label>
+            <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Payment Method</label>
             <div className="grid grid-cols-5 gap-1.5">
               {PAYMENT_METHODS.map(m => (
                 <button key={m} type="button" onClick={() => setMethod(m)}
@@ -498,7 +498,7 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
 
           {/* Reference */}
           <div>
-            <label className="block text-xs text-slate-400 mb-1.5">Reference / Note (optional)</label>
+            <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Reference / Note (optional)</label>
             <input className="input-field" placeholder="Cheque no., bank refâ€¦" value={reference} onChange={e => setReference(e.target.value)} />
           </div>
 
@@ -543,7 +543,7 @@ export function ConfirmReceiveModal({ po, onConfirm, onCancel, loading }: {
           <h3 className="text-base font-bold text-white text-center mb-1">
             {isRetroactive ? 'Apply Restock?' : 'Receive Purchase Order?'}
           </h3>
-          <p className="text-xs text-slate-500 text-center mb-5">
+          <p className="text-xs text-gray-500 dark:text-slate-500 text-center mb-5">
             {isRetroactive
               ? 'This PO is already marked RECEIVED. Restock will only run if it was not applied before.'
               : 'Stock will update and barcodes will be generated for accessory/battery items (SKU or new BC code), then label print opens.'}
@@ -572,7 +572,7 @@ export function ConfirmReceiveModal({ po, onConfirm, onCancel, loading }: {
           {/* Buttons */}
           <div className="flex gap-3">
             <button onClick={onCancel} disabled={loading}
-              className="flex-1 py-2.5 text-sm font-semibold rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50">
+              className="flex-1 py-2.5 text-sm font-semibold rounded-xl border border-white/10 text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50">
               Cancel
             </button>
             <button onClick={onConfirm} disabled={loading}
@@ -615,15 +615,15 @@ export function SupplierDetailsModal({ supplier, allPOs, onClose, onEdit }: { su
               {supplier.name.charAt(0)}
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white">{supplier.name}</h3>
-              {supplier.contactName && <p className="text-xs text-slate-500">{supplier.contactName}</p>}
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white">{supplier.name}</h3>
+              {supplier.contactName && <p className="text-xs text-gray-500 dark:text-slate-500">{supplier.contactName}</p>}
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={onEdit} className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 transition-colors">
               <Edit size={11} />Edit
             </button>
-            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
+            <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/5"><X size={16} /></button>
           </div>
         </div>
 
@@ -656,7 +656,7 @@ export function SupplierDetailsModal({ supplier, allPOs, onClose, onEdit }: { su
               <div key={row.label} className="flex items-start gap-3">
                 <row.icon size={12} className="text-slate-500 mt-0.5 flex-shrink-0" />
                 <div className="flex-1 flex items-start justify-between gap-4">
-                  <span className="text-[11px] text-slate-500 w-14 flex-shrink-0">{row.label}</span>
+                  <span className="text-[11px] text-gray-500 dark:text-slate-500 w-14 flex-shrink-0">{row.label}</span>
                   <span className="text-xs text-slate-200 text-right">{row.value}</span>
                 </div>
               </div>
@@ -692,7 +692,7 @@ export function SupplierDetailsModal({ supplier, allPOs, onClose, onEdit }: { su
                     <div className="flex items-center justify-between">
                       <p className="text-[10px] text-slate-500 flex items-center gap-1"><Calendar size={9} />{formatDate(po.createdAt)}</p>
                       <div className="text-right">
-                        <p className="text-xs font-bold text-white">{formatCurrency(po.total)}</p>
+                        <p className="text-xs font-bold text-gray-900 dark:text-white">{formatCurrency(po.total)}</p>
                         {po.dueAmount > 0 && <p className="text-[10px] text-red-400">Due: {formatCurrency(po.dueAmount)}</p>}
                         {po.paidAmount > 0 && <p className="text-[10px] text-green-400">Paid: {formatCurrency(po.paidAmount)}</p>}
                       </div>
@@ -736,8 +736,8 @@ export function EditSupplierModal({ supplier, onClose, onSaved }: { supplier: Su
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
-          <h3 className="text-sm font-bold text-white">Edit Supplier</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
+          <h3 className="text-sm font-bold text-gray-900 dark:text-white">Edit Supplier</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/5"><X size={16} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-3">
@@ -751,7 +751,7 @@ export function EditSupplierModal({ supplier, onClose, onSaved }: { supplier: Su
               { k: 'gstin',       label: 'GSTIN / VAT No',  full: false },
             ].map(({ k, label, full }) => (
               <div key={k} className={full ? 'col-span-2' : ''}>
-                <label className="block text-xs text-slate-400 mb-1.5">{label}</label>
+                <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">{label}</label>
                 <input
                   className="input-field"
                   value={(form as any)[k]}
@@ -793,37 +793,37 @@ export function AddSupplierModal({ onClose, onSaved }: { onClose: () => void; on
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
         <div className="flex items-center justify-between p-5 border-b border-white/5">
-          <h3 className="text-base font-semibold text-white">Add Supplier</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white">Add Supplier</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/5"><X size={16} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <label className="block text-xs text-slate-400 mb-1.5">Company Name *</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Company Name *</label>
               <input required className="input-field" placeholder="Apple India Pvt Ltd" value={form.name} onChange={f('name')} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Contact Person</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Contact Person</label>
               <input className="input-field" placeholder="Rajesh Kumar" value={form.contactName} onChange={f('contactName')} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Phone *</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Phone *</label>
               <input required className="input-field" placeholder="9876543210" value={form.phone} onChange={f('phone')} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Email</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Email</label>
               <input type="email" className="input-field" placeholder="supplier@email.com" value={form.email} onChange={f('email')} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">City</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">City</label>
               <input className="input-field" placeholder="Chennai" value={form.city} onChange={f('city')} />
             </div>
             <div className="col-span-2">
-              <label className="block text-xs text-slate-400 mb-1.5">Address</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Address</label>
               <input className="input-field" placeholder="Street address" value={form.address} onChange={f('address')} />
             </div>
             <div className="col-span-2">
-              <label className="block text-xs text-slate-400 mb-1.5">GSTIN</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">GSTIN</label>
               <input className="input-field" placeholder="22AAAAA0000A1Z5" value={form.gstin} onChange={f('gstin')} />
             </div>
           </div>
@@ -1026,7 +1026,7 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                       className="w-full px-3 py-2.5 text-left hover:bg-violet-500/15 transition-colors flex items-center justify-between gap-2"
                       style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                       <div className="min-w-0">
-                        <p className="text-sm text-slate-200 truncate font-medium">{p.name}</p>
+                        <p className="text-sm text-gray-800 dark:text-slate-200 truncate font-medium">{p.name}</p>
                         <p className="text-[10px] text-slate-500">{p.sku} Â· {p.brandName}{p.trackImei ? ' Â· IMEI' : ''}</p>
                       </div>
                       <div className="text-right flex-shrink-0 flex items-center gap-2">
@@ -1097,7 +1097,7 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                               </button>
                             ))}
                             {allProducts.length === 0 && (
-                              <p className="text-xs text-slate-500 px-3 py-2">No products in inventory</p>
+                              <p className="text-xs text-gray-500 dark:text-slate-500 px-3 py-2">No products in inventory</p>
                             )}
                           </div>
                         )}
@@ -1226,7 +1226,7 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
             </div>
 
             <div className="flex justify-end mt-3 pt-3 border-t border-white/5">
-              <span className="text-sm font-bold text-white">Total: {formatCurrency(subtotal)}</span>
+              <span className="text-sm font-bold text-gray-900 dark:text-white">Total: {formatCurrency(subtotal)}</span>
             </div>
           </div>
 

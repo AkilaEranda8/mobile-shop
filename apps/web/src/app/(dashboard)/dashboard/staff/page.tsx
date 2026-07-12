@@ -261,7 +261,7 @@ export default function StaffPage() {
       <div className="flex gap-1 bg-white/3 border border-white/5 rounded-xl p-1 w-fit">
         {(['staff', 'permissions'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium capitalize transition-colors ${tab === t ? 'bg-violet-600/20 text-violet-300 border border-violet-500/20' : 'text-slate-500 hover:text-slate-300'}`}>
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium capitalize transition-colors ${tab === t ? 'bg-violet-600/20 text-violet-300 border border-violet-500/20' : 'text-gray-500 dark:text-slate-500 hover:text-gray-700 dark:hover:text-slate-300'}`}>
             {t === 'permissions' ? 'Permission Matrix' : 'Staff List'}
           </button>
         ))}
@@ -302,7 +302,7 @@ export default function StaffPage() {
                       {initials}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-white truncate">{s.name}</p>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{s.name}</p>
                       <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${role.color} ${role.bg} ${role.border}`}>{role.label}</span>
                     </div>
                     <div className="flex items-center gap-1">
@@ -312,7 +312,7 @@ export default function StaffPage() {
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-500">
                       <Mail size={11} className="flex-shrink-0" /><span className="truncate">{s.email}</span>
                     </div>
                     {s.branches?.length > 0 && (
@@ -327,14 +327,14 @@ export default function StaffPage() {
                         })}
                       </div>
                     )}
-                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-500">
                       <Clock size={11} className="flex-shrink-0" />
                       <span>Joined {new Date(s.createdAt).toLocaleDateString('en-IN')}</span>
                     </div>
                   </div>
                   <div className="flex gap-3 mt-4 pt-4 border-t border-white/5">
                     <div className="flex-1 text-center">
-                      <p className="text-[10px] font-medium text-slate-300 capitalize">{s.role?.toLowerCase().replace('_', ' ')}</p>
+                      <p className="text-[10px] font-medium text-gray-700 dark:text-slate-300 capitalize">{s.role?.toLowerCase().replace('_', ' ')}</p>
                       <p className="text-[10px] text-slate-500">Role</p>
                     </div>
                     <div className="w-px bg-white/5" />
@@ -360,8 +360,8 @@ export default function StaffPage() {
       {tab === 'permissions' && (
         <div className="card overflow-hidden">
           <div className="p-4 border-b border-white/5">
-            <h3 className="text-sm font-semibold text-white">Role Permission Matrix</h3>
-            <p className="text-xs text-slate-500 mt-0.5">Access control per role</p>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Role Permission Matrix</h3>
+            <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">Access control per role</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -377,7 +377,7 @@ export default function StaffPage() {
               <tbody className="divide-y divide-white/3">
                 {permissionMatrix.map(p => (
                   <tr key={p.feature} className="hover:bg-white/2">
-                    <td className="table-cell text-sm font-medium text-slate-300">{p.feature}</td>
+                    <td className="table-cell text-sm font-medium text-gray-700 dark:text-slate-300">{p.feature}</td>
                     {[p.owner, p.manager, p.technician, p.sales].map((has, i) => (
                       <td key={i} className="table-cell text-center">
                         {has

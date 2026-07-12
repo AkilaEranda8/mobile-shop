@@ -64,7 +64,7 @@ export default function AdminPage() {
         ].map(stat => (
           <div key={stat.label} className="card p-4">
             <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-            <p className="text-xs text-slate-400 mt-0.5">{stat.label}</p>
+            <p className="text-xs text-gray-600 dark:text-slate-400 mt-0.5">{stat.label}</p>
             <p className="text-[11px] text-slate-600 mt-1">{stat.sub}</p>
           </div>
         ))}
@@ -118,14 +118,14 @@ export default function AdminPage() {
                             {tenant.name.charAt(0)}
                           </div>
                           <div>
-                            <p className="text-sm text-slate-200">{tenant.name}</p>
+                            <p className="text-sm text-gray-800 dark:text-slate-200">{tenant.name}</p>
                             <p className="text-[10px] text-slate-600 font-mono">{tenant.slug}</p>
                           </div>
                         </div>
                       </td>
                       <td className="table-cell">
-                        <p className="text-sm text-slate-300">{tenant.ownerName}</p>
-                        <p className="text-xs text-slate-500">{tenant.ownerEmail}</p>
+                        <p className="text-sm text-gray-700 dark:text-slate-300">{tenant.ownerName}</p>
+                        <p className="text-xs text-gray-500 dark:text-slate-500">{tenant.ownerEmail}</p>
                       </td>
                       <td className="table-cell text-center">
                         <span className={`text-[11px] px-2 py-0.5 rounded-full border ${planColors[tenant.plan]}`}>
@@ -141,7 +141,7 @@ export default function AdminPage() {
                         </div>
                       </td>
                       <td className="table-cell text-center">
-                        <span className="text-xs text-slate-400">{tenant.branches.length}</span>
+                        <span className="text-xs text-gray-600 dark:text-slate-400">{tenant.branches.length}</span>
                       </td>
                       <td className="table-cell text-right">
                         <span className={`text-sm font-bold ${tenant.mrr > 0 ? 'text-white' : 'text-slate-600'}`}>
@@ -149,7 +149,7 @@ export default function AdminPage() {
                         </span>
                       </td>
                       <td className="table-cell">
-                        <span className="text-xs text-slate-400">{formatDate(tenant.createdAt)}</span>
+                        <span className="text-xs text-gray-600 dark:text-slate-400">{formatDate(tenant.createdAt)}</span>
                       </td>
                       <td className="table-cell">
                         <div className="flex items-center justify-center gap-1">
@@ -180,8 +180,8 @@ export default function AdminPage() {
                     <metric.icon size={15} className={metric.color} />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-slate-200">{metric.label}</p>
-                    <p className="text-xs text-slate-500 capitalize">{metric.status}</p>
+                    <p className="text-sm font-semibold text-gray-800 dark:text-slate-200">{metric.label}</p>
+                    <p className="text-xs text-gray-500 dark:text-slate-500 capitalize">{metric.status}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -191,15 +191,15 @@ export default function AdminPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-white/3 rounded-lg p-3">
-                  <p className="text-xs text-slate-500">Uptime</p>
-                  <p className="text-lg font-bold text-white">{metric.uptime}</p>
+                  <p className="text-xs text-gray-500 dark:text-slate-500">Uptime</p>
+                  <p className="text-lg font-bold text-gray-900 dark:text-white">{metric.uptime}</p>
                 </div>
                 <div className="bg-white/3 rounded-lg p-3">
-                  <p className="text-xs text-slate-500">Response</p>
-                  <p className="text-lg font-bold text-white">{Math.floor(Math.random() * 30 + 10)}ms</p>
+                  <p className="text-xs text-gray-500 dark:text-slate-500">Response</p>
+                  <p className="text-lg font-bold text-gray-900 dark:text-white">{Math.floor(Math.random() * 30 + 10)}ms</p>
                 </div>
               </div>
-              <button className="mt-3 w-full text-xs text-slate-500 hover:text-violet-400 flex items-center justify-center gap-1.5 py-1.5 transition-colors">
+              <button className="mt-3 w-full text-xs text-gray-500 dark:text-slate-500 hover:text-violet-400 flex items-center justify-center gap-1.5 py-1.5 transition-colors">
                 <RefreshCw size={11} />Refresh
               </button>
             </div>
@@ -207,7 +207,7 @@ export default function AdminPage() {
 
           {/* Recent Events */}
           <div className="sm:col-span-2 card p-5">
-            <h3 className="text-sm font-semibold text-white mb-4">Recent Platform Events</h3>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Recent Platform Events</h3>
             <div className="space-y-2">
               {[
                 { time: '2 min ago', event: 'New tenant registered: Tech Repair Hub', level: 'info' },
@@ -218,7 +218,7 @@ export default function AdminPage() {
               ].map((ev, i) => (
                 <div key={i} className="flex items-start gap-3 py-2 border-b border-white/3 last:border-0">
                   <div className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${ev.level === 'success' ? 'bg-green-400' : ev.level === 'warning' ? 'bg-yellow-400' : 'bg-blue-400'}`} />
-                  <p className="text-xs text-slate-400 flex-1">{ev.event}</p>
+                  <p className="text-xs text-gray-600 dark:text-slate-400 flex-1">{ev.event}</p>
                   <span className="text-[10px] text-slate-600 flex-shrink-0">{ev.time}</span>
                 </div>
               ))}
@@ -236,14 +236,14 @@ export default function AdminPage() {
               { plan: 'ENTERPRISE (₹8,500)', count: mockTenants.filter(t => t.plan === 'ENTERPRISE' && t.status === 'ACTIVE').length, mrr: mockTenants.filter(t => t.plan === 'ENTERPRISE').reduce((s, t) => s + t.mrr, 0) },
             ].map(row => (
               <div key={row.plan} className="card p-4">
-                <p className="text-xs text-slate-500">{row.plan}</p>
-                <p className="text-xl font-bold text-white mt-1">{row.count} tenants</p>
+                <p className="text-xs text-gray-500 dark:text-slate-500">{row.plan}</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-white mt-1">{row.count} tenants</p>
                 <p className="text-sm text-green-400 mt-0.5">{formatCurrency(row.mrr)} MRR</p>
               </div>
             ))}
           </div>
           <div className="card p-5">
-            <h3 className="text-sm font-semibold text-white mb-4">Recent Billing Events</h3>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Recent Billing Events</h3>
             <div className="space-y-2">
               {[
                 { tenant: 'Mobile Hub Chennai', event: 'Payment received ₹2,499', date: '2024-05-01', status: 'success' },
@@ -253,8 +253,8 @@ export default function AdminPage() {
               ].map((ev, i) => (
                 <div key={i} className="flex items-center justify-between py-2.5 border-b border-white/3 last:border-0">
                   <div>
-                    <p className="text-sm text-slate-200">{ev.tenant}</p>
-                    <p className="text-xs text-slate-500">{ev.event}</p>
+                    <p className="text-sm text-gray-800 dark:text-slate-200">{ev.tenant}</p>
+                    <p className="text-xs text-gray-500 dark:text-slate-500">{ev.event}</p>
                   </div>
                   <div className="text-right">
                     <span className={`text-xs ${ev.status === 'success' ? 'text-green-400' : 'text-red-400'}`}>

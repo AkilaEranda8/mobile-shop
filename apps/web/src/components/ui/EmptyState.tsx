@@ -70,7 +70,7 @@ export function EmptyState({ icon: Icon, title, description, actions = [], hints
           <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2.5">Quick Tips</p>
           <ul className="space-y-1.5">
             {hints.map((h, i) => (
-              <li key={i} className="flex items-start gap-2 text-xs text-slate-500">
+              <li key={i} className="flex items-start gap-2 text-xs text-gray-500 dark:text-slate-500">
                 <span className={`mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 ${a.dot} opacity-60`} />
                 {h}
               </li>

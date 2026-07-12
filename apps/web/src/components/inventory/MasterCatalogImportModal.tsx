@@ -251,12 +251,12 @@ export function MasterCatalogImportModal({ onClose, onApplyToForm }: Props) {
       <div className="w-full max-w-3xl max-h-[92vh] flex flex-col rounded-2xl border border-white/10 bg-[#0f1623] shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 shrink-0">
           <div>
-            <p className="text-sm font-bold text-white">Import from Master Catalog</p>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-sm font-bold text-gray-900 dark:text-white">Import from Master Catalog</p>
+            <p className="text-[11px] text-gray-500 dark:text-slate-500">
               Step {Math.min(step, totalSteps)} of {totalSteps} · fills Create Product form (you save manually)
             </p>
           </div>
-          <button type="button" onClick={onClose} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/5">
+          <button type="button" onClick={onClose} className="p-2 rounded-lg text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/5">
             <X size={18} />
           </button>
         </div>
@@ -283,8 +283,8 @@ export function MasterCatalogImportModal({ onClose, onApplyToForm }: Props) {
                       kind === k ? 'border-violet-500 bg-violet-500/10' : 'border-white/10 hover:border-white/20'
                     }`}
                   >
-                    <p className="text-sm font-semibold text-white">{k === 'PHONE' ? 'Mobile Phones' : 'Accessories'}</p>
-                    <p className="text-[11px] text-slate-500 mt-1">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{k === 'PHONE' ? 'Mobile Phones' : 'Accessories'}</p>
+                    <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-1">
                       {k === 'PHONE' ? 'Brand → model → variants' : 'Category → accessory'}
                     </p>
                   </button>
@@ -327,7 +327,7 @@ export function MasterCatalogImportModal({ onClose, onApplyToForm }: Props) {
           {step === 2 && kind === 'ACCESSORY' && (
             <>
               <div>
-                <label className="text-xs text-slate-500 block mb-1">Category</label>
+                <label className="text-xs text-gray-500 dark:text-slate-500 block mb-1">Category</label>
                 <select
                   className="w-full h-10 px-3 rounded-lg bg-white/5 border border-white/10 text-sm text-white"
                   value={categoryId}
@@ -340,7 +340,7 @@ export function MasterCatalogImportModal({ onClose, onApplyToForm }: Props) {
                 </select>
               </div>
               <div>
-                <label className="text-xs text-slate-500 block mb-1">Brand (optional)</label>
+                <label className="text-xs text-gray-500 dark:text-slate-500 block mb-1">Brand (optional)</label>
                 <select
                   className="w-full h-10 px-3 rounded-lg bg-white/5 border border-white/10 text-sm text-white"
                   value={brandId}
@@ -377,7 +377,7 @@ export function MasterCatalogImportModal({ onClose, onApplyToForm }: Props) {
                     >
                       {selectedModelId === m.id ? <CheckSquare size={16} className="text-violet-400 shrink-0" /> : <Square size={16} className="text-slate-500 shrink-0" />}
                       <span className="text-sm text-white">{m.brand?.name} {m.name}</span>
-                      <span className="text-[11px] text-slate-500 ml-auto">{m.variants?.length ?? 0} variants</span>
+                      <span className="text-[11px] text-gray-500 dark:text-slate-500 ml-auto">{m.variants?.length ?? 0} variants</span>
                     </button>
                   ))}
                   {phones.length === 0 && <p className="text-sm text-slate-500 text-center py-6">No models found</p>}
@@ -393,7 +393,7 @@ export function MasterCatalogImportModal({ onClose, onApplyToForm }: Props) {
                     >
                       {selectedAccessoryId === a.id ? <CheckSquare size={16} className="text-violet-400 shrink-0" /> : <Square size={16} className="text-slate-500 shrink-0" />}
                       <span className="text-sm text-white">{a.name}</span>
-                      <span className="text-[11px] text-slate-500 ml-auto">{a.category?.name}</span>
+                      <span className="text-[11px] text-gray-500 dark:text-slate-500 ml-auto">{a.category?.name}</span>
                     </button>
                   ))}
                   {accessories.length === 0 && <p className="text-sm text-slate-500 text-center py-6">No accessories found</p>}
@@ -406,7 +406,7 @@ export function MasterCatalogImportModal({ onClose, onApplyToForm }: Props) {
             <>
               <p className="text-sm text-slate-400">Select variants (leave empty = all). Prices you set on the product form.</p>
               <div className="rounded-xl border border-white/10 p-3">
-                <p className="text-sm font-semibold text-white mb-2">{selectedPhone.brand?.name} {selectedPhone.name}</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white mb-2">{selectedPhone.brand?.name} {selectedPhone.name}</p>
                 <div className="flex flex-wrap gap-2">
                   {(selectedPhone.variants ?? []).map(v => {
                     const on = variantMap[selectedPhone.id]?.has(v.id)
@@ -433,7 +433,7 @@ export function MasterCatalogImportModal({ onClose, onApplyToForm }: Props) {
               <p className="text-white font-semibold">{previewLabel}</p>
               <p className="text-slate-400">Category: {selectedPhone?.category?.name ?? '—'}</p>
               <p className="text-slate-400">Variants: {selectedVariantCount}</p>
-              <p className="text-[11px] text-slate-500 pt-2">
+              <p className="text-[11px] text-gray-500 dark:text-slate-500 pt-2">
                 Next: form opens with name, brand, category, SKU &amp; variants filled. Enter buy/sell prices, then Create Product.
               </p>
             </div>
@@ -444,7 +444,7 @@ export function MasterCatalogImportModal({ onClose, onApplyToForm }: Props) {
               <p className="text-white font-semibold">{previewLabel}</p>
               <p className="text-slate-400">Category: {selectedAccessory?.category?.name ?? '—'}</p>
               <p className="text-slate-400">Brand: {selectedAccessory?.brand?.name ?? 'General'}</p>
-              <p className="text-[11px] text-slate-500 pt-2">
+              <p className="text-[11px] text-gray-500 dark:text-slate-500 pt-2">
                 Form will be filled — set prices on Create Product, then save.
               </p>
             </div>

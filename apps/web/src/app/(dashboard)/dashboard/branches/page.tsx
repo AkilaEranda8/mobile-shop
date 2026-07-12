@@ -86,32 +86,32 @@ function BranchModal({
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <label className="block text-xs text-slate-400 mb-1.5">Branch Name *</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Branch Name *</label>
               <input required className="input-field" placeholder="e.g. Colombo Main Branch"
                 value={form.name} onChange={f('name')} />
             </div>
             <div className="col-span-2">
-              <label className="block text-xs text-slate-400 mb-1.5">Address *</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Address *</label>
               <input required className="input-field" placeholder="Street address"
                 value={form.address} onChange={f('address')} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">City *</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">City *</label>
               <input required className="input-field" placeholder="e.g. Colombo"
                 value={form.city} onChange={f('city')} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Province / State *</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Province / State *</label>
               <input required className="input-field" placeholder="e.g. Western"
                 value={form.state} onChange={f('state')} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Phone *</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Phone *</label>
               <input required className="input-field" placeholder="+94 77 123 4567"
                 value={form.phone} onChange={f('phone')} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Email</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Email</label>
               <input type="email" className="input-field" placeholder="branch@shop.lk"
                 value={form.email} onChange={f('email')} />
             </div>
@@ -141,7 +141,7 @@ function BranchModal({
               Cancel
             </button>
             <button type="submit" disabled={loading}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-gray-900 dark:text-white transition-all disabled:opacity-50"
               style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)' }}>
               {loading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
               {isEdit ? 'Save Changes' : 'Create Branch'}
@@ -355,7 +355,7 @@ export default function BranchesPage() {
           style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
           <div>
             <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Need more branches?</p>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">
               {plan === 'STARTER' ? 'Upgrade to PRO for 3 branches, or ENTERPRISE for unlimited.' : 'Upgrade to ENTERPRISE for unlimited branches.'}
             </p>
           </div>

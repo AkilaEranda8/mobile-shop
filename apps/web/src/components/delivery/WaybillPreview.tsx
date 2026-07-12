@@ -21,7 +21,7 @@ export default function WaybillPreview({ order, onClose }: Props) {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm">
               <Printer size={14} /> Print / Save PDF
             </button>
-            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white">
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-700 text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white">
               <X size={16} />
             </button>
           </div>
@@ -36,20 +36,20 @@ export default function WaybillPreview({ order, onClose }: Props) {
                 <Truck size={22} className="text-violet-600" />
                 <span className="text-xl font-bold text-slate-900">HEXALYTE</span>
               </div>
-              <p className="text-xs text-slate-500">Delivery Waybill</p>
+              <p className="text-xs text-gray-500 dark:text-slate-500">Delivery Waybill</p>
             </div>
             <div className="text-right">
               <p className="text-lg font-bold text-slate-900 font-mono">{waybillNumber}</p>
-              <p className="text-xs text-slate-500">{new Date(order.createdAt).toLocaleDateString('en-LK')}</p>
+              <p className="text-xs text-gray-500 dark:text-slate-500">{new Date(order.createdAt).toLocaleDateString('en-LK')}</p>
             </div>
           </div>
 
           {/* Tracking Number – prominent */}
           {order.trackingNumber && (
             <div className="border-2 border-slate-900 rounded p-3 mb-3 text-center">
-              <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Tracking Number</p>
+              <p className="text-xs text-gray-500 dark:text-slate-500 uppercase tracking-widest mb-1">Tracking Number</p>
               <p className="text-2xl font-bold font-mono tracking-widest text-slate-900">{order.trackingNumber}</p>
-              {order.courier && <p className="text-xs text-slate-500 mt-1">{order.courier.name} ({order.courier.code})</p>}
+              {order.courier && <p className="text-xs text-gray-500 dark:text-slate-500 mt-1">{order.courier.name} ({order.courier.code})</p>}
             </div>
           )}
 
@@ -70,7 +70,7 @@ export default function WaybillPreview({ order, onClose }: Props) {
                 <MapPin size={9} className="mt-0.5 shrink-0" />
                 <span>{order.addressLine1}{order.addressLine2 ? `, ${order.addressLine2}` : ''}, {order.city}{order.district ? `, ${order.district}` : ''}</span>
               </p>
-              {order.postalCode && <p className="text-xs text-slate-500">Postal: {order.postalCode}</p>}
+              {order.postalCode && <p className="text-xs text-gray-500 dark:text-slate-500">Postal: {order.postalCode}</p>}
             </div>
           </div>
 
@@ -120,7 +120,7 @@ export default function WaybillPreview({ order, onClose }: Props) {
             <div className="border border-slate-300 rounded p-2 flex items-center justify-center" style={{ width: 60, height: 60 }}>
               <QrCode size={40} className="text-slate-400" />
             </div>
-            <div className="text-right text-xs text-slate-500">
+            <div className="text-right text-xs text-gray-500 dark:text-slate-500">
               <p>Order: {order.orderNumber}</p>
               {order.notes && <p className="max-w-48 text-right">Note: {order.notes}</p>}
               <div className="mt-4 border-t border-slate-400 pt-1 w-36 ml-auto">Recipient Signature</div>

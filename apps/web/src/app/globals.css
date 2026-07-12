@@ -212,6 +212,12 @@
     background: var(--bg-card-hover);
   }
 
+  .text-theme-primary { @apply text-gray-900 dark:text-white; }
+  .text-theme-body { @apply text-gray-800 dark:text-slate-200; }
+  .text-theme-muted { @apply text-gray-600 dark:text-slate-400; }
+  .text-theme-subtle { @apply text-gray-500 dark:text-slate-500; }
+  .text-theme-stat { @apply text-lg font-bold text-gray-900 dark:text-white; }
+
   .sidebar-item {
     color: var(--text-secondary);
     @apply flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 cursor-pointer;
@@ -318,16 +324,16 @@ html:not(.dark) aside {
 }
 
 /* ── Light mode: remap hardcoded dark-theme text utilities ─────────── */
-html:not(.dark) .text-white     { color: var(--text-primary); }
-html:not(.dark) .text-slate-50  { color: var(--text-primary); }
-html:not(.dark) .text-slate-100 { color: #111827; }
-html:not(.dark) .text-slate-200 { color: #1e293b; }
-html:not(.dark) .text-slate-300 { color: #334155; }
-html:not(.dark) .text-slate-400 { color: #475569; }
-html:not(.dark) .text-slate-500 { color: #64748b; }
-html:not(.dark) .text-slate-600 { color: #64748b; }
+html:not(.dark) .text-white     { color: var(--text-primary) !important; }
+html:not(.dark) .text-slate-50  { color: var(--text-primary) !important; }
+html:not(.dark) .text-slate-100 { color: #111827 !important; }
+html:not(.dark) .text-slate-200 { color: #1e293b !important; }
+html:not(.dark) .text-slate-300 { color: #334155 !important; }
+html:not(.dark) .text-slate-400 { color: #475569 !important; }
+html:not(.dark) .text-slate-500 { color: #64748b !important; }
+html:not(.dark) .text-slate-600 { color: #64748b !important; }
 html:not(.dark) .hover\:text-white:hover { color: var(--text-primary) !important; }
-html:not(.dark) .group:hover .group-hover\:text-slate-300 { color: #334155; }
+html:not(.dark) .group:hover .group-hover\:text-slate-300 { color: #334155 !important; }
 
 /* Dark hex surfaces remapped to light cards — keep text readable */
 html:not(.dark) [class*="#0f1623"] .text-white,

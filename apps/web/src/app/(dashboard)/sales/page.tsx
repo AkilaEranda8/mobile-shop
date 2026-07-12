@@ -291,7 +291,7 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
               <p className="text-sm font-semibold">
                 Sell Details ( Invoice No : <span className="font-mono">{safeText(sale.invoiceNumber)}</span> )
               </p>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-gray-500 dark:text-slate-500">
                 {safeText(sale.customerName || 'Walk-in Customer')}
               </p>
             </div>
@@ -672,7 +672,7 @@ export default function SalesPage() {
     {
       accessorKey: 'createdAt',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
-      cell: ({ row }) => <span className="text-xs text-slate-300 whitespace-nowrap">{formatDate(row.original.createdAt)}</span>,
+      cell: ({ row }) => <span className="text-xs text-gray-700 dark:text-slate-300 whitespace-nowrap">{formatDate(row.original.createdAt)}</span>,
     },
     {
       accessorKey: 'customerName',
@@ -752,8 +752,8 @@ export default function SalesPage() {
               <Icon size={15} className={`text-${color}-400`} />
             </div>
             <div>
-              <p className="text-lg font-bold text-white">{value}</p>
-              <p className="text-[11px] text-slate-500">{label}</p>
+              <p className="text-lg font-bold text-gray-900 dark:text-white">{value}</p>
+              <p className="text-[11px] text-gray-500 dark:text-slate-500">{label}</p>
             </div>
           </button>
         ))}

@@ -343,8 +343,8 @@ export default function SettingsPage() {
             <div className="card p-6 space-y-5">
               <div className="flex items-center justify-between border-b border-white/5 pb-3">
                 <div>
-                  <h2 className="text-base font-semibold text-white">Shop Information</h2>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Account &amp; branch profile — receipt header uses Invoice Customize</p>
+                  <h2 className="text-base font-semibold text-gray-900 dark:text-white">Shop Information</h2>
+                  <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-0.5">Account &amp; branch profile — receipt header uses Invoice Customize</p>
                 </div>
                 <button onClick={saveShop} disabled={shopSaving} className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
                   {shopSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}Save
@@ -352,45 +352,45 @@ export default function SettingsPage() {
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1.5">Shop / Business Name</label>
+                  <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Shop / Business Name</label>
                   <input className="input-field" value={shopForm.name} onChange={e => setShopForm(p => ({ ...p, name: e.target.value }))} />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1.5">Phone</label>
+                  <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Phone</label>
                   <input className="input-field" placeholder="+94 77 123 4567" value={shopForm.phone} onChange={e => setShopForm(p => ({ ...p, phone: e.target.value }))} />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="block text-xs text-slate-400 mb-1.5">Address</label>
+                  <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Address</label>
                   <input className="input-field" placeholder="123 Main St, Colombo" value={shopForm.address} onChange={e => setShopForm(p => ({ ...p, address: e.target.value }))} />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1.5">City</label>
+                  <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">City</label>
                   <input className="input-field" placeholder="Colombo" value={shopForm.city} onChange={e => setShopForm(p => ({ ...p, city: e.target.value }))} />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1.5">Owner Name</label>
+                  <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Owner Name</label>
                   <input className="input-field" value={shopForm.ownerName} onChange={e => setShopForm(p => ({ ...p, ownerName: e.target.value }))} />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="block text-xs text-slate-400 mb-1.5">Owner Email</label>
+                  <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Owner Email</label>
                   <input type="email" className="input-field" value={shopForm.ownerEmail} onChange={e => setShopForm(p => ({ ...p, ownerEmail: e.target.value }))} />
                 </div>
               </div>
               {(featurePrices.POS != null || featurePrices.SERVICES != null) && (
                 <div className="pt-4 border-t border-white/5 space-y-2">
-                  <h3 className="text-sm font-semibold text-white">Plan Add-ons</h3>
-                  <p className="text-xs text-slate-500">Monthly prices set by platform admin for your shop.</p>
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Plan Add-ons</h3>
+                  <p className="text-xs text-gray-500 dark:text-slate-500">Monthly prices set by platform admin for your shop.</p>
                   <div className="grid sm:grid-cols-2 gap-2">
                     {featurePrices.POS != null && hasFeature('POS') && (
                       <div className="rounded-xl p-3 border border-violet-500/20 bg-violet-500/5">
                         <p className="text-xs font-medium text-violet-300">POS Terminal</p>
-                        <p className="text-sm font-bold text-white mt-0.5">Rs.{featurePrices.POS.toLocaleString('en-LK')}/mo</p>
+                        <p className="text-sm font-bold text-gray-900 dark:text-white mt-0.5">Rs.{featurePrices.POS.toLocaleString('en-LK')}/mo</p>
                       </div>
                     )}
                     {featurePrices.SERVICES != null && hasFeature('SERVICES') && (
                       <div className="rounded-xl p-3 border border-cyan-500/20 bg-cyan-500/5">
                         <p className="text-xs font-medium text-cyan-300">Services Module</p>
-                        <p className="text-sm font-bold text-white mt-0.5">Rs.{featurePrices.SERVICES.toLocaleString('en-LK')}/mo</p>
+                        <p className="text-sm font-bold text-gray-900 dark:text-white mt-0.5">Rs.{featurePrices.SERVICES.toLocaleString('en-LK')}/mo</p>
                       </div>
                     )}
                   </div>
@@ -398,12 +398,12 @@ export default function SettingsPage() {
               )}
               {canManageFeatures && (
                 <div className="pt-4 border-t border-white/5 space-y-3">
-                  <h3 className="text-sm font-semibold text-white">Shop Features</h3>
-                  <p className="text-xs text-slate-500">Enable optional modules for your shop. Admin can also control these from the platform panel.</p>
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Shop Features</h3>
+                  <p className="text-xs text-gray-500 dark:text-slate-500">Enable optional modules for your shop. Admin can also control these from the platform panel.</p>
                   <div className="flex items-center justify-between rounded-xl p-4 border border-white/10 bg-white/[0.02]">
                     <div>
                       <p className="text-sm font-medium text-white">Daily Reload (POS)</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">Sell Dialog/Mobitel/Airtel/Hutch reloads from POS</p>
+                      <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-0.5">Sell Dialog/Mobitel/Airtel/Hutch reloads from POS</p>
                     </div>
                     <Switch
                       checked={hasFeature('DAILY_RELOAD')}
@@ -424,15 +424,15 @@ export default function SettingsPage() {
                   {hasFeature('DAILY_RELOAD') && (
                     <div className="rounded-xl p-4 border border-teal-500/20 bg-teal-500/5 space-y-4">
                       <div>
-                        <p className="text-sm font-semibold text-white">Reload Commission Rates</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">Reload Commission Rates</p>
+                        <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-0.5">
                           Mobile reload commission % per network provider.
                         </p>
                       </div>
                       <div className="grid sm:grid-cols-2 gap-3">
                         {RELOAD_PROVIDER_IDS.map(id => (
                           <label key={id} className="block">
-                            <span className="text-xs font-medium text-slate-400">{id}</span>
+                            <span className="text-xs font-medium text-gray-600 dark:text-slate-400">{id}</span>
                             <div className="mt-1 flex items-center gap-2">
                               <input
                                 type="number"
@@ -446,13 +446,13 @@ export default function SettingsPage() {
                                 disabled={!canManageFeatures}
                                 className="flex-1 h-9 px-3 rounded-lg text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-teal-500/50"
                               />
-                              <span className="text-xs text-slate-500">%</span>
+                              <span className="text-xs text-gray-500 dark:text-slate-500">%</span>
                             </div>
                           </label>
                         ))}
                       </div>
                       <label className="block">
-                        <span className="text-xs font-medium text-slate-400">Default Reload (Excel imports / unknown provider)</span>
+                        <span className="text-xs font-medium text-gray-600 dark:text-slate-400">Default Reload (Excel imports / unknown provider)</span>
                         <div className="mt-1 flex items-center gap-2 max-w-xs">
                           <input
                             type="number"
@@ -466,20 +466,20 @@ export default function SettingsPage() {
                             disabled={!canManageFeatures}
                             className="flex-1 h-9 px-3 rounded-lg text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-teal-500/50"
                           />
-                          <span className="text-xs text-slate-500">%</span>
+                          <span className="text-xs text-gray-500 dark:text-slate-500">%</span>
                         </div>
                       </label>
 
                       <div className="border-t border-white/10 pt-4">
-                        <p className="text-sm font-semibold text-white">Recharge Card Commission Rates</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">Recharge Card Commission Rates</p>
+                        <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-0.5">
                           Recharge card commission % per network provider (used when POS type is Recharge Card).
                         </p>
                       </div>
                       <div className="grid sm:grid-cols-2 gap-3">
                         {RELOAD_PROVIDER_IDS.map(id => (
                           <label key={`rc-${id}`} className="block">
-                            <span className="text-xs font-medium text-slate-400">{id}</span>
+                            <span className="text-xs font-medium text-gray-600 dark:text-slate-400">{id}</span>
                             <div className="mt-1 flex items-center gap-2">
                               <input
                                 type="number"
@@ -493,13 +493,13 @@ export default function SettingsPage() {
                                 disabled={!canManageFeatures}
                                 className="flex-1 h-9 px-3 rounded-lg text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-violet-500/50"
                               />
-                              <span className="text-xs text-slate-500">%</span>
+                              <span className="text-xs text-gray-500 dark:text-slate-500">%</span>
                             </div>
                           </label>
                         ))}
                       </div>
                       <label className="block">
-                        <span className="text-xs font-medium text-slate-400">Default Recharge Card</span>
+                        <span className="text-xs font-medium text-gray-600 dark:text-slate-400">Default Recharge Card</span>
                         <div className="mt-1 flex items-center gap-2 max-w-xs">
                           <input
                             type="number"
@@ -513,7 +513,7 @@ export default function SettingsPage() {
                             disabled={!canManageFeatures}
                             className="flex-1 h-9 px-3 rounded-lg text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-violet-500/50"
                           />
-                          <span className="text-xs text-slate-500">%</span>
+                          <span className="text-xs text-gray-500 dark:text-slate-500">%</span>
                         </div>
                       </label>
                       {canManageFeatures && (
@@ -531,7 +531,7 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between rounded-xl p-4 border border-white/10 bg-white/[0.02]">
                     <div>
                       <p className="text-sm font-medium text-white">Daily Closing</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">End-of-day summary, cash reconciliation & day lock</p>
+                      <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-0.5">End-of-day summary, cash reconciliation & day lock</p>
                     </div>
                     <Switch
                       checked={hasFeature('DAILY_CLOSING')}
@@ -552,7 +552,7 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between rounded-xl p-4 border border-white/10 bg-white/[0.02]">
                     <div>
                       <p className="text-sm font-medium text-white">Profit Allocation</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">Daily profit allocation & fund management</p>
+                      <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-0.5">Daily profit allocation & fund management</p>
                     </div>
                     <Switch
                       checked={hasFeature('PROFIT_ALLOCATION')}
@@ -573,7 +573,7 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between rounded-xl p-4 border border-white/10 bg-white/[0.02]">
                     <div>
                       <p className="text-sm font-medium text-white">Accounting (GL)</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">Double-entry ledger, chart of accounts & GL-based financial reports</p>
+                      <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-0.5">Double-entry ledger, chart of accounts & GL-based financial reports</p>
                     </div>
                     <Switch
                       checked={hasFeature('ACCOUNTING')}
@@ -594,7 +594,7 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between rounded-xl p-4 border border-white/10 bg-white/[0.02]">
                     <div>
                       <p className="text-sm font-medium text-white">Customer Credit</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">Partial payments, outstanding balance & pay later</p>
+                      <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-0.5">Partial payments, outstanding balance & pay later</p>
                     </div>
                     <Switch
                       checked={hasFeature('CUSTOMER_CREDIT')}
@@ -617,7 +617,7 @@ export default function SettingsPage() {
               )}
               {tenant && (
                 <div className="pt-3 border-t border-white/5">
-                  <p className="text-xs text-slate-500 mb-2">Read-only information</p>
+                  <p className="text-xs text-gray-500 dark:text-slate-500 mb-2">Read-only information</p>
                   <div className="grid sm:grid-cols-3 gap-3">
                     {[
                       { label: 'Tenant ID',  value: tenant.id?.slice(0, 12) + '…' },
@@ -629,7 +629,7 @@ export default function SettingsPage() {
                     ].map(({ label, value }) => (
                       <div key={label} className="bg-white/3 rounded-xl p-3 border border-white/5">
                         <p className="text-[10px] text-slate-600 uppercase tracking-wide">{label}</p>
-                        <p className="text-xs text-slate-300 font-medium mt-0.5 truncate">{value}</p>
+                        <p className="text-xs text-gray-700 dark:text-slate-300 font-medium mt-0.5 truncate">{value}</p>
                       </div>
                     ))}
                   </div>
@@ -646,8 +646,8 @@ export default function SettingsPage() {
             <div className="space-y-5">
               <div className="card p-5 flex items-center justify-between">
                 <div>
-                  <h2 className="text-base font-semibold text-white flex items-center gap-2"><FileText size={15} className="text-violet-400" /> Invoice Customize</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Company details, thermal layout, and live receipt preview</p>
+                  <h2 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2"><FileText size={15} className="text-violet-400" /> Invoice Customize</h2>
+                  <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">Company details, thermal layout, and live receipt preview</p>
                 </div>
                 <button onClick={saveInvoice} disabled={invoiceSaving || invoiceLoading} className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
                   {invoiceSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Save All
@@ -677,7 +677,7 @@ export default function SettingsPage() {
               <div className="card p-5 space-y-4">
                 <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Company Info</p>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-2">Company Logo</label>
+                  <label className="block text-xs text-gray-600 dark:text-slate-400 mb-2">Company Logo</label>
                   <div className="flex items-center gap-4">
                     <div className="w-20 h-20 rounded-xl border-2 border-dashed border-white/10 flex items-center justify-center bg-white/3 overflow-hidden flex-shrink-0">
                       {invoiceForm.logo
@@ -685,7 +685,7 @@ export default function SettingsPage() {
                         : <ImageIcon size={22} className="text-slate-600" />}
                     </div>
                     <div className="space-y-2">
-                      <label className={`cursor-pointer flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg border border-white/10 text-slate-300 hover:bg-white/5 transition-colors ${logoUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                      <label className={`cursor-pointer flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg border border-white/10 text-gray-700 dark:text-slate-300 hover:bg-white/5 transition-colors ${logoUploading ? 'opacity-50 pointer-events-none' : ''}`}>
                         {logoUploading ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
                         {logoUploading ? 'Uploading…' : 'Upload Logo'}
                         <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={logoUploading} />
@@ -710,14 +710,14 @@ export default function SettingsPage() {
                     { k: 'website',  label: 'Website', ph: 'www.example.com' },
                   ] as { k: keyof InvoiceSettings; label: string; ph: string }[]).map(({ k, label, ph }) => (
                     <div key={k}>
-                      <label className="block text-xs text-slate-400 mb-1.5">{label}</label>
+                      <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">{label}</label>
                       <input className="input-field" placeholder={ph}
                         value={invoiceForm[k] as string}
                         onChange={e => setInv({ [k]: e.target.value })} />
                     </div>
                   ))}
                   <div className="sm:col-span-2">
-                    <label className="block text-xs text-slate-400 mb-1.5">Address</label>
+                    <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Address</label>
                     <textarea rows={2} className="input-field resize-none" placeholder="123 Main St, Colombo, Sri Lanka"
                       value={invoiceForm.address} onChange={e => setInv({ address: e.target.value })} />
                   </div>
@@ -735,7 +735,7 @@ export default function SettingsPage() {
                     { k: 'swiftCode', label: 'Swift / Branch Code', ph: 'BCEYLKLX' },
                   ] as { k: keyof InvoiceSettings; label: string; ph: string }[]).map(({ k, label, ph }) => (
                     <div key={k}>
-                      <label className="block text-xs text-slate-400 mb-1.5">{label}</label>
+                      <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">{label}</label>
                       <input className="input-field" placeholder={ph}
                         value={invoiceForm[k] as string}
                         onChange={e => setInv({ [k]: e.target.value })} />
@@ -743,7 +743,7 @@ export default function SettingsPage() {
                   ))}
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1.5">Extended Bank / Payment Info</label>
+                  <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Extended Bank / Payment Info</label>
                   <textarea rows={4} className="input-field resize-none text-xs" placeholder="Add multiple bank accounts, branch names, and payment remarks (shown on Payment Receipt template)."
                     value={invoiceForm.bankDetails} onChange={e => setInv({ bankDetails: e.target.value })} />
                 </div>
@@ -754,19 +754,19 @@ export default function SettingsPage() {
                 <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Invoice Options</p>
                 <div className="grid sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-xs text-slate-400 mb-1.5">Currency</label>
+                    <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Currency</label>
                     <select className="input-field" value={invoiceForm.currency} onChange={e => setInv({ currency: e.target.value })}>
                       {['LKR','USD','EUR','GBP','INR','AUD','CAD','SGD'].map(c => <option key={c}>{c}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs text-slate-400 mb-1.5">Tax Rate (%)</label>
+                    <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Tax Rate (%)</label>
                     <input type="number" min={0} max={100} className="input-field" placeholder="0"
                       value={invoiceForm.taxRate}
                       onChange={e => setInv({ taxRate: parseFloat(e.target.value) || 0 })} />
                   </div>
                   <div>
-                    <label className="block text-xs text-slate-400 mb-1.5">Default Discount (%)</label>
+                    <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Default Discount (%)</label>
                     <input type="number" min={0} max={100} className="input-field" placeholder="0"
                       value={invoiceForm.discountRate}
                       onChange={e => setInv({ discountRate: parseFloat(e.target.value) || 0 })} />
@@ -779,7 +779,7 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Terms &amp; Conditions</p>
-                    <p className="text-[11px] text-slate-500 mt-1">Printed on stock form invoices below warranty terms.</p>
+                    <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-1">Printed on stock form invoices below warranty terms.</p>
                   </div>
                   <button onClick={addTerm} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-violet-500/30 text-violet-400 hover:bg-violet-500/10 transition-colors">
                     <Plus size={11} /> Add Line
@@ -808,7 +808,7 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Warranty &amp; Service Terms</p>
-                    <p className="text-[11px] text-slate-500 mt-1">Shown on POS stock form bills (e.g. phone warranty, software coverage).</p>
+                    <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-1">Shown on POS stock form bills (e.g. phone warranty, software coverage).</p>
                   </div>
                   <button onClick={addWarrantyTerm} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-violet-500/30 text-violet-400 hover:bg-violet-500/10 transition-colors">
                     <Plus size={11} /> Add Line
@@ -837,19 +837,19 @@ export default function SettingsPage() {
                 <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Signatory</p>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs text-slate-400 mb-1.5">Signatory Name</label>
+                    <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Signatory Name</label>
                     <input className="input-field" placeholder="e.g. Akila Eranda"
                       value={invoiceForm.signatoryName}
                       onChange={e => setInv({ signatoryName: e.target.value })} />
                   </div>
                   <div>
-                    <label className="block text-xs text-slate-400 mb-1.5">Title / Designation</label>
+                    <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Title / Designation</label>
                     <input className="input-field" placeholder="e.g. Authorized Signatory"
                       value={invoiceForm.signatoryTitle}
                       onChange={e => setInv({ signatoryTitle: e.target.value })} />
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="block text-xs text-slate-400 mb-1.5">Footer Note</label>
+                    <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Footer Note</label>
                     <input className="input-field" placeholder="e.g. Thank you for your business!"
                       value={invoiceForm.footerNote}
                       onChange={e => setInv({ footerNote: e.target.value })} />
@@ -874,7 +874,7 @@ export default function SettingsPage() {
           {activeTab === 'profile' && (
             <div className="card p-6 space-y-5">
               <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                <h2 className="text-base font-semibold text-white">Profile</h2>
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">Profile</h2>
                 <button onClick={saveProfile} disabled={profileSaving} className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
                   {profileSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}Save
                 </button>
@@ -884,8 +884,8 @@ export default function SettingsPage() {
                   {profile.name?.charAt(0)?.toUpperCase() || '?'}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-white">{profile.name}</p>
-                  <p className="text-xs text-slate-400">{profile.email}</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{profile.name}</p>
+                  <p className="text-xs text-gray-600 dark:text-slate-400">{profile.email}</p>
                   <span className={`text-[10px] px-2 py-0.5 rounded-full border mt-1 inline-block ${roleColors[currentUser?.role ?? ''] ?? 'bg-slate-500/10 border-slate-500/20 text-slate-400'}`}>
                     {currentUser?.role}
                   </span>
@@ -893,11 +893,11 @@ export default function SettingsPage() {
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1.5">Full Name</label>
+                  <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Full Name</label>
                   <input className="input-field" value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1.5">Email</label>
+                  <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Email</label>
                   <input type="email" className="input-field" value={profile.email} onChange={e => setProfile(p => ({ ...p, email: e.target.value }))} />
                 </div>
               </div>
@@ -908,7 +908,7 @@ export default function SettingsPage() {
           {activeTab === 'notifications' && (
             <div className="card p-6 space-y-4">
               <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                <h2 className="text-base font-semibold text-white">Notification Preferences</h2>
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">Notification Preferences</h2>
                 <button onClick={saveNotif} className="btn-primary text-sm flex items-center gap-2">
                   <Save size={13} />Save
                 </button>
@@ -923,8 +923,8 @@ export default function SettingsPage() {
               ].map(item => (
                 <div key={item.key} className="flex items-center justify-between py-3 border-b border-white/3 last:border-0">
                   <div>
-                    <p className="text-sm text-slate-200">{item.label}</p>
-                    <p className="text-xs text-slate-500">{item.desc}</p>
+                    <p className="text-sm text-gray-800 dark:text-slate-200">{item.label}</p>
+                    <p className="text-xs text-gray-500 dark:text-slate-500">{item.desc}</p>
                   </div>
                   <Switch checked={notif[item.key] ?? false} onChange={v => setNotif(p => ({ ...p, [item.key]: v }))} />
                 </div>
@@ -935,7 +935,7 @@ export default function SettingsPage() {
           {/* ── SECURITY ── */}
           {activeTab === 'security' && (
             <div className="card p-6 space-y-6">
-              <h2 className="text-base font-semibold text-white border-b border-white/5 pb-3">Security Settings</h2>
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white border-b border-white/5 pb-3">Security Settings</h2>
               <form onSubmit={changePassword} className="space-y-4 max-w-sm">
                 {[
                   { key: 'current', label: 'Current Password',     ph: 'Enter current password'  },
@@ -943,14 +943,14 @@ export default function SettingsPage() {
                   { key: 'confirm', label: 'Confirm New Password',  ph: 'Repeat new password'     },
                 ].map(({ key, label, ph }) => (
                   <div key={key}>
-                    <label className="block text-xs text-slate-400 mb-1.5">{label}</label>
+                    <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">{label}</label>
                     <div className="relative">
                       <input type={showPw ? 'text' : 'password'} required placeholder={ph}
                         className="input-field pr-9"
                         value={(pwForm as any)[key]}
                         onChange={e => setPwForm(p => ({ ...p, [key]: e.target.value }))} />
                       <button type="button" onClick={() => setShowPw(v => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white">
                         {showPw ? <EyeOff size={13} /> : <Eye size={13} />}
                       </button>
                     </div>
@@ -961,8 +961,8 @@ export default function SettingsPage() {
                 </button>
               </form>
               <div className="pt-4 border-t border-white/5 max-w-sm">
-                <h3 className="text-sm font-semibold text-slate-200 mb-1">Logged-in Account</h3>
-                <p className="text-xs text-slate-500">{currentUser?.email}</p>
+                <h3 className="text-sm font-semibold text-gray-800 dark:text-slate-200 mb-1">Logged-in Account</h3>
+                <p className="text-xs text-gray-500 dark:text-slate-500">{currentUser?.email}</p>
                 <p className="text-xs text-slate-600 mt-0.5">Role: {currentUser?.role}</p>
               </div>
             </div>
@@ -972,14 +972,14 @@ export default function SettingsPage() {
           {activeTab === 'appearance' && (
             <div className="card p-6 space-y-6">
               <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                <h2 className="text-base font-semibold text-white">Appearance</h2>
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">Appearance</h2>
                 <button onClick={saveAppearance} className="btn-primary text-sm flex items-center gap-2">
                   <Save size={13} />Save
                 </button>
               </div>
               <div className="space-y-5">
                 <div>
-                  <label className="block text-xs text-slate-400 mb-3">Accent Color</label>
+                  <label className="block text-xs text-gray-600 dark:text-slate-400 mb-3">Accent Color</label>
                   <div className="flex gap-3 flex-wrap">
                     {[
                       { key: 'violet', color: 'bg-violet-500',  label: 'Violet'  },
@@ -1004,8 +1004,8 @@ export default function SettingsPage() {
                 ].map(({ key, label, desc }) => (
                   <div key={key} className="flex items-center justify-between py-3 border-b border-white/5 last:border-0">
                     <div>
-                      <p className="text-sm text-slate-200">{label}</p>
-                      <p className="text-xs text-slate-500">{desc}</p>
+                      <p className="text-sm text-gray-800 dark:text-slate-200">{label}</p>
+                      <p className="text-xs text-gray-500 dark:text-slate-500">{desc}</p>
                     </div>
                     <Switch checked={appearance[key] ?? false} onChange={v => setAppearance(p => ({ ...p, [key]: v }))} />
                   </div>
@@ -1018,7 +1018,7 @@ export default function SettingsPage() {
           {activeTab === 'billing' && (
             <div className="space-y-5">
               <div className="card p-5">
-                <h2 className="text-base font-semibold text-white border-b border-white/5 pb-3 mb-4">Billing &amp; Subscription</h2>
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white border-b border-white/5 pb-3 mb-4">Billing &amp; Subscription</h2>
 
                 {!tenant ? (
                   <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-violet-400" /></div>
@@ -1037,10 +1037,10 @@ export default function SettingsPage() {
                             {tenant.status}
                           </span>
                           {tenant.trialEndsAt && (
-                            <p className="text-xs text-slate-500">Trial ends {new Date(tenant.trialEndsAt).toLocaleDateString()}</p>
+                            <p className="text-xs text-gray-500 dark:text-slate-500">Trial ends {new Date(tenant.trialEndsAt).toLocaleDateString()}</p>
                           )}
                           {tenant.subscriptionEndsAt && (
-                            <p className="text-xs text-slate-500">Renews {new Date(tenant.subscriptionEndsAt).toLocaleDateString()}</p>
+                            <p className="text-xs text-gray-500 dark:text-slate-500">Renews {new Date(tenant.subscriptionEndsAt).toLocaleDateString()}</p>
                           )}
                         </div>
                       </div>
@@ -1056,7 +1056,7 @@ export default function SettingsPage() {
                       ].map(({ label, value }) => (
                         <div key={label} className="bg-white/3 rounded-xl p-3 border border-white/5">
                           <p className="text-[10px] text-slate-600 uppercase tracking-wide">{label}</p>
-                          <p className="text-sm font-semibold text-white mt-0.5">{String(value)}</p>
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white mt-0.5">{String(value)}</p>
                         </div>
                       ))}
                     </div>
@@ -1131,7 +1131,7 @@ export default function SettingsPage() {
                         <div>
                           <p className="text-xs font-bold uppercase tracking-widest" style={{ color: plan.color }}>{plan.label}</p>
                           <p className="text-2xl font-black text-white mt-1">{plan.price}</p>
-                          <p className="text-[11px] text-slate-500">{plan.period}</p>
+                          <p className="text-[11px] text-gray-500 dark:text-slate-500">{plan.period}</p>
                         </div>
                         <ul className="space-y-1.5 flex-1">
                           {(plan.features as string[]).map(f => (
@@ -1204,7 +1204,7 @@ export default function SettingsPage() {
           {activeTab === 'team' && (
             <div className="card p-6 space-y-5">
               <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                <h2 className="text-base font-semibold text-white">Team Members</h2>
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">Team Members</h2>
                 <button onClick={() => setShowAddUser(v => !v)}
                   className="btn-primary text-sm flex items-center gap-2">
                   {showAddUser ? <X size={13} /> : <Plus size={13} />}{showAddUser ? 'Cancel' : 'Add User'}
@@ -1214,7 +1214,7 @@ export default function SettingsPage() {
               {/* Add user form */}
               {showAddUser && (
                 <form onSubmit={addUser} className="p-4 bg-white/3 rounded-xl border border-white/5 space-y-3">
-                  <p className="text-xs font-semibold text-slate-300">New Team Member</p>
+                  <p className="text-xs font-semibold text-gray-700 dark:text-slate-300">New Team Member</p>
                   <div className="grid sm:grid-cols-2 gap-3">
                     {[
                       { k: 'name',     label: 'Full Name *', type: 'text',     req: true  },
@@ -1254,12 +1254,12 @@ export default function SettingsPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-slate-200 truncate">{u.name}</p>
+                          <p className="text-sm font-semibold text-gray-800 dark:text-slate-200 truncate">{u.name}</p>
                           {u.id === currentUser?.id && (
                             <span className="text-[9px] bg-violet-500/20 text-violet-400 px-1.5 py-0.5 rounded-full border border-violet-500/30">You</span>
                           )}
                         </div>
-                        <p className="text-xs text-slate-500 truncate">{u.email}</p>
+                        <p className="text-xs text-gray-500 dark:text-slate-500 truncate">{u.email}</p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <span className={`text-[10px] px-2 py-0.5 rounded-full border ${roleColors[u.role] ?? 'bg-slate-500/10 border-slate-500/20 text-slate-400'}`}>
@@ -1384,7 +1384,7 @@ function DevicesTab() {
         </div>
         {/* Brand list */}
         <div className="space-y-1 max-h-72 overflow-y-auto pr-1">
-          {brands.length === 0 && <p className="text-xs text-slate-500 text-center py-6">No brands yet</p>}
+          {brands.length === 0 && <p className="text-xs text-gray-500 dark:text-slate-500 text-center py-6">No brands yet</p>}
           {brands.map(b => (
             <button key={b.id} onClick={() => setSelected(b)}
               className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all group ${
@@ -1420,7 +1420,7 @@ function DevicesTab() {
         {!selectedBrand ? (
           <div className="flex flex-col items-center justify-center py-10 gap-2">
             <Smartphone size={32} className="text-slate-700" />
-            <p className="text-xs text-slate-500">Select a brand to manage its models</p>
+            <p className="text-xs text-gray-500 dark:text-slate-500">Select a brand to manage its models</p>
           </div>
         ) : (
           <>
@@ -1440,7 +1440,7 @@ function DevicesTab() {
             </div>
             {/* Model list */}
             <div className="space-y-1 max-h-72 overflow-y-auto pr-1">
-              {selectedBrand.models?.length === 0 && <p className="text-xs text-slate-500 text-center py-6">No models yet</p>}
+              {selectedBrand.models?.length === 0 && <p className="text-xs text-gray-500 dark:text-slate-500 text-center py-6">No models yet</p>}
               {selectedBrand.models?.map((m: any) => (
                 <div key={m.id} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-white/5 hover:bg-white/3 transition-colors">
                   <div className="w-2 h-2 rounded-full bg-violet-500/60 shrink-0" />

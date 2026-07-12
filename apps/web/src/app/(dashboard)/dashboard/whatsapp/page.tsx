@@ -152,7 +152,7 @@ export default function WhatsAppPage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {initialLoad ? (
-            <span className="flex items-center gap-1.5 text-xs text-slate-500">
+            <span className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-slate-500">
               <Loader2 size={12} className="animate-spin" /> Checking status…
             </span>
           ) : (
@@ -165,7 +165,7 @@ export default function WhatsAppPage() {
             </span>
           )}
           {shopName && (
-            <span className="text-xs px-2 py-1 rounded-lg border text-slate-300 bg-white/5 border-white/10 font-medium flex items-center gap-1">
+            <span className="text-xs px-2 py-1 rounded-lg border text-gray-700 dark:text-slate-300 bg-white/5 border-white/10 font-medium flex items-center gap-1">
               <Store size={10} /> {shopName}
             </span>
           )}
@@ -195,7 +195,7 @@ export default function WhatsAppPage() {
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${
               activeTab === key
                 ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/20'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
+                : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/5'
             }`}>
             <Icon size={14} /> {label}
           </button>

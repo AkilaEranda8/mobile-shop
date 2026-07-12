@@ -218,14 +218,14 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <p className="text-base font-bold text-white">{customer.name}</p>
+                        <p className="text-base font-bold text-gray-900 dark:text-white">{customer.name}</p>
                         {customer.loyaltyPoints > 500 && (
                           <span className="flex items-center gap-1 text-[10px] text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 px-1.5 py-0.5 rounded-full">
                             <Star size={8} className="fill-yellow-400" />VIP
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-500 mt-0.5">Customer since {formatDate(customer.createdAt)}</p>
+                      <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">Customer since {formatDate(customer.createdAt)}</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -324,10 +324,10 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                         </div>
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-xs text-slate-400">{entry.items?.length ?? 0} item{(entry.items?.length ?? 0) !== 1 ? 's' : ''}</p>
+                            <p className="text-xs text-gray-600 dark:text-slate-400">{entry.items?.length ?? 0} item{(entry.items?.length ?? 0) !== 1 ? 's' : ''}</p>
                             <p className="text-[10px] text-slate-600 flex items-center gap-1 mt-0.5"><Calendar size={9} />{formatDate(entry.createdAt)}</p>
                           </div>
-                          <p className="text-sm font-bold text-white">{formatCurrency(entry.total)}</p>
+                          <p className="text-sm font-bold text-gray-900 dark:text-white">{formatCurrency(entry.total)}</p>
                         </div>
                         {entry.items?.length > 0 && (
                           <div className="mt-2 pt-2 space-y-0.5" style={{ borderTop: '1px solid var(--border-subtle)' }}>
@@ -353,12 +353,12 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                             {entry.status?.replace(/_/g, ' ')}
                           </span>
                         </div>
-                        <p className="text-sm font-semibold text-slate-200">{entry.deviceBrand} {entry.deviceModel}</p>
+                        <p className="text-sm font-semibold text-gray-800 dark:text-slate-200">{entry.deviceBrand} {entry.deviceModel}</p>
                         {entry.imei && <p className="text-[10px] font-mono text-slate-500">IMEI: {entry.imei}</p>}
                         {entry.issue && <p className="text-[10px] text-slate-500 mt-0.5 truncate">Issue: {entry.issue}</p>}
                         <div className="flex items-center justify-between mt-1.5">
                           <p className="text-[10px] text-slate-600 flex items-center gap-1"><Calendar size={9} />{formatDate(entry.createdAt)}</p>
-                          {entry.totalCost > 0 && <p className="text-xs font-bold text-white">{formatCurrency(entry.totalCost)}</p>}
+                          {entry.totalCost > 0 && <p className="text-xs font-bold text-gray-900 dark:text-white">{formatCurrency(entry.totalCost)}</p>}
                         </div>
                       </div>
                     )
@@ -552,7 +552,7 @@ export default function CustomersPage() {
           <div>
             <button
               type="button"
-              className="text-sm font-bold text-slate-200 hover:text-violet-400 text-left transition-colors"
+              className="text-sm font-bold text-gray-800 dark:text-slate-200 hover:text-violet-600 dark:hover:text-violet-400 text-left transition-colors"
               onClick={() => openDetail(row.original.id)}
             >
               {row.original.name}
@@ -571,15 +571,15 @@ export default function CustomersPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Contact" />,
       cell: ({ row }) => (
         <div className="flex flex-col gap-0.5">
-          <span className="flex items-center gap-1 text-xs font-medium text-slate-400"><Phone size={10} />{row.original.phone}</span>
-          {row.original.email && <span className="flex items-center gap-1 text-xs text-slate-500"><Mail size={10} />{row.original.email}</span>}
+          <span className="flex items-center gap-1 text-xs font-medium text-gray-600 dark:text-slate-400"><Phone size={10} />{row.original.phone}</span>
+          {row.original.email && <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-slate-500"><Mail size={10} />{row.original.email}</span>}
         </div>
       ),
     },
     {
       accessorKey: 'city',
       header: ({ column }) => <DataTableColumnHeader column={column} title="City" />,
-      cell: ({ row }) => <span className="flex items-center gap-1 text-xs font-medium text-slate-400"><MapPin size={10} />{row.original.city || '—'}</span>,
+      cell: ({ row }) => <span className="flex items-center gap-1 text-xs font-medium text-gray-600 dark:text-slate-400"><MapPin size={10} />{row.original.city || '—'}</span>,
     },
     {
       accessorKey: 'totalPurchases',
@@ -603,7 +603,7 @@ export default function CustomersPage() {
     {
       accessorKey: 'createdAt',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Joined" />,
-      cell: ({ row }) => <span className="text-xs font-medium text-slate-500">{formatDate(row.original.createdAt)}</span>,
+      cell: ({ row }) => <span className="text-xs font-medium text-gray-500 dark:text-slate-500">{formatDate(row.original.createdAt)}</span>,
     },
     {
       id: 'actions',
@@ -707,8 +707,8 @@ export default function CustomersPage() {
               <Icon size={15} className={`text-${color}-400`} />
             </div>
             <div>
-              <p className="text-lg font-bold text-white">{value}</p>
-              <p className="text-[11px] text-slate-500">{label}</p>
+              <p className="text-lg font-bold text-gray-900 dark:text-white">{value}</p>
+              <p className="text-[11px] text-gray-500 dark:text-slate-500">{label}</p>
             </div>
           </div>
         ))}

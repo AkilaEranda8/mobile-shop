@@ -149,10 +149,10 @@ function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
       <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between p-5 border-b border-white/5 flex-shrink-0">
           <div>
-            <h3 className="text-base font-semibold text-white">Import Products (CSV)</h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">Same fields as Create Product — brand &amp; category auto-created if missing</p>
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white">Import Products (CSV)</h3>
+            <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-0.5">Same fields as Create Product — brand &amp; category auto-created if missing</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/5"><X size={16} /></button>
         </div>
         <div className="p-5 space-y-4 overflow-y-auto flex-1">
           <div className="flex items-start justify-between gap-3 p-3 rounded-xl bg-violet-500/5 border border-violet-500/15">
@@ -218,7 +218,7 @@ function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
                   </thead>
                   <tbody>
                     {rows.slice(0, 8).map((r, i) => (
-                      <tr key={i} className="border-b border-white/5 last:border-0 text-slate-300">
+                      <tr key={i} className="border-b border-white/5 last:border-0 text-gray-700 dark:text-slate-300">
                         <td className="px-3 py-1.5 max-w-[140px] truncate">{r.name || '—'}</td>
                         <td className="px-3 py-1.5 text-slate-500">{r.sku || '—'}</td>
                         <td className="px-3 py-1.5">{r.brandName || 'General'}</td>
@@ -240,7 +240,7 @@ function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
               <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
                 <div className="h-full bg-violet-500 rounded-full transition-all" style={{ width: `${(progress.done / progress.total) * 100}%` }} />
               </div>
-              <p className="text-xs text-slate-400 text-center">{progress.done} / {progress.total} processed</p>
+              <p className="text-xs text-gray-600 dark:text-slate-400 text-center">{progress.done} / {progress.total} processed</p>
             </div>
           )}
 
@@ -249,7 +249,7 @@ function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
           )}
           {done && importErrors.length > 0 && (
             <div className="space-y-2">
-              <p className="text-xs text-slate-400">{successCount} imported · {importErrors.length} failed</p>
+              <p className="text-xs text-gray-600 dark:text-slate-400">{successCount} imported · {importErrors.length} failed</p>
               <div className="space-y-1 max-h-28 overflow-y-auto">
                 {importErrors.map((e, i) => <p key={i} className="text-xs text-red-400 flex items-start gap-1.5"><AlertCircle size={11} className="mt-0.5 flex-shrink-0" />{e}</p>)}
               </div>
@@ -470,7 +470,7 @@ function ProductImagePicker({ imageUrl, onUploaded }: { imageUrl: string; onUplo
 
   return (
     <div className="col-span-2">
-      <label className="block text-xs text-slate-400 mb-1.5">Product Image</label>
+      <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Product Image</label>
       <input ref={imgRef} type="file" accept="image/png,image/jpeg,image/jpg,image/webp" className="hidden" onChange={handleChange} />
       <button type="button" onClick={() => imgRef.current?.click()} disabled={uploading}
         className="w-full h-28 rounded-xl border-2 border-dashed flex items-center justify-center gap-3 transition-colors hover:border-violet-500/40 hover:bg-violet-500/5 disabled:opacity-50 overflow-hidden"
@@ -651,27 +651,27 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
-          <h3 className="text-base font-semibold text-white">Edit Product</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors"><X size={16} /></button>
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white">Edit Product</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/5 transition-colors"><X size={16} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-5">
           {/* Basic Fields */}
           <div className="grid grid-cols-2 gap-4">
             <ProductImagePicker imageUrl={form.imageUrl} onUploaded={url => setForm(p => ({ ...p, imageUrl: url }))} />
             <div className="col-span-2">
-              <label className="block text-xs text-slate-400 mb-1.5">Product Name *</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Product Name *</label>
               <input required className="input-field" value={form.name} onChange={f('name')} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">SKU *</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">SKU *</label>
               <input required className="input-field" value={form.sku} onChange={f('sku')} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Brand</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Brand</label>
               <input className="input-field" value={form.brandName} onChange={f('brandName')} />
             </div>
             <div className="col-span-2">
-              <label className="block text-xs text-slate-400 mb-1.5">Category</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Category</label>
               <div className="flex gap-2">
                 <select className="input-field flex-1" value={form.categoryName} onChange={f('categoryName')}>
                   {form.categoryName && !categories.some(c => c.name === form.categoryName) && (
@@ -706,7 +706,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
                 {catalogBranchOptions.length > 0 && (
                   <>
                     <div className="flex items-center justify-between gap-2">
-                      <label className="block text-xs text-slate-400">
+                      <label className="block text-xs text-gray-600 dark:text-slate-400">
                         {hasInventory ? 'Assign catalog to branches (optional)' : 'Move or assign to branches'}
                       </label>
                       <div className="flex gap-2">
@@ -719,7 +719,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
                         </button>
                         <button
                           type="button"
-                          className="text-[10px] font-semibold text-slate-500 hover:text-slate-300"
+                          className="text-[10px] font-semibold text-gray-500 dark:text-slate-500 hover:text-gray-700 dark:hover:text-slate-300"
                           onClick={() => setCatalogBranchIds([])}
                           disabled={catalogBranchIds.length === 0}
                         >
@@ -769,23 +769,23 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
               </div>
             )}
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Buying Price (LKR)</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Buying Price (LKR)</label>
               <input type="number" min="0" className="input-field" value={form.buyingPrice} onChange={f('buyingPrice')} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Selling Price (LKR)</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Selling Price (LKR)</label>
               <input type="number" min="0" className="input-field" value={form.sellingPrice} onChange={f('sellingPrice')} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Stock Qty</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Stock Qty</label>
               <input type="number" min="0" className="input-field" value={form.stock} onChange={f('stock')} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Min Stock Alert</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Min Stock Alert</label>
               <input type="number" min="0" className="input-field" value={form.minStock} onChange={f('minStock')} />
             </div>
             <div className="col-span-2">
-              <label className="block text-xs text-slate-400 mb-1.5">Condition *</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Condition *</label>
               <select className="input-field" value={form.condition} onChange={f('condition')}>
                 {PRODUCT_CONDITION_OPTS.map(o => (
                   <option key={o.value} value={o.value}>{o.label}</option>
@@ -803,7 +803,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
           />
 
           <div>
-            <label className="block text-xs text-slate-400 mb-1.5">Warranty Period</label>
+            <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Warranty Period</label>
             <select className="input-field" value={warrantyMonths}
               onChange={e => setWarrantyMonths(Number(e.target.value))}>
               <option value={0}>None</option>
@@ -816,7 +816,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
           </div>
 
           <div>
-            <label className="block text-xs text-slate-400 mb-1.5">Warranty note</label>
+            <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Warranty note</label>
             <textarea
               className="input-field min-h-[72px] py-2 resize-y"
               placeholder="Optional text printed on the bill under warranty"
@@ -859,7 +859,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
                 {variants.length === 0 ? (
                   <div className="text-center py-6">
                     <Layers size={18} className="text-slate-600 mx-auto mb-2" />
-                    <p className="text-xs text-slate-500">No variants yet — click "Add" to create Storage × Color combinations</p>
+                    <p className="text-xs text-gray-500 dark:text-slate-500">No variants yet — click "Add" to create Storage × Color combinations</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -976,7 +976,7 @@ function DetailRow({ label, value, valueClass }: { label: string; value: React.R
   return (
     <div className="flex items-start justify-between gap-4 px-4 py-2.5 text-sm border-b last:border-b-0" style={{ borderColor: 'var(--border-subtle)' }}>
       <span className="text-slate-500 text-xs flex-shrink-0 pt-0.5">{label}</span>
-      <span className={`font-medium text-xs text-right ${valueClass ?? 'text-slate-200'} max-w-[72%] break-words`}>
+      <span className={`font-medium text-xs text-right ${valueClass ?? 'text-gray-800 dark:text-slate-200'} max-w-[72%] break-words`}>
         {value ?? '—'}
       </span>
     </div>
@@ -1013,7 +1013,7 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
         <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623] z-10">
           <div className="flex items-center gap-2">
             <Package size={15} className="text-violet-400" />
-            <h3 className="text-sm font-semibold text-white">Product Details</h3>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Product Details</h3>
             {loadingDetail && <Loader2 size={13} className="animate-spin text-slate-500" />}
           </div>
           <div className="flex items-center gap-2">
@@ -1041,7 +1041,7 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
                 <Printer size={11} /> Print {detail.stock > 0 ? `${detail.stock} Label${detail.stock !== 1 ? 's' : ''}` : 'Label'}
               </button>
             )}
-            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
+            <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/5"><X size={16} /></button>
           </div>
         </div>
 
@@ -1064,7 +1064,7 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
 
           {/* Name + badges */}
           <div>
-            <h2 className="text-lg font-bold text-white leading-tight">{detail.name}</h2>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white leading-tight">{detail.name}</h2>
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
               {p.brandName && <span className="text-[11px] px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300">{p.brandName}</span>}
               {p.categoryName && <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-500/10 border border-slate-500/20 text-slate-400">{p.categoryName}</span>}
@@ -1088,7 +1088,7 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="rounded-xl p-3 text-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
               <div className="flex items-center justify-center gap-1 mb-1"><ArrowDownRight size={11} className="text-slate-500" /><span className="text-[10px] text-slate-500 uppercase tracking-wide">Buying</span></div>
-              <p className="text-sm font-bold text-white">{formatCurrency(detail.buyingPrice)}</p>
+              <p className="text-sm font-bold text-gray-900 dark:text-white">{formatCurrency(detail.buyingPrice)}</p>
             </div>
             <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)' }}>
               <div className="flex items-center justify-center gap-1 mb-1"><ShoppingCart size={11} className="text-violet-400" /><span className="text-[10px] text-violet-400 uppercase tracking-wide">Selling</span></div>
@@ -1096,7 +1096,7 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
             </div>
             <div className="rounded-xl p-3 text-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
               <div className="flex items-center justify-center gap-1 mb-1"><Tag size={11} className="text-slate-500" /><span className="text-[10px] text-slate-500 uppercase tracking-wide">MRP</span></div>
-              <p className="text-sm font-bold text-white">{formatCurrency(mrp)}</p>
+              <p className="text-sm font-bold text-gray-900 dark:text-white">{formatCurrency(mrp)}</p>
             </div>
             <div className="rounded-xl p-3 text-center" style={{ background: margin >= 0 ? 'rgba(21,128,61,0.08)' : 'rgba(185,28,28,0.08)', border: margin >= 0 ? '1px solid rgba(21,128,61,0.2)' : '1px solid rgba(185,28,28,0.2)' }}>
               <div className="flex items-center justify-center gap-1 mb-1"><ArrowUpRight size={11} className={margin >= 0 ? 'text-green-400' : 'text-red-400'} /><span className={`text-[10px] uppercase tracking-wide ${margin >= 0 ? 'text-green-400' : 'text-red-400'}`}>Margin</span></div>
@@ -1111,7 +1111,7 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
                 <Layers size={14} className="text-violet-400" />
               </div>
               <div>
-                <p className="text-xs text-slate-500">Stock Qty</p>
+                <p className="text-xs text-gray-500 dark:text-slate-500">Stock Qty</p>
                 <p className={`text-base font-bold ${isOut ? 'text-red-400' : isLow ? 'text-yellow-400' : 'text-white'}`}>{detail.stock}</p>
               </div>
             </div>
@@ -1120,8 +1120,8 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
                 <BarChart2 size={14} className="text-green-400" />
               </div>
               <div>
-                <p className="text-xs text-slate-500">Stock Value</p>
-                <p className="text-sm font-bold text-white">{formatCurrency(stockValue)}</p>
+                <p className="text-xs text-gray-500 dark:text-slate-500">Stock Value</p>
+                <p className="text-sm font-bold text-gray-900 dark:text-white">{formatCurrency(stockValue)}</p>
               </div>
             </div>
           </div>
@@ -1176,7 +1176,7 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
           {(detail.description?.trim()) && (
             <DetailSection title="Description" icon={<FileText size={12} className="text-violet-400" />}>
               <div className="px-4 py-3">
-                <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">{detail.description}</p>
+                <p className="text-xs text-gray-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{detail.description}</p>
               </div>
             </DetailSection>
           )}
@@ -1597,7 +1597,7 @@ export default function InventoryPage() {
                   </div>
                 </div>
               ) : (
-                <p className="text-xs text-slate-500 flex items-center gap-1.5 flex-wrap">
+                <p className="text-xs text-gray-500 dark:text-slate-500 flex items-center gap-1.5 flex-wrap">
                   <span>{(product as any).brandName}</span>
                   {product.trackImei ? (
                     <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400 font-semibold">
@@ -1623,7 +1623,7 @@ export default function InventoryPage() {
       id: 'categoryName',
       accessorFn: (row) => (row.product as any).categoryName ?? '',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Category" />,
-      cell: ({ row }) => <span className="text-xs text-slate-400">{(row.original.product as any).categoryName}</span>,
+      cell: ({ row }) => <span className="text-xs text-gray-600 dark:text-slate-400">{(row.original.product as any).categoryName}</span>,
     },
     {
       id: 'sellingPrice',
@@ -1873,8 +1873,8 @@ export default function InventoryPage() {
               <Icon size={15} className={`text-${color}-400`} />
             </div>
             <div>
-              <p className="text-lg font-bold text-white">{value}</p>
-              <p className="text-[11px] text-slate-500">{label}</p>
+              <p className="text-lg font-bold text-gray-900 dark:text-white">{value}</p>
+              <p className="text-[11px] text-gray-500 dark:text-slate-500">{label}</p>
             </div>
           </div>
         ))}

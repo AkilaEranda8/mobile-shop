@@ -40,14 +40,14 @@ export default function TrackingPoolModal({ couriers, onClose, onRefresh }: Prop
         <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
           <div className="flex items-center gap-2">
             <Hash size={16} className="text-violet-400" />
-            <h3 className="text-base font-semibold text-white">Tracking Number Pool</h3>
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white">Tracking Number Pool</h3>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors"><X size={16} /></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/5 transition-colors"><X size={16} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
-            <label className="block text-xs text-slate-400 mb-1">Courier *</label>
+            <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1">Courier *</label>
             <select className="input-field text-sm w-full" value={courierId} onChange={e => setCourierId(e.target.value)}>
               <option value="">Select courier...</option>
               {couriers.filter(c => c.isActive).map(c => (
@@ -57,14 +57,14 @@ export default function TrackingPoolModal({ couriers, onClose, onRefresh }: Prop
           </div>
 
           <div>
-            <label className="block text-xs text-slate-400 mb-1">
+            <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1">
               Tracking Numbers <span className="text-slate-500">(one per line, or comma/space separated)</span>
             </label>
             <textarea rows={8} className="input-field text-sm w-full font-mono resize-none"
               value={bulkText}
               onChange={e => setBulkText(e.target.value)}
               placeholder={`KOOMB0012345\nKOOMB0012346\nKOOMB0012347\n...`} />
-            <p className="text-xs text-slate-500 mt-1">{parseNumbers(bulkText).length} numbers detected (max 500)</p>
+            <p className="text-xs text-gray-500 dark:text-slate-500 mt-1">{parseNumbers(bulkText).length} numbers detected (max 500)</p>
           </div>
 
           {result && (

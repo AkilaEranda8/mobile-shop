@@ -125,9 +125,9 @@ export default function CreateOrderModal({ couriers, onClose, onCreated }: Props
         <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
           <div className="flex items-center gap-2">
             <Package size={16} className="text-violet-400" />
-            <h3 className="text-base font-semibold text-white">New Delivery Order</h3>
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white">New Delivery Order</h3>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors"><X size={16} /></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/5 transition-colors"><X size={16} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-5">
@@ -162,17 +162,17 @@ export default function CreateOrderModal({ couriers, onClose, onCreated }: Props
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Name *</label>
+                <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1">Name *</label>
                 <input className="input-field text-sm w-full" value={form.customerName}
                   onChange={e => { set('customerName', e.target.value); setCustomerSearch(e.target.value) }} placeholder="Customer name" />
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Phone *</label>
+                <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1">Phone *</label>
                 <input className="input-field text-sm w-full" value={form.customerPhone}
                   onChange={e => set('customerPhone', e.target.value)} placeholder="077 xxx xxxx" />
               </div>
               <div className="col-span-2">
-                <label className="block text-xs text-slate-400 mb-1">Email</label>
+                <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1">Email</label>
                 <input className="input-field text-sm w-full" value={form.customerEmail}
                   onChange={e => set('customerEmail', e.target.value)} placeholder="optional" />
               </div>
@@ -184,27 +184,27 @@ export default function CreateOrderModal({ couriers, onClose, onCreated }: Props
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-3">Delivery Address</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
-                <label className="block text-xs text-slate-400 mb-1">Address Line 1 *</label>
+                <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1">Address Line 1 *</label>
                 <input className="input-field text-sm w-full" value={form.addressLine1}
                   onChange={e => set('addressLine1', e.target.value)} placeholder="Street, No." />
               </div>
               <div className="col-span-2">
-                <label className="block text-xs text-slate-400 mb-1">Address Line 2</label>
+                <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1">Address Line 2</label>
                 <input className="input-field text-sm w-full" value={form.addressLine2}
                   onChange={e => set('addressLine2', e.target.value)} placeholder="Area, landmark" />
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1">City *</label>
+                <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1">City *</label>
                 <input className="input-field text-sm w-full" value={form.city}
                   onChange={e => set('city', e.target.value)} placeholder="Colombo" />
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1">District</label>
+                <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1">District</label>
                 <input className="input-field text-sm w-full" value={form.district}
                   onChange={e => set('district', e.target.value)} placeholder="Western" />
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Postal Code</label>
+                <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1">Postal Code</label>
                 <input className="input-field text-sm w-full" value={form.postalCode}
                   onChange={e => set('postalCode', e.target.value)} placeholder="10350" />
               </div>
@@ -307,7 +307,7 @@ export default function CreateOrderModal({ couriers, onClose, onCreated }: Props
           {/* Charges */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Delivery Charge (LKR)</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1">Delivery Charge (LKR)</label>
               <input type="number" min={0} className="input-field text-sm w-full" value={form.deliveryCharge}
                 onChange={e => set('deliveryCharge', +e.target.value)} />
             </div>
@@ -325,7 +325,7 @@ export default function CreateOrderModal({ couriers, onClose, onCreated }: Props
           </div>
 
           <div>
-            <label className="block text-xs text-slate-400 mb-1">Notes</label>
+            <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1">Notes</label>
             <textarea rows={2} className="input-field text-sm w-full resize-none" value={form.notes}
               onChange={e => set('notes', e.target.value)} placeholder="Any special instructions..." />
           </div>

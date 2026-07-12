@@ -77,10 +77,10 @@ export default function SuppliersPage() {
             {row.original.name.charAt(0)}
           </div>
           <div>
-            <button type="button" className="font-semibold text-slate-100 text-sm hover:text-violet-400 text-left transition-colors" onClick={() => openSupplier(row.original)}>
+            <button type="button" className="font-semibold text-gray-900 dark:text-slate-100 text-sm hover:text-violet-400 text-left transition-colors" onClick={() => openSupplier(row.original)}>
               {row.original.name}
             </button>
-            {row.original.contactName && <p className="text-xs text-slate-500">{row.original.contactName}</p>}
+            {row.original.contactName && <p className="text-xs text-gray-500 dark:text-slate-500">{row.original.contactName}</p>}
           </div>
         </div>
       ),
@@ -89,7 +89,7 @@ export default function SuppliersPage() {
       accessorKey: 'phone',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Phone" />,
       cell: ({ row }) => (
-        <a href={`tel:${row.original.phone}`} className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-violet-300">
+        <a href={`tel:${row.original.phone}`} className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-600 dark:text-slate-400 hover:text-violet-600 dark:hover:text-violet-300">
           <Phone size={11} />{row.original.phone}
         </a>
       ),
@@ -97,7 +97,7 @@ export default function SuppliersPage() {
     {
       accessorKey: 'city',
       header: ({ column }) => <DataTableColumnHeader column={column} title="City" />,
-      cell: ({ row }) => <span className="text-xs text-slate-400">{row.original.city || '—'}</span>,
+      cell: ({ row }) => <span className="text-xs text-gray-600 dark:text-slate-400">{row.original.city || '—'}</span>,
     },
     {
       accessorKey: 'totalOrders',

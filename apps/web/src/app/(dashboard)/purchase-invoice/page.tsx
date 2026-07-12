@@ -306,7 +306,7 @@ function InvoiceContent() {
               <div>
                 <h1 className="text-xl font-black text-gray-900 tracking-wide">{COMPANY.name}</h1>
                 <p className="text-xs text-orange-400 font-medium mt-0.5">{COMPANY.tagline}</p>
-                {COMPANY.vat && <p className="text-[11px] text-slate-500 mt-0.5">VAT: {COMPANY.vat}</p>}
+                {COMPANY.vat && <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-0.5">VAT: {COMPANY.vat}</p>}
               </div>
             </div>
 
@@ -316,7 +316,7 @@ function InvoiceContent() {
                 <h2 className="text-2xl font-black text-gray-900 uppercase tracking-widest">Purchase Invoice</h2>
               </div>
               <p className="text-sm text-orange-400 font-mono font-semibold">{INVOICE.number}</p>
-              <div className="flex items-center gap-4 justify-end text-xs text-slate-400 mt-2">
+              <div className="flex items-center gap-4 justify-end text-xs text-gray-600 dark:text-slate-400 mt-2">
                 <span>Issued: <span className="text-gray-700">{INVOICE.date}</span></span>
                 <span>Due: <span className="text-gray-700">{INVOICE.dueDate}</span></span>
               </div>

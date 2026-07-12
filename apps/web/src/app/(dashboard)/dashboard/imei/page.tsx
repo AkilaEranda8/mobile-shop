@@ -96,7 +96,7 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
               <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{imei}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/5 text-slate-500 hover:text-white"><X size={16} /></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/5 text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white"><X size={16} /></button>
         </div>
 
         {loading ? (
@@ -374,14 +374,14 @@ function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
       <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
         <div className="flex items-center justify-between p-5 border-b border-white/5">
           <div>
-            <h3 className="text-base font-semibold text-white">Register Device IMEI</h3>
-            <p className="text-xs text-slate-500 mt-0.5">Link IMEI to an existing product</p>
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white">Register Device IMEI</h3>
+            <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">Link IMEI to an existing product</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/5"><X size={16} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
-            <label className="block text-xs text-slate-400 mb-1.5">IMEI Number * <span className="text-slate-600">(15 digits)</span></label>
+            <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">IMEI Number * <span className="text-slate-600">(15 digits)</span></label>
             <input
               required maxLength={15}
               className={`input-field font-mono tracking-widest ${imeiError ? 'border-red-500/50' : ''}`}
@@ -394,7 +394,7 @@ function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
             )}
           </div>
           <div>
-            <label className="block text-xs text-slate-400 mb-1.5">Product *</label>
+            <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Product *</label>
             <select required className="input-field" value={form.productId} onChange={f('productId')}>
               <option value="">Select product...</option>
               {products.map((p: any) => (
@@ -521,7 +521,7 @@ export default function IMEIPage() {
     {
       accessorKey: 'createdAt',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Registered" />,
-      cell: ({ row }) => <span className="text-xs text-slate-500">{formatDate(row.original.createdAt)}</span>,
+      cell: ({ row }) => <span className="text-xs text-gray-500 dark:text-slate-500">{formatDate(row.original.createdAt)}</span>,
     },
     {
       id: 'action',
@@ -604,7 +604,7 @@ export default function IMEIPage() {
           </div>
           <div className="flex-1">
             <p className="text-sm font-medium text-violet-300">IMEI Scanner Active</p>
-            <p className="text-xs text-slate-500">Scan barcode or type IMEI then press Enter</p>
+            <p className="text-xs text-gray-500 dark:text-slate-500">Scan barcode or type IMEI then press Enter</p>
           </div>
           <input
             autoFocus className="input-field max-w-xs font-mono"
@@ -633,7 +633,7 @@ export default function IMEIPage() {
             </div>
             <div>
               <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
-              <p className="text-[11px] text-slate-500">{label}</p>
+              <p className="text-[11px] text-gray-500 dark:text-slate-500">{label}</p>
             </div>
           </button>
         ))}

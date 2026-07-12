@@ -37,9 +37,9 @@ export default function AssignTrackingModal({ order, couriers, onClose, onAssign
         <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
           <div className="flex items-center gap-2">
             <Hash size={16} className="text-violet-400" />
-            <h3 className="text-base font-semibold text-white">Assign Tracking</h3>
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white">Assign Tracking</h3>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors"><X size={16} /></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/5 transition-colors"><X size={16} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
@@ -49,7 +49,7 @@ export default function AssignTrackingModal({ order, couriers, onClose, onAssign
           </div>
 
           <div>
-            <label className="block text-xs text-slate-400 mb-1">Courier Company *</label>
+            <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1">Courier Company *</label>
             <select className="input-field text-sm w-full" value={courierId} onChange={e => setCourierId(e.target.value)}>
               <option value="">Select courier...</option>
               {couriers.filter(c => c.isActive).map(c => (
@@ -59,7 +59,7 @@ export default function AssignTrackingModal({ order, couriers, onClose, onAssign
           </div>
 
           <div>
-            <label className="block text-xs text-slate-400 mb-1">Tracking Number *</label>
+            <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1">Tracking Number *</label>
             <input className="input-field text-sm w-full font-mono" value={trackingNumber}
               onChange={e => setTracking(e.target.value.trim())}
               placeholder="e.g. KOOMB0012345" />

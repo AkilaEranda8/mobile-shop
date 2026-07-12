@@ -267,11 +267,11 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
                 </span>
               )}
             </div>
-            {status?.phoneNumber && <p className="text-xs text-slate-500 mt-0.5">{status.displayName} · {status.phoneNumber}</p>}
+            {status?.phoneNumber && <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">{status.displayName} · {status.phoneNumber}</p>}
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-500 hidden sm:block">
+          <span className="text-xs text-gray-500 dark:text-slate-500 hidden sm:block">
             {status?.lastChecked ? `Checked ${new Date(status.lastChecked).toLocaleTimeString()}` : 'Not checked'}
           </span>
           <Switch checked={enabled} onChange={handleToggle} variant="green" />
@@ -300,7 +300,7 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
             className="lg:col-span-3 card p-6 space-y-5">
             <div className="border-b border-white/5 pb-3">
               <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>QR Code Connect</h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">
                 {shopName ? `${shopName} — ` : ''}Scan with your shop phone to connect
               </p>
             </div>
@@ -312,7 +312,7 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
                     <CheckCircle2 size={32} className="text-green-400" />
                   </div>
                   <p className="text-sm font-semibold text-green-400">WhatsApp Connected</p>
-                  <p className="text-xs text-slate-500">{status?.phoneNumber}</p>
+                  <p className="text-xs text-gray-500 dark:text-slate-500">{status?.phoneNumber}</p>
                 </div>
               ) : qrImage ? (
                 <div className="p-4 rounded-2xl bg-white">
@@ -413,7 +413,7 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
                   <span className="w-5 h-5 rounded-full bg-green-500/15 border border-green-500/25 text-green-400 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
                     {i + 1}
                   </span>
-                  <span className="text-xs text-slate-400">{text}</span>
+                  <span className="text-xs text-gray-600 dark:text-slate-400">{text}</span>
                 </div>
               ))}
             </div>
@@ -426,7 +426,7 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
             <div className="flex items-center justify-between border-b border-white/5 pb-3">
               <div>
                 <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Meta Cloud API</h2>
-                <p className="text-xs text-slate-500 mt-0.5">developers.facebook.com credentials</p>
+                <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">developers.facebook.com credentials</p>
               </div>
               <span className="badge-status bg-violet-500/10 border border-violet-500/20 text-violet-400 text-[10px]">
                 <Shield size={9} /> Advanced
@@ -436,7 +436,7 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
             <div className="space-y-4">
               {fields.map(({ key, label, ph, Icon, secret, toggle, show }) => (
                 <div key={key}>
-                  <label className="flex items-center gap-1.5 text-xs text-slate-400 mb-1.5">
+                  <label className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-slate-400 mb-1.5">
                     <Icon size={11} /> {label}
                     {(key === 'accessToken' || key === 'phoneNumberId' || key === 'wabaId') && <span className="text-red-400">*</span>}
                   </label>
@@ -450,13 +450,13 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
                     />
                     {secret && toggle && (
                       <button type="button" onClick={toggle}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-500 hover:text-gray-700 dark:hover:text-slate-300 transition-colors">
                         {show ? <EyeOff size={13} /> : <Eye size={13} />}
                       </button>
                     )}
                     {key === 'verifyToken' && (
                       <button type="button" onClick={copyToken}
-                        className="absolute right-8 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
+                        className="absolute right-8 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-500 hover:text-gray-700 dark:hover:text-slate-300 transition-colors">
                         {copied ? <Check size={13} className="text-green-400" /> : <Copy size={13} />}
                       </button>
                     )}
@@ -523,7 +523,7 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
                 <span className="w-5 h-5 rounded-full bg-violet-500/15 border border-violet-500/25 text-violet-400 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
                   {i + 1}
                 </span>
-                <span className="text-xs text-slate-400">{text}</span>
+                <span className="text-xs text-gray-600 dark:text-slate-400">{text}</span>
               </div>
             ))}
             <a href="https://developers.facebook.com/docs/whatsapp" target="_blank" rel="noopener noreferrer"

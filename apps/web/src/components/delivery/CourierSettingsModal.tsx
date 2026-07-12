@@ -50,13 +50,13 @@ export default function CourierSettingsModal({ couriers, onClose, onRefresh }: P
         <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
           <div className="flex items-center gap-2">
             <Truck size={16} className="text-violet-400" />
-            <h3 className="text-base font-semibold text-white">Courier Settings</h3>
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white">Courier Settings</h3>
           </div>
           <div className="flex gap-2">
             <button onClick={() => setShowForm(p => !p)} className="btn-primary text-sm flex items-center gap-1.5">
               <Plus size={13} /> Add
             </button>
-            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors"><X size={16} /></button>
+            <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/5 transition-colors"><X size={16} /></button>
           </div>
         </div>
 
@@ -66,22 +66,22 @@ export default function CourierSettingsModal({ couriers, onClose, onRefresh }: P
               <p className="text-xs font-semibold text-violet-400 uppercase tracking-wider">New Courier</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Name *</label>
+                  <label className="text-xs text-gray-600 dark:text-slate-400 block mb-1">Name *</label>
                   <input className="input-field text-sm w-full" value={form.name}
                     onChange={e => set('name', e.target.value)} placeholder="Koombiyo" />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Code *</label>
+                  <label className="text-xs text-gray-600 dark:text-slate-400 block mb-1">Code *</label>
                   <input className="input-field text-sm w-full uppercase" value={form.code}
                     onChange={e => set('code', e.target.value.toUpperCase())} placeholder="KOOMB" />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Phone</label>
+                  <label className="text-xs text-gray-600 dark:text-slate-400 block mb-1">Phone</label>
                   <input className="input-field text-sm w-full" value={form.phone}
                     onChange={e => set('phone', e.target.value)} placeholder="+94 11 ..." />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Website</label>
+                  <label className="text-xs text-gray-600 dark:text-slate-400 block mb-1">Website</label>
                   <input className="input-field text-sm w-full" value={form.website}
                     onChange={e => set('website', e.target.value)} placeholder="https://..." />
                 </div>
@@ -111,7 +111,7 @@ export default function CourierSettingsModal({ couriers, onClose, onRefresh }: P
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>{c.name}</p>
-                  <p className="text-xs text-slate-400 font-mono">{c.code}</p>
+                  <p className="text-xs text-gray-600 dark:text-slate-400 font-mono">{c.code}</p>
                 </div>
                 {c.isDefault && (
                   <span className="text-xs bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">Default</span>

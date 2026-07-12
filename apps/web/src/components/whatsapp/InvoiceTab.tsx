@@ -137,7 +137,7 @@ export default function InvoiceTab({ config, onConfigChange }: Props) {
         <div className="flex items-center justify-between border-b border-white/5 pb-3 mb-4">
           <div>
             <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Invoice on WhatsApp</h2>
-            <p className="text-xs text-slate-500 mt-0.5">POS sends only when you tap Send WhatsApp Invoice — not after checkout</p>
+            <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">POS sends only when you tap Send WhatsApp Invoice — not after checkout</p>
           </div>
           {savingToggle && (
             <span className="text-[10px] text-slate-500 flex items-center gap-1">
@@ -157,7 +157,7 @@ export default function InvoiceTab({ config, onConfigChange }: Props) {
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{label}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{desc}</p>
+                    <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">{desc}</p>
                   </div>
                 </div>
                 <Switch
@@ -182,7 +182,7 @@ export default function InvoiceTab({ config, onConfigChange }: Props) {
         <div className="flex items-center justify-between border-b border-white/5 pb-3">
           <div>
             <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Invoice Message Template</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Customize the WhatsApp message sent with each invoice</p>
+            <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">Customize the WhatsApp message sent with each invoice</p>
           </div>
           <button onClick={handleSave} disabled={saving}
             className="btn-primary flex items-center gap-2 text-sm disabled:opacity-60">
@@ -194,7 +194,7 @@ export default function InvoiceTab({ config, onConfigChange }: Props) {
         <div>
           <div className="flex items-center gap-1.5 mb-2">
             <Info size={11} className="text-slate-500" />
-            <span className="text-[11px] text-slate-500">Click a variable to insert at cursor</span>
+            <span className="text-[11px] text-gray-500 dark:text-slate-500">Click a variable to insert at cursor</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {VARIABLES.map(({ key, desc }) => (
@@ -225,7 +225,7 @@ export default function InvoiceTab({ config, onConfigChange }: Props) {
         {/* Preview hint */}
         <div className="flex items-start gap-2 p-3 rounded-xl bg-blue-500/5 border border-blue-500/15">
           <CheckSquare size={13} className="text-blue-400 mt-0.5 flex-shrink-0" />
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-gray-600 dark:text-slate-400">
             Variables like <code className="text-blue-400 font-mono">{'{{customer_name}}'}</code> are replaced automatically when sending. Supports WhatsApp formatting: <code className="text-slate-300 font-mono">*bold*</code>, <code className="text-slate-300 font-mono">_italic_</code>.
           </p>
         </div>

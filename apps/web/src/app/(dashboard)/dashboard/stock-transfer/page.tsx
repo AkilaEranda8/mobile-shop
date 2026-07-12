@@ -264,7 +264,7 @@ function TransferModal({
             <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-violet-500/10 border border-violet-500/25">
               <ArrowLeftRight size={14} className="text-white" />
             </div>
-            <h3 className="text-sm font-bold text-white">New Stock Transfer</h3>
+            <h3 className="text-sm font-bold text-gray-900 dark:text-white">New Stock Transfer</h3>
           </div>
           <button type="button" onClick={onClose}
             className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/5 transition-colors">

@@ -92,7 +92,7 @@ export default function HistoryTab() {
             <FileText size={15} className="text-violet-400" />
             <div>
               <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Invoice Send History</h2>
-              <p className="text-xs text-slate-500 mt-0.5">All WhatsApp invoice messages sent</p>
+              <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">All WhatsApp invoice messages sent</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -196,12 +196,12 @@ export default function HistoryTab() {
       {/* Pagination */}
       {!loading && totalPages > 1 && (
         <div className="flex items-center justify-between px-5 py-3.5 border-t border-white/5">
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-gray-500 dark:text-slate-500">
             {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
           </span>
           <div className="flex items-center gap-1">
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-              className="p-1.5 rounded-lg transition-colors disabled:opacity-30 text-slate-400 hover:text-white hover:bg-white/5">
+              className="p-1.5 rounded-lg transition-colors disabled:opacity-30 text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/5">
               <ChevronLeft size={14} />
             </button>
             {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
@@ -211,7 +211,7 @@ export default function HistoryTab() {
               </button>
             ))}
             <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-              className="p-1.5 rounded-lg transition-colors disabled:opacity-30 text-slate-400 hover:text-white hover:bg-white/5">
+              className="p-1.5 rounded-lg transition-colors disabled:opacity-30 text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/5">
               <ChevronRight size={14} />
             </button>
           </div>
