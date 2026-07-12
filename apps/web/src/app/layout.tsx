@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
+import { AppearanceProvider } from '@/components/appearance-provider'
 import { ServiceWorkerRegister } from '@/components/offline/ServiceWorkerRegister'
+import { APPEARANCE_INIT_SCRIPT } from '@/lib/appearance'
 
 export const metadata: Metadata = {
   title: {
@@ -28,7 +30,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#7c3aed',
+  themeColor: '#2563eb',
   width: 'device-width',
   initialScale: 1,
 }
@@ -40,10 +42,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: APPEARANCE_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-screen antialiased" suppressHydrationWarning>
         <ThemeProvider>
-          <ServiceWorkerRegister />
-          {children}
+          <AppearanceProvider>
+            <ServiceWorkerRegister />
+            {children}
+          </AppearanceProvider>
         </ThemeProvider>
       </body>
     </html>

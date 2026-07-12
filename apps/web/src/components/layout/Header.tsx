@@ -92,7 +92,6 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
             onClick={() => openPos()}
             title="Open POS (F2)"
             className="btn-accent flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90 shadow-sm"
-            style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)' }}
           >
             <ShoppingCart size={14} />
             <span className="hidden sm:inline">POS Terminal</span>
@@ -105,12 +104,12 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
           style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
           <button onClick={() => setTheme('light')}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-200"
-            style={{ background: theme === 'light' ? '#ffffff' : 'transparent', color: theme === 'light' ? '#7c3aed' : 'var(--text-muted)', boxShadow: theme === 'light' ? '0 1px 3px rgba(0,0,0,0.12)' : 'none' }}>
+            style={{ background: theme === 'light' ? '#ffffff' : 'transparent', color: theme === 'light' ? 'var(--brand-primary)' : 'var(--text-muted)', boxShadow: theme === 'light' ? '0 1px 3px rgba(0,0,0,0.12)' : 'none' }}>
             <Sun size={13} /><span className="hidden sm:inline">Light</span>
           </button>
           <button onClick={() => setTheme('dark')}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-200"
-            style={{ background: theme === 'dark' ? '#1e1b4b' : 'transparent', color: theme === 'dark' ? '#a78bfa' : 'var(--text-muted)', boxShadow: theme === 'dark' ? '0 1px 3px rgba(0,0,0,0.3)' : 'none' }}>
+            style={{ background: theme === 'dark' ? 'color-mix(in srgb, var(--brand-primary) 25%, #0f1623)' : 'transparent', color: theme === 'dark' ? 'var(--brand-light)' : 'var(--text-muted)', boxShadow: theme === 'dark' ? '0 1px 3px rgba(0,0,0,0.3)' : 'none' }}>
             <Moon size={13} /><span className="hidden sm:inline">Dark</span>
           </button>
         </div>
@@ -122,7 +121,7 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
             style={{ color: 'var(--text-muted)' }}>
             <Bell size={18} />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-4 h-4 bg-violet-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+              <span className="absolute top-1 right-1 w-4 h-4 accent-dot text-white text-[9px] font-bold rounded-full flex items-center justify-center">
                 {unreadCount}
               </span>
             )}
@@ -133,7 +132,7 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
               style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
               <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
                 <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Notifications</span>
-                {unreadCount > 0 && <span className="text-xs px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400">{unreadCount} new</span>}
+                {unreadCount > 0 && <span className="text-xs px-1.5 py-0.5 rounded-full accent-badge">{unreadCount} new</span>}
               </div>
               <div className="divide-y max-h-72 overflow-y-auto" style={{ borderColor: 'var(--border-subtle)' }}>
                 {notifications.length === 0 && (
@@ -147,7 +146,7 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
                     <div className="flex-1 min-w-0">
                       <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{n.message}</p>
                     </div>
-                    {n.unread && <div className="w-1.5 h-1.5 bg-violet-500 rounded-full flex-shrink-0 mt-1.5" />}
+                    {n.unread && <div className="w-1.5 h-1.5 accent-dot rounded-full flex-shrink-0 mt-1.5" />}
                   </div>
                 ))}
               </div>
@@ -159,7 +158,7 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
         <div className="relative">
           <button onClick={() => { setUserOpen(!userOpen); setNotifOpen(false) }}
             className="flex items-center gap-2 p-1.5 rounded-xl transition-colors hover:bg-white/5">
-            <div className="w-7 h-7 rounded-full bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-700 dark:text-violet-300 font-bold text-xs">
+            <div className="w-7 h-7 rounded-full accent-badge flex items-center justify-center font-bold text-xs">
               {initials}
             </div>
             <span className="hidden md:block text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{user?.name ?? 'User'}</span>
@@ -172,7 +171,7 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
               <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
                 <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{user?.name ?? 'User'}</p>
                 <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{user?.email ?? ''}</p>
-                <span className="inline-block mt-1.5 text-[10px] px-2 py-0.5 rounded-full capitalize bg-violet-600/20 text-violet-700 dark:text-violet-300 border border-violet-500/20">{roleLabel}</span>
+                <span className="inline-block mt-1.5 text-[10px] px-2 py-0.5 rounded-full capitalize accent-badge">{roleLabel}</span>
               </div>
               <div className="p-1">
                 {[
