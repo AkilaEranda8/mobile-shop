@@ -2,7 +2,7 @@
 
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, RotateCcw, ChevronDown, ChevronUp, GripVertical, Smartphone, Shield, Building2, ArrowLeftRight, Copy, Printer } from 'lucide-react'
+import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, RotateCcw, ChevronDown, ChevronUp, GripVertical, Smartphone, Shield, Building2, ArrowLeftRight, Copy } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -33,7 +33,7 @@ import {
   type ProductCsvRow,
 } from '@/lib/productCsvImport'
 import { findProductByCode, normalizeScanCode, productSearchHaystack } from '@/lib/barcode-scan'
-import { printBarcodeLabels, printBarcodeLabelsForProducts, toBarcodeLabelItem, effectiveBarcodeValue } from '@/lib/barcode-print'
+import { effectiveBarcodeValue } from '@/lib/barcode-print'
 import { BarcodeLabelPreview } from '@/components/inventory/BarcodeLabelPreview'
 
 /* ── CSV Export ─────────────────────────────────────────────────────── */
@@ -1028,20 +1028,6 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
                 <Edit size={11} /> Edit
               </button>
             )}
-            {effectiveBarcodeValue(detail) && (
-              <button
-                type="button"
-                onClick={() => {
-                  const qty = Math.max(1, detail.stock ?? 1)
-                  const label = toBarcodeLabelItem(detail, qty)
-                  if (label) printBarcodeLabels([label])
-                  else toast.error('No barcode or SKU to print')
-                }}
-                className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 px-2.5 py-1.5 rounded-lg border border-amber-500/20 hover:bg-amber-500/10 transition-colors"
-              >
-                <Printer size={11} /> Print {detail.stock > 0 ? `${detail.stock} Label${detail.stock !== 1 ? 's' : ''}` : 'Label'}
-              </button>
-            )}
             <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/5"><X size={16} /></button>
           </div>
         </div>
@@ -1392,34 +1378,6 @@ export default function InventoryPage() {
     }
   }
 
-  const handlePrintStockBarcodes = () => {
-    const result = printBarcodeLabelsForProducts(filteredProducts, {
-      qtyFromStock: true,
-      skipTrackImei: true,
-    })
-    if (!result.ok) {
-      toast.error('In-stock products with barcode/SKU නැහැ — stock > 0 products බලන්න')
-      return
-    }
-    const skipNote = result.skipped > 0 ? ` (${result.skipped} skipped)` : ''
-    toast.success(`Printing ${result.totalLabels} label(s) — ${result.productCount} product(s)${skipNote}`)
-  }
-
-  const printRowBarcodeLabels = (row: FlatRow) => {
-    const p = row.product
-    const name = row.variation
-      ? `${p.name} · ${row.variation.storage} / ${row.variation.colorName}`
-      : row.displayName
-    const qty = Math.max(1, row.displayStock)
-    const label = toBarcodeLabelItem({ ...p, name }, qty)
-    if (!label) {
-      toast.error('No barcode or SKU for this product')
-      return
-    }
-    printBarcodeLabels([label])
-    toast.success(`Printing ${qty} label(s) for ${name}`)
-  }
-
   const brands = useMemo(
     () => [...new Set(products.map(p => p.brandName).filter(Boolean))].sort() as string[],
     [products],
@@ -1723,20 +1681,10 @@ export default function InventoryPage() {
           >
             <Copy size={14} />
           </button>
-          {row.original.displayStock > 0 && effectiveBarcodeValue(row.original.product) && !row.original.product.trackImei && (
-            <button
-              type="button"
-              title={`Print ${row.original.displayStock} barcode label(s)`}
-              onClick={() => printRowBarcodeLabels(row.original)}
-              className="p-1.5 rounded-lg transition-colors hover:bg-amber-500/10 text-amber-400"
-            >
-              <Printer size={14} />
-            </button>
-          )}
         </div>
       ),
     },
-  ], [handleDelete, openCopy, setViewProduct, setEditProduct, printRowBarcodeLabels])
+  ], [handleDelete, openCopy, setViewProduct, setEditProduct])
 
 
   if (showAddProduct || copyProduct) {
@@ -1784,14 +1732,6 @@ export default function InventoryPage() {
           </button>
           <button onClick={() => exportProductsCSV(filteredProducts)} disabled={filteredProducts.length === 0} className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40">
             <Download size={14} />Export
-          </button>
-          <button
-            onClick={handlePrintStockBarcodes}
-            disabled={filteredProducts.filter(p => (p.stock ?? 0) > 0 && !p.trackImei).length === 0}
-            className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40"
-            title="Print one barcode label per unit in stock (filtered products)"
-          >
-            <Printer size={14} />Print Stock Barcodes
           </button>
           <button
             onClick={() => {
