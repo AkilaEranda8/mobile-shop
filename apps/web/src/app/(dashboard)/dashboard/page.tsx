@@ -114,22 +114,28 @@ export default function DashboardPage() {
   const transactions  = (txData?.data ?? []) as AppTransaction[]
   const topProducts   = Array.isArray(rawTopProducts) ? rawTopProducts as any[] : []
 
-  /* Aggregates */
-  const totalRevenue = revenueArr.reduce((a, d) => a + (d.totalRevenue ?? d.revenue ?? 0), 0)
-  const totalProfit  = revenueArr.reduce((a, d) => a + (d.profit ?? 0), 0)
-  const totalCost    = totalRevenue - totalProfit
-  const profitMargin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(2) : '0.00'
+  /* Aggregates — same fields as Finance / Daily Closing */
+  const totalRevenue   = revenueArr.reduce((a, d) => a + (d.totalRevenue ?? d.revenue ?? 0), 0)
+  const totalCogs      = revenueArr.reduce((a, d) => a + (d.cogs ?? 0), 0)
+  const totalExpenses  = revenueArr.reduce((a, d) => a + (d.totalExpenses ?? 0), 0)
+  const totalGrossProfit = revenueArr.reduce((a, d) => a + (d.grossProfit ?? 0), 0)
+  const totalNetProfit = revenueArr.reduce((a, d) => a + (d.profit ?? 0), 0)
+  const grossMargin    = totalRevenue > 0 ? ((totalGrossProfit / totalRevenue) * 100).toFixed(2) : '0.00'
+  const netMargin      = totalRevenue > 0 ? ((totalNetProfit / totalRevenue) * 100).toFixed(2) : '0.00'
 
   /* Sparklines */
-  const sparkRev  = revenueArr.slice(-7).map(d => Math.round((d.totalRevenue ?? d.revenue ?? 0) / 1000))
-  const sparkProf = revenueArr.slice(-7).map(d => Math.round((d.profit ?? 0) / 1000))
+  const sparkRev   = revenueArr.slice(-7).map(d => Math.round((d.totalRevenue ?? d.revenue ?? 0) / 1000))
+  const sparkGross = revenueArr.slice(-7).map(d => Math.round((d.grossProfit ?? 0) / 1000))
+  const sparkNet   = revenueArr.slice(-7).map(d => Math.round((d.profit ?? 0) / 1000))
 
   /* Chart */
   const chartData = revenueArr.slice(-7).map((d: any) => ({
-    date:   formatBusinessDateLabel(d.date),
-    sales:  Math.round(d.totalRevenue ?? d.revenue ?? 0),
-    cost:   Math.round((d.totalRevenue ?? d.revenue ?? 0) - (d.profit ?? 0)),
-    profit: Math.round(d.profit  ?? 0),
+    date:        formatBusinessDateLabel(d.date),
+    sales:       Math.round(d.totalRevenue ?? d.revenue ?? 0),
+    cogs:        Math.round(d.cogs ?? 0),
+    grossProfit: Math.round(d.grossProfit ?? 0),
+    expenses:    Math.round(d.totalExpenses ?? 0),
+    netProfit:   Math.round(d.profit ?? 0),
   }))
 
   /* Repairs breakdown */
@@ -157,12 +163,13 @@ export default function DashboardPage() {
   const healthScore = useMemo(() => {
     let sc = 50
     if (totalRevenue > 0)                        sc += 12
-    if (totalProfit > 0)                         sc += 10
+    if (totalGrossProfit > 0)                    sc += 6
+    if (totalNetProfit > 0)                      sc += 4
     if ((s?.activeRepairs  ?? 0) < 10)           sc += 8
     if ((s?.lowStockCount  ?? 0) === 0)          sc += 10
     if ((s?.totalCustomers ?? 0) > 5)            sc += 10
     return Math.min(100, sc)
-  }, [s, totalRevenue, totalProfit])
+  }, [s, totalRevenue, totalGrossProfit, totalNetProfit])
 
   /* Activity */
   const activityFeed = useMemo(() => {
@@ -196,15 +203,16 @@ export default function DashboardPage() {
         <p className="text-sm text-gray-500 mt-0.5">Welcome back! Here&apos;s what&apos;s happening with your business today.</p>
       </div>
 
-      {/* ── KPI Strip (6 cards) ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
+      {/* ── KPI Strip ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
         {[
-          { label: 'Sales (30 Days)',      value: formatCurrency(totalRevenue),            sub: `${profitMargin}% profit margin`,              icon: ShoppingCart, iconBg: '#ede9fe', iconColor: '#7c3aed', spark: sparkRev,  sparkColor: '#7c3aed' },
-          { label: 'Profit (30 Days)',     value: formatCurrency(totalProfit),             sub: `Cost: ${formatCurrency(totalCost)}`,           icon: TrendingUp,   iconBg: '#dcfce7', iconColor: '#16a34a', spark: sparkProf, sparkColor: '#22c55e' },
-          { label: 'Total Orders',        value: String(s?.totalSalesCount ?? s?.todaySalesCount ?? 0), sub: `${s?.todaySalesCount ?? 0} today`,   icon: Receipt,      iconBg: '#dbeafe', iconColor: '#2563eb', spark: [],        sparkColor: '#3b82f6' },
-          { label: 'Active Repairs',      value: String(repairStats.active),               sub: `${repairStats.ready} ready for pickup`,       icon: Wrench,       iconBg: '#ffedd5', iconColor: '#ea580c', spark: [],        sparkColor: '#f97316' },
-          { label: 'Low Stock Items',     value: String(s?.lowStockCount ?? 0),            sub: (s?.lowStockCount ?? 0) === 0 ? 'All stocked ✓' : 'Needs restocking', icon: AlertTriangle,iconBg: '#ffe4e6', iconColor: '#e11d48', spark: [], sparkColor: '#f43f5e' },
-          { label: 'Total Customers',     value: String(s?.totalCustomers ?? 0),           sub: `${s?.expiringWarranties ?? 0} warranties expiring`, icon: Users, iconBg: '#cffafe', iconColor: '#0891b2', spark: [],        sparkColor: '#06b6d4' },
+          { label: 'Sales (30 Days)',        value: formatCurrency(totalRevenue),            sub: `${grossMargin}% gross margin`,                icon: ShoppingCart, iconBg: '#ede9fe', iconColor: '#7c3aed', spark: sparkRev,   sparkColor: '#7c3aed', subPositive: true },
+          { label: 'Gross Profit (30 Days)', value: formatCurrency(totalGrossProfit),      sub: `COGS: ${formatCurrency(totalCogs)}`,            icon: TrendingUp,   iconBg: '#dcfce7', iconColor: '#16a34a', spark: sparkGross, sparkColor: '#22c55e', subPositive: totalGrossProfit >= 0 },
+          { label: 'Net Profit (30 Days)',   value: formatCurrency(totalNetProfit),          sub: `Expenses: ${formatCurrency(totalExpenses)}`,    icon: DollarSign,   iconBg: totalNetProfit >= 0 ? '#dbeafe' : '#ffe4e6', iconColor: totalNetProfit >= 0 ? '#2563eb' : '#e11d48', spark: sparkNet, sparkColor: totalNetProfit >= 0 ? '#3b82f6' : '#f43f5e', subPositive: totalNetProfit >= 0 },
+          { label: 'Total Orders',           value: String(s?.totalSalesCount ?? s?.todaySalesCount ?? 0), sub: `${s?.todaySalesCount ?? 0} today`, icon: Receipt, iconBg: '#dbeafe', iconColor: '#2563eb', spark: [], sparkColor: '#3b82f6', subPositive: true },
+          { label: 'Active Repairs',         value: String(repairStats.active),               sub: `${repairStats.ready} ready for pickup`,       icon: Wrench,       iconBg: '#ffedd5', iconColor: '#ea580c', spark: [], sparkColor: '#f97316', subPositive: true },
+          { label: 'Low Stock Items',        value: String(s?.lowStockCount ?? 0),            sub: (s?.lowStockCount ?? 0) === 0 ? 'All stocked ✓' : 'Needs restocking', icon: AlertTriangle, iconBg: '#ffe4e6', iconColor: '#e11d48', spark: [], sparkColor: '#f43f5e', subPositive: (s?.lowStockCount ?? 0) === 0 },
+          { label: 'Total Customers',        value: String(s?.totalCustomers ?? 0),           sub: `${s?.expiringWarranties ?? 0} warranties expiring`, icon: Users, iconBg: '#cffafe', iconColor: '#0891b2', spark: [], sparkColor: '#06b6d4', subPositive: true },
         ].map(k => (
           <div key={k.label} className={`${CARD} p-4 flex flex-col`}>
             <div className="flex items-start gap-2.5 mb-2">
@@ -214,7 +222,7 @@ export default function DashboardPage() {
               <span className="text-xs font-medium text-gray-500 dark:text-slate-400 leading-tight mt-0.5">{k.label}</span>
             </div>
             <p className="text-[22px] font-black text-gray-900 dark:text-white tabular-nums leading-tight">{k.value}</p>
-            <p className="text-[11px] text-green-600 mt-0.5 flex items-center gap-0.5 font-medium">
+            <p className={`text-[11px] mt-0.5 flex items-center gap-0.5 font-medium ${k.subPositive ? 'text-green-600' : 'text-red-600'}`}>
               <ArrowUpRight size={11}/>{k.sub}
             </p>
             <Sparkline data={k.spark.length > 0 ? k.spark : [2, 5, 3, 7, 4, 8, 6]} color={k.sparkColor}/>
@@ -237,17 +245,19 @@ export default function DashboardPage() {
               <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false}/>
               <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`}/>
               <Tooltip formatter={(v: any) => formatCurrency(v)} contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}/>
-              <Line type="monotone" dataKey="sales"  stroke="#7c3aed" strokeWidth={2.5} dot={{ r: 4, fill: '#7c3aed', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Total Sales"/>
-              <Line type="monotone" dataKey="cost"   stroke="#3b82f6" strokeWidth={2}   dot={{ r: 3, fill: '#3b82f6', strokeWidth: 0 }} activeDot={{ r: 5 }} name="Total Cost"/>
-              <Line type="monotone" dataKey="profit" stroke="#22c55e" strokeWidth={2}   dot={{ r: 3, fill: '#22c55e', strokeWidth: 0 }} activeDot={{ r: 5 }} name="Total Profit"/>
+              <Line type="monotone" dataKey="sales"       stroke="#7c3aed" strokeWidth={2.5} dot={{ r: 4, fill: '#7c3aed', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Sales"/>
+              <Line type="monotone" dataKey="grossProfit" stroke="#22c55e" strokeWidth={2}   dot={{ r: 3, fill: '#22c55e', strokeWidth: 0 }} activeDot={{ r: 5 }} name="Gross Profit"/>
+              <Line type="monotone" dataKey="netProfit"   stroke="#2563eb" strokeWidth={2}   dot={{ r: 3, fill: '#2563eb', strokeWidth: 0 }} activeDot={{ r: 5 }} name="Net Profit"/>
             </LineChart>
           </ResponsiveContainer>
-          <div className="grid grid-cols-4 gap-2 mt-4 pt-4 border-t border-gray-50 dark:border-slate-700">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-4 pt-4 border-t border-gray-50 dark:border-slate-700">
             {[
-              { label: 'Total Sales',   value: formatCurrency(totalRevenue), color: '#7c3aed' },
-              { label: 'Total Cost',    value: formatCurrency(totalCost),    color: '#3b82f6' },
-              { label: 'Total Profit',  value: formatCurrency(totalProfit),  color: '#22c55e' },
-              { label: 'Profit Margin', value: `${profitMargin}%`,           color: '#f59e0b' },
+              { label: 'Sales',         value: formatCurrency(totalRevenue),      color: '#7c3aed' },
+              { label: 'COGS',          value: formatCurrency(totalCogs),         color: '#f59e0b' },
+              { label: 'Gross Profit',  value: formatCurrency(totalGrossProfit),  color: '#22c55e' },
+              { label: 'Expenses',      value: formatCurrency(totalExpenses),     color: '#ef4444' },
+              { label: 'Net Profit',    value: formatCurrency(totalNetProfit),    color: '#2563eb' },
+              { label: 'Gross Margin',  value: `${grossMargin}%`,                 color: '#06b6d4' },
             ].map(l => (
               <div key={l.label} className="text-center">
                 <div className="flex items-center justify-center gap-1 mb-1">
@@ -267,7 +277,8 @@ export default function DashboardPage() {
           <div className="space-y-2.5 mt-5">
             {[
               { label: 'Sales (30d)',         status: totalRevenue > 0 ? 'Active' : 'No Sales',  ok: totalRevenue > 0 },
-              { label: 'Profitability',      status: totalProfit > 0 ? `${profitMargin}%` : 'No Profit', ok: totalProfit > 0 },
+              { label: 'Gross Profit',        status: totalGrossProfit > 0 ? `${grossMargin}%` : 'No Margin', ok: totalGrossProfit > 0 },
+              { label: 'Net Profit',          status: totalNetProfit > 0 ? `${netMargin}%` : 'After Expenses', ok: totalNetProfit > 0 },
               { label: 'Stock Status',       status: (s?.lowStockCount ?? 0) === 0 ? 'All Stocked' : `${s?.lowStockCount} Low`, ok: (s?.lowStockCount ?? 0) === 0 },
               { label: 'Customers',          status: `${s?.totalCustomers ?? 0} registered`, ok: (s?.totalCustomers ?? 0) > 0 },
               { label: 'Active Repairs',     status: repairStats.active > 0 ? `${repairStats.active} open` : 'None', ok: repairStats.active < 10 },
