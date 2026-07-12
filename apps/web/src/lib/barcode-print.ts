@@ -15,11 +15,12 @@ export function renderBarcodeSvg(value: string, opts?: { height?: number; width?
   try {
     JsBarcode(svg, value.trim(), {
       format: 'CODE128',
-      width: opts?.width ?? 1.8,
-      height: opts?.height ?? 44,
+      width: opts?.width ?? 1.35,
+      height: opts?.height ?? 32,
       displayValue: true,
-      fontSize: 11,
-      margin: 6,
+      fontSize: 9,
+      textMargin: 1,
+      margin: 2,
       background: '#ffffff',
       lineColor: '#000000',
     })
@@ -27,20 +28,6 @@ export function renderBarcodeSvg(value: string, opts?: { height?: number; width?
   } catch {
     return ''
   }
-}
-
-function labelHtml(item: BarcodeLabelItem): string {
-  const svg = renderBarcodeSvg(item.barcode)
-  const copies = Math.max(1, Math.min(item.qty ?? 1, 99))
-  const blocks = Array.from({ length: copies }, () => `
-    <div class="label">
-      <p class="name">${escapeHtml(item.name)}</p>
-      ${item.sku ? `<p class="sku">SKU: ${escapeHtml(item.sku)}</p>` : ''}
-      <div class="barcode">${svg}</div>
-      ${item.price != null ? `<p class="price">${escapeHtml(formatCurrency(item.price))}</p>` : ''}
-    </div>
-  `).join('')
-  return blocks
 }
 
 function escapeHtml(s: string): string {
@@ -51,6 +38,28 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;')
 }
 
+function singleLabelHtml(item: BarcodeLabelItem, copyIndex: number, copyTotal: number): string {
+  const svg = renderBarcodeSvg(item.barcode)
+  const seq = copyTotal > 1
+    ? `<span class="seq">${copyIndex}/${copyTotal}</span>`
+    : ''
+
+  return `
+    <div class="label">
+      <div class="barcode">${svg}</div>
+      <p class="name">${escapeHtml(item.name)}</p>
+      ${item.sku ? `<p class="sku">SKU: ${escapeHtml(item.sku)}</p>` : ''}
+      ${item.price != null ? `<p class="price">${escapeHtml(formatCurrency(item.price))}</p>` : ''}
+      ${seq}
+    </div>
+  `
+}
+
+function labelHtml(item: BarcodeLabelItem): string {
+  const copies = Math.max(1, Math.min(item.qty ?? 1, 99))
+  return Array.from({ length: copies }, (_, i) => singleLabelHtml(item, i + 1, copies)).join('')
+}
+
 export function printBarcodeLabels(items: BarcodeLabelItem[]) {
   const valid = items.filter(i => i.barcode?.trim())
   if (!valid.length) return
@@ -58,21 +67,67 @@ export function printBarcodeLabels(items: BarcodeLabelItem[]) {
   const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"/><title>Barcode Labels</title>
 <style>
-  @page { size: 50mm 30mm; margin: 2mm; }
+  @page { size: 50mm 30mm; margin: 1mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: system-ui, sans-serif; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #000; }
   .label {
-    width: 46mm; min-height: 26mm; padding: 2mm;
+    width: 48mm;
+    height: 28mm;
+    padding: 1.2mm 1.8mm 2mm;
     page-break-after: always;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    text-align: center;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    overflow: hidden;
   }
-  .name { font-size: 7pt; font-weight: 700; line-height: 1.2; max-height: 2.4em; overflow: hidden; }
-  .sku { font-size: 6pt; color: #444; margin-top: 1mm; }
-  .barcode { margin: 1mm 0; }
-  .barcode svg { max-width: 100%; height: auto; }
-  .price { font-size: 7pt; font-weight: 600; margin-top: 1mm; }
-  @media print { .label:last-child { page-break-after: auto; } }
+  .barcode {
+    flex-shrink: 0;
+    text-align: center;
+    line-height: 0;
+    margin-bottom: 0.8mm;
+  }
+  .barcode svg {
+    max-width: 100%;
+    height: auto;
+    max-height: 11mm;
+  }
+  .name {
+    font-size: 6.5pt;
+    font-weight: 700;
+    line-height: 1.15;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .sku {
+    font-size: 6pt;
+    font-weight: 600;
+    margin-top: 0.6mm;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .price {
+    font-size: 6pt;
+    font-weight: 600;
+    margin-top: 0.4mm;
+  }
+  .seq {
+    position: absolute;
+    right: 1.8mm;
+    bottom: 1mm;
+    font-size: 5.5pt;
+    font-weight: 600;
+    color: #222;
+  }
+  @media print {
+    .label:last-child { page-break-after: auto; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
 </style></head><body>
 ${valid.map(labelHtml).join('')}
 <script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); };</script>
@@ -160,4 +215,3 @@ export function printBarcodeLabelsForProducts(
   printBarcodeLabels(labels)
   return { ok: true, totalLabels, skipped, productCount: labels.length }
 }
-
