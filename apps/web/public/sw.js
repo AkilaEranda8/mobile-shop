@@ -1,5 +1,5 @@
-/* Hexalyte offline service worker — caches app shell and static assets */
-const VERSION = 'hexalyte-v3'
+/* Hexalyte offline service worker — network-first when online so deploys reach clients */
+const VERSION = 'hexalyte-v4'
 const STATIC_CACHE = `${VERSION}-static`
 const PAGES_CACHE = `${VERSION}-pages`
 const PRECACHE_URLS = ['/offline.html', '/logo.png', '/manifest.webmanifest']
@@ -17,7 +17,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((key) => key.startsWith('hexalyte-') && key !== STATIC_CACHE && key !== PAGES_CACHE)
+          .filter((key) => key.startsWith('hexalyte-'))
           .map((key) => caches.delete(key)),
       ),
     ).then(() => self.clients.claim()),
@@ -27,6 +27,7 @@ self.addEventListener('activate', (event) => {
 function isStaticAsset(pathname) {
   return (
     pathname.startsWith('/_next/static/') ||
+    pathname === '/sw.js' ||
     pathname === '/logo.png' ||
     pathname.endsWith('.ico') ||
     pathname.endsWith('.woff2')
@@ -40,11 +41,10 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url)
   if (url.origin !== self.location.origin) return
 
-  // API calls — handled by app offline queue / error UI
   if (url.pathname.startsWith('/api/')) return
 
   if (isStaticAsset(url.pathname)) {
-    event.respondWith(cacheFirstStatic(request))
+    event.respondWith(networkFirstStatic(request))
     return
   }
 
@@ -53,16 +53,14 @@ self.addEventListener('fetch', (event) => {
   }
 })
 
-async function cacheFirstStatic(request) {
+async function networkFirstStatic(request) {
   const cache = await caches.open(STATIC_CACHE)
-  const cached = await cache.match(request)
-  if (cached) return cached
   try {
     const response = await fetch(request)
     if (response.ok) await cache.put(request, response.clone())
     return response
   } catch {
-    return cached || Response.error()
+    return (await cache.match(request)) || Response.error()
   }
 }
 

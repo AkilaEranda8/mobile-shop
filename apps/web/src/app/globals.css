@@ -335,6 +335,23 @@ html:not(.dark) .text-slate-600 { color: #64748b !important; }
 html:not(.dark) .hover\:text-white:hover { color: var(--text-primary) !important; }
 html:not(.dark) .group:hover .group-hover\:text-slate-300 { color: #334155 !important; }
 
+/* Tables — force readable cell text in light mode */
+html:not(.dark) table td,
+html:not(.dark) table th {
+  color: #1e293b;
+}
+html:not(.dark) table td .text-white,
+html:not(.dark) table td .text-slate-50,
+html:not(.dark) table td .text-slate-100,
+html:not(.dark) table td .text-slate-200,
+html:not(.dark) table td .text-slate-300 {
+  color: #1e293b !important;
+}
+html:not(.dark) table td .text-slate-400,
+html:not(.dark) table td .text-slate-500 {
+  color: #475569 !important;
+}
+
 /* Dark hex surfaces remapped to light cards — keep text readable */
 html:not(.dark) [class*="#0f1623"] .text-white,
 html:not(.dark) [class*="#0a0f1a"] .text-white,
