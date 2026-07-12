@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { productsService } from './products.service'
 import { sendSuccess, sendPaginated } from '../../utils/response'
-import { resolveActiveBranch, getUserBranchIds, assertBranchRecordAccess } from '../../utils/active-branch'
+import { resolveActiveBranch, getUserBranchIds, assertBranchRecordAccess, effectiveBranchId } from '../../utils/active-branch'
 import { AppError } from '../../middleware/error.middleware'
 import { prisma } from '../../config/database'
 import { masterCatalogImportService } from '../master-catalog/master-catalog-import.service'
@@ -77,6 +77,18 @@ export const productsController = {
   },
   async nextCodes(req: Request, res: Response, next: NextFunction) {
     try { sendSuccess(res, await productsService.nextCodes(req.tenantId!)) } catch (e) { next(e) }
+  },
+  async lookupByCode(req: Request, res: Response, next: NextFunction) {
+    try {
+      const code = String(req.query.code ?? '').trim()
+      if (!code) throw new AppError('Barcode or SKU code is required', 400)
+      const branchId = effectiveBranchId(req)
+      const data = await productsService.lookupByCode(req.tenantId!, code, branchId)
+      if (branchId && (data.product as any)?.branchId && (data.product as any).branchId !== branchId) {
+        throw new AppError('Product belongs to another branch', 403)
+      }
+      sendSuccess(res, data)
+    } catch (e) { next(e) }
   },
   async importFromMaster(req: Request, res: Response, next: NextFunction) {
     try {

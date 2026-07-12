@@ -202,7 +202,7 @@ export function HexaPosLayout({
                 value={search}
                 onChange={e => onSearchChange(e.target.value)}
                 onKeyDown={onSearchKeyDown}
-                placeholder="Search products by name, SKU, IMEI..."
+                placeholder="Search products by name, SKU, barcode, IMEI..."
                 className="w-full h-9 pl-9 pr-12 rounded-xl text-sm outline-none border text-white placeholder:text-white/40"
                 style={{ background: C.card, borderColor: C.border }}
               />

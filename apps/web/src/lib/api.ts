@@ -243,6 +243,7 @@ export const productsApi = {
   imeiHealth: () => api.get('/products/imei-health'),
   bulkInferTrackImei: () => api.post('/products/bulk-infer-track-imei', {}),
   nextCodes: () => api.get('/products/next-codes'),
+  lookupCode: (code: string) => api.get(`/products/lookup?code=${encodeURIComponent(code)}`),
   importFromMaster: (body: unknown) => api.post('/products/import-from-master', body),
 }
 

@@ -4,7 +4,7 @@ import { sendSuccess, sendPaginated } from '../../utils/response'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
 import { AppError } from '../../middleware/error.middleware'
 import { getPagination } from '../../utils/pagination'
-import { generatePONumber } from '../../utils/counters'
+import { generatePONumber, generateProductBarcode } from '../../utils/counters'
 import { effectiveBranchId } from '../../utils/active-branch'
 import { emitPurchaseAccounting } from '../accounting/integration/accounting-events.service'
 
@@ -149,6 +149,22 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
     const isReceiving = newStatus === 'RECEIVED' && po.status !== 'RECEIVED'
 
     if (isReceiving) {
+      const labelsToPrint: Array<{
+        productId: string
+        barcode: string
+        name: string
+        sku: string
+        price: number
+        qty: number
+        trackImei: boolean
+      }> = []
+
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: req.tenantId! },
+        select: { slug: true },
+      })
+      const tenantSlug = tenant?.slug ?? 'tenant'
+
       await prisma.$transaction(async (tx) => {
         const resolvedItems: { item: typeof po.items[0]; productId: string; branchId: string }[] = []
         for (const item of po.items) {
@@ -217,6 +233,24 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
             })),
           })
 
+          let barcode = (p.barcode as string | null)?.trim() || ''
+          if (!p.trackImei && !barcode) {
+            barcode = await generateProductBarcode(req.tenantId!, tenantSlug)
+            await tx.product.update({ where: { id: productId }, data: { barcode } })
+          }
+
+          if (!p.trackImei && barcode) {
+            labelsToPrint.push({
+              productId,
+              barcode,
+              name: p.name,
+              sku: p.sku,
+              price: Number(p.sellingPrice),
+              qty: totalQty,
+              trackImei: false,
+            })
+          }
+
           for (const { item } of group) {
             await tx.pOItem.update({
               where: { id: item.id },
@@ -241,7 +275,7 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
         include: { items: true },
       })
       void emitPurchaseAccounting(req.tenantId!, req.params.id, po.branchId, req.user?.email)
-      return sendSuccess(res, updated)
+      return sendSuccess(res, { ...updated, labelsToPrint })
     }
 
     const updated = await prisma.purchaseOrder.update({

@@ -14,6 +14,7 @@ import { suppliersApi } from '@/lib/api'
 import { isImeiHealthBannerDismissed, dismissImeiHealthBanner } from '@/lib/productImei'
 import type { PurchaseOrder } from '@/types'
 import toast from 'react-hot-toast'
+import { printBarcodeLabels, type BarcodeLabelItem } from '@/lib/barcode-print'
 import {
   ConfirmReceiveModal,
   IMEIRegisterModal,
@@ -87,7 +88,21 @@ export default function PurchaseOrdersPage() {
       const res: any = await suppliersApi.updatePO(confirmPO.id, { status: 'RECEIVED' })
       toast.success(`${confirmPO.poNumber} received — inventory updated`)
       refetchOrders()
-      const updated = (res?.data ?? confirmPO) as PurchaseOrder
+      const payload = res?.data ?? res
+      const updated = (payload?.id ? payload : payload?.purchaseOrder ?? confirmPO) as PurchaseOrder
+      const labels: BarcodeLabelItem[] = Array.isArray(payload?.labelsToPrint)
+        ? payload.labelsToPrint.map((l: any) => ({
+            barcode: l.barcode,
+            name: l.name,
+            sku: l.sku,
+            price: l.price,
+            qty: l.qty ?? 1,
+          }))
+        : []
+      if (labels.length > 0) {
+        printBarcodeLabels(labels)
+        toast.success(`Printing ${labels.reduce((s, l) => s + (l.qty ?? 1), 0)} barcode label(s)`)
+      }
       if (poHasImeiProducts(updated, allProducts) && poCanRegisterImei(updated, allProducts)) {
         setRegisterImeiPO(updated)
       }

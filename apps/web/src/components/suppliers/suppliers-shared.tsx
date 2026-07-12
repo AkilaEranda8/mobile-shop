@@ -13,6 +13,7 @@ import { useSuppliers, usePurchaseOrders, useProducts } from '@/lib/hooks'
 import { suppliersApi, imeiApi, productsApi } from '@/lib/api'
 import { getActiveBranchId } from '@/lib/active-branch'
 import toast from 'react-hot-toast'
+import { productSearchHaystack } from '@/lib/barcode-scan'
 import type { Supplier, PurchaseOrder, POItem } from '@/types'
 import { isImeiHealthBannerDismissed, dismissImeiHealthBanner } from '@/lib/productImei'
 
@@ -866,11 +867,7 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
   const getFiltered = (i: number) => {
     const q = (searches[i] ?? '').toLowerCase()
     if (!q) return allProducts.slice(0, 10)
-    return allProducts.filter(p =>
-      String(p.name ?? '').toLowerCase().includes(q) ||
-      String(p.sku ?? '').toLowerCase().includes(q) ||
-      String(p.brandName ?? '').toLowerCase().includes(q)
-    ).slice(0, 10)
+    return allProducts.filter(p => productSearchHaystack(p).includes(q)).slice(0, 10)
   }
 
   const selectProduct = (i: number, product: any) => {
@@ -924,11 +921,7 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
   }
 
   const quickFiltered = quickSearch.trim()
-    ? allProducts.filter(p =>
-        String(p.name ?? '').toLowerCase().includes(quickSearch.toLowerCase()) ||
-        String(p.sku ?? '').toLowerCase().includes(quickSearch.toLowerCase()) ||
-        String(p.brandName ?? '').toLowerCase().includes(quickSearch.toLowerCase())
-      ).slice(0, 8)
+    ? allProducts.filter(p => productSearchHaystack(p).includes(quickSearch.toLowerCase())).slice(0, 8)
     : allProducts.slice(0, 8)
 
   const removeItem = (i: number) => {

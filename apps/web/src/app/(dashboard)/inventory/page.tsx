@@ -2,7 +2,7 @@
 
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, RotateCcw, ChevronDown, ChevronUp, GripVertical, Smartphone, Shield, Building2, ArrowLeftRight, Copy } from 'lucide-react'
+import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, RotateCcw, ChevronDown, ChevronUp, GripVertical, Smartphone, Shield, Building2, ArrowLeftRight, Copy, Printer } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -31,6 +31,9 @@ import {
   productToCsvRow,
   type ProductCsvRow,
 } from '@/lib/productCsvImport'
+import { findProductByCode, normalizeScanCode, productSearchHaystack } from '@/lib/barcode-scan'
+import { printBarcodeLabels, toBarcodeLabelItem } from '@/lib/barcode-print'
+import { BarcodeLabelPreview } from '@/components/inventory/BarcodeLabelPreview'
 
 /* ── CSV Export ─────────────────────────────────────────────────────── */
 function exportProductsCSV(products: Product[]) {
@@ -1024,6 +1027,19 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
                 <Edit size={11} /> Edit
               </button>
             )}
+            {detail.barcode && (
+              <button
+                type="button"
+                onClick={() => {
+                  const label = toBarcodeLabelItem(detail, 1)
+                  if (label) printBarcodeLabels([label])
+                  else toast.error('No barcode to print')
+                }}
+                className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 px-2.5 py-1.5 rounded-lg border border-amber-500/20 hover:bg-amber-500/10 transition-colors"
+              >
+                <Printer size={11} /> Print Label
+              </button>
+            )}
             <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"><X size={16} /></button>
           </div>
         </div>
@@ -1112,6 +1128,11 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
           <DetailSection title="Product Information" icon={<Package size={12} className="text-violet-400" />}>
             <DetailRow label="SKU" value={detail.sku} valueClass="font-mono" />
             <DetailRow label="Barcode" value={detail.barcode || '—'} valueClass="font-mono" />
+            {detail.barcode && (
+              <div className="px-4 py-3 border-t border-white/5 bg-white/[0.02] flex justify-center">
+                <BarcodeLabelPreview value={detail.barcode} className="rounded-lg bg-white px-3 py-2" />
+              </div>
+            )}
             <DetailRow label="Brand" value={p.brandName} />
             <DetailRow label="Category" value={p.categoryName} />
             <DetailRow label="Sub Category" value={p.subCategory || '—'} />
@@ -1344,6 +1365,31 @@ export default function InventoryPage() {
   const allCategories: Category[] = (catsData ?? []) as Category[]
   const products: Product[] = (productsData?.data ?? []) as Product[]
 
+  const handleInventoryScan = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return
+    const code = normalizeScanCode(textSearch)
+    if (!code) return
+    const local = findProductByCode(products, code)
+    if (local) {
+      e.preventDefault()
+      setViewProduct(local.product)
+      toast.success(`Found: ${local.product.name}`)
+      return
+    }
+    try {
+      const res: any = await productsApi.lookupCode(code)
+      const hit = res?.data?.product ?? res?.product
+      if (hit) {
+        e.preventDefault()
+        const full = products.find(p => p.id === hit.id) ?? hit
+        setViewProduct(full as Product)
+        toast.success(`Found: ${hit.displayName ?? hit.name}`)
+      }
+    } catch {
+      /* keep filtered list */
+    }
+  }
+
   const brands = useMemo(
     () => [...new Set(products.map(p => p.brandName).filter(Boolean))].sort() as string[],
     [products],
@@ -1357,8 +1403,7 @@ export default function InventoryPage() {
     if (statusFilter === 'in' && !(p.stock >= p.minStock)) return false
     const q = textSearch.trim().toLowerCase()
     if (q) {
-      const hay = `${p.name} ${p.sku} ${p.brandName ?? ''} ${p.categoryName ?? ''}`.toLowerCase()
-      if (!hay.includes(q)) return false
+      if (!productSearchHaystack(p).includes(q)) return false
     }
     return true
   }), [products, categoryFilter, brandFilter, statusFilter, textSearch])
@@ -1707,7 +1752,8 @@ export default function InventoryPage() {
         <ToolbarSearch
           value={textSearch}
           onChange={setTextSearch}
-          placeholder="Search name, SKU, brand…"
+          onKeyDown={handleInventoryScan}
+          placeholder="Search name, SKU, barcode…"
           className="w-full sm:w-auto sm:min-w-[200px]"
         />
 

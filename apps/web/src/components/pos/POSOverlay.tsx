@@ -30,6 +30,7 @@ import {
 import { useUIStore } from '@/stores/ui-store'
 import { useProducts, useFeatureFlag } from '@/lib/hooks'
 import { salesApi, customersApi, productsApi, imeiApi, servicesApi, financeApi, tenantApi, dailyClosingApi } from '@/lib/api'
+import { findProductByCode, isImeiCode, normalizeScanCode } from '@/lib/barcode-scan'
 import { authStorage } from '@/lib/auth'
 import { getOperationalBranchId, ensureOperationalBranch } from '@/lib/active-branch'
 import { formatCurrency } from '@/lib/utils'
@@ -1349,8 +1350,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
   const filtered = products.filter((p: any) => {
     const matchCat = selectedCategory === 'ALL' || p.categoryId === selectedCategory || p.categoryName === selectedCategory
-    const matchSearch = String(p.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
-      String(p.sku ?? '').toLowerCase().includes(search.toLowerCase())
+    const q = search.toLowerCase()
+    const matchSearch = !q ||
+      String(p.name ?? '').toLowerCase().includes(q) ||
+      String(p.sku ?? '').toLowerCase().includes(q) ||
+      String(p.barcode ?? '').toLowerCase().includes(q) ||
+      (p.storageVariations ?? []).some((v: any) => String(v.sku ?? '').toLowerCase().includes(q))
     const matchStock = !hideOutOfStock || (p.stock ?? 0) > 0
     const matchFav = !showFavoritesOnly || favorites.has(p.id)
     return matchCat && matchSearch && matchStock && matchFav
@@ -1539,6 +1544,61 @@ function POSContent({ onClose }: { onClose: () => void }) {
     } finally {
       setImeiScanning(false)
       setImeiScan('')
+    }
+  }
+
+  const handleSearchScan = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return
+    const code = normalizeScanCode(search)
+    if (!code) return
+
+    if (isImeiCode(code)) {
+      e.preventDefault()
+      setSearch('')
+      await handleImeiScan(code)
+      return
+    }
+
+    const local = findProductByCode(products, code)
+    if (local) {
+      e.preventDefault()
+      const { product, variation } = local
+      if (product.trackImei && !variation) {
+        toast('Scan IMEI barcode for this device', { icon: '📱' })
+        setShowScanInput(true)
+        setImeiScan(code)
+      } else {
+        addToCart(product, undefined, variation as any)
+        toast.success(`Added: ${variation ? `${product.name} · ${variation.storage} / ${variation.colorName}` : product.name}`)
+      }
+      setSearch('')
+      return
+    }
+
+    try {
+      const res: any = await productsApi.lookupCode(code)
+      const data = res?.data ?? res
+      if (data?.matchType === 'imei') {
+        e.preventDefault()
+        setSearch('')
+        await handleImeiScan(code)
+        return
+      }
+      const hit = data?.product
+      if (hit) {
+        e.preventDefault()
+        const variation = hit.matchedVariation
+        if (hit.trackImei && !variation) {
+          toast('Scan IMEI barcode for this device', { icon: '📱' })
+          setShowScanInput(true)
+        } else {
+          addToCart(hit, undefined, variation)
+          toast.success(`Added: ${hit.displayName ?? hit.name}`)
+        }
+        setSearch('')
+      }
+    } catch {
+      /* keep default list filter on Enter */
     }
   }
 
@@ -2447,6 +2507,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         search={search}
         onSearchChange={setSearch}
         searchRef={searchRef}
+        onSearchKeyDown={handleSearchScan}
         onScanClick={() => setShowScanInput(true)}
         onBellClick={() => setShowHeldCarts(true)}
         onNavAction={handleNavAction}

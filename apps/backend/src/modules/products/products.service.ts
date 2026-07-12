@@ -83,6 +83,92 @@ export const productsService = {
     return { sku, barcode, prefix: tenantProductPrefix(slug) }
   },
 
+  async lookupByCode(tenantId: string, code: string, branchId?: string) {
+    const trimmed = code.trim()
+    if (!trimmed) throw new AppError('Code required', 400)
+
+    const productInclude = {
+      category: { select: { name: true } },
+      brand: { select: { name: true } },
+    }
+
+    const formatProduct = (raw: any, variation?: { storage: string; colorName: string; sku?: string; sellingPrice?: number }) => {
+      const base = {
+        ...raw,
+        categoryName: raw.category?.name,
+        brandName: raw.brand?.name,
+      }
+      if (variation) {
+        return {
+          ...base,
+          matchedVariation: variation,
+          displayName: `${raw.name} · ${variation.storage} / ${variation.colorName}`,
+          matchedSku: variation.sku ?? raw.sku,
+        }
+      }
+      return base
+    }
+
+    if (/^\d{15}$/.test(trimmed)) {
+      const record = await prisma.imeiRecord.findFirst({
+        where: {
+          imei: trimmed,
+          product: { tenantId, isActive: true, ...(branchId && { branchId }) },
+        },
+        include: {
+          product: { include: productInclude },
+        },
+      })
+      if (record?.product) {
+        return {
+          matchType: 'imei' as const,
+          imei: trimmed,
+          product: formatProduct(record.product),
+          record: {
+            id: record.id,
+            imei: record.imei,
+            status: record.status,
+            productId: record.productId,
+            branchId: record.branchId,
+          },
+        }
+      }
+    }
+
+    const exactWhere: any = {
+      tenantId,
+      isActive: true,
+      ...(branchId && { branchId }),
+      OR: [
+        { barcode: { equals: trimmed, mode: 'insensitive' } },
+        { sku: { equals: trimmed, mode: 'insensitive' } },
+      ],
+    }
+    const exact = await prisma.product.findFirst({ where: exactWhere, include: productInclude })
+    if (exact) {
+      return { matchType: 'barcode' as const, product: formatProduct(exact) }
+    }
+
+    const variantCandidates = await prisma.product.findMany({
+      where: { tenantId, isActive: true, ...(branchId && { branchId }) },
+      include: productInclude,
+      take: 500,
+      orderBy: { updatedAt: 'desc' },
+    })
+    for (const p of variantCandidates) {
+      const vars = (p.storageVariations as Array<{ storage?: string; colorName?: string; sku?: string; sellingPrice?: number }> | null) ?? []
+      const hit = vars.find(v => v.sku && v.sku.toLowerCase() === trimmed.toLowerCase())
+      if (hit && hit.storage && hit.colorName) {
+        return {
+          matchType: 'variant_sku' as const,
+          product: formatProduct(p, hit as { storage: string; colorName: string; sku?: string; sellingPrice?: number }),
+        }
+      }
+    }
+
+    throw new AppError('No product found for this barcode or SKU', 404)
+  },
+
   async create(tenantId: string, body: any) {
     const slug = await loadTenantSlug(tenantId)
     if (!body.sku?.trim()) {

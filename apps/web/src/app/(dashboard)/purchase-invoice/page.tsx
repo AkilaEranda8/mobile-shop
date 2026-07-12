@@ -11,6 +11,7 @@ import { suppliersApi, imeiApi } from '@/lib/api'
 import { formatDate } from '@/lib/utils'
 import { getInvoiceSettings } from '@/lib/invoiceSettings'
 import { authStorage } from '@/lib/auth'
+import { BarcodeLabelPreview } from '@/components/inventory/BarcodeLabelPreview'
 
 /* ─── Static fallback company info ─────────────────────────────────── */
 const COMPANY_DEFAULTS = {
@@ -59,19 +60,6 @@ function QRCodeSVG() {
           cell ? <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="#f97316" /> : null
         )
       )}
-    </svg>
-  )
-}
-
-/* ─── Barcode SVG ───────────────────────────────────────────────────── */
-function BarcodeSVG({ value }: { value?: string }) {
-  if (!value) return null
-  const bars = value.split('').map((c, i) => ({ w: (parseInt(c, 16) % 3) + 1, x: i * 5 }))
-  return (
-    <svg width="120" height="36" viewBox={`0 0 ${bars.reduce((s, b) => s + b.w + 1, 0)} 28`}>
-      {bars.map((b, i) => (
-        <rect key={i} x={b.x} y={0} width={b.w} height={28} fill="#f97316" opacity={0.8 + (i % 3) * 0.07} />
-      ))}
     </svg>
   )
 }
@@ -461,7 +449,7 @@ function InvoiceContent() {
                           {imei ? (
                             <div>
                               <p className="text-[11px] font-mono text-gray-600">{imei}</p>
-                              <div className="mt-1"><BarcodeSVG value={imei} /></div>
+                              <div className="mt-1"><BarcodeLabelPreview value={imei} className="bg-white rounded px-1" /></div>
                             </div>
                           ) : <span className="text-xs text-gray-400">—</span>}
                         </td>
