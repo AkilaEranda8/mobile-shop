@@ -412,7 +412,7 @@ export function IMEIRegisterModal({ po, products, onClose, onSaved }: {
 }
 
 
-/* â”€â”€ Record Payment Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Record Payment Modal ─────────────────────────────────────────── */
 const PAYMENT_METHODS = ['CASH', 'BANK_TRANSFER', 'CHEQUE', 'UPI', 'CARD'] as const
 
 export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
@@ -421,130 +421,340 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
   onClose: () => void
   onSaved: () => void
 }) {
-  const unpaidPOs = allPOs.filter(po => po.supplierId === supplier.id && po.dueAmount > 0)
-  const [selectedPOs, setSelectedPOs] = useState<Set<string>>(new Set(unpaidPOs.map(p => p.id)))
-  const [method,    setMethod]    = useState<string>('CASH')
+  const unpaidPOs = useMemo(
+    () => allPOs.filter(po => po.supplierId === supplier.id && po.dueAmount > 0),
+    [allPOs, supplier.id],
+  )
+  const [selectedPOs, setSelectedPOs] = useState<Set<string>>(() => new Set(unpaidPOs.map(p => p.id)))
+  const [method, setMethod] = useState<string>('CASH')
   const [reference, setReference] = useState('')
-  const [loading,   setLoading]   = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  const totalDue = unpaidPOs
-    .filter(p => selectedPOs.has(p.id))
-    .reduce((s, p) => s + p.dueAmount, 0)
-  const [amount, setAmount] = useState(String(totalDue.toFixed(2)))
+  const selectedList = unpaidPOs.filter(p => selectedPOs.has(p.id))
+  const totalDue = selectedList.reduce((s, p) => s + p.dueAmount, 0)
+  const totalPoValue = selectedList.reduce((s, p) => s + (p.total ?? 0), 0)
+  const [amount, setAmount] = useState(() => (totalDue > 0 ? totalDue.toFixed(2) : ''))
+
+  useEffect(() => {
+    if (totalDue > 0) setAmount(totalDue.toFixed(2))
+  }, [totalDue])
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
 
   const togglePO = (id: string) =>
-    setSelectedPOs(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+    setSelectedPOs(prev => {
+      const n = new Set(prev)
+      n.has(id) ? n.delete(id) : n.add(id)
+      return n
+    })
+
+  const selectAll = () => setSelectedPOs(new Set(unpaidPOs.map(p => p.id)))
+  const clearAll = () => setSelectedPOs(new Set())
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!amount || Number(amount) <= 0) return
+    if (!amount || Number(amount) <= 0) {
+      toast.error('Enter a valid payment amount')
+      return
+    }
     setLoading(true)
     try {
       await suppliersApi.recordPayment(supplier.id, {
-        amount:    Number(amount),
+        amount: Number(amount),
         method,
         reference: reference || undefined,
-        poIds:     [...selectedPOs],
+        poIds: [...selectedPOs],
       })
       toast.success('Payment recorded successfully')
-      onSaved(); onClose()
+      onSaved()
+      onClose()
     } catch (err: any) {
       toast.error(err?.message ?? 'Failed to record payment')
-    } finally { setLoading(false) }
+    } finally {
+      setLoading(false)
+    }
   }
 
+  const methodLabel = (m: string) => m.replace(/_/g, ' ')
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-        <div className="h-1 w-full bg-gradient-to-r from-violet-500 to-emerald-500" />
-        <div className="flex items-center justify-between p-5 border-b border-white/5">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center">
-              <Banknote size={16} className="text-emerald-400" />
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="rounded-xl w-full max-w-3xl shadow-2xl max-h-[92vh] overflow-y-auto border"
+        style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', borderColor: 'var(--border-default)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header — same pattern as Sell Details */}
+        <div
+          className="flex items-center justify-between px-4 sm:px-5 py-3 border-b sticky top-0 z-10"
+          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
+        >
+          <div className="flex items-start gap-2.5 min-w-0">
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border"
+              style={{ background: 'rgba(16,185,129,0.12)', borderColor: 'rgba(16,185,129,0.25)' }}
+            >
+              <Banknote size={16} className="text-emerald-500" />
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white">Record Payment</h3>
-              <p className="text-xs text-gray-500 dark:text-slate-500">{supplier.name}</p>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                Record Payment
+              </p>
+              <p className="text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>
+                {supplier.name}
+                {supplier.phone ? ` · ${supplier.phone}` : ''}
+              </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/5"><X size={15} /></button>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <span
+              className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${
+                totalDue > 0
+                  ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/25'
+                  : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
+              }`}
+            >
+              {totalDue > 0 ? `${formatCurrency(totalDue)} due` : 'Settled'}
+            </span>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg transition-colors"
+              style={{ color: 'var(--text-muted)' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-subtle)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+            >
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          {/* Outstanding POs */}
-          {unpaidPOs.length > 0 ? (
-            <div>
-              <label className="block text-xs text-gray-600 dark:text-slate-400 uppercase tracking-wide mb-2">Apply to Purchase Orders</label>
-              <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                {unpaidPOs.map(po => (
-                  <label key={po.id} className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer transition-colors ${
-                    selectedPOs.has(po.id)
-                      ? 'bg-violet-500/10 border-violet-500/30'
-                      : 'bg-white/3 border-white/5 hover:border-white/10'
-                  }`}>
-                    <div className="flex items-center gap-2.5">
-                      <input type="checkbox" checked={selectedPOs.has(po.id)} onChange={() => togglePO(po.id)}
-                        className="accent-violet-500" />
-                      <span className="text-xs font-mono text-violet-300">{po.poNumber}</span>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs font-bold text-red-400">{formatCurrency(po.dueAmount)} due</p>
-                      <p className="text-[10px] text-slate-600">{formatCurrency(po.total)} total</p>
-                    </div>
-                  </label>
-                ))}
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4">
+          {/* Meta + quick totals */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div className="lg:col-span-2 space-y-1.5 text-[12px]">
+              <div className="flex items-center gap-1.5">
+                <Truck size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Supplier:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{supplier.name}</span>
+              </div>
+              {supplier.phone && (
+                <div className="flex items-center gap-1.5">
+                  <Phone size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>Phone:</span>
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{supplier.phone}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-1.5">
+                <ClipboardList size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Open POs:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {selectedList.length} selected / {unpaidPOs.length} unpaid
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <CreditCard size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Method:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{methodLabel(method)}</span>
               </div>
             </div>
-          ) : (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-              <CheckCircle size={13} className="text-emerald-400" />
-              <p className="text-xs text-emerald-400">No outstanding POs â€” full payment will be recorded</p>
-            </div>
-          )}
 
-          {/* Amount */}
-          <div>
-            <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">
-              Payment Amount
-              {totalDue > 0 && (
-                <button type="button" onClick={() => setAmount(totalDue.toFixed(2))}
-                  className="ml-2 text-violet-400 hover:text-violet-300 text-[10px]">
-                  Fill {formatCurrency(totalDue)}
-                </button>
+            <div
+              className="rounded-lg border p-3 text-[12px]"
+              style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}
+            >
+              <div className="flex items-center justify-between border-b pb-2 mb-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Quick totals</span>
+                <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>LKR</span>
+              </div>
+              <div className="space-y-1">
+                <div className="flex justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>PO value</span>
+                  <span className="font-medium">{formatCurrency(totalPoValue)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Outstanding</span>
+                  <span className="font-medium text-red-500">{formatCurrency(totalDue)}</span>
+                </div>
+                <div className="flex justify-between pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span className="font-semibold">Paying now</span>
+                  <span className="font-semibold accent-text">{formatCurrency(Number(amount) || 0)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* PO table */}
+          <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div className="bg-emerald-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide flex items-center justify-between gap-2">
+              <span>Apply to Purchase Orders</span>
+              {unpaidPOs.length > 0 && (
+                <div className="flex items-center gap-2 text-[10px] font-medium normal-case tracking-normal">
+                  <button type="button" onClick={selectAll} className="hover:underline opacity-90">Select all</button>
+                  <span className="opacity-50">·</span>
+                  <button type="button" onClick={clearAll} className="hover:underline opacity-90">Clear</button>
+                </div>
               )}
-            </label>
-            <input required type="number" min="0.01" step="0.01"
-              className="input-field" value={amount} onChange={e => setAmount(e.target.value)} />
+            </div>
+
+            {unpaidPOs.length > 0 ? (
+              <div className="max-h-52 overflow-y-auto">
+                <table className="w-full text-[12px]">
+                  <thead className="sticky top-0 border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                    <tr style={{ color: 'var(--text-secondary)' }}>
+                      <th className="px-3 py-2 text-left w-10" />
+                      <th className="px-3 py-2 text-left">PO Number</th>
+                      <th className="px-3 py-2 text-left">Date</th>
+                      <th className="px-3 py-2 text-right">Total</th>
+                      <th className="px-3 py-2 text-right">Due</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {unpaidPOs.map(po => {
+                      const selected = selectedPOs.has(po.id)
+                      return (
+                        <tr
+                          key={po.id}
+                          onClick={() => togglePO(po.id)}
+                          className="border-b last:border-0 cursor-pointer transition-colors"
+                          style={{
+                            borderColor: 'var(--border-subtle)',
+                            background: selected ? 'var(--sidebar-active-bg)' : 'transparent',
+                          }}
+                        >
+                          <td className="px-3 py-2.5">
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={() => togglePO(po.id)}
+                              onClick={e => e.stopPropagation()}
+                              className="accent-[var(--brand-primary)]"
+                            />
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <span className="font-mono font-semibold accent-text">{po.poNumber}</span>
+                          </td>
+                          <td className="px-3 py-2.5" style={{ color: 'var(--text-muted)' }}>
+                            {po.createdAt ? formatDate(po.createdAt) : '—'}
+                          </td>
+                          <td className="px-3 py-2.5 text-right whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
+                            {formatCurrency(po.total)}
+                          </td>
+                          <td className="px-3 py-2.5 text-right whitespace-nowrap font-semibold text-red-500">
+                            {formatCurrency(po.dueAmount)}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-4 py-5">
+                <CheckCircle size={14} className="text-emerald-500 shrink-0" />
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  No outstanding POs — payment will be recorded against the supplier balance.
+                </p>
+              </div>
+            )}
           </div>
 
-          {/* Method */}
-          <div>
-            <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Payment Method</label>
-            <div className="grid grid-cols-5 gap-1.5">
-              {PAYMENT_METHODS.map(m => (
-                <button key={m} type="button" onClick={() => setMethod(m)}
-                  className={`py-1.5 text-[10px] font-semibold rounded-lg border transition-colors ${
-                    method === m
-                      ? 'bg-violet-500/20 border-violet-500/40 text-violet-300'
-                      : 'border-white/10 text-slate-500 hover:border-white/20 hover:text-slate-300'
-                  }`}>
-                  {m.replace('_', ' ')}
-                </button>
-              ))}
+          {/* Payment fields */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Payment Amount</label>
+                {totalDue > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setAmount(totalDue.toFixed(2))}
+                    className="text-[11px] font-semibold accent-text hover:underline"
+                  >
+                    Fill {formatCurrency(totalDue)}
+                  </button>
+                )}
+              </div>
+              <input
+                required
+                type="number"
+                min="0.01"
+                step="0.01"
+                className="input-field font-semibold tabular-nums"
+                value={amount}
+                onChange={e => setAmount(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                Reference / Note <span style={{ color: 'var(--text-muted)' }}>(optional)</span>
+              </label>
+              <input
+                className="input-field"
+                placeholder="Cheque no., bank ref…"
+                value={reference}
+                onChange={e => setReference(e.target.value)}
+              />
             </div>
           </div>
 
-          {/* Reference */}
           <div>
-            <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Reference / Note (optional)</label>
-            <input className="input-field" placeholder="Cheque no., bank refâ€¦" value={reference} onChange={e => setReference(e.target.value)} />
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Payment Method
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+              {PAYMENT_METHODS.map(m => {
+                const active = method === m
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setMethod(m)}
+                    className="py-2 px-2 text-[10px] font-semibold rounded-lg border transition-colors"
+                    style={active
+                      ? {
+                          background: 'var(--sidebar-active-bg)',
+                          borderColor: 'var(--sidebar-active-border)',
+                          color: 'var(--sidebar-active-text)',
+                        }
+                      : {
+                          background: 'var(--bg-subtle)',
+                          borderColor: 'var(--border-default)',
+                          color: 'var(--text-muted)',
+                        }}
+                  >
+                    {methodLabel(m)}
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
-          <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
-            <button type="submit" disabled={loading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
-              {loading ? <Loader2 size={13} className="animate-spin" /> : <Receipt size={13} />}
-              {loading ? 'Recordingâ€¦' : 'Record Payment'}
+          {/* Footer */}
+          <div
+            className="flex flex-col-reverse sm:flex-row gap-2 pt-3 border-t"
+            style={{ borderColor: 'var(--border-subtle)' }}
+          >
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading || !amount || Number(amount) <= 0}
+              className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60"
+            >
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <Banknote size={14} />}
+              {loading ? 'Recording…' : 'Record Payment'}
             </button>
           </div>
         </form>

@@ -10,7 +10,6 @@ import {
 import { authApi, usersApi, tenantApi, uploadApi, deviceCatalogApi, plansApi, branchesApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
-import { useTenantFeatures } from '@/lib/hooks'
 import {
   type InvoiceSettings,
   getInvoiceSettings,
@@ -22,13 +21,6 @@ import ThermalReceiptCustomizer, { ThermalReceiptPreview, ThermalLogoSizePicker 
 import InvoiceTemplatePicker from '@/components/invoice/InvoiceTemplatePicker'
 import { Switch } from '@/components/ui/Switch'
 import {
-  type ReloadSettings,
-  DEFAULT_RELOAD_SETTINGS,
-  RELOAD_PROVIDER_IDS,
-  fetchReloadSettings,
-  pushReloadSettings,
-} from '@/lib/reloadSettings'
-import {
   type ProductVariantSettings,
   DEFAULT_PRODUCT_VARIANT_SETTINGS,
   fetchProductVariantSettings,
@@ -36,11 +28,15 @@ import {
 } from '@/lib/productVariantSettings'
 import {
   type AppearanceSettings,
-  DEFAULT_APPEARANCE,
   getStoredAppearance,
   saveAppearance as persistAppearance,
   type AccentKey,
+  type TextSizeKey,
+  type UiFontKey,
   ACCENT_PALETTES,
+  TEXT_SIZE_OPTIONS,
+  UI_FONT_OPTIONS,
+  ensureAllUiFontsLoaded,
 } from '@/lib/appearance'
 import {
   type ProductCodeSettingsView,
@@ -93,8 +89,6 @@ export default function SettingsPage() {
     }
     if (tab && tabs.some(t => t.key === tab)) setActiveTab(tab)
   }, [searchParams, router])
-  const { hasFeature, featurePrices, refetchFeatures } = useTenantFeatures()
-  const [featureSaving, setFeatureSaving] = useState(false)
   const canManageFeatures = currentUser?.role === 'OWNER' || currentUser?.role === 'MANAGER'
 
   /* ── Plans ── */
@@ -109,8 +103,6 @@ export default function SettingsPage() {
   const [shopForm, setShopForm]   = useState({ name: '', ownerName: '', ownerEmail: '', phone: '', address: '', city: '' })
   const [shopBranchId, setShopBranchId] = useState('')
   const [shopSaving, setShopSaving] = useState(false)
-  const [reloadSettings, setReloadSettings] = useState<ReloadSettings>(DEFAULT_RELOAD_SETTINGS)
-  const [reloadSaving, setReloadSaving] = useState(false)
   const [productCodeSettings, setProductCodeSettings] = useState<ProductCodeSettingsView>(DEFAULT_PRODUCT_CODE_SETTINGS)
   const [productCodeSaving, setProductCodeSaving] = useState(false)
 
@@ -139,13 +131,6 @@ export default function SettingsPage() {
   }, [tenantId, userBranchId])
 
   useEffect(() => {
-    if (!tenantId || !hasFeature('DAILY_RELOAD')) return
-    fetchReloadSettings(tenantId)
-      .then(setReloadSettings)
-      .catch(() => {})
-  }, [tenantId, hasFeature('DAILY_RELOAD')])
-
-  useEffect(() => {
     if (!tenantId) return
     fetchProductCodeSettings(tenantId)
       .then(setProductCodeSettings)
@@ -167,20 +152,6 @@ export default function SettingsPage() {
       toast.error('Failed to save product code settings')
     } finally {
       setProductCodeSaving(false)
-    }
-  }
-
-  const saveReloadSettings = async () => {
-    if (!tenant) return
-    setReloadSaving(true)
-    try {
-      const saved = await pushReloadSettings(tenant.id, reloadSettings)
-      setReloadSettings(saved)
-      toast.success('Reload commission rates saved')
-    } catch {
-      toast.error('Failed to save commission rates')
-    } finally {
-      setReloadSaving(false)
     }
   }
 
@@ -265,6 +236,20 @@ export default function SettingsPage() {
     setAppearance(next)
     persistAppearance(next)
   }
+  const selectTextSize = (textSize: TextSizeKey) => {
+    const next = { ...appearance, textSize }
+    setAppearance(next)
+    persistAppearance(next)
+  }
+  const selectUiFont = (uiFont: UiFontKey) => {
+    const next = { ...appearance, uiFont }
+    setAppearance(next)
+    persistAppearance(next)
+  }
+
+  useEffect(() => {
+    if (activeTab === 'appearance') ensureAllUiFontsLoaded()
+  }, [activeTab])
 
   /* ── Team ── */
   const [teamUsers, setTeamUsers] = useState<any[]>([])
@@ -539,245 +524,6 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              {(featurePrices.POS != null || featurePrices.SERVICES != null) && (
-                <div className="pt-4 border-t border-white/5 space-y-2">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Plan Add-ons</h3>
-                  <p className="text-xs text-gray-500 dark:text-slate-500">Monthly prices set by platform admin for your shop.</p>
-                  <div className="grid sm:grid-cols-2 gap-2">
-                    {featurePrices.POS != null && hasFeature('POS') && (
-                      <div className="rounded-xl p-3 border border-violet-500/20 bg-violet-500/5">
-                        <p className="text-xs font-medium text-violet-300">POS Terminal</p>
-                        <p className="text-sm font-bold text-gray-900 dark:text-white mt-0.5">Rs.{featurePrices.POS.toLocaleString('en-LK')}/mo</p>
-                      </div>
-                    )}
-                    {featurePrices.SERVICES != null && hasFeature('SERVICES') && (
-                      <div className="rounded-xl p-3 border border-cyan-500/20 bg-cyan-500/5">
-                        <p className="text-xs font-medium text-cyan-300">Services Module</p>
-                        <p className="text-sm font-bold text-gray-900 dark:text-white mt-0.5">Rs.{featurePrices.SERVICES.toLocaleString('en-LK')}/mo</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-              {canManageFeatures && (
-                <div className="pt-4 border-t border-white/5 space-y-3">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Shop Features</h3>
-                  <p className="text-xs text-gray-500 dark:text-slate-500">Enable optional modules for your shop. Admin can also control these from the platform panel.</p>
-                  <div className="flex items-center justify-between rounded-xl p-4 border border-white/10 bg-white/[0.02]">
-                    <div>
-                      <p className="text-sm font-medium text-white">Daily Reload (POS)</p>
-                      <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-0.5">Sell Dialog/Mobitel/Airtel/Hutch reloads from POS</p>
-                    </div>
-                    <Switch
-                      checked={hasFeature('DAILY_RELOAD')}
-                      onChange={async (v) => {
-                        setFeatureSaving(true)
-                        try {
-                          await tenantApi.updateMyFeatures({ DAILY_RELOAD: v })
-                          refetchFeatures()
-                          toast.success(v ? 'Daily Reload enabled in POS' : 'Daily Reload disabled')
-                        } catch {
-                          toast.error('Failed to update feature')
-                        } finally {
-                          setFeatureSaving(false)
-                        }
-                      }}
-                    />
-                  </div>
-                  {hasFeature('DAILY_RELOAD') && (
-                    <div className="rounded-xl p-4 border border-teal-500/20 bg-teal-500/5 space-y-4">
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white">Reload Commission Rates</p>
-                        <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-0.5">
-                          Mobile reload commission % per network provider.
-                        </p>
-                      </div>
-                      <div className="grid sm:grid-cols-2 gap-3">
-                        {RELOAD_PROVIDER_IDS.map(id => (
-                          <label key={id} className="block">
-                            <span className="text-xs font-medium text-gray-600 dark:text-slate-400">{id}</span>
-                            <div className="mt-1 flex items-center gap-2">
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.1"
-                                value={reloadSettings.commissions[id] ?? 0}
-                                onChange={e => setReloadSettings(prev => ({
-                                  ...prev,
-                                  commissions: { ...prev.commissions, [id]: parseFloat(e.target.value) || 0 },
-                                }))}
-                                disabled={!canManageFeatures}
-                                className="flex-1 h-9 px-3 rounded-lg text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-teal-500/50"
-                              />
-                              <span className="text-xs text-gray-500 dark:text-slate-500">%</span>
-                            </div>
-                          </label>
-                        ))}
-                      </div>
-                      <label className="block">
-                        <span className="text-xs font-medium text-gray-600 dark:text-slate-400">Default Reload (Excel imports / unknown provider)</span>
-                        <div className="mt-1 flex items-center gap-2 max-w-xs">
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.1"
-                            value={reloadSettings.defaultCommission}
-                            onChange={e => setReloadSettings(prev => ({
-                              ...prev,
-                              defaultCommission: parseFloat(e.target.value) || 0,
-                            }))}
-                            disabled={!canManageFeatures}
-                            className="flex-1 h-9 px-3 rounded-lg text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-teal-500/50"
-                          />
-                          <span className="text-xs text-gray-500 dark:text-slate-500">%</span>
-                        </div>
-                      </label>
-
-                      <div className="border-t border-white/10 pt-4">
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white">Recharge Card Commission Rates</p>
-                        <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-0.5">
-                          Recharge card commission % per network provider (used when POS type is Recharge Card).
-                        </p>
-                      </div>
-                      <div className="grid sm:grid-cols-2 gap-3">
-                        {RELOAD_PROVIDER_IDS.map(id => (
-                          <label key={`rc-${id}`} className="block">
-                            <span className="text-xs font-medium text-gray-600 dark:text-slate-400">{id}</span>
-                            <div className="mt-1 flex items-center gap-2">
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.1"
-                                value={reloadSettings.rechargeCardCommissions[id] ?? 0}
-                                onChange={e => setReloadSettings(prev => ({
-                                  ...prev,
-                                  rechargeCardCommissions: { ...prev.rechargeCardCommissions, [id]: parseFloat(e.target.value) || 0 },
-                                }))}
-                                disabled={!canManageFeatures}
-                                className="flex-1 h-9 px-3 rounded-lg text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-violet-500/50"
-                              />
-                              <span className="text-xs text-gray-500 dark:text-slate-500">%</span>
-                            </div>
-                          </label>
-                        ))}
-                      </div>
-                      <label className="block">
-                        <span className="text-xs font-medium text-gray-600 dark:text-slate-400">Default Recharge Card</span>
-                        <div className="mt-1 flex items-center gap-2 max-w-xs">
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.1"
-                            value={reloadSettings.defaultRechargeCardCommission}
-                            onChange={e => setReloadSettings(prev => ({
-                              ...prev,
-                              defaultRechargeCardCommission: parseFloat(e.target.value) || 0,
-                            }))}
-                            disabled={!canManageFeatures}
-                            className="flex-1 h-9 px-3 rounded-lg text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-violet-500/50"
-                          />
-                          <span className="text-xs text-gray-500 dark:text-slate-500">%</span>
-                        </div>
-                      </label>
-                      {canManageFeatures && (
-                        <button
-                          onClick={saveReloadSettings}
-                          disabled={reloadSaving}
-                          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-teal-600 hover:bg-teal-500 disabled:opacity-50"
-                        >
-                          {reloadSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                          Save Commission Rates
-                        </button>
-                      )}
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between rounded-xl p-4 border border-white/10 bg-white/[0.02]">
-                    <div>
-                      <p className="text-sm font-medium text-white">Daily Closing</p>
-                      <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-0.5">End-of-day summary, cash reconciliation & day lock</p>
-                    </div>
-                    <Switch
-                      checked={hasFeature('DAILY_CLOSING')}
-                      onChange={async (v) => {
-                        setFeatureSaving(true)
-                        try {
-                          await tenantApi.updateMyFeatures({ DAILY_CLOSING: v })
-                          refetchFeatures()
-                          toast.success(v ? 'Daily Closing enabled' : 'Daily Closing disabled')
-                        } catch {
-                          toast.error('Failed to update feature')
-                        } finally {
-                          setFeatureSaving(false)
-                        }
-                      }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between rounded-xl p-4 border border-white/10 bg-white/[0.02]">
-                    <div>
-                      <p className="text-sm font-medium text-white">Profit Allocation</p>
-                      <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-0.5">Daily profit allocation & fund management</p>
-                    </div>
-                    <Switch
-                      checked={hasFeature('PROFIT_ALLOCATION')}
-                      onChange={async (v) => {
-                        setFeatureSaving(true)
-                        try {
-                          await tenantApi.updateMyFeatures({ PROFIT_ALLOCATION: v })
-                          refetchFeatures()
-                          toast.success(v ? 'Profit Allocation enabled' : 'Profit Allocation disabled')
-                        } catch {
-                          toast.error('Failed to update feature')
-                        } finally {
-                          setFeatureSaving(false)
-                        }
-                      }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between rounded-xl p-4 border border-white/10 bg-white/[0.02]">
-                    <div>
-                      <p className="text-sm font-medium text-white">Accounting (GL)</p>
-                      <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-0.5">Double-entry ledger, chart of accounts & GL-based financial reports</p>
-                    </div>
-                    <Switch
-                      checked={hasFeature('ACCOUNTING')}
-                      onChange={async (v) => {
-                        setFeatureSaving(true)
-                        try {
-                          await tenantApi.updateMyFeatures({ ACCOUNTING: v })
-                          refetchFeatures()
-                          toast.success(v ? 'Accounting module enabled' : 'Accounting module disabled')
-                        } catch {
-                          toast.error('Failed to update feature')
-                        } finally {
-                          setFeatureSaving(false)
-                        }
-                      }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between rounded-xl p-4 border border-white/10 bg-white/[0.02]">
-                    <div>
-                      <p className="text-sm font-medium text-white">Customer Credit</p>
-                      <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-0.5">Partial payments, outstanding balance & pay later</p>
-                    </div>
-                    <Switch
-                      checked={hasFeature('CUSTOMER_CREDIT')}
-                      onChange={async (v) => {
-                        setFeatureSaving(true)
-                        try {
-                          await tenantApi.updateMyFeatures({ CUSTOMER_CREDIT: v })
-                          refetchFeatures()
-                          toast.success(v ? 'Customer credit enabled' : 'Customer credit disabled')
-                        } catch {
-                          toast.error('Failed to update feature')
-                        } finally {
-                          setFeatureSaving(false)
-                        }
-                      }}
-                    />
-                  </div>
-                  {featureSaving && <p className="text-[10px] text-slate-500 flex items-center gap-1"><Loader2 size={10} className="animate-spin" /> Saving…</p>}
-                </div>
-              )}
               {tenant && (
                 <div className="pt-3 border-t border-white/5">
                   <p className="text-xs text-gray-500 dark:text-slate-500 mb-2">Read-only information</p>
@@ -1180,14 +926,19 @@ export default function SettingsPage() {
           {activeTab === 'appearance' && (
             <div className="card p-6 space-y-6">
               <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                <h2 className="text-base font-semibold text-gray-900 dark:text-white">Appearance</h2>
+                <div>
+                  <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Appearance</h2>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    Colors, Google Fonts, and system-wide text size for the whole app
+                  </p>
+                </div>
                 <button onClick={saveAppearance} className="btn-primary text-sm flex items-center gap-2">
                   <Save size={13} />Save
                 </button>
               </div>
               <div className="space-y-5">
                 <div>
-                  <label className="block text-xs text-gray-600 dark:text-slate-400 mb-3">Accent Color</label>
+                  <label className="block text-xs font-medium mb-3" style={{ color: 'var(--text-secondary)' }}>Accent Color</label>
                   <div className="flex gap-3 flex-wrap">
                     {([
                       { key: 'violet' as const,  label: 'Violet'  },
@@ -1197,25 +948,130 @@ export default function SettingsPage() {
                       { key: 'rose' as const,    label: 'Rose'    },
                       { key: 'orange' as const,  label: 'Orange'  },
                     ]).map(({ key, label }) => (
-                      <button key={key} onClick={() => selectAccent(key)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs transition-colors ${appearance.accent === key ? 'border-white/30 bg-white/10 text-white' : 'border-white/5 text-slate-400 hover:border-white/15'}`}>
+                      <button key={key} type="button" onClick={() => selectAccent(key)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl border text-xs transition-colors"
+                        style={appearance.accent === key
+                          ? { borderColor: 'var(--sidebar-active-border)', background: 'var(--sidebar-active-bg)', color: 'var(--sidebar-active-text)' }
+                          : { borderColor: 'var(--border-default)', color: 'var(--text-muted)' }}>
                         <span className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: ACCENT_PALETTES[key].primary }} />
                         {label}
-                        {appearance.accent === key && <Check size={10} className="text-white" />}
+                        {appearance.accent === key && <Check size={10} />}
                       </button>
                     ))}
                   </div>
                 </div>
+
+                <div>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                    System font (Google Fonts)
+                  </label>
+                  <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+                    Loads from Google Fonts and applies to the whole dashboard immediately.
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {UI_FONT_OPTIONS.map(font => {
+                      const active = appearance.uiFont === font.key
+                      return (
+                        <button
+                          key={font.key}
+                          type="button"
+                          onClick={() => selectUiFont(font.key)}
+                          className="rounded-xl border px-3 py-3 text-left transition-colors"
+                          style={active
+                            ? { borderColor: 'var(--sidebar-active-border)', background: 'var(--sidebar-active-bg)' }
+                            : { borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}
+                        >
+                          <p
+                            className="text-sm font-semibold truncate"
+                            style={{
+                              color: active ? 'var(--sidebar-active-text)' : 'var(--text-primary)',
+                              fontFamily: font.family,
+                            }}
+                          >
+                            {font.label}
+                          </p>
+                          <p
+                            className="text-[11px] mt-1 truncate"
+                            style={{ color: 'var(--text-muted)', fontFamily: font.family }}
+                          >
+                            ABC abc 123
+                          </p>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <p
+                    className="text-sm mt-3 rounded-lg border px-3 py-2.5"
+                    style={{
+                      borderColor: 'var(--border-subtle)',
+                      background: 'var(--bg-subtle)',
+                      color: 'var(--text-secondary)',
+                      fontFamily: 'var(--font-sans)',
+                    }}
+                  >
+                    Preview: The quick brown fox jumps over the lazy dog — Hexalyte POS · Repair Jobs
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                    System Text size
+                  </label>
+                  <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+                    Applies to the whole dashboard — menus, tables, forms, and modals. Changes apply immediately.
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {TEXT_SIZE_OPTIONS.map(({ key, label, hint }) => {
+                      const active = appearance.textSize === key
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => selectTextSize(key)}
+                          className="rounded-xl border px-3 py-3 text-left transition-colors"
+                          style={active
+                            ? { borderColor: 'var(--sidebar-active-border)', background: 'var(--sidebar-active-bg)' }
+                            : { borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}
+                        >
+                          <p className="text-sm font-semibold" style={{ color: active ? 'var(--sidebar-active-text)' : 'var(--text-primary)' }}>
+                            {label}
+                          </p>
+                          <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{hint}</p>
+                          <p
+                            className="mt-2 font-medium leading-none"
+                            style={{
+                              color: 'var(--text-secondary)',
+                              fontSize: key === 'sm' ? '0.8rem' : key === 'md' ? '0.9rem' : key === 'lg' ? '1rem' : '1.1rem',
+                            }}
+                          >
+                            Aa
+                          </p>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <p className="text-xs mt-3 rounded-lg border px-3 py-2" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)', color: 'var(--text-secondary)' }}>
+                    Preview: The quick brown fox jumps over the lazy dog. Ticket #TKT-202607-0307
+                  </p>
+                </div>
+
                 {([
                   { key: 'compactMode' as const, label: 'Compact Mode',          desc: 'Reduce spacing and padding throughout the UI' },
                   { key: 'animations' as const,  label: 'Enable Animations',     desc: 'Smooth transitions and micro-interactions'    },
                 ]).map(({ key, label, desc }) => (
-                  <div key={key} className="flex items-center justify-between py-3 border-b border-white/5 last:border-0">
+                  <div key={key} className="flex items-center justify-between py-3 border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
                     <div>
-                      <p className="text-sm text-gray-800 dark:text-slate-200">{label}</p>
-                      <p className="text-xs text-gray-500 dark:text-slate-500">{desc}</p>
+                      <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{label}</p>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{desc}</p>
                     </div>
-                    <Switch checked={appearance[key]} onChange={v => setAppearance(p => ({ ...p, [key]: v }))} />
+                    <Switch
+                      checked={appearance[key]}
+                      onChange={v => {
+                        const next = { ...appearance, [key]: v }
+                        setAppearance(next)
+                        persistAppearance(next)
+                      }}
+                    />
                   </div>
                 ))}
               </div>

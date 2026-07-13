@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Truck, Loader2, CheckCircle, Smartphone, FileText, Package, AlertCircle, X, Printer, Calendar, Hash, Eye, CreditCard, ClipboardCheck } from 'lucide-react'
+import { Truck, Loader2, CheckCircle, Smartphone, FileText, Package, AlertCircle, X, Printer, Calendar, Hash, Eye, CreditCard, ClipboardCheck, Upload } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -32,6 +32,7 @@ import {
   poStatusColors,
   type PoProduct as SharedPoProduct,
 } from '@/components/suppliers/suppliers-shared'
+import { BulkPOImportModal } from '@/components/suppliers/BulkPOImportModal'
 
 function PODetailsModal({
   po,
@@ -433,6 +434,7 @@ export default function PurchaseOrdersPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [showNewPO, setShowNewPO] = useState(false)
+  const [showBulkImport, setShowBulkImport] = useState(false)
   const [markReceiving, setMarkReceiving] = useState<string | null>(null)
   const [confirmPO, setConfirmPO] = useState<PurchaseOrder | null>(null)
   const [detailPO, setDetailPO] = useState<PurchaseOrder | null>(null)
@@ -485,7 +487,7 @@ export default function PurchaseOrdersPage() {
 
   const printPoLabels = useCallback((labels: BarcodeLabelItem[], poNumber: string) => {
     if (!labels.length) {
-      toast.error('මේ PO එකේ print කරන්න barcode labels නැහැ')
+      toast.error('No barcode labels to print for this PO')
       return
     }
     printBarcodeLabels(labels, {
@@ -733,6 +735,14 @@ export default function PurchaseOrdersPage() {
           onSaved={() => { refetchOrders(); refetchSuppliers() }}
         />
       )}
+      {showBulkImport && (
+        <BulkPOImportModal
+          suppliers={suppliers}
+          products={(productsData?.data ?? []) as any[]}
+          onClose={() => setShowBulkImport(false)}
+          onSaved={() => { refetchOrders(); refetchSuppliers() }}
+        />
+      )}
       {confirmPO && (
         <ConfirmReceiveModal
           po={confirmPO}
@@ -755,13 +765,20 @@ export default function PurchaseOrdersPage() {
           <h1 className="page-title">Purchase Orders</h1>
           <p className="page-subtitle">{purchaseOrders.length} purchase orders</p>
         </div>
-        <div className="flex gap-2 sm:ml-auto">
+        <div className="flex gap-2 sm:ml-auto flex-wrap">
           <button
             type="button"
             onClick={() => router.push('/dashboard/suppliers')}
             className="btn-secondary text-sm"
           >
             Suppliers
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowBulkImport(true)}
+            className="btn-secondary text-sm flex items-center gap-2"
+          >
+            <Upload size={14} />Bulk Import
           </button>
           <button onClick={() => setShowNewPO(true)} className="btn-primary text-sm flex items-center gap-2">
             <Package size={14} />New PO

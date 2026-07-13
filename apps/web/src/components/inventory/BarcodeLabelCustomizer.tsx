@@ -77,7 +77,7 @@ export default function BarcodeLabelCustomizer({
             <Printer size={13} /> Barcode sticker customize
           </p>
           <p className="text-[11px] text-slate-500 mt-1">
-            Quick design එකක් තෝරලා, ඊට පස්සේ size / fields / density පිළිවෙලට customize කරන්න.
+            Choose a quick design, then customize size, fields, and barcode density.
           </p>
         </div>
         {onSave && (
@@ -128,166 +128,165 @@ export default function BarcodeLabelCustomizer({
           })}
         </div>
         {settings.preset === 'custom' && (
-          <p className="text-[11px] text-amber-500/90 mt-2">Custom — ඔබේ settings වලින් sticker එක හදාගෙන තියෙනවා</p>
+          <p className="text-[11px] text-amber-500/90 mt-2">Custom — sticker uses your edited settings</p>
         )}
       </div>
 
+      {/* Live preview — full width, large */}
+      <div className="rounded-xl border border-dashed border-amber-500/30 bg-amber-500/5 p-4">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <p className="text-xs font-bold text-amber-500 uppercase tracking-widest">Live sticker preview</p>
+          <p className="text-[10px] text-slate-500">
+            {settings.widthMm}×{settings.heightMm} mm
+            {settings.preset === 'custom' ? ' · custom' : ` · ${settings.preset}`}
+          </p>
+        </div>
+        <div className="w-full min-h-[360px] rounded-lg bg-slate-100 dark:bg-white/5 overflow-hidden">
+          <BarcodeStickerPreview
+            item={sampleItem}
+            settings={settings}
+            shopName={shopName || 'My Shop'}
+            large
+          />
+        </div>
+      </div>
+
       <div className="grid lg:grid-cols-2 gap-5">
-        <div className="space-y-4">
-          {/* Size */}
-          <div className="card p-4 space-y-3 border-white/10">
-            <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Sticker size</p>
-            <div className="flex gap-2 flex-wrap">
-              {SIZE_PRESETS.map(s => {
-                const active = settings.widthMm === s.w && settings.heightMm === s.h
-                return (
-                  <button
-                    key={s.label}
-                    type="button"
-                    onClick={() => patchCustom({ widthMm: s.w, heightMm: s.h })}
-                    className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
-                      active
-                        ? 'bg-violet-600 border-violet-500 text-white'
-                        : 'bg-white/5 border-white/10 text-slate-400 hover:border-violet-500/40'
-                    }`}
-                  >
-                    {s.label} mm
-                  </button>
-                )
-              })}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] text-slate-400 mb-1">Width (mm)</label>
-                <input
-                  type="number"
-                  min={20}
-                  max={100}
-                  value={settings.widthMm}
-                  onChange={e =>
-                    patchCustom({
-                      widthMm: Number(e.target.value) || DEFAULT_BARCODE_LABEL_SETTINGS.widthMm,
-                    })
-                  }
-                  className="input text-sm w-full"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] text-slate-400 mb-1">Height (mm)</label>
-                <input
-                  type="number"
-                  min={10}
-                  max={80}
-                  value={settings.heightMm}
-                  onChange={e =>
-                    patchCustom({
-                      heightMm: Number(e.target.value) || DEFAULT_BARCODE_LABEL_SETTINGS.heightMm,
-                    })
-                  }
-                  className="input text-sm w-full"
-                />
-              </div>
-            </div>
+        {/* Size */}
+        <div className="card p-4 space-y-3 border-white/10">
+          <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Sticker size</p>
+          <div className="flex gap-2 flex-wrap">
+            {SIZE_PRESETS.map(s => {
+              const active = settings.widthMm === s.w && settings.heightMm === s.h
+              return (
+                <button
+                  key={s.label}
+                  type="button"
+                  onClick={() => patchCustom({ widthMm: s.w, heightMm: s.h })}
+                  className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                    active
+                      ? 'bg-violet-600 border-violet-500 text-white'
+                      : 'bg-white/5 border-white/10 text-slate-400 hover:border-violet-500/40'
+                  }`}
+                >
+                  {s.label} mm
+                </button>
+              )
+            })}
           </div>
-
-          {/* Fields */}
-          <div className="card p-4 space-y-2 border-white/10">
-            <p className="text-xs font-bold text-violet-400 uppercase tracking-widest mb-1">Fields on sticker</p>
-            {FIELD_TOGGLES.map(({ key, label }) => (
-              <div
-                key={key}
-                className="flex items-center justify-between gap-3 py-2 px-3 rounded-xl border border-white/10 bg-white/[0.03]"
-              >
-                <span className="text-sm text-slate-200">{label}</span>
-                <Switch
-                  checked={Boolean(settings[key])}
-                  onChange={v => patchCustom({ [key]: v })}
-                  variant="violet"
-                />
-              </div>
-            ))}
-          </div>
-
-          {/* Typography / barcode */}
-          <div className="card p-4 space-y-3 border-white/10">
-            <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Text & barcode</p>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] text-slate-400 mb-1">Name lines</label>
-                <div className="flex gap-2">
-                  {([1, 2] as const).map(n => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => patchCustom({ nameMaxLines: n })}
-                      className={`flex-1 py-2 rounded-xl text-xs font-semibold border ${
-                        settings.nameMaxLines === n
-                          ? 'bg-violet-600 border-violet-500 text-white'
-                          : 'bg-white/5 border-white/10 text-slate-400'
-                      }`}
-                    >
-                      {n} line{n > 1 ? 's' : ''}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="block text-[11px] text-slate-400 mb-1">Name font (pt)</label>
-                <input
-                  type="number"
-                  min={4}
-                  max={12}
-                  step={0.5}
-                  value={settings.nameFontPt}
-                  onChange={e => patchCustom({ nameFontPt: Number(e.target.value) || 5.5 })}
-                  className="input text-sm w-full"
-                />
-              </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] text-slate-400 mb-1">Width (mm)</label>
+              <input
+                type="number"
+                min={20}
+                max={100}
+                value={settings.widthMm}
+                onChange={e =>
+                  patchCustom({
+                    widthMm: Number(e.target.value) || DEFAULT_BARCODE_LABEL_SETTINGS.widthMm,
+                  })
+                }
+                className="input text-sm w-full"
+              />
             </div>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] text-slate-400 mb-1">Barcode height</label>
-                <input
-                  type="range"
-                  min={12}
-                  max={48}
-                  value={settings.barcodeHeight}
-                  onChange={e => patchCustom({ barcodeHeight: Number(e.target.value) })}
-                  className="w-full"
-                />
-                <p className="text-[10px] text-slate-500 mt-0.5">{settings.barcodeHeight}px</p>
-              </div>
-              <div>
-                <label className="block text-[11px] text-slate-400 mb-1">Bar density</label>
-                <input
-                  type="range"
-                  min={0.6}
-                  max={2}
-                  step={0.1}
-                  value={settings.barcodeBarWidth}
-                  onChange={e => patchCustom({ barcodeBarWidth: Number(e.target.value) })}
-                  className="w-full"
-                />
-                <p className="text-[10px] text-slate-500 mt-0.5">{settings.barcodeBarWidth.toFixed(1)}</p>
-              </div>
+            <div>
+              <label className="block text-[11px] text-slate-400 mb-1">Height (mm)</label>
+              <input
+                type="number"
+                min={10}
+                max={80}
+                value={settings.heightMm}
+                onChange={e =>
+                  patchCustom({
+                    heightMm: Number(e.target.value) || DEFAULT_BARCODE_LABEL_SETTINGS.heightMm,
+                  })
+                }
+                className="input text-sm w-full"
+              />
             </div>
           </div>
         </div>
 
-        {/* Live preview */}
-        <div className="rounded-xl border border-dashed border-amber-500/30 bg-amber-500/5 p-4 h-fit lg:sticky lg:top-4">
-          <p className="text-xs font-bold text-amber-500 uppercase tracking-widest mb-3">Live sticker preview</p>
-          <div className="flex justify-center items-center min-h-[160px] rounded-lg bg-slate-100 dark:bg-white/5 p-4">
-            <BarcodeStickerPreview
-              item={sampleItem}
-              settings={settings}
-              shopName={shopName || 'My Shop'}
-            />
+        {/* Fields */}
+        <div className="card p-4 space-y-2 border-white/10">
+          <p className="text-xs font-bold text-violet-400 uppercase tracking-widest mb-1">Fields on sticker</p>
+          {FIELD_TOGGLES.map(({ key, label }) => (
+            <div
+              key={key}
+              className="flex items-center justify-between gap-3 py-2 px-3 rounded-xl border border-white/10 bg-white/[0.03]"
+            >
+              <span className="text-sm text-slate-200">{label}</span>
+              <Switch
+                checked={Boolean(settings[key])}
+                onChange={v => patchCustom({ [key]: v })}
+                variant="violet"
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Typography / barcode */}
+        <div className="card p-4 space-y-3 border-white/10 lg:col-span-2">
+          <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Text & barcode</p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label className="block text-[11px] text-slate-400 mb-1">Name lines</label>
+              <div className="flex gap-2">
+                {([1, 2] as const).map(n => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => patchCustom({ nameMaxLines: n })}
+                    className={`flex-1 py-2 rounded-xl text-xs font-semibold border ${
+                      settings.nameMaxLines === n
+                        ? 'bg-violet-600 border-violet-500 text-white'
+                        : 'bg-white/5 border-white/10 text-slate-400'
+                    }`}
+                  >
+                    {n} line{n > 1 ? 's' : ''}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-[11px] text-slate-400 mb-1">Name font (pt)</label>
+              <input
+                type="number"
+                min={4}
+                max={12}
+                step={0.5}
+                value={settings.nameFontPt}
+                onChange={e => patchCustom({ nameFontPt: Number(e.target.value) || 5.5 })}
+                className="input text-sm w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] text-slate-400 mb-1">Barcode height</label>
+              <input
+                type="range"
+                min={12}
+                max={48}
+                value={settings.barcodeHeight}
+                onChange={e => patchCustom({ barcodeHeight: Number(e.target.value) })}
+                className="w-full"
+              />
+              <p className="text-[10px] text-slate-500 mt-0.5">{settings.barcodeHeight}px</p>
+            </div>
+            <div>
+              <label className="block text-[11px] text-slate-400 mb-1">Bar density</label>
+              <input
+                type="range"
+                min={0.6}
+                max={2}
+                step={0.1}
+                value={settings.barcodeBarWidth}
+                onChange={e => patchCustom({ barcodeBarWidth: Number(e.target.value) })}
+                className="w-full"
+              />
+              <p className="text-[10px] text-slate-500 mt-0.5">{settings.barcodeBarWidth.toFixed(1)}</p>
+            </div>
           </div>
-          <p className="text-[10px] text-slate-500 mt-3 text-center">
-            {settings.widthMm}×{settings.heightMm} mm
-            {settings.preset === 'custom' ? ' · custom' : ` · ${settings.preset}`}
-          </p>
         </div>
       </div>
     </div>

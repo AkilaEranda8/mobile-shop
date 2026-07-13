@@ -142,20 +142,97 @@ export const ACCENT_PALETTES: Record<AccentKey, AccentPalette> = {
 
 export const DEFAULT_ACCENT: AccentKey = 'blue'
 
+export type TextSizeKey = 'sm' | 'md' | 'lg' | 'xl'
+
+export const TEXT_SIZE_SCALE: Record<TextSizeKey, number> = {
+  sm: 0.9,
+  md: 1,
+  lg: 1.12,
+  xl: 1.25,
+}
+
+export const TEXT_SIZE_OPTIONS: { key: TextSizeKey; label: string; hint: string }[] = [
+  { key: 'sm', label: 'Small', hint: '90%' },
+  { key: 'md', label: 'Default', hint: '100%' },
+  { key: 'lg', label: 'Large', hint: '112%' },
+  { key: 'xl', label: 'Extra Large', hint: '125%' },
+]
+
+/** Curated Google Fonts for system UI */
+export type UiFontKey =
+  | 'inter'
+  | 'roboto'
+  | 'open-sans'
+  | 'lato'
+  | 'poppins'
+  | 'nunito'
+  | 'source-sans'
+  | 'dm-sans'
+  | 'manrope'
+  | 'rubik'
+  | 'ibm-plex'
+  | 'noto-sans'
+
+export interface UiFontOption {
+  key: UiFontKey
+  label: string
+  /** CSS font-family value */
+  family: string
+  /** Google Fonts CSS2 family query segment (empty = system stack only) */
+  googleFamily: string
+}
+
+export const UI_FONT_OPTIONS: UiFontOption[] = [
+  { key: 'inter', label: 'Inter', family: "'Inter', system-ui, sans-serif", googleFamily: 'Inter:wght@300;400;500;600;700;800;900' },
+  { key: 'roboto', label: 'Roboto', family: "'Roboto', system-ui, sans-serif", googleFamily: 'Roboto:wght@300;400;500;700' },
+  { key: 'open-sans', label: 'Open Sans', family: "'Open Sans', system-ui, sans-serif", googleFamily: 'Open+Sans:wght@300;400;500;600;700;800' },
+  { key: 'lato', label: 'Lato', family: "'Lato', system-ui, sans-serif", googleFamily: 'Lato:wght@300;400;700;900' },
+  { key: 'poppins', label: 'Poppins', family: "'Poppins', system-ui, sans-serif", googleFamily: 'Poppins:wght@300;400;500;600;700;800' },
+  { key: 'nunito', label: 'Nunito', family: "'Nunito', system-ui, sans-serif", googleFamily: 'Nunito:wght@300;400;500;600;700;800' },
+  { key: 'source-sans', label: 'Source Sans 3', family: "'Source Sans 3', system-ui, sans-serif", googleFamily: 'Source+Sans+3:wght@300;400;500;600;700' },
+  { key: 'dm-sans', label: 'DM Sans', family: "'DM Sans', system-ui, sans-serif", googleFamily: 'DM+Sans:wght@300;400;500;600;700' },
+  { key: 'manrope', label: 'Manrope', family: "'Manrope', system-ui, sans-serif", googleFamily: 'Manrope:wght@300;400;500;600;700;800' },
+  { key: 'rubik', label: 'Rubik', family: "'Rubik', system-ui, sans-serif", googleFamily: 'Rubik:wght@300;400;500;600;700' },
+  { key: 'ibm-plex', label: 'IBM Plex Sans', family: "'IBM Plex Sans', system-ui, sans-serif", googleFamily: 'IBM+Plex+Sans:wght@300;400;500;600;700' },
+  { key: 'noto-sans', label: 'Noto Sans', family: "'Noto Sans', system-ui, sans-serif", googleFamily: 'Noto+Sans:wght@300;400;500;600;700' },
+]
+
+export const UI_FONT_MAP: Record<UiFontKey, UiFontOption> = Object.fromEntries(
+  UI_FONT_OPTIONS.map(f => [f.key, f]),
+) as Record<UiFontKey, UiFontOption>
+
+const GOOGLE_FONT_LINK_ID = 'hx-google-ui-font'
+
+export function googleFontsHref(googleFamily: string): string {
+  return `https://fonts.googleapis.com/css2?family=${googleFamily}&display=swap`
+}
+
 export interface AppearanceSettings {
   accent: AccentKey
+  textSize: TextSizeKey
+  uiFont: UiFontKey
   compactMode: boolean
   animations: boolean
 }
 
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
   accent: DEFAULT_ACCENT,
+  textSize: 'lg',
+  uiFont: 'inter',
   compactMode: false,
   animations: true,
 }
 
 export function isAccentKey(value: unknown): value is AccentKey {
   return typeof value === 'string' && value in ACCENT_PALETTES
+}
+
+export function isTextSizeKey(value: unknown): value is TextSizeKey {
+  return typeof value === 'string' && value in TEXT_SIZE_SCALE
+}
+
+export function isUiFontKey(value: unknown): value is UiFontKey {
+  return typeof value === 'string' && value in UI_FONT_MAP
 }
 
 export function getStoredAppearance(): AppearanceSettings {
@@ -168,6 +245,8 @@ export function getStoredAppearance(): AppearanceSettings {
       ...DEFAULT_APPEARANCE,
       ...parsed,
       accent: isAccentKey(parsed.accent) ? parsed.accent : DEFAULT_ACCENT,
+      textSize: isTextSizeKey(parsed.textSize) ? parsed.textSize : DEFAULT_APPEARANCE.textSize,
+      uiFont: isUiFontKey(parsed.uiFont) ? parsed.uiFont : DEFAULT_APPEARANCE.uiFont,
     }
   } catch {
     return DEFAULT_APPEARANCE
@@ -206,8 +285,52 @@ export function applyAccentToDocument(accent: AccentKey, forceDark?: boolean) {
   if (meta) meta.setAttribute('content', palette.primary)
 }
 
+export function applyTextSizeToDocument(textSize: TextSizeKey) {
+  if (typeof document === 'undefined') return
+  const scale = TEXT_SIZE_SCALE[textSize] ?? 1
+  const root = document.documentElement
+  root.dataset.textSize = textSize
+  root.style.setProperty('--ui-scale', String(scale))
+  root.style.fontSize = `${16 * scale}px`
+}
+
+export function ensureAllUiFontsLoaded() {
+  if (typeof document === 'undefined') return
+  const id = 'hx-google-ui-font-all'
+  if (document.getElementById(id)) return
+  const families = UI_FONT_OPTIONS.map(f => `family=${f.googleFamily}`).join('&')
+  const link = document.createElement('link')
+  link.id = id
+  link.rel = 'stylesheet'
+  link.href = `https://fonts.googleapis.com/css2?${families}&display=swap`
+  document.head.appendChild(link)
+}
+
+export function applyUiFontToDocument(uiFont: UiFontKey) {
+  if (typeof document === 'undefined') return
+  const font = UI_FONT_MAP[uiFont] ?? UI_FONT_MAP.inter
+  const root = document.documentElement
+  root.dataset.uiFont = font.key
+  root.style.setProperty('--font-sans', font.family)
+  root.style.fontFamily = font.family
+
+  if (font.googleFamily) {
+    let link = document.getElementById(GOOGLE_FONT_LINK_ID) as HTMLLinkElement | null
+    const href = googleFontsHref(font.googleFamily)
+    if (!link) {
+      link = document.createElement('link')
+      link.id = GOOGLE_FONT_LINK_ID
+      link.rel = 'stylesheet'
+      document.head.appendChild(link)
+    }
+    if (link.getAttribute('href') !== href) link.setAttribute('href', href)
+  }
+}
+
 export function applyAppearanceToDocument(settings: AppearanceSettings = getStoredAppearance()) {
   applyAccentToDocument(settings.accent)
+  applyTextSizeToDocument(settings.textSize)
+  applyUiFontToDocument(settings.uiFont)
   if (typeof document !== 'undefined') {
     document.documentElement.dataset.compact = settings.compactMode ? 'true' : 'false'
     document.documentElement.dataset.animations = settings.animations ? 'true' : 'false'
@@ -220,7 +343,6 @@ export function saveAppearance(settings: AppearanceSettings) {
 }
 
 /**
- * Blocking first-paint script: syncs theme class + accent tokens for the
- * current light/dark mode so inline accent vars never fight .dark CSS.
+ * Blocking first-paint script: syncs theme class + accent + text scale + Google font
  */
-export const APPEARANCE_INIT_SCRIPT = `(function(){try{var tk='${THEME_STORAGE_KEY}';var k='${APPEARANCE_KEY}';var d=${JSON.stringify(ACCENT_PALETTES)};var a='${DEFAULT_ACCENT}';var r=document.documentElement;var t=localStorage.getItem(tk);var dark=t==='dark';if(dark)r.classList.add('dark');else r.classList.remove('dark');var s=localStorage.getItem(k);if(s){var p=JSON.parse(s);if(p&&p.accent&&d[p.accent])a=p.accent;}var c=d[a];r.dataset.accent=a;r.style.setProperty('--brand-primary',c.primary);r.style.setProperty('--brand-light',c.light);r.style.setProperty('--brand-glow',dark?c.glowDark:c.glow);r.style.setProperty('--border-active',c.borderActive);r.style.setProperty('--brand-hover',c.primaryHover);r.style.setProperty('--brand-primary-light',dark?c.light:c.primaryLight);r.style.setProperty('--sidebar-active-bg',dark?c.sidebarActiveBgDark:c.sidebarActiveBg);r.style.setProperty('--sidebar-active-text',dark?c.sidebarActiveTextDark:c.sidebarActiveText);r.style.setProperty('--sidebar-active-border',dark?c.sidebarActiveBorderDark:c.sidebarActiveBorder);r.style.setProperty('--brand-gradient','linear-gradient(135deg,'+c.gradientFrom+','+c.gradientTo+')');r.style.setProperty('--kpi-accent',c.kpiGradient);r.style.setProperty('--secondary-hover-bg',dark?('color-mix(in srgb,'+c.primary+' 14%,transparent)'):c.secondaryHoverBg);}catch(e){}})();`
+export const APPEARANCE_INIT_SCRIPT = `(function(){try{var tk='${THEME_STORAGE_KEY}';var k='${APPEARANCE_KEY}';var d=${JSON.stringify(ACCENT_PALETTES)};var scales=${JSON.stringify(TEXT_SIZE_SCALE)};var fonts=${JSON.stringify(UI_FONT_OPTIONS)};var a='${DEFAULT_ACCENT}';var ts='${DEFAULT_APPEARANCE.textSize}';var uf='${DEFAULT_APPEARANCE.uiFont}';var r=document.documentElement;var t=localStorage.getItem(tk);var dark=t==='dark';if(dark)r.classList.add('dark');else r.classList.remove('dark');var s=localStorage.getItem(k);if(s){var p=JSON.parse(s);if(p&&p.accent&&d[p.accent])a=p.accent;if(p&&p.textSize&&scales[p.textSize])ts=p.textSize;if(p&&p.uiFont){for(var i=0;i<fonts.length;i++){if(fonts[i].key===p.uiFont){uf=p.uiFont;break;}}}if(p){r.dataset.compact=p.compactMode?'true':'false';r.dataset.animations=p.animations===false?'false':'true';}}var c=d[a];var sc=scales[ts]||1;var font=fonts[0];for(var j=0;j<fonts.length;j++){if(fonts[j].key===uf){font=fonts[j];break;}}r.dataset.accent=a;r.dataset.textSize=ts;r.dataset.uiFont=font.key;r.style.setProperty('--ui-scale',String(sc));r.style.fontSize=(16*sc)+'px';r.style.setProperty('--font-sans',font.family);r.style.fontFamily=font.family;if(font.googleFamily){var link=document.getElementById('${GOOGLE_FONT_LINK_ID}');if(!link){link=document.createElement('link');link.id='${GOOGLE_FONT_LINK_ID}';link.rel='stylesheet';document.head.appendChild(link);}link.href='https://fonts.googleapis.com/css2?family='+font.googleFamily+'&display=swap';}r.style.setProperty('--brand-primary',c.primary);r.style.setProperty('--brand-light',c.light);r.style.setProperty('--brand-glow',dark?c.glowDark:c.glow);r.style.setProperty('--border-active',c.borderActive);r.style.setProperty('--brand-hover',c.primaryHover);r.style.setProperty('--brand-primary-light',dark?c.light:c.primaryLight);r.style.setProperty('--sidebar-active-bg',dark?c.sidebarActiveBgDark:c.sidebarActiveBg);r.style.setProperty('--sidebar-active-text',dark?c.sidebarActiveTextDark:c.sidebarActiveText);r.style.setProperty('--sidebar-active-border',dark?c.sidebarActiveBorderDark:c.sidebarActiveBorder);r.style.setProperty('--brand-gradient','linear-gradient(135deg,'+c.gradientFrom+','+c.gradientTo+')');r.style.setProperty('--kpi-accent',c.kpiGradient);r.style.setProperty('--secondary-hover-bg',dark?('color-mix(in srgb,'+c.primary+' 14%,transparent)'):c.secondaryHoverBg);}catch(e){}})();`

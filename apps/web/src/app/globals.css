@@ -7,6 +7,8 @@
 @layer base {
   /* ── Light theme (default) ─────────────────────────────── */
   :root {
+    --font-sans: 'Inter', system-ui, sans-serif;
+    --ui-scale: 1;
     --tc-background: 0 0% 100%;
     --tc-foreground: 222.2 84% 4.9%;
     --tc-card: 0 0% 100%;
@@ -156,10 +158,14 @@
     overflow-x: hidden;
     background-color: var(--bg-primary);
     color: var(--text-primary);
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     transition: background-color 0.2s, color 0.2s;
+  }
+
+  html {
+    font-size: calc(16px * var(--ui-scale, 1));
   }
 
   a {
@@ -171,6 +177,28 @@
   ::-webkit-scrollbar-track  { background: var(--bg-surface); }
   ::-webkit-scrollbar-thumb  { background: var(--border-default); border-radius: 3px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+}
+
+/* Compact + reduced motion preferences from Settings → Appearance */
+html[data-compact="true"] .card {
+  border-radius: 0.75rem;
+}
+html[data-compact="true"] main {
+  padding: 0.75rem !important;
+}
+html[data-compact="true"] .sidebar-item {
+  padding: 0.5rem 0.625rem;
+}
+html[data-compact="true"] .page-title {
+  font-size: 1.25rem;
+}
+html[data-animations="false"] *,
+html[data-animations="false"] *::before,
+html[data-animations="false"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }
 
 @layer components {
