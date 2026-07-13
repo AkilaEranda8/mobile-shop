@@ -104,15 +104,19 @@ function singleLabelHtml(
       ? `<p class="price">${escapeHtml(formatCurrency(item.price))}</p>`
       : ''
 
-  // Order matches sticker sheet: shop → name → code → barcode → digits → price
+  // Order: shop → name → code → barcode → digits → price (grouped for even spacing)
   return `
     <div class="label">
-      ${shop}
-      ${name}
-      ${sku}
-      <div class="barcode">${svg}</div>
-      ${digits}
-      ${price}
+      <div class="top">
+        ${shop}
+        ${name}
+        ${sku}
+      </div>
+      <div class="mid">
+        <div class="barcode">${svg}</div>
+        ${digits}
+      </div>
+      ${price || '<div class="price-spacer"></div>'}
       ${seq}
     </div>
   `
@@ -140,8 +144,8 @@ export function printBarcodeLabels(
   const previewFirst = options?.preview !== false
   const wMm = settings.widthMm
   const hMm = settings.heightMm
-  const svgMaxH = Math.max(6, Math.min(hMm * 0.38, settings.barcodeHeight * 0.38))
-  const pricePt = Math.max(settings.nameFontPt + 1.5, 7)
+  const svgMaxH = Math.max(5.5, Math.min(hMm * 0.30, 9))
+  const pricePt = Math.min(7.5, Math.max(settings.nameFontPt + 0.5, 6))
   const labelCount = valid.reduce((sum, item) => sum + Math.max(1, Math.min(item.qty ?? 1, 99)), 0)
   const labelsBody = valid.map(item => labelHtml(item, settings, options?.shopName)).join('')
 
@@ -165,7 +169,7 @@ export function printBarcodeLabels(
   const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"/><title>Barcode Labels Preview</title>
 <style>
-  @page { size: ${wMm}mm ${hMm}mm; margin: 0.5mm; }
+  @page { size: ${wMm}mm ${hMm}mm; margin: 0.4mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: Arial, Helvetica, sans-serif;
@@ -215,36 +219,49 @@ export function printBarcodeLabels(
     gap: 14px;
   }
   .label {
-    width: ${wMm - 2}mm;
-    height: ${hMm - 2}mm;
-    padding: 1mm 1.4mm 1.2mm;
+    width: ${wMm - 1.5}mm;
+    height: ${hMm - 1.5}mm;
+    padding: 1.2mm 1.5mm 1.1mm;
     page-break-after: always;
     position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: space-between;
     text-align: center;
     overflow: hidden;
     background: #fff;
     ${previewFirst ? `border: 1px solid #cbd5e1; border-radius: 2px; box-shadow: 0 4px 14px rgba(15,23,42,0.08);` : ''}
   }
+  .top, .mid {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35mm;
+    flex-shrink: 0;
+  }
+  .mid {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-height: 0;
+    gap: 0.4mm;
+  }
   .shop {
-    font-size: 4.5pt;
+    font-size: 4.2pt;
     font-weight: 500;
     color: #666;
-    line-height: 1.15;
+    line-height: 1.2;
     max-width: 100%;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-bottom: 0.4mm;
   }
   .name {
-    font-size: ${settings.nameFontPt}pt;
+    font-size: ${Math.min(settings.nameFontPt, 6.5)}pt;
     font-weight: 700;
     color: #111;
-    line-height: 1.15;
+    line-height: 1.2;
     max-width: 100%;
     word-break: break-word;
     overflow-wrap: anywhere;
@@ -252,25 +269,26 @@ export function printBarcodeLabels(
     -webkit-line-clamp: ${settings.nameMaxLines};
     -webkit-box-orient: vertical;
     overflow: hidden;
-    margin-bottom: 0.3mm;
   }
   .sku {
-    font-size: 4.5pt;
+    font-size: 4pt;
     font-weight: 500;
     color: #777;
-    line-height: 1.1;
+    line-height: 1.15;
     max-width: 100%;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-bottom: 0.5mm;
   }
   .barcode {
-    flex-shrink: 0;
     width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     text-align: center;
     line-height: 0;
-    margin: 0.2mm 0 0.4mm;
+    min-height: 0;
+    max-height: ${svgMaxH + 1}mm;
   }
   .barcode svg {
     max-width: 100%;
@@ -278,13 +296,12 @@ export function printBarcodeLabels(
     max-height: ${svgMaxH}mm;
   }
   .digits {
-    font-size: 5.5pt;
+    font-size: 5pt;
     font-weight: 600;
     font-family: "Courier New", Courier, monospace;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.01em;
     color: #111;
-    line-height: 1.1;
-    margin-bottom: 0.5mm;
+    line-height: 1.15;
     max-width: 100%;
     white-space: nowrap;
     overflow: hidden;
@@ -292,17 +309,17 @@ export function printBarcodeLabels(
   }
   .price {
     font-size: ${pricePt}pt;
-    font-weight: 800;
+    font-weight: 700;
     color: #000;
-    line-height: 1.1;
-    margin-top: auto;
-    padding-top: 0.4mm;
+    line-height: 1.15;
+    flex-shrink: 0;
   }
+  .price-spacer { height: 0.5mm; flex-shrink: 0; }
   .seq {
     position: absolute;
-    right: 1mm;
-    bottom: 0.5mm;
-    font-size: 4.5pt;
+    right: 0.8mm;
+    bottom: 0.4mm;
+    font-size: 4pt;
     font-weight: 600;
     color: #555;
   }

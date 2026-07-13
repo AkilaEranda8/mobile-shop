@@ -48,86 +48,150 @@ function StickerFace({
   scale: number
   barcodeRef: React.RefObject<HTMLDivElement | null>
 }) {
-  const pricePt = Math.max(resolved.nameFontPt + 1.5, 7)
-  const fs = (pt: number) => `${pt * scale * 0.9}px`
+  // Keep price readable but not dominating the sticker
+  const pricePt = Math.min(8, Math.max(resolved.nameFontPt + 0.5, 6.5))
+  const gap = Math.max(2, scale * 0.35)
+  const padY = Math.max(4, scale * 0.9)
+  const padX = Math.max(6, scale * 1.1)
+  const barcodeMaxH = Math.max(28, resolved.heightMm * scale * 0.32)
 
   return (
     <div
-      className="bg-white text-black shadow-md border border-slate-300 overflow-hidden"
+      className="bg-white text-black shadow-md border border-slate-300"
       style={{
         width: `${resolved.widthMm * scale}px`,
         height: `${resolved.heightMm * scale}px`,
-        padding: `${1.2 * scale}px ${1.6 * scale}px`,
+        padding: `${padY}px ${padX}px`,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
+        justifyContent: 'space-between',
         textAlign: 'center',
         position: 'relative',
         fontFamily: 'Arial, Helvetica, sans-serif',
+        overflow: 'hidden',
+        boxSizing: 'border-box',
       }}
     >
-      {resolved.showShopName && (
-        <p
-          className="truncate w-full"
-          style={{ fontSize: fs(4.5), fontWeight: 500, color: '#666', lineHeight: 1.15, marginBottom: 3 }}
-        >
-          {shopName?.trim() || 'DEMO SPARE PARTS STORE'}
-        </p>
-      )}
-      {resolved.showProductName && (
+      <div
+        style={{
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap,
+          flexShrink: 0,
+          minHeight: 0,
+        }}
+      >
+        {resolved.showShopName && (
+          <p
+            className="truncate w-full"
+            style={{
+              fontSize: `${Math.max(9, 4.2 * scale * 0.85)}px`,
+              fontWeight: 500,
+              color: '#666',
+              lineHeight: 1.2,
+              margin: 0,
+            }}
+          >
+            {shopName?.trim() || 'DEMO SPARE PARTS STORE'}
+          </p>
+        )}
+        {resolved.showProductName && (
+          <p
+            className="w-full font-bold"
+            style={{
+              fontSize: `${Math.max(11, resolved.nameFontPt * scale * 0.85)}px`,
+              color: '#111',
+              lineHeight: 1.2,
+              display: '-webkit-box',
+              WebkitLineClamp: resolved.nameMaxLines,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              wordBreak: 'break-word',
+              margin: 0,
+            }}
+          >
+            {label.name}
+          </p>
+        )}
+        {resolved.showSku && label.sku && (
+          <p
+            className="truncate w-full"
+            style={{
+              fontSize: `${Math.max(9, 4.2 * scale * 0.85)}px`,
+              fontWeight: 500,
+              color: '#777',
+              lineHeight: 1.2,
+              margin: 0,
+            }}
+          >
+            {label.sku}
+          </p>
+        )}
+      </div>
+
+      <div
+        style={{
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: Math.max(2, gap * 0.7),
+          flex: '1 1 auto',
+          justifyContent: 'center',
+          minHeight: 0,
+        }}
+      >
+        <div
+          ref={barcodeRef}
+          className="w-full flex justify-center items-center [&_svg]:max-w-full"
+          style={{ lineHeight: 0, maxHeight: barcodeMaxH, overflow: 'hidden' }}
+        />
+        {resolved.showBarcodeText && (
+          <p
+            className="truncate w-full"
+            style={{
+              fontSize: `${Math.max(10, 5 * scale * 0.85)}px`,
+              fontWeight: 600,
+              fontFamily: '"Courier New", Courier, monospace',
+              color: '#111',
+              lineHeight: 1.15,
+              margin: 0,
+            }}
+          >
+            {label.barcode}
+          </p>
+        )}
+      </div>
+
+      {resolved.showPrice && label.price != null ? (
         <p
           className="w-full font-bold"
           style={{
-            fontSize: fs(resolved.nameFontPt),
-            color: '#111',
+            fontSize: `${Math.max(12, pricePt * scale * 0.85)}px`,
+            color: '#000',
             lineHeight: 1.15,
-            display: '-webkit-box',
-            WebkitLineClamp: resolved.nameMaxLines,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-            wordBreak: 'break-word',
-            marginBottom: 3,
+            margin: 0,
+            flexShrink: 0,
           }}
-        >
-          {label.name}
-        </p>
-      )}
-      {resolved.showSku && label.sku && (
-        <p className="truncate w-full" style={{ fontSize: fs(4.5), fontWeight: 500, color: '#777', marginBottom: 4 }}>
-          {label.sku}
-        </p>
-      )}
-      <div
-        ref={barcodeRef}
-        className="flex-shrink-0 w-full flex justify-center [&_svg]:max-w-full [&_svg]:h-auto"
-        style={{ lineHeight: 0, marginBottom: 3 }}
-      />
-      {resolved.showBarcodeText && (
-        <p
-          className="truncate w-full"
-          style={{
-            fontSize: fs(5.5),
-            fontWeight: 600,
-            fontFamily: '"Courier New", Courier, monospace',
-            color: '#111',
-            marginBottom: 4,
-          }}
-        >
-          {label.barcode}
-        </p>
-      )}
-      {resolved.showPrice && label.price != null && (
-        <p
-          className="w-full font-extrabold"
-          style={{ fontSize: fs(pricePt), color: '#000', marginTop: 'auto', paddingTop: 3 }}
         >
           {formatCurrency(label.price)}
         </p>
+      ) : (
+        <div style={{ height: gap }} />
       )}
+
       {resolved.showCopyIndex && (label.qty ?? 1) > 1 && (
         <span
           className="absolute font-semibold"
-          style={{ right: 6, bottom: 4, fontSize: fs(4.5), color: '#555' }}
+          style={{
+            right: padX * 0.5,
+            bottom: padY * 0.4,
+            fontSize: `${Math.max(8, 4 * scale * 0.8)}px`,
+            color: '#555',
+          }}
         >
           1/{label.qty ?? 1}
         </span>
@@ -153,7 +217,7 @@ export function BarcodeStickerPreview({
 }) {
   const barcodeRef = useRef<HTMLDivElement>(null)
   const boxRef = useRef<HTMLDivElement>(null)
-  const [fillScale, setFillScale] = useState(large ? 8 : 2)
+  const [fillScale, setFillScale] = useState(large ? 6 : 2)
 
   const resolved = resolveBarcodeLabelSettings({
     barcodeLabel: { ...DEFAULT_BARCODE_LABEL_SETTINGS, ...settings } as BarcodeLabelSettings,
@@ -165,12 +229,13 @@ export function BarcodeStickerPreview({
     if (!large || !boxRef.current) return
     const el = boxRef.current
     const update = () => {
-      const pad = 32
-      const availW = Math.max(200, el.clientWidth - pad)
-      const availH = Math.max(160, el.clientHeight - pad)
+      const pad = 40
+      const availW = Math.max(180, el.clientWidth - pad)
+      const availH = Math.max(140, el.clientHeight - pad)
       const sW = availW / resolved.widthMm
       const sH = availH / resolved.heightMm
-      setFillScale(Math.max(4, Math.min(sW, sH) * 0.92))
+      // Cap scale so text/layout stay readable and spaced
+      setFillScale(Math.max(3.5, Math.min(sW, sH, 9) * 0.88))
     }
     update()
     const ro = new ResizeObserver(update)
@@ -180,12 +245,19 @@ export function BarcodeStickerPreview({
 
   useEffect(() => {
     if (!barcodeRef.current) return
+    const barH = Math.min(resolved.barcodeHeight, Math.round(resolved.heightMm * 1.1))
     barcodeRef.current.innerHTML = renderBarcodeSvg(label.barcode, {
-      height: resolved.barcodeHeight,
-      width: resolved.barcodeBarWidth,
+      height: barH,
+      width: Math.min(resolved.barcodeBarWidth, 1.4),
       displayValue: false,
     })
-  }, [label.barcode, resolved.barcodeHeight, resolved.barcodeBarWidth, scale])
+    const svg = barcodeRef.current.querySelector('svg')
+    if (svg) {
+      svg.style.maxHeight = '100%'
+      svg.style.width = '100%'
+      svg.style.height = 'auto'
+    }
+  }, [label.barcode, resolved.barcodeHeight, resolved.barcodeBarWidth, resolved.heightMm, scale])
 
   if (large) {
     return (
