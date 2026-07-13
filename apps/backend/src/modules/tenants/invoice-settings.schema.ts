@@ -50,7 +50,7 @@ export const updateInvoiceSettingsSchema = z.object({
   barcodeLabel: z.object({
     widthMm: z.number().min(20).max(100).optional(),
     heightMm: z.number().min(10).max(80).optional(),
-    preset: z.enum(['38x25', '50x30', '40x30', 'custom']).optional(),
+    preset: z.enum(['compact', 'standard', 'detailed', '38x25', '50x30', '40x30', 'custom']).optional(),
     showShopName: z.boolean().optional(),
     showProductName: z.boolean().optional(),
     showSku: z.boolean().optional(),

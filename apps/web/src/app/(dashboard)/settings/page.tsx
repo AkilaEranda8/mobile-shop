@@ -1,17 +1,23 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import {
   Save, Building2, User, Bell, Shield, Palette, CreditCard, Users,
   Loader2, Eye, EyeOff, Trash2, Plus, X, CheckCircle, Check, FileText, Smartphone, ChevronRight, BookOpen,
-  Package,
+  Package, Tag,
 } from 'lucide-react'
 import { authApi, usersApi, tenantApi, uploadApi, deviceCatalogApi, plansApi, branchesApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { useTenantFeatures } from '@/lib/hooks'
-import { type InvoiceSettings, getInvoiceSettings, fetchInvoiceCustomizeSettings, pushInvoiceSettings, DEFAULT_REPAIR_INTAKE_TERMS } from '@/lib/invoiceSettings'
+import {
+  type InvoiceSettings,
+  getInvoiceSettings,
+  fetchInvoiceCustomizeSettings,
+  pushInvoiceSettings,
+  DEFAULT_REPAIR_INTAKE_TERMS,
+} from '@/lib/invoiceSettings'
 import ThermalReceiptCustomizer, { ThermalReceiptPreview, ThermalLogoSizePicker } from '@/components/invoice/ThermalReceiptCustomizer'
 import InvoiceTemplatePicker from '@/components/invoice/InvoiceTemplatePicker'
 import { Switch } from '@/components/ui/Switch'
@@ -49,6 +55,7 @@ import UserManualPanel from '@/components/settings/UserManualPanel'
 const tabs = [
   { key: 'shop',          label: 'Shop Info',       icon: Building2  },
   { key: 'invoice',       label: 'Invoice',         icon: FileText   },
+  { key: 'barcode',       label: 'Barcode Labels',  icon: Tag        },
   { key: 'manual',        label: 'User Manual',     icon: BookOpen   },
   { key: 'devices',       label: 'Devices',         icon: Smartphone },
   { key: 'profile',       label: 'Profile',         icon: User       },
@@ -72,6 +79,7 @@ const planColors: Record<string, string> = {
 
 export default function SettingsPage() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState('shop')
   const currentUser = authStorage.getUser()
   const tenantId = currentUser?.tenantId
@@ -79,8 +87,12 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const tab = searchParams.get('tab')
+    if (tab === 'barcode') {
+      router.replace('/settings/barcode-labels')
+      return
+    }
     if (tab && tabs.some(t => t.key === tab)) setActiveTab(tab)
-  }, [searchParams])
+  }, [searchParams, router])
   const { hasFeature, featurePrices, refetchFeatures } = useTenantFeatures()
   const [featureSaving, setFeatureSaving] = useState(false)
   const canManageFeatures = currentUser?.role === 'OWNER' || currentUser?.role === 'MANAGER'
@@ -376,7 +388,16 @@ export default function SettingsPage() {
         <div className="lg:w-52 flex-shrink-0">
           <nav className="card p-2 space-y-0.5">
             {tabs.map(tab => (
-              <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => {
+                  if (tab.key === 'barcode') {
+                    router.push('/settings/barcode-labels')
+                    return
+                  }
+                  setActiveTab(tab.key)
+                }}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left ${activeTab === tab.key ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
                 <tab.icon size={15} />{tab.label}
               </button>
@@ -1055,6 +1076,9 @@ export default function SettingsPage() {
 
             </div>
           )}
+
+          {/* ── BARCODE LABELS ── (dedicated page) */}
+
           {activeTab === 'profile' && (
             <div className="card p-6 space-y-5">
               <div className="flex items-center justify-between border-b border-white/5 pb-3">

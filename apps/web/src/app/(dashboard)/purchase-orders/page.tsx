@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Truck, Loader2, CheckCircle, Smartphone, FileText, Package, AlertCircle, X, Printer } from 'lucide-react'
+import { Truck, Loader2, CheckCircle, Smartphone, FileText, Package, AlertCircle, X } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -11,20 +11,9 @@ import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useSuppliers, usePurchaseOrders, useProducts } from '@/lib/hooks'
 import { suppliersApi } from '@/lib/api'
-import { authStorage } from '@/lib/auth'
 import { isImeiHealthBannerDismissed, dismissImeiHealthBanner } from '@/lib/productImei'
 import type { PurchaseOrder } from '@/types'
 import toast from 'react-hot-toast'
-import { printBarcodeLabels, type BarcodeLabelItem } from '@/lib/barcode-print'
-import {
-  DEFAULT_BARCODE_LABEL_SETTINGS,
-  fetchInvoiceSettings,
-  pushInvoiceSettings,
-  resolveBarcodeLabelSettings,
-  type BarcodeLabelSettings,
-  type InvoiceSettings,
-} from '@/lib/invoiceSettings'
-import BarcodeLabelCustomizer from '@/components/inventory/BarcodeLabelCustomizer'
 import {
   ConfirmReceiveModal,
   IMEIRegisterModal,
@@ -47,86 +36,12 @@ export default function PurchaseOrdersPage() {
   const [textSearch, setTextSearch] = useState('')
   const [poStatusFilter, setPoStatusFilter] = useState<'all' | 'DRAFT' | 'SENT' | 'PARTIAL' | 'RECEIVED' | 'CLOSED'>('all')
 
-  const currentUser = authStorage.getUser()
-  const tenantId = currentUser?.tenantId
-  const canSaveLayout = currentUser?.role === 'OWNER' || currentUser?.role === 'MANAGER' || currentUser?.role === 'PLATFORM_ADMIN'
-
-  const [invoiceSettings, setInvoiceSettings] = useState<InvoiceSettings | null>(null)
-  const [barcodeLabel, setBarcodeLabel] = useState<BarcodeLabelSettings>({ ...DEFAULT_BARCODE_LABEL_SETTINGS })
-  const [savingLayout, setSavingLayout] = useState(false)
-  const [sampleLabel, setSampleLabel] = useState<BarcodeLabelItem | null>(null)
-  const barcodeLabelRef = useRef(barcodeLabel)
-  barcodeLabelRef.current = barcodeLabel
-
   const openPoInvoice = useCallback((id: string) => router.push(`/purchase-invoice?id=${id}`), [router])
   const { data: suppliersData, refetch: refetchSuppliers } = useSuppliers()
   const { data: ordersData, loading: ordersLoading, refetch: refetchOrders } = usePurchaseOrders()
   const { data: productsData } = useProducts({ limit: '2000' })
   const suppliers = (suppliersData?.data ?? []) as import('@/types').Supplier[]
   const allProducts: SharedPoProduct[] = (productsData?.data ?? []) as SharedPoProduct[]
-
-  useEffect(() => {
-    if (!tenantId) return
-    fetchInvoiceSettings(tenantId)
-      .then(s => {
-        setInvoiceSettings(s)
-        setBarcodeLabel(resolveBarcodeLabelSettings(s))
-      })
-      .catch(() => {})
-  }, [tenantId])
-
-  const mapPoLabels = (raw: any[]): BarcodeLabelItem[] =>
-    raw.map((l: any) => ({
-      barcode: l.barcode,
-      name: l.name,
-      sku: l.sku,
-      price: l.price,
-      qty: l.qty ?? 1,
-    }))
-
-  const printPoLabels = useCallback((labels: BarcodeLabelItem[], poNumber: string) => {
-    if (!labels.length) {
-      toast.error('මේ PO එකේ print කරන්න barcode labels නැහැ')
-      return
-    }
-    printBarcodeLabels(labels, {
-      settings: barcodeLabelRef.current,
-      shopName: invoiceSettings?.shopName,
-    })
-    const total = labels.reduce((s, l) => s + (l.qty ?? 1), 0)
-    toast.success(`${poNumber}: ${total} barcode label(s) printing`)
-    setSampleLabel(labels[0] ?? null)
-  }, [invoiceSettings?.shopName])
-
-  const handlePrintPoLabels = useCallback(async (po: PurchaseOrder) => {
-    try {
-      const res: any = await suppliersApi.getPoLabels(po.id)
-      const payload = res?.data ?? res
-      const labels = mapPoLabels(payload?.labelsToPrint ?? [])
-      printPoLabels(labels, po.poNumber)
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Could not load PO barcodes')
-    }
-  }, [printPoLabels])
-
-  const handleSaveBarcodeLayout = async () => {
-    if (!tenantId || !canSaveLayout) return
-    setSavingLayout(true)
-    try {
-      const base = invoiceSettings ?? (await fetchInvoiceSettings(tenantId))
-      const saved = await pushInvoiceSettings(tenantId, {
-        ...base,
-        barcodeLabel,
-      })
-      setInvoiceSettings(saved)
-      setBarcodeLabel(resolveBarcodeLabelSettings(saved))
-      toast.success('Barcode label layout saved')
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Failed to save barcode layout')
-    } finally {
-      setSavingLayout(false)
-    }
-  }
 
   const purchaseOrders: PurchaseOrder[] = (ordersData?.data ?? []) as PurchaseOrder[]
 
@@ -142,23 +57,6 @@ export default function PurchaseOrdersPage() {
       setShowNewPO(true)
     }
   }, [searchParams, router])
-
-  // Load a sample label from the first received PO for live preview
-  useEffect(() => {
-    if (sampleLabel) return
-    const received = purchaseOrders.find(po => po.status === 'RECEIVED' || po.status === 'CLOSED')
-    if (!received) return
-    let cancelled = false
-    suppliersApi.getPoLabels(received.id)
-      .then((res: any) => {
-        if (cancelled) return
-        const payload = res?.data ?? res
-        const labels = mapPoLabels(payload?.labelsToPrint ?? [])
-        if (labels[0]) setSampleLabel(labels[0])
-      })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [purchaseOrders, sampleLabel])
 
   const incompletePoCount = useMemo(() =>
     purchaseOrders.filter(po => {
@@ -192,8 +90,6 @@ export default function PurchaseOrdersPage() {
       refetchOrders()
       const payload = res?.data ?? res
       const updated = (payload?.id ? payload : payload?.purchaseOrder ?? confirmPO) as PurchaseOrder
-      const labels = mapPoLabels(payload?.labelsToPrint ?? [])
-      if (labels.length > 0) printPoLabels(labels, confirmPO.poNumber)
       if (poHasImeiProducts(updated, allProducts) && poCanRegisterImei(updated, allProducts)) {
         setRegisterImeiPO(updated)
       }
@@ -282,17 +178,6 @@ export default function PurchaseOrdersPage() {
                 )}
               </button>
             )}
-            {(po.status === 'RECEIVED' || po.status === 'CLOSED') && (
-              <button
-                type="button"
-                onClick={() => handlePrintPoLabels(po)}
-                className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-colors"
-                title="Generate barcodes for this PO and print labels"
-              >
-                <Printer size={10} />
-                Print Barcodes
-              </button>
-            )}
             {(po.status === 'RECEIVED' || po.status === 'CLOSED') && imeiExpected > 0 && !canRegisterImei && (
               <span className="flex items-center gap-1 text-[10px] text-green-400 px-2 py-0.5">
                 <CheckCircle size={10} /> IMEI done
@@ -305,7 +190,7 @@ export default function PurchaseOrdersPage() {
         )
       },
     },
-  ], [openPoInvoice, markReceiving, allProducts, router, handlePrintPoLabels])
+  ], [openPoInvoice, markReceiving, allProducts, router])
 
   return (
     <div className="space-y-6">
@@ -366,16 +251,6 @@ export default function PurchaseOrdersPage() {
           </button>
         </div>
       )}
-
-      <BarcodeLabelCustomizer
-        settings={barcodeLabel}
-        onChange={patch => setBarcodeLabel(prev => resolveBarcodeLabelSettings({ barcodeLabel: { ...prev, ...patch } }))}
-        sampleItem={sampleLabel}
-        shopName={invoiceSettings?.shopName}
-        onSave={canSaveLayout ? handleSaveBarcodeLayout : undefined}
-        saving={savingLayout}
-        canSave={canSaveLayout}
-      />
 
       <ToolbarSearch
         value={textSearch}

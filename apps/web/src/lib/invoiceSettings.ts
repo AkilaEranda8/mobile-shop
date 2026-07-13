@@ -73,7 +73,7 @@ export interface InvoiceSettings {
   barcodeLabel: BarcodeLabelSettings
 }
 
-export const BARCODE_LABEL_PRESETS = ['38x25', '50x30', '40x30', 'custom'] as const
+export const BARCODE_LABEL_PRESETS = ['compact', 'standard', 'detailed'] as const
 export type BarcodeLabelPreset = (typeof BARCODE_LABEL_PRESETS)[number]
 
 export interface BarcodeLabelSettings {
@@ -92,20 +92,78 @@ export interface BarcodeLabelSettings {
   nameMaxLines: 1 | 2
 }
 
+/** Three selectable label designs — pick one, no free-form customize. */
+export const BARCODE_LABEL_DESIGNS: Record<BarcodeLabelPreset, BarcodeLabelSettings & {
+  label: string
+  description: string
+}> = {
+  compact: {
+    label: 'Design 1',
+    description: 'Compact · 38×25 mm · name + price',
+    widthMm: 38,
+    heightMm: 25,
+    preset: 'compact',
+    showShopName: false,
+    showProductName: true,
+    showSku: false,
+    showPrice: true,
+    showBarcodeText: true,
+    showCopyIndex: false,
+    nameFontPt: 5.5,
+    barcodeHeight: 22,
+    barcodeBarWidth: 1.1,
+    nameMaxLines: 1,
+  },
+  standard: {
+    label: 'Design 2',
+    description: 'Standard · 40×30 mm · name + SKU + price',
+    widthMm: 40,
+    heightMm: 30,
+    preset: 'standard',
+    showShopName: false,
+    showProductName: true,
+    showSku: true,
+    showPrice: true,
+    showBarcodeText: true,
+    showCopyIndex: true,
+    nameFontPt: 5.5,
+    barcodeHeight: 24,
+    barcodeBarWidth: 1.1,
+    nameMaxLines: 2,
+  },
+  detailed: {
+    label: 'Design 3',
+    description: 'Detailed · 50×30 mm · shop + name + SKU + price',
+    widthMm: 50,
+    heightMm: 30,
+    preset: 'detailed',
+    showShopName: true,
+    showProductName: true,
+    showSku: true,
+    showPrice: true,
+    showBarcodeText: true,
+    showCopyIndex: true,
+    nameFontPt: 6,
+    barcodeHeight: 28,
+    barcodeBarWidth: 1.2,
+    nameMaxLines: 2,
+  },
+}
+
 export const DEFAULT_BARCODE_LABEL_SETTINGS: BarcodeLabelSettings = {
-  widthMm: 38,
-  heightMm: 25,
-  preset: '38x25',
-  showShopName: false,
-  showProductName: true,
-  showSku: true,
-  showPrice: true,
-  showBarcodeText: true,
-  showCopyIndex: true,
-  nameFontPt: 5.5,
-  barcodeHeight: 24,
-  barcodeBarWidth: 1.1,
-  nameMaxLines: 2,
+  widthMm: BARCODE_LABEL_DESIGNS.standard.widthMm,
+  heightMm: BARCODE_LABEL_DESIGNS.standard.heightMm,
+  preset: BARCODE_LABEL_DESIGNS.standard.preset,
+  showShopName: BARCODE_LABEL_DESIGNS.standard.showShopName,
+  showProductName: BARCODE_LABEL_DESIGNS.standard.showProductName,
+  showSku: BARCODE_LABEL_DESIGNS.standard.showSku,
+  showPrice: BARCODE_LABEL_DESIGNS.standard.showPrice,
+  showBarcodeText: BARCODE_LABEL_DESIGNS.standard.showBarcodeText,
+  showCopyIndex: BARCODE_LABEL_DESIGNS.standard.showCopyIndex,
+  nameFontPt: BARCODE_LABEL_DESIGNS.standard.nameFontPt,
+  barcodeHeight: BARCODE_LABEL_DESIGNS.standard.barcodeHeight,
+  barcodeBarWidth: BARCODE_LABEL_DESIGNS.standard.barcodeBarWidth,
+  nameMaxLines: BARCODE_LABEL_DESIGNS.standard.nameMaxLines,
 }
 
 export const KASTHURI_INVOICE_PRESET: Partial<InvoiceSettings> = {
@@ -267,27 +325,33 @@ export function resolveBarcodeLabelSettings(
 ): BarcodeLabelSettings {
   const raw = settings?.barcodeLabel
   const src = (raw && typeof raw === 'object' ? raw : {}) as Partial<BarcodeLabelSettings>
-  const base = { ...DEFAULT_BARCODE_LABEL_SETTINGS, ...src }
-  const preset = (BARCODE_LABEL_PRESETS as readonly string[]).includes(base.preset)
-    ? base.preset
-    : DEFAULT_BARCODE_LABEL_SETTINGS.preset
+  const legacy = String(src.preset ?? '')
+  let preset: BarcodeLabelPreset = DEFAULT_BARCODE_LABEL_SETTINGS.preset
+  if ((BARCODE_LABEL_PRESETS as readonly string[]).includes(legacy)) {
+    preset = legacy as BarcodeLabelPreset
+  } else if (legacy === '38x25') {
+    preset = 'compact'
+  } else if (legacy === '40x30' || legacy === 'custom') {
+    preset = 'standard'
+  } else if (legacy === '50x30') {
+    preset = 'detailed'
+  }
 
-  let widthMm = Math.max(20, Math.min(100, Number(base.widthMm) || DEFAULT_BARCODE_LABEL_SETTINGS.widthMm))
-  let heightMm = Math.max(10, Math.min(80, Number(base.heightMm) || DEFAULT_BARCODE_LABEL_SETTINGS.heightMm))
-  if (preset === '38x25') { widthMm = 38; heightMm = 25 }
-  else if (preset === '50x30') { widthMm = 50; heightMm = 30 }
-  else if (preset === '40x30') { widthMm = 40; heightMm = 30 }
-
+  const design = BARCODE_LABEL_DESIGNS[preset]
   return {
-    ...DEFAULT_BARCODE_LABEL_SETTINGS,
-    ...src,
-    preset,
-    widthMm,
-    heightMm,
-    nameMaxLines: base.nameMaxLines === 1 ? 1 : 2,
-    nameFontPt: Math.max(4, Math.min(12, Number(base.nameFontPt) || DEFAULT_BARCODE_LABEL_SETTINGS.nameFontPt)),
-    barcodeHeight: Math.max(12, Math.min(60, Number(base.barcodeHeight) || DEFAULT_BARCODE_LABEL_SETTINGS.barcodeHeight)),
-    barcodeBarWidth: Math.max(0.6, Math.min(2.5, Number(base.barcodeBarWidth) || DEFAULT_BARCODE_LABEL_SETTINGS.barcodeBarWidth)),
+    widthMm: design.widthMm,
+    heightMm: design.heightMm,
+    preset: design.preset,
+    showShopName: design.showShopName,
+    showProductName: design.showProductName,
+    showSku: design.showSku,
+    showPrice: design.showPrice,
+    showBarcodeText: design.showBarcodeText,
+    showCopyIndex: design.showCopyIndex,
+    nameFontPt: design.nameFontPt,
+    barcodeHeight: design.barcodeHeight,
+    barcodeBarWidth: design.barcodeBarWidth,
+    nameMaxLines: design.nameMaxLines,
   }
 }
 

@@ -85,7 +85,7 @@ export interface InvoiceSettings {
   barcodeLabel: BarcodeLabelSettings
 }
 
-export const BARCODE_LABEL_PRESETS = ['38x25', '50x30', '40x30', 'custom'] as const
+export const BARCODE_LABEL_PRESETS = ['compact', 'standard', 'detailed'] as const
 export type BarcodeLabelPreset = (typeof BARCODE_LABEL_PRESETS)[number]
 
 export interface BarcodeLabelSettings {
@@ -104,20 +104,56 @@ export interface BarcodeLabelSettings {
   nameMaxLines: 1 | 2
 }
 
+export const BARCODE_LABEL_DESIGNS: Record<BarcodeLabelPreset, BarcodeLabelSettings> = {
+  compact: {
+    widthMm: 38,
+    heightMm: 25,
+    preset: 'compact',
+    showShopName: false,
+    showProductName: true,
+    showSku: false,
+    showPrice: true,
+    showBarcodeText: true,
+    showCopyIndex: false,
+    nameFontPt: 5.5,
+    barcodeHeight: 22,
+    barcodeBarWidth: 1.1,
+    nameMaxLines: 1,
+  },
+  standard: {
+    widthMm: 40,
+    heightMm: 30,
+    preset: 'standard',
+    showShopName: false,
+    showProductName: true,
+    showSku: true,
+    showPrice: true,
+    showBarcodeText: true,
+    showCopyIndex: true,
+    nameFontPt: 5.5,
+    barcodeHeight: 24,
+    barcodeBarWidth: 1.1,
+    nameMaxLines: 2,
+  },
+  detailed: {
+    widthMm: 50,
+    heightMm: 30,
+    preset: 'detailed',
+    showShopName: true,
+    showProductName: true,
+    showSku: true,
+    showPrice: true,
+    showBarcodeText: true,
+    showCopyIndex: true,
+    nameFontPt: 6,
+    barcodeHeight: 28,
+    barcodeBarWidth: 1.2,
+    nameMaxLines: 2,
+  },
+}
+
 export const DEFAULT_BARCODE_LABEL_SETTINGS: BarcodeLabelSettings = {
-  widthMm: 38,
-  heightMm: 25,
-  preset: '38x25',
-  showShopName: false,
-  showProductName: true,
-  showSku: true,
-  showPrice: true,
-  showBarcodeText: true,
-  showCopyIndex: true,
-  nameFontPt: 5.5,
-  barcodeHeight: 24,
-  barcodeBarWidth: 1.1,
-  nameMaxLines: 2,
+  ...BARCODE_LABEL_DESIGNS.standard,
 }
 
 export const DEFAULT_REPAIR_INTAKE_TERMS = [
@@ -201,43 +237,21 @@ function parseTemplate(v: unknown, tenantSlug?: string | null): InvoiceTemplateI
   return 'default'
 }
 
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n))
-}
-
 export function normalizeBarcodeLabelSettings(raw: unknown): BarcodeLabelSettings {
   const src = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
-  const base = { ...DEFAULT_BARCODE_LABEL_SETTINGS }
-  const presetRaw = src.preset
-  const preset: BarcodeLabelPreset =
-    typeof presetRaw === 'string' && (BARCODE_LABEL_PRESETS as readonly string[]).includes(presetRaw)
-      ? (presetRaw as BarcodeLabelPreset)
-      : base.preset
-
-  let widthMm = clamp(num(src.widthMm, base.widthMm), 20, 100)
-  let heightMm = clamp(num(src.heightMm, base.heightMm), 10, 80)
-
-  if (preset === '38x25') { widthMm = 38; heightMm = 25 }
-  else if (preset === '50x30') { widthMm = 50; heightMm = 30 }
-  else if (preset === '40x30') { widthMm = 40; heightMm = 30 }
-
-  const nameMaxLines = num(src.nameMaxLines, base.nameMaxLines) === 1 ? 1 : 2
-
-  return {
-    widthMm,
-    heightMm,
-    preset,
-    showShopName: bool(src.showShopName, base.showShopName),
-    showProductName: bool(src.showProductName, base.showProductName),
-    showSku: bool(src.showSku, base.showSku),
-    showPrice: bool(src.showPrice, base.showPrice),
-    showBarcodeText: bool(src.showBarcodeText, base.showBarcodeText),
-    showCopyIndex: bool(src.showCopyIndex, base.showCopyIndex),
-    nameFontPt: clamp(num(src.nameFontPt, base.nameFontPt), 4, 12),
-    barcodeHeight: clamp(num(src.barcodeHeight, base.barcodeHeight), 12, 60),
-    barcodeBarWidth: clamp(num(src.barcodeBarWidth, base.barcodeBarWidth), 0.6, 2.5),
-    nameMaxLines,
+  const presetRaw = typeof src.preset === 'string' ? src.preset : ''
+  let preset: BarcodeLabelPreset = DEFAULT_BARCODE_LABEL_SETTINGS.preset
+  if ((BARCODE_LABEL_PRESETS as readonly string[]).includes(presetRaw)) {
+    preset = presetRaw as BarcodeLabelPreset
+  } else if (presetRaw === '38x25') {
+    preset = 'compact'
+  } else if (presetRaw === '40x30' || presetRaw === 'custom') {
+    preset = 'standard'
+  } else if (presetRaw === '50x30') {
+    preset = 'detailed'
   }
+
+  return { ...BARCODE_LABEL_DESIGNS[preset] }
 }
 
 export function resolveInvoiceTemplate(
