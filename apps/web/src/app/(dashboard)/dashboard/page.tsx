@@ -4,7 +4,7 @@ import { useMemo, useEffect } from 'react'
 import {
   ShoppingCart, TrendingUp, Package, Wrench, AlertTriangle,
   Users, ArrowUpRight, ArrowRight, Receipt, Activity,
-  BarChart2, DollarSign, ChevronRight, TrendingDown, Star, Lock
+  BarChart2, DollarSign, ChevronRight, TrendingDown, Star, Lock, PackageCheck
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePos } from '@/lib/use-pos'
@@ -210,9 +210,10 @@ export default function DashboardPage() {
           { label: 'Gross Profit (30 Days)', value: formatCurrency(totalGrossProfit),      sub: `COGS: ${formatCurrency(totalCogs)}`,            icon: TrendingUp,   iconBg: '#dcfce7', iconColor: '#16a34a', spark: sparkGross, sparkColor: '#22c55e', subPositive: totalGrossProfit >= 0 },
           { label: 'Net Profit (30 Days)',   value: formatCurrency(totalNetProfit),          sub: `Expenses: ${formatCurrency(totalExpenses)}`,    icon: DollarSign,   iconBg: totalNetProfit >= 0 ? '#dbeafe' : '#ffe4e6', iconColor: totalNetProfit >= 0 ? '#2563eb' : '#e11d48', spark: sparkNet, sparkColor: totalNetProfit >= 0 ? '#3b82f6' : '#f43f5e', subPositive: totalNetProfit >= 0 },
           { label: 'Total Orders',           value: String(s?.totalSalesCount ?? s?.todaySalesCount ?? 0), sub: `${s?.todaySalesCount ?? 0} today`, icon: Receipt, iconBg: '#dbeafe', iconColor: '#2563eb', spark: [], sparkColor: '#3b82f6', subPositive: true },
-          { label: 'Active Repairs',         value: String(repairStats.active),               sub: `${repairStats.ready} ready for pickup`,       icon: Wrench,       iconBg: '#ffedd5', iconColor: '#ea580c', spark: [], sparkColor: '#f97316', subPositive: true },
+          { label: 'Active Repairs',         value: String(repairStats.active),               sub: `${repairStats.inProg} currently in repair`,       icon: Wrench,       iconBg: '#ffedd5', iconColor: '#ea580c', spark: [], sparkColor: '#f97316', subPositive: true },
           { label: 'Low Stock Items',        value: String(s?.lowStockCount ?? 0),            sub: (s?.lowStockCount ?? 0) === 0 ? 'All stocked ✓' : 'Needs restocking', icon: AlertTriangle, iconBg: '#ffe4e6', iconColor: '#e11d48', spark: [], sparkColor: '#f43f5e', subPositive: (s?.lowStockCount ?? 0) === 0 },
           { label: 'Total Customers',        value: String(s?.totalCustomers ?? 0),           sub: `${s?.expiringWarranties ?? 0} warranties expiring`, icon: Users, iconBg: '#cffafe', iconColor: '#0891b2', spark: [], sparkColor: '#06b6d4', subPositive: true },
+          { label: 'Ready for Pickup',       value: String(s?.readyForPickup ?? repairStats.ready), sub: repairStats.ready > 0 ? 'Awaiting customer' : 'None waiting', icon: PackageCheck, iconBg: '#d1fae5', iconColor: '#059669', spark: [], sparkColor: '#10b981', subPositive: true },
         ].map(k => (
           <div key={k.label} className={`${CARD} p-4 flex flex-col`}>
             <div className="flex items-start gap-2.5 mb-2">

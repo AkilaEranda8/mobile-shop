@@ -85,7 +85,7 @@ export interface InvoiceSettings {
   barcodeLabel: BarcodeLabelSettings
 }
 
-export const BARCODE_LABEL_PRESETS = ['compact', 'standard', 'detailed'] as const
+export const BARCODE_LABEL_PRESETS = ['compact', 'standard', 'detailed', 'custom'] as const
 export type BarcodeLabelPreset = (typeof BARCODE_LABEL_PRESETS)[number]
 
 export interface BarcodeLabelSettings {
@@ -104,7 +104,7 @@ export interface BarcodeLabelSettings {
   nameMaxLines: 1 | 2
 }
 
-export const BARCODE_LABEL_DESIGNS: Record<BarcodeLabelPreset, BarcodeLabelSettings> = {
+export const BARCODE_LABEL_DESIGNS: Record<Exclude<BarcodeLabelPreset, 'custom'>, BarcodeLabelSettings> = {
   compact: {
     widthMm: 38,
     heightMm: 25,
@@ -121,19 +121,19 @@ export const BARCODE_LABEL_DESIGNS: Record<BarcodeLabelPreset, BarcodeLabelSetti
     nameMaxLines: 1,
   },
   standard: {
-    widthMm: 40,
+    widthMm: 50,
     heightMm: 30,
     preset: 'standard',
-    showShopName: false,
+    showShopName: true,
     showProductName: true,
     showSku: true,
     showPrice: true,
     showBarcodeText: true,
-    showCopyIndex: true,
-    nameFontPt: 5.5,
-    barcodeHeight: 24,
-    barcodeBarWidth: 1.1,
-    nameMaxLines: 2,
+    showCopyIndex: false,
+    nameFontPt: 6,
+    barcodeHeight: 28,
+    barcodeBarWidth: 1.15,
+    nameMaxLines: 1,
   },
   detailed: {
     widthMm: 50,
@@ -146,7 +146,7 @@ export const BARCODE_LABEL_DESIGNS: Record<BarcodeLabelPreset, BarcodeLabelSetti
     showBarcodeText: true,
     showCopyIndex: true,
     nameFontPt: 6,
-    barcodeHeight: 28,
+    barcodeHeight: 26,
     barcodeBarWidth: 1.2,
     nameMaxLines: 2,
   },
@@ -245,13 +245,36 @@ export function normalizeBarcodeLabelSettings(raw: unknown): BarcodeLabelSetting
     preset = presetRaw as BarcodeLabelPreset
   } else if (presetRaw === '38x25') {
     preset = 'compact'
-  } else if (presetRaw === '40x30' || presetRaw === 'custom') {
+  } else if (presetRaw === '40x30') {
     preset = 'standard'
   } else if (presetRaw === '50x30') {
     preset = 'detailed'
   }
 
-  return { ...BARCODE_LABEL_DESIGNS[preset] }
+  const designBase =
+    preset !== 'custom' && BARCODE_LABEL_DESIGNS[preset]
+      ? BARCODE_LABEL_DESIGNS[preset]
+      : DEFAULT_BARCODE_LABEL_SETTINGS
+
+  function clamp(n: number, min: number, max: number) {
+    return Math.max(min, Math.min(max, n))
+  }
+
+  return {
+    widthMm: clamp(num(src.widthMm, designBase.widthMm), 20, 100),
+    heightMm: clamp(num(src.heightMm, designBase.heightMm), 10, 80),
+    preset,
+    showShopName: bool(src.showShopName, designBase.showShopName),
+    showProductName: bool(src.showProductName, designBase.showProductName),
+    showSku: bool(src.showSku, designBase.showSku),
+    showPrice: bool(src.showPrice, designBase.showPrice),
+    showBarcodeText: bool(src.showBarcodeText, designBase.showBarcodeText),
+    showCopyIndex: bool(src.showCopyIndex, designBase.showCopyIndex),
+    nameFontPt: clamp(num(src.nameFontPt, designBase.nameFontPt), 4, 12),
+    barcodeHeight: clamp(num(src.barcodeHeight, designBase.barcodeHeight), 12, 60),
+    barcodeBarWidth: clamp(num(src.barcodeBarWidth, designBase.barcodeBarWidth), 0.6, 2.5),
+    nameMaxLines: num(src.nameMaxLines, designBase.nameMaxLines) === 1 ? 1 : 2,
+  }
 }
 
 export function resolveInvoiceTemplate(

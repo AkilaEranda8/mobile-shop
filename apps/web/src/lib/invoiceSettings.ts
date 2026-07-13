@@ -73,7 +73,7 @@ export interface InvoiceSettings {
   barcodeLabel: BarcodeLabelSettings
 }
 
-export const BARCODE_LABEL_PRESETS = ['compact', 'standard', 'detailed'] as const
+export const BARCODE_LABEL_PRESETS = ['compact', 'standard', 'detailed', 'custom'] as const
 export type BarcodeLabelPreset = (typeof BARCODE_LABEL_PRESETS)[number]
 
 export interface BarcodeLabelSettings {
@@ -92,14 +92,14 @@ export interface BarcodeLabelSettings {
   nameMaxLines: 1 | 2
 }
 
-/** Three selectable label designs — pick one, no free-form customize. */
-export const BARCODE_LABEL_DESIGNS: Record<BarcodeLabelPreset, BarcodeLabelSettings & {
+/** Quick-start designs — user can then fully customize (becomes `custom`). */
+export const BARCODE_LABEL_DESIGNS: Record<Exclude<BarcodeLabelPreset, 'custom'>, BarcodeLabelSettings & {
   label: string
   description: string
 }> = {
   compact: {
     label: 'Design 1',
-    description: 'Compact · 38×25 mm · name + price',
+    description: 'Compact · name + barcode + price',
     widthMm: 38,
     heightMm: 25,
     preset: 'compact',
@@ -116,24 +116,24 @@ export const BARCODE_LABEL_DESIGNS: Record<BarcodeLabelPreset, BarcodeLabelSetti
   },
   standard: {
     label: 'Design 2',
-    description: 'Standard · 40×30 mm · name + SKU + price',
-    widthMm: 40,
+    description: 'Sheet style · shop + name + code + barcode + price',
+    widthMm: 50,
     heightMm: 30,
     preset: 'standard',
-    showShopName: false,
+    showShopName: true,
     showProductName: true,
     showSku: true,
     showPrice: true,
     showBarcodeText: true,
-    showCopyIndex: true,
-    nameFontPt: 5.5,
-    barcodeHeight: 24,
-    barcodeBarWidth: 1.1,
-    nameMaxLines: 2,
+    showCopyIndex: false,
+    nameFontPt: 6,
+    barcodeHeight: 28,
+    barcodeBarWidth: 1.15,
+    nameMaxLines: 1,
   },
   detailed: {
     label: 'Design 3',
-    description: 'Detailed · 50×30 mm · shop + name + SKU + price',
+    description: 'Detailed · 2-line name + all fields',
     widthMm: 50,
     heightMm: 30,
     preset: 'detailed',
@@ -144,7 +144,7 @@ export const BARCODE_LABEL_DESIGNS: Record<BarcodeLabelPreset, BarcodeLabelSetti
     showBarcodeText: true,
     showCopyIndex: true,
     nameFontPt: 6,
-    barcodeHeight: 28,
+    barcodeHeight: 26,
     barcodeBarWidth: 1.2,
     nameMaxLines: 2,
   },
@@ -164,6 +164,18 @@ export const DEFAULT_BARCODE_LABEL_SETTINGS: BarcodeLabelSettings = {
   barcodeHeight: BARCODE_LABEL_DESIGNS.standard.barcodeHeight,
   barcodeBarWidth: BARCODE_LABEL_DESIGNS.standard.barcodeBarWidth,
   nameMaxLines: BARCODE_LABEL_DESIGNS.standard.nameMaxLines,
+}
+
+export const BARCODE_QUICK_DESIGNS = ['compact', 'standard', 'detailed'] as const
+export type BarcodeQuickDesign = (typeof BARCODE_QUICK_DESIGNS)[number]
+
+function parseBarcodePreset(raw: unknown): BarcodeLabelPreset {
+  const legacy = String(raw ?? '')
+  if ((BARCODE_LABEL_PRESETS as readonly string[]).includes(legacy)) return legacy as BarcodeLabelPreset
+  if (legacy === '38x25') return 'compact'
+  if (legacy === '40x30') return 'standard'
+  if (legacy === '50x30') return 'detailed'
+  return DEFAULT_BARCODE_LABEL_SETTINGS.preset
 }
 
 export const KASTHURI_INVOICE_PRESET: Partial<InvoiceSettings> = {
@@ -325,33 +337,29 @@ export function resolveBarcodeLabelSettings(
 ): BarcodeLabelSettings {
   const raw = settings?.barcodeLabel
   const src = (raw && typeof raw === 'object' ? raw : {}) as Partial<BarcodeLabelSettings>
-  const legacy = String(src.preset ?? '')
-  let preset: BarcodeLabelPreset = DEFAULT_BARCODE_LABEL_SETTINGS.preset
-  if ((BARCODE_LABEL_PRESETS as readonly string[]).includes(legacy)) {
-    preset = legacy as BarcodeLabelPreset
-  } else if (legacy === '38x25') {
-    preset = 'compact'
-  } else if (legacy === '40x30' || legacy === 'custom') {
-    preset = 'standard'
-  } else if (legacy === '50x30') {
-    preset = 'detailed'
-  }
+  const preset = parseBarcodePreset(src.preset)
+  const designBase =
+    preset !== 'custom' && BARCODE_LABEL_DESIGNS[preset]
+      ? BARCODE_LABEL_DESIGNS[preset]
+      : DEFAULT_BARCODE_LABEL_SETTINGS
 
-  const design = BARCODE_LABEL_DESIGNS[preset]
+  const widthMm = Math.max(20, Math.min(100, Number(src.widthMm ?? designBase.widthMm) || designBase.widthMm))
+  const heightMm = Math.max(10, Math.min(80, Number(src.heightMm ?? designBase.heightMm) || designBase.heightMm))
+
   return {
-    widthMm: design.widthMm,
-    heightMm: design.heightMm,
-    preset: design.preset,
-    showShopName: design.showShopName,
-    showProductName: design.showProductName,
-    showSku: design.showSku,
-    showPrice: design.showPrice,
-    showBarcodeText: design.showBarcodeText,
-    showCopyIndex: design.showCopyIndex,
-    nameFontPt: design.nameFontPt,
-    barcodeHeight: design.barcodeHeight,
-    barcodeBarWidth: design.barcodeBarWidth,
-    nameMaxLines: design.nameMaxLines,
+    widthMm,
+    heightMm,
+    preset,
+    showShopName: typeof src.showShopName === 'boolean' ? src.showShopName : designBase.showShopName,
+    showProductName: typeof src.showProductName === 'boolean' ? src.showProductName : designBase.showProductName,
+    showSku: typeof src.showSku === 'boolean' ? src.showSku : designBase.showSku,
+    showPrice: typeof src.showPrice === 'boolean' ? src.showPrice : designBase.showPrice,
+    showBarcodeText: typeof src.showBarcodeText === 'boolean' ? src.showBarcodeText : designBase.showBarcodeText,
+    showCopyIndex: typeof src.showCopyIndex === 'boolean' ? src.showCopyIndex : designBase.showCopyIndex,
+    nameFontPt: Math.max(4, Math.min(12, Number(src.nameFontPt ?? designBase.nameFontPt) || designBase.nameFontPt)),
+    barcodeHeight: Math.max(12, Math.min(60, Number(src.barcodeHeight ?? designBase.barcodeHeight) || designBase.barcodeHeight)),
+    barcodeBarWidth: Math.max(0.6, Math.min(2.5, Number(src.barcodeBarWidth ?? designBase.barcodeBarWidth) || designBase.barcodeBarWidth)),
+    nameMaxLines: Number(src.nameMaxLines ?? designBase.nameMaxLines) === 1 ? 1 : 2,
   }
 }
 

@@ -275,23 +275,30 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
 
   const paymentStatus = sale?.dueAmount > 0 ? 'Partial' : 'Paid'
   const paymentStatusClass = sale?.dueAmount > 0
-    ? 'bg-amber-50 text-amber-700 border-amber-200'
-    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+    ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/25'
+    : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
 
   const safeText = (v: any) => (v === null || v === undefined || v === '' ? '—' : String(v))
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-white text-slate-900 border border-slate-200 rounded-xl w-full max-w-6xl shadow-2xl max-h-[92vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="rounded-xl w-full max-w-6xl shadow-2xl max-h-[92vh] overflow-y-auto border"
+        style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', borderColor: 'var(--border-default)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-slate-200 sticky top-0 bg-white z-10">
+        <div
+          className="flex items-center justify-between px-4 sm:px-5 py-3 border-b sticky top-0 z-10"
+          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
+        >
           <div className="flex items-start gap-2">
-            <Receipt size={16} className="text-emerald-600 mt-0.5" />
+            <Receipt size={16} className="text-emerald-500 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold">
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
                 Sell Details ( Invoice No : <span className="font-mono">{safeText(sale.invoiceNumber)}</span> )
               </p>
-              <p className="text-[11px] text-gray-500 dark:text-slate-500">
+              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
                 {safeText(sale.customerName || 'Walk-in Customer')}
               </p>
             </div>
@@ -301,10 +308,19 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
             <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${paymentStatusClass}`}>
               {paymentStatus}
             </span>
-            <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${statusColors[sale.status] ?? 'bg-slate-50 border-slate-200 text-slate-600'}`}>
+            <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${statusColors[sale.status] ?? ''}`}
+              style={!statusColors[sale.status] ? { background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-secondary)' } : undefined}
+            >
               {safeText(sale.status)}
             </span>
-            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100">
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg transition-colors"
+              style={{ color: 'var(--text-muted)' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-subtle)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+            >
               <X size={16} />
             </button>
           </div>
@@ -315,64 +331,64 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
             <div className="space-y-1 text-[12px]">
               <div className="flex items-center gap-1.5">
-                <Calendar size={13} className="text-slate-400" />
-                <span className="text-slate-500">Date:</span>
-                <span className="font-medium">{safeText(formatDate(sale.createdAt))}</span>
+                <Calendar size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Date:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(formatDate(sale.createdAt))}</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <Hash size={13} className="text-slate-400" />
-                <span className="text-slate-500">Invoice No:</span>
-                <span className="font-mono">{safeText(sale.invoiceNumber)}</span>
+                <Hash size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Invoice No:</span>
+                <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{safeText(sale.invoiceNumber)}</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <Receipt size={13} className="text-slate-400" />
-                <span className="text-slate-500">Status:</span>
-                <span className="font-medium">{safeText(sale.status)}</span>
+                <Receipt size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Status:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(sale.status)}</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <CreditCard size={13} className="text-slate-400" />
-                <span className="text-slate-500">Payment status:</span>
-                <span className="font-medium">{paymentStatus}</span>
+                <CreditCard size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Payment status:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{paymentStatus}</span>
               </div>
             </div>
 
             <div className="space-y-1 text-[12px]">
               <div className="flex items-center gap-1.5">
-                <User size={13} className="text-slate-400" />
-                <span className="text-slate-500">Customer name:</span>
-                <span className="font-medium">{safeText(sale.customerName || 'Walk-in Customer')}</span>
+                <User size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Customer name:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(sale.customerName || 'Walk-in Customer')}</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <Package size={13} className="text-slate-400" />
-                <span className="text-slate-500">Address:</span>
-                <span className="font-medium">{safeText(sale.customerAddress)}</span>
+                <Package size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Address:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(sale.customerAddress)}</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <User size={13} className="text-slate-400" />
-                <span className="text-slate-500">Service staff:</span>
-                <span className="font-medium">{safeText(sale.cashierName)}</span>
+                <User size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Service staff:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(sale.cashierName)}</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <Truck size={13} className="text-slate-400" />
-                <span className="text-slate-500">Shipping:</span>
-                <span className="font-medium">{safeText(sale.shippingMethod || sale.source === 'DELIVERY' ? 'Delivery' : '')}</span>
+                <Truck size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Shipping:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(sale.shippingMethod || sale.source === 'DELIVERY' ? 'Delivery' : '')}</span>
               </div>
             </div>
 
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-[12px]">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-2 mb-2">
-                <span className="text-slate-600 font-semibold">Quick totals</span>
-                <span className="text-slate-500 text-[11px]">{safeText(sale.currency || 'LKR')}</span>
+            <div className="rounded-lg border p-3 text-[12px]" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+              <div className="flex items-center justify-between border-b pb-2 mb-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Quick totals</span>
+                <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{safeText(sale.currency || 'LKR')}</span>
               </div>
               <div className="space-y-1">
-                <div className="flex justify-between"><span className="text-slate-500">Subtotal</span><span className="font-medium">{formatCurrency(sale.subtotal ?? 0)}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Discount</span><span className="font-medium">{formatCurrency(sale.discount ?? 0)}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Order Tax</span><span className="font-medium">{formatCurrency(sale.tax ?? 0)}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Shipping</span><span className="font-medium">{formatCurrency(sale.shippingFee ?? 0)}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Round Off</span><span className="font-medium">{formatCurrency(sale.roundOff ?? 0)}</span></div>
-                <div className="flex justify-between pt-2 border-t border-slate-200"><span className="font-semibold">Total Payable</span><span className="font-semibold">{formatCurrency(sale.total ?? 0)}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Total paid</span><span className="font-medium">{formatCurrency(sale.paidAmount ?? (sale.total ?? 0) - (sale.dueAmount ?? 0))}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Total remaining</span><span className="font-medium">{formatCurrency(sale.dueAmount ?? 0)}</span></div>
+                <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>Subtotal</span><span className="font-medium">{formatCurrency(sale.subtotal ?? 0)}</span></div>
+                <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>Discount</span><span className="font-medium">{formatCurrency(sale.discount ?? 0)}</span></div>
+                <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>Order Tax</span><span className="font-medium">{formatCurrency(sale.tax ?? 0)}</span></div>
+                <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>Shipping</span><span className="font-medium">{formatCurrency(sale.shippingFee ?? 0)}</span></div>
+                <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>Round Off</span><span className="font-medium">{formatCurrency(sale.roundOff ?? 0)}</span></div>
+                <div className="flex justify-between pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}><span className="font-semibold">Total Payable</span><span className="font-semibold">{formatCurrency(sale.total ?? 0)}</span></div>
+                <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>Total paid</span><span className="font-medium">{formatCurrency(sale.paidAmount ?? (sale.total ?? 0) - (sale.dueAmount ?? 0))}</span></div>
+                <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>Total remaining</span><span className="font-medium">{formatCurrency(sale.dueAmount ?? 0)}</span></div>
               </div>
             </div>
           </div>
@@ -382,14 +398,14 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
             {/* Left column: products + payment table + notes */}
             <div className="lg:col-span-2 space-y-4">
               {/* Products */}
-              <div className="rounded-lg border border-slate-200 overflow-hidden">
+              <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
                 <div className="bg-emerald-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide">
                   Products
                 </div>
                 <div className="overflow-x-auto">
                   <table className="min-w-[860px] w-full text-[12px]">
-                    <thead className="bg-slate-50 border-b border-slate-200">
-                      <tr className="text-slate-600">
+                    <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                      <tr style={{ color: 'var(--text-secondary)' }}>
                         <th className="px-3 py-2 text-left w-10">#</th>
                         <th className="px-3 py-2 text-left">Product</th>
                         <th className="px-3 py-2 text-left">Lot &amp; Expiry</th>
@@ -410,17 +426,17 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
                         const itemTax = Number(item.tax ?? 0)
                         const priceIncTax = qty > 0 ? (subtotal + itemTax) / qty : (unit + (itemTax || 0))
                         return (
-                          <tr key={item.id ?? idx} className="border-b border-slate-100 last:border-0">
-                            <td className="px-3 py-2 text-slate-500">{idx + 1}</td>
+                          <tr key={item.id ?? idx} className="border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
+                            <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{idx + 1}</td>
                             <td className="px-3 py-2">
-                              <div className="font-medium">{safeText(item.productName)}</div>
+                              <div className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(item.productName)}</div>
                               {(item.sku || item.imei) && (
-                                <div className="text-[10px] text-slate-500 font-mono">
+                                <div className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
                                   {safeText(item.sku)}{item.imei ? ` · ${item.imei}` : ''}
                                 </div>
                               )}
                             </td>
-                            <td className="px-3 py-2 text-slate-500">{safeText(item.lotExpiry || item.lot || item.expiry)}</td>
+                            <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{safeText(item.lotExpiry || item.lot || item.expiry)}</td>
                             <td className="px-3 py-2 text-right">{safeText(qty ? qty.toFixed(2) + ' Qty' : '')}</td>
                             <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(unit)}</td>
                             <td className="px-3 py-2 text-right whitespace-nowrap">{itemDiscount ? formatCurrency(itemDiscount) : '0.00'}</td>
@@ -432,7 +448,7 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
                       })}
                       {(!sale.items || sale.items.length === 0) && (
                         <tr>
-                          <td colSpan={9} className="px-3 py-6 text-center text-slate-500">No items</td>
+                          <td colSpan={9} className="px-3 py-6 text-center" style={{ color: 'var(--text-muted)' }}>No items</td>
                         </tr>
                       )}
                     </tbody>
@@ -441,14 +457,14 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
               </div>
 
               {/* Payment info */}
-              <div className="rounded-lg border border-slate-200 overflow-hidden">
+              <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
                 <div className="bg-emerald-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide">
                   Payment info
                 </div>
                 <div className="overflow-x-auto">
                   <table className="min-w-[720px] w-full text-[12px]">
-                    <thead className="bg-slate-50 border-b border-slate-200">
-                      <tr className="text-slate-600">
+                    <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                      <tr style={{ color: 'var(--text-secondary)' }}>
                         <th className="px-3 py-2 text-left w-10">#</th>
                         <th className="px-3 py-2 text-left">Date</th>
                         <th className="px-3 py-2 text-left">Reference No</th>
@@ -459,18 +475,18 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
                     </thead>
                     <tbody>
                       {(sale.payments ?? []).map((p: any, idx: number) => (
-                        <tr key={p.id ?? idx} className="border-b border-slate-100 last:border-0">
-                          <td className="px-3 py-2 text-slate-500">{idx + 1}</td>
+                        <tr key={p.id ?? idx} className="border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
+                          <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{idx + 1}</td>
                           <td className="px-3 py-2">{safeText(p.date ? formatDate(p.date) : formatDate(sale.createdAt))}</td>
-                          <td className="px-3 py-2 font-mono text-slate-600">{safeText(p.reference)}</td>
+                          <td className="px-3 py-2 font-mono" style={{ color: 'var(--text-secondary)' }}>{safeText(p.reference)}</td>
                           <td className="px-3 py-2 text-right whitespace-nowrap font-medium">{formatCurrency(p.amount ?? 0)}</td>
                           <td className="px-3 py-2">{safeText(p.method)}</td>
-                          <td className="px-3 py-2 text-slate-500">{safeText(p.note)}</td>
+                          <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{safeText(p.note)}</td>
                         </tr>
                       ))}
                       {(!sale.payments || sale.payments.length === 0) && (
                         <tr>
-                          <td colSpan={6} className="px-3 py-6 text-center text-slate-500">No payments</td>
+                          <td colSpan={6} className="px-3 py-6 text-center" style={{ color: 'var(--text-muted)' }}>No payments</td>
                         </tr>
                       )}
                     </tbody>
@@ -480,22 +496,22 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
 
               {/* Notes */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="rounded-lg border border-slate-200 p-3">
-                  <p className="text-[11px] font-semibold text-slate-600 mb-1">Sell note:</p>
-                  <p className="text-[12px] text-slate-700">{safeText(sale.notes)}</p>
+                <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Sell note:</p>
+                  <p className="text-[12px]" style={{ color: 'var(--text-primary)' }}>{safeText(sale.notes)}</p>
                 </div>
-                <div className="rounded-lg border border-slate-200 p-3">
-                  <p className="text-[11px] font-semibold text-slate-600 mb-1">Staff note:</p>
-                  <p className="text-[12px] text-slate-700">{safeText(sale.staffNote)}</p>
+                <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Staff note:</p>
+                  <p className="text-[12px]" style={{ color: 'var(--text-primary)' }}>{safeText(sale.staffNote)}</p>
                 </div>
               </div>
             </div>
 
             {/* Right column: totals (detailed) */}
-            <div className="rounded-lg border border-slate-200 overflow-hidden h-fit">
-              <div className="bg-slate-50 px-3 py-2 border-b border-slate-200 flex items-center justify-between">
-                <p className="text-[12px] font-semibold text-slate-700">Total</p>
-                <p className="text-[12px] font-semibold text-slate-700">{formatCurrency(sale.total ?? 0)}</p>
+            <div className="rounded-lg border overflow-hidden h-fit" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="px-3 py-2 border-b flex items-center justify-between" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                <p className="text-[12px] font-semibold" style={{ color: 'var(--text-primary)' }}>Total</p>
+                <p className="text-[12px] font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(sale.total ?? 0)}</p>
               </div>
               <div className="p-3 text-[12px] space-y-2">
                 {[
@@ -506,21 +522,21 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
                   { label: 'Round Off', value: sale.roundOff ?? 0 },
                 ].map(r => (
                   <div key={r.label} className="flex items-center justify-between">
-                    <span className="text-slate-500">{r.label}:</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{r.label}:</span>
                     <span className="font-medium">{formatCurrency(Number(r.value ?? 0))}</span>
                   </div>
                 ))}
-                <div className="pt-2 border-t border-slate-200 space-y-2">
+                <div className="pt-2 border-t space-y-2" style={{ borderColor: 'var(--border-subtle)' }}>
                   <div className="flex items-center justify-between">
                     <span className="font-semibold">Total Payable:</span>
                     <span className="font-semibold">{formatCurrency(sale.total ?? 0)}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Total paid:</span>
+                    <span style={{ color: 'var(--text-muted)' }}>Total paid:</span>
                     <span className="font-medium">{formatCurrency(sale.paidAmount ?? (sale.total ?? 0) - (sale.dueAmount ?? 0))}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Total remaining:</span>
+                    <span style={{ color: 'var(--text-muted)' }}>Total remaining:</span>
                     <span className="font-medium">{formatCurrency(sale.dueAmount ?? 0)}</span>
                   </div>
                 </div>
@@ -533,7 +549,8 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
             <button
               type="button"
               onClick={printInvoice}
-              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-slate-200 bg-white hover:bg-slate-50 font-semibold"
+              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border font-semibold transition-colors"
+              style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}
             >
               <Eye size={14} />
               Print Invoice
@@ -542,7 +559,7 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
               type="button"
               onClick={downloadInvoice}
               disabled={downloading}
-              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-semibold disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25 font-semibold disabled:opacity-60"
             >
               {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
               {downloading ? 'Generating…' : 'Download PDF'}
@@ -550,7 +567,8 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-slate-200 bg-white hover:bg-slate-50 font-semibold"
+              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border font-semibold transition-colors"
+              style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}
             >
               Close
             </button>

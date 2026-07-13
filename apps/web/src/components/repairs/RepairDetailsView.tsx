@@ -665,7 +665,6 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
 
   const mainCard = (
     <div className="card overflow-hidden flex flex-col min-h-0">
-        <div className="h-1 w-full bg-gradient-to-r from-violet-500 to-purple-600 flex-shrink-0" />
 
         {/* 2-COLUMN BODY */}
         <div className="grid grid-cols-1 xl:grid-cols-12">

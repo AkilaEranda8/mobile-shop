@@ -88,7 +88,7 @@ export default function BarcodeLabelsSettingsPage() {
       setInvoiceForm(saved)
       setBarcodeLabel(resolveBarcodeLabelSettings(saved))
       window.dispatchEvent(new CustomEvent('invoice-settings-updated'))
-      toast.success('Barcode design saved')
+      toast.success('Barcode design saved — PO Print Barcodes will use this design')
     } catch {
       toast.error('Save failed')
     } finally {
@@ -131,7 +131,7 @@ export default function BarcodeLabelsSettingsPage() {
                 <Tag size={15} className="text-amber-400" /> Barcode Label Customize
               </h2>
               <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">
-                Design 1 / Design 2 / Design 3 තෝරලා Save කරන්න
+                Sticker size, fields, and barcode density — full customize. PO Print Barcodes uses this layout.
               </p>
             </div>
             <button
