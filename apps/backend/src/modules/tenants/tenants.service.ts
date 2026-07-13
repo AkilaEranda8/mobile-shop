@@ -54,9 +54,27 @@ export const tenantsService = {
       select: { invoiceSettings: true, slug: true },
     })
     if (!existing) throw new AppError('Tenant not found', 404)
+    const prev =
+      existing.invoiceSettings && typeof existing.invoiceSettings === 'object'
+        ? (existing.invoiceSettings as Record<string, unknown>)
+        : {}
+    const patchBarcode =
+      patch.barcodeLabel && typeof patch.barcodeLabel === 'object'
+        ? (patch.barcodeLabel as Record<string, unknown>)
+        : undefined
     const merged = {
-      ...(existing.invoiceSettings && typeof existing.invoiceSettings === 'object' ? existing.invoiceSettings : {}),
+      ...prev,
       ...patch,
+      ...(patchBarcode
+        ? {
+            barcodeLabel: {
+              ...(prev.barcodeLabel && typeof prev.barcodeLabel === 'object'
+                ? (prev.barcodeLabel as Record<string, unknown>)
+                : {}),
+              ...patchBarcode,
+            },
+          }
+        : {}),
     }
     const normalized = normalizeInvoiceSettings(merged, existing.slug)
     const t = await prisma.tenant.update({

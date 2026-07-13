@@ -69,6 +69,43 @@ export interface InvoiceSettings {
   repairIntakeTerms?: string[]
   /** When true, POS prints the bill automatically after each completed sale */
   posAutoPrintBill:     boolean
+  /** Shelf barcode sticker layout (PO print) */
+  barcodeLabel: BarcodeLabelSettings
+}
+
+export const BARCODE_LABEL_PRESETS = ['38x25', '50x30', '40x30', 'custom'] as const
+export type BarcodeLabelPreset = (typeof BARCODE_LABEL_PRESETS)[number]
+
+export interface BarcodeLabelSettings {
+  widthMm: number
+  heightMm: number
+  preset: BarcodeLabelPreset
+  showShopName: boolean
+  showProductName: boolean
+  showSku: boolean
+  showPrice: boolean
+  showBarcodeText: boolean
+  showCopyIndex: boolean
+  nameFontPt: number
+  barcodeHeight: number
+  barcodeBarWidth: number
+  nameMaxLines: 1 | 2
+}
+
+export const DEFAULT_BARCODE_LABEL_SETTINGS: BarcodeLabelSettings = {
+  widthMm: 38,
+  heightMm: 25,
+  preset: '38x25',
+  showShopName: false,
+  showProductName: true,
+  showSku: true,
+  showPrice: true,
+  showBarcodeText: true,
+  showCopyIndex: true,
+  nameFontPt: 5.5,
+  barcodeHeight: 24,
+  barcodeBarWidth: 1.1,
+  nameMaxLines: 2,
 }
 
 export const KASTHURI_INVOICE_PRESET: Partial<InvoiceSettings> = {
@@ -142,6 +179,7 @@ export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   repairWarrantyMonths: 3,
   repairIntakeTerms:    [...DEFAULT_REPAIR_INTAKE_TERMS],
   posAutoPrintBill:     true,
+  barcodeLabel:         { ...DEFAULT_BARCODE_LABEL_SETTINGS },
 }
 
 export interface ShopContext {
@@ -224,6 +262,35 @@ export function resolveRepairIntakeTerms(settings?: InvoiceSettings | null): str
   return terms.length > 0 ? terms : [...DEFAULT_REPAIR_INTAKE_TERMS]
 }
 
+export function resolveBarcodeLabelSettings(
+  settings?: InvoiceSettings | Partial<InvoiceSettings> | null,
+): BarcodeLabelSettings {
+  const raw = settings?.barcodeLabel
+  const src = (raw && typeof raw === 'object' ? raw : {}) as Partial<BarcodeLabelSettings>
+  const base = { ...DEFAULT_BARCODE_LABEL_SETTINGS, ...src }
+  const preset = (BARCODE_LABEL_PRESETS as readonly string[]).includes(base.preset)
+    ? base.preset
+    : DEFAULT_BARCODE_LABEL_SETTINGS.preset
+
+  let widthMm = Math.max(20, Math.min(100, Number(base.widthMm) || DEFAULT_BARCODE_LABEL_SETTINGS.widthMm))
+  let heightMm = Math.max(10, Math.min(80, Number(base.heightMm) || DEFAULT_BARCODE_LABEL_SETTINGS.heightMm))
+  if (preset === '38x25') { widthMm = 38; heightMm = 25 }
+  else if (preset === '50x30') { widthMm = 50; heightMm = 30 }
+  else if (preset === '40x30') { widthMm = 40; heightMm = 30 }
+
+  return {
+    ...DEFAULT_BARCODE_LABEL_SETTINGS,
+    ...src,
+    preset,
+    widthMm,
+    heightMm,
+    nameMaxLines: base.nameMaxLines === 1 ? 1 : 2,
+    nameFontPt: Math.max(4, Math.min(12, Number(base.nameFontPt) || DEFAULT_BARCODE_LABEL_SETTINGS.nameFontPt)),
+    barcodeHeight: Math.max(12, Math.min(60, Number(base.barcodeHeight) || DEFAULT_BARCODE_LABEL_SETTINGS.barcodeHeight)),
+    barcodeBarWidth: Math.max(0.6, Math.min(2.5, Number(base.barcodeBarWidth) || DEFAULT_BARCODE_LABEL_SETTINGS.barcodeBarWidth)),
+  }
+}
+
 export function mergeReceiptSettings(
   settings: InvoiceSettings,
   ctx?: ShopContext,
@@ -261,7 +328,12 @@ export function shopContextFromTenant(tenant: any, branchId?: string): ShopConte
 export function getInvoiceSettings(ctx?: ShopContext): InvoiceSettings {
   if (typeof window === 'undefined') return DEFAULT_INVOICE_SETTINGS
   try {
-    const stored = { ...DEFAULT_INVOICE_SETTINGS, ...JSON.parse(localStorage.getItem(INVOICE_SETTINGS_KEY) ?? '{}') }
+    const raw = JSON.parse(localStorage.getItem(INVOICE_SETTINGS_KEY) ?? '{}')
+    const stored: InvoiceSettings = {
+      ...DEFAULT_INVOICE_SETTINGS,
+      ...raw,
+      barcodeLabel: resolveBarcodeLabelSettings({ barcodeLabel: raw?.barcodeLabel }),
+    }
     return ctx ? mergeReceiptSettings(stored, ctx) : stored
   } catch {
     return DEFAULT_INVOICE_SETTINGS
@@ -286,6 +358,7 @@ export async function fetchInvoiceSettings(tenantId: string, branchId?: string):
     const base = applyKasthuriPreset({
       ...DEFAULT_INVOICE_SETTINGS,
       ...data,
+      barcodeLabel: resolveBarcodeLabelSettings({ barcodeLabel: data?.barcodeLabel }),
       invoiceTemplate: resolveInvoiceTemplate({ ...DEFAULT_INVOICE_SETTINGS, ...data }, slug),
     }, slug)
     const merged = mergeReceiptSettings(base, ctx)
@@ -308,6 +381,7 @@ export async function fetchInvoiceCustomizeSettings(
     return applyKasthuriPreset({
       ...DEFAULT_INVOICE_SETTINGS,
       ...data,
+      barcodeLabel: resolveBarcodeLabelSettings({ barcodeLabel: data?.barcodeLabel }),
       invoiceTemplate: resolveInvoiceTemplate({ ...DEFAULT_INVOICE_SETTINGS, ...data }, tenantSlug),
     }, tenantSlug)
   } catch {
@@ -319,6 +393,7 @@ export async function pushInvoiceSettings(tenantId: string, s: InvoiceSettings, 
   const payload: InvoiceSettings = {
     ...DEFAULT_INVOICE_SETTINGS,
     ...s,
+    barcodeLabel: resolveBarcodeLabelSettings(s),
     invoiceTemplate: s.invoiceTemplate ?? resolveInvoiceTemplate(s, tenantSlug),
   }
   saveInvoiceSettings(payload)
@@ -328,6 +403,7 @@ export async function pushInvoiceSettings(tenantId: string, s: InvoiceSettings, 
   const merged = applyKasthuriPreset({
     ...DEFAULT_INVOICE_SETTINGS,
     ...saved,
+    barcodeLabel: resolveBarcodeLabelSettings(saved),
     invoiceTemplate: saved.invoiceTemplate ?? payload.invoiceTemplate,
   }, tenantSlug)
   saveInvoiceSettings(merged)

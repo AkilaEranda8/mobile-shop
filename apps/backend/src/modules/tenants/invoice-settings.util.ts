@@ -82,6 +82,42 @@ export interface InvoiceSettings {
   repairWarrantyMonths: number
   repairIntakeTerms: string[]
   posAutoPrintBill: boolean
+  barcodeLabel: BarcodeLabelSettings
+}
+
+export const BARCODE_LABEL_PRESETS = ['38x25', '50x30', '40x30', 'custom'] as const
+export type BarcodeLabelPreset = (typeof BARCODE_LABEL_PRESETS)[number]
+
+export interface BarcodeLabelSettings {
+  widthMm: number
+  heightMm: number
+  preset: BarcodeLabelPreset
+  showShopName: boolean
+  showProductName: boolean
+  showSku: boolean
+  showPrice: boolean
+  showBarcodeText: boolean
+  showCopyIndex: boolean
+  nameFontPt: number
+  barcodeHeight: number
+  barcodeBarWidth: number
+  nameMaxLines: 1 | 2
+}
+
+export const DEFAULT_BARCODE_LABEL_SETTINGS: BarcodeLabelSettings = {
+  widthMm: 38,
+  heightMm: 25,
+  preset: '38x25',
+  showShopName: false,
+  showProductName: true,
+  showSku: true,
+  showPrice: true,
+  showBarcodeText: true,
+  showCopyIndex: true,
+  nameFontPt: 5.5,
+  barcodeHeight: 24,
+  barcodeBarWidth: 1.1,
+  nameMaxLines: 2,
 }
 
 export const DEFAULT_REPAIR_INTAKE_TERMS = [
@@ -137,6 +173,7 @@ export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   repairWarrantyMonths: 3,
   repairIntakeTerms: [...DEFAULT_REPAIR_INTAKE_TERMS],
   posAutoPrintBill: true,
+  barcodeLabel: { ...DEFAULT_BARCODE_LABEL_SETTINGS },
 }
 
 function str(v: unknown, fallback = '') {
@@ -162,6 +199,45 @@ function parseTemplate(v: unknown, tenantSlug?: string | null): InvoiceTemplateI
   }
   if (!v && isKasthuriTenant(tenantSlug)) return 'kasthuri'
   return 'default'
+}
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n))
+}
+
+export function normalizeBarcodeLabelSettings(raw: unknown): BarcodeLabelSettings {
+  const src = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  const base = { ...DEFAULT_BARCODE_LABEL_SETTINGS }
+  const presetRaw = src.preset
+  const preset: BarcodeLabelPreset =
+    typeof presetRaw === 'string' && (BARCODE_LABEL_PRESETS as readonly string[]).includes(presetRaw)
+      ? (presetRaw as BarcodeLabelPreset)
+      : base.preset
+
+  let widthMm = clamp(num(src.widthMm, base.widthMm), 20, 100)
+  let heightMm = clamp(num(src.heightMm, base.heightMm), 10, 80)
+
+  if (preset === '38x25') { widthMm = 38; heightMm = 25 }
+  else if (preset === '50x30') { widthMm = 50; heightMm = 30 }
+  else if (preset === '40x30') { widthMm = 40; heightMm = 30 }
+
+  const nameMaxLines = num(src.nameMaxLines, base.nameMaxLines) === 1 ? 1 : 2
+
+  return {
+    widthMm,
+    heightMm,
+    preset,
+    showShopName: bool(src.showShopName, base.showShopName),
+    showProductName: bool(src.showProductName, base.showProductName),
+    showSku: bool(src.showSku, base.showSku),
+    showPrice: bool(src.showPrice, base.showPrice),
+    showBarcodeText: bool(src.showBarcodeText, base.showBarcodeText),
+    showCopyIndex: bool(src.showCopyIndex, base.showCopyIndex),
+    nameFontPt: clamp(num(src.nameFontPt, base.nameFontPt), 4, 12),
+    barcodeHeight: clamp(num(src.barcodeHeight, base.barcodeHeight), 12, 60),
+    barcodeBarWidth: clamp(num(src.barcodeBarWidth, base.barcodeBarWidth), 0.6, 2.5),
+    nameMaxLines,
+  }
 }
 
 export function resolveInvoiceTemplate(
@@ -228,5 +304,6 @@ export function normalizeInvoiceSettings(raw: unknown, tenantSlug?: string | nul
     repairWarrantyMonths: Math.max(0, Math.min(120, num(src.repairWarrantyMonths, base.repairWarrantyMonths))),
     repairIntakeTerms: strArray(src.repairIntakeTerms, base.repairIntakeTerms),
     posAutoPrintBill: bool(src.posAutoPrintBill, base.posAutoPrintBill),
+    barcodeLabel: normalizeBarcodeLabelSettings(src.barcodeLabel ?? base.barcodeLabel),
   }
 }
