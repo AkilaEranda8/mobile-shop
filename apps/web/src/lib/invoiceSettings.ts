@@ -62,6 +62,11 @@ export interface InvoiceSettings {
   thermalLogoSize:      'sm' | 'md' | 'lg' | 'xl'
   /** Default repair service warranty shown on repair invoices (months) */
   repairWarrantyMonths?: number
+  /**
+   * Custom terms printed on repair device intake / custody thermal slips.
+   * Each shop can edit these (EN/SI or any language).
+   */
+  repairIntakeTerms?: string[]
   /** When true, POS prints the bill automatically after each completed sale */
   posAutoPrintBill:     boolean
 }
@@ -86,6 +91,11 @@ export const KASTHURI_INVOICE_PRESET: Partial<InvoiceSettings> = {
     'Post-Warranty Discount: After the initial 3 months, customers receive 30% off any repair service charges.',
   ],
 }
+
+export const DEFAULT_REPAIR_INTAKE_TERMS = [
+  'If the phone is not picked up within 14 days of notification to the customer after the phone has been repaired, the phone will have no liability.',
+  'දුරකථනය අලුත්වැඩියා කිරීමෙන් පසු පාරිභෝගිකයාට දැනුම් දී දින 14ක් ඇතුළත දුරකථනය ලබා නොගන්නේ නම්, දුරකථනය කිසිදු වගකීමක් දරන්නේ නැත.',
+]
 
 export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   invoiceTemplate: 'default',
@@ -130,6 +140,7 @@ export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   thermalFontSize:      'md',
   thermalLogoSize:      'md',
   repairWarrantyMonths: 3,
+  repairIntakeTerms:    [...DEFAULT_REPAIR_INTAKE_TERMS],
   posAutoPrintBill:     true,
 }
 
@@ -203,6 +214,14 @@ export function thermalLogoMaxHeight(size?: ThermalLogoSize): number {
 
 export function thermalBodyFontWeight(): number {
   return 600
+}
+
+/** Terms for repair intake / custody slip — falls back to default 14-day notice. */
+export function resolveRepairIntakeTerms(settings?: InvoiceSettings | null): string[] {
+  const terms = (settings?.repairIntakeTerms ?? [])
+    .map(t => String(t ?? '').trim())
+    .filter(Boolean)
+  return terms.length > 0 ? terms : [...DEFAULT_REPAIR_INTAKE_TERMS]
 }
 
 export function mergeReceiptSettings(

@@ -9,6 +9,7 @@ import { authStorage } from '@/lib/auth'
 import { authApi } from '@/lib/api'
 import { useAnalyticsDashboard } from '@/lib/hooks'
 import { formatCurrency } from '@/lib/utils'
+import { applyAccentToDocument, getStoredAppearance } from '@/lib/appearance'
 import GlobalSearch from '@/components/layout/GlobalSearch'
 import { BranchControl } from '@/components/layout/BranchControl'
 
@@ -21,7 +22,15 @@ interface HeaderProps {
 export default function Header({ onMenuToggle, sidebarOpen, maintenance }: HeaderProps) {
   const [notifOpen, setNotifOpen] = useState(false)
   const [userOpen, setUserOpen]   = useState(false)
-  const { theme, setTheme } = useTheme()
+  const { theme, resolvedTheme, setTheme } = useTheme()
+  const activeTheme = resolvedTheme ?? theme
+
+  const switchTheme = (next: 'light' | 'dark') => {
+    setTheme(next)
+    // Inline accent vars override CSS — apply the matching palette immediately
+    applyAccentToDocument(getStoredAppearance().accent, next === 'dark')
+  }
+
   const router = useRouter()
   const { openPos, hasPos } = usePos()
   const user = authStorage.getUser()
@@ -99,17 +108,27 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
           </button>
         )}
 
-        {/* Theme toggle */}
+        {/* Theme toggle — avoid inline var(--brand-primary); light-mode CSS was forcing white text on those buttons */}
         <div className="flex items-center rounded-xl border p-0.5 gap-0.5"
           style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
-          <button onClick={() => setTheme('light')}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-200"
-            style={{ background: theme === 'light' ? '#ffffff' : 'transparent', color: theme === 'light' ? 'var(--brand-primary)' : 'var(--text-muted)', boxShadow: theme === 'light' ? '0 1px 3px rgba(0,0,0,0.12)' : 'none' }}>
+          <button
+            type="button"
+            onClick={() => switchTheme('light')}
+            className="theme-toggle-btn flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-200"
+            style={activeTheme === 'light'
+              ? { background: 'var(--bg-card)', color: 'var(--sidebar-active-text)', boxShadow: '0 1px 3px rgba(0,0,0,0.12)', border: '1px solid var(--border-subtle)' }
+              : { background: 'transparent', color: 'var(--text-muted)', border: '1px solid transparent' }}
+          >
             <Sun size={13} /><span className="hidden sm:inline">Light</span>
           </button>
-          <button onClick={() => setTheme('dark')}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-200"
-            style={{ background: theme === 'dark' ? 'color-mix(in srgb, var(--brand-primary) 25%, #0f1623)' : 'transparent', color: theme === 'dark' ? 'var(--brand-light)' : 'var(--text-muted)', boxShadow: theme === 'dark' ? '0 1px 3px rgba(0,0,0,0.3)' : 'none' }}>
+          <button
+            type="button"
+            onClick={() => switchTheme('dark')}
+            className="theme-toggle-btn flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-200"
+            style={activeTheme === 'dark'
+              ? { background: 'var(--sidebar-active-bg)', color: 'var(--sidebar-active-text)', boxShadow: '0 1px 3px rgba(0,0,0,0.3)', border: '1px solid var(--sidebar-active-border)' }
+              : { background: 'transparent', color: 'var(--text-muted)', border: '1px solid transparent' }}
+          >
             <Moon size={13} /><span className="hidden sm:inline">Dark</span>
           </button>
         </div>

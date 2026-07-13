@@ -11,7 +11,7 @@ import { authApi, usersApi, tenantApi, uploadApi, deviceCatalogApi, plansApi, br
 import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { useTenantFeatures } from '@/lib/hooks'
-import { type InvoiceSettings, getInvoiceSettings, fetchInvoiceCustomizeSettings, pushInvoiceSettings } from '@/lib/invoiceSettings'
+import { type InvoiceSettings, getInvoiceSettings, fetchInvoiceCustomizeSettings, pushInvoiceSettings, DEFAULT_REPAIR_INTAKE_TERMS } from '@/lib/invoiceSettings'
 import ThermalReceiptCustomizer, { ThermalReceiptPreview, ThermalLogoSizePicker } from '@/components/invoice/ThermalReceiptCustomizer'
 import InvoiceTemplatePicker from '@/components/invoice/InvoiceTemplatePicker'
 import { Switch } from '@/components/ui/Switch'
@@ -348,6 +348,13 @@ export default function SettingsPage() {
   const updateWarrantyTerm = (i: number, val: string) => {
     const t = [...(invoiceForm.warrantyServiceTerms ?? [])]; t[i] = val; setInv({ warrantyServiceTerms: t })
   }
+
+  const addIntakeTerm = () => setInv({ repairIntakeTerms: [...(invoiceForm.repairIntakeTerms ?? []), ''] })
+  const removeIntakeTerm = (i: number) => setInv({ repairIntakeTerms: (invoiceForm.repairIntakeTerms ?? []).filter((_, idx) => idx !== i) })
+  const updateIntakeTerm = (i: number, val: string) => {
+    const t = [...(invoiceForm.repairIntakeTerms ?? [])]; t[i] = val; setInv({ repairIntakeTerms: t })
+  }
+  const resetIntakeTerms = () => setInv({ repairIntakeTerms: [...DEFAULT_REPAIR_INTAKE_TERMS] })
 
   const ROLES = ['OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN']
   const roleColors: Record<string, string> = {
@@ -966,6 +973,45 @@ export default function SettingsPage() {
                   ))}
                   {(invoiceForm.warrantyServiceTerms ?? []).length === 0 && (
                     <p className="text-xs text-slate-600 italic">No warranty terms added. Click &quot;Add Line&quot; to add one.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* ── 4d. Repair Intake / Custody Terms ── */}
+              <div className="card p-5 space-y-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Repair Intake Terms</p>
+                    <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-1">
+                      Printed on the device intake / custody thermal slip when a phone is received for repair. Edit in any language.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={resetIntakeTerms} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-white/10 text-slate-400 hover:bg-white/5 transition-colors">
+                      Reset Default
+                    </button>
+                    <button type="button" onClick={addIntakeTerm} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-violet-500/30 text-violet-400 hover:bg-violet-500/10 transition-colors">
+                      <Plus size={11} /> Add Line
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {(invoiceForm.repairIntakeTerms ?? []).map((t, i) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <span className="text-xs text-slate-600 w-5 text-right flex-shrink-0 mt-2.5">{i + 1}.</span>
+                      <textarea
+                        className="input-field flex-1 text-xs py-2 min-h-[64px] resize-y"
+                        value={t}
+                        placeholder={`Intake term ${i + 1} (English / Sinhala / any language)`}
+                        onChange={e => updateIntakeTerm(i, e.target.value)}
+                      />
+                      <button type="button" onClick={() => removeIntakeTerm(i)} className="p-1.5 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors mt-1">
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                  {(invoiceForm.repairIntakeTerms ?? []).length === 0 && (
+                    <p className="text-xs text-slate-600 italic">No intake terms. Click &quot;Add Line&quot; or &quot;Reset Default&quot; for the 14-day notice.</p>
                   )}
                 </div>
               </div>

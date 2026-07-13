@@ -16,6 +16,7 @@ import { getActiveBranchId } from '@/lib/active-branch'
 import { getInvoiceSettings, fetchInvoiceSettings, resolveInvoiceTemplate, thermalLogoMaxHeight, thermalBodyFontWeight, type InvoiceSettings } from '@/lib/invoiceSettings'
 import { buildRepairInvoiceSale, resolveRepairWarrantyMonths, REPAIR_WARRANTY_OPTIONS, repairWarrantyMonths } from '@/lib/repair-invoice.util'
 import { normalizeRepairTicket, repairNextStatus, repairPartsLocked, repairPaymentSummary, repairProgressStep, repairStatusHistory, repairTicketEditable, REPAIR_PROGRESS_FLOW, formatRepairServiceItemName, REPAIR_SERVICE_ITEM_LABEL } from '@/lib/repair.util'
+import { printRepairIntakeReceipt } from '@/lib/repair-print.util'
 import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
 import InvoiceA4View from '@/components/invoice/InvoiceA4View'
 import RepairPartsProfitPanel from '@/components/repairs/RepairPartsProfitPanel'
@@ -51,7 +52,7 @@ const priorityBadge = (p: string) => {
   return map[p] || 'bg-slate-500/10 border-slate-500/20 [color:var(--text-muted)]'
 }
 
-function printRepairReceipt(repair: RepairTicket, settings: InvoiceSettings) {
+function printRepairReceipt(repair: RepairTicket, settings: InvoiceSettings): boolean {
   const paperWidth = settings.thermalWidthRepair || '80mm'
   const bodyWidth  = paperWidth === '58mm' ? '216px' : '302px'
   const fmt = (n: number) => `LKR ${n.toLocaleString('en-LK', { minimumFractionDigits: 2 })}`
@@ -122,11 +123,12 @@ ${warrantyLine}
 <div class="center" style="font-size:9px;margin-top:2px;">${settings.website || ''}</div>
 </body></html>`
   const w = window.open('', '_blank', 'width=350,height=600')
-  if (!w) return
+  if (!w) return false
   w.document.write(html)
   w.document.close()
   w.focus()
   setTimeout(() => { w.print(); w.close() }, 400)
+  return true
 }
 
 function calcRepairTotals(repair: Pick<RepairTicket, 'estimatedCost' | 'spareParts'>) {
@@ -150,6 +152,8 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
 }) {
   const quoteRef    = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const customerContactRef = useRef<HTMLDivElement>(null)
+  const notesSectionRef = useRef<HTMLDivElement>(null)
   const [downloading,   setDownloading]   = useState(false)
   const [waSending,     setWaSending]     = useState<'quote' | 'invoice' | null>(null)
   const [waSendPdf,     setWaSendPdf]     = useState(false)
@@ -158,6 +162,9 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
   const [photos,        setPhotos]        = useState<string[]>(repair.photos ?? [])
   const [uploading,     setUploading]     = useState(false)
   const [lightboxUrl,   setLightboxUrl]   = useState<string | null>(null)
+  const [showAddNote,   setShowAddNote]   = useState(false)
+  const [noteText,      setNoteText]      = useState('')
+  const [savingNote,    setSavingNote]    = useState(false)
 
   useEffect(() => {
     const user = authStorage.getUser()
@@ -340,7 +347,10 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
   }
 
   const downloadQuote = async () => {
-    if (!quoteRef.current) return
+    if (!quoteRef.current) {
+      toast.error('Quote preview not ready — try again')
+      return
+    }
     setDownloading(true)
     try {
       const { default: html2canvas } = await import('html2canvas')
@@ -383,6 +393,46 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
       toast.success('Quote downloaded!')
     } catch { toast.error('Download failed') }
     finally { setDownloading(false) }
+  }
+
+  const focusCustomerInfo = () => {
+    customerContactRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    toast.success(`${repair.customerName || 'Customer'}${repair.customerPhone ? ` · ${repair.customerPhone}` : ''}`)
+  }
+
+  const openAddNote = () => {
+    setShowAddNote(true)
+    setTimeout(() => notesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50)
+  }
+
+  const handleSaveNote = async () => {
+    const text = noteText.trim()
+    if (!text) { toast.error('Enter a note'); return }
+    setSavingNote(true)
+    try {
+      const res: any = await repairsApi.addNote(repair.id, { text, isPublic: false })
+      onRepairUpdate(normalizeRepairTicket(res?.data ?? res))
+      setNoteText('')
+      setShowAddNote(false)
+      toast.success('Note added')
+      onRefresh()
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to add note')
+    } finally {
+      setSavingNote(false)
+    }
+  }
+
+  const handlePrintIntake = () => {
+    const ok = printRepairIntakeReceipt(repair, invSettings)
+    if (!ok) toast.error('Popup blocked — allow popups to print')
+    else toast.success('Opening intake receipt…')
+  }
+
+  const handlePrintTicket = () => {
+    const ok = printRepairReceipt(repair, invSettings)
+    if (!ok) toast.error('Popup blocked — allow popups to print')
+    else toast.success('Opening job receipt…')
   }
 
   const [changingStatus, setChangingStatus] = useState(false)
@@ -1160,16 +1210,26 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
               </div>
               <div className="p-3 grid grid-cols-3 gap-2">
                 {[
-                  { icon: FileText,      label: 'Download PDF',  action: downloadQuote },
-                  { icon: MessageSquare, label: 'Quote WhatsApp', action: sendQuoteWhatsApp },
-                  { icon: Phone,         label: 'Invoice WhatsApp', action: sendInvoiceWhatsApp },
-                  { icon: Printer,       label: 'Print Ticket',  action: () => printRepairReceipt(repair, invSettings) },
-                  { icon: User,          label: 'Customer Info', action: () => {} },
-                  { icon: ClipboardList, label: 'Add Note',      action: () => {} },
-                ].map(({ icon: Icon, label, action }) => (
-                  <button key={label} onClick={action}
-                    className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl border transition-colors hover:border-indigo-500/40"
-                    style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                  { icon: FileText,      label: 'Download PDF',    action: downloadQuote, disabled: downloading },
+                  { icon: MessageSquare, label: 'Quote WhatsApp',  action: sendQuoteWhatsApp, disabled: waSending !== null },
+                  { icon: Phone,         label: 'Invoice WhatsApp', action: sendInvoiceWhatsApp, disabled: waSending !== null },
+                  { icon: Package,       label: 'Print Intake',    action: handlePrintIntake },
+                  { icon: Printer,       label: 'Print Ticket',    action: handlePrintTicket },
+                  { icon: User,          label: 'Customer Info',   action: focusCustomerInfo },
+                  { icon: ClipboardList, label: 'Add Note',        action: openAddNote },
+                ].map(({ icon: Icon, label, action, disabled }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    disabled={disabled}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      action()
+                    }}
+                    className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl border transition-colors hover:border-indigo-500/40 disabled:opacity-50"
+                    style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}
+                  >
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--bg-card)' }}>
                       <Icon size={14} style={{ color: 'var(--text-secondary)' }} />
                     </div>
@@ -1177,6 +1237,24 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                   </button>
                 ))}
               </div>
+              {showAddNote && (
+                <div ref={notesSectionRef} className="px-3 pb-3 space-y-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <p className="text-[11px] font-bold pt-3" style={{ color: 'var(--text-muted)' }}>Add technician note</p>
+                  <textarea
+                    className="input-field text-sm min-h-[72px]"
+                    placeholder="Write a note…"
+                    value={noteText}
+                    onChange={e => setNoteText(e.target.value)}
+                    autoFocus
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <button type="button" onClick={() => { setShowAddNote(false); setNoteText('') }} className="btn-secondary text-xs px-3 py-1.5">Cancel</button>
+                    <button type="button" onClick={handleSaveNote} disabled={savingNote} className="btn-primary text-xs px-3 py-1.5 disabled:opacity-50">
+                      {savingNote ? 'Saving…' : 'Save Note'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Device Condition */}
@@ -1287,7 +1365,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
             )}
 
             {/* Customer Contact */}
-            <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div ref={customerContactRef} className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                 <p className="text-[11px] font-black uppercase tracking-widest flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
                   <User size={12} className="text-violet-500" /> Customer Contact

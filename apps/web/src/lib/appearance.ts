@@ -1,4 +1,5 @@
 export const APPEARANCE_KEY = 'hx_appearance'
+export const THEME_STORAGE_KEY = 'hexalyte-theme'
 
 export type AccentKey = 'violet' | 'blue' | 'cyan' | 'emerald' | 'rose' | 'orange'
 
@@ -173,11 +174,16 @@ export function getStoredAppearance(): AppearanceSettings {
   }
 }
 
-export function applyAccentToDocument(accent: AccentKey) {
+export function isDocumentDark(): boolean {
+  if (typeof document === 'undefined') return false
+  return document.documentElement.classList.contains('dark')
+}
+
+export function applyAccentToDocument(accent: AccentKey, forceDark?: boolean) {
   if (typeof document === 'undefined') return
   const palette = ACCENT_PALETTES[accent]
   const root = document.documentElement
-  const isDark = root.classList.contains('dark')
+  const isDark = forceDark ?? root.classList.contains('dark')
 
   root.dataset.accent = accent
   root.style.setProperty('--brand-primary', palette.primary)
@@ -185,13 +191,16 @@ export function applyAccentToDocument(accent: AccentKey) {
   root.style.setProperty('--brand-glow', isDark ? palette.glowDark : palette.glow)
   root.style.setProperty('--border-active', palette.borderActive)
   root.style.setProperty('--brand-hover', palette.primaryHover)
-  root.style.setProperty('--brand-primary-light', palette.primaryLight)
+  root.style.setProperty('--brand-primary-light', isDark ? palette.light : palette.primaryLight)
   root.style.setProperty('--sidebar-active-bg', isDark ? palette.sidebarActiveBgDark : palette.sidebarActiveBg)
   root.style.setProperty('--sidebar-active-text', isDark ? palette.sidebarActiveTextDark : palette.sidebarActiveText)
   root.style.setProperty('--sidebar-active-border', isDark ? palette.sidebarActiveBorderDark : palette.sidebarActiveBorder)
   root.style.setProperty('--brand-gradient', `linear-gradient(135deg, ${palette.gradientFrom}, ${palette.gradientTo})`)
   root.style.setProperty('--kpi-accent', palette.kpiGradient)
-  root.style.setProperty('--secondary-hover-bg', palette.secondaryHoverBg)
+  root.style.setProperty(
+    '--secondary-hover-bg',
+    isDark ? `color-mix(in srgb, ${palette.primary} 14%, transparent)` : palette.secondaryHoverBg,
+  )
 
   const meta = document.querySelector('meta[name="theme-color"]')
   if (meta) meta.setAttribute('content', palette.primary)
@@ -210,5 +219,8 @@ export function saveAppearance(settings: AppearanceSettings) {
   applyAppearanceToDocument(settings)
 }
 
-/** Inline script injected in layout to avoid accent flash on first paint. */
-export const APPEARANCE_INIT_SCRIPT = `(function(){try{var k='${APPEARANCE_KEY}';var d=${JSON.stringify(ACCENT_PALETTES)};var a='${DEFAULT_ACCENT}';var s=localStorage.getItem(k);if(s){var p=JSON.parse(s);if(p&&p.accent&&d[p.accent])a=p.accent;}var c=d[a];var r=document.documentElement;r.dataset.accent=a;r.style.setProperty('--brand-primary',c.primary);r.style.setProperty('--brand-light',c.light);r.style.setProperty('--brand-glow',c.glow);r.style.setProperty('--border-active',c.borderActive);r.style.setProperty('--brand-hover',c.primaryHover);r.style.setProperty('--brand-primary-light',c.primaryLight);r.style.setProperty('--sidebar-active-bg',c.sidebarActiveBg);r.style.setProperty('--sidebar-active-text',c.sidebarActiveText);r.style.setProperty('--sidebar-active-border',c.sidebarActiveBorder);r.style.setProperty('--brand-gradient','linear-gradient(135deg,'+c.gradientFrom+','+c.gradientTo+')');r.style.setProperty('--kpi-accent',c.kpiGradient);r.style.setProperty('--secondary-hover-bg',c.secondaryHoverBg);}catch(e){}})();`
+/**
+ * Blocking first-paint script: syncs theme class + accent tokens for the
+ * current light/dark mode so inline accent vars never fight .dark CSS.
+ */
+export const APPEARANCE_INIT_SCRIPT = `(function(){try{var tk='${THEME_STORAGE_KEY}';var k='${APPEARANCE_KEY}';var d=${JSON.stringify(ACCENT_PALETTES)};var a='${DEFAULT_ACCENT}';var r=document.documentElement;var t=localStorage.getItem(tk);var dark=t==='dark';if(dark)r.classList.add('dark');else r.classList.remove('dark');var s=localStorage.getItem(k);if(s){var p=JSON.parse(s);if(p&&p.accent&&d[p.accent])a=p.accent;}var c=d[a];r.dataset.accent=a;r.style.setProperty('--brand-primary',c.primary);r.style.setProperty('--brand-light',c.light);r.style.setProperty('--brand-glow',dark?c.glowDark:c.glow);r.style.setProperty('--border-active',c.borderActive);r.style.setProperty('--brand-hover',c.primaryHover);r.style.setProperty('--brand-primary-light',dark?c.light:c.primaryLight);r.style.setProperty('--sidebar-active-bg',dark?c.sidebarActiveBgDark:c.sidebarActiveBg);r.style.setProperty('--sidebar-active-text',dark?c.sidebarActiveTextDark:c.sidebarActiveText);r.style.setProperty('--sidebar-active-border',dark?c.sidebarActiveBorderDark:c.sidebarActiveBorder);r.style.setProperty('--brand-gradient','linear-gradient(135deg,'+c.gradientFrom+','+c.gradientTo+')');r.style.setProperty('--kpi-accent',c.kpiGradient);r.style.setProperty('--secondary-hover-bg',dark?('color-mix(in srgb,'+c.primary+' 14%,transparent)'):c.secondaryHoverBg);}catch(e){}})();`

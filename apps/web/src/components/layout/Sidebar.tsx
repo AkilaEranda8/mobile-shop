@@ -277,7 +277,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
-            <span className="text-white font-bold text-base truncate block">{shopName || 'My Shop'}</span>
+            <span className="font-bold text-base truncate block" style={{ color: 'var(--text-primary)' }}>{shopName || 'My Shop'}</span>
             {plan && <span className={`block text-xs -mt-0.5 font-medium capitalize ${PLAN_COLOR[plan] ?? 'text-slate-400'}`}>{plan.charAt(0) + plan.slice(1).toLowerCase()}</span>}
           </div>
         )}
@@ -294,7 +294,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           return (
           <div key={group.label}>
             {!collapsed && (
-              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-600 px-3 mb-1 mt-1">
+              <p className="text-[9px] font-bold uppercase tracking-widest px-3 mb-1 mt-1" style={{ color: 'var(--text-secondary)', opacity: 0.72 }}>
                 {group.label}
               </p>
             )}
@@ -325,7 +325,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                         )}
                         title={item.label}
                       >
-                        <item.icon size={17} className={cn('flex-shrink-0', sectionActive ? 'accent-text' : 'text-slate-500')} />
+                        <item.icon size={17} className={cn('flex-shrink-0', sectionActive ? 'accent-text' : '')} style={sectionActive ? undefined : { color: 'var(--text-muted)' }} />
                       </Link>
                     )
                   }

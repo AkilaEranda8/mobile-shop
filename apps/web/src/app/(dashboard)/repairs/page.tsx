@@ -25,6 +25,7 @@ import { getActiveBranchId } from '@/lib/active-branch'
 import { getInvoiceSettings, fetchInvoiceSettings, resolveInvoiceTemplate, thermalLogoMaxHeight, thermalBodyFontWeight, type InvoiceSettings } from '@/lib/invoiceSettings'
 import { buildRepairInvoiceSale, resolveRepairWarrantyMonths, REPAIR_WARRANTY_OPTIONS, repairWarrantyMonths } from '@/lib/repair-invoice.util'
 import { normalizeRepairTicket, repairNextStatus, repairPartsLocked, repairPaymentSummary, repairProgressStep, repairStatusHistory, repairTicketEditable, REPAIR_PROGRESS_FLOW, REPAIR_SERVICE_ITEM_LABEL } from '@/lib/repair.util'
+import { printRepairIntakeReceipt } from '@/lib/repair-print.util'
 import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
 import InvoiceA4View from '@/components/invoice/InvoiceA4View'
 import EditRepairModal from '@/components/repairs/EditRepairModal'
@@ -356,7 +357,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
     setLoading(true); setError('')
     try {
       const user = authStorage.getUser()
-      await repairsApi.create({
+      const res: any = await repairsApi.create({
         ...form,
         customerId:    selectedCustomer?.id,
         customerName:  selectedCustomer?.name  ?? newCust.name,
@@ -368,6 +369,18 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
         createdBy: user?.name || 'Staff',
         warrantyClaimId: prefill?.warrantyClaimId,
       })
+      const created = (res?.data ?? res) as RepairTicket
+      if (created?.ticketNumber) {
+        try {
+          const printed = printRepairIntakeReceipt(created, getInvoiceSettings())
+          if (printed) toast.success(`Ticket ${created.ticketNumber} created — printing device receipt`)
+          else toast.success(`Ticket ${created.ticketNumber} created — allow popups to print receipt`)
+        } catch {
+          toast.success(`Ticket ${created.ticketNumber} created`)
+        }
+      } else {
+        toast.success('Ticket created')
+      }
       onSaved(); onClose()
     } catch (err: any) { setError(err.message || 'Failed to create ticket') }
     finally { setLoading(false) }
@@ -1044,12 +1057,24 @@ export default function RepairsPage() {
 
   const columns = useMemo<ColumnDef<RepairTicket>[]>(() => [
     {
+      id: 'rowIndex',
+      header: '#',
+      cell: ({ row }) => (
+        <span className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+          {row.index + 1}
+        </span>
+      ),
+      enableSorting: false,
+      size: 48,
+    },
+    {
       accessorKey: 'ticketNumber',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Ticket #" />,
       cell: ({ row }) => (
         <button
           type="button"
-          className="text-xs font-mono text-violet-600 dark:text-violet-400 hover:underline text-left"
+          className="text-xs font-mono font-semibold hover:underline text-left"
+          style={{ color: 'var(--sidebar-active-text)' }}
           onClick={() => openDetail(row.original)}
           onDoubleClick={(e) => { e.preventDefault(); openEdit(row.original) }}
         >
@@ -1068,7 +1093,7 @@ export default function RepairsPage() {
           onClick={() => openDetail(row.original)}
           onDoubleClick={(e) => { e.preventDefault(); openEdit(row.original) }}
         >
-          <p className="text-sm font-medium transition-colors hover:text-violet-600 dark:hover:text-violet-400" style={{ color: 'var(--text-primary)' }}>{row.original.deviceBrand} {row.original.deviceModel}</p>
+          <p className="text-sm font-medium transition-colors hover:opacity-80" style={{ color: 'var(--text-primary)' }}>{row.original.deviceBrand} {row.original.deviceModel}</p>
         </button>
       ),
     },
@@ -1077,12 +1102,12 @@ export default function RepairsPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Customer" />,
       cell: ({ row }) => (
         <div className="flex items-center gap-1.5">
-          <div className="w-6 h-6 rounded-full bg-violet-500/15 flex items-center justify-center text-[10px] font-bold text-violet-600 dark:text-violet-400">
+          <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold accent-bg-subtle accent-text">
             {row.original.customerName.charAt(0)}
           </div>
           <div>
             <p className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{row.original.customerName}</p>
-            <a href={`tel:${row.original.customerPhone}`} className="text-[10px] hover:text-violet-600 dark:hover:text-violet-400" style={{ color: 'var(--text-muted)' }}>{row.original.customerPhone}</a>
+            <a href={`tel:${row.original.customerPhone}`} className="text-[10px] hover:underline" style={{ color: 'var(--text-muted)' }}>{row.original.customerPhone}</a>
           </div>
         </div>
       ),
@@ -1120,8 +1145,16 @@ export default function RepairsPage() {
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
           <button
+            onClick={() => printRepairIntakeReceipt(row.original, getInvoiceSettings())}
+            title="Print Device Intake Receipt"
+            className="p-1.5 rounded-lg transition-colors hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/10"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            <Package size={13} />
+          </button>
+          <button
             onClick={() => printRepairReceipt(row.original, getInvoiceSettings())}
-            title="Thermal Print"
+            title="Print Repair Job Receipt"
             className="p-1.5 rounded-lg transition-colors hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-cyan-500/10"
             style={{ color: 'var(--text-muted)' }}
           >

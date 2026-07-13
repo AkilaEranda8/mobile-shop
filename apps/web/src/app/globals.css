@@ -59,10 +59,10 @@
     --border-subtle: rgba(0,0,0,0.09);
     --border-default:rgba(0,0,0,0.13);
     --border-active: #2563eb;
-    --text-primary:  #000000;
-    --text-secondary:#1e293b;
+    --text-primary:  #0f172a;
+    --text-secondary:#334155;
     --text-muted:    #475569;
-    --text-placeholder:#94a3b8;
+    --text-placeholder:#64748b;
     --brand-primary: #2563eb;
     --brand-light:   #3b82f6;
     --brand-hover:   #1d4ed8;
@@ -128,10 +128,10 @@
     --border-subtle: rgba(255,255,255,0.05);
     --border-default:rgba(255,255,255,0.08);
     --border-active: #2563eb;
-    --text-primary:  #e2e8f0;
-    --text-secondary:#94a3b8;
-    --text-muted:    #475569;
-    --text-placeholder:#475569;
+    --text-primary:  #f1f5f9;
+    --text-secondary:#cbd5e1;
+    --text-muted:    #94a3b8;
+    --text-placeholder:#64748b;
     --brand-primary: #2563eb;
     --brand-light:   #3b82f6;
     --brand-hover:   #1d4ed8;
@@ -239,6 +239,7 @@
     background: var(--bg-card);
     border: 1px solid var(--border-subtle);
     box-shadow: var(--shadow-card);
+    color: var(--text-primary);
     @apply rounded-2xl;
   }
 
@@ -254,11 +255,11 @@
     background: var(--bg-card-hover);
   }
 
-  .text-theme-primary { @apply text-gray-900 dark:text-white; }
-  .text-theme-body { @apply text-gray-800 dark:text-slate-200; }
-  .text-theme-muted { @apply text-gray-600 dark:text-slate-400; }
-  .text-theme-subtle { @apply text-gray-500 dark:text-slate-500; }
-  .text-theme-stat { @apply text-lg font-bold text-gray-900 dark:text-white; }
+  .text-theme-primary { color: var(--text-primary) !important; }
+  .text-theme-body { color: var(--text-secondary) !important; }
+  .text-theme-muted { color: var(--text-muted) !important; }
+  .text-theme-subtle { color: var(--text-placeholder) !important; }
+  .text-theme-stat { color: var(--text-primary) !important; @apply text-lg font-bold; }
 
   .sidebar-item {
     color: var(--text-secondary);
@@ -376,18 +377,38 @@ html:not(.dark) aside {
   background: #f8fafc !important;
   box-shadow: 2px 0 12px rgba(0,0,0,0.06);
 }
+/* POS sidebar must stay dark even when system is in light mode */
+html:not(.dark) [data-pos="dark"] aside {
+  background: #161B22 !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+}
 
 /* ── Light mode: remap hardcoded dark-theme text utilities ─────────── */
+/* Keep white text on solid brand / status buttons — must come AFTER text-white remap */
 html:not(.dark) .text-white     { color: var(--text-primary) !important; }
 html:not(.dark) .text-slate-50  { color: var(--text-primary) !important; }
-html:not(.dark) .text-slate-100 { color: #111827 !important; }
+html:not(.dark) .text-slate-100 { color: #0f172a !important; }
 html:not(.dark) .text-slate-200 { color: #1e293b !important; }
 html:not(.dark) .text-slate-300 { color: #334155 !important; }
 html:not(.dark) .text-slate-400 { color: #475569 !important; }
 html:not(.dark) .text-slate-500 { color: #64748b !important; }
-html:not(.dark) .text-slate-600 { color: #64748b !important; }
+html:not(.dark) .text-slate-600 { color: #475569 !important; }
+html:not(.dark) .text-gray-900  { color: var(--text-primary) !important; }
+html:not(.dark) .text-gray-800  { color: var(--text-secondary) !important; }
+html:not(.dark) .text-gray-700  { color: var(--text-secondary) !important; }
+html:not(.dark) .text-gray-600  { color: var(--text-muted) !important; }
+html:not(.dark) .text-gray-500  { color: var(--text-muted) !important; }
 html:not(.dark) .hover\:text-white:hover { color: var(--text-primary) !important; }
 html:not(.dark) .group:hover .group-hover\:text-slate-300 { color: #334155 !important; }
+
+/* Dark mode: ensure gray/black utilities don't stay dark on dark surfaces */
+.dark .text-gray-900,
+.dark .text-gray-800,
+.dark .text-black { color: var(--text-primary) !important; }
+.dark .text-gray-700,
+.dark .text-gray-600 { color: var(--text-secondary) !important; }
+.dark .text-gray-500 { color: var(--text-muted) !important; }
 
 /* Tables — force readable cell text in light mode */
 html:not(.dark) table td,
@@ -417,8 +438,30 @@ html:not(.dark) .btn-primary,
 html:not(.dark) .btn-primary *,
 html:not(.dark) .btn-accent,
 html:not(.dark) .btn-accent *,
+html:not(.dark) .accent-gradient,
+html:not(.dark) .accent-gradient *,
+html:not(.dark) .accent-gradient-br,
+html:not(.dark) .accent-gradient-br *,
 html:not(.dark) header .text-white,
 html:not(.dark) header .text-white *,
+html:not(.dark) .bg-green-600,
+html:not(.dark) .bg-green-600 *,
+html:not(.dark) .bg-green-700,
+html:not(.dark) .bg-green-700 *,
+html:not(.dark) .bg-emerald-600,
+html:not(.dark) .bg-emerald-600 *,
+html:not(.dark) .bg-red-600,
+html:not(.dark) .bg-red-600 *,
+html:not(.dark) .bg-blue-600,
+html:not(.dark) .bg-blue-600 *,
+html:not(.dark) .bg-indigo-600,
+html:not(.dark) .bg-indigo-600 *,
+html:not(.dark) .bg-violet-600,
+html:not(.dark) .bg-violet-600 *,
+html:not(.dark) .bg-purple-600,
+html:not(.dark) .bg-purple-600 *,
+html:not(.dark) .bg-orange-600,
+html:not(.dark) .bg-orange-600 *,
 html:not(.dark) [class*="bg-violet-"][class*="text-white"],
 html:not(.dark) [class*="bg-violet-"] .text-white,
 html:not(.dark) [class*="bg-purple-"][class*="text-white"],
@@ -445,10 +488,16 @@ html:not(.dark) button[style*="linear-gradient"][style*="8b5cf6"],
 html:not(.dark) button[style*="linear-gradient"][style*="8b5cf6"] *,
 html:not(.dark) button[style*="linear-gradient"][style*="5b21b6"],
 html:not(.dark) button[style*="linear-gradient"][style*="5b21b6"] * { color: #ffffff !important; }
-html:not(.dark) button[style*="var(--brand-primary)"],
-html:not(.dark) button[style*="var(--brand-primary)"] *,
-html:not(.dark) button[style*="var(--brand-gradient)"],
-html:not(.dark) button[style*="var(--brand-gradient)"] * { color: #ffffff !important; }
+/* Only force white text when brand is used as a filled background — not when
+   color/border merely reference --brand-primary (e.g. Light theme toggle). */
+html:not(.dark) button[style*="background"][style*="var(--brand-primary)"],
+html:not(.dark) button[style*="background"][style*="var(--brand-primary)"] *,
+html:not(.dark) button[style*="background"][style*="var(--brand-gradient)"],
+html:not(.dark) button[style*="background"][style*="var(--brand-gradient)"] *,
+html:not(.dark) button[style*="background: var(--brand-primary)"],
+html:not(.dark) button[style*="background: var(--brand-primary)"] *,
+html:not(.dark) button[style*="background:var(--brand-primary)"],
+html:not(.dark) button[style*="background:var(--brand-primary)"] * { color: #ffffff !important; }
 html:not(.dark) button[style*="linear-gradient"][style*="16a34a"],
 html:not(.dark) button[style*="linear-gradient"][style*="16a34a"] *,
 html:not(.dark) button[style*="linear-gradient"][style*="15803d"],
@@ -624,6 +673,10 @@ html:not(.dark) [data-scheme="dark"] .shadow-violet-500\/40   { box-shadow: 0 0 
 html:not(.dark) [data-pos="dark"] {
   background-color: #0B0E14 !important;
   color: #ffffff !important;
+}
+html:not(.dark) [data-pos="dark"] aside {
+  background: #161B22 !important;
+  box-shadow: none !important;
 }
 html:not(.dark) [data-pos="dark"] .text-white,
 html:not(.dark) [data-pos="dark"] .text-white *:not(.pos-price)     { color: #ffffff !important; }

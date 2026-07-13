@@ -118,7 +118,7 @@ export function HexaPosLayout({
     >
       {/* ── Left Sidebar ── */}
       <aside
-        className="hidden lg:flex w-[200px] shrink-0 flex-col border-r"
+        className="pos-aside hidden lg:flex w-[200px] shrink-0 flex-col border-r"
         style={{ borderColor: C.border, background: C.card }}
       >
         <div className="flex items-center gap-2.5 px-4 py-4 border-b" style={{ borderColor: C.border }}>

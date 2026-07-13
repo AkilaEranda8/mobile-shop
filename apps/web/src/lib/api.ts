@@ -333,6 +333,8 @@ export const repairsApi = {
     api.post(`/repairs/${id}/collect-payment`, body),
   updatePhotos: (id: string, photos: string[]) =>
     api.put(`/repairs/${id}/photos`, { photos }),
+  addNote: (id: string, body: { text: string; isPublic?: boolean }) =>
+    api.post(`/repairs/${id}/notes`, body),
 }
 
 export const deviceCatalogApi = {

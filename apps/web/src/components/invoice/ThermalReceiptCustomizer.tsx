@@ -144,6 +144,26 @@ export default function ThermalReceiptCustomizer({ settings, onChange, showPrevi
 
         <ThermalLogoSizePicker settings={settings} onChange={onChange} />
 
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-2">
+          <p className="text-sm font-medium text-white">Repair intake terms</p>
+          <p className="text-[11px] text-slate-500">
+            Custody / liability lines on the device intake thermal slip (e.g. 14-day pickup notice). Customize under Invoice → Repair Intake Terms, then Save Invoice Settings.
+          </p>
+          <ul className="space-y-1.5 pt-1">
+            {(settings.repairIntakeTerms?.length
+              ? settings.repairIntakeTerms
+              : [
+                  'If the phone is not picked up within 14 days of notification…',
+                  'දුරකථනය අලුත්වැඩියා කිරීමෙන් පසු…',
+                ]
+            ).slice(0, 3).map((t, i) => (
+              <li key={i} className="text-[11px] text-slate-400 leading-snug truncate">
+                {i + 1}. {t}
+              </li>
+            ))}
+          </ul>
+        </div>
+
         <div>
           <label className="block text-xs text-slate-400 mb-2">Show on receipt</label>
           <div className="grid sm:grid-cols-2 gap-x-4 gap-y-2">

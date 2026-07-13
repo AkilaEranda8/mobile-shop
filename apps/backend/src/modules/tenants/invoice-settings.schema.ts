@@ -24,7 +24,7 @@ export const updateInvoiceSettingsSchema = z.object({
   taxRate: z.number().min(0).max(100).optional(),
   discountRate: z.number().min(0).max(100).optional(),
   terms: z.array(z.string().max(500)).max(30).optional(),
-  warrantyServiceTerms: z.array(z.string().max(500)).max(30).optional(),
+  warrantyServiceTerms: z.array(z.string().max(800)).max(30).optional(),
   signatoryName: z.string().max(120).optional(),
   signatoryTitle: z.string().max(120).optional(),
   footerNote: z.string().max(500).optional(),
@@ -44,5 +44,7 @@ export const updateInvoiceSettingsSchema = z.object({
   thermalShowWarranty: z.boolean().optional(),
   thermalFontSize: z.enum(['sm', 'md', 'lg']).optional(),
   thermalLogoSize: z.enum(['sm', 'md', 'lg', 'xl']).optional(),
+  repairWarrantyMonths: z.number().min(0).max(120).optional(),
+  repairIntakeTerms: z.array(z.string().max(800)).max(30).optional(),
   posAutoPrintBill: z.boolean().optional(),
 })

@@ -80,8 +80,14 @@ export interface InvoiceSettings {
   thermalFontSize: 'sm' | 'md' | 'lg'
   thermalLogoSize: 'sm' | 'md' | 'lg' | 'xl'
   repairWarrantyMonths: number
+  repairIntakeTerms: string[]
   posAutoPrintBill: boolean
 }
+
+export const DEFAULT_REPAIR_INTAKE_TERMS = [
+  'If the phone is not picked up within 14 days of notification to the customer after the phone has been repaired, the phone will have no liability.',
+  'දුරකථනය අලුත්වැඩියා කිරීමෙන් පසු පාරිභෝගිකයාට දැනුම් දී දින 14ක් ඇතුළත දුරකථනය ලබා නොගන්නේ නම්, දුරකථනය කිසිදු වගකීමක් දරන්නේ නැත.',
+]
 
 export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   invoiceTemplate: 'default',
@@ -129,6 +135,7 @@ export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   thermalFontSize: 'md',
   thermalLogoSize: 'md',
   repairWarrantyMonths: 3,
+  repairIntakeTerms: [...DEFAULT_REPAIR_INTAKE_TERMS],
   posAutoPrintBill: true,
 }
 
@@ -219,6 +226,7 @@ export function normalizeInvoiceSettings(raw: unknown, tenantSlug?: string | nul
     thermalFontSize: thermalFontSize === 'sm' || thermalFontSize === 'lg' ? thermalFontSize : 'md',
     thermalLogoSize: thermalLogoSize === 'sm' || thermalLogoSize === 'lg' || thermalLogoSize === 'xl' ? thermalLogoSize : 'md',
     repairWarrantyMonths: Math.max(0, Math.min(120, num(src.repairWarrantyMonths, base.repairWarrantyMonths))),
+    repairIntakeTerms: strArray(src.repairIntakeTerms, base.repairIntakeTerms),
     posAutoPrintBill: bool(src.posAutoPrintBill, base.posAutoPrintBill),
   }
 }
