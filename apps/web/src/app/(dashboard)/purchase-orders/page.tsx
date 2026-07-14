@@ -43,6 +43,7 @@ function PODetailsModal({
   onRegisterImei,
   onPrintBarcodes,
   receiving,
+  printingBarcodes,
 }: {
   po: PurchaseOrder
   products: SharedPoProduct[]
@@ -52,6 +53,7 @@ function PODetailsModal({
   onRegisterImei?: () => void
   onPrintBarcodes?: () => void
   receiving?: boolean
+  printingBarcodes?: boolean
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -400,10 +402,11 @@ function PODetailsModal({
               <button
                 type="button"
                 onClick={onPrintBarcodes}
-                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-300 font-semibold"
+                disabled={printingBarcodes}
+                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-300 font-semibold disabled:opacity-60"
               >
-                <Printer size={14} />
-                Print barcodes
+                {printingBarcodes ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
+                {printingBarcodes ? 'Loading…' : 'Print barcodes'}
               </button>
             )}
             <button
@@ -439,6 +442,7 @@ export default function PurchaseOrdersPage() {
   const [confirmPO, setConfirmPO] = useState<PurchaseOrder | null>(null)
   const [detailPO, setDetailPO] = useState<PurchaseOrder | null>(null)
   const [registerImeiPO, setRegisterImeiPO] = useState<PurchaseOrder | null>(null)
+  const [printingBarcodes, setPrintingBarcodes] = useState(false)
   const [imeiBannerHidden, setImeiBannerHidden] = useState(() => isImeiHealthBannerDismissed())
   const [textSearch, setTextSearch] = useState('')
   const [poStatusFilter, setPoStatusFilter] = useState<'all' | 'DRAFT' | 'SENT' | 'PARTIAL' | 'RECEIVED' | 'CLOSED'>('all')
@@ -485,28 +489,53 @@ export default function PurchaseOrdersPage() {
       qty: l.qty ?? 1,
     }))
 
-  const printPoLabels = useCallback((labels: BarcodeLabelItem[], poNumber: string) => {
+  const printPoLabels = useCallback((labels: BarcodeLabelItem[], poNumber: string, targetWindow?: Window | null) => {
     if (!labels.length) {
-      toast.error('No barcode labels to print for this PO')
+      try { targetWindow?.close() } catch { /* ignore */ }
+      toast.error('No barcode labels for this PO (IMEI devices need Register IMEI, not shelf barcodes)')
       return
     }
-    printBarcodeLabels(labels, {
+    const opened = printBarcodeLabels(labels, {
       settings: barcodeLabelRef.current,
       shopName,
       preview: true,
+      targetWindow,
     })
+    if (!opened) {
+      toast.error('Popup blocked — allow popups for this site to print barcodes')
+      return
+    }
     const total = labels.reduce((s, l) => s + (l.qty ?? 1), 0)
     toast.success(`${poNumber}: ${total} barcode label(s) — preview open, then Print`)
   }, [shopName])
 
   const handlePrintPoLabels = useCallback(async (po: PurchaseOrder) => {
+    // Open sync with the click — browsers block window.open after await
+    const previewWin = window.open('', '_blank', 'width=720,height=780')
+    if (!previewWin) {
+      toast.error('Popup blocked — allow popups for this site to print barcodes')
+      return
+    }
+    setPrintingBarcodes(true)
+    try {
+      previewWin.document.write(`<!DOCTYPE html><html><head><title>Loading barcodes…</title></head>
+        <body style="font-family:system-ui;padding:24px;color:#334155">
+          <p>Loading barcode labels for <strong>${po.poNumber}</strong>…</p>
+        </body></html>`)
+      previewWin.document.close()
+    } catch { /* ignore */ }
+
     try {
       await loadBarcodeSettings()
       const res: any = await suppliersApi.getPoLabels(po.id)
       const payload = res?.data ?? res
-      printPoLabels(mapPoLabels(payload?.labelsToPrint ?? []), po.poNumber)
+      const labels = mapPoLabels(payload?.labelsToPrint ?? [])
+      printPoLabels(labels, po.poNumber, previewWin)
     } catch (err: any) {
+      try { previewWin.close() } catch { /* ignore */ }
       toast.error(err?.message ?? 'Could not load PO barcodes')
+    } finally {
+      setPrintingBarcodes(false)
     }
   }, [printPoLabels, loadBarcodeSettings])
 
@@ -539,6 +568,18 @@ export default function PurchaseOrdersPage() {
     }).length,
   [purchaseOrders, allProducts])
 
+  const poStats = useMemo(() => {
+    const pending = purchaseOrders.filter(po => ['DRAFT', 'SENT', 'PARTIAL'].includes(po.status)).length
+    const received = purchaseOrders.filter(po => ['RECEIVED', 'CLOSED'].includes(po.status)).length
+    const totalValue = purchaseOrders.reduce((s, po) => s + (Number(po.total) || 0), 0)
+    return {
+      total: purchaseOrders.length,
+      pending,
+      received,
+      totalValue,
+    }
+  }, [purchaseOrders])
+
   const filteredPOs = useMemo(() => {
     let rows = purchaseOrders
     if (poStatusFilter !== 'all') rows = rows.filter(po => po.status === poStatusFilter)
@@ -557,6 +598,16 @@ export default function PurchaseOrdersPage() {
   const doReceive = async () => {
     if (!confirmPO) return
     setMarkReceiving(confirmPO.id)
+    const previewWin = window.open('', '_blank', 'width=720,height=780')
+    if (previewWin) {
+      try {
+        previewWin.document.write(`<!DOCTYPE html><html><head><title>Receiving…</title></head>
+          <body style="font-family:system-ui;padding:24px;color:#334155">
+            <p>Receiving <strong>${confirmPO.poNumber}</strong> and preparing barcodes…</p>
+          </body></html>`)
+        previewWin.document.close()
+      } catch { /* ignore */ }
+    }
     try {
       await loadBarcodeSettings()
       const res: any = await suppliersApi.updatePO(confirmPO.id, { status: 'RECEIVED' })
@@ -565,11 +616,16 @@ export default function PurchaseOrdersPage() {
       const payload = res?.data ?? res
       const updated = (payload?.id ? payload : payload?.purchaseOrder ?? confirmPO) as PurchaseOrder
       const labels = mapPoLabels(payload?.labelsToPrint ?? [])
-      if (labels.length > 0) printPoLabels(labels, confirmPO.poNumber)
+      if (labels.length > 0) {
+        printPoLabels(labels, confirmPO.poNumber, previewWin)
+      } else {
+        try { previewWin?.close() } catch { /* ignore */ }
+      }
       if (poHasImeiProducts(updated, allProducts) && poCanRegisterImei(updated, allProducts)) {
         setRegisterImeiPO(updated)
       }
     } catch (err: any) {
+      try { previewWin?.close() } catch { /* ignore */ }
       toast.error(err?.message ?? 'Failed to update PO')
     } finally {
       setMarkReceiving(null)
@@ -726,6 +782,7 @@ export default function PurchaseOrdersPage() {
             ? () => handlePrintPoLabels(detailPO)
             : undefined}
           receiving={markReceiving === detailPO.id}
+          printingBarcodes={printingBarcodes}
         />
       )}
       {showNewPO && (
@@ -784,6 +841,29 @@ export default function PurchaseOrdersPage() {
             <Package size={14} />New PO
           </button>
         </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { label: 'Total Orders', value: String(poStats.total), icon: Package, color: '#7c3aed', bg: 'rgba(124,58,237,0.08)', border: 'rgba(124,58,237,0.22)' },
+          { label: 'Pending', value: String(poStats.pending), icon: FileText, color: '#d97706', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.22)' },
+          { label: 'Received', value: String(poStats.received), icon: CheckCircle, color: '#059669', bg: 'rgba(5,150,105,0.08)', border: 'rgba(5,150,105,0.22)' },
+          { label: 'Total Value', value: formatCurrency(poStats.totalValue), icon: CreditCard, color: '#0284c7', bg: 'rgba(2,132,199,0.08)', border: 'rgba(2,132,199,0.22)' },
+        ].map(({ label, value, icon: Icon, color, bg, border }) => (
+          <div key={label} className="card p-4 flex items-center gap-3" style={{ borderColor: border, background: bg }}>
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 border"
+              style={{ background: bg, borderColor: border, color }}
+            >
+              <Icon size={15} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-lg font-bold truncate" style={{ color: 'var(--text-primary)' }}>{value}</p>
+              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{label}</p>
+            </div>
+          </div>
+        ))}
       </div>
 
       {incompletePoCount > 0 && !imeiBannerHidden && (

@@ -23,6 +23,11 @@ export type BarcodePrintOptions = {
   shopName?: string
   /** When true (default), open a preview window first — user clicks Print. When false, print immediately. */
   preview?: boolean
+  /**
+   * Pre-opened window (open synchronously from a click handler before any await).
+   * Needed so browsers do not block the popup after async API calls.
+   */
+  targetWindow?: Window | null
 }
 
 export function resolvePrintBarcodeLabelSettings(
@@ -138,7 +143,7 @@ export function printBarcodeLabels(
   options?: BarcodePrintOptions,
 ) {
   const valid = items.filter(i => i.barcode?.trim())
-  if (!valid.length) return
+  if (!valid.length) return false
 
   const settings = resolvePrintBarcodeLabelSettings(options?.settings)
   const previewFirst = options?.preview !== false
@@ -359,10 +364,18 @@ ${labelsBody}
 ${bootScript}
 </body></html>`
 
-  const w = window.open('', '_blank', 'width=720,height=780')
-  if (!w) return
-  w.document.write(html)
-  w.document.close()
+  const w = options?.targetWindow ?? window.open('', '_blank', 'width=720,height=780')
+  if (!w || w.closed) return false
+  try {
+    w.document.open()
+    w.document.write(html)
+    w.document.close()
+    w.focus()
+    return true
+  } catch {
+    try { w.close() } catch { /* ignore */ }
+    return false
+  }
 }
 
 export function effectiveBarcodeValue(product: {

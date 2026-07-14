@@ -135,19 +135,24 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
   )
 }
 
-/* ── Customer Detail Modal ───────────────────────────────────────────── */
+/* ── Customer Detail Modal (Sales Details layout) ────────────────────── */
 function CustomerDetailModal({ customerId, onClose }: { customerId: string; onClose: () => void }) {
   const { openPos } = usePos()
-  const [customer,  setCustomer]  = useState<any>(null)
-  const [loading,   setLoading]   = useState(true)
-  const [tab,       setTab]       = useState<'info' | 'history'>('info')
+  const [customer, setCustomer] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   useEffect(() => {
     setLoading(true)
     customersApi.getById(customerId)
       .then((r: any) => setCustomer(r.data ?? r))
-      .catch(() => {})
+      .catch(() => setCustomer(null))
       .finally(() => setLoading(false))
   }, [customerId])
 
@@ -157,228 +162,386 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
       .catch(() => {})
   }
 
-  const sales   = customer?.sales   ?? []
+  const safeText = (v: any) => (v === null || v === undefined || v === '' ? '—' : String(v))
+  const sales = customer?.sales ?? []
   const repairs = customer?.repairs ?? []
-
-  const history = [
-    ...sales.map((s: any)  => ({ ...s, _type: 'sale'   as const, _date: s.createdAt })),
-    ...repairs.map((r: any) => ({ ...r, _type: 'repair' as const, _date: r.createdAt })),
-  ].sort((a, b) => new Date(b._date).getTime() - new Date(a._date).getTime())
-
-  const TABS = [
-    { key: 'info',    label: 'Profile', icon: Users,    count: null },
-    { key: 'history', label: 'History', icon: Calendar, count: history.length },
-  ]
+  const isVip = (customer?.loyaltyPoints ?? 0) > 500
+  const hasDue = (customer?.totalDue ?? 0) > 0
+  const salesTotal = sales.reduce((s: number, sale: any) => s + Number(sale.total ?? 0), 0)
+  const repairsTotal = repairs.reduce((s: number, r: any) => s + Number(r.totalCost ?? 0), 0)
+  const location = [customer?.address, customer?.city].filter(Boolean).join(', ')
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] flex flex-col" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-        <div className="flex items-center justify-between p-5 border-b flex-shrink-0" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
-          <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Customer Profile</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg transition-colors hover:bg-red-500/10 hover:text-red-500" style={{ color: 'var(--text-muted)' }}><X size={16} /></button>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="rounded-xl w-full max-w-6xl shadow-2xl max-h-[92vh] overflow-y-auto border"
+        style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', borderColor: 'var(--border-default)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-4 sm:px-5 py-3 border-b sticky top-0 z-10"
+          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
+        >
+          <div className="flex items-start gap-2 min-w-0">
+            <User size={16} className="text-violet-500 mt-0.5 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                Customer Details{customer ? <> ( <span className="font-mono">{safeText(customer.name)}</span> )</> : null}
+              </p>
+              <p className="text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>
+                {loading ? 'Loading…' : safeText(customer?.phone)}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {customer && isVip && (
+              <span className="text-[11px] px-2.5 py-1 rounded-full border font-semibold bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/25 inline-flex items-center gap-1">
+                <Star size={10} className="fill-yellow-400 text-yellow-400" /> VIP
+              </span>
+            )}
+            {customer && (
+              <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${
+                hasDue
+                  ? 'bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/25'
+                  : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
+              }`}>
+                {hasDue ? 'Outstanding' : 'Clear'}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg transition-colors"
+              style={{ color: 'var(--text-muted)' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-subtle)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+            >
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         {loading && (
-          <div className="flex items-center justify-center py-16">
+          <div className="flex items-center justify-center py-20">
             <Loader2 size={24} className="animate-spin text-violet-400" />
           </div>
         )}
 
-        {!loading && customer && (
-          <>
-            {/* Tab Bar */}
-            <div className="flex gap-1 px-5 pt-4 flex-shrink-0">
-              {TABS.map(t => (
-                <button key={t.key} onClick={() => setTab(t.key as any)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    tab === t.key
-                      ? 'bg-violet-500/20 border border-violet-500/30 text-violet-300'
-                      : 'hover:bg-violet-500/5'
-                  }`}
-                  style={tab !== t.key ? { color: 'var(--text-muted)' } : {}}>
-                  <t.icon size={11} />
-                  {t.label}
-                  {t.count !== null && (
-                    <span className={`text-[10px] px-1.5 rounded-full ${tab === t.key ? 'bg-violet-500/20 text-violet-400' : 'bg-white/5 text-slate-600'}`}>
-                      {t.count}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-
-            <div className="overflow-y-auto p-5 space-y-4 flex-1">
-
-              {/* ── Profile Tab ── */}
-              {tab === 'info' && (
-                <>
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500/30 to-cyan-500/30 border border-violet-500/20 flex items-center justify-center text-2xl font-bold text-violet-300 flex-shrink-0">
-                      {customer.name?.charAt(0)}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-base font-bold text-gray-900 dark:text-white">{customer.name}</p>
-                        {customer.loyaltyPoints > 500 && (
-                          <span className="flex items-center gap-1 text-[10px] text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 px-1.5 py-0.5 rounded-full">
-                            <Star size={8} className="fill-yellow-400" />VIP
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">Customer since {formatDate(customer.createdAt)}</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-xl p-3 border" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
-                      <div className="flex items-center gap-2 mb-1"><Phone size={12} className="text-violet-500" /><span className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: 'var(--text-muted)' }}>Phone</span></div>
-                      <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{customer.phone}</p>
-                    </div>
-                    <div className="rounded-xl p-3 border" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
-                      <div className="flex items-center gap-2 mb-1"><Mail size={12} className="text-violet-500" /><span className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: 'var(--text-muted)' }}>Email</span></div>
-                      <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{customer.email || '—'}</p>
-                    </div>
-                    <div className="rounded-xl p-3 border col-span-2" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
-                      <div className="flex items-center gap-2 mb-1"><MapPin size={12} className="text-violet-500" /><span className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: 'var(--text-muted)' }}>Location</span></div>
-                      <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{[customer.address, customer.city].filter(Boolean).join(', ') || '—'}</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-4 gap-2">
-                    {[
-                      { icon: ShoppingBag, label: 'Purchases',   value: customer.totalPurchases,            color: 'text-green-500',  clickable: false },
-                      { icon: Wrench,      label: 'Repairs',     value: customer.totalRepairs,               color: 'text-cyan-500',   clickable: false },
-                      { icon: Star,        label: 'Points',      value: `${customer.loyaltyPoints} pts`,     color: 'text-yellow-500', clickable: false },
-                      { icon: CreditCard,  label: 'Outstanding', value: formatCurrency(customer.totalDue),   color: 'text-red-500',    clickable: customer.totalDue > 0 },
-                    ].map(s => (
-                      <button
-                        key={s.label}
-                        type="button"
-                        disabled={!s.clickable}
-                        onClick={() => s.clickable && setShowPaymentModal(true)}
-                        className={`rounded-xl p-3 border text-center transition-colors ${
-                          s.clickable ? 'cursor-pointer hover:border-green-500/50 hover:bg-green-500/5 ring-1 ring-transparent hover:ring-green-500/30' : 'cursor-default'
-                        }`}
-                        style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}
-                      >
-                        <s.icon size={14} className={`${s.color} mx-auto mb-1`} />
-                        <p className={`text-sm font-bold ${s.color}`}>{s.value}</p>
-                        <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                          {s.label}{s.clickable ? ' · Tap to pay' : ''}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      openPos({
-                        id: customer.id,
-                        name: customer.name,
-                        phone: customer.phone,
-                        totalDue: customer.totalDue,
-                      })
-                      onClose()
-                    }}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold text-white transition-colors"
-                    style={{ background: 'var(--brand-gradient)' }}
-                  >
-                    <ShoppingBag size={12} /> New Sale for {customer.name?.split(' ')[0]}
-                  </button>
-                  {customer.totalDue > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowPaymentModal(true)}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-green-600 hover:bg-green-700 text-white transition-colors"
-                    >
-                      <Wallet size={12} /> Pay Outstanding ({formatCurrency(customer.totalDue)})
-                    </button>
-                  )}
-                  {customer.notes && (
-                    <div className="rounded-xl p-3 border" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
-                      <p className="text-[10px] uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>Notes</p>
-                      <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{customer.notes}</p>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* ── History Tab (Sales + Repairs combined) ── */}
-              {tab === 'history' && (
-                <div className="space-y-2">
-                  {history.length === 0 ? (
-                    <div className="py-12 text-center text-slate-500 text-sm">No history found</div>
-                  ) : history.map((entry: any) => (
-                    entry._type === 'sale' ? (
-                      <div key={`s-${entry.id}`} className="rounded-xl p-3 border" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-5 h-5 rounded-md bg-violet-500/20 border border-violet-500/30 flex items-center justify-center flex-shrink-0">
-                              <ShoppingBag size={10} className="text-violet-400" />
-                            </div>
-                            <span className="text-xs font-mono text-violet-400">{entry.invoiceNumber}</span>
-                          </div>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${
-                            entry.status === 'PAID'     ? 'text-green-400 bg-green-500/10 border-green-500/20' :
-                            entry.status === 'RETURNED' ? 'text-rose-400 bg-rose-500/10 border-rose-500/20'   :
-                            'text-yellow-400 bg-yellow-500/10 border-yellow-500/20'
-                          }`}>{entry.status}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-xs text-gray-600 dark:text-slate-400">{entry.items?.length ?? 0} item{(entry.items?.length ?? 0) !== 1 ? 's' : ''}</p>
-                            <p className="text-[10px] text-slate-600 flex items-center gap-1 mt-0.5"><Calendar size={9} />{formatDate(entry.createdAt)}</p>
-                          </div>
-                          <p className="text-sm font-bold text-gray-900 dark:text-white">{formatCurrency(entry.total)}</p>
-                        </div>
-                        {entry.items?.length > 0 && (
-                          <div className="mt-2 pt-2 space-y-0.5" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                            {entry.items.map((item: any) => (
-                              <p key={item.id} className="text-[10px] text-slate-500 flex justify-between">
-                                <span>{item.productName} × {item.quantity}</span>
-                                <span>{formatCurrency(item.total)}</span>
-                              </p>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div key={`r-${entry.id}`} className="rounded-xl p-3 border" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-5 h-5 rounded-md bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center flex-shrink-0">
-                              <Wrench size={10} className="text-cyan-400" />
-                            </div>
-                            <span className="text-xs font-mono text-cyan-400">{entry.ticketNumber}</span>
-                          </div>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${repairStatusColors[entry.status] ?? ''}`}>
-                            {entry.status?.replace(/_/g, ' ')}
-                          </span>
-                        </div>
-                        <p className="text-sm font-semibold text-gray-800 dark:text-slate-200">{entry.deviceBrand} {entry.deviceModel}</p>
-                        {entry.imei && <p className="text-[10px] font-mono text-slate-500">IMEI: {entry.imei}</p>}
-                        {entry.issue && <p className="text-[10px] text-slate-500 mt-0.5 truncate">Issue: {entry.issue}</p>}
-                        <div className="flex items-center justify-between mt-1.5">
-                          <p className="text-[10px] text-slate-600 flex items-center gap-1"><Calendar size={9} />{formatDate(entry.createdAt)}</p>
-                          {entry.totalCost > 0 && <p className="text-xs font-bold text-gray-900 dark:text-white">{formatCurrency(entry.totalCost)}</p>}
-                        </div>
-                      </div>
-                    )
-                  ))}
-                </div>
-              )}
-
-            </div>
-          </>
+        {!loading && !customer && (
+          <div className="py-16 text-center text-sm" style={{ color: 'var(--text-muted)' }}>Failed to load customer</div>
         )}
 
-        {!loading && !customer && (
-          <div className="py-12 text-center text-sm" style={{ color: 'var(--text-muted)' }}>Failed to load customer</div>
+        {!loading && customer && (
+          <div className="p-4 sm:p-5 space-y-4">
+            {/* Top meta row */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+              <div className="space-y-1 text-[12px]">
+                <div className="flex items-center gap-1.5">
+                  <Calendar size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>Since:</span>
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(formatDate(customer.createdAt))}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Phone size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>Phone:</span>
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(customer.phone)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Mail size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>Email:</span>
+                  <span className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>{safeText(customer.email)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Hash size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>Customer ID:</span>
+                  <span className="font-mono text-[11px]" style={{ color: 'var(--text-secondary)' }}>{safeText(customer.id?.slice(0, 8))}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1 text-[12px]">
+                <div className="flex items-center gap-1.5">
+                  <User size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>Customer name:</span>
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(customer.name)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <MapPin size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>Address:</span>
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(location)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Star size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>Loyalty:</span>
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{customer.loyaltyPoints ?? 0} pts</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <CreditCard size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>Credit status:</span>
+                  <span className="font-medium" style={{ color: hasDue ? '#ef4444' : 'var(--text-primary)' }}>
+                    {hasDue ? 'Has outstanding' : 'Clear'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="rounded-lg border p-3 text-[12px]" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                <div className="flex items-center justify-between border-b pb-2 mb-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Quick totals</span>
+                  <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>LKR</span>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Purchases</span>
+                    <span className="font-medium">{customer.totalPurchases ?? sales.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Repairs</span>
+                    <span className="font-medium">{customer.totalRepairs ?? repairs.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Sales value</span>
+                    <span className="font-medium">{formatCurrency(salesTotal)}</span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <span className="font-semibold">Outstanding</span>
+                    <span className={`font-semibold ${hasDue ? 'text-rose-600 dark:text-rose-400' : ''}`}>
+                      {formatCurrency(customer.totalDue ?? 0)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Sales + Repairs + Totals */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="lg:col-span-2 space-y-4">
+                {/* Sales history */}
+                <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="bg-emerald-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide flex items-center gap-1.5">
+                    <ShoppingBag size={12} /> Sales history
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-[720px] w-full text-[12px]">
+                      <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                        <tr style={{ color: 'var(--text-secondary)' }}>
+                          <th className="px-3 py-2 text-left w-10">#</th>
+                          <th className="px-3 py-2 text-left">Invoice</th>
+                          <th className="px-3 py-2 text-left">Date</th>
+                          <th className="px-3 py-2 text-left">Items</th>
+                          <th className="px-3 py-2 text-left">Status</th>
+                          <th className="px-3 py-2 text-right">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sales.map((sale: any, idx: number) => (
+                          <tr key={sale.id ?? idx} className="border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
+                            <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{idx + 1}</td>
+                            <td className="px-3 py-2 font-mono" style={{ color: 'var(--text-primary)' }}>{safeText(sale.invoiceNumber)}</td>
+                            <td className="px-3 py-2 whitespace-nowrap">{safeText(formatDate(sale.createdAt))}</td>
+                            <td className="px-3 py-2">
+                              <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                                {sale.items?.length ?? 0} item{(sale.items?.length ?? 0) !== 1 ? 's' : ''}
+                              </div>
+                              {sale.items?.length > 0 && (
+                                <div className="text-[10px] mt-0.5 truncate max-w-[220px]" style={{ color: 'var(--text-muted)' }}>
+                                  {sale.items.slice(0, 2).map((i: any) => i.productName).join(', ')}
+                                  {sale.items.length > 2 ? ` +${sale.items.length - 2}` : ''}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${
+                                sale.status === 'PAID' ? 'text-green-600 dark:text-green-400 bg-green-500/10 border-green-500/20'
+                                  : sale.status === 'RETURNED' ? 'text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20'
+                                    : 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20'
+                              }`}>
+                                {safeText(sale.status)}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-right whitespace-nowrap font-semibold">{formatCurrency(sale.total ?? 0)}</td>
+                          </tr>
+                        ))}
+                        {sales.length === 0 && (
+                          <tr>
+                            <td colSpan={6} className="px-3 py-6 text-center" style={{ color: 'var(--text-muted)' }}>No sales yet</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Repairs history */}
+                <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="bg-emerald-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide flex items-center gap-1.5">
+                    <Wrench size={12} /> Repair history
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-[720px] w-full text-[12px]">
+                      <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                        <tr style={{ color: 'var(--text-secondary)' }}>
+                          <th className="px-3 py-2 text-left w-10">#</th>
+                          <th className="px-3 py-2 text-left">Ticket</th>
+                          <th className="px-3 py-2 text-left">Device</th>
+                          <th className="px-3 py-2 text-left">Date</th>
+                          <th className="px-3 py-2 text-left">Status</th>
+                          <th className="px-3 py-2 text-right">Cost</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {repairs.map((r: any, idx: number) => (
+                          <tr key={r.id ?? idx} className="border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
+                            <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{idx + 1}</td>
+                            <td className="px-3 py-2 font-mono" style={{ color: 'var(--text-primary)' }}>{safeText(r.ticketNumber)}</td>
+                            <td className="px-3 py-2">
+                              <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                                {safeText([r.deviceBrand, r.deviceModel].filter(Boolean).join(' '))}
+                              </div>
+                              {(r.imei || r.issue) && (
+                                <div className="text-[10px] mt-0.5 truncate max-w-[240px]" style={{ color: 'var(--text-muted)' }}>
+                                  {r.imei ? `IMEI ${r.imei}` : ''}
+                                  {r.imei && r.issue ? ' · ' : ''}
+                                  {r.issue ? `Issue: ${r.issue}` : ''}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap">{safeText(formatDate(r.createdAt))}</td>
+                            <td className="px-3 py-2">
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${repairStatusColors[r.status] ?? ''}`}>
+                                {safeText(r.status?.replace(/_/g, ' '))}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-right whitespace-nowrap font-semibold">
+                              {r.totalCost > 0 ? formatCurrency(r.totalCost) : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                        {repairs.length === 0 && (
+                          <tr>
+                            <td colSpan={6} className="px-3 py-6 text-center" style={{ color: 'var(--text-muted)' }}>No repairs yet</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Customer note:</p>
+                    <p className="text-[12px]" style={{ color: 'var(--text-primary)' }}>{safeText(customer.notes)}</p>
+                  </div>
+                  <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Contact:</p>
+                    <p className="text-[12px]" style={{ color: 'var(--text-primary)' }}>
+                      {safeText(customer.phone)}
+                      {customer.email ? ` · ${customer.email}` : ''}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right totals */}
+              <div className="rounded-lg border overflow-hidden h-fit" style={{ borderColor: 'var(--border-subtle)' }}>
+                <div className="px-3 py-2 border-b flex items-center justify-between" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                  <p className="text-[12px] font-semibold" style={{ color: 'var(--text-primary)' }}>Summary</p>
+                  <p className={`text-[12px] font-semibold ${hasDue ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                    {formatCurrency(customer.totalDue ?? 0)}
+                  </p>
+                </div>
+                <div className="p-3 text-[12px] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Purchases:</span>
+                    <span className="font-medium">{customer.totalPurchases ?? sales.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Sales value:</span>
+                    <span className="font-medium">{formatCurrency(salesTotal)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Repairs:</span>
+                    <span className="font-medium">{customer.totalRepairs ?? repairs.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Repair value:</span>
+                    <span className="font-medium">{formatCurrency(repairsTotal)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Loyalty points:</span>
+                    <span className="font-medium">{customer.loyaltyPoints ?? 0} pts</span>
+                  </div>
+                  <div className="pt-2 border-t space-y-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold">Outstanding:</span>
+                      <span className={`font-semibold ${hasDue ? 'text-rose-600 dark:text-rose-400' : ''}`}>
+                        {formatCurrency(customer.totalDue ?? 0)}
+                      </span>
+                    </div>
+                    {hasDue && (
+                      <button
+                        type="button"
+                        onClick={() => setShowPaymentModal(true)}
+                        className="w-full mt-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] rounded-lg font-semibold bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        <Wallet size={12} /> Pay now
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom actions */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-end pt-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  openPos({
+                    id: customer.id,
+                    name: customer.name,
+                    phone: customer.phone,
+                    totalDue: customer.totalDue,
+                  })
+                  onClose()
+                }}
+                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-violet-500/30 bg-violet-500/15 text-violet-700 dark:text-violet-300 font-semibold"
+              >
+                <ShoppingBag size={14} />
+                New Sale
+              </button>
+              {hasDue && (
+                <button
+                  type="button"
+                  onClick={() => setShowPaymentModal(true)}
+                  className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-semibold"
+                >
+                  <Wallet size={14} />
+                  Pay Outstanding
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border font-semibold"
+                style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
         )}
       </div>
-      {showPaymentModal && (
+
+      {showPaymentModal && customer && (
         <CreditPaymentModal
           customerId={customerId}
-          customerName={customer?.name ?? ''}
-          outstanding={customer?.totalDue ?? 0}
+          customerName={customer.name ?? ''}
+          outstanding={customer.totalDue ?? 0}
           onClose={() => setShowPaymentModal(false)}
           onSuccess={handlePaymentSuccess}
         />

@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import {
   Plus, X, Loader2, ArrowLeftRight, Trash2, Phone, RefreshCw,
   Receipt, Smartphone, Package, ArrowDownLeft, ArrowUpRight, Printer,
+  Calendar, Hash, User, CreditCard,
 } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { type ColumnDef } from '@tanstack/react-table'
@@ -29,16 +30,7 @@ const CONDITIONS = [
   { value: 'POOR',      label: 'Poor',      badge: 'bg-rose-100 dark:bg-rose-500/10 border-rose-300 dark:border-rose-500/25 text-rose-700 dark:text-rose-300' },
 ]
 
-function InfoCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-      <p className="text-[10px] uppercase tracking-wide mb-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
-      <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{value}</p>
-    </div>
-  )
-}
-
-/* ── Exchange Detail Modal ───────────────────────────────────────────── */
+/* ── Exchange Detail Modal (Sales Details layout) ────────────────────── */
 function ExchangeDetailModal({
   exchange,
   invSettings,
@@ -55,6 +47,18 @@ function ExchangeDetailModal({
   const [deleting, setDeleting] = useState(false)
   const [printing, setPrinting] = useState(false)
   const cond = CONDITIONS.find(c => c.value === exchange.oldCondition) ?? CONDITIONS[1]
+  const isShopRefund = exchange.balanceDirection === 'SHOP_REFUNDS'
+  const balanceLabel = isShopRefund ? 'Shop Refunded' : 'Customer Paid'
+  const hasNewDevice = !!(exchange.newBrand || exchange.newModel)
+  const safeText = (v: any) => (v === null || v === undefined || v === '' ? '—' : String(v))
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
 
   const handlePrint = async () => {
     if (!exchange.saleId) {
@@ -94,116 +98,293 @@ function ExchangeDetailModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-2xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col"
-        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-        <div className="h-1 w-full bg-gradient-to-r from-amber-500 to-orange-500 flex-shrink-0" />
-
-        <div className="flex items-center justify-between p-5 flex-shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-amber-500/10 border border-amber-500/20">
-              <ArrowLeftRight size={15} className="text-amber-500" />
-            </div>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="rounded-xl w-full max-w-6xl shadow-2xl max-h-[92vh] overflow-y-auto border"
+        style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', borderColor: 'var(--border-default)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-4 sm:px-5 py-3 border-b sticky top-0 z-10"
+          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
+        >
+          <div className="flex items-start gap-2">
+            <ArrowLeftRight size={16} className="text-amber-500 mt-0.5" />
             <div>
-              <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{exchange.exchangeNumber}</h3>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                {exchange.customerName} · {formatDate(exchange.createdAt)}
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                Exchange Details ( Exchange No : <span className="font-mono">{safeText(exchange.exchangeNumber)}</span> )
+              </p>
+              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                {safeText(exchange.customerName)}
+                {exchange.invoiceNumber ? ` · Invoice ${exchange.invoiceNumber}` : ''}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-1">
-            <button type="button" onClick={handleDelete} disabled={deleting}
-              className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10 transition-colors disabled:opacity-50">
+
+          <div className="flex items-center gap-2">
+            <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${cond.badge}`}>
+              {cond.label}
+            </span>
+            {exchange.invoiceNumber ? (
+              <span className="text-[11px] px-2.5 py-1 rounded-full border font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25">
+                Invoiced
+              </span>
+            ) : (
+              <span className="text-[11px] px-2.5 py-1 rounded-full border font-semibold bg-slate-500/15 text-slate-600 dark:text-slate-300 border-slate-500/25">
+                No Invoice
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10 transition-colors disabled:opacity-50"
+              title="Delete exchange"
+            >
               {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
             </button>
-            <button type="button" onClick={onClose} className="p-1.5 rounded-lg transition-colors hover:opacity-80"
-              style={{ color: 'var(--text-muted)' }}>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg transition-colors"
+              style={{ color: 'var(--text-muted)' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-subtle)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+            >
               <X size={16} />
             </button>
           </div>
         </div>
 
-        <div className="p-5 overflow-y-auto flex-1 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <InfoCard label="Customer" value={exchange.customerName} />
-            <InfoCard label="Phone" value={exchange.customerPhone} />
-            {exchange.invoiceNumber && <InfoCard label="Invoice" value={exchange.invoiceNumber} />}
-            {exchange.balanceAmount != null && (
-              <InfoCard
-                label={exchange.balanceDirection === 'SHOP_REFUNDS' ? 'Shop Refunded' : 'Customer Paid'}
-                value={formatCurrency(exchange.balanceAmount)}
-              />
-            )}
+        <div className="p-4 sm:p-5 space-y-4">
+          {/* Top meta row */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div className="space-y-1 text-[12px]">
+              <div className="flex items-center gap-1.5">
+                <Calendar size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Date:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(formatDate(exchange.createdAt))}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Hash size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Exchange No:</span>
+                <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{safeText(exchange.exchangeNumber)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Receipt size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Invoice No:</span>
+                <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{safeText(exchange.invoiceNumber)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <CreditCard size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Balance:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {exchange.balanceAmount != null ? `${balanceLabel} · ${formatCurrency(exchange.balanceAmount)}` : '—'}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-1 text-[12px]">
+              <div className="flex items-center gap-1.5">
+                <User size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Customer name:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(exchange.customerName)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Phone size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Phone:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(exchange.customerPhone)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Package size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Address:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(exchange.customerAddress)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Smartphone size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Condition:</span>
+                <span className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold ${cond.badge}`}>{cond.label}</span>
+              </div>
+            </div>
+
+            <div className="rounded-lg border p-3 text-[12px]" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+              <div className="flex items-center justify-between border-b pb-2 mb-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Quick totals</span>
+                <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>LKR</span>
+              </div>
+              <div className="space-y-1">
+                <div className="flex justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Trade-in value</span>
+                  <span className="font-medium text-amber-600 dark:text-amber-400">{formatCurrency(exchange.exchangeValue ?? 0)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Sold price</span>
+                  <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                    {exchange.newDevicePrice != null ? formatCurrency(exchange.newDevicePrice) : '—'}
+                  </span>
+                </div>
+                <div className="flex justify-between pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span className="font-semibold">{balanceLabel}</span>
+                  <span className={`font-semibold ${isShopRefund ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                    {exchange.balanceAmount != null ? formatCurrency(exchange.balanceAmount) : '—'}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="rounded-xl p-4 space-y-2" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-            <p className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
-              <ArrowDownLeft size={10} className="text-amber-500" /> Device Received (Trade-in)
-            </p>
-            <div className="flex justify-between text-xs">
-              <span style={{ color: 'var(--text-muted)' }}>Device</span>
-              <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{exchange.oldBrand} {exchange.oldModel}</span>
-            </div>
-            {exchange.oldImei && (
-              <div className="flex justify-between text-xs">
-                <span style={{ color: 'var(--text-muted)' }}>IMEI</span>
-                <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>{exchange.oldImei}</span>
+          {/* Devices + totals */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 space-y-4">
+              {/* Trade-in device */}
+              <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                <div className="bg-emerald-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide flex items-center gap-1.5">
+                  <ArrowDownLeft size={12} /> Device received (Trade-in)
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-[640px] w-full text-[12px]">
+                    <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                      <tr style={{ color: 'var(--text-secondary)' }}>
+                        <th className="px-3 py-2 text-left">Device</th>
+                        <th className="px-3 py-2 text-left">IMEI</th>
+                        <th className="px-3 py-2 text-left">Colour / Storage</th>
+                        <th className="px-3 py-2 text-left">Condition</th>
+                        <th className="px-3 py-2 text-right">Buy Price</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
+                        <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>
+                          {safeText([exchange.oldBrand, exchange.oldModel].filter(Boolean).join(' '))}
+                        </td>
+                        <td className="px-3 py-2 font-mono" style={{ color: 'var(--text-secondary)' }}>{safeText(exchange.oldImei)}</td>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>
+                          {safeText([exchange.oldStorage, exchange.oldColor].filter(Boolean).join(' · '))}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold ${cond.badge}`}>{cond.label}</span>
+                        </td>
+                        <td className="px-3 py-2 text-right font-semibold text-amber-600 dark:text-amber-400 whitespace-nowrap">
+                          {formatCurrency(exchange.exchangeValue ?? 0)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            )}
-            {(exchange.oldColor || exchange.oldStorage) && (
-              <div className="flex justify-between text-xs">
-                <span style={{ color: 'var(--text-muted)' }}>Colour / Storage</span>
-                <span style={{ color: 'var(--text-secondary)' }}>{[exchange.oldStorage, exchange.oldColor].filter(Boolean).join(' · ')}</span>
+
+              {/* Sold device */}
+              <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                <div className="bg-emerald-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide flex items-center gap-1.5">
+                  <ArrowUpRight size={12} /> Device sold (New)
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-[560px] w-full text-[12px]">
+                    <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                      <tr style={{ color: 'var(--text-secondary)' }}>
+                        <th className="px-3 py-2 text-left">Device</th>
+                        <th className="px-3 py-2 text-left">IMEI</th>
+                        <th className="px-3 py-2 text-right">Sell Price</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {hasNewDevice ? (
+                        <tr className="border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
+                          <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>
+                            {safeText([exchange.newBrand, exchange.newModel].filter(Boolean).join(' '))}
+                          </td>
+                          <td className="px-3 py-2 font-mono" style={{ color: 'var(--text-secondary)' }}>{safeText(exchange.newImei)}</td>
+                          <td className="px-3 py-2 text-right font-semibold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                            {exchange.newDevicePrice != null ? formatCurrency(exchange.newDevicePrice) : '—'}
+                          </td>
+                        </tr>
+                      ) : (
+                        <tr>
+                          <td colSpan={3} className="px-3 py-6 text-center" style={{ color: 'var(--text-muted)' }}>No sold device recorded</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            )}
-            <div className="flex justify-between items-center text-xs">
-              <span style={{ color: 'var(--text-muted)' }}>Condition</span>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${cond.badge}`}>{cond.label}</span>
+
+              {/* Notes */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Customer:</p>
+                  <p className="text-[12px]" style={{ color: 'var(--text-primary)' }}>
+                    {safeText(exchange.customerName)}
+                    {exchange.customerPhone ? ` · ${exchange.customerPhone}` : ''}
+                  </p>
+                </div>
+                <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Exchange note:</p>
+                  <p className="text-[12px]" style={{ color: 'var(--text-primary)' }}>{safeText(exchange.notes)}</p>
+                </div>
+              </div>
             </div>
-            <div className="flex justify-between text-xs pt-1" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Buy Price</span>
-              <span className="font-bold text-amber-600 dark:text-amber-400">{formatCurrency(exchange.exchangeValue)}</span>
+
+            {/* Right totals */}
+            <div className="rounded-lg border overflow-hidden h-fit" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="px-3 py-2 border-b flex items-center justify-between" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                <p className="text-[12px] font-semibold" style={{ color: 'var(--text-primary)' }}>Total</p>
+                <p className={`text-[12px] font-semibold ${isShopRefund ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                  {exchange.balanceAmount != null ? formatCurrency(exchange.balanceAmount) : formatCurrency(exchange.exchangeValue ?? 0)}
+                </p>
+              </div>
+              <div className="p-3 text-[12px] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Trade-in value:</span>
+                  <span className="font-medium text-amber-600 dark:text-amber-400">{formatCurrency(exchange.exchangeValue ?? 0)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Sold price:</span>
+                  <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                    {exchange.newDevicePrice != null ? formatCurrency(exchange.newDevicePrice) : '—'}
+                  </span>
+                </div>
+                <div className="pt-2 border-t space-y-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold">{balanceLabel}:</span>
+                    <span className={`font-semibold ${isShopRefund ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                      {exchange.balanceAmount != null ? formatCurrency(exchange.balanceAmount) : '—'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Invoice:</span>
+                    <span className="font-medium font-mono">{safeText(exchange.invoiceNumber)}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          {(exchange.newBrand || exchange.newModel) && (
-            <div className="rounded-xl p-4 space-y-2" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-              <p className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
-                <ArrowUpRight size={10} className="text-emerald-500" /> Device Sold (New)
-              </p>
-              <div className="flex justify-between text-xs">
-                <span style={{ color: 'var(--text-muted)' }}>Device</span>
-                <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{exchange.newBrand} {exchange.newModel}</span>
-              </div>
-              {exchange.newImei && (
-                <div className="flex justify-between text-xs">
-                  <span style={{ color: 'var(--text-muted)' }}>IMEI</span>
-                  <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>{exchange.newImei}</span>
-                </div>
-              )}
-              {exchange.newDevicePrice != null && (
-                <div className="flex justify-between text-xs pt-1" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Sell Price</span>
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(exchange.newDevicePrice)}</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {exchange.notes && (
-            <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-              <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Notes</p>
-              <p className="text-xs italic" style={{ color: 'var(--text-secondary)' }}>{exchange.notes}</p>
-            </div>
-          )}
-
-          {exchange.saleId && (
-            <button type="button" onClick={handlePrint} disabled={printing}
-              className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-xl border transition-colors disabled:opacity-50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20">
-              {printing ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
-              {printing ? 'Loading…' : receiptPrintLabel(invSettings)}
+          {/* Bottom actions */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-end pt-2">
+            {exchange.saleId && (
+              <button
+                type="button"
+                onClick={handlePrint}
+                disabled={printing}
+                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25 font-semibold disabled:opacity-60"
+              >
+                {printing ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
+                {printing ? 'Loading…' : receiptPrintLabel(invSettings)}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border font-semibold transition-colors"
+              style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}
+            >
+              Close
             </button>
-          )}
+          </div>
         </div>
       </div>
     </div>

@@ -6,7 +6,7 @@ import {
   RotateCcw, X, Package, Loader2,
   TrendingDown, AlertTriangle,
   CreditCard, Banknote, Smartphone, ArrowUpRight,
-  Search, Minus, Plus,
+  Search, Minus, Plus, Calendar, Hash, User, Receipt,
 } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
@@ -275,83 +275,295 @@ function ProcessReturnModal({ onClose, onDone }: { onClose: () => void; onDone: 
   )
 }
 
-/* ── Return Detail Modal ─────────────────────────────────────────────────── */
+/* ── Return Detail Modal (Sales Details layout) ──────────────────────────── */
 function ReturnDetailModal({ ret, onClose }: { ret: any; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-white dark:bg-[#0f1623] border border-gray-200 dark:border-white/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
-        <div className="h-1 w-full bg-gradient-to-r from-rose-500 to-orange-500" />
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
 
+  const safeText = (v: any) => (v === null || v === undefined || v === '' ? '—' : String(v))
+  const items = ret.items ?? []
+  const itemCount = items.reduce((s: number, i: any) => s + Number(i.quantity ?? 0), 0)
+  const refundMethodLabel = safeText(ret.refundMethod?.replace('_', ' '))
+  const sale = ret.sale ?? {}
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="rounded-xl w-full max-w-6xl shadow-2xl max-h-[92vh] overflow-y-auto border"
+        style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', borderColor: 'var(--border-default)' }}
+        onClick={e => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-white/5">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-rose-100 dark:bg-rose-500/15 border border-rose-200 dark:border-rose-500/20 flex items-center justify-center">
-              <RotateCcw size={15} className="text-rose-500 dark:text-rose-400" />
-            </div>
+        <div
+          className="flex items-center justify-between px-4 sm:px-5 py-3 border-b sticky top-0 z-10"
+          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
+        >
+          <div className="flex items-start gap-2">
+            <RotateCcw size={16} className="text-rose-500 mt-0.5" />
             <div>
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white">{ret.returnNumber}</h3>
-              <p className="text-xs text-gray-500 dark:text-slate-500">
-                {ret.sale?.invoiceNumber} · {ret.sale?.customerName || 'Walk-in'} · {formatDate(ret.createdAt)}
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                Return Details ( Return No : <span className="font-mono">{safeText(ret.returnNumber)}</span> )
+              </p>
+              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                {safeText(sale.customerName || 'Walk-in Customer')}
+                {sale.invoiceNumber ? ` · Invoice ${sale.invoiceNumber}` : ''}
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:text-slate-500 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5">
-            <X size={15} />
-          </button>
+
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] px-2.5 py-1 rounded-full border font-semibold bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/25">
+              Refunded
+            </span>
+            <span className="text-[11px] px-2.5 py-1 rounded-full border font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25">
+              Completed
+            </span>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg transition-colors"
+              style={{ color: 'var(--text-muted)' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-subtle)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+            >
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
-        <div className="p-5 space-y-4">
-          {/* Returned Items */}
-          <div>
-            <p className="text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-2">Returned Items</p>
-            <div className="space-y-2">
-              {(ret.items ?? []).map((item: any) => (
-                <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-white/3 border border-gray-200 dark:border-white/5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-7 h-7 rounded-lg bg-rose-100 dark:bg-rose-500/10 flex items-center justify-center">
-                      <Package size={12} className="text-rose-500 dark:text-rose-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{item.productName}</p>
-                      <p className="text-[10px] text-gray-500 dark:text-slate-500">Qty: {item.quantity} × {formatCurrency(item.unitPrice)}</p>
-                    </div>
-                  </div>
-                  <span className="text-sm font-bold text-rose-600 dark:text-rose-400">{formatCurrency(item.total)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Reason + Refund */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 rounded-lg bg-gray-50 dark:bg-white/3 border border-gray-200 dark:border-white/5">
-              <p className="text-[10px] text-gray-500 dark:text-slate-500 uppercase tracking-wide mb-1">Reason</p>
-              <p className="text-sm font-semibold text-gray-900 dark:text-white">{ret.reason}</p>
-            </div>
-            <div className="p-3 rounded-lg bg-gray-50 dark:bg-white/3 border border-gray-200 dark:border-white/5">
-              <p className="text-[10px] text-gray-500 dark:text-slate-500 uppercase tracking-wide mb-1">Refund Method</p>
+        <div className="p-4 sm:p-5 space-y-4">
+          {/* Top meta row */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div className="space-y-1 text-[12px]">
               <div className="flex items-center gap-1.5">
-                <span className="text-gray-500 dark:text-slate-400">{methodIcon[ret.refundMethod]}</span>
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">{ret.refundMethod?.replace('_', ' ')}</p>
+                <Calendar size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Date:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(formatDate(ret.createdAt))}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Hash size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Return No:</span>
+                <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{safeText(ret.returnNumber)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Receipt size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Invoice No:</span>
+                <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{safeText(sale.invoiceNumber)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <CreditCard size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Refund status:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>Refunded</span>
+              </div>
+            </div>
+
+            <div className="space-y-1 text-[12px]">
+              <div className="flex items-center gap-1.5">
+                <User size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Customer name:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(sale.customerName || 'Walk-in Customer')}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Package size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Items returned:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{itemCount || items.length}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <AlertTriangle size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Reason:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(ret.reason)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Banknote size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Refund method:</span>
+                <span className="font-medium inline-flex items-center gap-1" style={{ color: 'var(--text-primary)' }}>
+                  {methodIcon[ret.refundMethod]}
+                  {refundMethodLabel}
+                </span>
+              </div>
+            </div>
+
+            <div className="rounded-lg border p-3 text-[12px]" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+              <div className="flex items-center justify-between border-b pb-2 mb-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Quick totals</span>
+                <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>LKR</span>
+              </div>
+              <div className="space-y-1">
+                <div className="flex justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Line items</span>
+                  <span className="font-medium">{items.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Qty returned</span>
+                  <span className="font-medium">{itemCount || items.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Original sale</span>
+                  <span className="font-medium">{sale.total != null ? formatCurrency(sale.total) : '—'}</span>
+                </div>
+                <div className="flex justify-between pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span className="font-semibold">Total Refunded</span>
+                  <span className="font-semibold text-rose-600 dark:text-rose-400">{formatCurrency(ret.refundAmount ?? 0)}</span>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Refund amount */}
-          <div className="flex items-center justify-between p-4 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20">
-            <div className="flex items-center gap-2">
-              <AlertTriangle size={14} className="text-rose-500 dark:text-rose-400" />
-              <span className="text-sm font-semibold text-rose-700 dark:text-rose-300">Total Refunded</span>
+          {/* Items + refund info + totals */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 space-y-4">
+              {/* Returned products */}
+              <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                <div className="bg-emerald-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide">
+                  Returned products
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-[720px] w-full text-[12px]">
+                    <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                      <tr style={{ color: 'var(--text-secondary)' }}>
+                        <th className="px-3 py-2 text-left w-10">#</th>
+                        <th className="px-3 py-2 text-left">Product</th>
+                        <th className="px-3 py-2 text-right">Quantity</th>
+                        <th className="px-3 py-2 text-right">Unit Price</th>
+                        <th className="px-3 py-2 text-right">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map((item: any, idx: number) => {
+                        const qty = Number(item.quantity ?? 0)
+                        const unit = Number(item.unitPrice ?? 0)
+                        const subtotal = Number(item.total ?? qty * unit)
+                        return (
+                          <tr key={item.id ?? idx} className="border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
+                            <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{idx + 1}</td>
+                            <td className="px-3 py-2">
+                              <div className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(item.productName)}</div>
+                              {(item.sku || item.imei) && (
+                                <div className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
+                                  {item.sku ? safeText(item.sku) : ''}
+                                  {item.imei ? `${item.sku ? ' · ' : ''}IMEI ${item.imei}` : ''}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-right">{qty ? `${qty.toFixed(2)} Qty` : '—'}</td>
+                            <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(unit)}</td>
+                            <td className="px-3 py-2 text-right whitespace-nowrap font-semibold text-rose-600 dark:text-rose-400">{formatCurrency(subtotal)}</td>
+                          </tr>
+                        )
+                      })}
+                      {items.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="px-3 py-6 text-center" style={{ color: 'var(--text-muted)' }}>No items</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Refund info */}
+              <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                <div className="bg-emerald-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide">
+                  Refund info
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-[560px] w-full text-[12px]">
+                    <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                      <tr style={{ color: 'var(--text-secondary)' }}>
+                        <th className="px-3 py-2 text-left w-10">#</th>
+                        <th className="px-3 py-2 text-left">Date</th>
+                        <th className="px-3 py-2 text-left">Reference No</th>
+                        <th className="px-3 py-2 text-right">Amount</th>
+                        <th className="px-3 py-2 text-left">Refund mode</th>
+                        <th className="px-3 py-2 text-left">Note</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>1</td>
+                        <td className="px-3 py-2">{safeText(formatDate(ret.createdAt))}</td>
+                        <td className="px-3 py-2 font-mono" style={{ color: 'var(--text-secondary)' }}>{safeText(ret.returnNumber)}</td>
+                        <td className="px-3 py-2 text-right whitespace-nowrap font-medium text-rose-600 dark:text-rose-400">
+                          {formatCurrency(ret.refundAmount ?? 0)}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className="inline-flex items-center gap-1.5">
+                            {methodIcon[ret.refundMethod]}
+                            {refundMethodLabel}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{safeText(ret.notes)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Return reason:</p>
+                  <p className="text-[12px]" style={{ color: 'var(--text-primary)' }}>{safeText(ret.reason)}</p>
+                </div>
+                <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Return note:</p>
+                  <p className="text-[12px]" style={{ color: 'var(--text-primary)' }}>{safeText(ret.notes)}</p>
+                </div>
+              </div>
             </div>
-            <span className="text-xl font-black text-rose-600 dark:text-rose-400">{formatCurrency(ret.refundAmount)}</span>
+
+            {/* Right column: totals */}
+            <div className="rounded-lg border overflow-hidden h-fit" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="px-3 py-2 border-b flex items-center justify-between" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                <p className="text-[12px] font-semibold" style={{ color: 'var(--text-primary)' }}>Total</p>
+                <p className="text-[12px] font-semibold text-rose-600 dark:text-rose-400">{formatCurrency(ret.refundAmount ?? 0)}</p>
+              </div>
+              <div className="p-3 text-[12px] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Products:</span>
+                  <span className="font-medium">{items.length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Quantity:</span>
+                  <span className="font-medium">{itemCount || items.length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Refund method:</span>
+                  <span className="font-medium">{refundMethodLabel}</span>
+                </div>
+                <div className="pt-2 border-t space-y-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold">Total Refunded:</span>
+                    <span className="font-semibold text-rose-600 dark:text-rose-400">{formatCurrency(ret.refundAmount ?? 0)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Original invoice:</span>
+                    <span className="font-medium font-mono">{safeText(sale.invoiceNumber)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {ret.notes && (
-            <div className="p-3 rounded-lg bg-gray-50 dark:bg-white/3 border border-gray-200 dark:border-white/5">
-              <p className="text-[10px] text-gray-500 dark:text-slate-500 uppercase tracking-wide mb-1">Notes</p>
-              <p className="text-sm text-gray-700 dark:text-slate-300 italic">{ret.notes}</p>
-            </div>
-          )}
+          {/* Bottom actions */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-end pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border font-semibold transition-colors"
+              style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>
