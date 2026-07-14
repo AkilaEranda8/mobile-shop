@@ -8,6 +8,7 @@ import { env } from '../../config/env'
 import {
   createOrGetGroup,
   ensureKcUser,
+  getKcLoginUsername,
   isKcAuthEnabled,
   isKcConfigured,
   updateKcPassword,
@@ -66,7 +67,7 @@ async function kcPasswordGrant(username: string, password: string): Promise<KcTo
       grant_type: 'password',
       client_id: env.KC_CLIENT_ID,
       client_secret: env.KC_CLIENT_SECRET ?? '',
-      username: normalizeEmail(username),
+      username: username.trim(),
       password,
       scope: 'openid profile email',
     }),
@@ -89,7 +90,7 @@ async function issueKcSession(opts: {
   })
   const slug = opts.tenantSlug || tenant?.slug || 'platform'
   const groupId = await createOrGetGroup(slug, tenant?.name || slug)
-  await ensureKcUser({
+  const kcId = await ensureKcUser({
     dbUserId: opts.user.id,
     tenantId: opts.user.tenantId,
     tenantSlug: slug,
@@ -100,8 +101,22 @@ async function issueKcSession(opts: {
     groupId: groupId || undefined,
     isActive: opts.user.isActive !== false,
   })
-  const raw = await kcPasswordGrant(opts.user.email, opts.password)
-  return mapKcTokens(raw)
+  const loginUsername = await getKcLoginUsername(kcId, opts.user.email)
+  try {
+    const raw = await kcPasswordGrant(loginUsername, opts.password)
+    return mapKcTokens(raw)
+  } catch (firstErr) {
+    // Realm may allow email login even when username differs
+    if (loginUsername.toLowerCase() !== opts.user.email.trim().toLowerCase()) {
+      try {
+        const raw = await kcPasswordGrant(opts.user.email.trim().toLowerCase(), opts.password)
+        return mapKcTokens(raw)
+      } catch {
+        throw firstErr
+      }
+    }
+    throw firstErr
+  }
 }
 
 async function buildUserSession(user: {

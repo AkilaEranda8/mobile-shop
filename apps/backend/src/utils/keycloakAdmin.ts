@@ -210,12 +210,13 @@ export async function ensureKcUser(opts: {
     user_role: [opts.role],
   }
 
+  // Do not change username — Keycloak often marks it read-only ("error-user-attribute-read-only").
   const putRes = await kc(`/users/${kcId}`, {
     method: 'PUT',
     body: JSON.stringify({
       ...current,
       id: kcId,
-      username: email,
+      username: current.username,
       email,
       emailVerified: true,
       firstName,
@@ -232,6 +233,14 @@ export async function ensureKcUser(opts: {
   await setKcPassword(kcId, opts.password)
   if (opts.groupId) await addUserToGroup(kcId, opts.groupId)
   return kcId
+}
+
+/** Username to use for resource-owner password grant (may differ from email). */
+export async function getKcLoginUsername(kcUserId: string, fallbackEmail: string): Promise<string> {
+  const getRes = await kc(`/users/${kcUserId}`)
+  if (!getRes.ok) return fallbackEmail.trim().toLowerCase()
+  const current = await getRes.json() as { username?: string }
+  return (current.username || fallbackEmail).trim()
 }
 
 export async function updateKcUser(dbUserId: string, updates: {
@@ -264,9 +273,9 @@ export async function updateKcUser(dbUserId: string, updates: {
   }
   if (updates.isActive !== undefined) body.enabled = updates.isActive
   if (updates.email) {
-    const email = updates.email.trim().toLowerCase()
-    body.email = email
-    body.username = email
+    body.email = updates.email.trim().toLowerCase()
+    // Keep existing Keycloak username (often read-only)
+    body.username = current.username
   }
 
   const attrs = { ...(current.attributes ?? {}) }
