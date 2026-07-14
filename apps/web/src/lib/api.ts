@@ -601,6 +601,8 @@ export const profitAllocationApi = {
   deleteFund: (id: string) => api.delete(`/profit-allocation/funds/${id}`),
   toggleFund: (id: string, isActive: boolean) =>
     api.patch(`/profit-allocation/funds/${id}/toggle`, { isActive }),
+  normalizePercentages: (body: { branchId: string }) =>
+    api.post('/profit-allocation/funds/normalize-percentages', body),
   transactions: (params?: Record<string, string>) =>
     api.get(`/profit-allocation/transactions${params ? '?' + new URLSearchParams(params) : ''}`),
   withdraw: (body: unknown) => api.post('/profit-allocation/withdraw', body),

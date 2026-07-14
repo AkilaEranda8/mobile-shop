@@ -327,7 +327,12 @@ function esc(s: string) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings, ctx?: ShopContext) {
+export function printThermalReceipt(
+  sale: ThermalSale,
+  settings: InvoiceSettings,
+  ctx?: ShopContext,
+  opts?: { targetWindow?: Window | null },
+): boolean {
   settings = mergeReceiptSettings(settings, ctx)
   const currency = settings.currency || 'LKR'
   const f = (n: number) => esc(currency + ' ' + fmtAmt(n))
@@ -485,9 +490,48 @@ export function printThermalReceipt(sale: ThermalSale, settings: InvoiceSettings
 </body>
 </html>`
 
+  const win = opts?.targetWindow ?? window.open('', '_blank', 'width=400,height=600')
+  if (!win || win.closed) {
+    if (!opts?.targetWindow) alert('Please allow pop-ups to print the thermal receipt.')
+    return false
+  }
+  try {
+    win.document.open()
+    win.document.write(html)
+    win.document.close()
+    const runPrint = () => {
+      try {
+        win.focus()
+        win.print()
+        // Keep window briefly so the print dialog can attach
+        setTimeout(() => {
+          try { win.close() } catch { /* ignore */ }
+        }, 400)
+      } catch {
+        /* ignore */
+      }
+    }
+    // document.write often finishes load before onload is assigned — print immediately
+    setTimeout(runPrint, 50)
+    return true
+  } catch {
+    try { win.close() } catch { /* ignore */ }
+    return false
+  }
+}
+
+export function openReceiptPrintWindow(loadingHtml = 'Preparing receipt…'): Window | null {
   const win = window.open('', '_blank', 'width=400,height=600')
-  if (!win) { alert('Please allow pop-ups to print the thermal receipt.'); return }
-  win.document.write(html)
-  win.document.close()
-  win.onload = () => { win.focus(); win.print(); win.close() }
+  if (!win) return null
+  try {
+    win.document.open()
+    win.document.write(
+      `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Receipt</title></head>` +
+      `<body style="font-family:system-ui,sans-serif;padding:24px;color:#334155"><p>${loadingHtml}</p></body></html>`,
+    )
+    win.document.close()
+  } catch {
+    /* ignore */
+  }
+  return win
 }

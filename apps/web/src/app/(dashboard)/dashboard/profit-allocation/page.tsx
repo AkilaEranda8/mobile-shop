@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { businessToday } from '@/lib/business-date'
+import { businessToday, businessPeriodFrom } from '@/lib/business-date'
 import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { profitAllocationApi } from '@/lib/api'
@@ -49,6 +49,7 @@ const DATA_SOURCE_LABEL: Record<string, string> = {
   daily_closing_closed: 'Closed day summary',
   pos_finance: 'POS sales & finance transactions',
   saved_allocation: 'Saved allocation record',
+  all_days: 'All days combined',
 }
 
 type Fund = {
@@ -88,24 +89,8 @@ const TYPE_FILTER_OPTIONS = [
   { id: 'MANUAL', label: 'Manual' },
 ] as const
 
-const PERIOD_PRESETS = [
-  { id: 'today', label: 'Today' },
-  { id: '7', label: '7 Days' },
-  { id: '30', label: '30 Days' },
-  { id: 'month', label: 'This Month' },
-] as const
-
-function computePresetRange(preset: string, today: string): { from: string; to: string } {
-  if (preset === 'today') return { from: today, to: today }
-  if (preset === 'month') {
-    const [y, m] = today.split('-')
-    return { from: `${y}-${m}-01`, to: today }
-  }
-  const days = parseInt(preset, 10)
-  const d = new Date(`${today}T12:00:00+05:30`)
-  d.setUTCDate(d.getUTCDate() - (days - 1))
-  return { from: d.toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' }), to: today }
-}
+/** Cumulative window — all days rolled together (no date picker). */
+const CUMULATIVE_LOOKBACK_DAYS = 1095
 
 function SectionTitle({ title, sub }: { title: string; sub?: string }) {
   return (
@@ -213,16 +198,13 @@ export default function ProfitAllocationPage() {
   const isOwner = role === 'OWNER' || role === 'PLATFORM_ADMIN'
   const canSave = isOwner || role === 'MANAGER'
   const canWithdraw = canSave
-  const canManageFunds = isOwner
+  const canManageFunds = isOwner || role === 'MANAGER'
 
   const branchId = getActiveBranchId() ?? ''
   const todayStr = useMemo(() => businessToday(), [])
-  const [periodPreset, setPeriodPreset] = useState<string>('today')
-  const [isCustomRange, setIsCustomRange] = useState(false)
-  const [dateFrom, setDateFrom] = useState(todayStr)
-  const [dateTo, setDateTo] = useState(todayStr)
-  const isSingleDay = dateFrom === dateTo
-  const viewDate = dateTo
+  const dateFrom = useMemo(() => businessPeriodFrom(CUMULATIVE_LOOKBACK_DAYS, todayStr), [todayStr])
+  const dateTo = todayStr
+  const viewDate = todayStr
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('ALL')
   const [fundTab, setFundTab] = useState('ALL')
@@ -250,16 +232,13 @@ export default function ProfitAllocationPage() {
     setDashboardOverride(null)
   }, [branchId, viewDate])
 
-  const applyPreset = (preset: string) => {
-    setPeriodPreset(preset)
-    setIsCustomRange(false)
-    const { from, to } = computePresetRange(preset, todayStr)
-    setDateFrom(from)
-    setDateTo(to)
-  }
-
-  const { data: dashRaw, loading, refetch } = useProfitAllocationDashboard(branchId, viewDate, hasAccess && !!branchId && isSingleDay)
-  const dashboard = (dashboardOverride ?? dashRaw) as DashboardData | null
+  // Today's dashboard drives Save / Recalculate (daily lock), while the table shows all days combined
+  const { data: dashRaw, loading: todayLoading, error: dashError, refetch } = useProfitAllocationDashboard(
+    branchId,
+    viewDate,
+    hasAccess && !!branchId,
+  )
+  const todayDashboard = (dashboardOverride ?? dashRaw) as DashboardData | null
   const { data: fundsRaw, refetch: refetchFunds } = useProfitFunds(branchId, hasAccess && !!branchId)
   const funds = (fundsRaw as Fund[] | null) ?? []
 
@@ -308,25 +287,24 @@ export default function ProfitAllocationPage() {
   useEffect(() => { loadPeriod() }, [loadPeriod])
   useEffect(() => { setTxPage(1) }, [dateFrom, dateTo, branchId])
 
-  const activeDashboard: DashboardData | null = isSingleDay
-    ? (dashboardOverride ?? dashboard)
-    : periodData ? {
-        date: `${dateFrom} → ${dateTo}`,
+  const activeDashboard: DashboardData | null = periodData
+    ? {
+        date: `All days → ${dateTo}`,
         todaySales: periodData.totals.sales,
         todayProfit: periodData.totals.profit,
         totalAllocated: periodData.totals.allocated,
         remainingProfit: periodData.totals.remaining,
-        percentageTotal: 0,
-        percentageValid: true,
+        percentageTotal: todayDashboard?.percentageTotal ?? 0,
+        percentageValid: todayDashboard?.percentageValid ?? true,
         lines: periodData.fundLines,
-        saved: periodData.totals.savedDays > 0,
-        allocationId: null,
-        dataSource: periodData.totals.savedDays > 0
-          ? `period_summary · ${periodData.totals.savedDays} saved + ${periodData.totals.liveDays ?? 0} live day(s)`
-          : 'period_summary · live POS & daily closing',
-      } : null
+        saved: Boolean(todayDashboard?.saved),
+        allocationId: todayDashboard?.allocationId ?? null,
+        dataSource: 'all_days',
+        salesCount: todayDashboard?.salesCount,
+      }
+    : todayDashboard
 
-  const tableLoading = isSingleDay ? loading : periodLoading
+  const tableLoading = periodLoading || (todayLoading && !periodData)
 
   const filteredLines = useMemo(() => {
     const lines = activeDashboard?.lines
@@ -356,7 +334,8 @@ export default function ProfitAllocationPage() {
     try {
       const res = await profitAllocationApi.calculate({ branchId, date: viewDate }) as { data: DashboardData }
       setDashboardOverride(res.data)
-      toast.success('Daily data refreshed from system')
+      await loadPeriod()
+      toast.success('Today refreshed from system')
     } catch (e: unknown) {
       toast.error((e as { message?: string })?.message ?? 'Refresh failed')
     } finally {
@@ -370,7 +349,8 @@ export default function ProfitAllocationPage() {
     try {
       const res = await profitAllocationApi.calculate({ branchId, date: viewDate }) as { data: DashboardData }
       setDashboardOverride(res.data)
-      toast.success('Allocation recalculated')
+      await loadPeriod()
+      toast.success('Today recalculated')
     } catch (e: unknown) {
       toast.error((e as { message?: string })?.message ?? 'Recalculate failed')
     } finally {
@@ -378,16 +358,33 @@ export default function ProfitAllocationPage() {
     }
   }
 
+  const handleNormalizePercentages = async () => {
+    if (!branchId) return
+    setCalcLoading(true)
+    try {
+      await profitAllocationApi.normalizePercentages({ branchId })
+      const res = await profitAllocationApi.calculate({ branchId, date: viewDate }) as { data: DashboardData }
+      setDashboardOverride(res.data)
+      refetchFunds()
+      await loadPeriod()
+      toast.success('Percentage funds normalized to 100%')
+    } catch (e: unknown) {
+      toast.error((e as { message?: string })?.message ?? 'Normalize failed')
+    } finally {
+      setCalcLoading(false)
+    }
+  }
+
   const handleSave = async () => {
-    if (!branchId || !activeDashboard) return
-    if (!activeDashboard.percentageValid) {
-      toast.error(`Percentage funds must total 100%. Current: ${activeDashboard.percentageTotal}%`)
+    if (!branchId || !todayDashboard) return
+    if (!todayDashboard.percentageValid) {
+      toast.error(`Percentage funds must total 100%. Current: ${todayDashboard.percentageTotal}%`)
       return
     }
     setSaveLoading(true)
     try {
       await profitAllocationApi.save({ branchId, date: viewDate })
-      toast.success('Allocation saved')
+      toast.success('Today\'s allocation saved')
       setDashboardOverride(null)
       refetch()
       refetchFunds()
@@ -401,16 +398,16 @@ export default function ProfitAllocationPage() {
   }
 
   const handleResave = async () => {
-    if (!branchId || !activeDashboard) return
-    if (!activeDashboard.percentageValid) {
-      toast.error(`Percentage funds must total 100%. Current: ${activeDashboard.percentageTotal}%`)
+    if (!branchId || !todayDashboard) return
+    if (!todayDashboard.percentageValid) {
+      toast.error(`Percentage funds must total 100%. Current: ${todayDashboard.percentageTotal}%`)
       return
     }
-    if (!confirm('Recalculate and replace the saved allocation for this date?')) return
+    if (!confirm('Recalculate and replace today\'s saved allocation?')) return
     setSaveLoading(true)
     try {
       await profitAllocationApi.resave({ branchId, date: viewDate })
-      toast.success('Allocation recalculated and saved')
+      toast.success('Today recalculated and saved')
       setDashboardOverride(null)
       refetch()
       refetchFunds()
@@ -487,19 +484,48 @@ export default function ProfitAllocationPage() {
     }
   }
 
-  const deleteFund = async (id: string) => {
-    if (!confirm('Delete this fund?')) return
+  const deleteFund = async (f: Fund) => {
+    const msg = f.isActive
+      ? `Remove "${f.name}" from allocation? It will be deactivated.`
+      : `Permanently delete "${f.name}"? This only works if the fund has no history.`
+    if (!confirm(msg)) return
     try {
-      await profitAllocationApi.deleteFund(id)
-      toast.success('Fund deleted')
+      const res = await profitAllocationApi.deleteFund(f.id) as {
+        data?: { removed?: string; message?: string }
+        message?: string
+      }
+      const removed = res.data?.removed
+      toast.success(
+        res.data?.message
+          ?? res.message
+          ?? (removed === 'deactivated' ? 'Fund deactivated' : 'Fund deleted'),
+      )
+      if (editingFund?.id === f.id) {
+        setEditingFund(null)
+        setFundForm({ name: '', type: 'MANUAL', fixedAmount: '0', percentage: '0', sortOrder: '0', description: '', isActive: true })
+      }
       refetchFunds()
+      refetch()
+      loadPeriod()
     } catch (e: unknown) {
       toast.error((e as { message?: string })?.message ?? 'Delete failed')
     }
   }
 
+  const reactivateFund = async (f: Fund) => {
+    try {
+      await profitAllocationApi.toggleFund(f.id, true)
+      toast.success(`"${f.name}" reactivated`)
+      refetchFunds()
+      refetch()
+      loadPeriod()
+    } catch (e: unknown) {
+      toast.error((e as { message?: string })?.message ?? 'Failed to reactivate')
+    }
+  }
+
   const exportMeta = activeDashboard ? {
-    date: isSingleDay ? viewDate : `${dateFrom} to ${dateTo}`,
+    date: `All days to ${viewDate}`,
     todaySales: activeDashboard.todaySales,
     todayProfit: activeDashboard.todayProfit,
     totalAllocated: activeDashboard.totalAllocated,
@@ -520,9 +546,20 @@ export default function ProfitAllocationPage() {
     )
   }
 
+  if (!branchId) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+        <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Select a branch</p>
+        <p className="text-xs text-center max-w-sm" style={{ color: 'var(--text-muted)' }}>
+          Profit allocation is branch-specific. Choose an active branch from the header switcher.
+        </p>
+      </div>
+    )
+  }
+
   const kpiCards = [
-    { label: isSingleDay ? "Today's Sales" : 'Period Sales', value: formatCurrency(activeDashboard?.todaySales ?? 0), icon: <Banknote size={16} />, color: 'var(--brand-primary-light)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)' },
-    { label: isSingleDay ? "Today's Profit" : 'Period Profit', value: formatCurrency(activeDashboard?.todayProfit ?? 0), icon: <TrendingUp size={16} />, color: '#15803d', bg: 'rgba(21,128,61,0.08)', border: 'rgba(21,128,61,0.20)' },
+    { label: 'Total Sales', value: formatCurrency(activeDashboard?.todaySales ?? 0), icon: <Banknote size={16} />, color: 'var(--brand-primary-light)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)' },
+    { label: 'Total Profit', value: formatCurrency(activeDashboard?.todayProfit ?? 0), icon: <TrendingUp size={16} />, color: '#15803d', bg: 'rgba(21,128,61,0.08)', border: 'rgba(21,128,61,0.20)' },
     { label: 'Total Allocated', value: formatCurrency(activeDashboard?.totalAllocated ?? 0), icon: <PieChartIcon size={16} />, color: '#1d4ed8', bg: 'rgba(29,78,216,0.08)', border: 'rgba(29,78,216,0.20)' },
     { label: 'Remaining Profit', value: formatCurrency(activeDashboard?.remainingProfit ?? 0), icon: <Wallet size={16} />, color: '#d97706', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.20)' },
   ]
@@ -535,54 +572,86 @@ export default function ProfitAllocationPage() {
           <h1 className="page-title">Profit Allocation & Fund Management</h1>
           <p className="page-subtitle flex items-center gap-1.5 flex-wrap">
             <Calendar size={12} />
-            {isSingleDay ? formatDate(viewDate) : `${formatDate(dateFrom)} → ${formatDate(dateTo)}`}
+            All days combined · through {formatDate(viewDate)}
+            {periodData && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>
+                {periodData.totals.savedDays} saved day{periodData.totals.savedDays === 1 ? '' : 's'}
+                {(periodData.totals.liveDays ?? 0) > 0 ? ` · ${periodData.totals.liveDays} live` : ''}
+              </span>
+            )}
             {activeDashboard?.dataSource && !tableLoading && (
               <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
                 style={{ background: 'var(--brand-glow)', color: 'var(--brand-primary-light)', border: '1px solid var(--sidebar-active-border)' }}>
                 {DATA_SOURCE_LABEL[activeDashboard.dataSource] ?? activeDashboard.dataSource}
-                {activeDashboard.salesCount != null ? ` · ${activeDashboard.salesCount} sales` : ''}
+                {activeDashboard.salesCount != null ? ` · ${activeDashboard.salesCount} sales today` : ''}
+              </span>
+            )}
+            {todayDashboard?.saved && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25">
+                Today saved
               </span>
             )}
           </p>
         </div>
 
-        {/* Date range presets removed (keep action buttons) */}
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-          {isSingleDay && (
+          <button onClick={handleRefreshFromSystem} disabled={calcLoading || !branchId} className="btn-secondary flex items-center gap-2 text-sm">
+            {calcLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+            Refresh Today
+          </button>
+          {canManageFunds && (
+            <button onClick={handleRecalculate} disabled={calcLoading || todayDashboard?.saved} className="btn-secondary flex items-center gap-2 text-sm">
+              {calcLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+              Recalculate
+            </button>
+          )}
+          {canSave && !todayDashboard?.saved && (
+            <button onClick={handleSave} disabled={saveLoading || !todayDashboard} className="btn-primary flex items-center gap-2 text-sm">
+              {saveLoading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              Save Today
+            </button>
+          )}
+          {canSave && todayDashboard?.saved && (
             <>
-              <button onClick={handleRefreshFromSystem} disabled={calcLoading || !branchId} className="btn-secondary flex items-center gap-2 text-sm">
-                {calcLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                Refresh
+              <button onClick={handleResave} disabled={saveLoading} className="btn-primary flex items-center gap-2 text-sm">
+                {saveLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                Recalculate &amp; Save Today
               </button>
-              {canManageFunds && (
-                <button onClick={handleRecalculate} disabled={calcLoading || activeDashboard?.saved} className="btn-secondary flex items-center gap-2 text-sm">
-                  {calcLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                  Recalculate
+              {isOwner && (
+                <button onClick={handleDeleteAllocation} disabled={saveLoading} className="btn-secondary flex items-center gap-2 text-sm text-red-600">
+                  <Trash2 size={14} /> Delete Today
                 </button>
-              )}
-              {canSave && !activeDashboard?.saved && (
-                <button onClick={handleSave} disabled={saveLoading || !activeDashboard} className="btn-primary flex items-center gap-2 text-sm">
-                  {saveLoading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                  Save Allocation
-                </button>
-              )}
-              {canSave && activeDashboard?.saved && (
-                <>
-                  <button onClick={handleResave} disabled={saveLoading} className="btn-primary flex items-center gap-2 text-sm">
-                    {saveLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                    Recalculate &amp; Save
-                  </button>
-                  {isOwner && (
-                    <button onClick={handleDeleteAllocation} disabled={saveLoading} className="btn-secondary flex items-center gap-2 text-sm text-red-600">
-                      <Trash2 size={14} /> Delete
-                    </button>
-                  )}
-                </>
               )}
             </>
           )}
         </div>
       </div>
+
+      {dashError && (
+        <div className="rounded-xl px-4 py-3 text-sm border border-red-500/25 bg-red-500/10 text-red-600 dark:text-red-400">
+          Failed to load today&apos;s allocation: {dashError}
+        </div>
+      )}
+
+      {todayDashboard && !todayDashboard.percentageValid && (
+        <div className="rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 border border-amber-500/25 bg-amber-500/10">
+          <p className="text-sm flex-1" style={{ color: 'var(--text-primary)' }}>
+            Percentage funds total <strong>{todayDashboard.percentageTotal}%</strong> (must be 100% to save today).
+          </p>
+          {canSave && (
+            <button
+              type="button"
+              onClick={handleNormalizePercentages}
+              disabled={calcLoading}
+              className="btn-secondary text-sm flex items-center gap-2"
+            >
+              {calcLoading ? <Loader2 size={14} className="animate-spin" /> : <SlidersHorizontal size={14} />}
+              Normalize to 100%
+            </button>
+          )}
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -602,7 +671,7 @@ export default function ProfitAllocationPage() {
         <div className="p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
           <SectionTitle
             title="Allocation Details"
-            sub={isSingleDay ? 'Daily fund allocation breakdown' : `Aggregated allocation · ${formatDate(dateFrom)} → ${formatDate(dateTo)}`}
+            sub="All days combined — each fund shows cumulative allocated amounts"
           />
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1 max-w-xs">
@@ -641,7 +710,7 @@ export default function ProfitAllocationPage() {
             <table className="w-full">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  {['Fund', 'Type', 'Value', 'Cost', isSingleDay ? 'Today' : 'Period', 'Yesterday', 'Total', 'Withdrawn', 'Remaining', 'Actions'].map((h, i) => (
+                  {['Fund', 'Type', 'Value', 'Cost', 'Allocated', 'Opening', 'Total', 'Withdrawn', 'Remaining', 'Actions'].map((h, i) => (
                     <th key={h} className={`table-header whitespace-nowrap${i >= 4 && i <= 8 ? ' text-right' : ''}${i === 9 ? ' text-center' : ''}`}>{h}</th>
                   ))}
                 </tr>
@@ -690,7 +759,17 @@ export default function ProfitAllocationPage() {
                       <td className="table-cell text-center">
                         {canWithdraw && fund && (
                           <div className="flex items-center justify-center gap-1">
-                            <button title="Withdraw" onClick={() => setMovement({ mode: 'withdraw', fund })} className="p-1.5 rounded-lg hover:bg-red-500/10" style={{ color: '#b91c1c' }}><ArrowDownRight size={13} /></button>
+                            <button
+                              title="Withdraw"
+                              onClick={() => setMovement({
+                                mode: 'withdraw',
+                                fund: { ...fund, balance: Math.min(fund.balance, Math.max(0, line.remainingBalance)) },
+                              })}
+                              className="p-1.5 rounded-lg hover:bg-red-500/10"
+                              style={{ color: '#b91c1c' }}
+                            >
+                              <ArrowDownRight size={13} />
+                            </button>
                             <button title="Deposit" onClick={() => setMovement({ mode: 'deposit', fund })} className="p-1.5 rounded-lg hover:bg-emerald-500/10" style={{ color: '#15803d' }}><ArrowUpRight size={13} /></button>
                             <button title="Adjust" onClick={() => setMovement({ mode: 'adjustment', fund })} className="p-1.5 rounded-lg hover:bg-sky-500/10" style={{ color: '#0284c7' }}><SlidersHorizontal size={13} /></button>
                           </div>
@@ -703,12 +782,14 @@ export default function ProfitAllocationPage() {
             </table>
           </div>
         )}
-        {activeDashboard && isSingleDay && (
+        {todayDashboard && (
           <div className="px-5 py-3 border-t flex flex-wrap items-center justify-between gap-2 text-xs" style={{ borderColor: 'var(--border-subtle)' }}>
-            <span style={{ color: activeDashboard.percentageValid ? '#15803d' : '#b91c1c' }}>
-              Percentage funds total: {activeDashboard.percentageTotal}% {activeDashboard.percentageValid ? '(valid)' : '(must equal 100%)'}
+            <span style={{ color: todayDashboard.percentageValid ? '#15803d' : '#b91c1c' }}>
+              Percentage funds total: {todayDashboard.percentageTotal}% {todayDashboard.percentageValid ? '(valid)' : '(must equal 100%)'}
             </span>
-            {activeDashboard.saved && <span className="font-semibold" style={{ color: '#15803d' }}>✓ Saved for {formatDate(viewDate)}</span>}
+            {todayDashboard.saved
+              ? <span className="font-semibold" style={{ color: '#15803d' }}>✓ Today ({formatDate(viewDate)}) saved into fund balances</span>
+              : <span style={{ color: 'var(--text-muted)' }}>Save Today to lock today&apos;s profit into fund balances</span>}
           </div>
         )}
       </div>
@@ -742,7 +823,7 @@ export default function ProfitAllocationPage() {
               const tc = FUND_TYPE_COLORS[f.type] ?? FUND_TYPE_COLORS.MANUAL
               return (
               <div key={f.id} className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-white/2"
-                style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                style={{ borderBottom: '1px solid var(--border-subtle)', opacity: f.isActive ? 1 : 0.55 }}>
                 <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
                   style={{ background: tc.bg, border: `1px solid ${tc.border}`, color: tc.color }}>
                   <Wallet size={13} />
@@ -756,8 +837,19 @@ export default function ProfitAllocationPage() {
                 </div>
                 {canManageFunds && (
                   <div className="flex gap-1 shrink-0">
-                    <button onClick={() => openEditFund(f)} className="p-1.5 rounded-lg hover:bg-violet-500/10"><Edit2 size={13} style={{ color: 'var(--brand-primary-light)' }} /></button>
-                    <button onClick={() => deleteFund(f.id)} className="p-1.5 rounded-lg hover:bg-red-500/10"><Trash2 size={13} style={{ color: '#b91c1c' }} /></button>
+                    {!f.isActive && (
+                      <button
+                        type="button"
+                        title="Reactivate"
+                        onClick={() => reactivateFund(f)}
+                        className="p-1.5 rounded-lg hover:bg-emerald-500/10 text-[10px] font-semibold"
+                        style={{ color: '#15803d' }}
+                      >
+                        On
+                      </button>
+                    )}
+                    <button type="button" onClick={() => openEditFund(f)} className="p-1.5 rounded-lg hover:bg-violet-500/10"><Edit2 size={13} style={{ color: 'var(--brand-primary-light)' }} /></button>
+                    <button type="button" title={f.isActive ? 'Deactivate' : 'Delete permanently'} onClick={() => deleteFund(f)} className="p-1.5 rounded-lg hover:bg-red-500/10"><Trash2 size={13} style={{ color: '#b91c1c' }} /></button>
                   </div>
                 )}
               </div>
@@ -770,7 +862,7 @@ export default function ProfitAllocationPage() {
         <div className="card p-5">
           <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>{editingFund ? 'Edit Fund' : 'Fund Configuration'}</h3>
           {!canManageFunds ? (
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Only owners can manage fund configuration.</p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Only owners and managers can manage fund configuration.</p>
           ) : (
             <div className="space-y-3">
               <div>
@@ -874,7 +966,7 @@ export default function ProfitAllocationPage() {
           <div>
             <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Period Summary</h3>
             <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              {formatDate(dateFrom)} → {formatDate(dateTo)} · Opening, allocated, withdrawn & closing balances
+              Cumulative fund ledger · Opening, allocated, withdrawn & closing balances
             </p>
           </div>
         </div>

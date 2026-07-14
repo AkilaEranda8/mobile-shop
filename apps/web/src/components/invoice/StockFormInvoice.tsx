@@ -165,7 +165,8 @@ export function printStockFormInvoice(
   sale: StockFormSale,
   settings: InvoiceSettings,
   ctx?: ShopContext,
-): void {
+  opts?: { targetWindow?: Window | null },
+): boolean {
   settings = mergeReceiptSettings(settings, ctx)
 
   const currency = settings.currency || 'LKR'
@@ -595,18 +596,30 @@ export function printStockFormInvoice(
 </body>
 </html>`
 
-  const win = window.open('', '_blank', 'width=800,height=900')
-  if (!win) {
-    alert('Please allow pop-ups to print the stock form invoice.')
-    return
+  const win = opts?.targetWindow ?? window.open('', '_blank', 'width=800,height=900')
+  if (!win || win.closed) {
+    if (!opts?.targetWindow) alert('Please allow pop-ups to print the stock form invoice.')
+    return false
   }
-  win.document.write(html)
-  win.document.close()
-  win.onload = () => {
-    win.focus()
-    setTimeout(() => {
-      win.print()
-      win.close()
-    }, 300)
+  try {
+    win.document.open()
+    win.document.write(html)
+    win.document.close()
+    const runPrint = () => {
+      try {
+        win.focus()
+        win.print()
+        setTimeout(() => {
+          try { win.close() } catch { /* ignore */ }
+        }, 400)
+      } catch {
+        /* ignore */
+      }
+    }
+    setTimeout(runPrint, 50)
+    return true
+  } catch {
+    try { win.close() } catch { /* ignore */ }
+    return false
   }
 }

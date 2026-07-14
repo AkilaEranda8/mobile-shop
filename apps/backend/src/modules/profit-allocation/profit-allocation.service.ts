@@ -261,15 +261,77 @@ export async function updateFund(tenantId: string, id: string, input: UpdateFund
 export async function deleteFund(tenantId: string, id: string) {
   const fund = await prisma.profitFund.findFirst({ where: { id, tenantId } })
   if (!fund) throw new AppError('Fund not found', 404)
+
   const txCount = await prisma.profitTransaction.count({ where: { fundId: id } })
-  if (txCount > 0) throw new AppError('Cannot delete fund with transaction history. Deactivate instead.', 400)
+  const lineCount = await prisma.profitAllocationLine.count({ where: { fundId: id } })
+  const hasHistory = txCount > 0 || lineCount > 0
+
+  // Soft-delete (deactivate) so funds don't reappear via ensureExtendedFunds
+  // and so transaction history stays intact.
+  if (fund.isActive) {
+    const updated = await prisma.profitFund.update({
+      where: { id },
+      data: { isActive: false },
+    })
+    return {
+      ...updated,
+      removed: 'deactivated' as const,
+      message: hasHistory
+        ? 'Fund deactivated (has history — cannot permanently delete)'
+        : 'Fund deactivated',
+    }
+  }
+
+  if (hasHistory) {
+    throw new AppError(
+      'This fund already has allocations/transactions, so it cannot be permanently deleted. It stays deactivated.',
+      400,
+    )
+  }
+
   await prisma.profitFund.delete({ where: { id } })
+  return { id, removed: 'deleted' as const, message: 'Fund permanently deleted' }
 }
 
 export async function toggleFund(tenantId: string, id: string, isActive: boolean) {
   const fund = await prisma.profitFund.findFirst({ where: { id, tenantId } })
   if (!fund) throw new AppError('Fund not found', 404)
   return prisma.profitFund.update({ where: { id }, data: { isActive } })
+}
+
+/** Scale active percentage funds so they total exactly 100%, and persist. */
+export async function normalizeFundPercentages(tenantId: string, branchId: string) {
+  await ensureExtendedFunds(tenantId, branchId)
+  const funds = await prisma.profitFund.findMany({
+    where: { tenantId, branchId, isActive: true, type: 'PERCENTAGE' },
+    orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+  })
+  if (funds.length === 0) {
+    return { percentageTotal: 0, percentageValid: true, updated: 0 }
+  }
+  const total = funds.reduce((s, f) => s + f.percentage, 0)
+  if (total === 0) {
+    const equal = round2(100 / funds.length)
+    let assigned = 0
+    for (let i = 0; i < funds.length; i++) {
+      const pct = i === funds.length - 1 ? round2(100 - assigned) : equal
+      assigned = round2(assigned + pct)
+      await prisma.profitFund.update({ where: { id: funds[i].id }, data: { percentage: pct } })
+    }
+    return { percentageTotal: 100, percentageValid: true, updated: funds.length }
+  }
+  if (round2(total) === 100) {
+    return { percentageTotal: 100, percentageValid: true, updated: 0 }
+  }
+  let assigned = 0
+  for (let i = 0; i < funds.length; i++) {
+    const pct = i === funds.length - 1
+      ? round2(100 - assigned)
+      : round2(funds[i].percentage * (100 / total))
+    assigned = round2(assigned + pct)
+    await prisma.profitFund.update({ where: { id: funds[i].id }, data: { percentage: pct } })
+  }
+  return { percentageTotal: 100, percentageValid: true, updated: funds.length }
 }
 
 async function getYesterdayBalance(fundId: string, dateStr: string) {
@@ -467,13 +529,17 @@ export async function getDashboard(tenantId: string, branchId: string, dateStr: 
 
   if (existing) {
     const categoryCostMap = await buildCategoryCostMap(tenantId, branchId, dateStr)
-    const lines = existing.lines.map(l => {
+    const lines = await Promise.all(existing.lines.map(async l => {
       const categoryCost = l.fund.type === 'PERCENTAGE'
         ? fundCategoryCost(l.fund.name, categoryCostMap)
         : 0
       const pctAllocation = l.fund.type === 'PERCENTAGE'
         ? round2(l.todayAllocation - categoryCost)
         : 0
+      // Keep withdrawn/remaining live after save so withdrawals update the table
+      const withdrawn = await getDayWithdrawn(l.fundId, dateStr)
+      const totalBalance = round2(l.yesterdayBalance + l.todayAllocation)
+      const remainingBalance = round2(totalBalance - withdrawn)
       return {
         fundId: l.fundId,
         fundName: l.fund.name,
@@ -483,14 +549,14 @@ export async function getDashboard(tenantId: string, branchId: string, dateStr: 
         pctAllocation,
         todayAllocation: l.todayAllocation,
         yesterdayBalance: l.yesterdayBalance,
-        totalBalance: l.totalBalance,
-        withdrawn: l.withdrawn,
-        remainingBalance: l.remainingBalance,
+        totalBalance,
+        withdrawn,
+        remainingBalance,
         sortOrder: l.fund.sortOrder,
         isActive: l.fund.isActive,
         description: l.fund.description,
       }
-    })
+    }))
     const funds = await listFunds(tenantId, branchId)
     const pctCheck = validatePercentageTotal(funds)
     return {
@@ -658,7 +724,7 @@ async function applyFundMovement(
         fundId,
         date,
         type,
-        amount: type === 'WITHDRAW' ? -Math.abs(amount) : Math.abs(amount),
+        amount: type === 'WITHDRAW' ? -Math.abs(amount) : type === 'ADJUSTMENT' ? amount : Math.abs(amount),
         balanceAfter: updated.balance,
         notes,
         userId,
@@ -726,7 +792,7 @@ export async function listTransactions(
   if (opts.from || opts.to) {
     where.date = {}
     if (opts.from) (where.date as Record<string, Date>).gte = allocationDbDate(opts.from)
-    if (opts.to) (where.date as Record<string, Date>).lte = businessDayRange(normalizeBusinessDate(opts.to)).end
+    if (opts.to) (where.date as Record<string, Date>).lte = allocationDbDate(opts.to)
   }
 
   const skip = (opts.page - 1) * opts.limit
@@ -932,6 +998,13 @@ export async function getPeriodSummary(
       }
       continue
     }
+
+    // Live calc only for recent unsaved days (avoids scanning hundreds of historical days)
+    const todayKey = normalizeBusinessDate()
+    const dayTime = allocationDbDate(day).getTime()
+    const todayTime = allocationDbDate(todayKey).getTime()
+    const daysBehind = Math.round((todayTime - dayTime) / (24 * 60 * 60 * 1000))
+    if (daysBehind > 3) continue
 
     const calc = await calculateAllocationLines(tenantId, branchId, day)
     totalSales += calc.todaySales

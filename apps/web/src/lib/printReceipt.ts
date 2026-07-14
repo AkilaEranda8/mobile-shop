@@ -18,12 +18,16 @@ export function receiptPrintLabel(settings: InvoiceSettings): string {
 }
 
 /** Uses POS thermal / stock-form settings (`thermalWidthPOS`). */
-export function printReceipt(sale: ReceiptSale, settings: InvoiceSettings, ctx?: ShopContext): void {
+export function printReceipt(
+  sale: ReceiptSale,
+  settings: InvoiceSettings,
+  ctx?: ShopContext,
+  opts?: { targetWindow?: Window | null },
+): boolean {
   if (settings.thermalWidthPOS === 'stockForm') {
-    printStockFormInvoice(sale, settings, ctx)
-  } else {
-    printThermalReceipt(sale, settings, ctx)
+    return printStockFormInvoice(sale, settings, ctx, opts)
   }
+  return printThermalReceipt(sale, settings, ctx, opts)
 }
 
 function findWarrantyForItem(

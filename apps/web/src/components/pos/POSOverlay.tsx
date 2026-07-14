@@ -41,7 +41,7 @@ import { cacheProductsForOffline, cacheCategoriesForOffline, getCachedProducts, 
 import { buildOfflineInvoiceNumber, queueOfflineSale } from '@/lib/offline/queue-sale'
 import { isBrowserOnline, isNetworkError } from '@/lib/offline/sync'
 import InvoiceA4View from '@/components/invoice/InvoiceA4View'
-import { printThermalReceipt } from '@/components/invoice/ThermalReceipt'
+import { printThermalReceipt, openReceiptPrintWindow } from '@/components/invoice/ThermalReceipt'
 import { printStockFormInvoice } from '@/components/invoice/StockFormInvoice'
 import { whatsappApi, formatWhatsAppPhone } from '@/lib/whatsapp-api'
 import { captureElementAsPdfBase64 } from '@/lib/invoice-pdf'
@@ -97,17 +97,30 @@ function cartToReceiptItems(cart: CartItem[]) {
 
 type PosReceiptSale = Parameters<typeof printStockFormInvoice>[0]
 
-function printPosReceipt(sale: PosReceiptSale, settings: InvoiceSettings, ctx?: ShopContext) {
+function printPosReceipt(
+  sale: PosReceiptSale,
+  settings: InvoiceSettings,
+  ctx?: ShopContext,
+  targetWindow?: Window | null,
+) {
   if (settings.thermalWidthPOS === 'stockForm') {
-    printStockFormInvoice(sale, settings, ctx)
-  } else {
-    printThermalReceipt(sale, settings, ctx)
+    return printStockFormInvoice(sale, settings, ctx, { targetWindow })
   }
+  return printThermalReceipt(sale, settings, ctx, { targetWindow })
 }
 
-function autoPrintPosReceipt(sale: PosReceiptSale, settings: InvoiceSettings, ctx?: ShopContext) {
-  if (settings.posAutoPrintBill === false) return
-  printPosReceipt(sale, settings, ctx)
+function autoPrintPosReceipt(
+  sale: PosReceiptSale,
+  settings: InvoiceSettings,
+  ctx?: ShopContext,
+  targetWindow?: Window | null,
+) {
+  if (settings.posAutoPrintBill === false) {
+    try { targetWindow?.close() } catch { /* ignore */ }
+    return
+  }
+  const ok = printPosReceipt(sale, settings, ctx, targetWindow)
+  if (!ok) toast.error('Allow popups for this site to print the receipt')
 }
 
 import type { ProductVariation } from '@/types'
@@ -1861,6 +1874,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
     setCheckoutLoading(true)
     setCheckoutError('')
     const settledOutstanding = outstandingPaying
+    // Open print window synchronously with the click — browsers block window.open after await
+    const shouldAutoPrint = invoiceSettings.posAutoPrintBill !== false && cart.length > 0
+    const receiptWin = shouldAutoPrint ? openReceiptPrintWindow('Preparing thermal receipt…') : null
+    if (shouldAutoPrint && !receiptWin) {
+      toast.error('Allow popups for this site to auto-print the receipt')
+    }
     try {
       const user = authStorage.getUser()
 
@@ -1875,6 +1894,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       }
 
       if (cart.length === 0) {
+        try { receiptWin?.close() } catch { /* ignore */ }
         if (selectedCustomer?.id) await refreshCustomerBalance(selectedCustomer.id)
         setIncludeOutstanding(false)
         setOutstandingPayAmount('')
@@ -1944,7 +1964,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           ...receiptData,
           paidAmount: payNowForSale,
         })
-        autoPrintPosReceipt(receiptData, invoiceSettings, thermalShopCtx)
+        autoPrintPosReceipt(receiptData, invoiceSettings, thermalShopCtx, receiptWin)
         setCart([])
         setDiscountPct(0)
         setDiscountFlat(0)
@@ -2021,8 +2041,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
         ...receiptData,
         paidAmount: payNowForSale,
       })
-      autoPrintPosReceipt(receiptData, invoiceSettings, thermalShopCtx)
+      autoPrintPosReceipt(receiptData, invoiceSettings, thermalShopCtx, receiptWin)
     } catch (e: any) {
+      try { receiptWin?.close() } catch { /* ignore */ }
       if (settledOutstanding > 0) {
         if (selectedCustomer?.id) await refreshCustomerBalance(selectedCustomer.id)
         const base = e.message || 'Checkout failed'
