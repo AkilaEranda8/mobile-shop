@@ -20,6 +20,10 @@ function RedirectInner() {
   const searchParams = useSearchParams()
   useEffect(() => {
     const tab = searchParams.get('tab') || 'overview'
+    if (tab === 'dailyreload') {
+      router.replace('/dashboard/daily-reload-report')
+      return
+    }
     const section = TAB_TO_SECTION[tab] || 'overview'
     router.replace(`/dashboard/reports/${section}`)
   }, [router, searchParams])

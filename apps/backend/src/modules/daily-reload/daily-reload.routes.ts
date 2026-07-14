@@ -280,30 +280,79 @@ router.get('/report', async (req: Request, res: Response, next: NextFunction) =>
     const totalAmount  = reloads.reduce((s: number, r: any) => s + Number(r.amount), 0)
     const successCount = reloads.filter((r: any) => r.status === 'Success').length
     const totalCommission = sumCommission(reloads, settings)
+    const round2 = (n: number) => Math.round(n * 100) / 100
 
     const byDate: Record<string, { date: string; count: number; totalAmount: number; commission: number; successCount: number }> = {}
+    const byProvider: Record<string, { provider: string; count: number; totalAmount: number; commission: number; successCount: number }> = {}
+    const byType: Record<string, { type: string; label: string; count: number; totalAmount: number; commission: number; successCount: number }> = {
+      RELOAD: { type: 'RELOAD', label: 'Mobile Reload', count: 0, totalAmount: 0, commission: 0, successCount: 0 },
+      RECHARGE_CARD: { type: 'RECHARGE_CARD', label: 'Recharge Card', count: 0, totalAmount: 0, commission: 0, successCount: 0 },
+    }
+
     for (const r of reloads) {
       const d = businessDateKeyFromInstant(r.reloadDate)
+      const amt = Number(r.amount)
+      const svc = reloadServiceType(r)
+      const commission = calcReloadCommission(r.amount, settings, r.connectionNo, r.provider, svc)
+      const provider = resolveReloadProvider(r.connectionNo, r.provider) ?? 'Other'
+      const isSuccess = r.status === 'Success'
+
       if (!byDate[d]) byDate[d] = { date: d, count: 0, totalAmount: 0, commission: 0, successCount: 0 }
       byDate[d].count++
-      byDate[d].totalAmount += Number(r.amount)
-      byDate[d].commission += calcReloadCommission(
-        r.amount, settings, r.connectionNo, r.provider, reloadServiceType(r),
-      )
-      if (r.status === 'Success') byDate[d].successCount++
+      byDate[d].totalAmount += amt
+      byDate[d].commission += commission
+      if (isSuccess) byDate[d].successCount++
+
+      if (!byProvider[provider]) {
+        byProvider[provider] = { provider, count: 0, totalAmount: 0, commission: 0, successCount: 0 }
+      }
+      byProvider[provider].count++
+      byProvider[provider].totalAmount += amt
+      byProvider[provider].commission += commission
+      if (isSuccess) byProvider[provider].successCount++
+
+      const typeRow = byType[svc] ?? byType.RELOAD
+      typeRow.count++
+      typeRow.totalAmount += amt
+      typeRow.commission += commission
+      if (isSuccess) typeRow.successCount++
     }
+
     for (const d of Object.values(byDate)) {
-      d.totalAmount = Math.round(d.totalAmount * 100) / 100
-      d.commission = Math.round(d.commission * 100) / 100
+      d.totalAmount = round2(d.totalAmount)
+      d.commission = round2(d.commission)
     }
+
+    const providerBreakdown = Object.values(byProvider)
+      .map((p) => ({
+        ...p,
+        totalAmount: round2(p.totalAmount),
+        commission: round2(p.commission),
+        netPayable: round2(p.totalAmount - p.commission),
+        share: totalAmount > 0 ? round2((p.totalAmount / totalAmount) * 100) : 0,
+      }))
+      .sort((a, b) => b.totalAmount - a.totalAmount)
+
+    const typeBreakdown = Object.values(byType)
+      .filter((t) => t.count > 0)
+      .map((t) => ({
+        ...t,
+        totalAmount: round2(t.totalAmount),
+        commission: round2(t.commission),
+        netPayable: round2(t.totalAmount - t.commission),
+        share: totalAmount > 0 ? round2((t.totalAmount / totalAmount) * 100) : 0,
+      }))
 
     sendSuccess(res, {
       totalCount:     reloads.length,
-      totalAmount:    Math.round(totalAmount * 100) / 100,
+      totalAmount:    round2(totalAmount),
       commission:     totalCommission,
+      netPayable:     round2(totalAmount - totalCommission),
       successCount,
       failCount:      reloads.length - successCount,
-      dailyBreakdown: Object.values(byDate),
+      dailyBreakdown: Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date)),
+      providerBreakdown,
+      typeBreakdown,
       settings,
     })
   } catch (e) { next(e) }

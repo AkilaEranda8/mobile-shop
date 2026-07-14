@@ -162,9 +162,12 @@ function DailyReloadTab({ fromDate, toDate, branchId }: { fromDate: string; toDa
   const totalCount   = d?.totalCount   ?? 0
   const totalAmount  = d?.totalAmount  ?? 0
   const commission   = d?.commission   ?? 0
+  const netPayable   = d?.netPayable   ?? Math.round((totalAmount - commission) * 100) / 100
   const successCount = d?.successCount ?? 0
   const failCount    = d?.failCount    ?? 0
   const breakdown: any[] = d?.dailyBreakdown ?? []
+  const providers: any[] = d?.providerBreakdown ?? []
+  const types: any[] = d?.typeBreakdown ?? []
   const successRate  = totalCount > 0 ? Math.round((successCount / totalCount) * 100) : 0
 
   const chartData = breakdown.map((r: any) => ({
@@ -173,8 +176,17 @@ function DailyReloadTab({ fromDate, toDate, branchId }: { fromDate: string; toDa
     Commission: r.commission,
   }))
 
+  const pieData = providers.slice(0, 8).map((p: any, i: number) => ({
+    name: p.provider,
+    value: p.totalAmount,
+    fill: PIE_COLORS[i % PIE_COLORS.length],
+  }))
+
   const exportRows = breakdown.map((r: any) => [
     r.date, r.count, r.totalAmount.toFixed(2), r.commission.toFixed(2), r.successCount, r.count - r.successCount,
+  ])
+  const providerExport = providers.map((p: any) => [
+    p.provider, p.count, p.totalAmount.toFixed(2), p.commission.toFixed(2), p.netPayable.toFixed(2), p.share,
   ])
 
   const tabState = combineFetch({ loading, error, refetch })
@@ -184,30 +196,100 @@ function DailyReloadTab({ fromDate, toDate, branchId }: { fromDate: string; toDa
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <StatCard label="Total Reloads"       value={String(totalCount)}           icon={PhoneCall}    color="violet" />
         <StatCard label="Total Amount"        value={formatCurrency(totalAmount)}  icon={DollarSign}   color="blue"   />
         <StatCard label="Commission (Profit)" value={formatCurrency(commission)}   icon={TrendingUp}   color="green"  sub="Per provider rates" />
+        <StatCard label="Net to Providers"    value={formatCurrency(netPayable)}   icon={Activity}     color="amber"  />
         <StatCard label="Success Rate"        value={`${successRate}%`}            icon={CheckCircle}  color="green"  sub={`${failCount} failed`} />
       </div>
 
+      <div className="grid lg:grid-cols-2 gap-4">
+        <div className="card p-5">
+          <SectionTitle title="Daily Reload Revenue &amp; Commission" sub={`${fromDate} → ${toDate}`} />
+          {chartData.length === 0 ? (
+            <div className="h-48 flex items-center justify-center text-sm" style={{ color: 'var(--text-muted)' }}>No reload data for this period</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} tickFormatter={v => formatCurrency(v)} width={70} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any) => formatCurrency(v)} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Bar dataKey="Amount"     fill="var(--brand-primary-light)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Commission" fill="#16a34a" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        <div className="card p-5">
+          <SectionTitle title="Provider Share" />
+          {pieData.length === 0 ? (
+            <div className="h-48 flex items-center justify-center text-sm" style={{ color: 'var(--text-muted)' }}>No provider data</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <PieChart>
+                <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80}
+                  label={({ name, percent }: any) => percent > 0.04 ? `${String(name).slice(0, 10)} ${(percent * 100).toFixed(0)}%` : ''}>
+                  {pieData.map((e: any, i: number) => <Cell key={i} fill={e.fill} />)}
+                </Pie>
+                <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any) => formatCurrency(v)} />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+
+      {types.length > 0 && (
+        <div className="grid sm:grid-cols-2 gap-3">
+          {types.map((t: any) => (
+            <div key={t.type} className="card p-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{t.label}</p>
+                <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{t.count} reloads · {t.share}%</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(t.totalAmount)}</p>
+                <p className="text-[11px] text-green-600 dark:text-green-400">{formatCurrency(t.commission)} commission</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="card p-5">
-        <SectionTitle title="Daily Reload Revenue &amp; Commission" sub={`${fromDate} → ${toDate}`} />
-        {chartData.length === 0 ? (
-          <div className="h-48 flex items-center justify-center text-sm" style={{ color: 'var(--text-muted)' }}>No reload data for this period</div>
-        ) : (
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} tickFormatter={v => formatCurrency(v)} width={70} />
-              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any) => formatCurrency(v)} />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="Amount"     fill="var(--brand-primary-light)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Commission" fill="#16a34a" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
+        <div className="flex items-center justify-between mb-4">
+          <SectionTitle title="Provider Breakdown" />
+          <ExportCSV filename="reload-providers.csv" headers={['Provider','Reloads','Amount','Commission','Net','Share %']} rows={providerExport} />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                {['Provider','Reloads','Amount','Commission','Net','Share'].map((h, i) => (
+                  <th key={h} className={`text-[11px] font-semibold uppercase tracking-wide px-3 py-2 ${i === 0 ? 'text-left' : 'text-right'}`} style={{ color: 'var(--text-muted)' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {providers.map((p: any) => (
+                <tr key={p.provider} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  <td className="px-3 py-2.5 text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{p.provider}</td>
+                  <td className="px-3 py-2.5 text-xs text-right" style={{ color: 'var(--text-secondary)' }}>{p.count}</td>
+                  <td className="px-3 py-2.5 text-xs text-right font-semibold text-violet-600 dark:text-violet-400">{formatCurrency(p.totalAmount)}</td>
+                  <td className="px-3 py-2.5 text-xs text-right font-semibold text-green-600 dark:text-green-400">{formatCurrency(p.commission)}</td>
+                  <td className="px-3 py-2.5 text-xs text-right" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(p.netPayable)}</td>
+                  <td className="px-3 py-2.5 text-xs text-right" style={{ color: 'var(--text-muted)' }}>{p.share}%</td>
+                </tr>
+              ))}
+              {providers.length === 0 && (
+                <tr><td colSpan={6} className="text-center py-8 text-xs" style={{ color: 'var(--text-muted)' }}>No provider data for this period</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="card p-5">

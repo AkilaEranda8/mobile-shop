@@ -60,7 +60,7 @@ const reportsSubmenu: NavSubItem[] = [
   { href: '/dashboard/reports/inventory', icon: Package, label: 'Inventory', feature: 'REPORTS' },
   { href: '/dashboard/reports/repairs', icon: Wrench, label: 'Repairs', feature: 'REPORTS' },
   { href: '/dashboard/reports/delivery', icon: Truck, label: 'Delivery', feature: 'REPORTS' },
-  { href: '/dashboard/reports/daily-reload', icon: PhoneCall, label: 'Daily Reload', feature: 'DAILY_RELOAD' },
+  { href: '/dashboard/daily-reload-report', icon: PhoneCall, label: 'Daily Reload Report', badge: 'NEW', feature: 'DAILY_RELOAD' },
   { href: '/dashboard/category-report', icon: Tag, label: 'Category Report', badge: 'NEW', feature: 'REPORTS' },
   { href: '/dashboard/customer-report', icon: Users, label: 'Customer Report', badge: 'NEW', feature: 'REPORTS' },
   { href: '/dashboard/purchase-report', icon: ClipboardList, label: 'Purchase Report', badge: 'NEW', feature: 'REPORTS' },
