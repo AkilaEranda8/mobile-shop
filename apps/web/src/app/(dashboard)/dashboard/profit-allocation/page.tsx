@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { businessToday, businessPeriodFrom } from '@/lib/business-date'
+import { businessToday } from '@/lib/business-date'
 import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { profitAllocationApi } from '@/lib/api'
@@ -49,7 +49,6 @@ const DATA_SOURCE_LABEL: Record<string, string> = {
   daily_closing_closed: 'Closed day summary',
   pos_finance: 'POS sales & finance transactions',
   saved_allocation: 'Saved allocation record',
-  all_days: 'All days combined',
 }
 
 type Fund = {
@@ -88,9 +87,6 @@ const TYPE_FILTER_OPTIONS = [
   { id: 'PERCENTAGE', label: 'Percentage' },
   { id: 'MANUAL', label: 'Manual' },
 ] as const
-
-/** Cumulative window — all days rolled together (no date picker). */
-const CUMULATIVE_LOOKBACK_DAYS = 1095
 
 function SectionTitle({ title, sub }: { title: string; sub?: string }) {
   return (
@@ -202,7 +198,7 @@ export default function ProfitAllocationPage() {
 
   const branchId = getActiveBranchId() ?? ''
   const todayStr = useMemo(() => businessToday(), [])
-  const dateFrom = useMemo(() => businessPeriodFrom(CUMULATIVE_LOOKBACK_DAYS, todayStr), [todayStr])
+  const dateFrom = todayStr
   const dateTo = todayStr
   const viewDate = todayStr
   const [search, setSearch] = useState('')
@@ -232,7 +228,6 @@ export default function ProfitAllocationPage() {
     setDashboardOverride(null)
   }, [branchId, viewDate])
 
-  // Today's dashboard drives Save / Recalculate (daily lock), while the table shows all days combined
   const { data: dashRaw, loading: todayLoading, error: dashError, refetch } = useProfitAllocationDashboard(
     branchId,
     viewDate,
@@ -277,7 +272,7 @@ export default function ProfitAllocationPage() {
       })
     } catch (e: unknown) {
       setPeriodData(null)
-      toast.error((e as { message?: string })?.message ?? 'Failed to load period summary')
+      toast.error((e as { message?: string })?.message ?? 'Failed to load day summary')
     } finally {
       setPeriodLoading(false)
     }
@@ -287,24 +282,8 @@ export default function ProfitAllocationPage() {
   useEffect(() => { loadPeriod() }, [loadPeriod])
   useEffect(() => { setTxPage(1) }, [dateFrom, dateTo, branchId])
 
-  const activeDashboard: DashboardData | null = periodData
-    ? {
-        date: `All days → ${dateTo}`,
-        todaySales: periodData.totals.sales,
-        todayProfit: periodData.totals.profit,
-        totalAllocated: periodData.totals.allocated,
-        remainingProfit: periodData.totals.remaining,
-        percentageTotal: todayDashboard?.percentageTotal ?? 0,
-        percentageValid: todayDashboard?.percentageValid ?? true,
-        lines: periodData.fundLines,
-        saved: Boolean(todayDashboard?.saved),
-        allocationId: todayDashboard?.allocationId ?? null,
-        dataSource: 'all_days',
-        salesCount: todayDashboard?.salesCount,
-      }
-    : todayDashboard
-
-  const tableLoading = periodLoading || (todayLoading && !periodData)
+  const activeDashboard = todayDashboard
+  const tableLoading = todayLoading
 
   const filteredLines = useMemo(() => {
     const lines = activeDashboard?.lines
@@ -525,7 +504,7 @@ export default function ProfitAllocationPage() {
   }
 
   const exportMeta = activeDashboard ? {
-    date: `All days to ${viewDate}`,
+    date: viewDate,
     todaySales: activeDashboard.todaySales,
     todayProfit: activeDashboard.todayProfit,
     totalAllocated: activeDashboard.totalAllocated,
@@ -558,9 +537,9 @@ export default function ProfitAllocationPage() {
   }
 
   const kpiCards = [
-    { label: 'Total Sales', value: formatCurrency(activeDashboard?.todaySales ?? 0), icon: <Banknote size={16} />, color: 'var(--brand-primary-light)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)' },
-    { label: 'Total Profit', value: formatCurrency(activeDashboard?.todayProfit ?? 0), icon: <TrendingUp size={16} />, color: '#15803d', bg: 'rgba(21,128,61,0.08)', border: 'rgba(21,128,61,0.20)' },
-    { label: 'Total Allocated', value: formatCurrency(activeDashboard?.totalAllocated ?? 0), icon: <PieChartIcon size={16} />, color: '#1d4ed8', bg: 'rgba(29,78,216,0.08)', border: 'rgba(29,78,216,0.20)' },
+    { label: "Today's Sales", value: formatCurrency(activeDashboard?.todaySales ?? 0), icon: <Banknote size={16} />, color: 'var(--brand-primary-light)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)' },
+    { label: "Today's Profit", value: formatCurrency(activeDashboard?.todayProfit ?? 0), icon: <TrendingUp size={16} />, color: '#15803d', bg: 'rgba(21,128,61,0.08)', border: 'rgba(21,128,61,0.20)' },
+    { label: 'Allocated Today', value: formatCurrency(activeDashboard?.totalAllocated ?? 0), icon: <PieChartIcon size={16} />, color: '#1d4ed8', bg: 'rgba(29,78,216,0.08)', border: 'rgba(29,78,216,0.20)' },
     { label: 'Remaining Profit', value: formatCurrency(activeDashboard?.remainingProfit ?? 0), icon: <Wallet size={16} />, color: '#d97706', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.20)' },
   ]
 
@@ -572,19 +551,12 @@ export default function ProfitAllocationPage() {
           <h1 className="page-title">Profit Allocation & Fund Management</h1>
           <p className="page-subtitle flex items-center gap-1.5 flex-wrap">
             <Calendar size={12} />
-            All days combined · through {formatDate(viewDate)}
-            {periodData && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
-                style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>
-                {periodData.totals.savedDays} saved day{periodData.totals.savedDays === 1 ? '' : 's'}
-                {(periodData.totals.liveDays ?? 0) > 0 ? ` · ${periodData.totals.liveDays} live` : ''}
-              </span>
-            )}
+            Today · {formatDate(viewDate)}
             {activeDashboard?.dataSource && !tableLoading && (
               <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
                 style={{ background: 'var(--brand-glow)', color: 'var(--brand-primary-light)', border: '1px solid var(--sidebar-active-border)' }}>
                 {DATA_SOURCE_LABEL[activeDashboard.dataSource] ?? activeDashboard.dataSource}
-                {activeDashboard.salesCount != null ? ` · ${activeDashboard.salesCount} sales today` : ''}
+                {activeDashboard.salesCount != null ? ` · ${activeDashboard.salesCount} sales` : ''}
               </span>
             )}
             {todayDashboard?.saved && (
@@ -671,7 +643,7 @@ export default function ProfitAllocationPage() {
         <div className="p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
           <SectionTitle
             title="Allocation Details"
-            sub="All days combined — each fund shows cumulative allocated amounts"
+            sub="Today = from profit today · Yesterday = carried from before · Total = yesterday + today"
           />
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1 max-w-xs">
@@ -710,8 +682,13 @@ export default function ProfitAllocationPage() {
             <table className="w-full">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  {['Fund', 'Type', 'Value', 'Cost', 'Allocated', 'Opening', 'Total', 'Withdrawn', 'Remaining', 'Actions'].map((h, i) => (
-                    <th key={h} className={`table-header whitespace-nowrap${i >= 4 && i <= 8 ? ' text-right' : ''}${i === 9 ? ' text-center' : ''}`}>{h}</th>
+                  {['Fund', 'Type', 'Value', 'Cost', 'Today', 'Yesterday', 'Total', 'Withdrawn', 'Remaining', 'Actions'].map((h, i) => (
+                    <th key={h} className={`table-header whitespace-nowrap${i >= 4 && i <= 8 ? ' text-right' : ''}${i === 9 ? ' text-center' : ''}`}
+                      title={h === 'Today' ? "Amount taken from today's profit into this fund"
+                        : h === 'Yesterday' ? 'Balance carried into today (all prior days minus withdrawals)'
+                        : h === 'Total' ? 'Running total = Yesterday + Today'
+                        : undefined}
+                    >{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -753,7 +730,7 @@ export default function ProfitAllocationPage() {
                         )}
                       </td>
                       <td className="table-cell text-right"><span className="text-sm" style={{ color: 'var(--text-muted)' }}>{formatCurrency(line.yesterdayBalance)}</span></td>
-                      <td className="table-cell text-right"><span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(line.totalBalance)}</span></td>
+                      <td className="table-cell text-right"><span className="text-sm font-semibold tabular-nums" style={{ color: 'var(--brand-primary-light)' }}>{formatCurrency(line.totalBalance)}</span></td>
                       <td className="table-cell text-right"><span className="text-sm font-semibold" style={{ color: '#b91c1c' }}>{formatCurrency(line.withdrawn)}</span></td>
                       <td className="table-cell text-right"><span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(line.remainingBalance)}</span></td>
                       <td className="table-cell text-center">
@@ -960,13 +937,13 @@ export default function ProfitAllocationPage() {
         </div>
       </div>
 
-      {/* Period Summary */}
+      {/* Today's Fund Summary */}
       <div className="card p-5">
         <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
           <div>
-            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Period Summary</h3>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Today&apos;s Fund Summary</h3>
             <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              Cumulative fund ledger · Opening, allocated, withdrawn & closing balances
+              Opening, allocated, withdrawn & closing for today
             </p>
           </div>
         </div>

@@ -14,6 +14,7 @@ import {
 import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
 import { productConditionLabel } from '@/lib/productCondition'
 import type { ExchangeTradeInBill } from '@/lib/exchangeBill'
+import { printHtmlDocument } from '@/lib/printHtml'
 
 export interface StockFormSale {
   invoiceNumber: string
@@ -596,30 +597,9 @@ export function printStockFormInvoice(
 </body>
 </html>`
 
-  const win = opts?.targetWindow ?? window.open('', '_blank', 'width=800,height=900')
-  if (!win || win.closed) {
-    if (!opts?.targetWindow) alert('Please allow pop-ups to print the stock form invoice.')
-    return false
-  }
-  try {
-    win.document.open()
-    win.document.write(html)
-    win.document.close()
-    const runPrint = () => {
-      try {
-        win.focus()
-        win.print()
-        setTimeout(() => {
-          try { win.close() } catch { /* ignore */ }
-        }, 400)
-      } catch {
-        /* ignore */
-      }
-    }
-    setTimeout(runPrint, 50)
-    return true
-  } catch {
-    try { win.close() } catch { /* ignore */ }
-    return false
-  }
+  return printHtmlDocument(html, {
+    targetWindow: opts?.targetWindow,
+    popupFeatures: 'width=800,height=900',
+    alertOnBlock: 'Please allow pop-ups to print the stock form invoice.',
+  })
 }

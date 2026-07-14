@@ -17,7 +17,7 @@ export function exportAllocationCsv(
   lines: AllocationLine[],
   meta: { date: string; todaySales: number; todayProfit: number },
 ) {
-  const header = ['Fund Name', 'Type', 'Value', 'Cost', 'Today Allocation', 'Yesterday Balance', 'Total Balance', 'Withdrawn', 'Remaining Balance']
+  const header = ['Fund Name', 'Type', 'Value', 'Cost', 'Today', 'Yesterday', 'Total', 'Withdrawn', 'Remaining']
   const rows = lines.map(l => [
     l.fundName,
     l.fundType,
@@ -57,7 +57,7 @@ export function exportAllocationExcel(
     ['Total Allocated', meta.totalAllocated],
     ['Remaining Profit', meta.remainingProfit],
     [],
-    ['Fund Name', 'Type', 'Value', 'Cost', 'Today Allocation', 'Yesterday Balance', 'Total Balance', 'Withdrawn', 'Remaining Balance'],
+    ['Fund Name', 'Type', 'Value', 'Cost', 'Today', 'Yesterday', 'Total', 'Withdrawn', 'Remaining'],
     ...lines.map(l => [
       l.fundName, l.fundType, l.value, l.categoryCost ?? 0, l.todayAllocation,
       l.yesterdayBalance, l.totalBalance, l.withdrawn, l.remainingBalance,

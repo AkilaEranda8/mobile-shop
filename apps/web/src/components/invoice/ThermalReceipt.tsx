@@ -5,6 +5,9 @@ import type { InvoiceSettings, ShopContext } from '@/lib/invoiceSettings'
 import { mergeReceiptSettings, HEXALYTE_SOFTWARE_FOOTER, thermalLogoMaxHeight, thermalBodyFontWeight } from '@/lib/invoiceSettings'
 import { formatWarrantyPeriodLabel, matchWarrantyMonths } from '@/components/pos/cart-rules'
 import { productConditionLabel } from '@/lib/productCondition'
+import { openReceiptPrintWindow, printHtmlDocument } from '@/lib/printHtml'
+
+export { openReceiptPrintWindow }
 
 export interface ThermalWarrantyLine {
   warrantyCode: string
@@ -490,48 +493,9 @@ export function printThermalReceipt(
 </body>
 </html>`
 
-  const win = opts?.targetWindow ?? window.open('', '_blank', 'width=400,height=600')
-  if (!win || win.closed) {
-    if (!opts?.targetWindow) alert('Please allow pop-ups to print the thermal receipt.')
-    return false
-  }
-  try {
-    win.document.open()
-    win.document.write(html)
-    win.document.close()
-    const runPrint = () => {
-      try {
-        win.focus()
-        win.print()
-        // Keep window briefly so the print dialog can attach
-        setTimeout(() => {
-          try { win.close() } catch { /* ignore */ }
-        }, 400)
-      } catch {
-        /* ignore */
-      }
-    }
-    // document.write often finishes load before onload is assigned — print immediately
-    setTimeout(runPrint, 50)
-    return true
-  } catch {
-    try { win.close() } catch { /* ignore */ }
-    return false
-  }
-}
-
-export function openReceiptPrintWindow(loadingHtml = 'Preparing receipt…'): Window | null {
-  const win = window.open('', '_blank', 'width=400,height=600')
-  if (!win) return null
-  try {
-    win.document.open()
-    win.document.write(
-      `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Receipt</title></head>` +
-      `<body style="font-family:system-ui,sans-serif;padding:24px;color:#334155"><p>${loadingHtml}</p></body></html>`,
-    )
-    win.document.close()
-  } catch {
-    /* ignore */
-  }
-  return win
+  return printHtmlDocument(html, {
+    targetWindow: opts?.targetWindow,
+    popupFeatures: 'width=400,height=600',
+    alertOnBlock: 'Please allow pop-ups to print the thermal receipt.',
+  })
 }

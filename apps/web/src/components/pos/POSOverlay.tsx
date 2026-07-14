@@ -119,8 +119,10 @@ function autoPrintPosReceipt(
     try { targetWindow?.close() } catch { /* ignore */ }
     return
   }
-  const ok = printPosReceipt(sale, settings, ctx, targetWindow)
-  if (!ok) toast.error('Allow popups for this site to print the receipt')
+  // Pre-opened popup may die during checkout await — null triggers iframe fallback
+  const win = targetWindow && !targetWindow.closed ? targetWindow : null
+  const ok = printPosReceipt(sale, settings, ctx, win)
+  if (!ok) toast.error('Could not open the print dialog — try Print Receipt on the success screen')
 }
 
 import type { ProductVariation } from '@/types'
