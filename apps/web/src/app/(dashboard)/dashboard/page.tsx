@@ -19,6 +19,7 @@ import {
 import type { RepairTicket, Transaction as AppTransaction } from '@/types'
 import { formatCurrency, formatRelativeTime } from '@/lib/utils'
 import { businessToday, businessPeriodFrom, formatBusinessDateLabel } from '@/lib/business-date'
+import { BusinessHealthCard } from '@/components/dashboard/BusinessHealthCard'
 
 /* ─────────────────────────────────────────────────────────────────────
    SVG SPARKLINE
@@ -49,34 +50,6 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
       <path d={area} fill={`url(#sp-${cId})`}/>
       <path d={path} fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
-  )
-}
-
-/* ─────────────────────────────────────────────────────────────────────
-   HEALTH DONUT
-   ───────────────────────────────────────────────────────────────────── */
-function HealthRing({ score }: { score: number }) {
-  const clamp  = Math.min(100, Math.max(0, score))
-  const r      = 56, circ = 2 * Math.PI * r
-  const offset = circ - (clamp / 100) * circ
-  const color  = clamp >= 75 ? '#22c55e' : clamp >= 50 ? '#f59e0b' : '#ef4444'
-  const label  = clamp >= 75 ? 'Excellent' : clamp >= 50 ? 'Good' : 'Needs Attention'
-  return (
-    <div className="flex flex-col items-center">
-      <div className="relative w-40 h-40">
-        <svg viewBox="0 0 130 130" className="w-full h-full -rotate-90">
-          <circle cx="65" cy="65" r={r} fill="none" stroke="#f1f5f9" strokeWidth="12"/>
-          <circle cx="65" cy="65" r={r} fill="none" stroke={color} strokeWidth="12"
-            strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
-            style={{ transition: 'stroke-dashoffset 1.2s cubic-bezier(.34,1.56,.64,1)' }}/>
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-3xl font-black tabular-nums" style={{ color }}>{clamp}%</span>
-        </div>
-      </div>
-      <p className="font-bold text-gray-800 dark:text-slate-200 text-base mt-1">{label}</p>
-      <p className="text-xs text-gray-400 mt-0.5">You&apos;re doing great!</p>
-    </div>
   )
 }
 
@@ -159,17 +132,18 @@ export default function DashboardPage() {
     { name: 'Ready for Pickup', value: repairStats.ready,     color: '#22c55e' },
   ].filter(d => d.value > 0)
 
-  /* Health */
-  const healthScore = useMemo(() => {
-    let sc = 50
-    if (totalRevenue > 0)                        sc += 12
-    if (totalGrossProfit > 0)                    sc += 6
-    if (totalNetProfit > 0)                      sc += 4
-    if ((s?.activeRepairs  ?? 0) < 10)           sc += 8
-    if ((s?.lowStockCount  ?? 0) === 0)          sc += 10
-    if ((s?.totalCustomers ?? 0) > 5)            sc += 10
-    return Math.min(100, sc)
-  }, [s, totalRevenue, totalGrossProfit, totalNetProfit])
+  /* Health card data */
+  const healthInput = useMemo(() => ({
+    totalRevenue,
+    totalGrossProfit,
+    totalNetProfit,
+    grossMarginPct: Number(grossMargin) || 0,
+    netMarginPct: Number(netMargin) || 0,
+    lowStockCount: s?.lowStockCount ?? 0,
+    totalCustomers: s?.totalCustomers ?? 0,
+    activeRepairs: repairStats.active,
+    sparkRevenue: sparkRev,
+  }), [totalRevenue, totalGrossProfit, totalNetProfit, grossMargin, netMargin, s, repairStats.active, sparkRev])
 
   /* Activity */
   const activityFeed = useMemo(() => {
@@ -272,31 +246,8 @@ export default function DashboardPage() {
         </div>
 
         {/* Business Health */}
-        <div className={`${CARD} lg:col-span-3 p-5`}>
-          <h3 className="font-bold text-gray-900 dark:text-white mb-4">Business Health</h3>
-          <HealthRing score={healthScore}/>
-          <div className="space-y-2.5 mt-5">
-            {[
-              { label: 'Sales (30d)',         status: totalRevenue > 0 ? 'Active' : 'No Sales',  ok: totalRevenue > 0 },
-              { label: 'Gross Profit',        status: totalGrossProfit > 0 ? `${grossMargin}%` : 'No Margin', ok: totalGrossProfit > 0 },
-              { label: 'Net Profit',          status: totalNetProfit > 0 ? `${netMargin}%` : 'After Expenses', ok: totalNetProfit > 0 },
-              { label: 'Stock Status',       status: (s?.lowStockCount ?? 0) === 0 ? 'All Stocked' : `${s?.lowStockCount} Low`, ok: (s?.lowStockCount ?? 0) === 0 },
-              { label: 'Customers',          status: `${s?.totalCustomers ?? 0} registered`, ok: (s?.totalCustomers ?? 0) > 0 },
-              { label: 'Active Repairs',     status: repairStats.active > 0 ? `${repairStats.active} open` : 'None', ok: repairStats.active < 10 },
-            ].map(m => (
-              <div key={m.label} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full" style={{ background: m.ok ? '#22c55e' : '#f59e0b' }}/>
-                  <span className="text-xs text-gray-600 dark:text-slate-400">{m.label}</span>
-                </div>
-                <span className="text-[11px] font-semibold" style={{ color: m.ok ? '#22c55e' : '#f59e0b' }}>{m.status}</span>
-              </div>
-            ))}
-          </div>
-          <Link href="/dashboard/reports?tab=overview"
-            className="mt-5 flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl text-sm font-semibold text-green-600 bg-green-50 dark:bg-green-500/10 hover:bg-green-100 dark:hover:bg-green-500/20 transition-colors border border-green-100 dark:border-green-500/20">
-            Go to Reports <ArrowRight size={14}/>
-          </Link>
+        <div className="lg:col-span-3">
+          <BusinessHealthCard data={healthInput} />
         </div>
 
         {/* Recent Activity */}

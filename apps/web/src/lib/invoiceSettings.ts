@@ -143,9 +143,9 @@ export const BARCODE_LABEL_DESIGNS: Record<Exclude<BarcodeLabelPreset, 'custom'>
     showPrice: true,
     showBarcodeText: true,
     showCopyIndex: true,
-    nameFontPt: 6,
-    barcodeHeight: 26,
-    barcodeBarWidth: 1.2,
+    nameFontPt: 5.5,
+    barcodeHeight: 20,
+    barcodeBarWidth: 1.15,
     nameMaxLines: 2,
   },
 }

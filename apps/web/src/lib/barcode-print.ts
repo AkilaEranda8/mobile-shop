@@ -144,8 +144,16 @@ export function printBarcodeLabels(
   const previewFirst = options?.preview !== false
   const wMm = settings.widthMm
   const hMm = settings.heightMm
-  const svgMaxH = Math.max(5.5, Math.min(hMm * 0.30, 9))
-  const pricePt = Math.min(7.5, Math.max(settings.nameFontPt + 0.5, 6))
+  const dense =
+    settings.showShopName &&
+    settings.showProductName &&
+    settings.showSku &&
+    settings.showBarcodeText &&
+    settings.showPrice
+  // Keep bars short enough that digits + price never collide on 50×30 dense labels
+  const svgMaxH = Math.max(5, Math.min(hMm * (dense ? 0.20 : 0.26), dense ? 6.5 : 8))
+  const pricePt = Math.min(dense ? 6.5 : 7.5, Math.max(settings.nameFontPt + 0.25, 5.5))
+  const namePt = Math.min(settings.nameFontPt, dense ? 5.8 : 6.5)
   const labelCount = valid.reduce((sum, item) => sum + Math.max(1, Math.min(item.qty ?? 1, 99)), 0)
   const labelsBody = valid.map(item => labelHtml(item, settings, options?.shopName)).join('')
 
@@ -221,13 +229,14 @@ export function printBarcodeLabels(
   .label {
     width: ${wMm - 1.5}mm;
     height: ${hMm - 1.5}mm;
-    padding: 1.2mm 1.5mm 1.1mm;
+    padding: 1.1mm 1.4mm 1.2mm;
     page-break-after: always;
     position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
+    gap: 0.35mm;
     text-align: center;
     overflow: hidden;
     background: #fff;
@@ -238,30 +247,31 @@ export function printBarcodeLabels(
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.35mm;
+    gap: 0.3mm;
     flex-shrink: 0;
   }
   .mid {
     flex: 1 1 auto;
     justify-content: center;
     min-height: 0;
-    gap: 0.4mm;
+    overflow: hidden;
+    gap: 0.45mm;
   }
   .shop {
-    font-size: 4.2pt;
+    font-size: ${dense ? 3.9 : 4.2}pt;
     font-weight: 500;
     color: #666;
-    line-height: 1.2;
+    line-height: 1.15;
     max-width: 100%;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
   .name {
-    font-size: ${Math.min(settings.nameFontPt, 6.5)}pt;
+    font-size: ${namePt}pt;
     font-weight: 700;
     color: #111;
-    line-height: 1.2;
+    line-height: 1.15;
     max-width: 100%;
     word-break: break-word;
     overflow-wrap: anywhere;
@@ -271,10 +281,10 @@ export function printBarcodeLabels(
     overflow: hidden;
   }
   .sku {
-    font-size: 4pt;
+    font-size: ${dense ? 3.7 : 4}pt;
     font-weight: 500;
     color: #777;
-    line-height: 1.15;
+    line-height: 1.1;
     max-width: 100%;
     white-space: nowrap;
     overflow: hidden;
@@ -282,46 +292,53 @@ export function printBarcodeLabels(
   }
   .barcode {
     width: 100%;
+    height: ${svgMaxH}mm;
+    max-height: ${svgMaxH}mm;
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
     line-height: 0;
-    min-height: 0;
-    max-height: ${svgMaxH + 1}mm;
+    overflow: hidden;
+    flex-shrink: 0;
   }
   .barcode svg {
+    display: block;
+    width: 100%;
     max-width: 100%;
-    height: auto;
-    max-height: ${svgMaxH}mm;
+    height: ${svgMaxH}mm !important;
+    max-height: ${svgMaxH}mm !important;
   }
   .digits {
-    font-size: 5pt;
+    font-size: ${dense ? 4.5 : 5}pt;
     font-weight: 600;
     font-family: "Courier New", Courier, monospace;
     letter-spacing: 0.01em;
     color: #111;
-    line-height: 1.15;
+    line-height: 1.1;
     max-width: 100%;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    flex-shrink: 0;
   }
   .price {
     font-size: ${pricePt}pt;
     font-weight: 700;
     color: #000;
-    line-height: 1.15;
+    line-height: 1.1;
     flex-shrink: 0;
+    padding-bottom: ${settings.showCopyIndex ? '1.2mm' : '0'};
   }
   .price-spacer { height: 0.5mm; flex-shrink: 0; }
   .seq {
     position: absolute;
     right: 0.8mm;
-    bottom: 0.4mm;
-    font-size: 4pt;
+    bottom: 0.5mm;
+    font-size: 3.8pt;
     font-weight: 600;
     color: #555;
+    line-height: 1;
   }
   @media print {
     .no-print { display: none !important; }

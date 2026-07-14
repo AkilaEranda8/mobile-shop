@@ -1485,6 +1485,10 @@ export default function InventoryPage() {
     if (action === 'add-product' || action === 'add') setShowAddProduct(true)
     const q = searchParams.get('q')
     if (q) setTextSearch(q)
+    const filter = searchParams.get('filter')
+    if (filter === 'low-stock' || filter === 'low') setStatusFilter('low')
+    else if (filter === 'out-of-stock' || filter === 'out') setStatusFilter('out')
+    else if (filter === 'in-stock' || filter === 'in') setStatusFilter('in')
   }, [searchParams])
 
   const closeAddProduct = useCallback(() => {
