@@ -148,13 +148,13 @@ export default function DashboardPage() {
   /* Activity */
   const activityFeed = useMemo(() => {
     const items: any[] = []
-    activeRepairs.slice(0, 3).forEach(r => items.push({
+    activeRepairs.slice(0, 5).forEach(r => items.push({
       id: r.id, icon: Wrench,
       iconBg: '#fff1e6', iconColor: '#f97316',
       title: `${r.deviceBrand} ${r.deviceModel} repair`,
       sub: `Repair #${r.ticketNumber}`, time: r.createdAt,
     }))
-    transactions.slice(0, 5).forEach(t => items.push({
+    transactions.slice(0, 8).forEach(t => items.push({
       id: t.id,
       icon: t.type === 'INCOME' ? TrendingUp : TrendingDown,
       iconBg:    t.type === 'INCOME' ? '#f0fdf4' : '#fff1f2',
@@ -163,8 +163,57 @@ export default function DashboardPage() {
       sub: t.description || t.category,
       amount: t.amount, txType: t.type, time: t.createdAt,
     }))
-    return items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 6)
+    return items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 8)
   }, [activeRepairs, transactions])
+
+  /* Sales overview — fill unused space under chart */
+  const weekInsight = useMemo(() => {
+    const days = revenueArr.slice(-7)
+    if (!days.length) {
+      return { todaySales: 0, yesterdaySales: 0, avgDaily: 0, bestLabel: '—', bestValue: 0, ordersToday: s?.todaySalesCount ?? 0 }
+    }
+    const today = days[days.length - 1]
+    const yesterday = days.length > 1 ? days[days.length - 2] : null
+    const todaySales = Math.round(today?.totalRevenue ?? today?.revenue ?? 0)
+    const yesterdaySales = Math.round(yesterday?.totalRevenue ?? yesterday?.revenue ?? 0)
+    const avgDaily = Math.round(days.reduce((a, d) => a + (d.totalRevenue ?? d.revenue ?? 0), 0) / days.length)
+    let best = days[0]
+    for (const d of days) {
+      const v = d.totalRevenue ?? d.revenue ?? 0
+      const bv = best.totalRevenue ?? best.revenue ?? 0
+      if (v > bv) best = d
+    }
+    return {
+      todaySales,
+      yesterdaySales,
+      avgDaily,
+      bestLabel: formatBusinessDateLabel(best.date),
+      bestValue: Math.round(best.totalRevenue ?? best.revenue ?? 0),
+      ordersToday: s?.todaySalesCount ?? 0,
+    }
+  }, [revenueArr, s?.todaySalesCount])
+
+  const attentionItems = useMemo(() => {
+    const items: { label: string; detail: string; href: string; tone: 'warn' | 'ok' | 'info' }[] = []
+    const ready = s?.readyForPickup ?? repairStats.ready
+    if (ready > 0) {
+      items.push({ label: 'Ready for pickup', detail: `${ready} repair${ready === 1 ? '' : 's'} waiting`, href: '/dashboard/repairs', tone: 'info' })
+    }
+    const low = s?.lowStockCount ?? 0
+    if (low > 0) {
+      items.push({ label: 'Low stock', detail: `${low} item${low === 1 ? '' : 's'} to restock`, href: '/dashboard/inventory', tone: 'warn' })
+    }
+    if (repairStats.inProg > 0) {
+      items.push({ label: 'In repair', detail: `${repairStats.inProg} currently with technicians`, href: '/dashboard/repairs', tone: 'info' })
+    }
+    if ((s?.expiringWarranties ?? 0) > 0) {
+      items.push({ label: 'Warranties', detail: `${s.expiringWarranties} expiring soon`, href: '/dashboard/warranty', tone: 'warn' })
+    }
+    if (items.length === 0) {
+      items.push({ label: 'All clear', detail: 'No urgent actions right now', href: '/dashboard/reports?tab=overview', tone: 'ok' })
+    }
+    return items.slice(0, 4)
+  }, [s, repairStats.ready, repairStats.inProg])
 
   const CARD = 'bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700'
 
@@ -209,7 +258,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
         {/* Sales Overview */}
-        <div className={`${CARD} lg:col-span-5 p-5`}>
+        <div className={`${CARD} lg:col-span-5 p-5 flex flex-col h-full min-h-[420px]`}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-gray-900 dark:text-white">Sales Overview</h3>
             <span className="text-xs text-gray-500 bg-gray-100 dark:bg-slate-700 dark:text-slate-400 px-2.5 py-1 rounded-lg cursor-default">This Week ▾</span>
@@ -243,20 +292,59 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
+
+          {/* Today snapshot — fills leftover card height */}
+          <div className="mt-auto pt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[
+              {
+                label: 'Today',
+                value: formatCurrency(weekInsight.todaySales),
+                sub: weekInsight.ordersToday > 0 ? `${weekInsight.ordersToday} orders` : 'No sales yet',
+              },
+              {
+                label: 'Yesterday',
+                value: formatCurrency(weekInsight.yesterdaySales),
+                sub: weekInsight.todaySales === weekInsight.yesterdaySales
+                  ? 'Same as today'
+                  : weekInsight.todaySales > weekInsight.yesterdaySales
+                    ? 'Today is ahead'
+                    : 'Today behind',
+              },
+              {
+                label: 'Avg / day',
+                value: formatCurrency(weekInsight.avgDaily),
+                sub: 'Last 7 days',
+              },
+              {
+                label: 'Best day',
+                value: formatCurrency(weekInsight.bestValue),
+                sub: weekInsight.bestLabel,
+              },
+            ].map(box => (
+              <div
+                key={box.label}
+                className="rounded-xl px-3 py-2.5 bg-gray-50 dark:bg-slate-700/50 border border-gray-100 dark:border-slate-600"
+              >
+                <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">{box.label}</p>
+                <p className="text-sm font-bold text-gray-900 dark:text-white tabular-nums mt-0.5 truncate">{box.value}</p>
+                <p className="text-[10px] text-gray-500 dark:text-slate-400 mt-0.5 truncate">{box.sub}</p>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Business Health */}
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-3 h-full">
           <BusinessHealthCard data={healthInput} />
         </div>
 
         {/* Recent Activity */}
-        <div className={`${CARD} lg:col-span-4 p-5`}>
+        <div className={`${CARD} lg:col-span-4 p-5 flex flex-col h-full min-h-[420px]`}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-gray-900 dark:text-white">Recent Activity</h3>
             <Link href="/dashboard/reports?tab=overview" className="text-xs font-medium text-violet-600 hover:text-violet-700 transition-colors">View All</Link>
           </div>
-          <div className="space-y-3.5">
+          <div className="space-y-3.5 flex-1 min-h-0 overflow-y-auto pr-0.5">
             {activityFeed.length > 0 ? activityFeed.map((item: any, i: number) => (
               <div key={`${item.id}-${i}`} className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: item.iconBg }}>
@@ -271,6 +359,34 @@ export default function DashboardPage() {
             )) : (
               <div className="py-8 text-center text-sm text-gray-400">No activity yet</div>
             )}
+          </div>
+
+          {/* Action queue — uses leftover height productively */}
+          <div className="mt-4 pt-4 border-t border-gray-50 dark:border-slate-700">
+            <div className="flex items-center justify-between mb-2.5">
+              <p className="text-xs font-bold text-gray-800 dark:text-slate-200">Needs action</p>
+              <span className="text-[10px] text-gray-400">{attentionItems.length === 1 ? '1 item' : `${attentionItems.length} items`}</span>
+            </div>
+            <div className="space-y-2">
+              {attentionItems.map(a => (
+                <Link
+                  key={a.label}
+                  href={a.href}
+                  className="flex items-center gap-2.5 rounded-xl px-2.5 py-2 hover:bg-gray-50 dark:hover:bg-slate-700/60 transition-colors"
+                >
+                  <span
+                    className={`w-1.5 h-8 rounded-full flex-shrink-0 ${
+                      a.tone === 'warn' ? 'bg-amber-400' : a.tone === 'ok' ? 'bg-emerald-400' : 'bg-sky-400'
+                    }`}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-gray-800 dark:text-slate-200 truncate">{a.label}</p>
+                    <p className="text-[10px] text-gray-400 truncate">{a.detail}</p>
+                  </div>
+                  <ChevronRight size={13} className="text-gray-300 flex-shrink-0" />
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       </div>

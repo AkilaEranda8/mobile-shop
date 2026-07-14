@@ -2,12 +2,12 @@
 
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, RotateCcw, ChevronDown, ChevronUp, GripVertical, Smartphone, Shield, Building2, ArrowLeftRight, Copy } from 'lucide-react'
+import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, RotateCcw, ChevronDown, ChevronUp, GripVertical, Smartphone, Shield, Building2, ArrowLeftRight, Copy, Hash, Calendar } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import { useProducts, useCategories, useProductVariantSettings } from '@/lib/hooks'
 import { getVisibleBranches, hasMultipleBranches } from '@/lib/active-branch'
 import { authStorage } from '@/lib/auth'
@@ -961,32 +961,16 @@ function warrantyMonthsLabel(months: number): string {
   return map[months] ?? (months > 0 ? `${months} months` : 'None')
 }
 
-function DetailSection({ title, icon, children }: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
-      <div className="px-4 py-2.5 flex items-center gap-2" style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
-        {icon}
-        <span className="text-xs font-semibold text-violet-300 uppercase tracking-wide">{title}</span>
-      </div>
-      <div>{children}</div>
-    </div>
-  )
-}
-
-function DetailRow({ label, value, valueClass }: { label: string; value: React.ReactNode; valueClass?: string }) {
-  return (
-    <div className="flex items-start justify-between gap-4 px-4 py-2.5 text-sm border-b last:border-b-0" style={{ borderColor: 'var(--border-subtle)' }}>
-      <span className="text-slate-500 text-xs flex-shrink-0 pt-0.5">{label}</span>
-      <span className={`font-medium text-xs text-right ${valueClass ?? 'text-gray-800 dark:text-slate-200'} max-w-[72%] break-words`}>
-        {value ?? '—'}
-      </span>
-    </div>
-  )
-}
-
+/* ── Product Detail Modal (Sales Details layout) ─────────────────────── */
 function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Product; onClose: () => void; onEdit?: () => void; onCopy?: () => void }) {
   const [detail, setDetail] = useState<Product>(product)
   const [loadingDetail, setLoadingDetail] = useState(true)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   useEffect(() => {
     setLoadingDetail(true)
@@ -997,236 +981,386 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
   }, [product])
 
   const p = detail as Product & { subCategory?: string; deviceModel?: string }
-  const margin     = detail.sellingPrice - detail.buyingPrice
-  const marginPct  = detail.buyingPrice > 0 ? ((margin / detail.buyingPrice) * 100).toFixed(1) : '0'
+  const margin = detail.sellingPrice - detail.buyingPrice
+  const marginPct = detail.buyingPrice > 0 ? ((margin / detail.buyingPrice) * 100).toFixed(1) : '0'
   const stockValue = detail.buyingPrice * detail.stock
   const isOut = detail.stock === 0
   const isLow = detail.stock < detail.minStock && detail.stock > 0
   const variations = Array.isArray(detail.storageVariations) ? detail.storageVariations : []
-  const [showVars, setShowVars] = useState(true)
   const imeiType = trackFlagToImeiType(detail.trackImei)
   const mrp = detail.mrp ?? detail.sellingPrice
+  const barcode = effectiveBarcodeValue(detail)
+  const safeText = (v: any) => (v === null || v === undefined || v === '' ? '—' : String(v))
+  const stockLabel = isOut ? 'Out of Stock' : isLow ? 'Low Stock' : 'In Stock'
+  const stockBadgeClass = isOut
+    ? 'bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/25'
+    : isLow
+      ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/25'
+      : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623] z-10">
-          <div className="flex items-center gap-2">
-            <Package size={15} className="text-violet-400" />
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Product Details</h3>
-            {loadingDetail && <Loader2 size={13} className="animate-spin text-slate-500" />}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="rounded-xl w-full max-w-6xl shadow-2xl max-h-[92vh] overflow-y-auto border"
+        style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', borderColor: 'var(--border-default)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div
+          className="flex items-center justify-between px-4 sm:px-5 py-3 border-b sticky top-0 z-10"
+          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
+        >
+          <div className="flex items-start gap-2 min-w-0">
+            <Package size={16} className="text-violet-500 mt-0.5 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                Product Details ( SKU : <span className="font-mono">{safeText(detail.sku)}</span> )
+                {loadingDetail && <Loader2 size={12} className="inline-block ml-2 animate-spin text-slate-400" />}
+              </p>
+              <p className="text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>{safeText(detail.name)}</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${stockBadgeClass}`}>
+              {stockLabel}
+            </span>
+            <span className="text-[11px] px-2.5 py-1 rounded-full border font-semibold bg-slate-500/15 text-slate-600 dark:text-slate-300 border-slate-500/25">
+              {productConditionLabel(detail.condition)}
+            </span>
             {onCopy && (
-              <button onClick={onCopy} className="flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300 px-2.5 py-1.5 rounded-lg border border-cyan-500/20 hover:bg-cyan-500/10 transition-colors">
-                <Copy size={11} /> Copy
+              <button
+                type="button"
+                onClick={onCopy}
+                className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border font-semibold text-cyan-700 dark:text-cyan-300 border-cyan-500/25 bg-cyan-500/10 hover:bg-cyan-500/20"
+              >
+                <Copy size={12} /> Copy
               </button>
             )}
             {onEdit && (
-              <button onClick={onEdit} className="flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 px-2.5 py-1.5 rounded-lg border border-violet-500/20 hover:bg-violet-500/10 transition-colors">
-                <Edit size={11} /> Edit
+              <button
+                type="button"
+                onClick={onEdit}
+                className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border font-semibold text-violet-700 dark:text-violet-300 border-violet-500/25 bg-violet-500/10 hover:bg-violet-500/20"
+              >
+                <Edit size={12} /> Edit
               </button>
             )}
-            <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/5"><X size={16} /></button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg transition-colors"
+              style={{ color: 'var(--text-muted)' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-subtle)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+            >
+              <X size={16} />
+            </button>
           </div>
         </div>
 
-        <div className="p-5 space-y-5">
-          {/* Hero banner */}
-          <div className="w-full h-36 rounded-2xl overflow-hidden border border-violet-500/15 relative flex items-center justify-center bg-gradient-to-br from-violet-600/20 via-violet-500/10 to-cyan-500/10">
-            {detail.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={detail.imageUrl} alt={detail.name} className="h-full w-full object-contain" />
-            ) : (
-              <>
-                <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle at 30% 50%, var(--brand-primary) 0%, transparent 60%)' }} />
-                <div className="flex flex-col items-center gap-1">
-                  <Package size={32} className="text-violet-400 opacity-80" />
-                  <p className="text-xs text-violet-300 font-mono">{detail.sku}</p>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Name + badges */}
-          <div>
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white leading-tight">{detail.name}</h2>
-            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-              {p.brandName && <span className="text-[11px] px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300">{p.brandName}</span>}
-              {p.categoryName && <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-500/10 border border-slate-500/20 text-slate-400">{p.categoryName}</span>}
-              {p.subCategory && <span className="text-[11px] px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300">{p.subCategory}</span>}
-              {p.deviceModel && <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300">{p.deviceModel}</span>}
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300">{productConditionLabel(detail.condition)}</span>
-              {variations.length > 0 && (
-                <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400">
-                  {variations.length} variant{variations.length > 1 ? 's' : ''}
+        <div className="p-4 sm:p-5 space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div className="space-y-1 text-[12px]">
+              <div className="flex items-center gap-1.5">
+                <Hash size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>SKU:</span>
+                <span className="font-mono font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(detail.sku)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Tag size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Barcode:</span>
+                <span className="font-mono font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(barcode)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Package size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Brand:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(p.brandName)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Layers size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Category:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {[p.categoryName, p.subCategory].filter(Boolean).join(' · ') || '—'}
                 </span>
-              )}
-              <span className={`text-[11px] px-2 py-0.5 rounded-full border ${
-                isOut ? 'bg-red-500/10 border-red-500/20 text-red-400'
-                : isLow ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'
-                : 'bg-green-500/10 border-green-500/20 text-green-400'
-              }`}>{isOut ? 'Out of Stock' : isLow ? 'Low Stock' : 'In Stock'}</span>
-            </div>
-          </div>
-
-          {/* Price cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="rounded-xl p-3 text-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-              <div className="flex items-center justify-center gap-1 mb-1"><ArrowDownRight size={11} className="text-slate-500" /><span className="text-[10px] text-slate-500 uppercase tracking-wide">Buying</span></div>
-              <p className="text-sm font-bold text-gray-900 dark:text-white">{formatCurrency(detail.buyingPrice)}</p>
-            </div>
-            <div className="rounded-xl p-3 text-center" style={{ background: 'var(--brand-glow)', border: '1px solid var(--sidebar-active-border)' }}>
-              <div className="flex items-center justify-center gap-1 mb-1"><ShoppingCart size={11} className="text-violet-400" /><span className="text-[10px] text-violet-400 uppercase tracking-wide">Selling</span></div>
-              <p className="text-sm font-bold text-violet-300">{formatCurrency(detail.sellingPrice)}</p>
-            </div>
-            <div className="rounded-xl p-3 text-center" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-              <div className="flex items-center justify-center gap-1 mb-1"><Tag size={11} className="text-slate-500" /><span className="text-[10px] text-slate-500 uppercase tracking-wide">MRP</span></div>
-              <p className="text-sm font-bold text-gray-900 dark:text-white">{formatCurrency(mrp)}</p>
-            </div>
-            <div className="rounded-xl p-3 text-center" style={{ background: margin >= 0 ? 'rgba(21,128,61,0.08)' : 'rgba(185,28,28,0.08)', border: margin >= 0 ? '1px solid rgba(21,128,61,0.2)' : '1px solid rgba(185,28,28,0.2)' }}>
-              <div className="flex items-center justify-center gap-1 mb-1"><ArrowUpRight size={11} className={margin >= 0 ? 'text-green-400' : 'text-red-400'} /><span className={`text-[10px] uppercase tracking-wide ${margin >= 0 ? 'text-green-400' : 'text-red-400'}`}>Margin</span></div>
-              <p className={`text-sm font-bold ${margin >= 0 ? 'text-green-300' : 'text-red-300'}`}>{marginPct}%</p>
-            </div>
-          </div>
-
-          {/* Stats row */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl p-3 flex items-center gap-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-              <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
-                <Layers size={14} className="text-violet-400" />
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 dark:text-slate-500">Stock Qty</p>
-                <p className={`text-base font-bold ${isOut ? 'text-red-400' : isLow ? 'text-yellow-400' : 'text-white'}`}>{detail.stock}</p>
               </div>
             </div>
-            <div className="rounded-xl p-3 flex items-center gap-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-              <div className="w-8 h-8 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-center flex-shrink-0">
-                <BarChart2 size={14} className="text-green-400" />
+
+            <div className="space-y-1 text-[12px]">
+              <div className="flex items-center gap-1.5">
+                <Smartphone size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Model:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(p.deviceModel)}</span>
               </div>
-              <div>
-                <p className="text-xs text-gray-500 dark:text-slate-500">Stock Value</p>
-                <p className="text-sm font-bold text-gray-900 dark:text-white">{formatCurrency(stockValue)}</p>
+              <div className="flex items-center gap-1.5">
+                <Shield size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Warranty:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{warrantyMonthsLabel(detail.warrantyMonths ?? 0)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Smartphone size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>IMEI tracking:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {imeiType === 'device' ? 'Phone / Tablet' : 'Accessory (no IMEI)'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Calendar size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Created:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(formatDate(detail.createdAt))}</span>
               </div>
             </div>
-          </div>
 
-          <DetailSection title="Product Information" icon={<Package size={12} className="text-violet-400" />}>
-            <DetailRow label="SKU" value={detail.sku} valueClass="font-mono" />
-            <DetailRow label="Barcode" value={effectiveBarcodeValue(detail) || '—'} valueClass="font-mono" />
-            {effectiveBarcodeValue(detail) && (
-              <div className="px-4 py-3 border-t border-white/5 bg-white/[0.02] flex justify-center">
-                <BarcodeLabelPreview value={effectiveBarcodeValue(detail)} className="rounded-lg bg-white px-3 py-2" />
-              </div>
-            )}
-            <DetailRow label="Brand" value={p.brandName} />
-            <DetailRow label="Category" value={p.categoryName} />
-            <DetailRow label="Sub Category" value={p.subCategory || '—'} />
-            <DetailRow label="Device Model" value={p.deviceModel || '—'} />
-            <DetailRow label="Condition" value={productConditionLabel(detail.condition)} />
-          </DetailSection>
-
-          <DetailSection title="Pricing" icon={<TrendingUp size={12} className="text-violet-400" />}>
-            <DetailRow label="Buying Price" value={formatCurrency(detail.buyingPrice)} />
-            <DetailRow label="Selling Price" value={formatCurrency(detail.sellingPrice)} />
-            <DetailRow label="MRP" value={formatCurrency(mrp)} />
-            <DetailRow label="Profit / unit" value={formatCurrency(margin)} valueClass={margin >= 0 ? 'text-green-400' : 'text-red-400'} />
-            <DetailRow label="Margin" value={`${marginPct}%`} valueClass={margin >= 0 ? 'text-green-400' : 'text-red-400'} />
-          </DetailSection>
-
-          <DetailSection title="Inventory" icon={<Layers size={12} className="text-violet-400" />}>
-            <DetailRow label="Stock Quantity" value={String(detail.stock)} />
-            <DetailRow label="Min Stock Alert" value={String(detail.minStock)} valueClass="text-yellow-400" />
-            <DetailRow label="Stock Value" value={formatCurrency(stockValue)} />
-            {detail.trackImei && (
-              <>
-                <DetailRow label="IMEI Units In Stock" value={String(detail.imeiInStock ?? '—')} />
-                {detail.imeiGap != null && detail.imeiGap > 0 && (
-                  <DetailRow label="IMEI Gap" value={String(detail.imeiGap)} valueClass="text-amber-400" />
-                )}
-              </>
-            )}
-          </DetailSection>
-
-          <DetailSection title="Warranty & IMEI" icon={<Shield size={12} className="text-violet-400" />}>
-            <DetailRow label="Warranty" value={warrantyMonthsLabel(detail.warrantyMonths ?? 0)} />
-            <DetailRow label="Warranty Note" value={detail.warrantyNote?.trim() || '—'} />
-            <DetailRow
-              label="IMEI Tracking"
-              value={imeiType === 'device' ? 'Phone / Tablet' : 'Accessory (no IMEI)'}
-              valueClass={detail.trackImei ? 'text-cyan-300' : 'text-slate-400'}
-            />
-          </DetailSection>
-
-          {(detail.description?.trim()) && (
-            <DetailSection title="Description" icon={<FileText size={12} className="text-violet-400" />}>
-              <div className="px-4 py-3">
-                <p className="text-xs text-gray-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{detail.description}</p>
-              </div>
-            </DetailSection>
-          )}
-
-          {/* ── Variants Panel ─────────────────────────────────────── */}
-          {variations.length > 0 && (
-            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
-              <button
-                type="button"
-                onClick={() => setShowVars(v => !v)}
-                className="w-full flex items-center justify-between px-4 py-3"
-                style={{ background: 'var(--bg-subtle)' }}
-              >
-                <div className="flex items-center gap-2">
-                  <Layers size={13} className="text-violet-400" />
-                  <span className="text-xs font-semibold text-violet-300">Variants</span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400 font-medium">{variations.length}</span>
+            <div className="rounded-lg border p-3 text-[12px]" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+              <div className="flex items-start gap-3">
+                <div className="w-14 h-14 rounded-lg overflow-hidden border flex-shrink-0 flex items-center justify-center" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
+                  {detail.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={detail.imageUrl} alt={detail.name} className="w-full h-full object-contain" />
+                  ) : (
+                    <Package size={18} className="text-violet-400 opacity-70" />
+                  )}
                 </div>
-                {showVars ? <ChevronUp size={14} className="text-slate-400" /> : <ChevronDown size={14} className="text-slate-400" />}
-              </button>
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-center justify-between border-b pb-1.5 mb-1" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Quick totals</span>
+                    <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>LKR</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Stock</span>
+                    <span className={`font-medium ${isOut ? 'text-rose-500' : isLow ? 'text-amber-500' : ''}`}>{detail.stock}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Selling</span>
+                    <span className="font-medium">{formatCurrency(detail.sellingPrice)}</span>
+                  </div>
+                  <div className="flex justify-between pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <span className="font-semibold">Stock value</span>
+                    <span className="font-semibold">{formatCurrency(stockValue)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
-              {showVars && (
-                <div className="p-3 overflow-x-auto">
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-                    <thead>
-                      <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
-                        {['Storage', 'Color', 'SKU', 'Sell Price', 'Cost', 'Stock'].map((h, i) => (
-                          <th key={i} style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)', whiteSpace: 'nowrap' }}>{h}</th>
-                        ))}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 space-y-4">
+              <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                <div className="bg-emerald-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide">
+                  Product information
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-[640px] w-full text-[12px]">
+                    <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                      <tr style={{ color: 'var(--text-secondary)' }}>
+                        <th className="px-3 py-2 text-left">Field</th>
+                        <th className="px-3 py-2 text-left">Value</th>
+                        <th className="px-3 py-2 text-left">Field</th>
+                        <th className="px-3 py-2 text-left">Value</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {variations.map((v, i) => (
-                        <tr key={v.id ?? i} style={{ borderBottom: i < variations.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
-                          <td style={{ padding: '8px 10px' }}>
-                            <span className="text-[11px] px-2 py-0.5 rounded-md font-medium" style={{ background: 'var(--brand-glow)', color: 'var(--brand-light)' }}>{v.storage}</span>
-                          </td>
-                          <td style={{ padding: '8px 10px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <span style={{ width: 12, height: 12, borderRadius: '50%', background: v.colorHex, border: '1px solid rgba(255,255,255,0.2)', flexShrink: 0, display: 'inline-block' }} />
-                              <span style={{ color: 'var(--text-primary)', fontSize: 11 }}>{v.colorName}</span>
-                            </div>
-                          </td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace', color: 'var(--text-muted)', fontSize: 10 }}>
-                            {v.sku ?? '—'}
-                          </td>
-                          <td style={{ padding: '8px 10px', fontWeight: 700, color: 'var(--brand-light)' }}>
-                            {formatCurrency(v.sellingPrice)}
-                          </td>
-                          <td style={{ padding: '8px 10px', color: 'var(--text-muted)' }}>
-                            {formatCurrency(v.costPrice)}
-                          </td>
-                          <td style={{ padding: '8px 10px', color: 'var(--text-primary)' }}>
-                            {v.stock ?? 0}
-                          </td>
-                        </tr>
-                      ))}
+                      <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Name</td>
+                        <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(detail.name)}</td>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Condition</td>
+                        <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>{productConditionLabel(detail.condition)}</td>
+                      </tr>
+                      <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>SKU</td>
+                        <td className="px-3 py-2 font-mono" style={{ color: 'var(--text-primary)' }}>{safeText(detail.sku)}</td>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Barcode</td>
+                        <td className="px-3 py-2 font-mono" style={{ color: 'var(--text-primary)' }}>{safeText(barcode)}</td>
+                      </tr>
+                      <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Brand</td>
+                        <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(p.brandName)}</td>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Category</td>
+                        <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(p.categoryName)}</td>
+                      </tr>
+                      <tr>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Sub category</td>
+                        <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(p.subCategory)}</td>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Device model</td>
+                        <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(p.deviceModel)}</td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
+                {barcode && (
+                  <div className="px-3 py-3 border-t flex justify-center" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                    <BarcodeLabelPreview value={barcode} className="rounded-lg bg-white px-3 py-2" />
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                <div className="bg-emerald-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide flex items-center gap-1.5">
+                  <TrendingUp size={12} /> Pricing
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-[560px] w-full text-[12px]">
+                    <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                      <tr style={{ color: 'var(--text-secondary)' }}>
+                        <th className="px-3 py-2 text-left">Buying</th>
+                        <th className="px-3 py-2 text-left">Selling</th>
+                        <th className="px-3 py-2 text-left">MRP</th>
+                        <th className="px-3 py-2 text-right">Profit / unit</th>
+                        <th className="px-3 py-2 text-right">Margin</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="px-3 py-2 font-medium">{formatCurrency(detail.buyingPrice)}</td>
+                        <td className="px-3 py-2 font-semibold text-violet-600 dark:text-violet-300">{formatCurrency(detail.sellingPrice)}</td>
+                        <td className="px-3 py-2 font-medium">{formatCurrency(mrp)}</td>
+                        <td className={`px-3 py-2 text-right font-semibold ${margin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                          {formatCurrency(margin)}
+                        </td>
+                        <td className={`px-3 py-2 text-right font-semibold ${margin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                          {marginPct}%
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {variations.length > 0 && (
+                <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="bg-emerald-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide flex items-center gap-1.5">
+                    <Layers size={12} /> Variants ({variations.length})
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-[640px] w-full text-[12px]">
+                      <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                        <tr style={{ color: 'var(--text-secondary)' }}>
+                          <th className="px-3 py-2 text-left w-10">#</th>
+                          <th className="px-3 py-2 text-left">Storage</th>
+                          <th className="px-3 py-2 text-left">Color</th>
+                          <th className="px-3 py-2 text-left">SKU</th>
+                          <th className="px-3 py-2 text-right">Sell</th>
+                          <th className="px-3 py-2 text-right">Cost</th>
+                          <th className="px-3 py-2 text-right">Stock</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {variations.map((v, i) => (
+                          <tr key={v.id ?? i} className="border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
+                            <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{i + 1}</td>
+                            <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(v.storage)}</td>
+                            <td className="px-3 py-2">
+                              <span className="inline-flex items-center gap-1.5">
+                                <span className="w-3 h-3 rounded-full border inline-block" style={{ background: v.colorHex, borderColor: 'var(--border-default)' }} />
+                                {safeText(v.colorName)}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 font-mono text-[11px]" style={{ color: 'var(--text-muted)' }}>{safeText(v.sku)}</td>
+                            <td className="px-3 py-2 text-right font-semibold whitespace-nowrap">{formatCurrency(v.sellingPrice)}</td>
+                            <td className="px-3 py-2 text-right whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{formatCurrency(v.costPrice)}</td>
+                            <td className="px-3 py-2 text-right font-medium">{v.stock ?? 0}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Description:</p>
+                  <p className="text-[12px] whitespace-pre-wrap" style={{ color: 'var(--text-primary)' }}>{safeText(detail.description?.trim())}</p>
+                </div>
+                <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Warranty note:</p>
+                  <p className="text-[12px]" style={{ color: 'var(--text-primary)' }}>{safeText(detail.warrantyNote?.trim())}</p>
+                </div>
+              </div>
             </div>
-          )}
+
+            <div className="rounded-lg border overflow-hidden h-fit" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="px-3 py-2 border-b flex items-center justify-between" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                <p className="text-[12px] font-semibold" style={{ color: 'var(--text-primary)' }}>Summary</p>
+                <p className="text-[12px] font-semibold">{formatCurrency(detail.sellingPrice)}</p>
+              </div>
+              <div className="p-3 text-[12px] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Stock qty:</span>
+                  <span className={`font-medium ${isOut ? 'text-rose-500' : isLow ? 'text-amber-500' : ''}`}>{detail.stock}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Min stock:</span>
+                  <span className="font-medium text-amber-600 dark:text-amber-400">{detail.minStock}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Stock value:</span>
+                  <span className="font-medium">{formatCurrency(stockValue)}</span>
+                </div>
+                {detail.trackImei && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span style={{ color: 'var(--text-muted)' }}>IMEI in stock:</span>
+                      <span className="font-medium">{safeText(detail.imeiInStock)}</span>
+                    </div>
+                    {detail.imeiGap != null && detail.imeiGap > 0 && (
+                      <div className="flex items-center justify-between">
+                        <span style={{ color: 'var(--text-muted)' }}>IMEI gap:</span>
+                        <span className="font-medium text-amber-600 dark:text-amber-400">{detail.imeiGap}</span>
+                      </div>
+                    )}
+                  </>
+                )}
+                <div className="flex items-center justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Variants:</span>
+                  <span className="font-medium">{variations.length}</span>
+                </div>
+                <div className="pt-2 border-t space-y-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold">Selling price:</span>
+                    <span className="font-semibold">{formatCurrency(detail.sellingPrice)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Margin:</span>
+                    <span className={`font-medium ${margin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                      {marginPct}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-end pt-2 flex-wrap">
+            {onCopy && (
+              <button
+                type="button"
+                onClick={onCopy}
+                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-cyan-500/30 bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 font-semibold"
+              >
+                <Copy size={14} /> Copy product
+              </button>
+            )}
+            {onEdit && (
+              <button
+                type="button"
+                onClick={onEdit}
+                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-violet-500/30 bg-violet-500/15 text-violet-700 dark:text-violet-300 font-semibold"
+              >
+                <Edit size={14} /> Edit product
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border font-semibold"
+              style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>

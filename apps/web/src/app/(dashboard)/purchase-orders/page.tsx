@@ -33,6 +33,7 @@ import {
   type PoProduct as SharedPoProduct,
 } from '@/components/suppliers/suppliers-shared'
 import { BulkPOImportModal } from '@/components/suppliers/BulkPOImportModal'
+import BarcodeLabelsPreviewModal from '@/components/inventory/BarcodeLabelsPreviewModal'
 
 function PODetailsModal({
   po,
@@ -406,7 +407,7 @@ function PODetailsModal({
                 className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-300 font-semibold disabled:opacity-60"
               >
                 {printingBarcodes ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
-                {printingBarcodes ? 'Loading…' : 'Print barcodes'}
+                {printingBarcodes ? 'Loading…' : 'Preview & print barcodes'}
               </button>
             )}
             <button
@@ -443,12 +444,17 @@ export default function PurchaseOrdersPage() {
   const [detailPO, setDetailPO] = useState<PurchaseOrder | null>(null)
   const [registerImeiPO, setRegisterImeiPO] = useState<PurchaseOrder | null>(null)
   const [printingBarcodes, setPrintingBarcodes] = useState(false)
+  const [barcodePreviewOpen, setBarcodePreviewOpen] = useState(false)
+  const [barcodePreviewLoading, setBarcodePreviewLoading] = useState(false)
+  const [barcodePreviewPoNumber, setBarcodePreviewPoNumber] = useState('')
+  const [barcodePreviewLabels, setBarcodePreviewLabels] = useState<BarcodeLabelItem[]>([])
   const [imeiBannerHidden, setImeiBannerHidden] = useState(() => isImeiHealthBannerDismissed())
   const [textSearch, setTextSearch] = useState('')
   const [poStatusFilter, setPoStatusFilter] = useState<'all' | 'DRAFT' | 'SENT' | 'PARTIAL' | 'RECEIVED' | 'CLOSED'>('all')
 
   const tenantId = authStorage.getUser()?.tenantId
   const [shopName, setShopName] = useState('')
+  const [barcodeLabel, setBarcodeLabel] = useState<BarcodeLabelSettings>({ ...DEFAULT_BARCODE_LABEL_SETTINGS })
   const barcodeLabelRef = useRef<BarcodeLabelSettings>({ ...DEFAULT_BARCODE_LABEL_SETTINGS })
 
   const openPoInvoice = useCallback((id: string) => router.push(`/purchase-invoice?id=${id}`), [router])
@@ -463,7 +469,9 @@ export default function PurchaseOrdersPage() {
     if (!tenantId) return
     try {
       const s = await fetchInvoiceSettings(tenantId)
-      barcodeLabelRef.current = resolveBarcodeLabelSettings(s)
+      const resolved = resolveBarcodeLabelSettings(s)
+      barcodeLabelRef.current = resolved
+      setBarcodeLabel(resolved)
       setShopName(s.shopName ?? '')
     } catch {
       /* keep defaults */
@@ -489,55 +497,65 @@ export default function PurchaseOrdersPage() {
       qty: l.qty ?? 1,
     }))
 
-  const printPoLabels = useCallback((labels: BarcodeLabelItem[], poNumber: string, targetWindow?: Window | null) => {
-    if (!labels.length) {
-      try { targetWindow?.close() } catch { /* ignore */ }
-      toast.error('No barcode labels for this PO (IMEI devices need Register IMEI, not shelf barcodes)')
-      return
-    }
-    const opened = printBarcodeLabels(labels, {
-      settings: barcodeLabelRef.current,
-      shopName,
-      preview: true,
-      targetWindow,
-    })
-    if (!opened) {
-      toast.error('Popup blocked — allow popups for this site to print barcodes')
-      return
-    }
-    const total = labels.reduce((s, l) => s + (l.qty ?? 1), 0)
-    toast.success(`${poNumber}: ${total} barcode label(s) — preview open, then Print`)
-  }, [shopName])
+  const closeBarcodePreview = useCallback(() => {
+    setBarcodePreviewOpen(false)
+    setBarcodePreviewLabels([])
+    setBarcodePreviewPoNumber('')
+    setBarcodePreviewLoading(false)
+    setPrintingBarcodes(false)
+  }, [])
 
+  /** Open in-app preview modal (PO Details / list Print barcodes). */
   const handlePrintPoLabels = useCallback(async (po: PurchaseOrder) => {
-    // Open sync with the click — browsers block window.open after await
-    const previewWin = window.open('', '_blank', 'width=720,height=780')
-    if (!previewWin) {
-      toast.error('Popup blocked — allow popups for this site to print barcodes')
-      return
-    }
+    setBarcodePreviewPoNumber(po.poNumber)
+    setBarcodePreviewLabels([])
+    setBarcodePreviewOpen(true)
+    setBarcodePreviewLoading(true)
     setPrintingBarcodes(true)
-    try {
-      previewWin.document.write(`<!DOCTYPE html><html><head><title>Loading barcodes…</title></head>
-        <body style="font-family:system-ui;padding:24px;color:#334155">
-          <p>Loading barcode labels for <strong>${po.poNumber}</strong>…</p>
-        </body></html>`)
-      previewWin.document.close()
-    } catch { /* ignore */ }
-
     try {
       await loadBarcodeSettings()
       const res: any = await suppliersApi.getPoLabels(po.id)
       const payload = res?.data ?? res
       const labels = mapPoLabels(payload?.labelsToPrint ?? [])
-      printPoLabels(labels, po.poNumber, previewWin)
+      setBarcodePreviewLabels(labels)
+      if (!labels.length) {
+        toast.error('No barcode labels for this PO (IMEI devices need Register IMEI, not shelf barcodes)')
+      }
     } catch (err: any) {
-      try { previewWin.close() } catch { /* ignore */ }
       toast.error(err?.message ?? 'Could not load PO barcodes')
+      closeBarcodePreview()
     } finally {
+      setBarcodePreviewLoading(false)
       setPrintingBarcodes(false)
     }
-  }, [printPoLabels, loadBarcodeSettings])
+  }, [loadBarcodeSettings, closeBarcodePreview])
+
+  /** From preview modal → open print dialog (sync popup for browser allow). */
+  const confirmPrintFromPreview = useCallback(() => {
+    if (!barcodePreviewLabels.length) {
+      toast.error('No barcode labels to print')
+      return
+    }
+    const printWin = window.open('', '_blank', 'width=720,height=780')
+    if (!printWin) {
+      toast.error('Popup blocked — allow popups for this site to print barcodes')
+      return
+    }
+    setPrintingBarcodes(true)
+    const opened = printBarcodeLabels(barcodePreviewLabels, {
+      settings: barcodeLabelRef.current,
+      shopName,
+      preview: true,
+      targetWindow: printWin,
+    })
+    setPrintingBarcodes(false)
+    if (!opened) {
+      toast.error('Could not open print preview')
+      return
+    }
+    const total = barcodePreviewLabels.reduce((s, l) => s + (l.qty ?? 1), 0)
+    toast.success(`${barcodePreviewPoNumber}: ${total} label(s) — use Print in the preview window`)
+  }, [barcodePreviewLabels, barcodePreviewPoNumber, shopName])
 
   const purchaseOrders: PurchaseOrder[] = (ordersData?.data ?? []) as PurchaseOrder[]
 
@@ -598,16 +616,6 @@ export default function PurchaseOrdersPage() {
   const doReceive = async () => {
     if (!confirmPO) return
     setMarkReceiving(confirmPO.id)
-    const previewWin = window.open('', '_blank', 'width=720,height=780')
-    if (previewWin) {
-      try {
-        previewWin.document.write(`<!DOCTYPE html><html><head><title>Receiving…</title></head>
-          <body style="font-family:system-ui;padding:24px;color:#334155">
-            <p>Receiving <strong>${confirmPO.poNumber}</strong> and preparing barcodes…</p>
-          </body></html>`)
-        previewWin.document.close()
-      } catch { /* ignore */ }
-    }
     try {
       await loadBarcodeSettings()
       const res: any = await suppliersApi.updatePO(confirmPO.id, { status: 'RECEIVED' })
@@ -617,15 +625,15 @@ export default function PurchaseOrdersPage() {
       const updated = (payload?.id ? payload : payload?.purchaseOrder ?? confirmPO) as PurchaseOrder
       const labels = mapPoLabels(payload?.labelsToPrint ?? [])
       if (labels.length > 0) {
-        printPoLabels(labels, confirmPO.poNumber, previewWin)
-      } else {
-        try { previewWin?.close() } catch { /* ignore */ }
+        setBarcodePreviewPoNumber(confirmPO.poNumber)
+        setBarcodePreviewLabels(labels)
+        setBarcodePreviewOpen(true)
+        toast.success(`${confirmPO.poNumber}: barcode preview ready — review then Print`)
       }
       if (poHasImeiProducts(updated, allProducts) && poCanRegisterImei(updated, allProducts)) {
         setRegisterImeiPO(updated)
       }
     } catch (err: any) {
-      try { previewWin?.close() } catch { /* ignore */ }
       toast.error(err?.message ?? 'Failed to update PO')
     } finally {
       setMarkReceiving(null)
@@ -736,7 +744,7 @@ export default function PurchaseOrdersPage() {
         }
         if (canPrint) {
           menu.push({
-            text: 'Print barcodes',
+            text: 'Preview & print barcodes',
             function: () => handlePrintPoLabels(po),
             icon: <Printer size={13} />,
           })
@@ -782,9 +790,20 @@ export default function PurchaseOrdersPage() {
             ? () => handlePrintPoLabels(detailPO)
             : undefined}
           receiving={markReceiving === detailPO.id}
-          printingBarcodes={printingBarcodes}
+          printingBarcodes={printingBarcodes || barcodePreviewLoading}
         />
       )}
+      <BarcodeLabelsPreviewModal
+        open={barcodePreviewOpen}
+        poNumber={barcodePreviewPoNumber}
+        labels={barcodePreviewLabels}
+        settings={barcodeLabel}
+        shopName={shopName}
+        loading={barcodePreviewLoading}
+        printing={printingBarcodes}
+        onClose={closeBarcodePreview}
+        onPrint={confirmPrintFromPreview}
+      />
       {showNewPO && (
         <NewPOModal
           suppliers={suppliers}

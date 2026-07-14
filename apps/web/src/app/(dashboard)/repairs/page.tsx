@@ -1057,17 +1057,6 @@ export default function RepairsPage() {
 
   const columns = useMemo<ColumnDef<RepairTicket>[]>(() => [
     {
-      id: 'rowIndex',
-      header: '#',
-      cell: ({ row }) => (
-        <span className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-secondary)' }}>
-          {row.index + 1}
-        </span>
-      ),
-      enableSorting: false,
-      size: 48,
-    },
-    {
       accessorKey: 'ticketNumber',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Ticket #" />,
       cell: ({ row }) => (
