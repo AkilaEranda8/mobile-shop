@@ -155,8 +155,8 @@ npm install --workspaces --include-workspace-root
 Edit `.env` and set at minimum:
 
 ```env
-DATABASE_URL=postgresql://hexalyte:hexalyte_secret@localhost:5432/hexalyte
-REDIS_URL=redis://:HxR3d1s%402025%23Secure@localhost:6379
+DATABASE_URL=postgresql://hexalyte:YOUR_DB_PASSWORD@localhost:5432/hexalyte
+REDIS_URL=redis://:YOUR_REDIS_PASSWORD@localhost:6379
 JWT_SECRET=your-super-secret-jwt-key-minimum-32-characters-long
 NEXT_PUBLIC_API_URL=http://localhost:3001/api/v1
 FRONTEND_URL=http://localhost:3000
@@ -164,7 +164,7 @@ PLATFORM_ADMIN_EMAIL=admin@hexalyte.com
 PLATFORM_ADMIN_PASSWORD=YourSecurePassword123
 ```
 
-> **Note:** Local Docker Redis uses password `HxR3d1s@2025#Secure` (URL-encoded in REDIS_URL).
+> **Note:** Redis passwords with `@`, `#`, etc. must be URL-encoded in `REDIS_URL`. See `.env.example`.
 
 #### Step 2 — Start database & Redis (Docker)
 

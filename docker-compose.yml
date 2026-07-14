@@ -1,11 +1,14 @@
+# Hexalyte stack — secrets come from `.env` (never commit real values).
+# Copy `.env.example` → `.env` and fill secrets before `docker compose up`.
+
 services:
   postgres:
     image: postgres:16-alpine
     container_name: hexalyte_postgres
     environment:
-      POSTGRES_USER: hexalyte
-      POSTGRES_PASSWORD: hexalyte_secret
-      POSTGRES_DB: hexalyte
+      POSTGRES_USER: ${POSTGRES_USER:-hexalyte}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-hexalyte}
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
@@ -14,7 +17,7 @@ services:
     networks:
       - hexalyte-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hexalyte"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hexalyte}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -28,31 +31,56 @@ services:
       - redis_data:/data
     networks:
       - hexalyte-network
-    command: redis-server --appendonly yes --protected-mode yes --requirepass "HxR3d1s@2025#Secure" --bind 0.0.0.0 --rename-command CONFIG "HxCFG_DISABLED_7x9" --rename-command DEBUG "" --rename-command SLAVEOF "" --rename-command REPLICAOF ""
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --protected-mode
+      - "yes"
+      - --requirepass
+      - ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+      - --bind
+      - "0.0.0.0"
+      - --rename-command
+      - CONFIG
+      - HxCFG_DISABLED_7x9
+      - --rename-command
+      - DEBUG
+      - ""
+      - --rename-command
+      - SLAVEOF
+      - ""
+      - --rename-command
+      - REPLICAOF
+      - ""
 
   backend:
     build:
       context: ./apps/backend
       dockerfile: Dockerfile.dev
     container_name: hexalyte_backend
+    env_file:
+      - .env
     environment:
-      NODE_ENV: development
-      PORT: 3001
-      DATABASE_URL: postgresql://hexalyte:hexalyte_secret@postgres:5432/hexalyte
-      REDIS_URL: "redis://:HxR3d1s%402025%23Secure@redis:6379"
-      JWT_SECRET: hexalyte-super-secret-jwt-key-for-development-only
-      JWT_EXPIRES_IN: 1d
-      JWT_REFRESH_EXPIRES_IN: 7d
-      FRONTEND_URL: http://localhost:3000
-      API_PREFIX: api/v1
-      KEYCLOAK_URL: https://auth.hexalyte.com
-      KC_REALM: hexalyte
-      KC_CLIENT_ID: hexalyte-backend
-      KC_CLIENT_SECRET: MTn88PrnUswYgydsveQZumTX2lzqkbbg
-      KEYCLOAK_AUTH_ENABLED: "true"
-      AWS_REGION: ap-south-1
-      AWS_S3_BUCKET: hexalyte-storage
-      BACKEND_URL: https://api.shop.hexalyte.com
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${PORT:-3001}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      REDIS_URL: ${REDIS_URL:?Set REDIS_URL in .env}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      API_PREFIX: ${API_PREFIX:-api/v1}
+      KEYCLOAK_URL: ${KEYCLOAK_URL:-}
+      KC_REALM: ${KC_REALM:-hexalyte}
+      KC_CLIENT_ID: ${KC_CLIENT_ID:-hexalyte-backend}
+      KC_CLIENT_SECRET: ${KC_CLIENT_SECRET:-}
+      KEYCLOAK_AUTH_ENABLED: ${KEYCLOAK_AUTH_ENABLED:-false}
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-hexalyte-storage}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      BACKEND_URL: ${BACKEND_URL:-http://localhost:3001}
     ports:
       - "127.0.0.1:3001:3001"
     depends_on:
@@ -72,16 +100,16 @@ services:
       context: ./apps/admin
       dockerfile: Dockerfile.prod
       args:
-        NEXT_PUBLIC_API_URL: https://api.shop.hexalyte.com/api/v1
-        NEXT_PUBLIC_ADMIN_API_URL: https://api.shop.hexalyte.com/admin/v1
-        NEXT_PUBLIC_WEB_URL: https://app.hexalyte.com
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/api/v1}
+        NEXT_PUBLIC_ADMIN_API_URL: ${NEXT_PUBLIC_ADMIN_API_URL:-http://localhost:3001/admin/v1}
+        NEXT_PUBLIC_WEB_URL: ${NEXT_PUBLIC_WEB_URL:-http://localhost:3000}
     container_name: hexalyte_admin
     environment:
-      NEXT_PUBLIC_API_URL: https://api.shop.hexalyte.com/api/v1
-      NEXT_PUBLIC_ADMIN_API_URL: https://api.shop.hexalyte.com/admin/v1
-      NEXT_PUBLIC_WEB_URL: https://app.hexalyte.com
-      NEXTAUTH_SECRET: hexalyte-admin-nextauth-secret-dev
-      NEXTAUTH_URL: https://admin2.hexalyte.com
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/api/v1}
+      NEXT_PUBLIC_ADMIN_API_URL: ${NEXT_PUBLIC_ADMIN_API_URL:-http://localhost:3001/admin/v1}
+      NEXT_PUBLIC_WEB_URL: ${NEXT_PUBLIC_WEB_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Set NEXTAUTH_SECRET in .env}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3002}
     ports:
       - "127.0.0.1:3002:3002"
     depends_on:
@@ -94,14 +122,14 @@ services:
       context: ./apps/web
       dockerfile: Dockerfile.prod
       args:
-        NEXT_PUBLIC_API_URL: https://api.shop.hexalyte.com/api/v1
-        NEXT_PUBLIC_KEYCLOAK_URL: https://auth.hexalyte.com
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/api/v1}
+        NEXT_PUBLIC_KEYCLOAK_URL: ${NEXT_PUBLIC_KEYCLOAK_URL:-}
     container_name: hexalyte_web
     environment:
-      NEXT_PUBLIC_API_URL: https://api.shop.hexalyte.com/api/v1
-      NEXT_PUBLIC_KEYCLOAK_URL: https://auth.hexalyte.com
-      NEXTAUTH_SECRET: your-nextauth-secret-min-32-chars
-      NEXTAUTH_URL: https://app.hexalyte.com
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/api/v1}
+      NEXT_PUBLIC_KEYCLOAK_URL: ${NEXT_PUBLIC_KEYCLOAK_URL:-}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Set NEXTAUTH_SECRET in .env}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:

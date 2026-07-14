@@ -1,14 +1,11 @@
 # STEP 1 - Copy this file, rename to server-setup.ps1 and fill in credentials
 # This template file is safe to commit. The actual server-setup.ps1 is gitignored.
 
-$SERVER_IP   = "49.12.207.238"
+$SERVER_IP   = "YOUR_SERVER_IP"
 $SERVER_USER = "root"
-$SERVER_PASS = "YOUR_PASSWORD_HERE"   # <-- fill in before running
+$SERVER_PASS = "YOUR_PASSWORD_HERE"   # <-- fill in before running (do not commit)
 $REPO_URL    = "https://github.com/AkilaEranda8/mobile-shop.git"
 $APP_DIR     = "/opt/hexalyte"
-
-# Install sshpass-equivalent using plink (PuTTY) or run manually
-# Recommended: run these commands manually in terminal
 
 Write-Host @"
 
@@ -28,23 +25,12 @@ Run these commands in order:
    cd $APP_DIR
    git clone $REPO_URL .
 
-4. Create backend .env:
-   cat > apps/backend/.env << 'EOF'
-   NODE_ENV=production
-   PORT=3001
-   DATABASE_URL=postgresql://hexalyte:hexalyte_secret@postgres:5432/hexalyte
-   REDIS_URL=redis://redis:6379
-   JWT_SECRET=hexalyte-super-secret-jwt-key-change-in-production
-   JWT_EXPIRES_IN=1d
-   JWT_REFRESH_EXPIRES_IN=7d
-   FRONTEND_URL=http://$SERVER_IP:3000
-   API_PREFIX=api/v1
-   KEYCLOAK_URL=http://keycloak:8080
-   KC_REALM=hexalyte
-   KC_CLIENT_ID=hexalyte-backend
-   KC_CLIENT_SECRET=MTn88PrnUswYgydsveQZumTX2lzqkbbg
-   KEYCLOAK_AUTH_ENABLED=false
-   EOF
+4. Create root .env from template (REQUIRED — secrets live only here):
+   cp .env.example .env
+   nano .env
+   # Set strong POSTGRES_PASSWORD, REDIS_PASSWORD, JWT_SECRET,
+   # NEXTAUTH_SECRET, KC_CLIENT_SECRET, DATABASE_URL, REDIS_URL
+   chmod 600 .env
 
 5. Start all services:
    docker compose up -d --build
@@ -55,4 +41,4 @@ Run these commands in order:
 "@ -ForegroundColor Cyan
 
 Write-Host "Server IP: $SERVER_IP" -ForegroundColor Green
-Write-Host "After setup, check: http://${SERVER_IP}:3000" -ForegroundColor Yellow
+Write-Host "After setup, check: https://app.hexalyte.com" -ForegroundColor Yellow

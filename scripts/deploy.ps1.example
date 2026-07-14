@@ -1,0 +1,12 @@
+# Safe-to-commit deploy template. Copy to deploy.ps1 (gitignored) or set env vars.
+# Required: HEXALYTE_SSH_PASS
+# Optional: HEXALYTE_SSH_HOST, HEXALYTE_SSH_USER, HEXALYTE_SSH_HOSTKEY
+
+Write-Host @"
+Deploy without storing passwords in git:
+
+  `$env:HEXALYTE_SSH_PASS = '<server-password>'
+  .\scripts\deploy.ps1
+
+Or use SSH key auth and edit the script to call ssh/plink without -pw.
+"@ -ForegroundColor Cyan

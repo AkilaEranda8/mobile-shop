@@ -4,6 +4,12 @@ import bcrypt from 'bcryptjs'
 const prisma = new PrismaClient()
 
 async function main() {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('❌ Refusing to run database seed in production (NODE_ENV=production).')
+    console.error('   Use PLATFORM_ADMIN_EMAIL / PLATFORM_ADMIN_PASSWORD bootstrap or create users via admin UI.')
+    process.exit(1)
+  }
+
   console.log('🌱 Seeding database...')
 
   const tenant = await prisma.tenant.upsert({

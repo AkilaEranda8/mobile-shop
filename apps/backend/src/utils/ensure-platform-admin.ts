@@ -7,6 +7,14 @@ export async function ensurePlatformAdmin(): Promise<void> {
   const email = process.env.PLATFORM_ADMIN_EMAIL?.trim().toLowerCase()
   const password = process.env.PLATFORM_ADMIN_PASSWORD?.trim()
   if (!email || !password) return
+  if (password.length < 12) {
+    console.warn('[bootstrap] PLATFORM_ADMIN_PASSWORD must be at least 12 characters — skipping')
+    return
+  }
+  if (/^(admin|password|123456|Demo@1234)$/i.test(password)) {
+    console.warn('[bootstrap] PLATFORM_ADMIN_PASSWORD is too weak — skipping')
+    return
+  }
 
   const existingAdmins = await prisma.user.count({ where: { role: 'PLATFORM_ADMIN', isActive: true } })
   if (existingAdmins > 0) return
