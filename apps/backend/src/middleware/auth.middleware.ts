@@ -44,30 +44,31 @@ async function verifyKcToken(token: string): Promise<JwtPayload> {
   const pem = await getPublicKey(decoded.header.kid as string)
   const payload = jwt.verify(token, pem, { algorithms: ['RS256'] }) as Record<string, unknown>
   const validRoles = ['PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN']
-  const role = String(payload['user_role'] ?? payload['salon_role'] ?? 'CASHIER')
-  let userId = String(payload['db_user_id'] ?? '')
-  let tenantId = String(payload['tenant_id'] ?? '')
-  const email = String(payload['email'] ?? '')
+  const claimUserId = String(payload['db_user_id'] ?? '')
+  const email = String(payload['email'] ?? payload['preferred_username'] ?? '')
 
-  // Safety: resolve Hexalyte user when custom claims are missing from the token
-  if ((!userId || !tenantId) && email) {
-    const user = await prisma.user.findFirst({
-      where: { email: { equals: email, mode: 'insensitive' }, isActive: true },
-      select: { id: true, tenantId: true, role: true, email: true },
-    })
-    if (user) {
-      userId = userId || user.id
-      tenantId = tenantId || user.tenantId
-    }
-  }
+  // Hexalyte DB is source of truth for id/tenant/role. KC claim mappers are optional;
+  // without them, missing user_role used to default everyone to CASHIER and break OWNER APIs
+  // like Staff & Roles (GET /users → 403).
+  const user = claimUserId
+    ? await prisma.user.findFirst({
+        where: { id: claimUserId, isActive: true },
+        select: { id: true, tenantId: true, role: true, email: true },
+      })
+    : email
+      ? await prisma.user.findFirst({
+          where: { email: { equals: email, mode: 'insensitive' }, isActive: true },
+          select: { id: true, tenantId: true, role: true, email: true },
+        })
+      : null
 
-  if (!userId) throw new Error('KC token missing db_user_id')
+  if (!user) throw new Error('KC token could not be mapped to a Hexalyte user')
 
   return {
-    userId,
-    tenantId,
-    role: validRoles.includes(role) ? role : 'CASHIER',
-    email,
+    userId: user.id,
+    tenantId: user.tenantId,
+    role: validRoles.includes(user.role) ? user.role : 'CASHIER',
+    email: user.email,
   }
 }
 
