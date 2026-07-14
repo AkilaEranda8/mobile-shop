@@ -47,8 +47,8 @@ async function refreshAccessToken(): Promise<string | null> {
     if (!res.ok) { authStorage.clear(); return null }
     const { json: data } = await parseResponseBody(res)
     const user = authStorage.getUser()!
-    const payload = data.data as { accessToken: string; refreshToken: string }
-    authStorage.save(payload.accessToken, payload.refreshToken, user)
+    const payload = data.data as { accessToken: string; refreshToken?: string }
+    authStorage.save(payload.accessToken, payload.refreshToken || refreshToken, user)
     return payload.accessToken
   } catch {
     authStorage.clear()
@@ -135,7 +135,10 @@ export const authApi = {
       }
     }>('/auth/register', body),
 
-  logout: () => api.post('/auth/logout', {}),
+  logout: () => {
+    const refreshToken = authStorage.getRefreshToken()
+    return api.post('/auth/logout', refreshToken ? { refreshToken } : {})
+  },
 
   me: () => api.get<{ data: import('./auth').AuthUser }>('/auth/me'),
 
@@ -686,6 +689,14 @@ export const analyticsApi = {
     api.get(`/analytics/category-sales${params ? '?' + new URLSearchParams(params) : ''}`),
   categoryProducts: (params?: Record<string, string>) =>
     api.get(`/analytics/category-products${params ? '?' + new URLSearchParams(params) : ''}`),
+  customerSales: (params?: Record<string, string>) =>
+    api.get(`/analytics/customer-sales${params ? '?' + new URLSearchParams(params) : ''}`),
+  customerSalesDetail: (params?: Record<string, string>) =>
+    api.get(`/analytics/customer-sales-detail${params ? '?' + new URLSearchParams(params) : ''}`),
+  purchaseReport: (params?: Record<string, string>) =>
+    api.get(`/analytics/purchase-report${params ? '?' + new URLSearchParams(params) : ''}`),
+  purchaseReportDetail: (params?: Record<string, string>) =>
+    api.get(`/analytics/purchase-report-detail${params ? '?' + new URLSearchParams(params) : ''}`),
 }
 
 export type PlatformAnnouncement = {

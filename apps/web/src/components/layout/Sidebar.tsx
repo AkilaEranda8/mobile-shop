@@ -6,7 +6,7 @@ import {
   LayoutDashboard, ShoppingCart, Package, Users, Wrench,
   Shield, Truck, BarChart3, Settings, LogOut,
   CreditCard, Smartphone,   FileText, Building2,
-  UserCheck, ChevronLeft, ChevronRight, ChevronDown, Receipt, MessageSquare, PackageCheck, RotateCcw, ArrowLeftRight, Layers, RefreshCw, Lock, PieChart, Sparkles, BookOpen, TrendingUp, Landmark, Wallet, Calendar, ReceiptText, Plus, ClipboardList,
+  UserCheck, ChevronLeft, ChevronRight, ChevronDown, Receipt, MessageSquare, PackageCheck, RotateCcw, ArrowLeftRight, Layers, RefreshCw, Lock, PieChart, Sparkles, BookOpen, TrendingUp, Landmark, Wallet, Calendar, ReceiptText, Plus, ClipboardList, DollarSign, Activity, PhoneCall, Tag,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
@@ -50,6 +50,20 @@ const accountingSubmenu: NavSubItem[] = [
   { href: '/dashboard/accounting/periods', icon: Calendar, label: 'Periods' },
   { href: '/dashboard/accounting/audit', icon: Shield, label: 'Audit Trail' },
   { href: '/dashboard/accounting/settings', icon: Settings, label: 'Settings' },
+]
+
+const reportsSubmenu: NavSubItem[] = [
+  { href: '/dashboard/reports/overview', icon: BarChart3, label: 'Overview', feature: 'REPORTS' },
+  { href: '/dashboard/reports/sales', icon: ShoppingCart, label: 'Sales', feature: 'REPORTS' },
+  { href: '/dashboard/reports/pl', icon: DollarSign, label: 'P&L Report', feature: 'REPORTS' },
+  { href: '/dashboard/reports/cashflow', icon: Activity, label: 'Cash Flow', feature: 'REPORTS' },
+  { href: '/dashboard/reports/inventory', icon: Package, label: 'Inventory', feature: 'REPORTS' },
+  { href: '/dashboard/reports/repairs', icon: Wrench, label: 'Repairs', feature: 'REPORTS' },
+  { href: '/dashboard/reports/delivery', icon: Truck, label: 'Delivery', feature: 'REPORTS' },
+  { href: '/dashboard/reports/daily-reload', icon: PhoneCall, label: 'Daily Reload', feature: 'DAILY_RELOAD' },
+  { href: '/dashboard/category-report', icon: Tag, label: 'Category Report', badge: 'NEW', feature: 'REPORTS' },
+  { href: '/dashboard/customer-report', icon: Users, label: 'Customer Report', badge: 'NEW', feature: 'REPORTS' },
+  { href: '/dashboard/purchase-report', icon: ClipboardList, label: 'Purchase Report', badge: 'NEW', feature: 'REPORTS' },
 ]
 
 const navItems: NavGroup[] = [
@@ -112,8 +126,13 @@ const navItems: NavGroup[] = [
   {
     label: 'Reports',
     items: [
-      { href: '/dashboard/reports',          icon: BarChart3, label: 'Reports & Analytics', feature: 'REPORTS' },
-      { href: '/dashboard/category-report',  icon: FileText, label: 'Category Report', badge: 'NEW', feature: 'REPORTS' },
+      {
+        href: '/dashboard/reports/overview',
+        icon: BarChart3,
+        label: 'Reports & Analytics',
+        feature: 'REPORTS',
+        submenu: reportsSubmenu,
+      },
     ],
   },
   {
@@ -196,6 +215,14 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       pathname.startsWith('/dashboard/stock-transfer')
     ) {
       setExpandedMenus(prev => ({ ...prev, inventory: true }))
+    }
+    if (
+      pathname.startsWith('/dashboard/reports') ||
+      pathname === '/dashboard/category-report' ||
+      pathname === '/dashboard/customer-report' ||
+      pathname === '/dashboard/purchase-report'
+    ) {
+      setExpandedMenus(prev => ({ ...prev, 'reports-&-analytics': true }))
     }
   }, [pathname])
 
@@ -309,9 +336,16 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                   )
                   if (visibleSubmenu.length === 0) return null
                   const submenuActive = visibleSubmenu.some(s => isActive(s.href))
+                  const reportsSectionActive =
+                    item.href.startsWith('/dashboard/reports') &&
+                    (pathname === '/dashboard/reports' || pathname.startsWith('/dashboard/reports/') ||
+                      pathname === '/dashboard/category-report' ||
+                      pathname === '/dashboard/customer-report' ||
+                      pathname === '/dashboard/purchase-report')
                   const sectionActive =
                     (item.href === '/inventory' && inventorySectionPaths.some(p => pathname === p || pathname.startsWith(`${p}/`)))
                     || submenuActive
+                    || reportsSectionActive
                     || isActive(item.href)
 
                   if (collapsed) {

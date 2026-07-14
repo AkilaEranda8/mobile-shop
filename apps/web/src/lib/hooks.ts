@@ -121,6 +121,40 @@ export function useCategorySales(params?: Record<string, string>) {
   )
 }
 
+export function useCustomerSales(params?: Record<string, string>) {
+  return useApi<unknown>(
+    () => analyticsApi.customerSales(params) as Promise<{ data: unknown }>,
+    [JSON.stringify(params)],
+  )
+}
+
+export function useCustomerSalesDetail(params?: Record<string, string>) {
+  return useApi<unknown[]>(
+    async () => {
+      if (!params) return { data: [] as unknown[] }
+      return analyticsApi.customerSalesDetail(params) as Promise<{ data: unknown[] }>
+    },
+    [JSON.stringify(params)],
+  )
+}
+
+export function usePurchaseReport(params?: Record<string, string>) {
+  return useApi<unknown>(
+    () => analyticsApi.purchaseReport(params) as Promise<{ data: unknown }>,
+    [JSON.stringify(params)],
+  )
+}
+
+export function usePurchaseReportDetail(params?: Record<string, string>) {
+  return useApi<unknown[]>(
+    async () => {
+      if (!params) return { data: [] as unknown[] }
+      return analyticsApi.purchaseReportDetail(params) as Promise<{ data: unknown[] }>
+    },
+    [JSON.stringify(params)],
+  )
+}
+
 export function useDailyReloadReport(params?: Record<string, string>) {
   return useApi<unknown>(
     () => dailyReloadApi.getReport(params) as Promise<{ data: unknown }>,

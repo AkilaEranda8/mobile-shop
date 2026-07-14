@@ -433,4 +433,376 @@ router.get('/category-sales', async (req: Request, res: Response, next: NextFunc
   } catch (e) { next(e) }
 })
 
+/** Customer sales report — revenue / paid / due / profit by customer for a period */
+router.get('/customer-sales', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenantId = req.tenantId!
+    const branchId = effectiveBranchId(req)
+    const { start: from, end: to } = resolveQueryDateRange({
+      from: req.query.from as string | undefined,
+      to: req.query.to as string | undefined,
+      days: parseInt(req.query.days as string) || 30,
+    })
+    const branchClause = branchId ? Prisma.sql`AND s."branchId" = ${branchId}` : Prisma.empty
+
+    const saleRows: Array<{
+      customer_id: string
+      customer_name: string
+      phone: string | null
+      transactions: number
+      revenue: number
+      paid: number
+      due: number
+      discount: number
+    }> = await prisma.$queryRaw`
+      SELECT
+        COALESCE(s."customerId", '__walkin__') AS customer_id,
+        COALESCE(
+          NULLIF(TRIM(MAX(s."customerName")), ''),
+          CASE WHEN MAX(s."customerId") IS NULL THEN 'Walk-in Customer' ELSE 'Customer' END
+        ) AS customer_name,
+        MAX(NULLIF(TRIM(s."customerPhone"), '')) AS phone,
+        COUNT(*)::int AS transactions,
+        COALESCE(SUM(s.total), 0)::float AS revenue,
+        COALESCE(SUM(s."paidAmount"), 0)::float AS paid,
+        COALESCE(SUM(s."dueAmount"), 0)::float AS due,
+        COALESCE(SUM(s.discount), 0)::float AS discount
+      FROM "Sale" s
+      WHERE s."tenantId" = ${tenantId}
+        AND s.status != 'RETURNED'
+        AND s."createdAt" >= ${from}
+        AND s."createdAt" <= ${to}
+        ${branchClause}
+      GROUP BY COALESCE(s."customerId", '__walkin__')
+      ORDER BY revenue DESC
+    `
+
+    const itemRows: Array<{
+      customer_id: string
+      cogs: number
+      profit: number
+      units_sold: number
+    }> = await prisma.$queryRaw`
+      SELECT
+        COALESCE(s."customerId", '__walkin__') AS customer_id,
+        COALESCE(SUM(${saleItemCogsExpr()}), 0)::float AS cogs,
+        COALESCE(SUM(si.total - ${saleItemCogsExpr()}), 0)::float AS profit,
+        COALESCE(SUM(si.quantity), 0)::float AS units_sold
+      FROM "SaleItem" si
+      JOIN "Sale" s ON s.id = si."saleId"
+      LEFT JOIN "Product" p ON p.id = si."productId"
+      LEFT JOIN "Service" sv ON sv."tenantId" = s."tenantId"
+        AND sv.name = si."productName"
+        AND si."productId" IS NULL
+      WHERE s."tenantId" = ${tenantId}
+        AND s.status != 'RETURNED'
+        AND s."createdAt" >= ${from}
+        AND s."createdAt" <= ${to}
+        ${branchClause}
+      GROUP BY COALESCE(s."customerId", '__walkin__')
+    `
+
+    const itemById = new Map(itemRows.map(r => [r.customer_id, r]))
+
+    // Prefer customer master name when linked
+    const customerIds = saleRows.map(r => r.customer_id).filter(id => id !== '__walkin__')
+    const masters = customerIds.length
+      ? await prisma.customer.findMany({
+          where: { tenantId, id: { in: customerIds } },
+          select: { id: true, name: true, phone: true, totalDue: true },
+        })
+      : []
+    const masterById = new Map(masters.map(c => [c.id, c]))
+
+    const customers = saleRows.map(r => {
+      const items = itemById.get(r.customer_id)
+      const master = r.customer_id !== '__walkin__' ? masterById.get(r.customer_id) : null
+      const revenue = Number(r.revenue)
+      const cogs = Number(items?.cogs ?? 0)
+      const profit = Number(items?.profit ?? revenue - cogs)
+      return {
+        customerId: r.customer_id === '__walkin__' ? null : r.customer_id,
+        customerName: master?.name ?? r.customer_name,
+        phone: master?.phone ?? r.phone ?? '',
+        revenue,
+        paid: Number(r.paid),
+        due: Number(r.due),
+        discount: Number(r.discount),
+        cogs,
+        profit,
+        margin: revenue > 0 ? Math.round((profit / revenue) * 100) : 0,
+        unitsSold: Number(items?.units_sold ?? 0),
+        transactions: Number(r.transactions),
+        avgTicket: Number(r.transactions) > 0 ? Math.round((revenue / Number(r.transactions)) * 100) / 100 : 0,
+        currentBalance: master?.totalDue ?? 0,
+      }
+    }).sort((a, b) => b.revenue - a.revenue)
+
+    const totalRevenue = customers.reduce((s, c) => s + c.revenue, 0)
+    const totalPaid = customers.reduce((s, c) => s + c.paid, 0)
+    const totalDue = customers.reduce((s, c) => s + c.due, 0)
+    const totalProfit = customers.reduce((s, c) => s + c.profit, 0)
+    const totalCogs = customers.reduce((s, c) => s + c.cogs, 0)
+    const totalTxns = customers.reduce((s, c) => s + c.transactions, 0)
+
+    sendSuccess(res, {
+      customers: customers.map(c => ({
+        ...c,
+        share: totalRevenue > 0 ? Math.round((c.revenue / totalRevenue) * 100) : 0,
+      })),
+      totals: {
+        revenue: Math.round(totalRevenue * 100) / 100,
+        paid: Math.round(totalPaid * 100) / 100,
+        due: Math.round(totalDue * 100) / 100,
+        cogs: Math.round(totalCogs * 100) / 100,
+        profit: Math.round(totalProfit * 100) / 100,
+        margin: totalRevenue > 0 ? Math.round((totalProfit / totalRevenue) * 100) : 0,
+        transactions: totalTxns,
+        customers: customers.length,
+      },
+    })
+  } catch (e) { next(e) }
+})
+
+/** Invoices for one customer (or walk-in) in a date range */
+router.get('/customer-sales-detail', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenantId = req.tenantId!
+    const branchId = effectiveBranchId(req)
+    const customerId = (req.query.customerId as string | undefined)?.trim() || null
+    const walkIn = req.query.walkIn === '1' || customerId === '__walkin__'
+    const { start: from, end: to } = resolveQueryDateRange({
+      from: req.query.from as string | undefined,
+      to: req.query.to as string | undefined,
+      days: parseInt(req.query.days as string) || 30,
+    })
+
+    const sales = await prisma.sale.findMany({
+      where: {
+        tenantId,
+        status: { not: 'RETURNED' },
+        createdAt: { gte: from, lte: to },
+        ...(branchId ? { branchId } : {}),
+        ...(walkIn || !customerId
+          ? { customerId: null }
+          : { customerId }),
+      },
+      select: {
+        id: true,
+        invoiceNumber: true,
+        customerName: true,
+        customerPhone: true,
+        total: true,
+        paidAmount: true,
+        dueAmount: true,
+        discount: true,
+        status: true,
+        createdAt: true,
+        items: { select: { quantity: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    })
+
+    sendSuccess(res, sales.map(s => ({
+      id: s.id,
+      invoiceNumber: s.invoiceNumber,
+      customerName: s.customerName || 'Walk-in Customer',
+      phone: s.customerPhone || '',
+      total: s.total,
+      paid: s.paidAmount,
+      due: s.dueAmount,
+      discount: s.discount,
+      status: s.status,
+      createdAt: s.createdAt,
+      units: s.items.reduce((n, i) => n + i.quantity, 0),
+    })))
+  } catch (e) { next(e) }
+})
+
+/** Purchase report — PO value / paid / due by supplier for a period */
+router.get('/purchase-report', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenantId = req.tenantId!
+    const branchId = effectiveBranchId(req)
+    const { start: from, end: to } = resolveQueryDateRange({
+      from: req.query.from as string | undefined,
+      to: req.query.to as string | undefined,
+      days: parseInt(req.query.days as string) || 30,
+    })
+    const branchClause = branchId ? Prisma.sql`AND po."branchId" = ${branchId}` : Prisma.empty
+
+    const saleRows: Array<{
+      supplier_id: string
+      supplier_name: string
+      orders: number
+      draft_orders: number
+      sent_orders: number
+      partial_orders: number
+      received_orders: number
+      closed_orders: number
+      total: number
+      paid: number
+      due: number
+      tax: number
+    }> = await prisma.$queryRaw`
+      SELECT
+        po."supplierId" AS supplier_id,
+        COALESCE(NULLIF(TRIM(MAX(po."supplierName")), ''), 'Supplier') AS supplier_name,
+        COUNT(*)::int AS orders,
+        COUNT(*) FILTER (WHERE po.status = 'DRAFT')::int AS draft_orders,
+        COUNT(*) FILTER (WHERE po.status = 'SENT')::int AS sent_orders,
+        COUNT(*) FILTER (WHERE po.status = 'PARTIAL')::int AS partial_orders,
+        COUNT(*) FILTER (WHERE po.status = 'RECEIVED')::int AS received_orders,
+        COUNT(*) FILTER (WHERE po.status = 'CLOSED')::int AS closed_orders,
+        COALESCE(SUM(po.total), 0)::float AS total,
+        COALESCE(SUM(po."paidAmount"), 0)::float AS paid,
+        COALESCE(SUM(po."dueAmount"), 0)::float AS due,
+        COALESCE(SUM(po.tax), 0)::float AS tax
+      FROM "PurchaseOrder" po
+      WHERE po."tenantId" = ${tenantId}
+        AND po."createdAt" >= ${from}
+        AND po."createdAt" <= ${to}
+        ${branchClause}
+      GROUP BY po."supplierId"
+      ORDER BY total DESC
+    `
+
+    const itemRows: Array<{
+      supplier_id: string
+      units_ordered: number
+      units_received: number
+    }> = await prisma.$queryRaw`
+      SELECT
+        po."supplierId" AS supplier_id,
+        COALESCE(SUM(i.quantity), 0)::float AS units_ordered,
+        COALESCE(SUM(i."receivedQuantity"), 0)::float AS units_received
+      FROM "POItem" i
+      JOIN "PurchaseOrder" po ON po.id = i."purchaseOrderId"
+      WHERE po."tenantId" = ${tenantId}
+        AND po."createdAt" >= ${from}
+        AND po."createdAt" <= ${to}
+        ${branchClause}
+      GROUP BY po."supplierId"
+    `
+
+    const itemById = new Map(itemRows.map(r => [r.supplier_id, r]))
+
+    const supplierIds = saleRows.map(r => r.supplier_id)
+    const masters = supplierIds.length
+      ? await prisma.supplier.findMany({
+          where: { tenantId, id: { in: supplierIds } },
+          select: { id: true, name: true, phone: true, outstandingDues: true },
+        })
+      : []
+    const masterById = new Map(masters.map(s => [s.id, s]))
+
+    const suppliers = saleRows.map(r => {
+      const items = itemById.get(r.supplier_id)
+      const master = masterById.get(r.supplier_id)
+      const total = Number(r.total)
+      const orders = Number(r.orders)
+      return {
+        supplierId: r.supplier_id,
+        supplierName: master?.name ?? r.supplier_name,
+        phone: master?.phone ?? '',
+        total,
+        paid: Number(r.paid),
+        due: Number(r.due),
+        tax: Number(r.tax),
+        orders,
+        draftOrders: Number(r.draft_orders),
+        sentOrders: Number(r.sent_orders),
+        partialOrders: Number(r.partial_orders),
+        receivedOrders: Number(r.received_orders),
+        closedOrders: Number(r.closed_orders),
+        unitsOrdered: Number(items?.units_ordered ?? 0),
+        unitsReceived: Number(items?.units_received ?? 0),
+        avgOrder: orders > 0 ? Math.round((total / orders) * 100) / 100 : 0,
+        outstandingBalance: master?.outstandingDues ?? 0,
+      }
+    }).sort((a, b) => b.total - a.total)
+
+    const totalValue = suppliers.reduce((s, x) => s + x.total, 0)
+    const totalPaid = suppliers.reduce((s, x) => s + x.paid, 0)
+    const totalDue = suppliers.reduce((s, x) => s + x.due, 0)
+    const totalOrders = suppliers.reduce((s, x) => s + x.orders, 0)
+    const unitsOrdered = suppliers.reduce((s, x) => s + x.unitsOrdered, 0)
+    const unitsReceived = suppliers.reduce((s, x) => s + x.unitsReceived, 0)
+
+    sendSuccess(res, {
+      suppliers: suppliers.map(s => ({
+        ...s,
+        share: totalValue > 0 ? Math.round((s.total / totalValue) * 100) : 0,
+      })),
+      totals: {
+        total: Math.round(totalValue * 100) / 100,
+        paid: Math.round(totalPaid * 100) / 100,
+        due: Math.round(totalDue * 100) / 100,
+        orders: totalOrders,
+        suppliers: suppliers.length,
+        unitsOrdered: Math.round(unitsOrdered),
+        unitsReceived: Math.round(unitsReceived),
+      },
+    })
+  } catch (e) { next(e) }
+})
+
+/** PO list for one supplier in a date range */
+router.get('/purchase-report-detail', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenantId = req.tenantId!
+    const branchId = effectiveBranchId(req)
+    const supplierId = (req.query.supplierId as string | undefined)?.trim()
+    if (!supplierId) {
+      sendSuccess(res, [])
+      return
+    }
+    const { start: from, end: to } = resolveQueryDateRange({
+      from: req.query.from as string | undefined,
+      to: req.query.to as string | undefined,
+      days: parseInt(req.query.days as string) || 30,
+    })
+
+    const orders = await prisma.purchaseOrder.findMany({
+      where: {
+        tenantId,
+        supplierId,
+        createdAt: { gte: from, lte: to },
+        ...(branchId ? { branchId } : {}),
+      },
+      select: {
+        id: true,
+        poNumber: true,
+        supplierName: true,
+        status: true,
+        total: true,
+        paidAmount: true,
+        dueAmount: true,
+        tax: true,
+        createdAt: true,
+        receivedAt: true,
+        items: { select: { quantity: true, receivedQuantity: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    })
+
+    sendSuccess(res, orders.map(o => ({
+      id: o.id,
+      poNumber: o.poNumber,
+      supplierName: o.supplierName,
+      status: o.status,
+      total: o.total,
+      paid: o.paidAmount,
+      due: o.dueAmount,
+      tax: o.tax,
+      createdAt: o.createdAt,
+      receivedAt: o.receivedAt,
+      unitsOrdered: o.items.reduce((n, i) => n + i.quantity, 0),
+      unitsReceived: o.items.reduce((n, i) => n + i.receivedQuantity, 0),
+    })))
+  } catch (e) { next(e) }
+})
+
 export default router

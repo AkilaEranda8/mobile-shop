@@ -88,7 +88,8 @@ export const authController = {
     try {
       const token = req.headers.authorization!.slice(7)
       const user = req.user!
-      await authService.logout(token, user.userId)
+      const refreshToken = typeof req.body?.refreshToken === 'string' ? req.body.refreshToken : undefined
+      await authService.logout(token, user.userId, refreshToken)
       const isAdmin = user.role === 'PLATFORM_ADMIN'
       await logPlatformActivity({
         eventType: 'LOGOUT',

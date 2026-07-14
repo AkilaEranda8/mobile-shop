@@ -435,11 +435,11 @@ export default function SettingsPage() {
               {canManageFeatures && (
                 <div
                   className="rounded-xl p-4 border space-y-4"
-                  style={{ borderColor: 'var(--sidebar-active-border)', background: 'var(--brand-glow)' }}
+                  style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}
                 >
                   <div>
                     <p className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                      <Package size={14} className="text-violet-600 dark:text-violet-400" />
+                      <Package size={14} style={{ color: 'var(--text-muted)' }} />
                       Product SKU & Barcode Numbers
                     </p>
                     <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
@@ -495,17 +495,17 @@ export default function SettingsPage() {
                     <div className="grid sm:grid-cols-2 gap-2 text-[11px]">
                       <div
                         className="rounded-lg px-3 py-2 border"
-                        style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)' }}
+                        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
                       >
                         <span style={{ color: 'var(--text-muted)' }}>Next SKU: </span>
-                        <span className="font-mono font-semibold text-violet-700 dark:text-violet-300">{productCodeSettings.nextSku}</span>
+                        <span className="font-mono font-semibold" style={{ color: 'var(--brand-primary-light)' }}>{productCodeSettings.nextSku}</span>
                       </div>
                       <div
                         className="rounded-lg px-3 py-2 border"
-                        style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)' }}
+                        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
                       >
                         <span style={{ color: 'var(--text-muted)' }}>Next barcode: </span>
-                        <span className="font-mono font-semibold text-violet-700 dark:text-violet-300">{productCodeSettings.nextBarcode}</span>
+                        <span className="font-mono font-semibold" style={{ color: 'var(--brand-primary-light)' }}>{productCodeSettings.nextBarcode}</span>
                       </div>
                     </div>
                   )}
@@ -516,7 +516,7 @@ export default function SettingsPage() {
                     type="button"
                     onClick={saveProductCodeSettings}
                     disabled={productCodeSaving}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-50"
+                    className="btn-primary text-sm inline-flex items-center gap-2 disabled:opacity-50"
                   >
                     {productCodeSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                     Save Product Numbers

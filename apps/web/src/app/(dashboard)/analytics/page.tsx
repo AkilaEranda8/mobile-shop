@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 export default function AnalyticsRedirectPage() {
   const router = useRouter()
   useEffect(() => {
-    router.replace('/dashboard/reports?tab=overview')
+    router.replace('/dashboard/reports/overview')
   }, [router])
   return (
     <div className="flex items-center justify-center min-h-[40vh] text-sm" style={{ color: 'var(--text-muted)' }}>

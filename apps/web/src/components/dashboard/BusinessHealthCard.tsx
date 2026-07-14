@@ -328,7 +328,7 @@ export function BusinessHealthCard({ data }: { data: BusinessHealthInput }) {
       </div>
 
       <Link
-        href="/dashboard/reports?tab=overview"
+        href="/dashboard/reports/overview"
         className="mt-4 flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl text-sm font-semibold transition-colors border"
         style={{
           color: color,

@@ -524,7 +524,7 @@ export default function ProfitLossPage() {
               </div>
               <span className="text-xs font-semibold text-violet-400">Open →</span>
             </Link>
-            <Link href="/dashboard/reports?tab=pl" className="card p-4 flex items-center justify-between hover:border-violet-500/30 transition-colors">
+            <Link href="/dashboard/reports/pl" className="card p-4 flex items-center justify-between hover:border-violet-500/30 transition-colors">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-violet-500/15 flex items-center justify-center">
                   <Receipt size={16} className="text-violet-400" />

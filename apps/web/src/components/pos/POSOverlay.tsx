@@ -2308,7 +2308,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       repairs: '/dashboard/repairs',
       purchase: '/purchase-invoice',
       inventory: '/dashboard/inventory',
-      reports: '/dashboard/reports',
+      reports: '/dashboard/reports/overview',
       expenses: '/dashboard/expenses',
       settings: '/dashboard/settings',
     }

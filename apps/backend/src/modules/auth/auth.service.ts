@@ -5,7 +5,13 @@ import { redis } from '../../config/redis'
 import { signAccessToken, signRefreshToken, verifyToken } from '../../utils/jwt'
 import { AppError } from '../../middleware/error.middleware'
 import { env } from '../../config/env'
-import { createOrGetGroup, createKcUser } from '../../utils/keycloakAdmin'
+import {
+  createOrGetGroup,
+  ensureKcUser,
+  isKcAuthEnabled,
+  isKcConfigured,
+  updateKcPassword,
+} from '../../utils/keycloakAdmin'
 import { sendMail } from '../../utils/mailer'
 import { getMaintenanceStatus } from '../../utils/platform-config'
 import { ensureTenantAccess } from '../../utils/tenant-access'
@@ -19,6 +25,113 @@ function normalizeEmail(email: string): string {
 /** Emails in DB may retain original casing; login always compares case-insensitively. */
 function emailEquals(normalizedEmail: string) {
   return { equals: normalizedEmail, mode: 'insensitive' as const }
+}
+
+type KcTokenResponse = {
+  access_token: string
+  refresh_token?: string
+  expires_in?: number
+  refresh_expires_in?: number
+}
+
+function mapKcTokens(tokens: KcTokenResponse) {
+  if (!tokens.access_token) throw new AppError('Keycloak did not return an access token', 503)
+  return {
+    accessToken: tokens.access_token,
+    refreshToken: tokens.refresh_token || tokens.access_token,
+  }
+}
+
+async function issueLocalTokens(user: {
+  id: string
+  tenantId: string
+  role: string
+  email: string
+}) {
+  const payload = { userId: user.id, tenantId: user.tenantId, role: user.role, email: user.email }
+  const accessToken = signAccessToken(payload)
+  const refreshToken = signRefreshToken(payload)
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+  await prisma.refreshToken.create({ data: { userId: user.id, token: refreshToken, expiresAt } })
+  return { accessToken, refreshToken }
+}
+
+async function kcPasswordGrant(username: string, password: string): Promise<KcTokenResponse> {
+  if (!env.KEYCLOAK_URL || !env.KC_CLIENT_ID) throw new AppError('Keycloak not configured', 503)
+  const url = `${env.KEYCLOAK_URL}/realms/${env.KC_REALM}/protocol/openid-connect/token`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'password',
+      client_id: env.KC_CLIENT_ID,
+      client_secret: env.KC_CLIENT_SECRET ?? '',
+      username: normalizeEmail(username),
+      password,
+      scope: 'openid profile email',
+    }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new AppError((err as any).error_description ?? 'Invalid credentials', 401)
+  }
+  return res.json() as Promise<KcTokenResponse>
+}
+
+async function issueKcSession(opts: {
+  user: { id: string; tenantId: string; role: string; email: string; name: string; isActive?: boolean }
+  password: string
+  tenantSlug: string
+}) {
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: opts.user.tenantId },
+    select: { slug: true, name: true },
+  })
+  const slug = opts.tenantSlug || tenant?.slug || 'platform'
+  const groupId = await createOrGetGroup(slug, tenant?.name || slug)
+  await ensureKcUser({
+    dbUserId: opts.user.id,
+    tenantId: opts.user.tenantId,
+    tenantSlug: slug,
+    email: opts.user.email,
+    name: opts.user.name,
+    role: opts.user.role,
+    password: opts.password,
+    groupId: groupId || undefined,
+    isActive: opts.user.isActive !== false,
+  })
+  const raw = await kcPasswordGrant(opts.user.email, opts.password)
+  return mapKcTokens(raw)
+}
+
+async function buildUserSession(user: {
+  id: string
+  email: string
+  name: string
+  role: string
+  tenantId: string
+  avatar: string | null
+  branches: Array<{ branchId: string }>
+}) {
+  const branchIds = user.role === 'OWNER'
+    ? (await getUserBranchIds(user.id, user.tenantId, user.role))
+    : user.branches.map((b) => b.branchId)
+  const tenantBranches = user.role !== 'PLATFORM_ADMIN'
+    ? await getTenantBranches(user.tenantId)
+    : []
+  const assignedBranches = tenantBranches.filter(b => branchIds.includes(b.id))
+  const suggestedBranchId = pickDefaultBranchId(tenantBranches, branchIds)
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    tenantId: user.tenantId,
+    branchIds,
+    branches: assignedBranches,
+    suggestedBranchId,
+    avatar: user.avatar,
+  }
 }
 
 export const authService = {
@@ -44,34 +157,37 @@ export const authService = {
     if (maintenance.enabled && user.role !== 'PLATFORM_ADMIN') {
       throw new AppError(maintenance.message, 503)
     }
-    const payload = { userId: user.id, tenantId: user.tenantId, role: user.role, email: user.email }
-    const accessToken = signAccessToken(payload)
-    const refreshToken = signRefreshToken(payload)
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    await prisma.refreshToken.create({ data: { userId: user.id, token: refreshToken, expiresAt } })
-    const branchIds = user.role === 'OWNER'
-      ? (await getUserBranchIds(user.id, user.tenantId, user.role))
-      : user.branches.map((b: { branchId: string }) => b.branchId)
-    const tenantBranches = user.role !== 'PLATFORM_ADMIN'
-      ? await getTenantBranches(user.tenantId)
-      : []
-    const assignedBranches = tenantBranches.filter(b => branchIds.includes(b.id))
-    const suggestedBranchId = pickDefaultBranchId(tenantBranches, branchIds)
-    return {
-      accessToken,
-      refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        tenantId: user.tenantId,
-        branchIds,
-        branches: assignedBranches,
-        suggestedBranchId,
-        avatar: user.avatar,
-      },
+
+    const sessionUser = await buildUserSession(user)
+    const tenant = await prisma.tenant.findUnique({ where: { id: user.tenantId }, select: { slug: true } })
+    const slug = tenant?.slug || 'platform'
+
+    if (isKcAuthEnabled()) {
+      try {
+        const tokens = await issueKcSession({
+          user: {
+            id: user.id,
+            tenantId: user.tenantId,
+            role: user.role,
+            email: user.email,
+            name: user.name,
+            isActive: user.isActive,
+          },
+          password,
+          tenantSlug: slug,
+        })
+        return { ...tokens, user: sessionUser }
+      } catch (e) {
+        console.error('[KC] login token issue failed:', (e as Error).message)
+        throw new AppError(
+          'Authentication service unavailable. Please try again or contact support.',
+          503,
+        )
+      }
     }
+
+    const tokens = await issueLocalTokens(user)
+    return { ...tokens, user: sessionUser }
   },
 
   async registerTenant(data: {
@@ -131,28 +247,56 @@ export const authService = {
       },
     })
 
-    const payload = { userId: user.id, tenantId: tenant.id, role: 'OWNER', email: user.email }
-    const accessToken = signAccessToken(payload)
-    const refreshToken = signRefreshToken(payload)
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    await prisma.refreshToken.create({ data: { userId: user.id, token: refreshToken, expiresAt } })
+    let accessToken: string
+    let refreshToken: string
 
-    // KC sync (non-fatal)
-    try {
-      const groupId = await createOrGetGroup(slug, data.shopName)
-      await createKcUser({
-        dbUserId: user.id,
+    if (isKcAuthEnabled()) {
+      try {
+        const tokens = await issueKcSession({
+          user: {
+            id: user.id,
+            tenantId: tenant.id,
+            role: 'OWNER',
+            email: user.email,
+            name: user.name,
+            isActive: true,
+          },
+          password: data.password,
+          tenantSlug: slug,
+        })
+        accessToken = tokens.accessToken
+        refreshToken = tokens.refreshToken
+      } catch (e) {
+        console.error('[KC] registerTenant token issue failed:', (e as Error).message)
+        throw new AppError('Account created but authentication service failed. Contact support.', 503)
+      }
+    } else {
+      const tokens = await issueLocalTokens({
+        id: user.id,
         tenantId: tenant.id,
-        tenantSlug: slug,
-        username: ownerEmail.split('@')[0],
-        email: ownerEmail,
-        name: data.ownerName,
         role: 'OWNER',
-        password: data.password,
-        groupId,
+        email: user.email,
       })
-      console.log(`[KC] User created for tenant ${slug}`)
-    } catch (e) { console.warn('[KC] registerTenant sync failed (non-fatal):', (e as Error).message) }
+      accessToken = tokens.accessToken
+      refreshToken = tokens.refreshToken
+      if (isKcConfigured()) {
+        try {
+          const groupId = await createOrGetGroup(slug, data.shopName)
+          await ensureKcUser({
+            dbUserId: user.id,
+            tenantId: tenant.id,
+            tenantSlug: slug,
+            email: ownerEmail,
+            name: data.ownerName,
+            role: 'OWNER',
+            password: data.password,
+            groupId: groupId || undefined,
+          })
+        } catch (e) {
+          console.warn('[KC] registerTenant sync failed (non-fatal):', (e as Error).message)
+        }
+      }
+    }
 
     return {
       accessToken,
@@ -179,6 +323,18 @@ export const authService = {
   },
 
   async refresh(refreshTokenStr: string) {
+    if (isKcAuthEnabled()) {
+      try {
+        const payload = verifyToken(refreshTokenStr)
+        if (payload.impersonation) {
+          return { accessToken: refreshTokenStr, refreshToken: refreshTokenStr }
+        }
+      } catch { /* Keycloak refresh token */ }
+
+      const raw = await authService.kcRefresh(refreshTokenStr) as KcTokenResponse
+      return mapKcTokens(raw)
+    }
+
     const stored = await prisma.refreshToken.findUnique({ where: { token: refreshTokenStr }, include: { user: true } })
     if (!stored || stored.expiresAt < new Date()) throw new AppError('Invalid refresh token', 401)
     if (!stored.user.isActive) throw new AppError('Account is inactive', 403)
@@ -187,13 +343,16 @@ export const authService = {
     }
     const { iat: _iat, exp: _exp, ...payload } = verifyToken(refreshTokenStr) as any
     const accessToken = signAccessToken(payload)
-    return { accessToken }
+    return { accessToken, refreshToken: refreshTokenStr }
   },
 
-  async logout(accessToken: string, userId: string) {
+  async logout(accessToken: string, userId: string, refreshToken?: string) {
     const ttl = 60 * 60
     await redis.set(`blacklist:${accessToken}`, '1', 'EX', ttl)
     await prisma.refreshToken.deleteMany({ where: { userId } })
+    if (refreshToken && isKcConfigured()) {
+      await authService.kcLogout(refreshToken)
+    }
   },
 
   async me(userId: string) {
@@ -215,31 +374,18 @@ export const authService = {
     } catch {
       throw new AppError('Invalid or expired code', 401)
     }
+    if (!payload.impersonation) throw new AppError('Invalid or expired code', 401)
+
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
       include: { branches: { select: { branchId: true } } },
     })
     if (!user || !user.isActive) throw new AppError('Invalid or expired code', 401)
-    const branchIds = user.role === 'OWNER'
-      ? await getUserBranchIds(user.id, user.tenantId, user.role)
-      : user.branches.map((b: { branchId: string }) => b.branchId)
-    const tenantBranches = await getTenantBranches(user.tenantId)
-    const assignedBranches = tenantBranches.filter(b => branchIds.includes(b.id))
-    const suggestedBranchId = pickDefaultBranchId(tenantBranches, branchIds)
+    const sessionUser = await buildUserSession(user)
     return {
       accessToken: token,
       refreshToken: token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        tenantId: user.tenantId,
-        branchIds,
-        branches: assignedBranches,
-        suggestedBranchId,
-        avatar: user.avatar,
-      },
+      user: sessionUser,
     }
   },
 
@@ -249,17 +395,37 @@ export const authService = {
     if (!(await bcrypt.compare(currentPassword, user.password))) throw new AppError('Current password incorrect', 400)
     const hashed = await bcrypt.hash(newPassword, 12)
     await prisma.user.update({ where: { id: userId }, data: { password: hashed } })
+    if (isKcConfigured()) {
+      try {
+        await updateKcPassword(userId, newPassword)
+      } catch {
+        const tenant = await prisma.tenant.findUnique({ where: { id: user.tenantId } })
+        if (tenant) {
+          try {
+            await ensureKcUser({
+              dbUserId: user.id,
+              tenantId: user.tenantId,
+              tenantSlug: tenant.slug,
+              email: user.email,
+              name: user.name,
+              role: user.role,
+              password: newPassword,
+            })
+          } catch (e2) {
+            console.warn('[KC] changePassword ensure failed:', (e2 as Error).message)
+          }
+        }
+      }
+    }
   },
 
-  // ── Forgot / Reset Password ─────────────────────────────────────────────────
   async forgotPassword(email: string) {
     const normalizedEmail = normalizeEmail(email)
     const user = await prisma.user.findFirst({ where: { email: emailEquals(normalizedEmail), isActive: true } })
-    // Always respond OK to prevent email enumeration
     if (!user) return
 
     const token = crypto.randomBytes(32).toString('hex')
-    await redis.set(`pwd:reset:${token}`, user.id, 'EX', 900) // 15 min TTL
+    await redis.set(`pwd:reset:${token}`, user.id, 'EX', 900)
 
     const tenant = await prisma.tenant.findUnique({ where: { id: user.tenantId } })
     const appBase = tenant?.slug
@@ -315,7 +481,7 @@ body{margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Arial,sans-ser
 
     try {
       await sendMail(email, 'Reset your password', html)
-    } catch (e) {
+    } catch {
       console.warn('[Auth] SMTP not configured – reset link for', email, ':', resetUrl)
     }
   },
@@ -324,35 +490,35 @@ body{margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Arial,sans-ser
     const userId = await redis.get(`pwd:reset:${token}`)
     if (!userId) throw new AppError('Invalid or expired reset link. Please request a new one.', 400)
 
+    const user = await prisma.user.findUnique({ where: { id: userId } })
+    if (!user) throw new AppError('Invalid or expired reset link. Please request a new one.', 400)
+
     const hashed = await bcrypt.hash(newPassword, 12)
     await prisma.user.update({ where: { id: userId }, data: { password: hashed } })
     await redis.del(`pwd:reset:${token}`)
-
-    // Also delete all existing refresh tokens so old sessions are invalidated
     await prisma.refreshToken.deleteMany({ where: { userId } })
+
+    if (isKcConfigured()) {
+      try {
+        const tenant = await prisma.tenant.findUnique({ where: { id: user.tenantId } })
+        await ensureKcUser({
+          dbUserId: user.id,
+          tenantId: user.tenantId,
+          tenantSlug: tenant?.slug || 'platform',
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          password: newPassword,
+          isActive: user.isActive,
+        })
+      } catch (e) {
+        console.warn('[KC] resetPassword sync failed:', (e as Error).message)
+      }
+    }
   },
 
-  // ── Keycloak proxy ──────────────────────────────────────────────────────────
   async kcLogin(username: string, password: string) {
-    if (!env.KEYCLOAK_URL || !env.KC_CLIENT_ID) throw new AppError('Keycloak not configured', 503)
-    const url = `${env.KEYCLOAK_URL}/realms/${env.KC_REALM}/protocol/openid-connect/token`
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'password',
-        client_id: env.KC_CLIENT_ID,
-        client_secret: env.KC_CLIENT_SECRET ?? '',
-        username,
-        password,
-        scope: 'openid profile email',
-      }),
-    })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      throw new AppError((err as any).error_description ?? 'Invalid credentials', 401)
-    }
-    return res.json()
+    return kcPasswordGrant(username, password)
   },
 
   async kcRefresh(refreshToken: string) {

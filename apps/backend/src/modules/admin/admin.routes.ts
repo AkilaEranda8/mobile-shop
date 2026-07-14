@@ -1160,10 +1160,10 @@ router.post('/support/impersonate/:tenantId', async (req: Request, res: Response
       where: { tenantId: req.params.tenantId, role: 'OWNER' },
     })
     if (!owner) throw new AppError('No OWNER user found for this tenant', 404)
-    const { signAccessToken } = await import('../../utils/jwt.js')
+    const { signImpersonationToken } = await import('../../utils/jwt.js')
     const { createImpersonationCode } = await import('../../utils/impersonation-codes.js')
     const { env } = await import('../../config/env.js')
-    const token = signAccessToken({
+    const token = signImpersonationToken({
       userId: owner.id, tenantId: owner.tenantId,
       role: owner.role, email: owner.email,
     })
@@ -1357,7 +1357,8 @@ router.post('/settings/admins', async (req: Request, res: Response, next: NextFu
   try {
     const { name, email, password, adminRole = 'SUPPORT_ADMIN' } = req.body
     if (!name || !email || !password) throw new AppError('name, email and password are required', 400)
-    const existing = await prisma.user.findFirst({ where: { email } })
+    const normalizedEmail = String(email).trim().toLowerCase()
+    const existing = await prisma.user.findFirst({ where: { email: { equals: normalizedEmail, mode: 'insensitive' } } })
     if (existing) throw new AppError('Email already in use', 409)
     const bcrypt = await import('bcryptjs')
     const hashed = await bcrypt.default.hash(password, 12)
@@ -1365,11 +1366,35 @@ router.post('/settings/admins', async (req: Request, res: Response, next: NextFu
     const created = await prisma.user.create({
       data: {
         tenantId: requester.tenantId,
-        name, email,
+        name: String(name).trim(),
+        email: normalizedEmail,
         password: hashed,
         role: 'PLATFORM_ADMIN',
       },
     })
+    const { ensureKcUser, createOrGetGroup, isKcConfigured } = await import('../../utils/keycloakAdmin.js')
+    if (isKcConfigured()) {
+      try {
+        const tenant = await prisma.tenant.findUnique({ where: { id: requester.tenantId } })
+        const slug = tenant?.slug || 'platform'
+        const groupId = await createOrGetGroup(slug, tenant?.name || 'Platform')
+        await ensureKcUser({
+          dbUserId: created.id,
+          tenantId: created.tenantId,
+          tenantSlug: slug,
+          email: normalizedEmail,
+          name: created.name,
+          role: 'PLATFORM_ADMIN',
+          password,
+          groupId: groupId || undefined,
+          isActive: true,
+        })
+      } catch (e) {
+        console.error('[KC] admin create sync failed:', (e as Error).message)
+        await prisma.user.delete({ where: { id: created.id } }).catch(() => {})
+        throw new AppError('Failed to create admin on the authentication server', 503)
+      }
+    }
     sendSuccess(res, { id: created.id, name: created.name, email: created.email, role: created.role, createdAt: created.createdAt }, 'Admin created', 201)
   } catch (e) { next(e) }
 })
@@ -1379,6 +1404,12 @@ router.delete('/settings/admins/:id', async (req: Request, res: Response, next: 
     const requester = (req as any).user
     if (req.params.id === requester.userId) throw new AppError('Cannot delete yourself', 400)
     await prisma.user.update({ where: { id: req.params.id }, data: { isActive: false } })
+    try {
+      const { updateKcUser, isKcConfigured } = await import('../../utils/keycloakAdmin.js')
+      if (isKcConfigured()) await updateKcUser(req.params.id, { isActive: false })
+    } catch (e) {
+      console.warn('[KC] admin deactivate sync failed:', (e as Error).message)
+    }
     sendSuccess(res, null, 'Admin deactivated')
   } catch (e) { next(e) }
 })

@@ -1,13 +1,15 @@
 import { Request, Response, NextFunction } from 'express'
 import { createPublicKey } from 'crypto'
 import jwt from 'jsonwebtoken'
-import { verifyToken, JwtPayload } from '../utils/jwt'
+import { tryVerifyAppToken, JwtPayload } from '../utils/jwt'
 import { sendError } from '../utils/response'
 import { AppError } from './error.middleware'
 import { redis } from '../config/redis'
 import { env } from '../config/env'
 import { ensureTenantAccess } from '../utils/tenant-access'
 import { resolveActiveBranch } from '../utils/active-branch'
+import { isKcAuthEnabled } from '../utils/keycloakAdmin'
+import { prisma } from '../config/database'
 
 declare global {
   namespace Express {
@@ -26,6 +28,7 @@ async function getPublicKey(kid: string): Promise<string> {
   if (!jwksCache || Date.now() > jwksCache.expiresAt) {
     const url = `${env.KEYCLOAK_URL}/realms/${env.KC_REALM}/protocol/openid-connect/certs`
     const res = await fetch(url)
+    if (!res.ok) throw new Error(`KC JWKS fetch failed: ${res.status}`)
     const data = await res.json() as { keys: JwkKey[] }
     jwksCache = { keys: data.keys ?? [], expiresAt: Date.now() + 30 * 60 * 1000 }
   }
@@ -42,12 +45,49 @@ async function verifyKcToken(token: string): Promise<JwtPayload> {
   const payload = jwt.verify(token, pem, { algorithms: ['RS256'] }) as Record<string, unknown>
   const validRoles = ['PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN']
   const role = String(payload['user_role'] ?? payload['salon_role'] ?? 'CASHIER')
-  return {
-    userId:   String(payload['db_user_id'] ?? payload['sub'] ?? ''),
-    tenantId: String(payload['tenant_id'] ?? ''),
-    role:     validRoles.includes(role) ? role : 'CASHIER',
-    email:    String(payload['email'] ?? ''),
+  let userId = String(payload['db_user_id'] ?? '')
+  let tenantId = String(payload['tenant_id'] ?? '')
+  const email = String(payload['email'] ?? '')
+
+  // Safety: resolve Hexalyte user when custom claims are missing from the token
+  if ((!userId || !tenantId) && email) {
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' }, isActive: true },
+      select: { id: true, tenantId: true, role: true, email: true },
+    })
+    if (user) {
+      userId = userId || user.id
+      tenantId = tenantId || user.tenantId
+    }
   }
+
+  if (!userId) throw new Error('KC token missing db_user_id')
+
+  return {
+    userId,
+    tenantId,
+    role: validRoles.includes(role) ? role : 'CASHIER',
+    email,
+  }
+}
+
+async function resolveRequestUser(token: string): Promise<JwtPayload> {
+  // Support impersonation (HS256 app JWT) always allowed when claim is present
+  const appPayload = tryVerifyAppToken(token)
+  if (appPayload?.impersonation) return appPayload
+
+  if (isKcAuthEnabled()) {
+    try {
+      return await verifyKcToken(token)
+    } catch {
+      // Fall through: allow legacy/non-impersonation app JWT only when KC auth is off.
+      // When KC is on, reject plain app JWTs so cutover is real.
+      throw new Error('Invalid Keycloak token')
+    }
+  }
+
+  if (appPayload) return appPayload
+  throw new Error('Invalid token')
 }
 
 // ── Middleware ────────────────────────────────────────────────────────────────
@@ -62,11 +102,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
     const blacklisted = await redis.get(`blacklist:${token}`)
     if (blacklisted) { sendError(res, 'Token revoked', 401); return }
 
-    if (env.KEYCLOAK_AUTH_ENABLED === 'true' && env.KEYCLOAK_URL) {
-      req.user = await verifyKcToken(token)
-    } else {
-      req.user = verifyToken(token)
-    }
+    req.user = await resolveRequestUser(token)
     req.tenantId = req.user.tenantId
     if (req.user.role !== 'PLATFORM_ADMIN' && req.user.tenantId) {
       try {
