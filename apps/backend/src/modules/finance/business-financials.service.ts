@@ -149,6 +149,27 @@ export async function getBranchDayFinancials(
     },
   })
   if (closed?.status === 'CLOSED') {
+    const frozenEmpty =
+      Number(closed.salesCount ?? 0) === 0 &&
+      Number(closed.totalSales ?? 0) === 0 &&
+      Number(closed.grossSales ?? 0) === 0 &&
+      Number(closed.repairIncome ?? 0) === 0 &&
+      Number(closed.reloadCommission ?? 0) === 0
+
+    // Day closed before any activity (or empty freeze) — use live preview so
+    // later POS/repair sales still appear on Dashboard / Finance.
+    if (frozenEmpty) {
+      const preview = await buildDailyClosingPreview(tenantId, branchId, dateKey)
+      const live = mapPreviewToSummary(preview)
+      if (
+        live.salesCount > 0 ||
+        live.salesRevenue > 0 ||
+        live.grossSales > 0 ||
+        live.repairIncome > 0
+      ) {
+        return live
+      }
+    }
     return mapClosingRecordToSummary(closed)
   }
   const preview = await buildDailyClosingPreview(tenantId, branchId, dateKey)
