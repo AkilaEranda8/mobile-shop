@@ -1,6 +1,12 @@
 import { prisma } from '../../config/database'
 import { redis } from '../../config/redis'
-import { analyzeProductSkus, serializeSkuFormat, type SkuCodeFormat } from '../../utils/product-sku-seq'
+import {
+  analyzeProductSkus,
+  planNumericSkuCollisionRepairs,
+  rewriteVariantSkus,
+  serializeSkuFormat,
+  type SkuCodeFormat,
+} from '../../utils/product-sku-seq'
 
 export interface ProductCodeSettings {
   skuStartNumber: number
@@ -77,10 +83,32 @@ export async function syncProductCodeCounters(
 
   const products = await prisma.product.findMany({
     where: { tenantId },
-    select: { sku: true, barcode: true },
+    select: { id: true, sku: true, barcode: true, storageVariations: true, createdAt: true },
+    orderBy: { createdAt: 'asc' },
   })
 
-  const skuAnalysis = analyzeProductSkus(products.map(p => p.sku), defaultPrefix)
+  // 00111 and 111 both “look like” #111 — renumber the short duplicates
+  const repairs = planNumericSkuCollisionRepairs(products, cfg.skuPad)
+  for (const r of repairs) {
+    try {
+      await prisma.product.update({
+        where: { id: r.id },
+        data: {
+          sku: r.newSku,
+          storageVariations: rewriteVariantSkus(r.storageVariations, r.oldSku, r.newSku) as any,
+        },
+      })
+      console.info(`[sku-repair] tenant=${tenantId} ${r.oldSku} → ${r.newSku}`)
+    } catch (e) {
+      console.warn(`[sku-repair] failed ${r.oldSku} → ${r.newSku}:`, (e as Error).message)
+    }
+  }
+
+  const skusAfter = repairs.length
+    ? (await prisma.product.findMany({ where: { tenantId }, select: { sku: true } })).map(p => p.sku)
+    : products.map(p => p.sku)
+
+  const skuAnalysis = analyzeProductSkus(skusAfter, defaultPrefix)
   const barcodeMax = maxSeqFromBarcodeValues(
     products.map(p => p.barcode ?? ''),
     barcodePrefix,

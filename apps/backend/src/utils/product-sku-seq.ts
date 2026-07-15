@@ -93,3 +93,83 @@ export function skuFormatsEqual(a: SkuCodeFormat, b: SkuCodeFormat): boolean {
   if (a.type === 'prefixed' && b.type === 'prefixed') return a.prefix === b.prefix && a.pad === b.pad
   return false
 }
+
+type ProductSkuRow = {
+  id: string
+  sku: string
+  storageVariations: unknown
+  createdAt: Date
+}
+
+/**
+ * Fix collisions where 111 and 00111 both parse to the same integer.
+ * Keeps the zero-padded SKU; renumbers short duplicates to the next free sequence.
+ */
+export function planNumericSkuCollisionRepairs(
+  products: ProductSkuRow[],
+  pad: number,
+): Array<{ id: string; oldSku: string; newSku: string; storageVariations: unknown }> {
+  const numeric = products.filter(p => /^\d+$/.test(p.sku.trim()))
+  const byValue = new Map<string, ProductSkuRow[]>()
+  for (const p of numeric) {
+    const key = String(BigInt(p.sku.trim()))
+    const list = byValue.get(key) ?? []
+    list.push(p)
+    byValue.set(key, list)
+  }
+
+  let maxSeq = 0
+  for (const p of numeric) {
+    maxSeq = Math.max(maxSeq, Number(BigInt(p.sku.trim())))
+  }
+
+  const used = new Set(numeric.map(p => p.sku.trim()))
+  const repairs: Array<{ id: string; oldSku: string; newSku: string; storageVariations: unknown }> = []
+
+  for (const [, group] of byValue) {
+    if (group.length < 2) continue
+    const preferredPad = pad
+    group.sort((a, b) => {
+      const aSku = a.sku.trim()
+      const bSku = b.sku.trim()
+      const aPref = aSku === String(BigInt(aSku)).padStart(preferredPad, '0') ? 0 : 1
+      const bPref = bSku === String(BigInt(bSku)).padStart(preferredPad, '0') ? 0 : 1
+      if (aPref !== bPref) return aPref - bPref
+      if (bSku.length !== aSku.length) return bSku.length - aSku.length
+      return a.createdAt.getTime() - b.createdAt.getTime()
+    })
+    const [, ...dupes] = group
+    for (const p of dupes) {
+      let next = maxSeq + 1
+      let candidate = String(next).padStart(preferredPad, '0')
+      while (used.has(candidate)) {
+        next++
+        candidate = String(next).padStart(preferredPad, '0')
+      }
+      maxSeq = next
+      used.add(candidate)
+      used.delete(p.sku.trim())
+      repairs.push({
+        id: p.id,
+        oldSku: p.sku.trim(),
+        newSku: candidate,
+        storageVariations: p.storageVariations,
+      })
+    }
+  }
+  return repairs
+}
+
+export function rewriteVariantSkus(storageVariations: unknown, oldSku: string, newSku: string): unknown {
+  if (!Array.isArray(storageVariations)) return storageVariations
+  return storageVariations.map((v) => {
+    if (!v || typeof v !== 'object') return v
+    const row = v as Record<string, unknown>
+    const vSku = typeof row.sku === 'string' ? row.sku : ''
+    if (!vSku) return row
+    if (vSku === oldSku || vSku.startsWith(`${oldSku}-`)) {
+      return { ...row, sku: newSku + vSku.slice(oldSku.length) }
+    }
+    return row
+  })
+}

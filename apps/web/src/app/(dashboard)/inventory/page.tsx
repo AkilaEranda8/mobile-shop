@@ -1661,19 +1661,29 @@ export default function InventoryPage() {
   const columns = useMemo<ColumnDef<FlatRow>[]>(() => [
     {
       id: 'orderNum',
-      accessorFn: (row) => parseSkuOrderNumber(row.product.sku) ?? 999999,
+      accessorFn: (row) => row.product.sku,
       sortingFn: (a, b) => compareSkuOrder(a.original.product.sku, b.original.product.sku),
       header: ({ column }) => <DataTableColumnHeader column={column} title="#" />,
-      cell: ({ row }) => {
-        const n = parseSkuOrderNumber(row.original.product.sku)
-        if (n == null) return <span className="text-xs text-[var(--text-muted)]">—</span>
+      cell: ({ row, table }) => {
+        const sku = row.original.product.sku
+        const label = formatSkuOrderLabel(sku)
+        if (!label || !parseSkuOrderNumber(sku)) {
+          return <span className="text-xs text-[var(--text-muted)]">—</span>
+        }
+        // Same product variants share one SKU — show # only on the first row
+        const productId = row.original.product.id
+        const rows = table.getRowModel().rows
+        const firstIdx = rows.findIndex(r => r.original.product.id === productId)
+        if (firstIdx >= 0 && rows[firstIdx].id !== row.id) {
+          return <span className="text-xs text-[var(--text-muted)]">·</span>
+        }
         return (
-          <span className="text-xs font-mono font-semibold text-[var(--text-secondary)] tabular-nums">
-            {formatSkuOrderLabel(row.original.product.sku, n)}
+          <span className="text-xs font-mono font-semibold text-[var(--text-secondary)] tabular-nums" title={sku}>
+            {label}
           </span>
         )
       },
-      size: 64,
+      size: 72,
     },
     {
       id: 'name',

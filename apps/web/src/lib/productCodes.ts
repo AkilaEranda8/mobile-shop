@@ -14,31 +14,53 @@ export function parseSkuOrderNumber(sku: string): number | null {
   const s = sku.trim()
   if (!s) return null
   if (/^\d+$/.test(s)) {
-    const n = parseInt(s, 10)
+    const n = Number(s)
     return Number.isFinite(n) && n > 0 ? n : null
   }
   const base = s.match(/^(\d+)-/)
   if (base) {
-    const n = parseInt(base[1], 10)
+    const n = Number(base[1])
     return Number.isFinite(n) && n > 0 ? n : null
   }
   const prefixed = s.match(/^(.+-SKU)-(\d+)$/i)
   if (prefixed) {
-    const n = parseInt(prefixed[2], 10)
+    const n = Number(prefixed[2])
     return Number.isFinite(n) && n > 0 ? n : null
   }
   return null
 }
 
-/** Display label for # column — keeps zero-padding for numeric SKUs. */
-export function formatSkuOrderLabel(sku: string, orderNum: number): string {
+/** Display label for # column — always keep the stored digits (00111 ≠ 111). */
+export function formatSkuOrderLabel(sku: string, _orderNum?: number): string {
   const s = sku.trim()
   if (/^\d+$/.test(s)) return s
-  if (/^\d+-/.test(s)) return String(orderNum).padStart(5, '0')
-  return String(orderNum)
+  const base = s.match(/^(\d+)-/)
+  if (base) return base[1]
+  const prefixed = s.match(/^(.+-SKU)-(\d+)$/i)
+  if (prefixed) return prefixed[2]
+  return s
+}
+
+/** Sort key that treats 00111 and 111 as different (pad then lexicographic). */
+function numericSkuSortKey(sku: string): string | null {
+  const s = sku.trim()
+  if (/^\d+$/.test(s)) return s
+  const base = s.match(/^(\d+)-/)
+  if (base) return base[1]
+  return null
 }
 
 export function compareSkuOrder(aSku: string, bSku: string): number {
+  const ka = numericSkuSortKey(aSku)
+  const kb = numericSkuSortKey(bSku)
+  if (ka != null && kb != null) {
+    const width = Math.max(ka.length, kb.length)
+    const cmp = ka.padStart(width, '0').localeCompare(kb.padStart(width, '0'))
+    if (cmp !== 0) return cmp
+    // Same padded value but different stored strings (00111 vs 111) — longer pad first
+    if (ka.length !== kb.length) return kb.length - ka.length
+    return aSku.localeCompare(bSku)
+  }
   const na = parseSkuOrderNumber(aSku)
   const nb = parseSkuOrderNumber(bSku)
   if (na != null && nb != null) return na - nb
