@@ -38,12 +38,18 @@ const repairStatusColors: Record<string, string> = {
 function formatCurrency(v: any) { return `Rs. ${Number(v ?? 0).toLocaleString('en-LK')}` }
 function formatDate(d: string)  { return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) }
 
-/* ── IMEI Detail Modal ──────────────────────────────────────────────────── */
+/* ── IMEI Detail Modal (Sales Details layout) ─────────────────────────── */
 function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onClose: () => void; onStatusChange: () => void }) {
-  const [data, setData]       = useState<any>(null)
+  const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
   const [warranty, setWarranty] = useState<any>(null)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   useEffect(() => {
     setLoading(true)
@@ -76,250 +82,400 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
     finally { setUpdating(false) }
   }
 
-  const record   = data?.record
-  const repairs: any[]  = data?.repairs ?? []
-  const sale     = data?.saleDetails
+  const record = data?.record
+  const repairs: any[] = data?.repairs ?? []
+  const sale = data?.saleDetails
   const customer = data?.customerDetails
   const firstRepair = repairs[0]
+  const safeText = (v: any) => (v === null || v === undefined || v === '' ? '—' : String(v))
+
+  const deviceName = (record?.product?.name
+    ?? (firstRepair ? `${firstRepair.deviceBrand ?? ''} ${firstRepair.deviceModel ?? ''}`.trim() : '')) || '—'
+  const brandName = record?.product?.brand?.name ?? firstRepair?.deviceBrand ?? '—'
+  const ownerName = customer?.name ?? firstRepair?.customerName ?? '—'
+  const ownerPhone = customer?.phone ?? firstRepair?.customerPhone ?? '—'
+  const st = record ? (statusConfig[record.status] ?? statusConfig.IN_STOCK) : statusConfig.REPAIR_ONLY
+  const statusOptions = ['IN_STOCK', 'SOLD', 'IN_REPAIR', 'UNDER_WARRANTY_CLAIM', 'SCRAPPED']
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="rounded-xl w-full max-w-6xl shadow-2xl max-h-[92vh] overflow-y-auto border"
+        style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', borderColor: 'var(--border-default)' }}
+        onClick={e => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)] flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-              <Smartphone size={17} className="text-violet-400" />
-            </div>
-            <div>
-              <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Device Details</h3>
-              <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{imei}</p>
+        <div
+          className="flex items-center justify-between px-4 sm:px-5 py-3 border-b sticky top-0 z-10"
+          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
+        >
+          <div className="flex items-start gap-2 min-w-0">
+            <Smartphone size={16} className="text-violet-500 mt-0.5 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                IMEI Details ( <span className="font-mono">{safeText(imei)}</span> )
+              </p>
+              <p className="text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>
+                {loading ? 'Loading…' : `${deviceName} · ${brandName}`}
+              </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/5 text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white"><X size={16} /></button>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${st.color} ${st.bg} ${st.border}`}>
+              {st.label}
+            </span>
+            {!record && (
+              <span className="text-[11px] px-2.5 py-1 rounded-full border font-semibold text-violet-600 dark:text-violet-400 bg-violet-500/10 border-violet-500/25">
+                Repair only
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg transition-colors"
+              style={{ color: 'var(--text-muted)' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-subtle)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+            >
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center p-16"><Loader2 size={24} className="animate-spin text-violet-400" /></div>
+          <div className="flex items-center justify-center py-20">
+            <Loader2 size={24} className="animate-spin text-violet-400" />
+          </div>
         ) : (
-          <div className="overflow-y-auto p-5 space-y-5">
+          <div className="p-4 sm:p-5 space-y-4">
+            {/* Top meta */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+              <div className="space-y-1 text-[12px]">
+                <div className="flex items-center gap-1.5">
+                  <Hash size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>IMEI:</span>
+                  <span className="font-mono font-medium tracking-wide" style={{ color: 'var(--text-primary)' }}>{safeText(imei)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Package size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>Device:</span>
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(deviceName)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Tag size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>Brand:</span>
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(brandName)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Hash size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>SKU:</span>
+                  <span className="font-mono font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(record?.product?.sku)}</span>
+                </div>
+              </div>
 
-            {/* Device Info */}
-            <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
-                  <Package size={11} />Device Info
-                </p>
-                {!record && <span className="text-[10px] px-2 py-0.5 rounded border font-medium text-violet-400 bg-violet-500/10 border-violet-500/20">From Repair Records Only</span>}
+              <div className="space-y-1 text-[12px]">
+                <div className="flex items-center gap-1.5">
+                  <User size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>Owner:</span>
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(ownerName)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Phone size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>Phone:</span>
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(ownerPhone)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Receipt size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>Invoice:</span>
+                  <span className="font-mono font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(sale?.invoiceNumber)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Calendar size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>Registered:</span>
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                    {record?.createdAt ? formatDate(record.createdAt) : '—'}
+                  </span>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Device</p>
-                  <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                    {record?.product?.name ?? (firstRepair ? `${firstRepair.deviceBrand ?? ''} ${firstRepair.deviceModel ?? ''}`.trim() : '—')}
-                  </p>
+
+              <div className="rounded-lg border p-3 text-[12px]" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                <div className="flex items-center justify-between border-b pb-2 mb-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Quick totals</span>
+                  {updating && <Loader2 size={12} className="animate-spin text-violet-400" />}
                 </div>
-                <div>
-                  <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Brand</p>
-                  <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                    {record?.product?.brand?.name ?? firstRepair?.deviceBrand ?? '—'}
-                  </p>
+                <div className="space-y-1">
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Repairs</span>
+                    <span className="font-medium">{repairs.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Sale amount</span>
+                    <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                      {sale?.total != null ? formatCurrency(sale.total) : '—'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Warranty</span>
+                    <span className="font-medium">{warranty?.status ?? '—'}</span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <span className="font-semibold">Status</span>
+                    <span className={`font-semibold ${st.color}`}>{st.label}</span>
+                  </div>
                 </div>
-                {record && <>
-                  <div>
-                    <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>SKU</p>
-                    <p className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{record.product?.sku ?? '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Category</p>
-                    <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{record.product?.category?.name ?? '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Selling Price</p>
-                    <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{record.product?.sellingPrice ? formatCurrency(record.product.sellingPrice) : '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Warranty</p>
-                    <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{record.product?.warrantyMonths ? `${record.product.warrantyMonths} months` : '—'}</p>
-                  </div>
-                </>}
               </div>
-              {/* Status + Change */}
-              {record && (
-                <div className="pt-2 border-t border-[var(--border-subtle)] space-y-2">
-                  <div className="flex items-center gap-2">
-                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Current Status:</p>
-                    {(() => { const st = statusConfig[record.status] ?? statusConfig['IN_STOCK']; return (
-                      <span className={`text-[10px] px-2.5 py-0.5 rounded-full border font-semibold ${st.color} ${st.bg} ${st.border}`}>{st.label}</span>
-                    )})()}
-                    {updating && <Loader2 size={12} className="animate-spin text-violet-400 ml-auto" />}
-                  </div>
-                </div>
-              )}
             </div>
 
-            {/* Registration Info */}
-            {record && (
-              <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
-                <p className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
-                  <Tag size={11} />Registration Info
-                </p>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>IMEI Number</p>
-                    <p className="font-mono text-xs font-semibold tracking-wider" style={{ color: 'var(--text-primary)' }}>{imei}</p>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="lg:col-span-2 space-y-4">
+                {/* Device info */}
+                <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="bg-emerald-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide flex items-center gap-1.5">
+                    <Package size={12} /> Device information
                   </div>
-                  <div>
-                    <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Registered On</p>
-                    <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{formatDate(record.createdAt)}</p>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-[640px] w-full text-[12px]">
+                      <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                        <tr style={{ color: 'var(--text-secondary)' }}>
+                          <th className="px-3 py-2 text-left">Field</th>
+                          <th className="px-3 py-2 text-left">Value</th>
+                          <th className="px-3 py-2 text-left">Field</th>
+                          <th className="px-3 py-2 text-left">Value</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                          <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Device</td>
+                          <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(deviceName)}</td>
+                          <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Brand</td>
+                          <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(brandName)}</td>
+                        </tr>
+                        <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                          <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>SKU</td>
+                          <td className="px-3 py-2 font-mono" style={{ color: 'var(--text-primary)' }}>{safeText(record?.product?.sku)}</td>
+                          <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Category</td>
+                          <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(record?.product?.category?.name)}</td>
+                        </tr>
+                        <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                          <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Selling price</td>
+                          <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>
+                            {record?.product?.sellingPrice != null ? formatCurrency(record.product.sellingPrice) : '—'}
+                          </td>
+                          <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Product warranty</td>
+                          <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>
+                            {record?.product?.warrantyMonths ? `${record.product.warrantyMonths} months` : '—'}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Owner</td>
+                          <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(ownerName)}</td>
+                          <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Phone</td>
+                          <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(ownerPhone)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
-              </div>
-            )}
 
-            {/* Customer / Sale */}
-            {(() => {
-              const repairCustomerName  = firstRepair?.customerName
-              const repairCustomerPhone = firstRepair?.customerPhone
-              const hasAny = customer || sale || repairCustomerName
-              return (
-                <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
-                      <User size={11} />Owner / Sale
+                {/* Sale info */}
+                <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="bg-emerald-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide flex items-center gap-1.5">
+                    <ShoppingBag size={12} /> Sale information
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-[560px] w-full text-[12px]">
+                      <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                        <tr style={{ color: 'var(--text-secondary)' }}>
+                          <th className="px-3 py-2 text-left">Invoice</th>
+                          <th className="px-3 py-2 text-left">Date</th>
+                          <th className="px-3 py-2 text-left">Cashier</th>
+                          <th className="px-3 py-2 text-right">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sale ? (
+                          <tr>
+                            <td className="px-3 py-2 font-mono font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(sale.invoiceNumber)}</td>
+                            <td className="px-3 py-2 whitespace-nowrap">{safeText(formatDate(sale.createdAt))}</td>
+                            <td className="px-3 py-2">{safeText(sale.cashierName)}</td>
+                            <td className="px-3 py-2 text-right font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(sale.total)}</td>
+                          </tr>
+                        ) : (
+                          <tr>
+                            <td colSpan={4} className="px-3 py-6 text-center" style={{ color: 'var(--text-muted)' }}>No sale linked to this device</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Repair history */}
+                <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="bg-emerald-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide flex items-center gap-1.5">
+                    <History size={12} /> Repair history ({repairs.length})
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-[720px] w-full text-[12px]">
+                      <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                        <tr style={{ color: 'var(--text-secondary)' }}>
+                          <th className="px-3 py-2 text-left w-10">#</th>
+                          <th className="px-3 py-2 text-left">Ticket</th>
+                          <th className="px-3 py-2 text-left">Date</th>
+                          <th className="px-3 py-2 text-left">Issue</th>
+                          <th className="px-3 py-2 text-left">Status</th>
+                          <th className="px-3 py-2 text-right">Cost</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {repairs.map((r: any, idx: number) => {
+                          const sc = repairStatusColors[r.status] ?? repairStatusColors.RECEIVED
+                          return (
+                            <tr key={r.id} className="border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
+                              <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{idx + 1}</td>
+                              <td className="px-3 py-2 font-mono font-medium" style={{ color: 'var(--text-primary)' }}>#{r.ticketNumber}</td>
+                              <td className="px-3 py-2 whitespace-nowrap">{safeText(formatDate(r.createdAt))}</td>
+                              <td className="px-3 py-2 max-w-[220px]">
+                                <p className="truncate" style={{ color: 'var(--text-primary)' }}>{safeText(r.reportedIssue)}</p>
+                                {(r.technicianName || r.customerName) && (
+                                  <p className="text-[10px] mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>
+                                    {[r.technicianName && `Tech: ${r.technicianName}`, r.customerName && `Cust: ${r.customerName}`].filter(Boolean).join(' · ')}
+                                  </p>
+                                )}
+                              </td>
+                              <td className="px-3 py-2">
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${sc}`}>
+                                  {safeText(r.status?.replace('_', ' '))}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-right whitespace-nowrap font-semibold">
+                                {(r.actualCost ?? r.estimatedCost) > 0
+                                  ? formatCurrency(r.actualCost ?? r.estimatedCost)
+                                  : '—'}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                        {repairs.length === 0 && (
+                          <tr>
+                            <td colSpan={6} className="px-3 py-6 text-center" style={{ color: 'var(--text-muted)' }}>No repair records for this device</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Warranty + notes */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <p className="text-[11px] font-semibold mb-1 inline-flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
+                      <Shield size={11} /> Warranty:
                     </p>
-                    {!customer && !sale && repairCustomerName && (
-                      <span className="text-[10px] px-2 py-0.5 rounded border text-violet-400 bg-violet-500/10 border-violet-500/20 font-medium">From Repair Record</span>
+                    {!warranty ? (
+                      <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>No warranty linked to this IMEI</p>
+                    ) : (
+                      <div className="text-[12px] space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono font-medium text-violet-600 dark:text-violet-400">{warranty.warrantyCode}</span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${
+                            warranty.status === 'ACTIVE' ? 'text-green-600 dark:text-green-400 bg-green-500/10 border-green-500/20'
+                              : warranty.status === 'CLAIMED' ? 'text-orange-600 dark:text-orange-400 bg-orange-500/10 border-orange-500/20'
+                                : warranty.status === 'EXPIRED' ? 'text-slate-500 bg-slate-500/10 border-slate-500/20'
+                                  : 'text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20'
+                          }`}>{warranty.status}</span>
+                        </div>
+                        <p style={{ color: 'var(--text-primary)' }}>{safeText(warranty.productName)} · {safeText(warranty.customerName)}</p>
+                        <p style={{ color: 'var(--text-muted)' }}>
+                          {formatDate(warranty.startDate)} → {formatDate(warranty.endDate)}
+                          {(warranty.claims?.length ?? 0) > 0 ? ` · ${warranty.claims.length} claim(s)` : ''}
+                        </p>
+                      </div>
                     )}
                   </div>
-                  {!hasAny ? (
-                    <p className="text-xs py-1" style={{ color: 'var(--text-muted)' }}>No sale or customer linked to this device yet</p>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      {/* From ImeiRecord customer */}
-                      {customer && <>
-                        <div>
-                          <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Customer</p>
-                          <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{customer.name}</p>
-                        </div>
-                        <div>
-                          <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Phone</p>
-                          <p className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{customer.phone ?? '—'}</p>
-                        </div>
-                      </>}
-                      {/* From repair ticket (fallback) */}
-                      {!customer && repairCustomerName && <>
-                        <div>
-                          <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Customer</p>
-                          <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{repairCustomerName}</p>
-                        </div>
-                        <div>
-                          <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Phone</p>
-                          <p className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{repairCustomerPhone ?? '—'}</p>
-                        </div>
-                        <div>
-                          <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Last Seen</p>
-                          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{formatDate(firstRepair.createdAt)}</p>
-                        </div>
-                        <div>
-                          <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Ticket</p>
-                          <p className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>#{firstRepair.ticketNumber}</p>
-                        </div>
-                      </>}
-                      {/* Sale details */}
-                      {sale && <>
-                        <div>
-                          <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Invoice</p>
-                          <p className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{sale.invoiceNumber ?? '—'}</p>
-                        </div>
-                        <div>
-                          <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Sale Date</p>
-                          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{formatDate(sale.createdAt)}</p>
-                        </div>
-                        <div>
-                          <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Sale Amount</p>
-                          <p className="text-xs font-semibold text-green-400">{formatCurrency(sale.total)}</p>
-                        </div>
-                        <div>
-                          <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Cashier</p>
-                          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{sale.cashierName ?? '—'}</p>
-                        </div>
-                      </>}
-                    </div>
-                  )}
-                </div>
-              )
-            })()}
-
-            {/* Warranty */}
-            <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
-              <p className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
-                <Shield size={11} />Warranty
-              </p>
-              {!warranty ? (
-                <p className="text-xs py-1" style={{ color: 'var(--text-muted)' }}>No warranty linked to this IMEI</p>
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-mono font-semibold text-violet-400">{warranty.warrantyCode}</p>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${
-                      warranty.status === 'ACTIVE'  ? 'text-green-400 bg-green-500/10 border-green-500/20' :
-                      warranty.status === 'CLAIMED' ? 'text-orange-400 bg-orange-500/10 border-orange-500/20' :
-                      warranty.status === 'EXPIRED' ? 'text-slate-400 bg-slate-500/10 border-slate-500/20' :
-                      'text-red-400 bg-red-500/10 border-red-500/20'
-                    }`}>{warranty.status}</span>
+                  <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Owner / contact:</p>
+                    <p className="text-[12px]" style={{ color: 'var(--text-primary)' }}>
+                      {safeText(ownerName)}
+                      {ownerPhone !== '—' ? ` · ${ownerPhone}` : ''}
+                    </p>
+                    {!customer && firstRepair?.customerName && (
+                      <p className="text-[10px] mt-1 text-violet-600 dark:text-violet-400">From repair record</p>
+                    )}
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div><p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Product</p><p style={{ color: 'var(--text-primary)' }}>{warranty.productName}</p></div>
-                    <div><p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Customer</p><p style={{ color: 'var(--text-primary)' }}>{warranty.customerName}</p></div>
-                    <div><p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Start</p><p style={{ color: 'var(--text-secondary)' }}>{formatDate(warranty.startDate)}</p></div>
-                    <div><p className="text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>Expires</p><p style={{ color: 'var(--text-secondary)' }}>{formatDate(warranty.endDate)}</p></div>
-                  </div>
-                  {(warranty.claims?.length ?? 0) > 0 && (
-                    <p className="text-[10px] text-orange-400">{warranty.claims.length} claim{warranty.claims.length !== 1 ? 's' : ''} filed</p>
-                  )}
                 </div>
-              )}
-            </div>
-
-            {/* Repair History */}
-            <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
-                  <History size={11} />Repair History
-                </p>
-                <span className="text-[10px] font-bold text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20">
-                  {repairs.length} repair{repairs.length !== 1 ? 's' : ''}
-                </span>
               </div>
-              {repairs.length === 0 ? (
-                <p className="text-xs text-center py-4" style={{ color: 'var(--text-muted)' }}>No repair records for this device</p>
-              ) : (
-                <div className="space-y-2">
-                  {repairs.map((r: any) => {
-                    const sc = repairStatusColors[r.status] ?? repairStatusColors['RECEIVED']
-                    return (
-                      <div key={r.id} className="rounded-lg border p-3 space-y-1.5" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${sc}`}>{r.status.replace('_', ' ')}</span>
-                          <span className="text-xs font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>#{r.ticketNumber}</span>
-                          <span className="ml-auto text-[11px]" style={{ color: 'var(--text-muted)' }}>{formatDate(r.createdAt)}</span>
-                        </div>
-                        <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{r.reportedIssue}</p>
-                        <div className="flex items-center gap-3 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                          {r.technicianName && <span className="flex items-center gap-1"><User size={10} />{r.technicianName}</span>}
-                          {r.customerName   && <span className="flex items-center gap-1"><Phone size={10} />{r.customerName}</span>}
-                          {(r.actualCost ?? r.estimatedCost) > 0 && (
-                            <span className="ml-auto font-medium text-green-400">{formatCurrency(r.actualCost ?? r.estimatedCost)}</span>
-                          )}
-                        </div>
+
+              {/* Right summary */}
+              <div className="space-y-4">
+                <div className="rounded-lg border overflow-hidden h-fit" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="px-3 py-2 border-b flex items-center justify-between" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                    <p className="text-[12px] font-semibold" style={{ color: 'var(--text-primary)' }}>Summary</p>
+                    <p className={`text-[12px] font-semibold ${st.color}`}>{st.label}</p>
+                  </div>
+                  <div className="p-3 text-[12px] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span style={{ color: 'var(--text-muted)' }}>Repairs:</span>
+                      <span className="font-medium">{repairs.length}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span style={{ color: 'var(--text-muted)' }}>Sale:</span>
+                      <span className="font-medium">{sale?.total != null ? formatCurrency(sale.total) : '—'}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span style={{ color: 'var(--text-muted)' }}>Warranty:</span>
+                      <span className="font-medium">{warranty?.status ?? '—'}</span>
+                    </div>
+                    <div className="pt-2 border-t space-y-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold">IMEI:</span>
+                        <span className="font-mono text-[10px] font-medium">{safeText(imei)}</span>
                       </div>
-                    )
-                  })}
+                    </div>
+                  </div>
                 </div>
-              )}
+
+                {record && (
+                  <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <div className="px-3 py-2 border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                      <p className="text-[12px] font-semibold" style={{ color: 'var(--text-primary)' }}>Update status</p>
+                    </div>
+                    <div className="p-3 flex flex-wrap gap-1.5">
+                      {statusOptions.map(s => {
+                        const cfg = statusConfig[s]
+                        const active = record.status === s
+                        return (
+                          <button
+                            key={s}
+                            type="button"
+                            disabled={updating || active}
+                            onClick={() => handleStatusChange(s)}
+                            className={`text-[10px] px-2.5 py-1 rounded-full border font-semibold disabled:opacity-50 transition-colors ${cfg.color} ${cfg.bg} ${cfg.border} ${active ? 'ring-1 ring-offset-0' : 'hover:opacity-90'}`}
+                          >
+                            {cfg.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-end pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border font-semibold"
+                style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}
+              >
+                Close
+              </button>
+            </div>
           </div>
         )}
       </div>

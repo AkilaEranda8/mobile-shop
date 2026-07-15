@@ -390,223 +390,491 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRep
     finally { setEmailLoading(false) }
   }
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const safeText = (v: any) => (v === null || v === undefined || v === '' ? '—' : String(v))
+  const daysLabel =
+    warranty.status === 'ACTIVE'
+      ? (expiring ? `${daysLeft} days left` : `${daysLeft} days remaining`)
+      : warranty.status === 'EXPIRED'
+        ? 'Expired'
+        : warranty.status
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
-        <div className="flex items-center justify-between p-5 border-b sticky top-0 z-10" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
-          <div className="flex items-center gap-2">
-            <Shield size={16} className="text-violet-400" />
-            <div>
-              <p className="text-xs font-mono text-violet-400">{warranty.warrantyCode}</p>
-              <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{warranty.productName}</h3>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="rounded-xl w-full max-w-6xl shadow-2xl max-h-[92vh] overflow-y-auto border"
+        style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', borderColor: 'var(--border-default)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-4 sm:px-5 py-3 border-b sticky top-0 z-10"
+          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
+        >
+          <div className="flex items-start gap-2 min-w-0">
+            <Shield size={16} className="text-violet-500 mt-0.5 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                Warranty Details ( <span className="font-mono">{safeText(warranty.warrantyCode)}</span> )
+              </p>
+              <p className="text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>
+                {safeText(warranty.productName)} · {safeText(warranty.customerName)}
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <button onClick={onEdit} className="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 transition-colors">
-              <Edit size={11} />Edit
+
+          <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+            <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${statusColors[warranty.status] ?? ''}`}>
+              {warranty.status}
+            </span>
+            {warranty.status === 'ACTIVE' && (
+              <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${
+                expiring
+                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/25'
+                  : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
+              }`}>
+                {daysLabel}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={onEdit}
+              className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border font-semibold text-violet-700 dark:text-violet-300 border-violet-500/25 bg-violet-500/10 hover:bg-violet-500/20"
+            >
+              <Edit size={12} /> Edit
             </button>
-            <button onClick={onDelete} className="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">
-              <Trash2 size={11} />Delete
+            <button
+              type="button"
+              onClick={onDelete}
+              className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border font-semibold text-rose-700 dark:text-rose-300 border-rose-500/25 bg-rose-500/10 hover:bg-rose-500/20"
+            >
+              <Trash2 size={12} /> Delete
             </button>
-            <button onClick={onClose} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><X size={16} /></button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg transition-colors"
+              style={{ color: 'var(--text-muted)' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-subtle)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+            >
+              <X size={16} />
+            </button>
           </div>
         </div>
 
-        <div className="p-5 space-y-4">
-          {/* Status + days left */}
-          <div className="flex items-center justify-between p-3 rounded-xl border" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
-            <span className={`text-xs px-3 py-1 rounded-full border font-semibold ${statusColors[warranty.status]}`}>
-              {warranty.status}
-            </span>
-            {expiring
-              ? <span className="text-xs text-yellow-400 flex items-center gap-1"><AlertTriangle size={11} />{daysLeft} days left</span>
-              : warranty.status === 'ACTIVE'
-                ? <span className="text-xs text-green-400 flex items-center gap-1"><CheckCircle size={11} />{daysLeft} days remaining</span>
-                : null}
-          </div>
-
-          {/* Customer + Product */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl p-3 border" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
-              <div className="flex items-center gap-1.5 mb-2"><User size={11} className="text-cyan-400" /><span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Customer</span></div>
-              <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{warranty.customerName}</p>
-              <a href={`tel:${warranty.customerPhone}`} className="text-[11px] text-cyan-400 flex items-center gap-1 mt-0.5"><Phone size={9} />{warranty.customerPhone}</a>
-            </div>
-            <div className="rounded-xl p-3 border" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
-              <div className="flex items-center gap-1.5 mb-2"><Package size={11} className="text-violet-400" /><span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Product</span></div>
-              <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{warranty.productName}</p>
-              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{warranty.brandName}</p>
-              {warranty.imei && <p className="text-[10px] font-mono mt-0.5" style={{ color: 'var(--text-muted)' }}>{warranty.imei}</p>}
-            </div>
-          </div>
-
-          {/* Dates */}
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: 'Start Date', value: formatDate(warranty.startDate), icon: Calendar },
-              { label: 'End Date',   value: formatDate(warranty.endDate),   icon: Calendar },
-              { label: 'Duration',   value: `${warranty.monthsDuration} mo`, icon: Clock   },
-            ].map(({ label, value, icon: Icon }) => (
-              <div key={label} className="rounded-xl p-3 border text-center" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
-                <Icon size={12} className="mx-auto mb-1" style={{ color: 'var(--text-muted)' }} />
-                <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{value}</p>
-                <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{label}</p>
+        <div className="p-4 sm:p-5 space-y-4">
+          {/* Top meta row */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div className="space-y-1 text-[12px]">
+              <div className="flex items-center gap-1.5">
+                <Hash size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Warranty code:</span>
+                <span className="font-mono font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(warranty.warrantyCode)}</span>
               </div>
-            ))}
+              <div className="flex items-center gap-1.5">
+                <Hash size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Invoice:</span>
+                <span className="font-mono font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(warranty.invoiceNumber)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Calendar size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Issued:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(formatDate(warranty.createdAt))}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Clock size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Duration:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{warranty.monthsDuration} months</span>
+              </div>
+            </div>
+
+            <div className="space-y-1 text-[12px]">
+              <div className="flex items-center gap-1.5">
+                <User size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Customer:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(warranty.customerName)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Phone size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Phone:</span>
+                <a href={`tel:${warranty.customerPhone}`} className="font-medium text-cyan-600 dark:text-cyan-400 hover:underline">
+                  {safeText(warranty.customerPhone)}
+                </a>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Package size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Product:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(warranty.productName)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Package size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Brand / IMEI:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {[warranty.brandName, warranty.imei].filter(Boolean).join(' · ') || '—'}
+                </span>
+              </div>
+            </div>
+
+            <div className="rounded-lg border p-3 text-[12px]" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+              <div className="flex items-center justify-between border-b pb-2 mb-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Coverage</span>
+                <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{warranty.status}</span>
+              </div>
+              <div className="space-y-1">
+                <div className="flex justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Start</span>
+                  <span className="font-medium">{safeText(formatDate(warranty.startDate))}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>End</span>
+                  <span className="font-medium">{safeText(formatDate(warranty.endDate))}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Claims</span>
+                  <span className="font-medium">{localClaims.length}</span>
+                </div>
+                <div className="flex justify-between pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span className="font-semibold">Remaining</span>
+                  <span className={`font-semibold ${expiring ? 'text-amber-600 dark:text-amber-400' : warranty.status === 'ACTIVE' ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>
+                    {daysLabel}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Invoice */}
-          {warranty.invoiceNumber && (
-            <div className="flex items-center gap-2 p-3 rounded-xl border" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
-              <Hash size={11} style={{ color: 'var(--text-muted)' }} />
-              <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Invoice:</span>
-              <span className="text-xs font-mono" style={{ color: 'var(--text-primary)' }}>{warranty.invoiceNumber}</span>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 space-y-4">
+              {/* Warranty info table */}
+              <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                <div className="bg-emerald-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide">
+                  Warranty information
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-[640px] w-full text-[12px]">
+                    <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                      <tr style={{ color: 'var(--text-secondary)' }}>
+                        <th className="px-3 py-2 text-left">Field</th>
+                        <th className="px-3 py-2 text-left">Value</th>
+                        <th className="px-3 py-2 text-left">Field</th>
+                        <th className="px-3 py-2 text-left">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Product</td>
+                        <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(warranty.productName)}</td>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Brand</td>
+                        <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(warranty.brandName)}</td>
+                      </tr>
+                      <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Customer</td>
+                        <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(warranty.customerName)}</td>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Phone</td>
+                        <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(warranty.customerPhone)}</td>
+                      </tr>
+                      <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>IMEI</td>
+                        <td className="px-3 py-2 font-mono" style={{ color: 'var(--text-primary)' }}>{safeText(warranty.imei)}</td>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Invoice</td>
+                        <td className="px-3 py-2 font-mono" style={{ color: 'var(--text-primary)' }}>{safeText(warranty.invoiceNumber)}</td>
+                      </tr>
+                      <tr>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Start / End</td>
+                        <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>
+                          {safeText(formatDate(warranty.startDate))} → {safeText(formatDate(warranty.endDate))}
+                        </td>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Duration</td>
+                        <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>{warranty.monthsDuration} months</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Claims table */}
+              <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                <div className="bg-emerald-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5">
+                    <AlertTriangle size={12} /> Claims ({localClaims.length})
+                  </span>
+                  {warranty.status !== 'VOID' && warranty.status !== 'EXPIRED' && (
+                    <button
+                      type="button"
+                      onClick={() => setShowClaimForm(v => !v)}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white/15 hover:bg-white/25"
+                    >
+                      <Plus size={10} /> File claim
+                    </button>
+                  )}
+                </div>
+
+                {showClaimForm && (
+                  <div className="p-3 border-b space-y-2" style={{ borderColor: 'var(--border-subtle)', background: 'rgba(245,158,11,0.06)' }}>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">Claim type</p>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setClaimType('HARDWARE')}
+                        className={`flex-1 py-1.5 text-xs rounded-lg border font-semibold flex items-center justify-center gap-1.5 transition-colors ${
+                          claimType === 'HARDWARE'
+                            ? 'bg-blue-500/20 border-blue-500/40 text-blue-600 dark:text-blue-300'
+                            : ''
+                        }`}
+                        style={claimType !== 'HARDWARE' ? { borderColor: 'var(--border-default)', color: 'var(--text-muted)' } : undefined}
+                      >
+                        <Wrench size={11} /> Hardware
+                      </button>
+                      <button type="button" onClick={() => setClaimType('SOFTWARE')}
+                        className={`flex-1 py-1.5 text-xs rounded-lg border font-semibold flex items-center justify-center gap-1.5 transition-colors ${
+                          claimType === 'SOFTWARE'
+                            ? 'bg-violet-500/20 border-violet-500/40 text-violet-600 dark:text-violet-300'
+                            : ''
+                        }`}
+                        style={claimType !== 'SOFTWARE' ? { borderColor: 'var(--border-default)', color: 'var(--text-muted)' } : undefined}
+                      >
+                        <Package size={11} /> Software
+                      </button>
+                    </div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">Describe the issue</p>
+                    <textarea
+                      rows={3}
+                      className="input-field w-full text-xs resize-none"
+                      placeholder="Describe the warranty claim issue…"
+                      value={claimIssue}
+                      onChange={e => setClaimIssue(e.target.value)}
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { setShowClaimForm(false); setClaimIssue(''); setClaimType('HARDWARE') }}
+                        className="flex-1 py-1.5 text-xs rounded-lg border font-semibold"
+                        style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)', borderColor: 'var(--border-default)' }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={submitClaim}
+                        disabled={claimLoading || !claimIssue.trim()}
+                        className="flex-1 py-1.5 text-xs rounded-lg bg-amber-500 text-white hover:bg-amber-400 disabled:opacity-50 font-semibold flex items-center justify-center gap-1.5"
+                      >
+                        {claimLoading ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
+                        Submit claim
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="overflow-x-auto">
+                  <table className="min-w-[720px] w-full text-[12px]">
+                    <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                      <tr style={{ color: 'var(--text-secondary)' }}>
+                        <th className="px-3 py-2 text-left w-10">#</th>
+                        <th className="px-3 py-2 text-left">Date</th>
+                        <th className="px-3 py-2 text-left">Type</th>
+                        <th className="px-3 py-2 text-left">Issue</th>
+                        <th className="px-3 py-2 text-left">Status</th>
+                        <th className="px-3 py-2 text-left">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {localClaims.map((c: any, idx: number) => {
+                        const flow = CLAIM_FLOW[c.status]
+                        return (
+                          <tr key={c.id} className="border-b last:border-0 align-top" style={{ borderColor: 'var(--border-subtle)' }}>
+                            <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{idx + 1}</td>
+                            <td className="px-3 py-2 whitespace-nowrap">{safeText(formatDate(c.createdAt))}</td>
+                            <td className="px-3 py-2">
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${
+                                c.claimType === 'SOFTWARE'
+                                  ? 'bg-violet-500/10 border-violet-500/20 text-violet-600 dark:text-violet-400'
+                                  : 'bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400'
+                              }`}>
+                                {c.claimType === 'SOFTWARE' ? 'Software' : 'Hardware'}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 max-w-[240px]">
+                              <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(c.issue)}</p>
+                              {c.resolution && (
+                                <p className="text-[10px] mt-1 text-emerald-600 dark:text-emerald-400">✓ {c.resolution}</p>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${CLAIM_STATUS_COLOR[c.status] ?? ''}`}>
+                                {safeText(c.status?.replace('_', ' '))}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2">
+                              {flow && c.status !== 'RESOLVED' && c.status !== 'REJECTED' ? (
+                                <div className="flex flex-wrap gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => advanceClaim(c, flow.next)}
+                                    disabled={!!claimUpdating}
+                                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold border disabled:opacity-50 ${flow.color}`}
+                                  >
+                                    {claimUpdating === c.id ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle size={10} />}
+                                    {flow.label}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => onCreateRepair?.(c)}
+                                    disabled={!!claimUpdating}
+                                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20 disabled:opacity-50"
+                                  >
+                                    <Wrench size={10} /> Repair
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => rejectClaim(c)}
+                                    disabled={!!claimUpdating}
+                                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 disabled:opacity-50"
+                                  >
+                                    <X size={10} /> Reject
+                                  </button>
+                                </div>
+                              ) : (
+                                <span style={{ color: 'var(--text-muted)' }}>—</span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                      {localClaims.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="px-3 py-6 text-center" style={{ color: 'var(--text-muted)' }}>No claims filed yet</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Customer:</p>
+                  <p className="text-[12px]" style={{ color: 'var(--text-primary)' }}>
+                    {safeText(warranty.customerName)}
+                    {warranty.customerPhone ? ` · ${warranty.customerPhone}` : ''}
+                  </p>
+                </div>
+                <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Device:</p>
+                  <p className="text-[12px]" style={{ color: 'var(--text-primary)' }}>
+                    {[warranty.productName, warranty.brandName, warranty.imei].filter(Boolean).join(' · ') || '—'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Right summary */}
+            <div className="rounded-lg border overflow-hidden h-fit" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="px-3 py-2 border-b flex items-center justify-between" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                <p className="text-[12px] font-semibold" style={{ color: 'var(--text-primary)' }}>Summary</p>
+                <p className="text-[12px] font-semibold">{warranty.status}</p>
+              </div>
+              <div className="p-3 text-[12px] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Duration:</span>
+                  <span className="font-medium">{warranty.monthsDuration} mo</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Start:</span>
+                  <span className="font-medium">{safeText(formatDate(warranty.startDate))}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>End:</span>
+                  <span className="font-medium">{safeText(formatDate(warranty.endDate))}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Claims:</span>
+                  <span className="font-medium">{localClaims.length}</span>
+                </div>
+                <div className="pt-2 border-t space-y-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold">Remaining:</span>
+                    <span className={`font-semibold ${expiring ? 'text-amber-600 dark:text-amber-400' : warranty.status === 'ACTIVE' ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>
+                      {daysLabel}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Code:</span>
+                    <span className="font-medium font-mono text-[11px]">{safeText(warranty.warrantyCode)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom actions */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-end pt-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => printWarrantyCertificate(warranty, invSettings)}
+              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-indigo-500/30 bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 font-semibold"
+            >
+              <Printer size={14} /> Print
+            </button>
+            <button
+              type="button"
+              onClick={downloadPdf}
+              disabled={downloading}
+              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-violet-500/30 bg-violet-500/15 text-violet-700 dark:text-violet-300 font-semibold disabled:opacity-60"
+            >
+              {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              Download PDF
+            </button>
+            <button
+              type="button"
+              disabled={emailLoading}
+              onClick={() => setShowEmailInput(v => !v)}
+              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-cyan-500/30 bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 font-semibold disabled:opacity-60"
+            >
+              {emailLoading ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
+              Send Email
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border font-semibold"
+              style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}
+            >
+              Close
+            </button>
+          </div>
+
+          {showEmailInput && (
+            <div className="flex flex-col sm:flex-row gap-2 justify-end">
+              <input
+                type="email"
+                className="input-field flex-1 text-xs py-2 max-w-sm sm:ml-auto"
+                placeholder="Enter email address…"
+                value={emailTo}
+                onChange={e => setEmailTo(e.target.value)}
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={sendEmail}
+                disabled={emailLoading || !emailTo}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-[12px] rounded-lg bg-cyan-500 text-white hover:bg-cyan-400 disabled:opacity-50 font-semibold"
+              >
+                {emailLoading ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                Send
+              </button>
             </div>
           )}
 
-          {/* ── Claims Management ── */}
-          <div className="rounded-xl border overflow-hidden" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
-            <div className="flex items-center justify-between px-3 py-2.5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-              <div className="flex items-center gap-2">
-                <AlertTriangle size={12} className="text-amber-400" />
-                <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Claims ({localClaims.length})</p>
-              </div>
-              {warranty.status !== 'VOID' && warranty.status !== 'EXPIRED' && (
-                <button onClick={() => setShowClaimForm(v => !v)}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 transition-colors">
-                  <Plus size={10} />File Claim
-                </button>
-              )}
-            </div>
-
-            {/* File Claim Form */}
-            {showClaimForm && (
-              <div className="p-3 border-b border-amber-500/20 bg-amber-500/5 space-y-2">
-                <p className="text-[10px] text-amber-400 font-semibold uppercase tracking-wide">Claim Type</p>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => setClaimType('HARDWARE')}
-                    className={`flex-1 py-1.5 text-xs rounded-lg border font-semibold flex items-center justify-center gap-1.5 transition-colors ${
-                      claimType === 'HARDWARE'
-                        ? 'bg-blue-500/20 border-blue-500/40 text-blue-300'
-                        : 'border-white/10 text-slate-400 hover:bg-white/5'
-                    }`}>
-                    <Wrench size={11} />Hardware
-                  </button>
-                  <button type="button" onClick={() => setClaimType('SOFTWARE')}
-                    className={`flex-1 py-1.5 text-xs rounded-lg border font-semibold flex items-center justify-center gap-1.5 transition-colors ${
-                      claimType === 'SOFTWARE'
-                        ? 'bg-violet-500/20 border-violet-500/40 text-violet-300'
-                        : 'border-white/10 text-slate-400 hover:bg-white/5'
-                    }`}>
-                    <Package size={11} />Software
-                  </button>
-                </div>
-                <p className="text-[10px] text-amber-400 font-semibold uppercase tracking-wide">Describe the Issue</p>
-                <textarea rows={3} className="input-field w-full text-xs resize-none"
-                  placeholder="Describe the warranty claim issue…"
-                  value={claimIssue} onChange={e => setClaimIssue(e.target.value)} autoFocus />
-                <div className="flex gap-2">
-                  <button onClick={() => { setShowClaimForm(false); setClaimIssue(''); setClaimType('HARDWARE') }}
-                    className="flex-1 py-1.5 text-xs rounded-lg border transition-colors" style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)', borderColor: 'var(--border-default)' }}>Cancel</button>
-                  <button onClick={submitClaim} disabled={claimLoading || !claimIssue.trim()}
-                    className="flex-1 py-1.5 text-xs rounded-lg bg-amber-500 text-white hover:bg-amber-400 disabled:opacity-50 font-semibold flex items-center justify-center gap-1.5 transition-colors">
-                    {claimLoading ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}Submit Claim
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Claims List */}
-            {localClaims.length === 0 ? (
-              <div className="flex items-center justify-center py-6">
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>No claims filed yet</p>
-              </div>
-            ) : (
-              <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                {localClaims.map((c: any) => {
-                  const flow = CLAIM_FLOW[c.status]
-                  return (
-                    <div key={c.id} className="p-3 space-y-2">
-                      <div className="flex items-start gap-2">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full border flex-shrink-0 font-semibold ${CLAIM_STATUS_COLOR[c.status] ?? ''}`}>
-                          {c.status.replace('_', ' ')}
-                        </span>
-                        {c.claimType && (
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full border flex-shrink-0 font-semibold ${
-                            c.claimType === 'SOFTWARE'
-                              ? 'bg-violet-500/10 border-violet-500/20 text-violet-400'
-                              : 'bg-blue-500/10 border-blue-500/20 text-blue-400'
-                          }`}>
-                            {c.claimType === 'SOFTWARE' ? '💻 Software' : '🔧 Hardware'}
-                          </span>
-                        )}
-                        <p className="text-xs flex-1 leading-relaxed" style={{ color: 'var(--text-primary)' }}>{c.issue}</p>
-                      </div>
-                      {c.resolution && (
-                        <p className="text-[11px] text-green-400 bg-green-500/10 rounded-lg px-2.5 py-1.5 border border-green-500/15">
-                          ✓ {c.resolution}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-1.5">
-                        <p className="text-[10px] flex-1" style={{ color: 'var(--text-muted)' }}>{new Date(c.createdAt).toLocaleDateString('en-GB')}</p>
-                        {flow && c.status !== 'RESOLVED' && c.status !== 'REJECTED' && (
-                          <>
-                            <button onClick={() => advanceClaim(c, flow.next)} disabled={!!claimUpdating}
-                              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors disabled:opacity-50 ${flow.color}`}>
-                              {claimUpdating === c.id ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle size={10} />}
-                              {flow.label}
-                            </button>
-                            <button onClick={() => onCreateRepair?.(c)} disabled={!!claimUpdating}
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 border border-orange-500/20 transition-colors disabled:opacity-50">
-                              <Wrench size={10} />Repair Job
-                            </button>
-                            <button onClick={() => rejectClaim(c)} disabled={!!claimUpdating}
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors disabled:opacity-50">
-                              <X size={10} />Reject
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          <p className="text-[10px] flex items-center gap-1" style={{ color: 'var(--text-muted)' }}><Calendar size={10} />Issued {formatDate(warranty.createdAt)}</p>
-
-          {/* ── Action buttons ── */}
-          <div className="pt-1 border-t space-y-2" style={{ borderColor: 'var(--border-subtle)' }}>
-            <div className="flex gap-2">
-              <button onClick={() => printWarrantyCertificate(warranty, invSettings)}
-                className="flex-1 flex items-center justify-center gap-2 py-2 text-xs rounded-xl bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 transition-colors font-semibold">
-                <Printer size={12} />Print
-              </button>
-              <button onClick={downloadPdf} disabled={downloading}
-                className="flex-1 flex items-center justify-center gap-2 py-2 text-xs rounded-xl bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 border border-violet-500/20 transition-colors disabled:opacity-50 font-semibold">
-                {downloading ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}Download PDF
-              </button>
-              <button
-                disabled={emailLoading}
-                className="flex-1 flex items-center justify-center gap-2 py-2 text-xs rounded-xl bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/20 transition-colors disabled:opacity-50 font-semibold"
-                onClick={() => setShowEmailInput(v => !v)}>
-                {emailLoading ? <Loader2 size={12} className="animate-spin" /> : <Mail size={12} />}Send Email
-              </button>
-            </div>
-            {showEmailInput && (
-              <div className="flex gap-2">
-                <input type="email" className="input-field flex-1 text-xs py-1.5" placeholder="Enter email address…"
-                  value={emailTo} onChange={e => setEmailTo(e.target.value)} autoFocus />
-                <button onClick={sendEmail} disabled={emailLoading || !emailTo}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-xl bg-cyan-500 text-white hover:bg-cyan-400 disabled:opacity-50 font-semibold transition-colors">
-                  {emailLoading ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}Send
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* ── Hidden Certificate for PDF capture ── */}
+          {/* Hidden certificate for PDF capture */}
           <div className="overflow-hidden" style={{ height: 0, position: 'absolute', left: -9999, top: 0, width: 794 }}>
             <WarrantyCertificate ref={certRef} warranty={warranty} settings={invSettings} hideControls />
           </div>
@@ -615,6 +883,7 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRep
     </div>
   )
 }
+
 
 /* ── Edit Warranty Modal ──────────────────────────────────────────────── */
 function EditWarrantyModal({ warranty, onClose, onSaved }: {

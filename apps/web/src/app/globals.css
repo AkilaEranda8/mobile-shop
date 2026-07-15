@@ -412,6 +412,22 @@ html:not(.dark) [data-pos="dark"] aside {
   color: #ffffff !important;
 }
 
+/* ── Light mode: slightly bolder system text ───────────────────────── */
+html:not(.dark) body {
+  font-weight: 500;
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
+}
+html:not(.dark) .font-normal { font-weight: 500 !important; }
+html:not(.dark) .font-medium { font-weight: 600 !important; }
+html:not(.dark) .font-semibold { font-weight: 700 !important; }
+/* Dark POS shell keeps its own weight (don’t inherit light-mode bolding) */
+html:not(.dark) [data-pos="dark"] {
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 /* ── Light mode: remap hardcoded dark-theme text utilities ─────────── */
 /* Keep white text on solid brand / status buttons — must come AFTER text-white remap */
 html:not(.dark) .text-white     { color: var(--text-primary) !important; }
