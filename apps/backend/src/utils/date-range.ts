@@ -16,7 +16,14 @@ export function normalizeBusinessDate(dateStr?: string | null): string {
 }
 
 export function businessDateDb(dateStr: string) {
-  return new Date(`${dateStr}T00:00:00+05:30`)
+  // Use UTC midnight for the calendar day. Do NOT use +05:30 here:
+  // Prisma/Postgres @db.Date casts timestamps in UTC, so Colombo midnight
+  // (previous UTC evening) would match the previous calendar day and incorrectly
+  // treat yesterday's CLOSED daily closing as "today" (403 on sales/repairs).
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    throw new Error(`Invalid business date: ${dateStr}`)
+  }
+  return new Date(`${dateStr}T00:00:00.000Z`)
 }
 
 export function previousBusinessDate(dateStr: string): string {
