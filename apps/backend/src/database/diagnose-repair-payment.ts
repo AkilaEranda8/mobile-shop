@@ -1,8 +1,9 @@
 /**
- * Diagnose repair + daily closing day lock for collect-payment 403.
- * Run: npx tsx src/database/diagnose-repair-payment.ts <repairId>
+ * Diagnose repair collect-payment 403.
+ * Run: npx tsx src/database/diagnose-repair-payment.ts [repairId]
  */
 import { PrismaClient } from '@prisma/client'
+import { businessDateDb, businessDateFromInstant } from '../utils/date-range'
 
 const prisma = new PrismaClient()
 
@@ -23,16 +24,49 @@ async function main() {
   })
   console.log('dailyClosingFeature', feat)
 
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' })
-  const closing = await prisma.dailyClosing.findFirst({
+  const todayKey = businessDateFromInstant()
+  const closedToday = await prisma.dailyClosing.findFirst({
     where: {
       tenantId: r.tenantId,
       branchId: r.branchId,
-      date: new Date(`${today}T00:00:00.000Z`),
+      date: businessDateDb(todayKey),
+      status: 'CLOSED',
     },
   })
-  console.log('todayKey', today)
-  console.log('closing', closing ? { status: closing.status, date: closing.date } : null)
+  const closings = await prisma.dailyClosing.findMany({
+    where: { tenantId: r.tenantId, branchId: r.branchId },
+    orderBy: { date: 'desc' },
+    take: 10,
+    select: { date: true, status: true },
+  })
+  console.log('todayKey', todayKey)
+  console.log('closedToday', closedToday ? { date: closedToday.date, status: closedToday.status } : null)
+  console.log('recentClosings', closings)
+
+  const user = await prisma.user.findFirst({
+    where: {
+      tenantId: r.tenantId,
+      email: { equals: 'chamalhettiarachchi@gmail.com', mode: 'insensitive' },
+    },
+    select: { id: true, role: true, email: true, isActive: true },
+  })
+  console.log('user', user)
+  if (user) {
+    const branches = await prisma.userBranch.findMany({
+      where: { userId: user.id },
+      select: { branchId: true },
+    })
+    console.log('userBranches', branches)
+  }
+
+  // Simulate day-lock check message
+  if (feat?.enabled && closedToday) {
+    console.log('WOULD_403: Business day is closed')
+  } else {
+    console.log('dayLock: OPEN (would not 403 from day lock)')
+  }
 }
 
-main().catch(e => { console.error(e); process.exit(1) }).finally(() => prisma.$disconnect())
+main()
+  .catch(e => { console.error(e); process.exit(1) })
+  .finally(() => prisma.$disconnect())
