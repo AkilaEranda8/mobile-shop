@@ -40,7 +40,8 @@ export function resolveSaleItemUnitCost(
   return fallback
 }
 
-/** SQL expression for one sale line unit cost (requires Product p, optional Service sv joins). */
+/** SQL expression for one sale line unit cost (requires Product alias `p` when productId is set).
+ *  Does not reference Service — callers that need service cost should handle that separately. */
 export function saleItemUnitCostSql() {
   return Prisma.sql`CASE
     WHEN si."unitCost" > 0 THEN si."unitCost"
@@ -55,16 +56,16 @@ export function saleItemUnitCostSql() {
       0
     )
     WHEN si."productId" IS NOT NULL THEN COALESCE(p."buyingPrice", 0)
-    ELSE COALESCE(sv.cost, 0)
+    ELSE 0
   END`
 }
 
-/** SQL expression for sale line COGS (quantity × unit cost). */
+/** SQL expression for sale line COGS (quantity × unit cost). Product rows only (join Product as `p`). */
 export function saleItemCogsSql() {
   return Prisma.sql`si.quantity * (${saleItemUnitCostSql()})`
 }
 
-/** Prisma-friendly COGS for catalog products vs services (analytics legacy shape). */
+/** Prisma-friendly COGS for catalog products vs services (requires LEFT JOIN Service as `sv`). */
 export function saleItemCogsExpr() {
   return Prisma.sql`CASE
     WHEN si."productId" IS NOT NULL THEN si.quantity * (${saleItemUnitCostSql()})
