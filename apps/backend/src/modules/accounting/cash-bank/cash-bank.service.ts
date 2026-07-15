@@ -6,11 +6,10 @@ import { createPostedJournalEntry } from '../journals/journal-create.service'
 import type { JournalDraftLine } from '../journals/journal-validator.util'
 import { normalBalance, round2 } from '../reports/gl-balances.util'
 import { resolvePaymentGlAccountId } from '../subledgers/ar-ap-payment.service'
-import { ensureAccountingRegisters } from '../accounting-init.service'
+import { ensureAccountingRegisters, requireAccountingInitialized } from '../accounting-init.service'
 
 async function assertInitialized(tenantId: string) {
-  const s = await prisma.accountingSettings.findUnique({ where: { tenantId } })
-  if (!s?.initializedAt) throw new AppError('Accounting is not initialized', 400)
+  const s = await requireAccountingInitialized(tenantId)
   await ensureAccountingRegisters(tenantId)
   return s
 }

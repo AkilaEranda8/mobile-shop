@@ -9,6 +9,7 @@ import {
   sumBalances,
   trialBalanceColumns,
 } from './gl-balances.util'
+import { requireAccountingInitialized } from '../accounting-init.service'
 
 type ReportOpts = {
   tenantId: string
@@ -93,9 +94,7 @@ async function aggregateAccountBalances(opts: {
 }
 
 async function assertAccountingInitialized(tenantId: string) {
-  const s = await prisma.accountingSettings.findUnique({ where: { tenantId } })
-  if (!s?.initializedAt) throw new AppError('Accounting is not initialized', 400)
-  return s
+  return requireAccountingInitialized(tenantId)
 }
 
 export async function getTrialBalance(opts: ReportOpts) {

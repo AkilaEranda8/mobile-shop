@@ -5,10 +5,10 @@ import { createPostedJournalEntry } from '../journals/journal-create.service'
 import type { JournalDraftLine } from '../journals/journal-validator.util'
 import { getProfitAndLoss } from '../reports/gl-reports.service'
 import { round2 } from '../reports/gl-balances.util'
+import { requireAccountingInitialized } from '../accounting-init.service'
 
 async function assertInitialized(tenantId: string) {
-  const s = await prisma.accountingSettings.findUnique({ where: { tenantId } })
-  if (!s?.initializedAt) throw new AppError('Accounting is not initialized', 400)
+  await requireAccountingInitialized(tenantId)
 }
 
 async function getPeriodOrThrow(tenantId: string, periodId: string) {

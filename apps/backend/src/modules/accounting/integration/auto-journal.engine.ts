@@ -16,11 +16,10 @@ import {
   isMobileProduct,
   round2,
 } from './inventory-cogs.util'
+import { requireAccountingInitialized } from '../accounting-init.service'
 
 async function getSettingsOrThrow(tenantId: string) {
-  const s = await prisma.accountingSettings.findUnique({ where: { tenantId } })
-  if (!s?.initializedAt) throw new AppError('Accounting is not initialized', 400)
-  return s
+  return requireAccountingInitialized(tenantId)
 }
 
 async function resolveAccountIdByKey(tenantId: string, key: string) {

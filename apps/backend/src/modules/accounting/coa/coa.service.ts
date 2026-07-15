@@ -3,11 +3,10 @@ import { businessDateDb, normalizeBusinessDate } from '../../../utils/date-range
 import { AppError } from '../../../middleware/error.middleware'
 import { normalBalance, round2 } from '../reports/gl-balances.util'
 import type { GlAccountSubtype, GlAccountType } from '@prisma/client'
+import { requireAccountingInitialized } from '../accounting-init.service'
 
 async function assertInitialized(tenantId: string) {
-  const s = await prisma.accountingSettings.findUnique({ where: { tenantId } })
-  if (!s?.initializedAt) throw new AppError('Accounting is not initialized', 400)
-  return s
+  return requireAccountingInitialized(tenantId)
 }
 
 export async function updateGlAccount(

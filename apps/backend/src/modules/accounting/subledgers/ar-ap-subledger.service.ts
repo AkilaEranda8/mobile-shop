@@ -2,6 +2,7 @@ import { prisma } from '../../../config/database'
 import { businessDateDb, businessDateFromInstant, normalizeBusinessDate } from '../../../utils/date-range'
 import { AppError } from '../../../middleware/error.middleware'
 import { round2 } from '../reports/gl-balances.util'
+import { requireAccountingInitialized } from '../accounting-init.service'
 
 type SubledgerOpts = {
   tenantId: string
@@ -19,8 +20,7 @@ type AgingBuckets = {
 const EMPTY_AGING: AgingBuckets = { current: 0, days31_60: 0, days61_90: 0, over90: 0 }
 
 async function assertInitialized(tenantId: string) {
-  const s = await prisma.accountingSettings.findUnique({ where: { tenantId } })
-  if (!s?.initializedAt) throw new AppError('Accounting is not initialized', 400)
+  await requireAccountingInitialized(tenantId)
 }
 
 async function resolveControlAccountId(tenantId: string, key: 'ar' | 'ap') {

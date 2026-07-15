@@ -258,3 +258,11 @@ export async function ensureAccountingRegisters(tenantId: string) {
 export async function onAccountingFeatureEnabled(tenantId: string, actorEmail = 'system') {
   return initializeAccounting(tenantId, actorEmail)
 }
+
+/** Ensure COA/settings exist — auto-inits when Accounting feature is on but setup was skipped. */
+export async function requireAccountingInitialized(tenantId: string, actorEmail = 'system') {
+  const existing = await prisma.accountingSettings.findUnique({ where: { tenantId } })
+  if (existing?.initializedAt) return existing
+  const { settings } = await initializeAccounting(tenantId, actorEmail)
+  return settings
+}

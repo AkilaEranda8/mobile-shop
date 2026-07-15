@@ -7,10 +7,10 @@ import { assertBalanced, type JournalDraftLine } from './journal-validator.util'
 import { round2 } from '../reports/gl-balances.util'
 import { generateJournalEntryNo } from './journal-number.util'
 import { resolveOpenPeriodForDate } from './journal-period.util'
+import { requireAccountingInitialized } from '../accounting-init.service'
 
 async function assertInitialized(tenantId: string) {
-  const s = await prisma.accountingSettings.findUnique({ where: { tenantId } })
-  if (!s?.initializedAt) throw new AppError('Accounting is not initialized', 400)
+  await requireAccountingInitialized(tenantId)
 }
 
 export async function listJournalEntries(
