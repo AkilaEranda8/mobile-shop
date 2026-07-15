@@ -1,4 +1,5 @@
 import { isReloadSaleItem } from '../../finance/reload-item.util'
+import { resolveSaleItemUnitCost } from '../../../utils/sale-item-cost.util'
 
 export function round2(n: number) {
   return Math.round(n * 100) / 100
@@ -35,7 +36,8 @@ export function buildSaleCogsLines(
     sku: string
     imei: string | null
     quantity: number
-    product: { buyingPrice: number; trackImei?: boolean; category?: { name?: string; slug?: string } | null } | null
+    unitCost?: number
+    product: { buyingPrice: number; storageVariations?: unknown; trackImei?: boolean; category?: { name?: string; slug?: string } | null } | null
   }>,
 ): { mobile: CogsLineItem[]; accessory: CogsLineItem[] } {
   const mobile: CogsLineItem[] = []
@@ -48,7 +50,11 @@ export function buildSaleCogsLines(
     const qty = Math.max(0, Number(item.quantity ?? 0))
     if (qty <= 0) continue
 
-    const unitCost = round2(Math.max(0, Number(item.product.buyingPrice ?? 0)))
+    const unitCost = round2(Math.max(0, Number(
+      item.unitCost && item.unitCost > 0
+        ? item.unitCost
+        : resolveSaleItemUnitCost(item.product, { sku: item.sku }),
+    )))
     const totalCost = round2(qty * unitCost)
     if (totalCost <= 0) continue
 

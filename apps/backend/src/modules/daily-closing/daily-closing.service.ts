@@ -10,6 +10,7 @@ import {
 } from '../daily-reload/reload-settings.util'
 import { buildCategoryProfitTable } from '../finance/category-profit.util'
 import { isReloadSaleItem } from '../finance/reload-item.util'
+import { saleItemCogsSql } from '../../utils/sale-item-cost.util'
 import { isTenantFeatureEnabled } from '../../utils/tenant-feature.util'
 import { revertSavedProfitAllocation } from '../profit-allocation/revert-allocation.util'
 
@@ -266,7 +267,7 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
   const posSalesTotal = posSales.reduce((s, sale) => s + Number(sale.total), 0)
 
   const cogsRaw = await prisma.$queryRaw<Array<{ cogs: number }>>`
-    SELECT COALESCE(SUM(si.quantity::float * p."buyingPrice"), 0)::float AS cogs
+    SELECT COALESCE(SUM(${saleItemCogsSql()}), 0)::float AS cogs
     FROM   "SaleItem" si
     JOIN   "Sale"    s ON s.id = si."saleId"
     JOIN   "Product" p ON p.id = si."productId"

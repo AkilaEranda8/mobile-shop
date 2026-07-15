@@ -496,6 +496,7 @@ model SaleItem {
   imei           String?
   quantity       Int
   unitPrice      Float
+  unitCost       Float   @default(0)
   discount       Float   @default(0)
   total          Float
   warrantyMonths Int     @default(0)

@@ -7,6 +7,7 @@ import { businessDayRange, businessDateFromInstant, resolveQueryDateRange } from
 import { getDailyRevenueBreakdown, getPeriodFinancials } from '../finance/business-financials.service'
 import { effectiveBranchId } from '../../utils/active-branch'
 import { isReloadSaleItem } from '../finance/reload-item.util'
+import { saleItemCogsExpr } from '../../utils/sale-item-cost.util'
 
 const router = Router()
 router.use(authenticate)
@@ -49,13 +50,6 @@ function serviceSaleItemClause(includeServices: boolean) {
   return includeServices
     ? Prisma.sql`AND (si."productId" IS NOT NULL OR ${isCatalogServiceSaleItemSql()})`
     : Prisma.sql`AND si."productId" IS NOT NULL`
-}
-
-function saleItemCogsExpr() {
-  return Prisma.sql`CASE
-    WHEN si."productId" IS NOT NULL THEN si.quantity * COALESCE(p."buyingPrice", 0)
-    ELSE si.quantity * COALESCE(sv.cost, 0)
-  END`
 }
 
 router.get('/dashboard', async (req: Request, res: Response, next: NextFunction) => {

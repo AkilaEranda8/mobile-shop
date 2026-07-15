@@ -849,106 +849,286 @@ export const poStatusColors: Record<string, string> = {
   CLOSED:   'bg-violet-500/10 border-violet-500/20 text-violet-400',
 }
 
-/* â”€â”€ Supplier Details Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Supplier Details Modal (Sales Details layout) ───────────────────── */
 export function SupplierDetailsModal({ supplier, allPOs, onClose, onEdit }: { supplier: Supplier; allPOs: PurchaseOrder[]; onClose: () => void; onEdit: () => void }) {
-  const supplierPOs = allPOs.filter(p => p.supplierId === supplier.id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  const supplierPOs = allPOs
+    .filter(p => p.supplierId === supplier.id)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   const totalPaid = supplierPOs.reduce((s, p) => s + (p.paidAmount ?? 0), 0)
-  const totalDue  = supplierPOs.reduce((s, p) => s + (p.dueAmount ?? 0), 0)
+  const totalDue = supplierPOs.reduce((s, p) => s + (p.dueAmount ?? 0), 0)
+  const poValue = supplierPOs.reduce((s, p) => s + (Number(p.total) || 0), 0)
+  const hasDue = totalDue > 0
+  const safeText = (v: any) => (v === null || v === undefined || v === '' ? '—' : String(v))
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between p-5 border-b border-white/5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/30 to-cyan-500/20 border border-violet-500/20 flex items-center justify-center text-base font-bold text-violet-300">
-              {supplier.name.charAt(0)}
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white">{supplier.name}</h3>
-              {supplier.contactName && <p className="text-xs text-gray-500 dark:text-slate-500">{supplier.contactName}</p>}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="rounded-xl w-full max-w-6xl shadow-2xl max-h-[92vh] overflow-y-auto border"
+        style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', borderColor: 'var(--border-default)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-4 sm:px-5 py-3 border-b sticky top-0 z-10"
+          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
+        >
+          <div className="flex items-start gap-2 min-w-0">
+            <Truck size={16} className="text-violet-500 mt-0.5 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                Supplier Details ( <span className="font-mono">{safeText(supplier.name)}</span> )
+              </p>
+              <p className="text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>
+                {safeText(supplier.contactName || supplier.phone)}
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={onEdit} className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 transition-colors">
-              <Edit size={11} />Edit
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${
+              supplier.isActive
+                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
+                : 'bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/25'
+            }`}>
+              {supplier.isActive ? 'Active' : 'Inactive'}
+            </span>
+            <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${
+              hasDue
+                ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/25'
+                : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
+            }`}>
+              {hasDue ? 'Outstanding' : 'Clear'}
+            </span>
+            <button
+              type="button"
+              onClick={onEdit}
+              className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border font-semibold text-violet-700 dark:text-violet-300 border-violet-500/25 bg-violet-500/10 hover:bg-violet-500/20"
+            >
+              <Edit size={12} /> Edit
             </button>
-            <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/5"><X size={16} /></button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg transition-colors"
+              style={{ color: 'var(--text-muted)' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-subtle)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+            >
+              <X size={16} />
+            </button>
           </div>
         </div>
 
-        <div className="p-5 space-y-4 overflow-y-auto flex-1">
-          {/* KPIs */}
-          <div className="grid grid-cols-4 gap-2">
-            {[
-              { icon: ShoppingBag,  label: 'Orders',       value: String(supplier.totalOrders),                       cls: 'text-violet-400'  },
-              { icon: TrendingUp,   label: 'Total Value',  value: formatCurrency(supplier.totalPurchaseValue ?? 0),   cls: 'text-emerald-400' },
-              { icon: CreditCard,   label: 'Paid',         value: formatCurrency(totalPaid),                          cls: 'text-green-400'   },
-              { icon: AlertCircle,  label: 'Outstanding',  value: formatCurrency(totalDue),                           cls: totalDue > 0 ? 'text-red-400' : 'text-green-400' },
-            ].map(({ icon: Icon, label, value, cls }) => (
-              <div key={label} className="bg-white/3 rounded-xl p-3 text-center border border-white/5">
-                <Icon size={13} className={`mx-auto mb-1 ${cls}`} />
-                <p className={`text-sm font-bold ${cls}`}>{value}</p>
-                <p className="text-[10px] text-slate-600 mt-0.5">{label}</p>
+        <div className="p-4 sm:p-5 space-y-4">
+          {/* Top meta row */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div className="space-y-1 text-[12px]">
+              <div className="flex items-center gap-1.5">
+                <Calendar size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Since:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(formatDate(supplier.createdAt))}</span>
               </div>
-            ))}
-          </div>
+              <div className="flex items-center gap-1.5">
+                <Phone size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Phone:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(supplier.phone)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Mail size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Email:</span>
+                <span className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>{safeText(supplier.email)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Hash size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>GSTIN / VAT:</span>
+                <span className="font-mono font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(supplier.gstin)}</span>
+              </div>
+            </div>
 
-          {/* Contact details */}
-          <div className="bg-white/3 rounded-xl p-4 border border-white/5 space-y-2.5">
-            {[
-              supplier.phone    && { icon: Phone,   label: 'Phone',   value: supplier.phone },
-              supplier.email    && { icon: Mail,    label: 'Email',   value: supplier.email },
-              supplier.address  && { icon: MapPin,  label: 'Address', value: supplier.address },
-              supplier.city     && { icon: Globe,   label: 'City',    value: supplier.city },
-              supplier.gstin    && { icon: Hash,    label: 'GSTIN',   value: supplier.gstin },
-            ].filter(Boolean).map((row: any) => (
-              <div key={row.label} className="flex items-start gap-3">
-                <row.icon size={12} className="text-slate-500 mt-0.5 flex-shrink-0" />
-                <div className="flex-1 flex items-start justify-between gap-4">
-                  <span className="text-[11px] text-gray-500 dark:text-slate-500 w-14 flex-shrink-0">{row.label}</span>
-                  <span className="text-xs text-slate-200 text-right">{row.value}</span>
+            <div className="space-y-1 text-[12px]">
+              <div className="flex items-center gap-1.5">
+                <Truck size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Supplier name:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(supplier.name)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <ShoppingBag size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Contact:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(supplier.contactName)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <MapPin size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Address:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(supplier.address)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Globe size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>City:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(supplier.city)}</span>
+              </div>
+            </div>
+
+            <div className="rounded-lg border p-3 text-[12px]" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+              <div className="flex items-center justify-between border-b pb-2 mb-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Quick totals</span>
+                <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>LKR</span>
+              </div>
+              <div className="space-y-1">
+                <div className="flex justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Orders</span>
+                  <span className="font-medium">{supplier.totalOrders ?? supplierPOs.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Purchase value</span>
+                  <span className="font-medium">{formatCurrency(supplier.totalPurchaseValue ?? poValue)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Paid</span>
+                  <span className="font-medium text-emerald-600 dark:text-emerald-400">{formatCurrency(totalPaid)}</span>
+                </div>
+                <div className="flex justify-between pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span className="font-semibold">Outstanding</span>
+                  <span className={`font-semibold ${hasDue ? 'text-rose-600 dark:text-rose-400' : ''}`}>
+                    {formatCurrency(totalDue)}
+                  </span>
                 </div>
               </div>
-            ))}
-          </div>
-
-          {/* Status + created */}
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2">
-              {supplier.isActive
-                ? <span className="flex items-center gap-1 text-emerald-400"><CheckCircle size={11} />Active</span>
-                : <span className="flex items-center gap-1 text-red-400"><X size={11} />Inactive</span>}
-            </div>
-            <div className="flex items-center gap-1.5 text-slate-500">
-              <Calendar size={11} />
-              <span>Joined {formatDate(supplier.createdAt)}</span>
             </div>
           </div>
 
-          {/* â”€â”€ Ledger â”€â”€ */}
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1.5"><Receipt size={10} />Purchase Order Ledger</p>
-            {supplierPOs.length === 0 ? (
-              <p className="text-xs text-center text-slate-600 py-6">No purchase orders yet</p>
-            ) : (
-              <div className="space-y-1.5">
-                {supplierPOs.map(po => (
-                  <div key={po.id} className="bg-white/3 rounded-xl p-3 border border-white/5">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-mono text-violet-400">{po.poNumber}</span>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${poStatusColors[po.status] ?? 'text-slate-400 bg-white/5 border-white/10'}`}>{po.status}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-[10px] text-slate-500 flex items-center gap-1"><Calendar size={9} />{formatDate(po.createdAt)}</p>
-                      <div className="text-right">
-                        <p className="text-xs font-bold text-gray-900 dark:text-white">{formatCurrency(po.total)}</p>
-                        {po.dueAmount > 0 && <p className="text-[10px] text-red-400">Due: {formatCurrency(po.dueAmount)}</p>}
-                        {po.paidAmount > 0 && <p className="text-[10px] text-green-400">Paid: {formatCurrency(po.paidAmount)}</p>}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+          {/* PO ledger + summary */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 space-y-4">
+              <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                <div className="bg-emerald-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide flex items-center gap-1.5">
+                  <Receipt size={12} /> Purchase order ledger
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-[720px] w-full text-[12px]">
+                    <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                      <tr style={{ color: 'var(--text-secondary)' }}>
+                        <th className="px-3 py-2 text-left w-10">#</th>
+                        <th className="px-3 py-2 text-left">PO Number</th>
+                        <th className="px-3 py-2 text-left">Date</th>
+                        <th className="px-3 py-2 text-left">Status</th>
+                        <th className="px-3 py-2 text-right">Total</th>
+                        <th className="px-3 py-2 text-right">Paid</th>
+                        <th className="px-3 py-2 text-right">Due</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {supplierPOs.map((po, idx) => (
+                        <tr key={po.id} className="border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
+                          <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{idx + 1}</td>
+                          <td className="px-3 py-2 font-mono font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(po.poNumber)}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{safeText(formatDate(po.createdAt))}</td>
+                          <td className="px-3 py-2">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${poStatusColors[po.status] ?? ''}`}>
+                              {safeText(po.status)}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-right whitespace-nowrap font-semibold">{formatCurrency(po.total ?? 0)}</td>
+                          <td className="px-3 py-2 text-right whitespace-nowrap text-emerald-600 dark:text-emerald-400">{formatCurrency(po.paidAmount ?? 0)}</td>
+                          <td className={`px-3 py-2 text-right whitespace-nowrap font-medium ${(po.dueAmount ?? 0) > 0 ? 'text-rose-600 dark:text-rose-400' : ''}`}>
+                            {formatCurrency(po.dueAmount ?? 0)}
+                          </td>
+                        </tr>
+                      ))}
+                      {supplierPOs.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="px-3 py-6 text-center" style={{ color: 'var(--text-muted)' }}>No purchase orders yet</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Contact:</p>
+                  <p className="text-[12px]" style={{ color: 'var(--text-primary)' }}>
+                    {safeText(supplier.contactName)}
+                    {supplier.phone ? ` · ${supplier.phone}` : ''}
+                    {supplier.email ? ` · ${supplier.email}` : ''}
+                  </p>
+                </div>
+                <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Address:</p>
+                  <p className="text-[12px]" style={{ color: 'var(--text-primary)' }}>
+                    {safeText([supplier.address, supplier.city].filter(Boolean).join(', '))}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Right summary */}
+            <div className="rounded-lg border overflow-hidden h-fit" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="px-3 py-2 border-b flex items-center justify-between" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                <p className="text-[12px] font-semibold" style={{ color: 'var(--text-primary)' }}>Summary</p>
+                <p className={`text-[12px] font-semibold ${hasDue ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                  {formatCurrency(totalDue)}
+                </p>
+              </div>
+              <div className="p-3 text-[12px] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Orders:</span>
+                  <span className="font-medium">{supplier.totalOrders ?? supplierPOs.length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Purchase value:</span>
+                  <span className="font-medium">{formatCurrency(supplier.totalPurchaseValue ?? poValue)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Ledger total:</span>
+                  <span className="font-medium">{formatCurrency(poValue)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Total paid:</span>
+                  <span className="font-medium text-emerald-600 dark:text-emerald-400">{formatCurrency(totalPaid)}</span>
+                </div>
+                <div className="pt-2 border-t space-y-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold">Outstanding:</span>
+                    <span className={`font-semibold ${hasDue ? 'text-rose-600 dark:text-rose-400' : ''}`}>
+                      {formatCurrency(totalDue)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Status:</span>
+                    <span className="font-medium">{supplier.isActive ? 'Active' : 'Inactive'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom actions */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-end pt-2 flex-wrap">
+            <button
+              type="button"
+              onClick={onEdit}
+              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-violet-500/30 bg-violet-500/15 text-violet-700 dark:text-violet-300 font-semibold"
+            >
+              <Edit size={14} /> Edit supplier
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border font-semibold"
+              style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}
+            >
+              Close
+            </button>
           </div>
         </div>
       </div>

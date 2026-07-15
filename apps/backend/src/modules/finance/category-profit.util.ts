@@ -1,6 +1,7 @@
 import { prisma } from '../../config/database'
 import { businessDayRange, normalizeBusinessDate } from '../../utils/date-range'
 import { isReloadSaleItem } from './reload-item.util'
+import { resolveSaleItemUnitCost } from '../../utils/sale-item-cost.util'
 
 function round2(n: number) {
   return Math.round(n * 100) / 100
@@ -31,7 +32,7 @@ export async function buildCategoryCostMap(tenantId: string, branchId: string, d
         source: { not: 'REPAIR' },
       },
       include: {
-        items: { include: { product: { include: { category: true } } } },
+        items: { include: { product: { select: { buyingPrice: true, storageVariations: true, trackImei: true, category: true } } } },
       },
     }),
     prisma.service.findMany({
@@ -55,7 +56,10 @@ export async function buildCategoryCostMap(tenantId: string, branchId: string, d
       if (isReloadSaleItem(item)) continue
       const revenue = Number(item.total)
       if (item.productId && item.product) {
-        const cogs = item.quantity * Number(item.product.buyingPrice ?? 0)
+        const unitCost = item.unitCost > 0
+          ? item.unitCost
+          : resolveSaleItemUnitCost(item.product, { sku: item.sku })
+        const cogs = item.quantity * unitCost
         const catName = item.product.category?.name ?? 'Uncategorised'
         add(catName, revenue, cogs)
         if (isMobileProduct(item.product)) add('Mobile', revenue, cogs)

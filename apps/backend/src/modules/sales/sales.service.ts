@@ -10,6 +10,7 @@ import { createDailyReloadsFromSaleItems } from '../daily-reload/pos-reload.util
 import { createWarrantiesFromSaleItems } from '../warranty/warranty.service'
 import { emitSaleAccounting } from '../accounting/integration/accounting-events.service'
 import { hasVariants, sumVariantStock } from '../../utils/product-variants'
+import { resolveSaleItemUnitCost } from '../../utils/sale-item-cost.util'
 
 export const salesService = {
   async list(tenantId: string, req: Request) {
@@ -66,6 +67,18 @@ export const salesService = {
     const invoiceNumber = await generateInvoiceNumber(tenantId)
     const items: any[] = Array.isArray(body.items) ? body.items : []
 
+    const productIds = [...new Set(items.map((i) => i.productId).filter(Boolean))] as string[]
+    const productCostMap = new Map<string, { buyingPrice: number; storageVariations: unknown }>()
+    if (productIds.length) {
+      const products = await prisma.product.findMany({
+        where: { tenantId, id: { in: productIds } },
+        select: { id: true, buyingPrice: true, storageVariations: true },
+      })
+      for (const p of products) {
+        productCostMap.set(p.id, { buyingPrice: p.buyingPrice, storageVariations: p.storageVariations })
+      }
+    }
+
     for (const item of items) {
       if (!item.productId) continue
       const product = await prisma.product.findFirst({
@@ -89,12 +102,16 @@ export const salesService = {
     }
 
     const itemCreates = items.map((item) => {
+      const product = item.productId ? productCostMap.get(item.productId) : undefined
       const row: any = {
         productName: item.productName,
         sku:         item.sku ?? '',
         imei:        item.imei ?? undefined,
         quantity:    item.quantity,
         unitPrice:   item.unitPrice,
+        unitCost:    item.productId
+          ? resolveSaleItemUnitCost(product, { sku: item.sku, variationLabel: item.variationLabel })
+          : 0,
         discount:    item.discount ?? 0,
         total:       item.total,
         warrantyMonths: item.warrantyMonths ?? 0,
