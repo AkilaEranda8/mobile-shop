@@ -43,6 +43,8 @@ export interface InvoiceData {
   signatoryName:  string
   signatoryTitle: string
   currency?:      string
+  /** Customer-facing notes (e.g. repair Quick Action notes) */
+  notes?:         string
   /** When set (e.g. repair invoices with parts listed at cost), overrides item-sum subtotal */
   subtotalOverride?: number
   totalOverride?: number
@@ -350,6 +352,13 @@ function InvoicePrint({ data = SAMPLE_INVOICE, hideControls = false }, outerRef)
               TOTAL &nbsp;&nbsp;&nbsp; {fmt(total)}
             </span>
           </div>
+
+          {data.notes?.trim() && (
+            <div className="mb-6 px-1">
+              <p className="text-xs font-bold text-[#2E2E2E] mb-1.5 uppercase tracking-wider">Notes</p>
+              <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{data.notes.trim()}</p>
+            </div>
+          )}
         </div>
 
         {/* 7. Terms & Signature */}

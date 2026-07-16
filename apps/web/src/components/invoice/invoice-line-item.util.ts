@@ -3,7 +3,18 @@ import { isRepairServiceItemName } from '@/lib/repair.util'
 /** Parse fault / service detail stored on repair sale notes. */
 export function extractRepairFaultFromSale(sale: { notes?: string }): string | undefined {
   if (!sale.notes) return undefined
-  const m = sale.notes.match(/\|\s*Fault:\s*(.+)$/i)
+  const m = sale.notes.match(/\|\s*Fault:\s*([^|]+)/i)
+  return m?.[1]?.trim() || undefined
+}
+
+/** Technician / Quick Action notes stored on repair sale notes or invoiceNotes. */
+export function extractInvoiceNotesFromSale(sale: {
+  notes?: string
+  invoiceNotes?: string
+}): string | undefined {
+  if (sale.invoiceNotes?.trim()) return sale.invoiceNotes.trim()
+  if (!sale.notes) return undefined
+  const m = sale.notes.match(/\|\s*Notes:\s*(.+?)(?:\s*\|\s*Parts:|$)/i)
   return m?.[1]?.trim() || undefined
 }
 

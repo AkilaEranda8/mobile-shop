@@ -20,6 +20,31 @@ export function resolveRepairWarrantyMonths(
   return 0
 }
 
+export function repairTechnicianNotesText(
+  repair: Pick<RepairTicket, 'notes'>,
+): string | undefined {
+  const texts = (repair.notes ?? [])
+    .map(n => (typeof n === 'string' ? n : n?.text)?.trim())
+    .filter((t): t is string => Boolean(t))
+  if (!texts.length) return undefined
+  return texts.join('\n')
+}
+
+/** Persistable sale.notes string — Fault stopped before Notes for parsers. */
+export function buildRepairSaleNotesField(
+  repair: Pick<RepairTicket, 'ticketNumber' | 'reportedIssue' | 'notes' | 'spareParts'>,
+): string {
+  const parts: string[] = [`Repair ticket: ${repair.ticketNumber}`]
+  if (repair.reportedIssue?.trim()) parts.push(`Fault: ${repair.reportedIssue.trim()}`)
+  const techNotes = repairTechnicianNotesText(repair)
+  if (techNotes) parts.push(`Notes: ${techNotes.replace(/\n+/g, '; ')}`)
+  const spareParts = repair.spareParts ?? []
+  if (spareParts.length) {
+    parts.push(`Parts: ${spareParts.map(p => `${p.productName} x${p.quantity}`).join(', ')}`)
+  }
+  return parts.join(' | ')
+}
+
 /** Build sale-shaped payload for repair PDF / WhatsApp / A4 invoice templates. */
 export function buildRepairInvoiceSale(
   repair: RepairTicket,
@@ -37,6 +62,7 @@ export function buildRepairInvoiceSale(
   const warrantyMonths = resolveRepairWarrantyMonths(repair, settings)
   const paidAmount = isPaid ? (Number(repair.paidAmount) ?? total) : 0
   const dueAmount = isPaid ? (Number(repair.dueAmount) ?? Math.max(0, total - paidAmount)) : total
+  const invoiceNotes = repairTechnicianNotesText(repair)
 
   const items: Array<{
     productName: string
@@ -86,9 +112,9 @@ export function buildRepairInvoiceSale(
     customerName: repair.customerName,
     customerPhone: repair.customerPhone,
     source: 'REPAIR' as const,
-    notes: repair.reportedIssue?.trim()
-      ? `Repair ticket: ${repair.ticketNumber} | Fault: ${repair.reportedIssue.trim()}`
-      : `Repair ticket: ${repair.ticketNumber}`,
+    notes: buildRepairSaleNotesField(repair),
+    /** Clean technician notes for invoice templates (PDF / A4). */
+    invoiceNotes,
     items,
     subtotal,
     discount,

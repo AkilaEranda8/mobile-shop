@@ -14,7 +14,7 @@ import { captureElementAsPdfBase64 } from '@/lib/invoice-pdf'
 import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { getInvoiceSettings, fetchInvoiceSettings, resolveInvoiceTemplate, thermalLogoMaxHeight, thermalBodyFontWeight, type InvoiceSettings } from '@/lib/invoiceSettings'
-import { buildRepairInvoiceSale, resolveRepairWarrantyMonths, REPAIR_WARRANTY_OPTIONS, repairWarrantyMonths } from '@/lib/repair-invoice.util'
+import { buildRepairInvoiceSale, resolveRepairWarrantyMonths, REPAIR_WARRANTY_OPTIONS, repairWarrantyMonths, repairTechnicianNotesText } from '@/lib/repair-invoice.util'
 import { normalizeRepairTicket, repairNextStatus, repairPartsLocked, repairPaymentSummary, repairProgressStep, repairStatusHistory, repairTicketEditable, REPAIR_PROGRESS_FLOW, formatRepairServiceItemName, REPAIR_SERVICE_ITEM_LABEL } from '@/lib/repair.util'
 import { printRepairIntakeReceipt } from '@/lib/repair-print.util'
 import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
@@ -110,6 +110,7 @@ ${repair.deviceCondition ? `<div style="margin:3px 0;"><div class="bold">Phone c
 <div class="line"></div>
 <div class="bold med">FAULT</div>
 <div style="word-break:break-word;margin:2px 0;">${repair.reportedIssue}</div>
+${(repair.notes ?? []).some(n => n.text?.trim()) ? `<div class="line"></div><div class="bold med">NOTES</div>${(repair.notes ?? []).filter(n => n.text?.trim()).map(n => `<div style="word-break:break-word;margin:2px 0;">${n.text}</div>`).join('')}` : ''}
 <div class="line"></div>
 <div class="bold med">CHARGES</div>
 <table><tbody>
@@ -304,6 +305,9 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
       `*Items:*`,
       itemLines,
       ``,
+      ...(repairTechnicianNotesText(repair)
+        ? [`*Notes:*`, repairTechnicianNotesText(repair)!.split('\n').map(l => `  ${l}`).join('\n'), ``]
+        : []),
       discount > 0 ? `*Subtotal:* ${fmt(subtotal)}` : null,
       discount > 0 ? `*Discount:* -${fmt(discount)}` : null,
       `*Total: ${fmt(grandTotal)}*`,
@@ -411,11 +415,11 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
     if (!text) { toast.error('Enter a note'); return }
     setSavingNote(true)
     try {
-      const res: any = await repairsApi.addNote(repair.id, { text, isPublic: false })
+      const res: any = await repairsApi.addNote(repair.id, { text, isPublic: true })
       onRepairUpdate(normalizeRepairTicket(res?.data ?? res))
       setNoteText('')
       setShowAddNote(false)
-      toast.success('Note added')
+      toast.success('Note added — will show on invoice')
       onRefresh()
     } catch (err: any) {
       toast.error(err?.message ?? 'Failed to add note')
@@ -1249,10 +1253,10 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
               </div>
               {showAddNote && (
                 <div ref={notesSectionRef} className="px-3 pb-3 space-y-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <p className="text-[11px] font-bold pt-3" style={{ color: 'var(--text-muted)' }}>Add technician note</p>
+                  <p className="text-[11px] font-bold pt-3" style={{ color: 'var(--text-muted)' }}>Add note (shown on invoice)</p>
                   <textarea
                     className="input-field text-sm min-h-[72px]"
-                    placeholder="Write a note…"
+                    placeholder="Write a note for the invoice…"
                     value={noteText}
                     onChange={e => setNoteText(e.target.value)}
                     autoFocus

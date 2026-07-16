@@ -4,7 +4,7 @@ import { forwardRef, useRef } from 'react'
 import { Download, Printer, MapPin, Globe, Mail, Phone } from 'lucide-react'
 import { KASTHURI_INVOICE_PRESET, HEXALYTE_SOFTWARE_FOOTER, type InvoiceSettings } from '@/lib/invoiceSettings'
 import { buildItemWarrantyInfo, resolveSaleWarranties } from '@/components/invoice/invoice-warranty.util'
-import { mapSaleItemForInvoice, repairInvoiceSaleItems, isRepairSparePartLine } from '@/components/invoice/invoice-line-item.util'
+import { mapSaleItemForInvoice, repairInvoiceSaleItems, isRepairSparePartLine, extractInvoiceNotesFromSale } from '@/components/invoice/invoice-line-item.util'
 import InvoiceItemWarrantyBlock from '@/components/invoice/InvoiceItemWarrantyBlock'
 import { buildRepairInvoiceSale } from '@/lib/repair-invoice.util'
 
@@ -38,6 +38,7 @@ export interface KasthuriInvoiceData {
   advance: number
   balance: number
   currency?: string
+  notes?: string
 }
 
 export function buildKasthuriInvoiceData(
@@ -96,6 +97,7 @@ export function buildKasthuriInvoiceData(
     advance,
     balance,
     currency: settings.currency || 'LKR',
+    notes: extractInvoiceNotesFromSale(sale),
   }
 }
 
@@ -341,6 +343,12 @@ const KasthuriInvoicePrint = forwardRef<
 
       {/* Footer */}
       <div style={{ marginTop: 'auto', paddingTop: 28 }}>
+        {data.notes?.trim() && (
+          <div style={{ marginBottom: 14 }}>
+            <p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 700, color: C.text }}>Notes</p>
+            <p style={{ margin: 0, fontSize: 11, lineHeight: 1.5, color: C.muted, whiteSpace: 'pre-wrap' }}>{data.notes.trim()}</p>
+          </div>
+        )}
         <p style={{ margin: '0 0 12px', fontSize: 11, lineHeight: 1.55, color: C.muted }}>
           {terms.map((t, i) => (
             <span key={i}>

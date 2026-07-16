@@ -206,7 +206,12 @@ export const repairsService = {
   async addNote(tenantId: string, id: string, text: string, authorName: string, isPublic: boolean) {
     const r = await prisma.repairTicket.findFirst({ where: { id, tenantId } })
     if (!r) throw new AppError('Repair ticket not found', 404)
-    return prisma.repairNote.create({ data: { repairId: id, text, authorName, isPublic } })
+    await prisma.repairNote.create({ data: { repairId: id, text, authorName, isPublic } })
+    const ticket = await prisma.repairTicket.findUnique({
+      where: { id },
+      include: { notes: true, spareParts: true, history: true },
+    })
+    return serializeRepair(ticket!)
   },
 
   async addSparePart(tenantId: string, repairId: string, body: any) {
@@ -258,7 +263,7 @@ export const repairsService = {
   },
 
   async collectPayment(tenantId: string, id: string, body: { discount?: number; paymentMethod: string; cashierName?: string; paidAmount?: number }) {
-    const r = await prisma.repairTicket.findFirst({ where: { id, tenantId }, include: { spareParts: true } })
+    const r = await prisma.repairTicket.findFirst({ where: { id, tenantId }, include: { spareParts: true, notes: true } })
     if (!r) throw new AppError('Repair ticket not found', 404)
     if (r.status === 'DELIVERED') throw new AppError('Payment has already been collected for this ticket', 400)
     if (r.status === 'CANCELLED') throw new AppError('Cannot collect payment on a cancelled repair', 400)
@@ -287,6 +292,11 @@ export const repairsService = {
     const partsSummary = r.spareParts.length
       ? ` | Parts: ${r.spareParts.map((p) => `${p.productName} x${p.quantity}`).join(', ')}`
       : ''
+    const ticketNotes = (r.notes ?? [])
+      .map((n: { text?: string }) => n.text?.trim())
+      .filter(Boolean)
+      .join('; ')
+    const notesSummary = ticketNotes ? ` | Notes: ${ticketNotes}` : ''
 
     await prisma.$transaction(async (tx: any) => {
       await tx.repairTicket.update({
@@ -326,7 +336,7 @@ export const repairsService = {
           subtotal, discount, tax: 0, total,
           paidAmount, dueAmount,
           status: saleStatus, cashierName, source: 'REPAIR',
-          notes: `Repair ticket: ${r.ticketNumber}${r.reportedIssue?.trim() ? ` | Fault: ${r.reportedIssue.trim()}` : ''}${partsSummary}`,
+          notes: `Repair ticket: ${r.ticketNumber}${r.reportedIssue?.trim() ? ` | Fault: ${r.reportedIssue.trim()}` : ''}${notesSummary}${partsSummary}`,
           items:    { create: saleItems },
           payments: paidAmount > 0
             ? { create: [{ method: body.paymentMethod as any, amount: paidAmount }] }

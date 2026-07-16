@@ -10,7 +10,7 @@ import {
   type InvoiceTemplateId,
 } from '@/lib/invoiceSettings'
 import { buildItemWarrantyInfo, resolveSaleWarranties } from '@/components/invoice/invoice-warranty.util'
-import { mapSaleItemForInvoice, repairInvoiceSaleItems, isRepairSparePartLine } from '@/components/invoice/invoice-line-item.util'
+import { mapSaleItemForInvoice, repairInvoiceSaleItems, isRepairSparePartLine, extractInvoiceNotesFromSale } from '@/components/invoice/invoice-line-item.util'
 
 export interface InvoiceA4ViewProps {
   sale: any
@@ -68,6 +68,7 @@ export function buildDefaultInvoiceData(
     terms: settings.terms?.length
       ? settings.terms
       : ['Payment is due upon receipt of this invoice.', settings.footerNote || 'Thank you for your business!'],
+    notes: extractInvoiceNotesFromSale(sale),
     signatoryName: settings.signatoryName || settings.shopName || shopName,
     signatoryTitle: settings.signatoryTitle || 'Authorized Signatory',
     subtotalOverride: isRepair ? subtotal : undefined,
