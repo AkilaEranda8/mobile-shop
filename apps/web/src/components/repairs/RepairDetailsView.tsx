@@ -106,6 +106,7 @@ ${settings.address ? `<div>${settings.address}</div>` : ''}</div>
 <div class="row"><span>Brand/Model:</span><span>${repair.deviceBrand} ${repair.deviceModel}</span></div>
 ${repair.imei ? `<div class="row"><span>IMEI:</span><span>${repair.imei}</span></div>` : ''}
 ${repair.accessories ? `<div class="row"><span>Accessories:</span><span>${repair.accessories}</span></div>` : ''}
+${repair.deviceCondition ? `<div style="margin:3px 0;"><div class="bold">Phone condition:</div><div style="word-break:break-word;margin-top:2px;">${repair.deviceCondition}</div></div>` : ''}
 <div class="line"></div>
 <div class="bold med">FAULT</div>
 <div style="word-break:break-word;margin:2px 0;">${repair.reportedIssue}</div>
@@ -784,6 +785,16 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                         <span key={a} className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-violet-500/10 text-violet-600 dark:text-violet-300 border border-violet-500/20">{a}</span>
                       ))}
                     </div>
+                  </div>
+                )}
+                {repair.deviceCondition?.trim() && (
+                  <div className="col-span-2 rounded-xl p-3 border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                    <p className="text-[10px] mb-1.5 flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                      <ClipboardList size={9} /> Mobile Phone Condition
+                    </p>
+                    <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-primary)' }}>
+                      {repair.deviceCondition}
+                    </p>
                   </div>
                 )}
               </div>

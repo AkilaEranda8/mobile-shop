@@ -679,6 +679,7 @@ model RepairTicket {
   deviceColor         String?
   imei                String?
   accessories         String?
+  deviceCondition     String?
   reportedIssue       String
   estimatedCost       Float
   actualCost          Float?

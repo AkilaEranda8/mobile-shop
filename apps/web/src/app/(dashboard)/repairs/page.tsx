@@ -99,6 +99,7 @@ ${settings.address ? `<div>${settings.address}</div>` : ''}</div>
 <div class="row"><span>Brand/Model:</span><span>${repair.deviceBrand} ${repair.deviceModel}</span></div>
 ${repair.imei ? `<div class="row"><span>IMEI:</span><span>${repair.imei}</span></div>` : ''}
 ${repair.accessories ? `<div class="row"><span>Accessories:</span><span>${repair.accessories}</span></div>` : ''}
+${(repair as any).deviceCondition ? `<div style="margin:3px 0;"><div class="bold">Phone condition:</div><div style="word-break:break-word;margin-top:2px;">${(repair as any).deviceCondition}</div></div>` : ''}
 <div class="line"></div>
 <div class="bold med">FAULT</div>
 <div style="word-break:break-word;margin:2px 0;">${repair.reportedIssue}</div>
@@ -155,6 +156,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
     estimatedCompletion: '',
   })
   const [accessories, setAccessories] = useState<string[]>([])
+  const [deviceCondition, setDeviceCondition] = useState('')
   const [accOpen, setAccOpen] = useState(false)
   const [sourceOpen, setSourceOpen] = useState(false)
   const [issueOpen, setIssueOpen] = useState(false)
@@ -365,6 +367,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
         estimatedCost: form.estimatedCost !== '' ? Number(form.estimatedCost) : 0,
         reportedIssue: selectedIssues.join(', '),
         accessories:   accessories.length > 0 ? accessories.join(', ') : undefined,
+        deviceCondition: deviceCondition.trim() || undefined,
         branchId: getActiveBranchId(),
         createdBy: user?.name || 'Staff',
         warrantyClaimId: prefill?.warrantyClaimId,
@@ -649,6 +652,21 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                           )}
                         </div>
                       )}
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                        Mobile Phone Condition <span style={{ color: 'var(--text-muted)' }}>(Optional)</span>
+                      </label>
+                      <textarea
+                        className="input-field w-full resize-none text-sm py-3"
+                        rows={3}
+                        placeholder="e.g. Light scratches on back, cracked screen corner, dent on top frame…"
+                        value={deviceCondition}
+                        onChange={e => setDeviceCondition(e.target.value)}
+                      />
+                      <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
+                        Note the phone&apos;s physical condition when received — shown on the ticket details.
+                      </p>
                     </div>
                   </div>
                 </div>

@@ -20,6 +20,7 @@ export default function EditRepairModal({ repair, onClose, onSaved }: {
     deviceModel:         repair.deviceModel     ?? '',
     deviceColor:         (repair as any).deviceColor ?? '',
     imei:                repair.imei            ?? '',
+    deviceCondition:     repair.deviceCondition ?? '',
     reportedIssue:       repair.reportedIssue   ?? '',
     technicianName:      repair.technicianName  ?? '',
     priority:            repair.priority        ?? 'NORMAL',
@@ -145,6 +146,12 @@ export default function EditRepairModal({ repair, onClose, onSaved }: {
               <div>
                 <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Color <span style={{ color: 'var(--text-muted)' }}>(Optional)</span></label>
                 <input type="text" className="input-field h-10" placeholder="e.g. Phantom Black" value={form.deviceColor} onChange={f('deviceColor')} />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Mobile Phone Condition <span style={{ color: 'var(--text-muted)' }}>(Optional)</span></label>
+                <textarea className="input-field w-full resize-none text-sm" rows={2}
+                  placeholder="e.g. Light scratches, cracked corner, dent on frame…"
+                  value={form.deviceCondition} onChange={f('deviceCondition')} />
               </div>
             </div>
           </div>

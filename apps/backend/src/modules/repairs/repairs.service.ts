@@ -113,6 +113,7 @@ export const repairsService = {
         deviceColor:         body.deviceColor    || undefined,
         imei:                body.imei           || undefined,
         accessories:         body.accessories    || undefined,
+        deviceCondition:     body.deviceCondition?.trim() || undefined,
         reportedIssue:       body.reportedIssue  || '',
         estimatedCost:       Number(body.estimatedCost) || 0,
         priority:            body.priority       || 'NORMAL',
@@ -149,7 +150,7 @@ export const repairsService = {
       }
     }
     const { customerName, customerPhone, deviceBrand, deviceModel, deviceColor,
-            imei, reportedIssue, technicianId, technicianName, priority,
+            imei, accessories, deviceCondition, reportedIssue, technicianId, technicianName, priority,
             estimatedCost, actualCost, estimatedCompletion, source, warrantyMonths } = body
     const data: any = {}
     if (customerName        !== undefined) data.customerName        = customerName
@@ -157,6 +158,8 @@ export const repairsService = {
     if (deviceBrand         !== undefined) data.deviceBrand         = deviceBrand
     if (deviceModel         !== undefined) data.deviceModel         = deviceModel
     if (deviceColor         !== undefined) data.deviceColor         = deviceColor
+    if (accessories         !== undefined) data.accessories         = accessories
+    if (deviceCondition     !== undefined) data.deviceCondition     = typeof deviceCondition === 'string' ? (deviceCondition.trim() || null) : deviceCondition
     if (imei                !== undefined) {
       data.imei = imei
       if (imei && imei !== r.imei) {

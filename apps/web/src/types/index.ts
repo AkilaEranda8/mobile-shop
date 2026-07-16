@@ -225,6 +225,8 @@ export interface RepairTicket {
   deviceModel: string
   imei?: string
   accessories?: string
+  /** Physical condition of the phone when received (scratches, dents, etc.) */
+  deviceCondition?: string
   reportedIssue: string
   estimatedCost: number
   actualCost?: number

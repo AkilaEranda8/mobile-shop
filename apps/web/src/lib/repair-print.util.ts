@@ -96,6 +96,7 @@ ${intakeTerms.map((t, i) => `<div style="font-size:10px;margin:3px 0;word-break:
 ${deviceColor ? `<div class="row"><span>Color:</span><span>${deviceColor}</span></div>` : ''}
 ${repair.imei ? `<div class="row"><span>IMEI:</span><span>${repair.imei}</span></div>` : ''}
 ${repair.accessories ? `<div class="row"><span>Accessories:</span><span>${repair.accessories}</span></div>` : ''}
+${(repair as any).deviceCondition ? `<div style="margin:3px 0;"><div class="bold">Phone condition:</div><div style="word-break:break-word;margin-top:2px;">${(repair as any).deviceCondition}</div></div>` : ''}
 <div class="line"></div>
 <div class="bold med">Fault in mobile</div>
 <div style="word-break:break-word;margin:2px 0;">${repair.reportedIssue || '—'}</div>
