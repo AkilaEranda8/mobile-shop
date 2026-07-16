@@ -227,10 +227,41 @@ export const productsService = {
       if (inferred !== null) body.trackImei = inferred
     }
 
-    const { categoryName, brandName, ...productData } = body
-    // strip fields not in schema that Prisma won't accept
-    delete productData.subCategoryName
-    const raw: any = await prisma.product.create({ data: { ...productData, tenantId }, include: { category: { select: { name: true } }, brand: { select: { name: true } } } })
+    const {
+      name, description, sku, barcode, categoryId, brandId, branchId,
+      buyingPrice, sellingPrice, mrp, trackImei, warrantyMonths, warrantyNote,
+      imageUrl, stock, minStock, isActive, storageVariations, colorVariations,
+      subCategory, deviceModel, condition,
+    } = body
+
+    const raw: any = await prisma.product.create({
+      data: {
+        tenantId,
+        branchId,
+        name: String(name).trim(),
+        sku: String(sku).trim(),
+        barcode: barcode?.trim() || null,
+        categoryId,
+        brandId,
+        description: description?.trim() || null,
+        buyingPrice: Number(buyingPrice),
+        sellingPrice: Number(sellingPrice),
+        mrp: Number(mrp ?? sellingPrice),
+        trackImei: Boolean(trackImei),
+        warrantyMonths: Number(warrantyMonths) || 0,
+        warrantyNote: warrantyNote?.trim() || null,
+        imageUrl: imageUrl || null,
+        stock: Math.max(0, Number(stock) || 0),
+        minStock: Math.max(0, Number(minStock) || 0),
+        isActive: isActive !== false,
+        storageVariations: Array.isArray(storageVariations) ? storageVariations : undefined,
+        colorVariations: Array.isArray(colorVariations) ? colorVariations : undefined,
+        subCategory: subCategory?.trim() || null,
+        deviceModel: deviceModel?.trim() || null,
+        condition: condition === 'USED' ? 'USED' : 'BRAND_NEW',
+      },
+      include: { category: { select: { name: true } }, brand: { select: { name: true } } },
+    })
     return { ...raw, categoryName: raw.category?.name, brandName: raw.brand?.name }
   },
 

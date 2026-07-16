@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { Plus, Trash2, Upload, Loader2, ChevronDown, Info, GripVertical, Box, Eye, Lock, ArrowLeft, Download, RefreshCw } from 'lucide-react'
+import { Plus, Trash2, Upload, Loader2, ChevronDown, Info, GripVertical, Box, Eye, ArrowLeft, Download, RefreshCw } from 'lucide-react'
 import { productsApi, suppliersApi, uploadApi, deviceCatalogApi, tenantApi } from '@/lib/api'
 import { useCategories, useBrands, useSuppliers, useProductVariantSettings } from '@/lib/hooks'
 import { DEFAULT_PRODUCT_VARIANT_SETTINGS, pushProductVariantSettings } from '@/lib/productVariantSettings'
@@ -411,6 +411,8 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
   const suppliers: Supplier[] = ((suppliersRaw as any)?.data ?? []) as Supplier[]
 
   const [loading, setLoading] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const pricingCardRef = useRef<HTMLDivElement>(null)
   const [showAddCat, setShowAddCat] = useState(false)
   const [showAddBrand, setShowAddBrand] = useState(false)
   const [showAddSubCat, setShowAddSubCat] = useState(false)
@@ -685,12 +687,21 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
     })
   }
 
+  const failSubmit = (message: string, focusPricing = false) => {
+    setSubmitError(message)
+    toast.error(message)
+    if (focusPricing) {
+      pricingCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }
+
   const submit = async () => {
-    if (!form.name.trim())         { toast.error('Product name required'); return }
-    if (!form.sku.trim())          { toast.error('SKU required'); return }
-    if (!form.categoryName.trim()) { toast.error('Category required'); return }
+    setSubmitError(null)
+    if (!form.name.trim())         { failSubmit('Product name required'); return }
+    if (!form.sku.trim())          { failSubmit('SKU required — click Auto next to SKU, or type one'); return }
+    if (!form.categoryName.trim()) { failSubmit('Category required'); return }
     if (copyFrom && copyUnchanged) {
-      toast.error('Change at least one product detail before saving. Same details would duplicate the original.')
+      failSubmit('Change at least one product detail before saving. Same details would duplicate the original.')
       return
     }
 
@@ -710,11 +721,11 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
       ? Number(resolvedVariants[0]?.sellingPrice) || defaultSell
       : defaultSell
 
-    if (!buyingPrice)  { toast.error('Buying price required'); return }
-    if (!sellingPrice) { toast.error('Selling price required'); return }
+    if (!buyingPrice)  { failSubmit('Buying price required — enter it in Pricing & Stock', true); return }
+    if (!sellingPrice) { failSubmit('Selling price required — enter it in Pricing & Stock', true); return }
     if (variants.length > 0) {
       const bad = resolvedVariants.some(v => !Number(v.costPrice) || !Number(v.sellingPrice))
-      if (bad) { toast.error('Each variant needs buy & sell price (or set defaults below)'); return }
+      if (bad) { failSubmit('Each variant needs buy & sell price (or set defaults in Pricing & Stock)', true); return }
     }
 
     setLoading(true)
@@ -730,7 +741,9 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
       }))
       toast.success(copyFrom ? `"${form.name}" saved as a new product` : `"${form.name}" created!`)
       onSaved(); onClose()
-    } catch (e: any) { toast.error(e?.message ?? 'Failed') }
+    } catch (e: any) {
+      failSubmit(e?.message ?? 'Failed to create product')
+    }
     finally { setLoading(false) }
   }
 
@@ -802,13 +815,30 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
             type="button"
             onClick={submit}
             disabled={loading || !form.name.trim() || !form.sku.trim() || (Boolean(copyFrom) && copyUnchanged)}
-            title={copyFrom && copyUnchanged ? 'Change product details before saving' : undefined}
+            title={
+              copyFrom && copyUnchanged
+                ? 'Change product details before saving'
+                : !form.sku.trim()
+                  ? 'SKU required — click Auto or enter a SKU'
+                  : undefined
+            }
             className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
-            {loading ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
             Create Product
           </button>
         </div>
       </div>
+
+      {submitError && (
+        <div
+          className="flex items-start gap-2 rounded-lg px-4 py-3 text-sm"
+          style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: 'var(--text-primary)' }}
+          role="alert"
+        >
+          <Info size={16} className="shrink-0 mt-0.5 text-red-400" />
+          <span>{submitError}</span>
+        </div>
+      )}
 
       {copyFrom && copyUnchanged && (
         <div
@@ -1172,8 +1202,8 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
             <div className="space-y-5 xl:sticky xl:top-0">
 
               {/* 2. Pricing & Stock */}
-              <div style={card}>
-                <SectionHeader n={2} title="Pricing & Stock" />
+              <div ref={pricingCardRef} style={card}>
+                <SectionHeader n={2} title="Pricing & Stock" sub="Required before Create Product" />
                 <div className="flex flex-col gap-3.5">
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-3.5">
                   <div>

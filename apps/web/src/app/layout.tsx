@@ -3,6 +3,7 @@ import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { AppearanceProvider } from '@/components/appearance-provider'
 import { ServiceWorkerRegister } from '@/components/offline/ServiceWorkerRegister'
+import { AppToaster } from '@/components/AppToaster'
 import { APPEARANCE_INIT_SCRIPT } from '@/lib/appearance'
 
 export const metadata: Metadata = {
@@ -49,6 +50,7 @@ export default function RootLayout({
         <ThemeProvider>
           <AppearanceProvider>
             <ServiceWorkerRegister />
+            <AppToaster />
             {children}
           </AppearanceProvider>
         </ThemeProvider>
