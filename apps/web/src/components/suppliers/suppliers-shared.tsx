@@ -949,7 +949,7 @@ export function SupplierDetailsModal({ supplier, allPOs, onClose, onEdit }: { su
               </div>
               <div className="flex items-center gap-1.5">
                 <Hash size={13} style={{ color: 'var(--text-muted)' }} />
-                <span style={{ color: 'var(--text-muted)' }}>GSTIN / VAT:</span>
+                <span style={{ color: 'var(--text-muted)' }}>VAT Number:</span>
                 <span className="font-mono font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(supplier.gstin)}</span>
               </div>
             </div>
@@ -1176,7 +1176,7 @@ export function EditSupplierModal({ supplier, onClose, onSaved }: { supplier: Su
               { k: 'email',       label: 'Email',           full: false },
               { k: 'city',        label: 'City',            full: false },
               { k: 'address',     label: 'Address',         full: true  },
-              { k: 'gstin',       label: 'GSTIN / VAT No',  full: false },
+              { k: 'gstin',       label: 'VAT Number',     full: false },
             ].map(({ k, label, full }) => (
               <div key={k} className={full ? 'col-span-2' : ''}>
                 <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">{label}</label>
@@ -1228,15 +1228,15 @@ export function AddSupplierModal({ onClose, onSaved }: { onClose: () => void; on
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Company Name *</label>
-              <input required className="input-field" placeholder="Apple India Pvt Ltd" value={form.name} onChange={f('name')} />
+              <input required className="input-field" placeholder="ABC Distributors (Pvt) Ltd" value={form.name} onChange={f('name')} />
             </div>
             <div>
               <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Contact Person</label>
-              <input className="input-field" placeholder="Rajesh Kumar" value={form.contactName} onChange={f('contactName')} />
+              <input className="input-field" placeholder="Kamal Perera" value={form.contactName} onChange={f('contactName')} />
             </div>
             <div>
               <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Phone *</label>
-              <input required className="input-field" placeholder="9876543210" value={form.phone} onChange={f('phone')} />
+              <input required className="input-field" placeholder="0771234567" value={form.phone} onChange={f('phone')} />
             </div>
             <div>
               <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Email</label>
@@ -1244,15 +1244,15 @@ export function AddSupplierModal({ onClose, onSaved }: { onClose: () => void; on
             </div>
             <div>
               <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">City</label>
-              <input className="input-field" placeholder="Chennai" value={form.city} onChange={f('city')} />
+              <input className="input-field" placeholder="Colombo" value={form.city} onChange={f('city')} />
             </div>
             <div className="col-span-2">
               <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Address</label>
-              <input className="input-field" placeholder="Street address" value={form.address} onChange={f('address')} />
+              <input className="input-field" placeholder="No. 45, Galle Road, Colombo 03" value={form.address} onChange={f('address')} />
             </div>
             <div className="col-span-2">
-              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">GSTIN</label>
-              <input className="input-field" placeholder="22AAAAA0000A1Z5" value={form.gstin} onChange={f('gstin')} />
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">VAT Number</label>
+              <input className="input-field" placeholder="123456789-7000" value={form.gstin} onChange={f('gstin')} />
             </div>
           </div>
           <div className="flex gap-3 pt-1">

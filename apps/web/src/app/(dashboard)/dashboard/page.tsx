@@ -267,7 +267,7 @@ export default function DashboardPage() {
             <LineChart data={chartData} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false}/>
               <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false}/>
-              <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`}/>
+              <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={v => `LKR ${(v/1000).toFixed(0)}k`} width={72}/>
               <Tooltip formatter={(v: any) => formatCurrency(v)} contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}/>
               <Line type="monotone" dataKey="sales"       stroke="var(--brand-primary)" strokeWidth={2.5} dot={{ r: 4, fill: 'var(--brand-primary)', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Sales"/>
               <Line type="monotone" dataKey="grossProfit" stroke="#22c55e" strokeWidth={2}   dot={{ r: 3, fill: '#22c55e', strokeWidth: 0 }} activeDot={{ r: 5 }} name="Gross Profit"/>

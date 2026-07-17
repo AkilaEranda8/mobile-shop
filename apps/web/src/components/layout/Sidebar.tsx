@@ -12,7 +12,7 @@ import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { authStorage } from '@/lib/auth'
 import { authApi, tenantApi } from '@/lib/api'
-import { getInvoiceSettings } from '@/lib/invoiceSettings'
+import { fetchInvoiceSettings, getInvoiceSettings } from '@/lib/invoiceSettings'
 import { useTenantFeatures } from '@/lib/hooks'
 import { usePos } from '@/lib/use-pos'
 import type { LucideIcon } from 'lucide-react'
@@ -197,6 +197,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const searchParams = useSearchParams()
   const navAction = searchParams.get('action')
   const user = authStorage.getUser()
+  const tenantId = user?.tenantId
   const [shopName, setShopName] = useState('')
   const [plan, setPlan]         = useState('')
   const [logo, setLogo]         = useState('')
@@ -231,24 +232,60 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   }
 
   useEffect(() => {
-    const inv = getInvoiceSettings()
-    if (inv.shopName) setShopName(inv.shopName)
-    if (inv.logo)     setLogo(inv.logo)
-    if (user?.tenantId) {
-      tenantApi.get(user.tenantId).then((res: any) => {
+    let cancelled = false
+
+    const applyInvoiceSettings = () => {
+      const inv = getInvoiceSettings()
+      if (cancelled) return inv
+      setShopName(inv.shopName || '')
+      setLogo(inv.logo || '')
+      return inv
+    }
+
+    const loadBrand = async () => {
+      const inv = applyInvoiceSettings()
+      if (!tenantId) return
+
+      try {
+        const res: any = await tenantApi.get(tenantId)
+        if (cancelled) return
         const t = res.data ?? res
         if (t.plan) setPlan(t.plan)
         if (!inv.shopName && t.name) setShopName(t.name)
-      }).catch(() => {})
-      import('@/lib/invoiceSettings').then(({ fetchInvoiceSettings }) =>
-        fetchInvoiceSettings(user.tenantId!).then(s => {
-          if (s.shopName) setShopName(s.shopName)
-          if (s.logo)     setLogo(s.logo)
-        })
-      )
+      } catch {
+        // Local invoice settings are enough for the sidebar if tenant fetch fails.
+      }
+
+      try {
+        const s = await fetchInvoiceSettings(tenantId)
+        if (cancelled) return
+        setShopName(s.shopName || '')
+        setLogo(s.logo || '')
+      } catch {
+        applyInvoiceSettings()
+      }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+
+    loadBrand()
+
+    const handleBrandUpdate = () => {
+      void loadBrand()
+    }
+    const handleStorage = (event: StorageEvent) => {
+      if (!event.key || event.key === 'hx_invoice_settings') handleBrandUpdate()
+    }
+
+    window.addEventListener('shop-settings-updated', handleBrandUpdate)
+    window.addEventListener('invoice-settings-updated', handleBrandUpdate)
+    window.addEventListener('storage', handleStorage)
+
+    return () => {
+      cancelled = true
+      window.removeEventListener('shop-settings-updated', handleBrandUpdate)
+      window.removeEventListener('invoice-settings-updated', handleBrandUpdate)
+      window.removeEventListener('storage', handleStorage)
+    }
+  }, [tenantId])
 
   const handleLogout = async () => {
     try { await authApi.logout() } catch { /* ignore */ }

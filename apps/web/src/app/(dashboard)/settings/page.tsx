@@ -13,6 +13,7 @@ import { getActiveBranchId } from '@/lib/active-branch'
 import {
   type InvoiceSettings,
   getInvoiceSettings,
+  saveInvoiceSettings,
   fetchInvoiceCustomizeSettings,
   pushInvoiceSettings,
   DEFAULT_REPAIR_INTAKE_TERMS,
@@ -171,6 +172,18 @@ export default function SettingsPage() {
           city: shopForm.city,
         })
       }
+      const nextInvoiceSettings = {
+        ...getInvoiceSettings(),
+        shopName: shopForm.name,
+        phone: shopForm.phone,
+        address: [shopForm.address, shopForm.city].filter(Boolean).join(', '),
+      }
+      saveInvoiceSettings(nextInvoiceSettings)
+      const syncedInvoiceSettings = await pushInvoiceSettings(tenant.id, nextInvoiceSettings, tenant?.slug).catch(() => nextInvoiceSettings)
+      setInvoiceForm(syncedInvoiceSettings)
+      setTenant((prev: any) => prev ? { ...prev, name: shopForm.name, ownerName: shopForm.ownerName, ownerEmail: shopForm.ownerEmail } : prev)
+      window.dispatchEvent(new CustomEvent('shop-settings-updated'))
+      window.dispatchEvent(new CustomEvent('invoice-settings-updated'))
       toast.success('Shop info saved — thermal receipts will use these details')
     } catch { toast.error('Save failed') }
     finally { setShopSaving(false) }

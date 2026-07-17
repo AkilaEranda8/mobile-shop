@@ -15,10 +15,6 @@
     "declarationMap": true,
     "sourceMap": true,
     "moduleResolution": "node16",
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
-    },
     "types": ["node"]
   },
   "include": ["src/**/*"],
