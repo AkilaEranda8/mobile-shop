@@ -281,7 +281,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   return (
     <aside className={cn(
       'flex flex-col h-full border-r transition-all duration-300 relative',
-      collapsed ? 'w-16' : 'w-60'
+      collapsed ? 'w-16' : 'w-64'
     )}
       style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-subtle)' }}
     >
@@ -295,17 +295,36 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       </button>
 
       {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden shadow-lg" style={{ background: logo ? 'transparent' : undefined }}>
+      <div
+        className={cn(
+          'flex items-center border-b min-h-[72px]',
+          collapsed ? 'justify-center px-2' : 'gap-3 px-3.5',
+        )}
+        style={{ borderColor: 'var(--border-subtle)' }}
+      >
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden shadow-lg ring-1 ring-white/10" style={{ background: logo ? 'transparent' : undefined }}>
           {logo
             ? <img src={logo} alt={shopName} className="w-full h-full object-contain" />
             : <div className="w-full h-full accent-gradient-br flex items-center justify-center"><span className="text-white font-black text-sm">{(shopName || 'H').charAt(0).toUpperCase()}</span></div>
           }
         </div>
         {!collapsed && (
-          <div className="overflow-hidden">
-            <span className="font-bold text-base truncate block" style={{ color: 'var(--text-primary)' }}>{shopName || 'My Shop'}</span>
-            {plan && <span className={`block text-xs -mt-0.5 font-medium capitalize ${PLAN_COLOR[plan] ?? 'text-slate-400'}`}>{plan.charAt(0) + plan.slice(1).toLowerCase()}</span>}
+          <div className="min-w-0 flex-1">
+            <span
+              className="font-bold text-[15px] leading-tight block break-words line-clamp-2"
+              style={{ color: 'var(--text-primary)' }}
+              title={shopName || 'My Shop'}
+            >
+              {shopName || 'My Shop'}
+            </span>
+            {plan && (
+              <span className={cn(
+                'inline-flex mt-1 rounded-full border px-2 py-0.5 text-[10px] font-bold capitalize leading-none',
+                PLAN_COLOR[plan] ?? 'text-slate-400',
+              )} style={{ borderColor: 'currentColor', opacity: 0.9 }}>
+                {plan.charAt(0) + plan.slice(1).toLowerCase()}
+              </span>
+            )}
           </div>
         )}
       </div>
