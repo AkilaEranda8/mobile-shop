@@ -49,6 +49,7 @@ type GlAccount = { id: string; code: string; name: string; type: string }
 type SettingsData = {
   baseCurrency: string
   autoPostEnabled: boolean
+  vatEnabled: boolean
   requireApprovalAbove: number | null
   expenseCategoryMap: Record<string, string>
   defaultAccounts: Record<string, string>
@@ -64,6 +65,7 @@ export default function AccountingSettingsPage() {
   const [defaultAccounts, setDefaultAccounts] = useState<Record<string, string>>({})
   const [approvalAbove, setApprovalAbove] = useState('')
   const [autoPost, setAutoPost] = useState(true)
+  const [vatEnabled, setVatEnabled] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -77,6 +79,7 @@ export default function AccountingSettingsPage() {
       setDefaultAccounts(sRes.data.defaultAccounts ?? {})
       setApprovalAbove(sRes.data.requireApprovalAbove != null ? String(sRes.data.requireApprovalAbove) : '')
       setAutoPost(sRes.data.autoPostEnabled)
+      setVatEnabled(sRes.data.vatEnabled ?? false)
       setAccounts(coaRes.data ?? [])
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to load settings')
@@ -99,6 +102,7 @@ export default function AccountingSettingsPage() {
         expenseCategoryMap: categoryMap,
         defaultAccounts,
         autoPostEnabled: autoPost,
+        vatEnabled,
         requireApprovalAbove: approvalAbove ? Number(approvalAbove) : null,
       })
       toast.success('Accounting settings saved')
@@ -130,6 +134,13 @@ export default function AccountingSettingsPage() {
                 <label className="flex items-center gap-3 text-sm cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
                   <input type="checkbox" checked={autoPost} onChange={e => setAutoPost(e.target.checked)} className="rounded" />
                   Auto-post enabled — journals post automatically when sales, purchases, repairs and expenses are recorded
+                </label>
+                <label className="flex items-start gap-3 text-sm cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
+                  <input type="checkbox" checked={vatEnabled} onChange={e => setVatEnabled(e.target.checked)} className="rounded mt-0.5" />
+                  <span>
+                    VAT on repair journals — when on, repair receipts split 18% inclusive VAT to VAT Output Payable.
+                    Leave off if the shop is not VAT-registered (full amount posts to Repair Income).
+                  </span>
                 </label>
                 <label className="block">
                   <span className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>

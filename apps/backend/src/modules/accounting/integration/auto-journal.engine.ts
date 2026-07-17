@@ -534,7 +534,8 @@ export async function postRepairJournal(tenantId: string, repairId: string, acto
   const total = round2(Math.max(0, Number(r.actualCost ?? r.estimatedCost ?? 0)))
   const paid = round2(Math.max(0, Number(r.paidAmount ?? 0)))
   const due = round2(Math.max(0, Number(r.dueAmount ?? 0)))
-  const vat = round2(total * 18 / 118)
+  const settings = await getSettingsOrThrow(tenantId)
+  const vat = settings.vatEnabled ? round2(total * 18 / 118) : 0
   const netIncome = round2(total - vat)
 
   const lines: JournalDraftLine[] = []
@@ -546,7 +547,13 @@ export async function postRepairJournal(tenantId: string, repairId: string, acto
   if (due > 0) {
     lines.push({ accountId: await resolveAccountIdByKey(tenantId, 'ar'), debit: due, credit: 0, description: 'Repair receivable', customerId: r.customerId, metadata: { ticketNumber: r.ticketNumber } })
   }
-  lines.push({ accountId: await resolveAccountIdByKey(tenantId, 'repairIncome'), debit: 0, credit: netIncome, description: 'Repair income (net)', metadata: { ticketNumber: r.ticketNumber } })
+  lines.push({
+    accountId: await resolveAccountIdByKey(tenantId, 'repairIncome'),
+    debit: 0,
+    credit: netIncome,
+    description: vat > 0 ? 'Repair income (net)' : 'Repair income',
+    metadata: { ticketNumber: r.ticketNumber },
+  })
   if (vat > 0) {
     lines.push({ accountId: await resolveAccountIdByKey(tenantId, 'vatOutput'), debit: 0, credit: vat, description: 'VAT on repair', metadata: { ticketNumber: r.ticketNumber } })
   }

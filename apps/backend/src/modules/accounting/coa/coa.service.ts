@@ -186,6 +186,7 @@ export async function getAccountingSettingsDetail(tenantId: string) {
   return {
     baseCurrency: s.baseCurrency,
     autoPostEnabled: s.autoPostEnabled,
+    vatEnabled: s.vatEnabled,
     requireApprovalAbove: s.requireApprovalAbove,
     expenseCategoryMap: (s.expenseCategoryMap ?? {}) as Record<string, string>,
     defaultAccounts: (s.defaultAccounts ?? {}) as Record<string, string>,
@@ -199,6 +200,7 @@ export async function updateAccountingSettings(
     defaultAccounts?: Record<string, string>
     requireApprovalAbove?: number | null
     autoPostEnabled?: boolean
+    vatEnabled?: boolean
   },
 ) {
   await assertInitialized(tenantId)
@@ -214,6 +216,7 @@ export async function updateAccountingSettings(
       ...(mergedDefaults !== undefined ? { defaultAccounts: mergedDefaults } : {}),
       ...(body.requireApprovalAbove !== undefined ? { requireApprovalAbove: body.requireApprovalAbove } : {}),
       ...(body.autoPostEnabled !== undefined ? { autoPostEnabled: body.autoPostEnabled } : {}),
+      ...(body.vatEnabled !== undefined ? { vatEnabled: body.vatEnabled } : {}),
     },
   })
 }

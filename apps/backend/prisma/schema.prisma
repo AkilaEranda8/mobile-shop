@@ -1635,6 +1635,9 @@ model AccountingSettings {
   baseCurrency         String    @default("LKR")
   fiscalYearStartMonth Int       @default(1)
   autoPostEnabled      Boolean   @default(true)
+  /// When true, repair auto-journals split inclusive 18% VAT to VAT Output Payable.
+  /// Sales still use the tax amount on the sale (0 = no VAT line).
+  vatEnabled           Boolean   @default(false)
   requireApprovalAbove Float?
   initializedAt        DateTime?
   defaultAccounts      Json      @default("{}")
