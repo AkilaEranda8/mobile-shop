@@ -201,6 +201,7 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
   let creditPayments = 0
   let totalExpenses = 0
   let supplierPayments = 0
+  let cashSupplierPayments = 0
   let bankDeposits = 0
   const expenseMap: Record<string, number> = {}
 
@@ -231,6 +232,7 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
       // Supplier payments settle AP — cash out only, not operating expense / P&L.
       if (cat === 'Supplier Payment') {
         supplierPayments += amt
+        if (tx.paymentMethod === 'CASH') cashSupplierPayments += amt
         continue
       }
       totalExpenses += amt
@@ -303,8 +305,8 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
   const netProfit = grossSales + reloadCommission - cogs - repairPartsCogs - totalExpenses - refundsTotal
 
   const openingCash = existingClosing?.openingCash ?? openingCashFromPrev
-  // Cash drawer still decreases for both OpEx and supplier payments.
-  const expectedCash = openingCash + cashSales - totalExpenses - supplierPayments - bankDeposits - cashRefunds
+  // Cash drawer decreases only for CASH outflows — bank/card supplier payments never touch the drawer.
+  const expectedCash = openingCash + cashSales - totalExpenses - cashSupplierPayments - bankDeposits - cashRefunds
   const cashInBank = bankFromSales + bankDeposits
 
   const expenseBreakdown = Object.entries(expenseMap)
@@ -455,6 +457,7 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
     expenses: {
       totalExpenses: Math.round(totalExpenses * 100) / 100,
       supplierPayments: Math.round(supplierPayments * 100) / 100,
+      cashSupplierPayments: Math.round(cashSupplierPayments * 100) / 100,
       cashOutTotal: Math.round((totalExpenses + supplierPayments) * 100) / 100,
       breakdown: expenseBreakdown,
     },
@@ -525,8 +528,8 @@ function previewToClosingData(
 ) {
   const openingCash = resolveOpeningCash(overrides.openingCash, preview.openingCash)
   const actualCash = overrides.actualCash ?? preview.cash.actualCash
-  const supplierPayments = preview.expenses.supplierPayments ?? 0
-  const expectedCash = openingCash + preview.cash.cashSales - preview.expenses.totalExpenses - supplierPayments - preview.cash.bankDeposits - (preview.cash.cashRefunds ?? 0)
+  const cashSupplierPayments = preview.expenses.cashSupplierPayments ?? 0
+  const expectedCash = openingCash + preview.cash.cashSales - preview.expenses.totalExpenses - cashSupplierPayments - preview.cash.bankDeposits - (preview.cash.cashRefunds ?? 0)
   const cashVariance = Math.round((expectedCash - actualCash) * 100) / 100
 
   return {
