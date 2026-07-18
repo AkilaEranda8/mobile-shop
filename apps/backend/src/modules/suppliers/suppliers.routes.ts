@@ -8,7 +8,7 @@ import { getPagination } from '../../utils/pagination'
 import { generatePONumber } from '../../utils/counters'
 import { buildLabelsFromPoItems, ensureProductBarcode } from '../../utils/po-labels.util'
 import { effectiveBranchId } from '../../utils/active-branch'
-import { emitPurchaseAccounting } from '../accounting/integration/accounting-events.service'
+import { emitApPaymentAccounting, emitPurchaseAccounting } from '../accounting/integration/accounting-events.service'
 import { applyPurchaseOrderReceive } from '../../utils/po-receive.util'
 
 const router = Router()
@@ -570,6 +570,7 @@ router.post('/:id/payments', authorize('OWNER', 'MANAGER'), async (req: Request,
     })
 
     await recalcSupplierStats(req.params.id, req.tenantId!)
+    void emitApPaymentAccounting(req.tenantId!, txn.id, branchId, req.user?.email)
     sendSuccess(res, { transaction: txn, updatedPOs: updates.length }, 'Payment recorded', 201)
   } catch (e) { next(e) }
 })

@@ -76,6 +76,12 @@ export function emitExpenseAccounting(tenantId: string, txId: string, branchId: 
   ], actorEmail)
 }
 
+export function emitApPaymentAccounting(tenantId: string, txId: string, branchId: string | null, actorEmail?: string) {
+  return emitAccountingEvents([
+    { tenantId, branchId, sourceType: 'Transaction', sourceId: txId, eventType: 'AP_PAYMENT_MADE' },
+  ], actorEmail)
+}
+
 export function emitDailyClosingAccounting(tenantId: string, closingId: string, branchId: string | null, actorEmail?: string) {
   return emitAccountingEvents([
     { tenantId, branchId, sourceType: 'DailyClosing', sourceId: closingId, eventType: 'DAILY_CLOSING_VARIANCE' },
