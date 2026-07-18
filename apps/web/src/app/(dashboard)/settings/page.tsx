@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import {
   Save, Building2, User, Bell, Shield, Palette, CreditCard, Users,
   Loader2, Eye, EyeOff, Trash2, Plus, X, CheckCircle, Check, FileText, Smartphone, ChevronRight, BookOpen,
-  Package, Tag,
+  Package, Tag, Wallet,
 } from 'lucide-react'
 import { authApi, usersApi, tenantApi, uploadApi, deviceCatalogApi, plansApi, branchesApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
@@ -48,6 +48,13 @@ import {
 import { ImageIcon, Trash2 as TrashIcon } from 'lucide-react'
 import toast from 'react-hot-toast'
 import UserManualPanel from '@/components/settings/UserManualPanel'
+import {
+  PAYMENT_METHOD_KEYS,
+  DEFAULT_PAYMENT_METHOD_LABELS,
+  DEFAULT_PAYMENT_METHODS,
+  type PaymentMethodKey,
+  type TenantPaymentMethod,
+} from '@/lib/payment-methods'
 
 const tabs = [
   { key: 'shop',          label: 'Shop Info',       icon: Building2  },
@@ -55,6 +62,7 @@ const tabs = [
   { key: 'barcode',       label: 'Barcode Labels',  icon: Tag        },
   { key: 'manual',        label: 'User Manual',     icon: BookOpen   },
   { key: 'devices',       label: 'Devices',         icon: Smartphone },
+  { key: 'payments',      label: 'Payment Methods', icon: Wallet     },
   { key: 'profile',       label: 'Profile',         icon: User       },
   { key: 'notifications', label: 'Notifications',   icon: Bell       },
   { key: 'security',      label: 'Security',        icon: Shield     },
@@ -98,6 +106,39 @@ export default function SettingsPage() {
   useEffect(() => {
     plansApi.list().then((r: any) => setPlans(r?.data ?? [])).catch(() => {})
   }, [])
+
+  /* ── Payment Methods ── */
+  const [payMethods, setPayMethods] = useState<TenantPaymentMethod[]>(DEFAULT_PAYMENT_METHODS)
+  const [payMethodsSaving, setPayMethodsSaving] = useState(false)
+  const [newPayKey, setNewPayKey] = useState<PaymentMethodKey | ''>('')
+  const [newPayLabel, setNewPayLabel] = useState('')
+
+  useEffect(() => {
+    if (!tenantId) return
+    tenantApi.getPaymentMethodSettings(tenantId)
+      .then((r: any) => {
+        const methods = (r?.data ?? r)?.methods
+        if (Array.isArray(methods) && methods.length) setPayMethods(methods)
+      })
+      .catch(() => {})
+  }, [tenantId])
+
+  const availablePayKeys = PAYMENT_METHOD_KEYS.filter(k => !payMethods.some(m => m.key === k))
+
+  const savePayMethods = async (methods: TenantPaymentMethod[]) => {
+    if (!tenantId) return
+    setPayMethodsSaving(true)
+    try {
+      const res: any = await tenantApi.updatePaymentMethodSettings(tenantId, { methods })
+      const saved = (res?.data ?? res)?.methods
+      if (Array.isArray(saved) && saved.length) setPayMethods(saved)
+      toast.success('Payment methods saved')
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to save payment methods')
+    } finally {
+      setPayMethodsSaving(false)
+    }
+  }
 
   /* ── Shop Info ── */
   const [tenant, setTenant]       = useState<any>(null)
@@ -867,6 +908,111 @@ export default function SettingsPage() {
                   <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Email</label>
                   <input type="email" className="input-field" value={profile.email} onChange={e => setProfile(p => ({ ...p, email: e.target.value }))} />
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── PAYMENT METHODS ── */}
+          {activeTab === 'payments' && (
+            <div className="card p-6 space-y-5">
+              <div className="border-b border-white/5 pb-3">
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">Payment Methods</h2>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                  Methods shown at POS checkout and repair payments. Cash cannot be removed.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                {payMethods.map(m => (
+                  <div
+                    key={m.key}
+                    className="flex items-center gap-3 rounded-xl border px-4 py-3"
+                    style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}
+                  >
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ background: 'var(--brand-glow)' }}>
+                      <Wallet size={14} className="text-violet-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <input
+                        className="input-field h-9 text-sm"
+                        value={m.label}
+                        maxLength={40}
+                        onChange={e => setPayMethods(prev => prev.map(x => x.key === m.key ? { ...x, label: e.target.value } : x))}
+                      />
+                    </div>
+                    <span className="text-[10px] font-mono px-2 py-1 rounded-md flex-shrink-0"
+                      style={{ background: 'var(--bg-subtle-md)', color: 'var(--text-muted)' }}>
+                      {m.key}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={m.key === 'CASH'}
+                      title={m.key === 'CASH' ? 'Cash cannot be removed' : 'Remove method'}
+                      onClick={() => setPayMethods(prev => prev.filter(x => x.key !== m.key))}
+                      className="p-2 rounded-lg transition-colors hover:bg-red-500/10 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {availablePayKeys.length > 0 && (
+                <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: 'var(--border-default)' }}>
+                  <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Add payment method</p>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <select
+                      className="input-field h-10 sm:w-48"
+                      value={newPayKey}
+                      onChange={e => {
+                        const k = e.target.value as PaymentMethodKey | ''
+                        setNewPayKey(k)
+                        if (k) setNewPayLabel(DEFAULT_PAYMENT_METHOD_LABELS[k])
+                      }}
+                    >
+                      <option value="">Select type…</option>
+                      {availablePayKeys.map(k => (
+                        <option key={k} value={k}>{DEFAULT_PAYMENT_METHOD_LABELS[k]}</option>
+                      ))}
+                    </select>
+                    <input
+                      className="input-field h-10 flex-1"
+                      placeholder="Display name (e.g. Genie / eZ Cash)"
+                      value={newPayLabel}
+                      maxLength={40}
+                      onChange={e => setNewPayLabel(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      disabled={!newPayKey}
+                      onClick={() => {
+                        if (!newPayKey) return
+                        setPayMethods(prev => [...prev, { key: newPayKey, label: newPayLabel.trim() || DEFAULT_PAYMENT_METHOD_LABELS[newPayKey] }])
+                        setNewPayKey(''); setNewPayLabel('')
+                      }}
+                      className="btn-primary text-sm flex items-center justify-center gap-1.5 h-10 px-4 disabled:opacity-50"
+                    >
+                      <Plus size={14} />Add
+                    </button>
+                  </div>
+                  <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                    The type controls how payments are recorded in reports and accounting; the display name is what staff see.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => savePayMethods(payMethods)}
+                  disabled={payMethodsSaving}
+                  className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60"
+                >
+                  {payMethodsSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={13} />}
+                  Save Payment Methods
+                </button>
               </div>
             </div>
           )}

@@ -1,6 +1,7 @@
 import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import { normalizeReloadSettings } from '../daily-reload/reload-settings.util'
+import { normalizePaymentMethodSettings } from './payment-method-settings.util'
 import { normalizeProductVariantSettings } from '../products/product-variant-settings.util'
 import {
   applyProductCodeSettings,
@@ -99,6 +100,22 @@ export const tenantsService = {
       select: { reloadSettings: true },
     })
     return normalizeReloadSettings(t.reloadSettings)
+  },
+
+  async getPaymentMethodSettings(tenantId: string) {
+    const t = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { paymentMethodSettings: true } })
+    if (!t) throw new AppError('Tenant not found', 404)
+    return normalizePaymentMethodSettings(t.paymentMethodSettings)
+  },
+
+  async updatePaymentMethodSettings(tenantId: string, settings: Record<string, unknown>) {
+    const normalized = normalizePaymentMethodSettings(settings)
+    const t = await prisma.tenant.update({
+      where: { id: tenantId },
+      data: { paymentMethodSettings: normalized as any },
+      select: { paymentMethodSettings: true },
+    })
+    return normalizePaymentMethodSettings(t.paymentMethodSettings)
   },
 
   async getProductVariantSettings(tenantId: string) {

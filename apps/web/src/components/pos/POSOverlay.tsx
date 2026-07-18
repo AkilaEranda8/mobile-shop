@@ -37,6 +37,7 @@ import { formatCurrency } from '@/lib/utils'
 import { businessToday } from '@/lib/business-date'
 import toast from 'react-hot-toast'
 import { getInvoiceSettings, fetchInvoiceSettings, shopContextFromTenant, resolveInvoiceTemplate, HEXALYTE_SOFTWARE_FOOTER, type InvoiceSettings, type ShopContext } from '@/lib/invoiceSettings'
+import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
 import { cacheProductsForOffline, cacheCategoriesForOffline, getCachedProducts, getCachedCategories } from '@/lib/offline/products-cache'
 import { buildOfflineInvoiceNumber, queueOfflineSale } from '@/lib/offline/queue-sale'
 import { isBrowserOnline, isNetworkError } from '@/lib/offline/sync'
@@ -724,7 +725,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const { pendingCustomer, clearPendingCustomer } = useUIStore()
   const [cart, setCart]                         = useState<CartItem[]>([])
   const [search, setSearch]                     = useState('')
-  const [paymentMethod, setPaymentMethod]       = useState<'CASH' | 'CARD' | 'UPI'>('CASH')
+  const [paymentMethod, setPaymentMethod]       = useState<PaymentMethodKey>('CASH')
+  const payMethods = usePaymentMethods()
+  const payMethodsRef = useRef(payMethods)
+  useEffect(() => {
+    payMethodsRef.current = payMethods
+    // Reset to cash if the selected method was removed from settings
+    setPaymentMethod(prev => payMethods.some(m => m.key === prev) ? prev : 'CASH')
+  }, [payMethods])
   const [customerPaid, setCustomerPaid]         = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null)
   const [discountPct, setDiscountPct]           = useState(0)
@@ -2209,9 +2217,11 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
       const ck = checkoutKeyboardRef.current
       if (cartView === 'checkout' && !completedSale && (cart.length > 0 || ck.outstandingPaying > 0)) {
-        if (e.key === '1') { e.preventDefault(); setPaymentMethod('CASH') }
-        if (e.key === '2') { e.preventDefault(); setPaymentMethod('CARD') }
-        if (e.key === '3') { e.preventDefault(); setPaymentMethod('UPI') }
+        const methodIdx = ['1', '2', '3', '4', '5'].indexOf(e.key)
+        if (methodIdx >= 0 && payMethodsRef.current[methodIdx]) {
+          e.preventDefault()
+          setPaymentMethod(payMethodsRef.current[methodIdx].key)
+        }
         if (e.key === 'Enter') {
           e.preventDefault()
           void handleCheckoutRef.current()
@@ -3401,26 +3411,30 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       </ul>
                     </div>
                   )}
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {([
-                      { method: 'CASH' as const, label: 'Cash', Icon: Banknote, active: { background: `${POS_THEME.green}26`, borderColor: `${POS_THEME.green}59`, color: POS_THEME.green } },
-                      { method: 'CARD' as const, label: 'Card', Icon: CreditCard, active: { background: `${POS_THEME.blue}26`, borderColor: `${POS_THEME.blue}59`, color: POS_THEME.blue } },
-                      { method: 'UPI'  as const, label: 'Bank Transfer', Icon: Banknote, active: { background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text } },
-                    ]).map(({ method, label, Icon: MI, active }) => (
-                      <button key={method} type="button" onClick={() => {
-                        setPaymentMethod(method)
-                        if (method === 'CASH') {
-                          setCustomerPaid(collectAtCheckout > 0 ? collectAtCheckout.toFixed(2) : '')
-                        }
-                      }}
-                        className="flex flex-col items-center gap-1 py-2 rounded-xl text-[11px] font-semibold border transition-all"
-                        title={method === 'CASH' ? 'Key: 1' : method === 'CARD' ? 'Key: 2' : 'Key: 3'}
-                        style={paymentMethod === method
-                          ? { ...active, border: `1px solid ${active.borderColor}` }
-                          : { background: POS_THEME.card, border: `1px solid ${POS_THEME.border}`, color: POS_THEME.muted }}>
-                        <MI size={14} />{label}
-                      </button>
-                    ))}
+                  <div className={`grid gap-1.5 ${payMethods.length <= 3 ? 'grid-cols-3' : payMethods.length === 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                    {payMethods.map(({ key: method, label }, idx) => {
+                      const MI = method === 'CASH' ? Banknote : method === 'CARD' ? CreditCard : method === 'WALLET' ? Wallet : method === 'UPI' ? Smartphone : Banknote
+                      const active = method === 'CASH'
+                        ? { background: `${POS_THEME.green}26`, borderColor: `${POS_THEME.green}59`, color: POS_THEME.green }
+                        : method === 'CARD'
+                          ? { background: `${POS_THEME.blue}26`, borderColor: `${POS_THEME.blue}59`, color: POS_THEME.blue }
+                          : { background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text }
+                      return (
+                        <button key={method} type="button" onClick={() => {
+                          setPaymentMethod(method)
+                          if (method === 'CASH') {
+                            setCustomerPaid(collectAtCheckout > 0 ? collectAtCheckout.toFixed(2) : '')
+                          }
+                        }}
+                          className="flex flex-col items-center gap-1 py-2 rounded-xl text-[11px] font-semibold border transition-all"
+                          title={idx < 5 ? `Key: ${idx + 1}` : label}
+                          style={paymentMethod === method
+                            ? { ...active, border: `1px solid ${active.borderColor}` }
+                            : { background: POS_THEME.card, border: `1px solid ${POS_THEME.border}`, color: POS_THEME.muted }}>
+                          <MI size={14} /><span className="truncate max-w-full px-0.5">{label}</span>
+                        </button>
+                      )
+                    })}
                   </div>
                   {!selectedCustomer && paymentMethod === 'CASH' && (
                     <div className="space-y-2">

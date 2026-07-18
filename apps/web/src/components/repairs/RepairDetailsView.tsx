@@ -9,6 +9,7 @@ import {
 import { formatCurrency, formatDate, getRepairStatusColor } from '@/lib/utils'
 import { useProducts, useFeatureFlag } from '@/lib/hooks'
 import { repairsApi, uploadApi } from '@/lib/api'
+import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
 import { whatsappApi, formatWhatsAppPhone } from '@/lib/whatsapp-api'
 import { captureElementAsPdfBase64 } from '@/lib/invoice-pdf'
 import { authStorage } from '@/lib/auth'
@@ -517,7 +518,11 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
   /* collect payment state */
   const [showPayment, setShowPayment] = useState(false)
   const [discount,    setDiscount]    = useState('')
-  const [payMethod,   setPayMethod]   = useState<'CASH'|'CARD'|'UPI'|'BANK_TRANSFER'>('CASH')
+  const [payMethod,   setPayMethod]   = useState<PaymentMethodKey>('CASH')
+  const payMethodOptions = usePaymentMethods()
+  useEffect(() => {
+    setPayMethod(prev => payMethodOptions.some(m => m.key === prev) ? prev : 'CASH')
+  }, [payMethodOptions])
   const [amountPaying, setAmountPaying] = useState('')
   const [collecting,  setCollecting]  = useState(false)
   const hasCustomerCredit = useFeatureFlag('CUSTOMER_CREDIT')
@@ -912,7 +917,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                       <div>
                         <p className="text-xs font-bold mb-2" style={{ color: 'var(--text-muted)' }}>Payment Method</p>
                         <div className="grid grid-cols-2 gap-2">
-                          {([{ key: 'CASH', label: 'Cash' }, { key: 'CARD', label: 'Card' }, { key: 'UPI', label: 'UPI' }, { key: 'BANK_TRANSFER', label: 'Bank Transfer' }] as const).map(({ key: m, label }) => (
+                          {payMethodOptions.map(({ key: m, label }) => (
                             <button key={m} type="button" onClick={() => setPayMethod(m)}
                               className="py-1.5 px-2.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5"
                               style={payMethod === m ? { background: 'var(--brand-primary)', border: '2px solid var(--brand-primary)', color: '#fff' } : { background: 'var(--bg-subtle)', border: '2px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
