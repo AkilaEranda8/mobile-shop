@@ -158,6 +158,25 @@ export const customersService = {
           },
         })
 
+        // Shrink or remove CREDIT payment rows so they always equal remaining due.
+        // Leaving stale CREDIT rows after settlement double-counts AR / payment totals.
+        let creditToReduce = apply
+        const creditRows = await tx.salePayment.findMany({
+          where: { saleId: sale.id, method: 'CREDIT' },
+          orderBy: { amount: 'desc' },
+        })
+        for (const row of creditRows) {
+          if (creditToReduce <= 0) break
+          const reduceBy = round2(Math.min(creditToReduce, row.amount))
+          const nextAmount = round2(row.amount - reduceBy)
+          if (nextAmount <= 0.001) {
+            await tx.salePayment.delete({ where: { id: row.id } })
+          } else {
+            await tx.salePayment.update({ where: { id: row.id }, data: { amount: nextAmount } })
+          }
+          creditToReduce = round2(creditToReduce - reduceBy)
+        }
+
         remaining = round2(remaining - apply)
         allocations.push({
           saleId: sale.id,
