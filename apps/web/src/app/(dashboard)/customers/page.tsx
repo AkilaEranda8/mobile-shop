@@ -801,17 +801,10 @@ export default function CustomersPage() {
               Pay
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => setEditCustomer(row.original)}
-            title="Edit customer"
-            aria-label={`Edit ${row.original.name}`}
-            className="p-1.5 rounded-lg border transition-colors hover:border-violet-500/40 hover:text-violet-500"
-            style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}
-          >
-            <Pencil size={13} />
-          </button>
-          <TableActionsRow showAction={{ action: () => openDetail(row.original.id) }} />
+          <TableActionsRow
+            showAction={{ action: () => openDetail(row.original.id) }}
+            editAction={{ action: () => setEditCustomer(row.original) }}
+          />
         </div>
       ),
     },
