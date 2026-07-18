@@ -335,9 +335,6 @@ export const productsService = {
     if (imageUrl          !== undefined) data.imageUrl          = imageUrl
     if (storageVariations !== undefined) data.storageVariations = storageVariations
     if (colorVariations   !== undefined) data.colorVariations   = colorVariations
-    if (storageVariations !== undefined && hasVariants(storageVariations)) {
-      data.stock = sumVariantStock(storageVariations)
-    }
     if (body.subCategory  !== undefined) data.subCategory       = body.subCategory
     if (body.deviceModel  !== undefined) data.deviceModel       = body.deviceModel
     if (body.condition    !== undefined) {
@@ -350,6 +347,10 @@ export const productsService = {
       const n = Number(stock)
       if (Number.isNaN(n) || n < 0) throw new AppError('Stock cannot be negative', 400)
       data.stock = n
+    }
+    // Variant quantities are the source of truth for parent stock
+    if (storageVariations !== undefined && hasVariants(storageVariations)) {
+      data.stock = sumVariantStock(storageVariations)
     }
     if (minStock          !== undefined) {
       const n = Number(minStock)

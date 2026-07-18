@@ -507,7 +507,7 @@ const genEditId = () => Math.random().toString(36).slice(2, 9)
 
 interface EditVariantRow {
   id: string; storage: string; colorName: string; colorHex: string
-  sku: string; stock: number; sellingPrice: string; costPrice: string
+  sku: string; stock: string; sellingPrice: string; costPrice: string
 }
 
 function EditProductModal({ product, onClose, onSaved }: { product: Product; onClose: () => void; onSaved: () => void }) {
@@ -562,7 +562,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
       colorName: v.colorName,
       colorHex: v.colorHex,
       sku: v.sku ?? '',
-      stock: v.stock ?? 0,
+      stock: String(v.stock ?? 0),
       sellingPrice: String(v.sellingPrice),
       costPrice: String(v.costPrice),
     }))
@@ -573,7 +573,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
     storage: storageOpts.find(s => s === '128GB') ?? storageOpts[0] ?? '128GB',
     colorName: colorOpts[0]?.name ?? 'Black',
     colorHex: colorOpts[0]?.hex ?? '#1a1a1a',
-    sku: '', stock: 0, sellingPrice: '', costPrice: '',
+    sku: '', stock: '0', sellingPrice: '', costPrice: '',
   }])
   const delVariant = (id: string) => setVariants(p => p.filter(v => v.id !== id))
   const updVariant = (id: string, k: keyof EditVariantRow, val: string) => setVariants(p => p.map(v => v.id === id ? { ...v, [k]: val } : v))
@@ -588,7 +588,10 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
       await productsApi.update(product.id, {
         ...form,
         buyingPrice: Number(form.buyingPrice), sellingPrice: Number(form.sellingPrice),
-        mrp: Number(form.sellingPrice), stock: Number(form.stock), minStock: Number(form.minStock),
+        mrp: Number(form.sellingPrice),
+        // With variants, stock is derived from the per-variant quantities
+        stock: variants.length > 0 ? undefined : Number(form.stock),
+        minStock: Number(form.minStock),
         trackImei: imeiTypeToTrackFlag(imeiType),
         warrantyMonths: Number(warrantyMonths) || 0,
         warrantyNote: warrantyNote.trim() || null,
@@ -601,7 +604,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
           colorName: v.colorName,
           colorHex: v.colorHex,
           sku: v.sku || undefined,
-          stock: v.stock,
+          stock: Math.max(0, Number(v.stock) || 0),
           sellingPrice: Number(v.sellingPrice) || 0,
           costPrice: Number(v.costPrice) || 0,
         })),
@@ -867,7 +870,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
                       <thead>
                         <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
-                          {['#', 'Storage', 'Color', 'SKU', 'Sell Price', 'Cost Price', ''].map((h, i) => (
+                          {['#', 'Storage', 'Color', 'SKU', 'Stock', 'Sell Price', 'Cost Price', ''].map((h, i) => (
                             <th key={i} style={{ padding: '7px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)', whiteSpace: 'nowrap' }}>{h}</th>
                           ))}
                         </tr>
@@ -909,6 +912,12 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
                               <input style={{ ...inputSt, fontFamily: 'monospace' }}
                                 placeholder={`${(form.sku || 'SKU').toUpperCase()}-${v.storage.replace(/\s/g, '')}-${v.colorName.slice(0, 3).toUpperCase()}`}
                                 value={v.sku} onChange={e => updVariant(v.id, 'sku', e.target.value)} />
+                            </td>
+
+                            {/* Stock */}
+                            <td style={{ padding: '6px 4px' }}>
+                              <input type="number" min={0} style={{ ...inputSt, width: 64 }} placeholder="0"
+                                value={v.stock} onChange={e => updVariant(v.id, 'stock', e.target.value)} />
                             </td>
 
                             {/* Sell Price */}
