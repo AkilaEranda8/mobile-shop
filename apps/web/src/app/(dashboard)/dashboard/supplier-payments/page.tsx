@@ -92,12 +92,39 @@ export default function SupplierPaymentsPage() {
     {
       accessorKey: 'purchaseInvoice',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Purchase Invoice" />,
-      cell: ({ row }) => (
-        <span className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-slate-400">
-          <FileText size={11} />
-          <span className="font-mono">{row.original.purchaseInvoice || '—'}</span>
-        </span>
-      ),
+      cell: ({ row }) => {
+        const invoices = String(row.original.purchaseInvoice ?? '')
+          .split(',')
+          .map(x => x.trim())
+          .filter(Boolean)
+        if (!invoices.length) {
+          return (
+            <span className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-slate-400">
+              <FileText size={11} />
+              <span className="font-mono">—</span>
+            </span>
+          )
+        }
+        const shown = invoices.slice(0, 2)
+        const extra = invoices.length - shown.length
+        return (
+          <span
+            className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-slate-400 max-w-[260px]"
+            title={invoices.join(', ')}
+          >
+            <FileText size={11} className="flex-shrink-0" />
+            <span className="font-mono truncate">{shown.join(', ')}</span>
+            {extra > 0 && (
+              <span
+                className="flex-shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
+                style={{ background: 'var(--bg-subtle)', color: 'var(--text-secondary)' }}
+              >
+                +{extra} more
+              </span>
+            )}
+          </span>
+        )
+      },
     },
     {
       accessorKey: 'amountPaid',
