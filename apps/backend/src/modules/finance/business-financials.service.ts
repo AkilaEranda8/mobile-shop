@@ -1,5 +1,5 @@
 import { prisma } from '../../config/database'
-import { listBusinessDays, normalizeBusinessDate, businessDateDb } from '../../utils/date-range'
+import { listBusinessDays, normalizeBusinessDate, businessDateDb, businessDayRange } from '../../utils/date-range'
 import { buildDailyClosingPreview } from '../daily-closing/daily-closing.service'
 
 /** Canonical day financials — same formulas as Daily Closing preview */
@@ -16,6 +16,8 @@ export interface BusinessFinancialSummary {
   cogs: number
   repairPartsCogs: number
   opExpenses: number
+  /** AP settlements — cash out only, excluded from net profit */
+  supplierPayments: number
   refundsTotal: number
   grossProfit: number
   netProfit: number
@@ -29,6 +31,7 @@ export interface DailyRevenueRow {
   otherIncome: number
   cogs: number
   totalExpenses: number
+  supplierPayments: number
   refundsTotal: number
   grossProfit: number
   profit: number
@@ -53,6 +56,7 @@ function emptySummary(): BusinessFinancialSummary {
     cogs: 0,
     repairPartsCogs: 0,
     opExpenses: 0,
+    supplierPayments: 0,
     refundsTotal: 0,
     grossProfit: 0,
     netProfit: 0,
@@ -74,6 +78,7 @@ function addSummaries(a: BusinessFinancialSummary, b: BusinessFinancialSummary):
     cogs: round2(a.cogs + b.cogs),
     repairPartsCogs: round2(a.repairPartsCogs + b.repairPartsCogs),
     opExpenses: round2(a.opExpenses + b.opExpenses),
+    supplierPayments: round2(a.supplierPayments + b.supplierPayments),
     refundsTotal: round2(a.refundsTotal + b.refundsTotal),
     grossProfit: round2(a.grossProfit + b.grossProfit),
     netProfit: round2(a.netProfit + b.netProfit),
@@ -103,6 +108,7 @@ function mapPreviewToSummary(
     cogs: p.cogs,
     repairPartsCogs,
     opExpenses: preview.expenses.totalExpenses,
+    supplierPayments: round2(preview.expenses.supplierPayments ?? 0),
     refundsTotal: s.refundsTotal,
     grossProfit: p.grossProfit,
     netProfit: p.netProfit,
@@ -120,6 +126,7 @@ export function toDailyRevenueRow(date: string, fin: BusinessFinancialSummary): 
     otherIncome: ancillaryIncome,
     cogs: totalCogs,
     totalExpenses: fin.opExpenses,
+    supplierPayments: fin.supplierPayments,
     refundsTotal: fin.refundsTotal,
     grossProfit: fin.grossProfit,
     profit: fin.netProfit,
@@ -170,13 +177,38 @@ export async function getBranchDayFinancials(
         return live
       }
     }
-    return mapClosingRecordToSummary(closed)
+    return await mapClosingRecordToSummary(closed)
   }
   const preview = await buildDailyClosingPreview(tenantId, branchId, dateKey)
   return mapPreviewToSummary(preview)
 }
 
-function mapClosingRecordToSummary(closed: {
+async function sumSupplierPaymentsForDay(
+  tenantId: string,
+  branchId: string,
+  dateKey: string,
+): Promise<number> {
+  const { start, end } = businessDayRange(dateKey)
+  const agg = await prisma.transaction.aggregate({
+    where: {
+      tenantId,
+      branchId,
+      type: 'EXPENSE',
+      category: 'Supplier Payment',
+      OR: [
+        { occurredAt: { gte: start, lte: end } },
+        { AND: [{ occurredAt: null }, { createdAt: { gte: start, lte: end } }] },
+      ],
+    },
+    _sum: { amount: true },
+  })
+  return round2(agg._sum.amount ?? 0)
+}
+
+async function mapClosingRecordToSummary(closed: {
+  tenantId: string
+  branchId: string
+  date: Date
   totalSales: number
   grossSales: number
   repairIncome: number
@@ -189,7 +221,35 @@ function mapClosingRecordToSummary(closed: {
   totalExpenses: number
   grossProfit: number
   netProfit: number
-}): BusinessFinancialSummary {
+  summaryJson?: unknown
+}): Promise<BusinessFinancialSummary> {
+  const summary = (closed.summaryJson ?? {}) as {
+    expenses?: { totalExpenses?: number; supplierPayments?: number }
+  }
+  const expensesMeta = summary.expenses
+  const hasSplit = expensesMeta != null && typeof expensesMeta.supplierPayments === 'number'
+
+  let supplierPayments = hasSplit
+    ? round2(expensesMeta.supplierPayments ?? 0)
+    : await sumSupplierPaymentsForDay(
+        closed.tenantId,
+        closed.branchId,
+        closed.date.toISOString().slice(0, 10),
+      )
+
+  let opExpenses = round2(
+    hasSplit && typeof expensesMeta?.totalExpenses === 'number'
+      ? expensesMeta.totalExpenses
+      : closed.totalExpenses,
+  )
+  let netProfit = round2(closed.netProfit)
+
+  // Legacy closes baked Supplier Payment into totalExpenses + netProfit.
+  if (!hasSplit && supplierPayments > 0) {
+    opExpenses = round2(Math.max(0, opExpenses - supplierPayments))
+    netProfit = round2(netProfit + supplierPayments)
+  }
+
   const otherIncome = round2(
     closed.repairIncome + closed.billPaymentIncome + closed.otherIncome + closed.serviceIncome,
   )
@@ -205,10 +265,11 @@ function mapClosingRecordToSummary(closed: {
     salesCount: closed.salesCount,
     cogs: closed.cogs,
     repairPartsCogs: 0,
-    opExpenses: closed.totalExpenses,
+    opExpenses,
+    supplierPayments,
     refundsTotal: 0,
     grossProfit: closed.grossProfit,
-    netProfit: closed.netProfit,
+    netProfit,
     repairJobsCompleted: 0,
   }
 }
@@ -284,6 +345,8 @@ export function toFinanceSummaryResponse(
     repairPartsCogs: fin.repairPartsCogs,
     cogs: totalCogs,
     opExpenses: fin.opExpenses,
+    supplierPayments: fin.supplierPayments,
+    cashOutTotal: round2(fin.opExpenses + fin.supplierPayments + fin.refundsTotal),
     refundsTotal: fin.refundsTotal,
     repairJobsCompleted: fin.repairJobsCompleted,
     totalExpense,

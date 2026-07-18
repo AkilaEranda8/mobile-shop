@@ -10,6 +10,7 @@ import { buildLabelsFromPoItems, ensureProductBarcode } from '../../utils/po-lab
 import { effectiveBranchId } from '../../utils/active-branch'
 import { emitApPaymentAccounting, emitPurchaseAccounting } from '../accounting/integration/accounting-events.service'
 import { applyPurchaseOrderReceive } from '../../utils/po-receive.util'
+import { businessDayRange, normalizeBusinessDate, resolveQueryDateRange } from '../../utils/date-range'
 
 const router = Router()
 router.use(authenticate)
@@ -101,6 +102,81 @@ router.put('/:id', authorize('OWNER', 'MANAGER'), async (req: Request, res: Resp
     const s = await prisma.supplier.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! } })
     if (!s) throw new AppError('Supplier not found', 404)
     sendSuccess(res, await prisma.supplier.update({ where: { id: req.params.id }, data: req.body }))
+  } catch (e) { next(e) }
+})
+
+/** Payment register — must be registered before `/:id` routes */
+router.get('/payments', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { skip, limit, page } = getPagination(req)
+    const supplierId = req.query.supplierId as string | undefined
+    const branchId = effectiveBranchId(req)
+    const { start, end } = resolveQueryDateRange({
+      from: req.query.from as string | undefined,
+      to: req.query.to as string | undefined,
+      defaultFrom: 'month_start',
+    })
+
+    const where: any = {
+      tenantId: req.tenantId!,
+      type: 'EXPENSE',
+      category: 'Supplier Payment',
+      ...(supplierId && { supplierId }),
+      ...(branchId && { branchId }),
+      OR: [
+        { occurredAt: { gte: start, lte: end } },
+        { AND: [{ occurredAt: null }, { createdAt: { gte: start, lte: end } }] },
+      ],
+    }
+
+    const [rows, total] = await Promise.all([
+      prisma.transaction.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: [{ occurredAt: 'desc' }, { createdAt: 'desc' }],
+        include: {
+          supplier: { select: { id: true, name: true, outstandingDues: true, phone: true } },
+          purchaseOrder: {
+            select: {
+              id: true,
+              poNumber: true,
+              total: true,
+              paidAmount: true,
+              dueAmount: true,
+              status: true,
+            },
+          },
+        },
+      }),
+      prisma.transaction.count({ where }),
+    ])
+
+    const data = rows.map(tx => {
+      const paymentDate = tx.occurredAt ?? tx.createdAt
+      return {
+        id: tx.id,
+        supplierId: tx.supplierId,
+        supplierName: tx.supplier?.name ?? null,
+        purchaseOrderId: tx.purchaseOrderId,
+        purchaseInvoice: tx.purchaseOrder?.poNumber ?? null,
+        amountPaid: tx.amount,
+        paymentMethod: tx.paymentMethod,
+        paymentDate,
+        reference: tx.reference,
+        description: tx.description,
+        balanceDue: tx.purchaseOrder?.dueAmount
+          ?? tx.supplier?.outstandingDues
+          ?? 0,
+        supplierOutstanding: tx.supplier?.outstandingDues ?? 0,
+        poTotal: tx.purchaseOrder?.total ?? null,
+        poPaidAmount: tx.purchaseOrder?.paidAmount ?? null,
+        branchId: tx.branchId,
+        createdAt: tx.createdAt,
+      }
+    })
+
+    sendPaginated(res, data, total, page, limit)
   } catch (e) { next(e) }
 })
 
@@ -510,13 +586,19 @@ router.post('/:id/payments', authorize('OWNER', 'MANAGER'), async (req: Request,
     const supplier = await prisma.supplier.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! } })
     if (!supplier) throw new AppError('Supplier not found', 404)
 
-    const { amount, method, reference, notes, poIds, bankAccountId } = req.body
+    const { amount, method, reference, notes, poIds, bankAccountId, paymentDate } = req.body
     const payAmount = Number(amount)
     if (!payAmount || payAmount <= 0) throw new AppError('Invalid payment amount', 400)
 
     const userBranch = await prisma.userBranch.findFirst({ where: { userId: req.user!.userId } })
-    const branchId = userBranch?.branchId
+    const branchId = effectiveBranchId(req) ?? userBranch?.branchId
     if (!branchId) throw new AppError('No branch assigned to this user', 400)
+
+    let occurredAt: Date | undefined
+    if (paymentDate) {
+      const key = normalizeBusinessDate(String(paymentDate))
+      occurredAt = businessDayRange(key).start
+    }
 
     // CHEQUE is UI-only — store as BANK_TRANSFER
     const rawMethod = String(method || 'CASH').toUpperCase()
@@ -575,19 +657,24 @@ router.post('/:id/payments', authorize('OWNER', 'MANAGER'), async (req: Request,
       )
     )
 
-    // Create Transaction record
+    const primaryPoId = updates[0]?.id ?? (Array.isArray(poIds) && poIds[0] ? String(poIds[0]) : undefined)
+
+    // Create Transaction record (cash/AP settlement — not OpEx for P&L)
     const txn = await prisma.transaction.create({
       data: {
-        tenantId:      req.tenantId!,
+        tenantId:         req.tenantId!,
         branchId,
-        type:          'EXPENSE',
-        category:      'Supplier Payment',
-        amount:        payAmount,
-        description:   `Payment to ${supplier.name}${reference ? ' · Ref: ' + reference : ''}`,
+        type:             'EXPENSE',
+        category:         'Supplier Payment',
+        amount:           payAmount,
+        description:      `Payment to ${supplier.name}${reference ? ' · Ref: ' + reference : ''}${notes ? ' · ' + notes : ''}`,
         paymentMethod,
-        reference:     reference || undefined,
-        bankAccountId: resolvedBankAccountId,
-        performedBy:   req.user?.userId ?? 'system',
+        reference:        reference || undefined,
+        bankAccountId:    resolvedBankAccountId,
+        supplierId:       supplier.id,
+        purchaseOrderId:  primaryPoId,
+        occurredAt,
+        performedBy:      req.user?.userId ?? 'system',
       },
     })
 

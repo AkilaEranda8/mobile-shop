@@ -39,6 +39,8 @@ import profitAllocationRoutes from './modules/profit-allocation/profit-allocatio
 import inventoryRoutes from './modules/inventory/stock-transfer.routes'
 import releaseNotesRoutes from './modules/release-notes/release-notes.routes'
 import accountingRoutes from './modules/accounting/accounting.routes'
+import featureSuggestionsRoutes from './modules/feature-suggestions/feature-suggestions.routes'
+import notificationsRoutes from './modules/feature-suggestions/notifications.routes'
 
 const app = express()
 
@@ -156,6 +158,8 @@ app.use(`${API}/upload`, uploadRoutes)
 app.use(`${API}/exchanges`, exchangesRoutes)
 app.use(`${API}/platform`, platformRoutes)
 app.use(`${API}/release-notes`, releaseNotesRoutes)
+app.use(`${API}/feature-suggestions`, featureSuggestionsRoutes)
+app.use(`${API}/notifications`, notificationsRoutes)
 app.use('/admin/v1', adminRoutes)
 
 app.use(notFound)

@@ -5,6 +5,7 @@ import {
   Plus, Megaphone, Calendar, Eye, Send, Trash2, Globe,
   Wrench, RefreshCw, Info, AlertTriangle, CheckCircle2, Clock,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import {
   fetchAnnouncements, createAnnouncement, sendAnnouncement, deleteAnnouncement,
   fetchTenants, type AnnouncementRow, type TenantRow,
@@ -13,10 +14,10 @@ import {
 const STATUS_BADGE: Record<string, string> = {
   DRAFT: 'badge-gray', SCHEDULED: 'badge-blue', SENT: 'badge-green',
 }
-const TYPE_META: Record<string, { badge: string; border: string; icon: React.ReactNode }> = {
-  INFO:        { badge: 'badge-blue',   border: 'border-l-blue-400',   icon: <Info size={14} className="text-blue-500" /> },
-  WARNING:     { badge: 'badge-yellow', border: 'border-l-amber-400',  icon: <AlertTriangle size={14} className="text-amber-500" /> },
-  MAINTENANCE: { badge: 'badge-red',    border: 'border-l-red-400',    icon: <Wrench size={14} className="text-red-500" /> },
+const TYPE_META: Record<string, { badge: string; border: string; Icon: LucideIcon; iconClass: string }> = {
+  INFO:        { badge: 'badge-blue',   border: 'border-l-blue-400',   Icon: Info,           iconClass: 'text-blue-500' },
+  WARNING:     { badge: 'badge-yellow', border: 'border-l-amber-400',  Icon: AlertTriangle,  iconClass: 'text-amber-500' },
+  MAINTENANCE: { badge: 'badge-red',    border: 'border-l-red-400',    Icon: Wrench,         iconClass: 'text-red-500' },
 }
 
 function fmtDate(s?: string | null) {

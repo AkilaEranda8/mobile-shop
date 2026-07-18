@@ -697,3 +697,94 @@ export const masterCatalogAdminApi = {
     req<MasterCatalogAccessory>(ADMIN_BASE, `/master-catalog/accessories/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteAccessory: (id: string) => req<null>(ADMIN_BASE, `/master-catalog/accessories/${id}`, { method: 'DELETE' }),
 }
+
+export type FeatureSuggestionStatus =
+  | 'NEW'
+  | 'UNDER_REVIEW'
+  | 'PLANNED'
+  | 'IN_PROGRESS'
+  | 'RELEASED'
+  | 'DECLINED'
+
+export type FeatureSuggestionPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+
+export type FeatureSuggestionHistory = {
+  id: string
+  action: string
+  oldStatus: FeatureSuggestionStatus | null
+  newStatus: FeatureSuggestionStatus | null
+  oldPriority: FeatureSuggestionPriority | null
+  newPriority: FeatureSuggestionPriority | null
+  publicResponse: string | null
+  performedByEmail: string
+  createdAt: string
+}
+
+export type AdminFeatureSuggestion = {
+  id: string
+  tenantId: string
+  tenantName: string
+  tenantSlug: string
+  shopName: string
+  submittedById: string
+  submittedByName: string
+  submittedByEmail: string
+  submittedByRole: string
+  category: string
+  title: string
+  description: string
+  status: FeatureSuggestionStatus
+  priority: FeatureSuggestionPriority
+  publicResponse: string | null
+  internalNote: string | null
+  respondedByEmail: string | null
+  respondedAt: string | null
+  createdAt: string
+  updatedAt: string
+  history?: FeatureSuggestionHistory[]
+}
+
+export type FeatureSuggestionSummary = {
+  total: number
+  new: number
+  underReview: number
+  planned: number
+  inProgress: number
+  released: number
+  declined: number
+  highPriority: number
+  criticalPriority: number
+}
+
+export type AdminFeatureSuggestionList = {
+  data: AdminFeatureSuggestion[]
+  total: number
+  page: number
+  limit: number
+  nextCursor: string | null
+}
+
+export type AdminUpdateFeatureSuggestionBody = {
+  status?: FeatureSuggestionStatus
+  priority?: FeatureSuggestionPriority
+  publicResponse?: string | null
+  internalNote?: string | null
+}
+
+export const featureSuggestionsAdminApi = {
+  summary: () =>
+    req<FeatureSuggestionSummary>(ADMIN_BASE, '/feature-suggestions/summary'),
+  list: (params?: Record<string, string>) => {
+    const qs = params && Object.keys(params).length
+      ? '?' + new URLSearchParams(params).toString()
+      : ''
+    return req<AdminFeatureSuggestionList>(ADMIN_BASE, `/feature-suggestions${qs}`)
+  },
+  get: (id: string) =>
+    req<AdminFeatureSuggestion>(ADMIN_BASE, `/feature-suggestions/${id}`),
+  update: (id: string, body: AdminUpdateFeatureSuggestionBody) =>
+    req<AdminFeatureSuggestion>(ADMIN_BASE, `/feature-suggestions/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+}

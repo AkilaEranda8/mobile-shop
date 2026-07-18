@@ -12,18 +12,31 @@ import { financeApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 
-const categories = ['All', 'Rent', 'Salary', 'Utilities', 'Marketing', 'Inventory', 'Repairs', 'Misc']
+const categories = ['All', 'Rent', 'Salary', 'Electricity', 'Transport', 'Marketing', 'Other Expenses']
+
+/** Map legacy category labels into the current operating-expense set */
+const LEGACY_CATEGORY_MAP: Record<string, string> = {
+  Utilities: 'Electricity',
+  Misc: 'Other Expenses',
+  Inventory: 'Other Expenses',
+  Repairs: 'Other Expenses',
+}
+
+function normalizeExpenseCategory(raw?: string | null) {
+  const cat = (raw ?? 'Other Expenses').trim()
+  if (cat === 'Supplier Payment' || cat === 'Refund') return null
+  return LEGACY_CATEGORY_MAP[cat] ?? cat
+}
 
 const CAT_COLORS: Record<string, string> = {
-  Rent:      '#b91c1c',
-  Salary:    'var(--brand-primary-light)',
-  Utilities: '#1d4ed8',
+  Rent: '#b91c1c',
+  Salary: 'var(--brand-primary-light)',
+  Electricity: '#1d4ed8',
+  Transport: '#0f766e',
   Marketing: '#b45309',
-  Inventory: '#15803d',
-  Repairs:   '#c2410c',
-  Misc:      '#475569',
+  'Other Expenses': '#475569',
 }
-const CHART_COLORS = ['#b91c1c','var(--brand-primary-light)','#1d4ed8','#b45309','#15803d','#c2410c','#475569']
+const CHART_COLORS = ['#b91c1c', 'var(--brand-primary-light)', '#1d4ed8', '#0f766e', '#b45309', '#475569']
 
 const TOOLTIP_STYLE = {
   backgroundColor: 'var(--bg-card)',
@@ -35,7 +48,7 @@ const TOOLTIP_STYLE = {
 
 function AddExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState({
-    description: '', category: 'Misc', amount: '',
+    description: '', category: 'Other Expenses', amount: '',
     paymentMethod: 'CASH', type: 'EXPENSE',
   })
   const [loading, setLoading] = useState(false)
@@ -140,14 +153,24 @@ export default function ExpensesPage() {
     if (action === 'add' || action === 'add-expense' || searchParams.get('new') === '1') setShowAdd(true)
   }, [searchParams])
 
+  // Fetch all EXPENSE rows; Supplier Payment is filtered out client-side (separate module).
   const txParams: Record<string, string> = { type: 'EXPENSE', ...periodParams }
-  if (category !== 'All') txParams.category = category
 
   const { data, loading, refetch }  = useTransactions(txParams)
   const { data: summaryData }       = useFinanceSummary(periodParams)
   const summary                     = summaryData as any
 
-  const allExpenses: any[] = (data?.data ?? []) as any[]
+  const allExpenses: any[] = useMemo(() => {
+    const rows = ((data?.data ?? []) as any[])
+      .map(e => {
+        const category = normalizeExpenseCategory(e.category)
+        if (!category) return null
+        return { ...e, category }
+      })
+      .filter(Boolean) as any[]
+    if (category === 'All') return rows
+    return rows.filter(e => e.category === category)
+  }, [data, category])
 
   const filtered = useMemo(() => search
     ? allExpenses.filter((e: any) =>
@@ -157,8 +180,9 @@ export default function ExpensesPage() {
     : allExpenses
   , [allExpenses, search])
 
-  const operatingExpenses = summary?.opExpenses ?? allExpenses.reduce((s: number, e: any) => s + (e.amount ?? 0), 0)
-  const netProfit         = summary?.profit ?? 0
+  const operatingExpenses = summary?.opExpenses
+    ?? allExpenses.reduce((s: number, e: any) => s + (e.amount ?? 0), 0)
+  const netProfit = summary?.profit ?? 0
 
   const categoryTotals = useMemo(() =>
     categories.filter(c => c !== 'All').map(c => ({

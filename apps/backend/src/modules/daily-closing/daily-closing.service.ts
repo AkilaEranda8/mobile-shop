@@ -85,7 +85,13 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
     status: { not: 'RETURNED' as const },
     createdAt: { gte: start, lte: end },
   }
-  const txWhere = { ...branchFilter, createdAt: { gte: start, lte: end } }
+  const txWhere = {
+    ...branchFilter,
+    OR: [
+      { occurredAt: { gte: start, lte: end } },
+      { AND: [{ occurredAt: null }, { createdAt: { gte: start, lte: end } }] },
+    ],
+  }
 
   const [
     sales,
@@ -194,6 +200,7 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
   let otherIncome = 0
   let creditPayments = 0
   let totalExpenses = 0
+  let supplierPayments = 0
   let bankDeposits = 0
   const expenseMap: Record<string, number> = {}
 
@@ -221,6 +228,11 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
       } else otherIncome += amt
     } else if (tx.type === 'EXPENSE') {
       if (cat === 'Refund') continue
+      // Supplier payments settle AP — cash out only, not operating expense / P&L.
+      if (cat === 'Supplier Payment') {
+        supplierPayments += amt
+        continue
+      }
       totalExpenses += amt
       expenseMap[cat] = (expenseMap[cat] ?? 0) + amt
       if (/bank|deposit/i.test(cat)) bankDeposits += amt
@@ -287,10 +299,12 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
   const cogs = totalCogsAll
   const grossSales = totalSales + repairIncome + billPaymentIncome + otherIncome + creditPayments
   const grossProfit = totalSales - cogs - refundsTotal
+  // OpEx only — supplier payments are cash/AP settlement, not P&L expense.
   const netProfit = grossSales + reloadCommission - cogs - repairPartsCogs - totalExpenses - refundsTotal
 
   const openingCash = existingClosing?.openingCash ?? openingCashFromPrev
-  const expectedCash = openingCash + cashSales - totalExpenses - bankDeposits - cashRefunds
+  // Cash drawer still decreases for both OpEx and supplier payments.
+  const expectedCash = openingCash + cashSales - totalExpenses - supplierPayments - bankDeposits - cashRefunds
   const cashInBank = bankFromSales + bankDeposits
 
   const expenseBreakdown = Object.entries(expenseMap)
@@ -440,6 +454,8 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
     },
     expenses: {
       totalExpenses: Math.round(totalExpenses * 100) / 100,
+      supplierPayments: Math.round(supplierPayments * 100) / 100,
+      cashOutTotal: Math.round((totalExpenses + supplierPayments) * 100) / 100,
       breakdown: expenseBreakdown,
     },
     reload: {
@@ -509,7 +525,8 @@ function previewToClosingData(
 ) {
   const openingCash = resolveOpeningCash(overrides.openingCash, preview.openingCash)
   const actualCash = overrides.actualCash ?? preview.cash.actualCash
-  const expectedCash = openingCash + preview.cash.cashSales - preview.expenses.totalExpenses - preview.cash.bankDeposits - (preview.cash.cashRefunds ?? 0)
+  const supplierPayments = preview.expenses.supplierPayments ?? 0
+  const expectedCash = openingCash + preview.cash.cashSales - preview.expenses.totalExpenses - supplierPayments - preview.cash.bankDeposits - (preview.cash.cashRefunds ?? 0)
   const cashVariance = Math.round((expectedCash - actualCash) * 100) / 100
 
   return {
@@ -549,6 +566,12 @@ function previewToClosingData(
       profit: preview.profit,
       cash: preview.cash,
       imei: preview.imei,
+      expenses: {
+        totalExpenses: preview.expenses.totalExpenses,
+        supplierPayments: preview.expenses.supplierPayments ?? 0,
+        cashOutTotal: preview.expenses.cashOutTotal
+          ?? Math.round(((preview.expenses.totalExpenses ?? 0) + (preview.expenses.supplierPayments ?? 0)) * 100) / 100,
+      },
       ...(existingSummary?.dayStart ? { dayStart: existingSummary.dayStart } : {}),
     },
     expenseBreakdown: preview.expenses.breakdown,

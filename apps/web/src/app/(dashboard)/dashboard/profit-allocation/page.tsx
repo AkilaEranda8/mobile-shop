@@ -39,6 +39,13 @@ type DashboardData = {
   percentageValid: boolean
   salesCount?: number | null
   dataSource?: string
+  cashMovement?: {
+    cashIn: number
+    opExpenses: number
+    supplierPayments: number
+    refunds: number
+    cashOut: number
+  }
   lines: FundLine[]
   saved: boolean
   allocationId: string | null
@@ -637,6 +644,57 @@ export default function ProfitAllocationPage() {
           </div>
         ))}
       </div>
+
+      {activeDashboard?.cashMovement && (
+        <div className="card p-5">
+          <SectionTitle
+            title="Cash Movement (Today)"
+            sub="Supplier payments are cash out only — they do not reduce allocatable profit"
+          />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              {
+                label: 'Cash In',
+                value: activeDashboard.cashMovement.cashIn,
+                icon: <ArrowUpRight size={14} />,
+                tone: '#15803d',
+              },
+              {
+                label: 'OpEx Out',
+                value: activeDashboard.cashMovement.opExpenses,
+                icon: <ArrowDownRight size={14} />,
+                tone: '#b45309',
+              },
+              {
+                label: 'Supplier Payments',
+                value: activeDashboard.cashMovement.supplierPayments,
+                icon: <ArrowDownRight size={14} />,
+                tone: '#b91c1c',
+              },
+              {
+                label: 'Total Cash Out',
+                value: activeDashboard.cashMovement.cashOut,
+                icon: <Wallet size={14} />,
+                tone: '#7c3aed',
+              },
+            ].map(item => (
+              <div
+                key={item.label}
+                className="rounded-xl border p-3"
+                style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>{item.label}</span>
+                  <span style={{ color: item.tone }}>{item.icon}</span>
+                </div>
+                <p className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
+                  {formatCurrency(item.value)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Allocation Table */}
       <div className="card overflow-hidden">

@@ -198,6 +198,8 @@ model Tenant {
   bankAccounts                BankAccount[]
   taxCodes                    TaxCode[]
   repairFaultOptions          RepairFaultOption[]
+  featureSuggestions          FeatureSuggestion[]
+  userNotifications           UserNotification[]
 }
 
 model TenantFeature {
@@ -288,6 +290,8 @@ model User {
   repairs                RepairTicket[]          @relation("RepairTechnician")
   refreshTokens          RefreshToken[]
   announcementDismissals AnnouncementDismissal[]
+  featureSuggestions     FeatureSuggestion[]
+  userNotifications      UserNotification[]
 
   @@unique([tenantId, email])
 }
@@ -872,6 +876,7 @@ model Supplier {
 
   tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   purchaseOrders PurchaseOrder[]
+  transactions   Transaction[]
 }
 
 model PurchaseOrder {
@@ -894,11 +899,12 @@ model PurchaseOrder {
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
 
-  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch      Branch       @relation(fields: [branchId], references: [id])
-  supplier    Supplier     @relation(fields: [supplierId], references: [id])
-  items       POItem[]
-  imeiRecords ImeiRecord[]
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch       Branch        @relation(fields: [branchId], references: [id])
+  supplier     Supplier      @relation(fields: [supplierId], references: [id])
+  items        POItem[]
+  imeiRecords  ImeiRecord[]
+  transactions Transaction[]
 
   @@unique([tenantId, poNumber])
 }
@@ -923,25 +929,35 @@ model POItem {
 // ─────────────── Finance ───────────────
 
 model Transaction {
-  id            String          @id @default(cuid())
-  tenantId      String
-  branchId      String
-  type          TransactionType
-  category      String
-  amount        Float
-  description   String
-  paymentMethod PaymentMethod
-  reference     String?
+  id              String          @id @default(cuid())
+  tenantId        String
+  branchId        String
+  type            TransactionType
+  category        String
+  amount          Float
+  description     String
+  paymentMethod   PaymentMethod
+  reference       String?
   /// Optional Cash & Bank register used for BANK_TRANSFER / cheque supplier payments
-  bankAccountId String?
-  performedBy   String
-  createdAt     DateTime        @default(now())
+  bankAccountId   String?
+  /// Business date of the payment/expense (defaults to createdAt when null)
+  occurredAt      DateTime?
+  /// Linked supplier for Supplier Payment category rows
+  supplierId      String?
+  /// Primary purchase order / invoice this payment was applied to (optional)
+  purchaseOrderId String?
+  performedBy     String
+  createdAt       DateTime        @default(now())
 
-  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch      Branch       @relation(fields: [branchId], references: [id])
-  bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch        Branch         @relation(fields: [branchId], references: [id])
+  bankAccount   BankAccount?   @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+  supplier      Supplier?      @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, bankAccountId])
+  @@index([tenantId, category, createdAt])
+  @@index([tenantId, supplierId])
 }
 
 model DailySummary {
@@ -1914,4 +1930,114 @@ model ApprovalRequest {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, status])
+}
+
+// ── Feature Suggestions ──────────────────────────────────────────────────────
+
+enum FeatureSuggestionStatus {
+  NEW
+  UNDER_REVIEW
+  PLANNED
+  IN_PROGRESS
+  RELEASED
+  DECLINED
+}
+
+enum FeatureSuggestionPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum FeatureSuggestionHistoryAction {
+  CREATED
+  STATUS_CHANGED
+  PRIORITY_CHANGED
+  RESPONSE_UPDATED
+  RELEASED
+  DECLINED
+}
+
+enum UserNotificationType {
+  FEATURE_SUGGESTION
+  SYSTEM
+  LICENSE
+  ANNOUNCEMENT
+  SUBSCRIPTION
+  BUG_REPORT
+}
+
+model FeatureSuggestion {
+  id                String                     @id @default(cuid())
+  tenantId          String
+  submittedById     String
+  category          String
+  title             String
+  description       String
+  status            FeatureSuggestionStatus    @default(NEW)
+  priority          FeatureSuggestionPriority  @default(MEDIUM)
+  publicResponse    String?
+  internalNote      String?
+  respondedByEmail  String?
+  respondedAt       DateTime?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+
+  tenant      Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submittedBy User                        @relation(fields: [submittedById], references: [id], onDelete: Cascade)
+  history     FeatureSuggestionHistory[]
+
+  @@index([tenantId])
+  @@index([submittedById])
+  @@index([status])
+  @@index([priority])
+  @@index([category])
+  @@index([createdAt])
+  @@index([tenantId, submittedById, createdAt])
+  @@index([status, priority, createdAt])
+  @@index([tenantId, status, createdAt])
+}
+
+/// Append-only audit trail. Application code never updates/deletes rows.
+/// Cascade from parent suggestion exists only so tenant cleanup can remove orphans.
+model FeatureSuggestionHistory {
+  id               String                          @id @default(cuid())
+  suggestionId     String
+  action           FeatureSuggestionHistoryAction
+  oldStatus        FeatureSuggestionStatus?
+  newStatus        FeatureSuggestionStatus?
+  oldPriority      FeatureSuggestionPriority?
+  newPriority      FeatureSuggestionPriority?
+  publicResponse   String?
+  performedByEmail String
+  createdAt        DateTime                        @default(now())
+
+  suggestion FeatureSuggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
+
+  @@index([suggestionId])
+  @@index([createdAt])
+  @@index([suggestionId, createdAt])
+}
+
+/// Persistent per-user notifications reusable by future modules.
+model UserNotification {
+  id        String               @id @default(cuid())
+  tenantId  String
+  userId    String
+  type      UserNotificationType
+  title     String
+  message   String
+  link      String?
+  relatedId String?
+  isRead    Boolean              @default(false)
+  readAt    DateTime?
+  createdAt DateTime             @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, isRead, createdAt])
+  @@index([userId, createdAt])
+  @@index([relatedId])
 }

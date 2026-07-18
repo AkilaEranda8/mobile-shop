@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   Bell, CheckCheck, Check, RefreshCw, Mail, Slack, AlertOctagon,
   Info, AlertTriangle, XCircle, Building2, Shield, Wrench,
-  Clock, UserPlus, CreditCard,
+  Clock, UserPlus, CreditCard, Lightbulb,
 } from 'lucide-react'
 import Link from 'next/link'
 import { fetchNotifications, type PlatformNotification } from '@/lib/api'
@@ -34,6 +34,7 @@ const DEFAULT_SETTINGS: Record<string, boolean> = {
   'New Tenant Registered': true,
   'Warranty Claims': true,
   'High Repair Queue': true,
+  'New Feature Suggestion': true,
 }
 
 function fmtAgo(s: string) {
@@ -45,21 +46,29 @@ function fmtAgo(s: string) {
   return `${Math.max(0, m)}m ago`
 }
 
-const TYPE_ICON: Record<string, React.ReactNode> = {
-  SUBSCRIPTION_EXPIRING: <CreditCard size={15} className="text-red-500" />,
-  TRIAL_EXPIRING:        <Clock size={15} className="text-amber-500" />,
-  TENANT_SUSPENDED:      <XCircle size={15} className="text-red-600" />,
-  NEW_TENANT:            <UserPlus size={15} className="text-emerald-500" />,
-  WARRANTY_CLAIM:        <Shield size={15} className="text-orange-500" />,
-  HIGH_REPAIR_QUEUE:     <Wrench size={15} className="text-amber-600" />,
+function typeIcon(type: string) {
+  switch (type) {
+    case 'SUBSCRIPTION_EXPIRING': return <CreditCard size={15} className="text-red-500" />
+    case 'TRIAL_EXPIRING': return <Clock size={15} className="text-amber-500" />
+    case 'TENANT_SUSPENDED': return <XCircle size={15} className="text-red-600" />
+    case 'NEW_TENANT': return <UserPlus size={15} className="text-emerald-500" />
+    case 'WARRANTY_CLAIM': return <Shield size={15} className="text-orange-500" />
+    case 'HIGH_REPAIR_QUEUE': return <Wrench size={15} className="text-amber-600" />
+    case 'NEW_FEATURE_SUGGESTION': return <Lightbulb size={15} className="text-violet-500" />
+    default: return <Bell size={15} className="text-gray-500" />
+  }
 }
 const SEV_BADGE: Record<string, string> = {
   INFO: 'badge-blue', WARN: 'badge-yellow', ERROR: 'badge-red',
 }
-const SEV_ICON: Record<string, React.ReactNode> = {
-  INFO: <Info size={13} className="text-blue-500" />,
-  WARN: <AlertTriangle size={13} className="text-amber-500" />,
-  ERROR: <XCircle size={13} className="text-red-500" />,
+
+function sevIcon(severity: string) {
+  switch (severity) {
+    case 'INFO': return <Info size={13} className="text-blue-500" />
+    case 'WARN': return <AlertTriangle size={13} className="text-amber-500" />
+    case 'ERROR': return <XCircle size={13} className="text-red-500" />
+    default: return <Info size={13} className="text-gray-400" />
+  }
 }
 
 /* ── Page ────────────────────────────────────────────────────── */
@@ -107,6 +116,7 @@ export default function NotificationsPage() {
   const filtered = items.filter(n => {
     if (filter === 'UNREAD') return !readIds.has(n.id)
     if (filter === 'ERROR' || filter === 'WARN' || filter === 'INFO') return n.severity === filter
+    if (filter === 'FEATURE') return n.type === 'NEW_FEATURE_SUGGESTION'
     return true
   })
 
@@ -173,10 +183,10 @@ export default function NotificationsPage() {
       {tab === 'center' && (
         <>
           <div className="flex gap-2 flex-wrap">
-            {['ALL', 'UNREAD', 'ERROR', 'WARN', 'INFO'].map(f => (
+            {['ALL', 'UNREAD', 'FEATURE', 'ERROR', 'WARN', 'INFO'].map(f => (
               <button key={f} onClick={() => setFilter(f)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${filter === f ? 'bg-gray-900 text-white border-gray-900' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400'}`}>
-                {f === 'UNREAD' ? `Unread (${unreadCount})` : f}
+                {f === 'UNREAD' ? `Unread (${unreadCount})` : f === 'FEATURE' ? 'Suggestions' : f}
               </button>
             ))}
           </div>
@@ -195,7 +205,7 @@ export default function NotificationsPage() {
                   <div key={n.id} onClick={() => markRead(n.id)}
                     className={`card p-4 flex items-start gap-4 cursor-pointer transition-colors hover:border-gray-300 ${!isRead ? 'border-blue-200 bg-blue-50/20' : ''}`}>
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${!isRead ? 'bg-blue-100' : 'bg-gray-100'}`}>
-                      {TYPE_ICON[n.type] ?? <Bell size={15} className="text-gray-500" />}
+                      {typeIcon(n.type)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5 flex-wrap">

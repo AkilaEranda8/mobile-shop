@@ -6,6 +6,7 @@ import {
   Info, AlertTriangle, XCircle, AlertCircle,
   ShoppingCart, Wrench, Users, Building2, Shield, Package, LogIn, LogOut, Ban,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import {
   fetchActivityLogs,
   type ActivityLog, type ActivityLogResponse,
@@ -30,33 +31,33 @@ const SEVERITY_ROW: Record<string, string> = {
   ERROR:    'bg-red-50/30',
   CRITICAL: 'bg-red-100/50',
 }
-const SEVERITY_ICON: Record<string, React.ReactNode> = {
-  INFO:     <Info size={13} className="text-blue-500" />,
-  WARN:     <AlertTriangle size={13} className="text-amber-500" />,
-  ERROR:    <XCircle size={13} className="text-red-500" />,
-  CRITICAL: <AlertCircle size={13} className="text-red-700" />,
+const SEVERITY_ICON: Record<string, LucideIcon> = {
+  INFO:     Info,
+  WARN:     AlertTriangle,
+  ERROR:    XCircle,
+  CRITICAL: AlertCircle,
 }
 const ACTOR_BADGE: Record<string, string> = {
   ADMIN:  'badge-purple',
   SYSTEM: 'badge-gray',
   TENANT: 'badge-blue',
 }
-const EVENT_ICON: Record<string, React.ReactNode> = {
-  NEW_TENANT:            <Building2 size={13} className="text-violet-500" />,
-  TENANT_SUSPENDED:      <XCircle size={13} className="text-red-500" />,
-  USER_CREATED:          <Users size={13} className="text-blue-500" />,
-  SALE_CREATED:          <ShoppingCart size={13} className="text-emerald-500" />,
-  REPAIR_OPENED:         <Wrench size={13} className="text-amber-500" />,
-  REPAIR_STATUS_CHANGED: <Wrench size={13} className="text-sky-500" />,
-  WARRANTY_CLAIM:        <Shield size={13} className="text-orange-500" />,
-  PURCHASE_ORDER:        <Package size={13} className="text-pink-500" />,
-  TENANT_LOGIN:          <LogIn size={13} className="text-emerald-500" />,
-  ADMIN_LOGIN:           <Shield size={13} className="text-violet-500" />,
-  LOGIN_FAILED:          <Ban size={13} className="text-amber-500" />,
-  LOGIN_BLOCKED:         <Ban size={13} className="text-red-500" />,
-  LOGIN_RATE_LIMITED:    <AlertTriangle size={13} className="text-orange-500" />,
-  LOGOUT:                <LogOut size={13} className="text-gray-500" />,
-  RATE_LIMIT_RESET:      <RefreshCw size={13} className="text-cyan-500" />,
+const EVENT_ICON: Record<string, LucideIcon> = {
+  NEW_TENANT:            Building2,
+  TENANT_SUSPENDED:      XCircle,
+  USER_CREATED:          Users,
+  SALE_CREATED:          ShoppingCart,
+  REPAIR_OPENED:         Wrench,
+  REPAIR_STATUS_CHANGED: Wrench,
+  WARRANTY_CLAIM:        Shield,
+  PURCHASE_ORDER:        Package,
+  TENANT_LOGIN:          LogIn,
+  ADMIN_LOGIN:           Shield,
+  LOGIN_FAILED:          Ban,
+  LOGIN_BLOCKED:         Ban,
+  LOGIN_RATE_LIMITED:    AlertTriangle,
+  LOGOUT:                LogOut,
+  RATE_LIMIT_RESET:      RefreshCw,
 }
 
 const EVENT_TYPES = [
@@ -257,7 +258,10 @@ export default function ActivityLogsPage() {
                   </td>
                   <td className="td">
                     <div className="flex items-center gap-1.5 whitespace-nowrap">
-                      {EVENT_ICON[l.eventType] ?? <Info size={13} className="text-gray-400" />}
+                      {(() => {
+                        const EIcon = EVENT_ICON[l.eventType] ?? Info
+                        return <EIcon size={13} className="text-gray-500" />
+                      })()}
                       <span className="text-xs font-medium text-gray-800">
                         {l.eventType.replace(/_/g, ' ')}
                       </span>
@@ -265,7 +269,10 @@ export default function ActivityLogsPage() {
                   </td>
                   <td className="td">
                     <div className="flex items-center gap-1">
-                      {SEVERITY_ICON[l.severity]}
+                      {(() => {
+                        const SIcon = SEVERITY_ICON[l.severity] ?? Info
+                        return <SIcon size={13} className="text-gray-500" />
+                      })()}
                       <span className={`${SEVERITY_BADGE[l.severity] ?? 'badge-gray'} text-[10px]`}>
                         {l.severity}
                       </span>

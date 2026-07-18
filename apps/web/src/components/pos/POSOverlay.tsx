@@ -923,7 +923,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
     if (!dayEndData?.cash) return 0
     const open = dayEndData.openingCash ?? 0
     const refunds = dayEndData.cash.cashRefunds ?? 0
-    return Math.round((open + dayEndData.cash.cashSales - dayEndData.expenses.totalExpenses - dayEndData.cash.bankDeposits - refunds) * 100) / 100
+    const supplierPayments = dayEndData.expenses?.supplierPayments ?? 0
+    return Math.round((open + dayEndData.cash.cashSales - dayEndData.expenses.totalExpenses - supplierPayments - dayEndData.cash.bankDeposits - refunds) * 100) / 100
   }, [dayEndData])
 
   const dayEndVariance = Math.round((dayEndExpectedCash - dayEndCashTotal) * 100) / 100
@@ -3610,8 +3611,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     {[
                       { label: 'Total Sales', value: formatCurrency(dayEndData.sales?.totalSales ?? 0) },
                       { label: 'Cash Sales', value: formatCurrency(dayEndData.cash?.cashSales ?? 0) },
-                      { label: 'Expenses', value: formatCurrency(dayEndData.expenses?.totalExpenses ?? 0) },
+                      { label: 'OpEx', value: formatCurrency(dayEndData.expenses?.totalExpenses ?? 0) },
+                      { label: 'Supplier Pay', value: formatCurrency(dayEndData.expenses?.supplierPayments ?? 0) },
                       { label: 'Opening Cash', value: formatCurrency(dayEndData.openingCash ?? 0) },
+                      { label: 'Expected Cash', value: formatCurrency(dayEndExpectedCash) },
                     ].map(k => (
                       <div key={k.label} className="rounded-xl px-3 py-2 border" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
                         <p className="text-[10px] text-white/50 uppercase tracking-wide">{k.label}</p>

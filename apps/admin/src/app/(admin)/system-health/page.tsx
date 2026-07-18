@@ -6,6 +6,7 @@ import {
   Clock, Server, Cpu, HardDrive, Activity, Layers, Package,
   Users, ShoppingCart, Wrench, ChevronRight,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { fetchHealth, fetchServerStats, type HealthData, type ServerStats } from '@/lib/api'
 import type { ServiceStatus } from '@/types'
 
@@ -19,26 +20,26 @@ function fmtUptime(sec: number) {
   return `${m}m`
 }
 
-const STATUS_CONFIG: Record<string, { badge: string; icon: React.ReactNode; bg: string; border: string }> = {
-  HEALTHY:  { badge: 'badge-green',  icon: <CheckCircle size={16} className="text-emerald-500" />, bg: 'bg-emerald-50/50', border: 'border-emerald-100' },
-  DEGRADED: { badge: 'badge-yellow', icon: <AlertTriangle size={16} className="text-amber-500" />, bg: 'bg-amber-50/50',   border: 'border-amber-100'  },
-  DOWN:     { badge: 'badge-red',    icon: <XCircle size={16} className="text-red-500" />,         bg: 'bg-red-50/50',     border: 'border-red-100'    },
+const STATUS_CONFIG: Record<string, { badge: string; Icon: LucideIcon; iconClass: string; bg: string; border: string }> = {
+  HEALTHY:  { badge: 'badge-green',  Icon: CheckCircle,    iconClass: 'text-emerald-500', bg: 'bg-emerald-50/50', border: 'border-emerald-100' },
+  DEGRADED: { badge: 'badge-yellow', Icon: AlertTriangle,  iconClass: 'text-amber-500',   bg: 'bg-amber-50/50',   border: 'border-amber-100'  },
+  DOWN:     { badge: 'badge-red',    Icon: XCircle,        iconClass: 'text-red-500',     bg: 'bg-red-50/50',     border: 'border-red-100'    },
 }
 
-const SERVICE_META: Record<string, { label: string; icon: React.ReactNode; desc: string }> = {
-  api:      { label: 'API Server',    icon: <Server size={15} className="text-blue-600" />,    desc: 'Express REST API — handles all tenant requests' },
-  database: { label: 'PostgreSQL',    icon: <Database size={15} className="text-violet-600" />,desc: 'Primary relational database — Prisma ORM' },
-  redis:    { label: 'Auth / Cache',  icon: <Activity size={15} className="text-emerald-600" />,desc: 'JWT refresh token store & session cache' },
-  keycloak: { label: 'Auth Service',  icon: <CheckCircle size={15} className="text-sky-600" />,desc: 'Token signing & validation service' },
+const SERVICE_META: Record<string, { label: string; Icon: LucideIcon; iconClass: string; desc: string }> = {
+  api:      { label: 'API Server',    Icon: Server,     iconClass: 'text-blue-600',    desc: 'Express REST API — handles all tenant requests' },
+  database: { label: 'PostgreSQL',    Icon: Database,   iconClass: 'text-violet-600',  desc: 'Primary relational database — Prisma ORM' },
+  redis:    { label: 'Auth / Cache',  Icon: Activity,   iconClass: 'text-emerald-600', desc: 'JWT refresh token store & session cache' },
+  keycloak: { label: 'Auth Service',  Icon: CheckCircle, iconClass: 'text-sky-600',    desc: 'Token signing & validation service' },
 }
 
-const TABLE_ICON: Record<string, React.ReactNode> = {
-  tenants:        <Layers size={13} className="text-violet-500" />,
-  users:          <Users size={13} className="text-blue-500" />,
-  sales:          <ShoppingCart size={13} className="text-emerald-500" />,
-  repair_tickets: <Wrench size={13} className="text-amber-500" />,
-  customers:      <Users size={13} className="text-sky-500" />,
-  products:       <Package size={13} className="text-pink-500" />,
+const TABLE_ICON: Record<string, LucideIcon> = {
+  tenants:        Layers,
+  users:          Users,
+  sales:          ShoppingCart,
+  repair_tickets: Wrench,
+  customers:      Users,
+  products:       Package,
 }
 
 const CRON_JOBS = [
@@ -107,7 +108,7 @@ export default function SystemHealthPage() {
         key,
         status: val.status as ServiceStatus,
         responseTimeMs: val.responseTimeMs,
-        ...(SERVICE_META[key] ?? { label: key, icon: <Server size={15} />, desc: '' }),
+        ...(SERVICE_META[key] ?? { label: key, Icon: Server, iconClass: 'text-gray-500', desc: '' }),
       }))
     : []
 
@@ -205,10 +206,11 @@ export default function SystemHealthPage() {
           {serviceList.map(s => {
             const cfg = STATUS_CONFIG[s.status] ?? STATUS_CONFIG.HEALTHY
             const msColor = s.responseTimeMs > 300 ? 'text-red-600' : s.responseTimeMs > 150 ? 'text-amber-600' : 'text-emerald-600'
+            const SIcon = s.Icon
             return (
               <div key={s.key} className={`card p-4 flex items-center gap-4 border ${cfg.border} ${cfg.bg}`}>
                 <div className="w-9 h-9 bg-white rounded-xl border border-gray-100 flex items-center justify-center flex-shrink-0 shadow-sm">
-                  {s.icon}
+                  <SIcon size={15} className={s.iconClass} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -327,7 +329,10 @@ export default function SystemHealthPage() {
                       <tr key={t.name} className="hover:bg-gray-50/70">
                         <td className="td">
                           <div className="flex items-center gap-2">
-                            {TABLE_ICON[t.name] ?? <Database size={13} className="text-gray-400" />}
+                            {(() => {
+                              const TIcon = TABLE_ICON[t.name] ?? Database
+                              return <TIcon size={13} className={TABLE_ICON[t.name] ? 'text-violet-500' : 'text-gray-400'} />
+                            })()}
                             <span className="text-xs font-mono text-gray-700">{t.name}</span>
                           </div>
                         </td>

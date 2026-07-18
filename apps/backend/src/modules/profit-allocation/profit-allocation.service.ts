@@ -155,11 +155,19 @@ async function getDayProfit(tenantId: string, branchId: string, dateStr: string)
   const preview = await buildDailyClosingPreview(tenantId, branchId, dateKey)
   const fin = financialsFromPreview(preview)
   const source = preview.isClosed ? 'daily_closing_closed' : 'daily_closing_preview'
+  const cashIn = round2(fin.salesRevenue + fin.otherIncome + fin.reloadCommission)
   return {
     todaySales: round2(fin.salesRevenue),
     todayProfit: round2(fin.netProfit),
     salesCount: fin.salesCount,
     source,
+    cashMovement: {
+      cashIn,
+      opExpenses: round2(fin.opExpenses),
+      supplierPayments: round2(fin.supplierPayments),
+      refunds: round2(fin.refundsTotal),
+      cashOut: round2(fin.opExpenses + fin.supplierPayments + fin.refundsTotal),
+    },
   }
 }
 
@@ -513,6 +521,7 @@ export async function calculateAllocationLines(
     percentageValid: pctCheck.valid,
     salesCount: profitMeta.salesCount,
     dataSource: profitMeta.source,
+    cashMovement: profitMeta.cashMovement,
     lines,
     saved: false,
   }
@@ -559,6 +568,7 @@ export async function getDashboard(tenantId: string, branchId: string, dateStr: 
     }))
     const funds = await listFunds(tenantId, branchId)
     const pctCheck = validatePercentageTotal(funds)
+    const liveMeta = await getDayProfit(tenantId, branchId, dateStr)
     return {
       date: normalizeBusinessDate(dateStr),
       todaySales: existing.todaySales,
@@ -569,6 +579,7 @@ export async function getDashboard(tenantId: string, branchId: string, dateStr: 
       percentageValid: pctCheck.valid,
       salesCount: null,
       dataSource: 'saved_allocation',
+      cashMovement: liveMeta.cashMovement,
       lines,
       saved: true,
       allocationId: existing.id,

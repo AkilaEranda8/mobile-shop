@@ -239,16 +239,19 @@ export async function postApPaymentFromTransaction(tenantId: string, txId: strin
   })
   if (!tx) throw new AppError('AP payment transaction not found', 404)
 
-  const nameMatch = tx.description.match(/^Payment to (.+?)(?:\s·\sRef:|$)/)
-  const supplierName = nameMatch?.[1]?.trim()
-  if (!supplierName) throw new AppError('Cannot resolve supplier from transaction description', 400)
+  let supplierId = tx.supplierId ?? null
+  if (!supplierId) {
+    const nameMatch = tx.description.match(/^Payment to (.+?)(?:\s·\sRef:|$)/)
+    const supplierName = nameMatch?.[1]?.trim()
+    if (!supplierName) throw new AppError('Cannot resolve supplier from transaction description', 400)
+    const supplier = await prisma.supplier.findFirst({
+      where: { tenantId, name: { equals: supplierName, mode: 'insensitive' } },
+    })
+    if (!supplier) throw new AppError(`Supplier not found: ${supplierName}`, 404)
+    supplierId = supplier.id
+  }
 
-  const supplier = await prisma.supplier.findFirst({
-    where: { tenantId, name: { equals: supplierName, mode: 'insensitive' } },
-  })
-  if (!supplier) throw new AppError(`Supplier not found: ${supplierName}`, 404)
-
-  return postApPaymentJournal(tenantId, supplier.id, {
+  return postApPaymentJournal(tenantId, supplierId, {
     tenantId,
     branchId: tx.branchId,
     amount: tx.amount,
@@ -259,7 +262,7 @@ export async function postApPaymentFromTransaction(tenantId: string, txId: strin
     sourceRefId: tx.id,
     sourceEvent: 'AP_PAYMENT_MADE',
     actorEmail: actorEmail ?? tx.performedBy,
-    entryDate: tx.createdAt,
+    entryDate: tx.occurredAt ?? tx.createdAt,
     bankAccountId: tx.bankAccountId,
   })
 }
@@ -512,6 +515,7 @@ async function syncApOperationalPayment(
       }
     }
 
+    const primaryPoId = allocations?.[0]?.purchaseOrderId
     const transaction = await tx.transaction.create({
       data: {
         tenantId,
@@ -523,6 +527,8 @@ async function syncApOperationalPayment(
         paymentMethod,
         reference,
         bankAccountId: bankAccountId || undefined,
+        supplierId,
+        purchaseOrderId: primaryPoId,
         performedBy,
       },
     })

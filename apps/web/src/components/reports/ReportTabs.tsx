@@ -1244,11 +1244,21 @@ function CashFlowTab({ fromDate, toDate, branchId }: { fromDate: string; toDate:
   const cashFlowData = useMemo(() => {
     let cumulative = 0
     return revenueArr.map(d => {
-      const cashIn  = (d.salesRevenue ?? 0) + (d.otherIncome   ?? 0)
-      const cashOut = (d.cogs ?? 0) + (d.totalExpenses ?? 0) + (d.refundsTotal ?? 0)
-      const net     = cashIn - cashOut
-      cumulative   += net
-      return { date: formatBusinessDateLabel(d.date), rawDate: d.date, cashIn, cashOut, net, cumulative }
+      const cashIn = (d.salesRevenue ?? 0) + (d.otherIncome ?? 0)
+      // Cash out = OpEx + supplier AP payments + refunds (not COGS — accrual inventory cost)
+      const cashOut = (d.totalExpenses ?? 0) + (d.supplierPayments ?? 0) + (d.refundsTotal ?? 0)
+      const net = cashIn - cashOut
+      cumulative += net
+      return {
+        date: formatBusinessDateLabel(d.date),
+        rawDate: d.date,
+        cashIn,
+        cashOut,
+        opExpenses: d.totalExpenses ?? 0,
+        supplierPayments: d.supplierPayments ?? 0,
+        net,
+        cumulative,
+      }
     })
   }, [revenueArr])
 
@@ -1257,7 +1267,16 @@ function CashFlowTab({ fromDate, toDate, branchId }: { fromDate: string; toDate:
   const netPos   = totalIn - totalOut
   const bestDay  = cashFlowData.length > 0 ? cashFlowData.reduce((b, d) => d.net > b.net ? d : b, cashFlowData[0]) : null
 
-  const exportRows = cashFlowData.map(d => [d.rawDate, d.cashIn.toFixed(2), d.cashOut.toFixed(2), d.net.toFixed(2), d.cumulative.toFixed(2)])
+  const totalSupplierPayments = cashFlowData.reduce((s, d) => s + d.supplierPayments, 0)
+  const exportRows = cashFlowData.map(d => [
+    d.rawDate,
+    d.cashIn.toFixed(2),
+    d.opExpenses.toFixed(2),
+    d.supplierPayments.toFixed(2),
+    d.cashOut.toFixed(2),
+    d.net.toFixed(2),
+    d.cumulative.toFixed(2),
+  ])
 
   if (revFetch.loading || revFetch.error) {
     return <ReportTabState loading={revFetch.loading} error={revFetch.error} label="cash flow report" onRetry={revFetch.refetch} />
@@ -1265,15 +1284,16 @@ function CashFlowTab({ fromDate, toDate, branchId }: { fromDate: string; toDate:
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <StatCard label="Total Cash In"  value={formatCurrency(totalIn)}  icon={ArrowUpRight}   color="green"  />
         <StatCard label="Total Cash Out" value={formatCurrency(totalOut)} icon={ArrowDownRight} color="red"    />
+        <StatCard label="Supplier Payments" value={formatCurrency(totalSupplierPayments)} icon={ArrowDownRight} color="amber" />
         <StatCard label="Net Cash Flow"  value={formatCurrency(netPos)}   icon={Activity}       color={netPos >= 0 ? 'violet' : 'red'} sub={netPos >= 0 ? 'Positive' : 'Negative'} />
         <StatCard label="Best Day"       value={bestDay ? formatCurrency(bestDay.net) : '—'} icon={TrendingUp} color="blue" sub={bestDay?.date ?? ''} />
       </div>
 
       <div className="card p-5">
-        <SectionTitle title="Daily Cash Flow" sub="Cash In vs Cash Out · Cumulative net (right axis)" />
+        <SectionTitle title="Daily Cash Flow" sub="Cash In vs Cash Out (OpEx + Supplier Payments + Refunds) · Cumulative net" />
         {cashFlowData.length === 0 ? (
           <div className="h-48 flex items-center justify-center text-sm" style={{ color: 'var(--text-muted)' }}>No data for this period</div>
         ) : (
@@ -1297,13 +1317,13 @@ function CashFlowTab({ fromDate, toDate, branchId }: { fromDate: string; toDate:
       <div className="card p-5">
         <div className="flex items-center justify-between mb-4">
           <SectionTitle title="Daily Detail" />
-          <ExportCSV filename="cashflow.csv" headers={['Date','Cash In','Cash Out','Net','Cumulative']} rows={exportRows} />
+          <ExportCSV filename="cashflow.csv" headers={['Date','Cash In','OpEx','Supplier Payments','Cash Out','Net','Cumulative']} rows={exportRows} />
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                {['Date','Cash In','Cash Out','Net Cash','Cumulative'].map((h, i) => (
+                {['Date','Cash In','OpEx','Supplier Payments','Cash Out','Net Cash','Cumulative'].map((h, i) => (
                   <th key={h} className={`text-[11px] font-semibold uppercase tracking-wide px-3 py-2 ${i === 0 ? 'text-left' : 'text-right'}`} style={{ color: 'var(--text-muted)' }}>{h}</th>
                 ))}
               </tr>
@@ -1313,6 +1333,8 @@ function CashFlowTab({ fromDate, toDate, branchId }: { fromDate: string; toDate:
                 <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                   <td className="px-3 py-2 text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{d.date}</td>
                   <td className="px-3 py-2 text-xs text-right text-green-600 dark:text-green-400 font-medium">{formatCurrency(d.cashIn)}</td>
+                  <td className="px-3 py-2 text-xs text-right" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(d.opExpenses)}</td>
+                  <td className="px-3 py-2 text-xs text-right text-orange-600 dark:text-orange-400">{formatCurrency(d.supplierPayments)}</td>
                   <td className="px-3 py-2 text-xs text-right text-red-600 dark:text-red-400">{formatCurrency(d.cashOut)}</td>
                   <td className={`px-3 py-2 text-xs text-right font-semibold ${d.net >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                     {d.net >= 0 ? '+' : '−'}{formatCurrency(Math.abs(d.net))}
@@ -1323,7 +1345,7 @@ function CashFlowTab({ fromDate, toDate, branchId }: { fromDate: string; toDate:
                 </tr>
               ))}
               {cashFlowData.length === 0 && (
-                <tr><td colSpan={5} className="text-center py-8 text-xs" style={{ color: 'var(--text-muted)' }}>No cash flow data for this period</td></tr>
+                <tr><td colSpan={7} className="text-center py-8 text-xs" style={{ color: 'var(--text-muted)' }}>No cash flow data for this period</td></tr>
               )}
             </tbody>
           </table>

@@ -35,6 +35,8 @@ export function exportDailyClosingExcel(
     ['Cash Summary'],
     ['Opening Cash', data?.cash?.openingCash ?? data?.openingCash ?? 0],
     ['Cash Sales', data?.cash?.cashSales ?? 0],
+    ['Operating Expenses', data?.expenses?.totalExpenses ?? 0],
+    ['Supplier Payments', data?.expenses?.supplierPayments ?? 0],
     ['Bank Deposits', data?.cash?.bankDeposits ?? 0],
     ['Expected Cash', data?.cash?.expectedCash ?? 0],
     ['Actual Cash', data?.cash?.actualCash ?? 0],
@@ -42,7 +44,14 @@ export function exportDailyClosingExcel(
   ]
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), 'Summary')
 
-  const expenseRows = [['Category', 'Amount'], ...(data?.expenses?.breakdown ?? []).map((r: any) => [r.category, r.amount])]
+  const expenseRows = [
+    ['Category', 'Amount'],
+    ...(data?.expenses?.breakdown ?? []).map((r: any) => [r.category, r.amount]),
+    [],
+    ['Operating Expenses (OpEx)', data?.expenses?.totalExpenses ?? 0],
+    ['Supplier Payments (Cash Out)', data?.expenses?.supplierPayments ?? 0],
+    ['Cash Out Total', data?.expenses?.cashOutTotal ?? ((data?.expenses?.totalExpenses ?? 0) + (data?.expenses?.supplierPayments ?? 0))],
+  ]
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(expenseRows), 'Expenses')
 
   if (showReload) {
@@ -90,7 +99,8 @@ export function buildPdfLines(
       : [['Repair Income', formatCurrency(data?.sales?.repairIncome ?? 0)]]),
     ['Gross Profit', formatCurrency(data?.profit?.grossProfit ?? 0)],
     ['Net Profit', formatCurrency(data?.profit?.netProfit ?? 0)],
-    ['Total Expenses', formatCurrency(data?.expenses?.totalExpenses ?? 0)],
+    ['Operating Expenses', formatCurrency(data?.expenses?.totalExpenses ?? 0)],
+    ['Supplier Payments', formatCurrency(data?.expenses?.supplierPayments ?? 0)],
     ...(showReload ? [['Reload Commission', formatCurrency(data?.profit?.reloadCommission ?? 0)]] : []),
     ['Expected Cash', formatCurrency(expectedCash)],
     ['Actual Cash', formatCurrency(actualCash)],

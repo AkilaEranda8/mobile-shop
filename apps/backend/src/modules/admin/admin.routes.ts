@@ -35,6 +35,7 @@ import {
 import { sendTenantOnboardWhatsApp } from '../../utils/send-tenant-onboard-whatsapp'
 import releaseNotesAdminRoutes from '../release-notes/release-notes-admin.routes'
 import masterCatalogAdminRoutes from '../master-catalog/master-catalog-admin.routes'
+import featureSuggestionsAdminRoutes from '../feature-suggestions/feature-suggestions-admin.routes'
 
 const router = Router()
 router.use(authenticate)
@@ -867,7 +868,7 @@ router.get('/notifications', async (_req: Request, res: Response, next: NextFunc
 
     const [
       expiringSubscriptions, expiringTrials, suspendedTenants,
-      newTenants, recentWarrantyClaims, pendingRepairs,
+      newTenants, recentWarrantyClaims, pendingRepairs, newFeatureSuggestions,
     ] = await Promise.all([
       prisma.tenant.findMany({
         where: { status: 'ACTIVE', subscriptionEndsAt: { lte: in7d, gte: now } },
@@ -895,6 +896,20 @@ router.get('/notifications', async (_req: Request, res: Response, next: NextFunc
       prisma.repairTicket.findMany({
         where: { status: 'RECEIVED' },
         select: { tenantId: true },
+      }),
+      prisma.featureSuggestion.findMany({
+        where: { status: 'NEW', createdAt: { gte: ago30d } },
+        select: {
+          id: true,
+          title: true,
+          category: true,
+          createdAt: true,
+          tenantId: true,
+          tenant: { select: { name: true } },
+          submittedBy: { select: { name: true, email: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 40,
       }),
     ])
 
@@ -977,6 +992,18 @@ router.get('/notifications', async (_req: Request, res: Response, next: NextFunc
           tenantId,
         })
       }
+    }
+
+    for (const s of newFeatureSuggestions) {
+      items.push({
+        id: `fs-new-${s.id}`,
+        type: 'NEW_FEATURE_SUGGESTION',
+        title: 'New feature suggestion',
+        message: `${s.tenant.name}: ${s.title.slice(0, 80)} · ${s.category} · ${s.submittedBy.name}`,
+        severity: 'INFO',
+        createdAt: s.createdAt.toISOString(),
+        tenantId: s.tenantId,
+      })
     }
 
     items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -1416,5 +1443,6 @@ router.delete('/settings/admins/:id', async (req: Request, res: Response, next: 
 
 router.use('/releases', releaseNotesAdminRoutes)
 router.use('/master-catalog', masterCatalogAdminRoutes)
+router.use('/feature-suggestions', featureSuggestionsAdminRoutes)
 
 export default router

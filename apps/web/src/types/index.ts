@@ -374,6 +374,9 @@ export interface Transaction {
   branchId: string
   performedBy: string
   createdAt: string
+  occurredAt?: string
+  supplierId?: string
+  purchaseOrderId?: string
 }
 
 export interface DailySummary {
@@ -381,6 +384,7 @@ export interface DailySummary {
   totalSales: number
   totalRevenue: number
   totalExpenses: number
+  supplierPayments?: number
   profit: number
   repairsCompleted: number
   newCustomers: number

@@ -484,6 +484,10 @@ export async function postRepairCogsJournal(tenantId: string, repairId: string, 
 export async function postExpenseJournal(tenantId: string, txId: string, actorEmail?: string) {
   const tx = await readExpenseTransaction(tenantId, txId)
   if (!tx) throw new AppError('Expense transaction not found', 404)
+  // Supplier payments settle AP — never post as operating expense.
+  if (tx.category === 'Supplier Payment') {
+    throw new AppError('Supplier payments must be journaled as AP_PAYMENT_MADE, not EXPENSE_CREATED', 400)
+  }
 
   const settings = await getSettingsOrThrow(tenantId)
   const expenseMap = (settings.expenseCategoryMap ?? {}) as Record<string, unknown>

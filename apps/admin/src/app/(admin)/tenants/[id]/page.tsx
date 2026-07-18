@@ -59,7 +59,8 @@ const ROLE_BADGE: Record<string, string> = {
 }
 
 export default function TenantDetailPage() {
-  const { id } = useParams<{ id: string }>()
+  const params = useParams<{ id: string }>()
+  const id = params?.id ?? ''
   const router = useRouter()
   const [tenant, setTenant]   = useState<TenantRow | null>(null)
   const [sales, setSales]     = useState<TenantSale[]>([])

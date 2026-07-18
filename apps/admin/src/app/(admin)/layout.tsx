@@ -15,6 +15,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/analytics':      'Analytics',
   '/activity-logs':  'Activity Logs',
   '/notifications':  'Notifications',
+  '/feature-suggestions': 'Feature Suggestions',
   '/announcements':  'Announcements',
   '/release-notes':  'Release Notes',
   '/master-catalog': 'Master Catalog',
@@ -42,7 +43,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     router.replace('/login')
   }
 
-  const baseRoute = '/' + path.split('/')[1]
+  const baseRoute = '/' + (path ?? '').split('/')[1]
   const title = PAGE_TITLES[baseRoute] ?? 'Admin'
 
   if (!ready) {

@@ -23,7 +23,7 @@ import type { Transaction as AppTransaction } from '@/types'
 const COLORS = ['var(--brand-primary)', '#06b6d4', '#10b981', '#f59e0b', '#ef4444']
 
 function AddTransactionModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({ type: 'EXPENSE', category: 'Misc', amount: '', description: '', paymentMethod: 'CASH' })
+  const [form, setForm] = useState({ type: 'EXPENSE', category: 'Other Expenses', amount: '', description: '', paymentMethod: 'CASH' })
   const [loading, setLoading] = useState(false)
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(p => ({ ...p, [k]: e.target.value }))
   const handleSubmit = async (ev: React.FormEvent) => {
@@ -76,7 +76,15 @@ function AddTransactionModal({ onClose, onSaved }: { onClose: () => void; onSave
             </div>
             <div>
               <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Category</label>
-              <input className="input-field" placeholder="Rent, Sales, Repair..." value={form.category} onChange={f('category')} />
+              {form.type === 'EXPENSE' ? (
+                <select className="input-field" value={form.category} onChange={f('category')}>
+                  {['Rent', 'Salary', 'Electricity', 'Transport', 'Marketing', 'Other Expenses'].map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              ) : (
+                <input className="input-field" placeholder="Sales, Repair..." value={form.category} onChange={f('category')} />
+              )}
             </div>
             <div>
               <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Payment Method</label>

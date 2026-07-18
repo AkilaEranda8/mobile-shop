@@ -401,6 +401,8 @@ export const suppliersApi = {
   }[]) =>
     api.post(`/suppliers/purchase-orders/${poId}/register-imei`, { items }),
   recordPayment: (supplierId: string, body: unknown) => api.post(`/suppliers/${supplierId}/payments`, body),
+  payments: (params?: Record<string, string>) =>
+    api.get(`/suppliers/payments${params ? '?' + new URLSearchParams(params) : ''}`),
 }
 
 export const financeApi = {
@@ -781,6 +783,132 @@ export const releaseNotesApi = {
     return api.get(`/release-notes/${id}${qs}`)
   },
   markRead: (id: string) => api.post(`/release-notes/${id}/read`, {}),
+}
+
+export type FeatureSuggestionStatus =
+  | 'NEW'
+  | 'UNDER_REVIEW'
+  | 'PLANNED'
+  | 'IN_PROGRESS'
+  | 'RELEASED'
+  | 'DECLINED'
+
+export type FeatureSuggestionPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+
+export type FeatureSuggestionCategory =
+  | 'POS'
+  | 'Inventory'
+  | 'Sales'
+  | 'Purchasing'
+  | 'Repairs'
+  | 'Customers'
+  | 'Suppliers'
+  | 'Accounting'
+  | 'Reports'
+  | 'Dashboard'
+  | 'Mobile App'
+  | 'Printing'
+  | 'Barcode'
+  | 'Integrations'
+  | 'Performance'
+  | 'Security'
+  | 'Other'
+
+export type FeatureSuggestionHistory = {
+  id: string
+  action: string
+  oldStatus: FeatureSuggestionStatus | null
+  newStatus: FeatureSuggestionStatus | null
+  oldPriority: FeatureSuggestionPriority | null
+  newPriority: FeatureSuggestionPriority | null
+  publicResponse: string | null
+  performedByEmail: string
+  createdAt: string
+}
+
+export type FeatureSuggestion = {
+  id: string
+  category: string
+  title: string
+  description: string
+  status: FeatureSuggestionStatus
+  priority: FeatureSuggestionPriority
+  publicResponse: string | null
+  createdAt: string
+  updatedAt: string
+  history?: FeatureSuggestionHistory[]
+}
+
+export type UserNotification = {
+  id: string
+  type: string
+  title: string
+  message: string
+  link: string | null
+  relatedId: string | null
+  isRead: boolean
+  readAt: string | null
+  createdAt: string
+}
+
+export type CreateFeatureSuggestionBody = {
+  category: FeatureSuggestionCategory
+  title: string
+  description: string
+}
+
+export const featureSuggestionsApi = {
+  list: (params?: { page?: number; limit?: number }) => {
+    const p = new URLSearchParams()
+    if (params?.page) p.set('page', String(params.page))
+    if (params?.limit) p.set('limit', String(params.limit))
+    const qs = p.toString()
+    return api.get<{
+      data: FeatureSuggestion[]
+      meta: { total: number; page: number; limit: number; totalPages: number }
+    }>(`/feature-suggestions${qs ? `?${qs}` : ''}`)
+  },
+  getById: (id: string) =>
+    api.get<{ data: FeatureSuggestion }>(`/feature-suggestions/${id}`),
+  create: (body: CreateFeatureSuggestionBody) =>
+    api.post<{ data: FeatureSuggestion }>('/feature-suggestions', body),
+}
+
+export const notificationsApi = {
+  list: (params?: { page?: number; limit?: number }) => {
+    const p = new URLSearchParams()
+    if (params?.page) p.set('page', String(params.page))
+    if (params?.limit) p.set('limit', String(params.limit))
+    const qs = p.toString()
+    return api.get<{
+      data: {
+        data: UserNotification[]
+        total: number
+        unreadCount: number
+        page: number
+        limit: number
+      }
+    }>(`/notifications${qs ? `?${qs}` : ''}`)
+  },
+  unread: (params?: { page?: number; limit?: number }) => {
+    const p = new URLSearchParams()
+    if (params?.page) p.set('page', String(params.page))
+    if (params?.limit) p.set('limit', String(params.limit))
+    const qs = p.toString()
+    return api.get<{
+      data: {
+        data: UserNotification[]
+        total: number
+        unreadCount: number
+        page: number
+        limit: number
+      }
+    }>(`/notifications/unread${qs ? `?${qs}` : ''}`)
+  },
+  markRead: (id: string) =>
+    api.patch<{ data: UserNotification }>(`/notifications/${id}/read`, {}),
+  markAllRead: () =>
+    api.patch<{ data: { updated: number } }>('/notifications/read-all', {}),
 }
 
 export async function fetchPlatformStatus(): Promise<PlatformStatus> {

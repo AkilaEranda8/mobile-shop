@@ -438,6 +438,7 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
   const [selectedPOs, setSelectedPOs] = useState<Set<string>>(() => new Set(unpaidPOs.map(p => p.id)))
   const [method, setMethod] = useState<string>('CASH')
   const [reference, setReference] = useState('')
+  const [paymentDate, setPaymentDate] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' }))
   const [loading, setLoading] = useState(false)
   const [bankAccounts, setBankAccounts] = useState<BankRegister[]>([])
   const [bankAccountId, setBankAccountId] = useState('')
@@ -499,6 +500,7 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
         amount: Number(amount),
         method,
         reference: reference || undefined,
+        paymentDate: paymentDate || undefined,
         poIds: [...selectedPOs],
         ...(needsBankAccount && bankAccountId ? { bankAccountId } : {}),
       })
@@ -708,7 +710,7 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Payment Amount</label>
+                <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Amount Paid</label>
                 {totalDue > 0 && (
                   <button
                     type="button"
@@ -728,9 +730,27 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
                 value={amount}
                 onChange={e => setAmount(e.target.value)}
               />
+              {totalDue > 0 && (
+                <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                  Balance due on selected invoices: {formatCurrency(Math.max(0, totalDue - (Number(amount) || 0)))}
+                </p>
+              )}
             </div>
 
             <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                Payment Date
+              </label>
+              <input
+                required
+                type="date"
+                className="input-field"
+                value={paymentDate}
+                onChange={e => setPaymentDate(e.target.value)}
+              />
+            </div>
+
+            <div className="sm:col-span-2">
               <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
                 Reference / Note <span style={{ color: 'var(--text-muted)' }}>(optional)</span>
               </label>

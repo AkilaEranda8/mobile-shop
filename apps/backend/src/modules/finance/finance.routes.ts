@@ -33,9 +33,27 @@ router.get('/transactions', async (req: Request, res: Response, next: NextFuncti
       ...(search   && { description: { contains: search, mode: 'insensitive' } }),
     }
     if (from || to) {
-      where.createdAt = {}
-      if (from) where.createdAt.gte = businessDayRange(from).start
-      if (to) where.createdAt.lte = businessDayRange(to).end
+      const start = from ? businessDayRange(from).start : undefined
+      const end = to ? businessDayRange(to).end : undefined
+      where.OR = [
+        {
+          occurredAt: {
+            ...(start && { gte: start }),
+            ...(end && { lte: end }),
+          },
+        },
+        {
+          AND: [
+            { occurredAt: null },
+            {
+              createdAt: {
+                ...(start && { gte: start }),
+                ...(end && { lte: end }),
+              },
+            },
+          ],
+        },
+      ]
     }
     const [data, total] = await Promise.all([prisma.transaction.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }), prisma.transaction.count({ where })])
     sendPaginated(res, data, total, page, limit)
@@ -49,6 +67,12 @@ router.post('/transactions', authorize('OWNER', 'MANAGER', 'CASHIER'), validate(
     if (!branchId) throw new AppError('branchId is required — select an active branch', 400)
 
     await assertBusinessDayOpenIfEnabled(req.tenantId!, branchId)
+    if (body.type === 'EXPENSE' && body.category === 'Supplier Payment') {
+      throw new AppError(
+        'Record supplier payments under Purchases → Supplier Payments (not Finance → Expenses)',
+        400,
+      )
+    }
     const tx = await prisma.transaction.create({
       data: {
         tenantId: req.tenantId!,

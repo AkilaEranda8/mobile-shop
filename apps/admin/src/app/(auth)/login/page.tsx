@@ -14,7 +14,7 @@ function LoginForm() {
   const params = useSearchParams()
 
   function redirectAfterLogin() {
-    const dest = params.get('from') || '/dashboard'
+    const dest = params?.get('from') || '/dashboard'
     window.location.href = dest
   }
 

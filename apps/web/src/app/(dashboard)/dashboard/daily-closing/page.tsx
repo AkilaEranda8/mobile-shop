@@ -187,7 +187,8 @@ export default function DailyClosingPage() {
     if (!d?.cash) return 0
     const open = typeof openingCash === 'number' ? openingCash : (d.openingCash ?? 0)
     const refunds = d.cash.cashRefunds ?? 0
-    return Math.round((open + d.cash.cashSales - d.expenses.totalExpenses - d.cash.bankDeposits - refunds) * 100) / 100
+    const supplierPayments = d.expenses?.supplierPayments ?? 0
+    return Math.round((open + d.cash.cashSales - d.expenses.totalExpenses - supplierPayments - d.cash.bankDeposits - refunds) * 100) / 100
   }, [d, openingCash])
 
   const variance = Math.round((expectedCash - cashTotal) * 100) / 100
@@ -603,8 +604,12 @@ export default function DailyClosingPage() {
               {/* Step 2: Expenses */}
               {step === 2 && (
                 <>
-                  <SectionTitle title="Expense Summary" sub="From Finance → Expenses &amp; transactions" />
-                  <MetricCard label="Total Expenses" value={formatCurrency(d?.expenses?.totalExpenses ?? 0)} tone="red" />
+                  <SectionTitle title="Expense Summary" sub="Operating expenses only — supplier payments are tracked separately as cash out" />
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <MetricCard label="Operating Expenses" value={formatCurrency(d?.expenses?.totalExpenses ?? 0)} tone="red" />
+                    <MetricCard label="Supplier Payments" value={formatCurrency(d?.expenses?.supplierPayments ?? 0)} tone="amber" />
+                    <MetricCard label="Cash Out Total" value={formatCurrency(d?.expenses?.cashOutTotal ?? ((d?.expenses?.totalExpenses ?? 0) + (d?.expenses?.supplierPayments ?? 0)))} tone="red" />
+                  </div>
                   <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
                     <table className="w-full text-sm">
                       <thead>
@@ -620,7 +625,13 @@ export default function DailyClosingPage() {
                             <td className="px-4 py-2.5 text-right font-semibold text-red-500">{formatCurrency(r.amount)}</td>
                           </tr>
                         ))}
-                        {(d?.expenses?.breakdown ?? []).length === 0 && (
+                        {(d?.expenses?.supplierPayments ?? 0) > 0 && (
+                          <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'rgba(245,158,11,0.06)' }}>
+                            <td className="px-4 py-2.5 font-medium" style={{ color: 'var(--text-primary)' }}>Supplier Payments (cash out)</td>
+                            <td className="px-4 py-2.5 text-right font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(d?.expenses?.supplierPayments ?? 0)}</td>
+                          </tr>
+                        )}
+                        {(d?.expenses?.breakdown ?? []).length === 0 && !(d?.expenses?.supplierPayments ?? 0) && (
                           <tr>
                             <td colSpan={2} className="text-center py-10 text-xs" style={{ color: 'var(--text-muted)' }}>No expenses recorded for this date</td>
                           </tr>
@@ -638,9 +649,9 @@ export default function DailyClosingPage() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                     <MetricCard label="Opening Cash" value={formatCurrency(typeof openingCash === 'number' ? openingCash : (d?.openingCash ?? 0))} />
                     <MetricCard label="Cash Sales" value={formatCurrency(d?.cash?.cashSales ?? 0)} tone="green" />
+                    <MetricCard label="OpEx (Cash Out)" value={formatCurrency(d?.expenses?.totalExpenses ?? 0)} tone="red" />
+                    <MetricCard label="Supplier Payments" value={formatCurrency(d?.expenses?.supplierPayments ?? 0)} tone="amber" />
                     <MetricCard label="Bank Deposits" value={formatCurrency(d?.cash?.bankDeposits ?? 0)} />
-                    <MetricCard label="QR / Wallet" value={formatCurrency(d?.cash?.qrPayments ?? 0)} />
-                    <MetricCard label="Card Payments" value={formatCurrency(d?.cash?.cardPayments ?? 0)} />
                     <MetricCard label="Cash In Bank" value={formatCurrency(d?.cash?.cashInBank ?? 0)} />
                   </div>
 
@@ -738,7 +749,8 @@ export default function DailyClosingPage() {
                     {showReload && (
                       <MetricCard label="Reload Commission" value={formatCurrency(d?.profit?.reloadCommission ?? 0)} tone="green" />
                     )}
-                    <MetricCard label="Total Expenses" value={formatCurrency(d?.expenses?.totalExpenses ?? 0)} tone="red" />
+                    <MetricCard label="Operating Expenses" value={formatCurrency(d?.expenses?.totalExpenses ?? 0)} tone="red" />
+                    <MetricCard label="Supplier Payments" value={formatCurrency(d?.expenses?.supplierPayments ?? 0)} tone="amber" />
                     <MetricCard label="Net Profit" value={formatCurrency(d?.profit?.netProfit ?? 0)}
                       tone={(d?.profit?.netProfit ?? 0) >= 0 ? 'green' : 'red'} />
                   </div>

@@ -302,6 +302,14 @@ export function usePurchaseOrders(params?: Record<string, string>) {
   )
 }
 
+export function useSupplierPayments(params?: Record<string, string>) {
+  const p = { ...ALL, ...params }
+  return useApi<{ data: unknown[]; meta: any }>(
+    () => wrapPaginated(suppliersApi.payments.bind(null, p)),
+    [JSON.stringify(p)],
+  )
+}
+
 export function useTransactions(params?: Record<string, string>) {
   const p = { ...ALL, ...params }
   return useApi<{ data: unknown[]; meta: any }>(
