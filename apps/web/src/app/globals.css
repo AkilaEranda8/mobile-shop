@@ -9,7 +9,7 @@
   :root {
     --font-sans: 'Inter', system-ui, sans-serif;
     --ui-scale: 1;
-    --tc-background: 220 16% 94%;
+    --tc-background: 0 0% 100%;
     --tc-foreground: 222.2 84% 4.9%;
     --tc-card: 0 0% 100%;
     --tc-card-foreground: 222.2 84% 4.9%;
@@ -52,11 +52,10 @@
     --ring: var(--tc-ring);
     --radius: var(--tc-radius);
 
-    /* Soft cool gray page + white cards (less washed-out white) */
-    --bg-primary:    #e8ecf3;
-    --bg-surface:    #f1f4f9;
+    --bg-primary:    #ffffff;
+    --bg-surface:    #ffffff;
     --bg-card:       #ffffff;
-    --bg-card-hover: #f4f6fa;
+    --bg-card-hover: #f8f8ff;
     --bg-subtle:     rgba(0,0,0,0.04);
     --bg-subtle-md:  rgba(0,0,0,0.07);
     --border-subtle: rgba(0,0,0,0.09);
@@ -399,15 +398,11 @@ html:not(.dark) .btn-secondary:hover {
   background: var(--secondary-hover-bg);
   border-color: color-mix(in srgb, var(--brand-primary) 40%, transparent);
 }
-html:not(.dark) body {
-  background-color: var(--bg-primary);
-}
 html:not(.dark) header {
-  background: var(--bg-surface) !important;
   box-shadow: 0 1px 6px rgba(0,0,0,0.07);
 }
 html:not(.dark) aside {
-  background: #eef2f7 !important;
+  background: #f8fafc !important;
   box-shadow: 2px 0 12px rgba(0,0,0,0.06);
 }
 /* POS sidebar must stay dark even when system is in light mode */
