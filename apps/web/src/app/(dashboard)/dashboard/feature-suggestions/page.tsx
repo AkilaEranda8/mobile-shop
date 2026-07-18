@@ -3,10 +3,11 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
-  Lightbulb, Send, X, Clock, CheckCircle2, XCircle, Loader2,
-  ChevronRight, Eye, AlertCircle, RefreshCw,
+  Lightbulb, Send, X, Clock, CheckCircle2, XCircle, Loader2, Plus,
+  Eye, AlertCircle, RefreshCw, Hourglass, Rocket, ListChecks,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import {
   featureSuggestionsApi,
   type FeatureSuggestion,
@@ -63,6 +64,109 @@ function Badge({ label, className }: { label: string; className: string }) {
   )
 }
 
+function NewSuggestionModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [category, setCategory] = useState<FeatureSuggestionCategory | ''>('')
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const titleLen = title.trim().length
+  const descLen = description.trim().length
+  const canSubmit = Boolean(category) && titleLen >= 10 && titleLen <= 120 && descLen >= 30 && descLen <= 5000 && !submitting
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!canSubmit || !category) return
+    setSubmitting(true)
+    try {
+      await featureSuggestionsApi.create({
+        category,
+        title: title.trim(),
+        description: description.trim(),
+      })
+      toast.success('Suggestion submitted')
+      onSaved()
+      onClose()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to submit')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-2xl shadow-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'var(--brand-glow)', border: '1px solid var(--sidebar-active-border)' }}>
+              <Lightbulb size={14} style={{ color: 'var(--brand-primary-light)' }} />
+            </div>
+            <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>New Suggestion</h3>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><X size={15} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-3">
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Category *</label>
+            <select
+              required
+              className="input-field"
+              value={category}
+              onChange={(e) => setCategory(e.target.value as FeatureSuggestionCategory | '')}
+            >
+              <option value="">Select a category</option>
+              {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Title *</label>
+              <span className="text-[11px]" style={{ color: titleLen > 0 && (titleLen < 10 || titleLen > 120) ? '#e11d48' : 'var(--text-muted)' }}>
+                {titleLen}/120
+              </span>
+            </div>
+            <input
+              required
+              className="input-field"
+              placeholder="Describe your idea in one short line"
+              minLength={10}
+              maxLength={120}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Description *</label>
+              <span className="text-[11px]" style={{ color: descLen > 0 && (descLen < 30 || descLen > 5000) ? '#e11d48' : 'var(--text-muted)' }}>
+                {descLen}/5000
+              </span>
+            </div>
+            <textarea
+              required
+              className="input-field resize-y min-h-[120px]"
+              placeholder="Explain the problem, who it helps, and what success looks like (min 30 characters)"
+              minLength={30}
+              maxLength={5000}
+              rows={5}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
+            <button type="submit" disabled={!canSubmit} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+              {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+              {submitting ? 'Submitting…' : 'Submit'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 function DetailDrawer({
   suggestion,
   loading,
@@ -87,7 +191,7 @@ function DetailDrawer({
       <button
         type="button"
         aria-label="Close drawer"
-        className="absolute inset-0 bg-black/40 backdrop-blur-[1px]"
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
       />
       <aside
@@ -96,38 +200,43 @@ function DetailDrawer({
       >
         <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b"
           style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Suggestion detail</p>
-            <h2 className="text-base font-semibold mt-0.5 line-clamp-1">{suggestion?.title ?? 'Loading…'}</h2>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'var(--brand-glow)', border: '1px solid var(--sidebar-active-border)' }}>
+              <Lightbulb size={14} style={{ color: 'var(--brand-primary-light)' }} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Suggestion detail</p>
+              <h2 className="text-sm font-bold mt-0.5 truncate">{suggestion?.title ?? 'Loading…'}</h2>
+            </div>
           </div>
-          <button type="button" onClick={onClose} className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5" style={{ color: 'var(--text-muted)' }}>
-            <X size={18} />
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg transition-colors flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
+            <X size={15} />
           </button>
         </div>
 
         {loading || !suggestion ? (
-          <div className="p-6 space-y-4">
+          <div className="p-5 space-y-4">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="h-16 rounded-xl animate-pulse" style={{ background: 'var(--bg-subtle)' }} />
             ))}
           </div>
         ) : (
-          <div className="p-5 space-y-6">
+          <div className="p-5 space-y-5">
             <div className="flex flex-wrap gap-2">
               <Badge label={statusLabel(suggestion.status)} className={STATUS_STYLE[suggestion.status]} />
               <Badge label={suggestion.priority} className={PRIORITY_STYLE[suggestion.priority]} />
               <Badge label={suggestion.category} className="bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-500/20" />
             </div>
 
-            <div>
-              <p className="text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Description</p>
+            <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+              <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-muted)' }}>Description</p>
               <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-secondary)' }}>
                 {suggestion.description}
               </p>
             </div>
 
             <div>
-              <p className="text-xs font-medium mb-3" style={{ color: 'var(--text-muted)' }}>Progress</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>Progress</p>
               {isDeclined ? (
                 <div className="flex items-center gap-2 text-sm text-rose-600 dark:text-rose-400">
                   <XCircle size={16} /> Declined
@@ -163,8 +272,8 @@ function DetailDrawer({
             </div>
 
             {suggestion.publicResponse && (
-              <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
-                <p className="text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Admin response</p>
+              <div className="rounded-xl border p-4" style={{ borderColor: 'var(--sidebar-active-border)', background: 'var(--brand-glow)' }}>
+                <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-muted)' }}>Admin response</p>
                 <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-primary)' }}>
                   {suggestion.publicResponse}
                 </p>
@@ -172,7 +281,7 @@ function DetailDrawer({
             )}
 
             <div>
-              <p className="text-xs font-medium mb-3" style={{ color: 'var(--text-muted)' }}>History</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>History</p>
               <div className="space-y-3">
                 {(suggestion.history ?? []).length === 0 && (
                   <p className="text-xs" style={{ color: 'var(--text-muted)' }}>No history yet.</p>
@@ -198,7 +307,7 @@ function DetailDrawer({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs pt-2 border-t" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
+            <div className="grid grid-cols-2 gap-3 text-xs pt-3 border-t" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
               <div>Created<br /><span style={{ color: 'var(--text-secondary)' }}>{formatDate(suggestion.createdAt)}</span></div>
               <div>Updated<br /><span style={{ color: 'var(--text-secondary)' }}>{formatDate(suggestion.updatedAt)}</span></div>
             </div>
@@ -213,10 +322,10 @@ function FeatureSuggestionsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const [category, setCategory] = useState<FeatureSuggestionCategory | ''>('')
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const [showNew, setShowNew] = useState(false)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [categoryFilter, setCategoryFilter] = useState('all')
 
   const [items, setItems] = useState<FeatureSuggestion[]>([])
   const [total, setTotal] = useState(0)
@@ -279,209 +388,209 @@ function FeatureSuggestionsContent() {
     if (id && id !== selectedId) void openDetail(id)
   }, [searchParams, selectedId, openDetail])
 
-  const titleLen = title.trim().length
-  const descLen = description.trim().length
-  const canSubmit = Boolean(category) && titleLen >= 10 && titleLen <= 120 && descLen >= 30 && descLen <= 5000 && !submitting
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return items.filter((row) => {
+      if (statusFilter !== 'all' && row.status !== statusFilter) return false
+      if (categoryFilter !== 'all' && row.category !== categoryFilter) return false
+      if (q && !`${row.title} ${row.category}`.toLowerCase().includes(q)) return false
+      return true
+    })
+  }, [items, search, statusFilter, categoryFilter])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!canSubmit || !category) return
-    setSubmitting(true)
-    try {
-      await featureSuggestionsApi.create({
-        category,
-        title: title.trim(),
-        description: description.trim(),
-      })
-      toast.success('Suggestion submitted')
-      setCategory('')
-      setTitle('')
-      setDescription('')
-      await loadList(1)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to submit')
-    } finally {
-      setSubmitting(false)
-    }
-  }
+  const inProgressCount = items.filter((s) => ['UNDER_REVIEW', 'PLANNED', 'IN_PROGRESS'].includes(s.status)).length
+  const releasedCount = items.filter((s) => s.status === 'RELEASED').length
+  const newCount = items.filter((s) => s.status === 'NEW').length
 
   const skeletonRows = useMemo(() => Array.from({ length: 4 }, (_, i) => i), [])
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <Lightbulb size={20} style={{ color: 'var(--text-primary)' }} />
-          <h1 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>Feature Suggestions</h1>
+    <div className="space-y-6">
+      {showNew && (
+        <NewSuggestionModal onClose={() => setShowNew(false)} onSaved={() => void loadList(1)} />
+      )}
+
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        <div>
+          <h1 className="page-title">Feature Suggestions</h1>
+          <p className="page-subtitle">Share ideas to improve Hexalyte · track status and admin responses</p>
         </div>
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          Share ideas to improve Hexalyte. Track status and admin responses here.
-        </p>
+        <button
+          onClick={() => setShowNew(true)}
+          className="btn-primary flex items-center gap-2 sm:ml-auto"
+        >
+          <Plus size={14} /> New Suggestion
+        </button>
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="rounded-2xl border p-5 sm:p-6 space-y-4 shadow-sm"
-        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
-      >
-        <div>
-          <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Category</label>
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value as FeatureSuggestionCategory | '')}
-            required
-            className="w-full h-10 rounded-xl border px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500/30"
-            style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
-          >
-            <option value="">Select a category</option>
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Title</label>
-            <span className="text-[11px]" style={{ color: titleLen > 0 && (titleLen < 10 || titleLen > 120) ? '#e11d48' : 'var(--text-muted)' }}>
-              {titleLen}/120
-            </span>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          {
+            label: 'Total Suggestions',
+            value: String(total),
+            icon: <ListChecks size={16} />,
+            color: 'var(--brand-primary-light)',
+            bg: 'var(--brand-glow)',
+            border: 'var(--sidebar-active-border)',
+          },
+          {
+            label: 'New',
+            value: String(newCount),
+            icon: <Lightbulb size={16} />,
+            color: '#0369a1',
+            bg: 'rgba(3,105,161,0.08)',
+            border: 'rgba(3,105,161,0.20)',
+          },
+          {
+            label: 'In Progress',
+            value: String(inProgressCount),
+            icon: <Hourglass size={16} />,
+            color: '#b45309',
+            bg: 'rgba(180,83,9,0.08)',
+            border: 'rgba(180,83,9,0.20)',
+          },
+          {
+            label: 'Released',
+            value: String(releasedCount),
+            icon: <Rocket size={16} />,
+            color: '#15803d',
+            bg: 'rgba(21,128,61,0.08)',
+            border: 'rgba(21,128,61,0.20)',
+          },
+        ].map(({ label, value, icon, color, bg, border }) => (
+          <div key={label} className="card p-4" style={{ borderColor: border, background: bg }}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{label}</span>
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center"
+                style={{ color, background: bg, border: `1px solid ${border}` }}
+              >
+                {icon}
+              </div>
+            </div>
+            <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
           </div>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Describe your idea in one short line"
-            minLength={10}
-            maxLength={120}
-            required
-            className="w-full h-10 rounded-xl border px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500/30"
-            style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
-          />
-        </div>
+        ))}
+      </div>
 
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Description</label>
-            <span className="text-[11px]" style={{ color: descLen > 0 && (descLen < 30 || descLen > 5000) ? '#e11d48' : 'var(--text-muted)' }}>
-              {descLen}/5000
-            </span>
-          </div>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Explain the problem, who it helps, and what success looks like (min 30 characters)"
-            minLength={30}
-            maxLength={5000}
-            required
-            rows={5}
-            className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/30 resize-y min-h-[120px]"
-            style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
-          />
-        </div>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <ToolbarSearch
+          value={search}
+          onChange={setSearch}
+          placeholder="Search suggestions…"
+          className="flex-1"
+        />
+        <select className="input-field sm:w-44" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <option value="all">All statuses</option>
+          {[...STATUS_FLOW, 'DECLINED' as FeatureSuggestionStatus].map((s) => (
+            <option key={s} value={s}>{statusLabel(s)}</option>
+          ))}
+        </select>
+        <select className="input-field sm:w-44" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+          <option value="all">All categories</option>
+          {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <button
+          type="button"
+          onClick={() => void loadList(page)}
+          className="btn-secondary flex items-center justify-center gap-2 text-sm sm:w-auto"
+          title="Refresh"
+        >
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
+        </button>
+      </div>
 
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            className="inline-flex items-center gap-2 h-10 px-4 rounded-xl text-sm font-semibold text-white transition-opacity disabled:opacity-50 btn-accent"
-          >
-            {submitting ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-            {submitting ? 'Submitting…' : 'Submit suggestion'}
-          </button>
-        </div>
-      </form>
-
-      <section
-        className="rounded-2xl border shadow-sm overflow-hidden"
-        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
-      >
-        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-          <div>
-            <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>My Suggestions</h2>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{total} total</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => void loadList(page)}
-            className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5"
-            style={{ color: 'var(--text-muted)' }}
-            title="Refresh"
-          >
-            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-          </button>
-        </div>
-
+      <div className="card overflow-hidden">
         {listError && (
-          <div className="flex items-center gap-2 px-5 py-4 text-sm text-rose-600 dark:text-rose-400">
+          <div className="flex items-center gap-2 px-4 py-4 text-sm text-rose-600 dark:text-rose-400">
             <AlertCircle size={16} /> {listError}
           </div>
         )}
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs border-b" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
-                <th className="px-5 py-3 font-medium">Status</th>
-                <th className="px-3 py-3 font-medium">Priority</th>
-                <th className="px-3 py-3 font-medium">Category</th>
-                <th className="px-3 py-3 font-medium">Title</th>
-                <th className="px-3 py-3 font-medium hidden sm:table-cell">Created</th>
-                <th className="px-3 py-3 font-medium hidden md:table-cell">Updated</th>
-                <th className="px-5 py-3 font-medium text-right">View</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && skeletonRows.map((i) => (
-                <tr key={i} className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <td colSpan={7} className="px-5 py-3">
-                    <div className="h-8 rounded-lg animate-pulse" style={{ background: 'var(--bg-subtle)' }} />
-                  </td>
-                </tr>
-              ))}
-              {!loading && items.length === 0 && !listError && (
-                <tr>
-                  <td colSpan={7} className="px-5 py-12 text-center">
-                    <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>No suggestions yet</p>
-                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Submit your first idea using the form above.</p>
-                  </td>
-                </tr>
-              )}
-              {!loading && items.map((row) => (
-                <tr key={row.id} className="border-b hover:bg-black/[0.02] dark:hover:bg-white/[0.02]" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <td className="px-5 py-3"><Badge label={statusLabel(row.status)} className={STATUS_STYLE[row.status]} /></td>
-                  <td className="px-3 py-3"><Badge label={row.priority} className={PRIORITY_STYLE[row.priority]} /></td>
-                  <td className="px-3 py-3" style={{ color: 'var(--text-secondary)' }}>{row.category}</td>
-                  <td className="px-3 py-3 max-w-[220px]">
-                    <span className="line-clamp-1 font-medium" style={{ color: 'var(--text-primary)' }}>{row.title}</span>
-                  </td>
-                  <td className="px-3 py-3 hidden sm:table-cell" style={{ color: 'var(--text-muted)' }}>{formatDate(row.createdAt)}</td>
-                  <td className="px-3 py-3 hidden md:table-cell" style={{ color: 'var(--text-muted)' }}>{formatDate(row.updatedAt)}</td>
-                  <td className="px-5 py-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => void openDetail(row.id)}
-                      className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg border hover:bg-black/5 dark:hover:bg-white/5"
-                      style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
+        {loading ? (
+          <div className="p-4 space-y-2">
+            {skeletonRows.map((i) => (
+              <div key={i} className="h-10 rounded-lg animate-pulse" style={{ background: 'var(--bg-subtle)' }} />
+            ))}
+          </div>
+        ) : filtered.length === 0 && !listError ? (
+          <div className="py-12 text-center">
+            <Lightbulb size={28} className="mx-auto mb-2" style={{ color: 'var(--text-muted)' }} />
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              {items.length === 0 ? 'No suggestions yet' : 'No suggestions match your filters'}
+            </p>
+            {items.length === 0 && (
+              <button onClick={() => setShowNew(true)} className="btn-primary mt-4 inline-flex items-center gap-2 text-sm">
+                <Plus size={14} /> Submit your first idea
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
+                  {['Title', 'Category', 'Status', 'Priority', 'Created', 'Updated', ''].map((h, i) => (
+                    <th
+                      key={`${h}-${i}`}
+                      className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide"
+                      style={{ color: 'var(--text-muted)' }}
                     >
-                      <Eye size={13} /> View <ChevronRight size={12} />
-                    </button>
-                  </td>
+                      {h}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filtered.map((row) => (
+                  <tr
+                    key={row.id}
+                    className="hover:bg-white/2 transition-colors cursor-pointer"
+                    style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                    onClick={() => void openDetail(row.id)}
+                  >
+                    <td className="px-4 py-3 max-w-[280px]">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div
+                          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                          style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}
+                        >
+                          <Lightbulb size={14} style={{ color: 'var(--text-muted)' }} />
+                        </div>
+                        <span className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>{row.title}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>{row.category}</td>
+                    <td className="px-4 py-3"><Badge label={statusLabel(row.status)} className={STATUS_STYLE[row.status]} /></td>
+                    <td className="px-4 py-3"><Badge label={row.priority} className={PRIORITY_STYLE[row.priority]} /></td>
+                    <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{formatDate(row.createdAt)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{formatDate(row.updatedAt)}</td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); void openDetail(row.id) }}
+                        className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg border transition-colors hover:bg-white/5"
+                        style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
+                      >
+                        <Eye size={13} /> View
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-5 py-3 border-t text-xs" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
+          <div className="flex items-center justify-between px-4 py-3 border-t text-xs" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
             <span>Page {page} of {totalPages}</span>
             <div className="flex gap-2">
               <button
                 type="button"
                 disabled={page <= 1 || loading}
                 onClick={() => void loadList(page - 1)}
-                className="px-3 py-1.5 rounded-lg border disabled:opacity-40"
-                style={{ borderColor: 'var(--border-default)' }}
+                className="btn-secondary text-xs px-3 py-1.5 disabled:opacity-40"
               >
                 Previous
               </button>
@@ -489,15 +598,14 @@ function FeatureSuggestionsContent() {
                 type="button"
                 disabled={page >= totalPages || loading}
                 onClick={() => void loadList(page + 1)}
-                className="px-3 py-1.5 rounded-lg border disabled:opacity-40"
-                style={{ borderColor: 'var(--border-default)' }}
+                className="btn-secondary text-xs px-3 py-1.5 disabled:opacity-40"
               >
                 Next
               </button>
             </div>
           </div>
         )}
-      </section>
+      </div>
 
       {(selectedId || detailLoading) && (
         <DetailDrawer
@@ -513,7 +621,7 @@ function FeatureSuggestionsContent() {
 export default function FeatureSuggestionsPage() {
   return (
     <Suspense fallback={
-      <div className="space-y-4 max-w-6xl mx-auto">
+      <div className="space-y-4">
         <div className="h-8 w-48 rounded-lg animate-pulse" style={{ background: 'var(--bg-subtle)' }} />
         <div className="h-64 rounded-2xl animate-pulse" style={{ background: 'var(--bg-subtle)' }} />
       </div>

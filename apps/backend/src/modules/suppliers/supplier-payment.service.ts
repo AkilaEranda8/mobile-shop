@@ -70,9 +70,11 @@ export async function recordSupplierPayment(input: RecordSupplierPaymentInput) {
   }
 
   const paymentMethod = normalizeMethod(input.method || 'CASH')
+  // Bank account selection was removed from the UI: non-cash payments settle
+  // against the default accounting bank mapping (Main Bank). An explicit
+  // bankAccountId is still honoured when a caller provides one.
   let resolvedBankAccountId: string | undefined
-  if (paymentMethod !== 'CASH') {
-    if (!input.bankAccountId) throw new AppError('Select the bank account to pay from', 400)
+  if (input.bankAccountId && paymentMethod !== 'CASH') {
     const bank = await prisma.bankAccount.findFirst({
       where: {
         id: input.bankAccountId,
@@ -84,8 +86,6 @@ export async function recordSupplierPayment(input: RecordSupplierPaymentInput) {
     })
     if (!bank) throw new AppError('Bank account not found for this branch', 404)
     resolvedBankAccountId = bank.id
-  } else if (input.bankAccountId) {
-    throw new AppError('A bank account cannot be used for a cash payment', 400)
   }
 
   await assertBusinessDayOpenIfEnabled(input.tenantId, input.branchId, input.occurredAt ?? new Date())

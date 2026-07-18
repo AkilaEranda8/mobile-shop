@@ -155,14 +155,6 @@ export default function ArApPage() {
       toast.error('Enter a valid amount')
       return
     }
-    const needsBankAccount = tab === 'ap'
-      ? payMethod !== 'CASH'
-      : payMethod === 'BANK_TRANSFER'
-    if (needsBankAccount && !bankAccountId) {
-      toast.error('Select the bank account to use')
-      return
-    }
-
     let allocEntries = Object.entries(allocations)
       .filter(([, v]) => Number(v) > 0)
       .map(([id, v]) => ({ amount: Number(v), ...(tab === 'ar' ? { saleId: id } : { purchaseOrderId: id }) }))
@@ -196,7 +188,7 @@ export default function ArApPage() {
         paymentMethod: payMethod,
         reference: payRef || undefined,
         ...(branchId ? { branchId } : {}),
-        ...(needsBankAccount && bankAccountId ? { bankAccountId } : {}),
+        ...(tab === 'ar' && payMethod === 'BANK_TRANSFER' && bankAccountId ? { bankAccountId } : {}),
       }
       if (tab === 'ar') {
         await accountingApi.recordArPayment({
@@ -324,7 +316,7 @@ export default function ArApPage() {
                       <select value={payMethod} onChange={e => setPayMethod(e.target.value)} className="input-field text-sm">
                         {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
                       </select>
-                      {((tab === 'ap' && payMethod !== 'CASH') || (tab === 'ar' && payMethod === 'BANK_TRANSFER')) && bankAccounts.length > 0 && (
+                      {tab === 'ar' && payMethod === 'BANK_TRANSFER' && bankAccounts.length > 0 && (
                         <select value={bankAccountId} onChange={e => setBankAccountId(e.target.value)} className="input-field text-sm min-w-[140px]">
                           {bankAccounts.map(b => (
                             <option key={b.id} value={b.id}>{b.name}{b.bankName ? ` · ${b.bankName}` : ''}</option>

@@ -38,6 +38,11 @@ const inventorySubmenu: NavSubItem[] = [
   { href: '/dashboard/stock-transfer', icon: ArrowLeftRight, label: 'Stock Transfer', badge: 'NEW' },
 ]
 
+const suppliersSubmenu: NavSubItem[] = [
+  { href: '/dashboard/suppliers', icon: Truck, label: 'All Suppliers' },
+  { href: '/dashboard/supplier-payments', icon: Wallet, label: 'Supplier Payments', badge: 'NEW' },
+]
+
 const accountingSubmenu: NavSubItem[] = [
   { href: '/dashboard/accounting', icon: BookOpen, label: 'Overview' },
   { href: '/dashboard/accounting/journals', icon: FileText, label: 'GL Journals' },
@@ -92,9 +97,14 @@ const navItems: NavGroup[] = [
         label: 'Inventory',
         submenu: inventorySubmenu,
       },
-      { href: '/dashboard/suppliers', icon: Truck, label: 'Suppliers', feature: 'SUPPLIERS' },
+      {
+        href: '/dashboard/suppliers',
+        icon: Truck,
+        label: 'Suppliers',
+        feature: 'SUPPLIERS',
+        submenu: suppliersSubmenu,
+      },
       { href: '/dashboard/purchase-orders', icon: ClipboardList, label: 'Purchase Orders', feature: 'SUPPLIERS' },
-      { href: '/dashboard/supplier-payments', icon: Wallet, label: 'Supplier Payments', badge: 'NEW', feature: 'SUPPLIERS' },
       { href: '/dashboard/imei', icon: Smartphone, label: 'IMEI Tracker', badge: 'NEW', feature: 'IMEI' },
     ],
   },
@@ -218,6 +228,12 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       pathname.startsWith('/dashboard/stock-transfer')
     ) {
       setExpandedMenus(prev => ({ ...prev, inventory: true }))
+    }
+    if (
+      pathname.startsWith('/dashboard/suppliers') ||
+      pathname.startsWith('/dashboard/supplier-payments')
+    ) {
+      setExpandedMenus(prev => ({ ...prev, suppliers: true }))
     }
     if (
       pathname.startsWith('/dashboard/reports') ||
