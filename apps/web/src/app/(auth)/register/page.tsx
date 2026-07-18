@@ -212,11 +212,11 @@ function RegisterForm() {
                         {selectedPlan === plan.id && <div className="w-2 h-2 bg-violet-500 rounded-full" />}
                       </div>
                       <div>
-                        <p className="font-medium text-white text-sm">{plan.name}</p>
+                        <p className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>{plan.name}</p>
                         <p className="text-xs text-slate-500">{plan.desc}</p>
                       </div>
                     </div>
-                    <span className="text-sm font-bold text-white">{plan.price}</span>
+                    <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{plan.price}</span>
                   </div>
                 ))}
               </div>
