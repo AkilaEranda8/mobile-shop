@@ -58,7 +58,31 @@ export const customersService = {
   async update(tenantId: string, id: string, body: any) {
     const c = await prisma.customer.findFirst({ where: { id, tenantId } })
     if (!c) throw new AppError('Customer not found', 404)
-    return prisma.customer.update({ where: { id }, data: body })
+
+    const name = typeof body.name === 'string' ? body.name.trim() : c.name
+    const phone = typeof body.phone === 'string' ? body.phone.trim() : c.phone
+    if (!name) throw new AppError('Customer name is required', 400)
+    if (!phone) throw new AppError('Phone number is required', 400)
+
+    if (phone !== c.phone) {
+      const duplicate = await prisma.customer.findFirst({
+        where: { tenantId, phone, id: { not: id } },
+        select: { id: true },
+      })
+      if (duplicate) throw new AppError('Phone number already registered', 409)
+    }
+
+    return prisma.customer.update({
+      where: { id },
+      data: {
+        name,
+        phone,
+        ...(body.email !== undefined ? { email: String(body.email).trim() || null } : {}),
+        ...(body.address !== undefined ? { address: String(body.address).trim() || null } : {}),
+        ...(body.city !== undefined ? { city: String(body.city).trim() || null } : {}),
+        ...(body.notes !== undefined ? { notes: String(body.notes).trim() || null } : {}),
+      },
+    })
   },
 
   async search(tenantId: string, q: string) {

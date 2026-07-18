@@ -2,7 +2,7 @@
 
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Plus, Star, Phone, Mail, MapPin, Eye, Loader2, SlidersHorizontal, X, ShoppingBag, Wrench, CreditCard, Calendar, ChevronRight, Users, User, Hash, MessageSquare, ArrowRight, CheckCircle2, UserPlus, DollarSign, Building2, Wallet } from 'lucide-react'
+import { Plus, Star, Phone, Mail, MapPin, Eye, Loader2, SlidersHorizontal, X, ShoppingBag, Wrench, CreditCard, Calendar, ChevronRight, Users, User, Hash, MessageSquare, ArrowRight, CheckCircle2, UserPlus, DollarSign, Building2, Wallet, Pencil } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -563,9 +563,20 @@ const SEGMENTS = [
   }},
 ]
 
-/* ── Add Customer Modal ──────────────────────────────────────────────── */
-function AddCustomerModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({ name: '', phone: '', email: '', city: '', address: '' })
+/* ── Add / Edit Customer Modal ───────────────────────────────────────── */
+function CustomerFormModal({ customer, onClose, onSaved }: {
+  customer?: Customer
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const isEditing = Boolean(customer)
+  const [form, setForm] = useState({
+    name: customer?.name ?? '',
+    phone: customer?.phone ?? '',
+    email: customer?.email ?? '',
+    city: customer?.city ?? '',
+    address: customer?.address ?? '',
+  })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -573,9 +584,15 @@ function AddCustomerModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     e.preventDefault()
     setLoading(true); setError('')
     try {
-      await customersApi.create(form)
+      if (customer) {
+        await customersApi.update(customer.id, form)
+        toast.success('Customer updated')
+      } else {
+        await customersApi.create(form)
+        toast.success('Customer created')
+      }
       onSaved(); onClose()
-    } catch (err: any) { setError(err.message || 'Failed to create customer') }
+    } catch (err: any) { setError(err.message || `Failed to ${isEditing ? 'update' : 'create'} customer`) }
     finally { setLoading(false) }
   }
 
@@ -587,11 +604,13 @@ function AddCustomerModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
         <div className="flex items-center justify-between px-6 py-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-violet-500/10 border border-violet-500/20">
-              <UserPlus size={18} className="text-violet-500" />
+              {isEditing ? <Pencil size={18} className="text-violet-500" /> : <UserPlus size={18} className="text-violet-500" />}
             </div>
             <div>
-              <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>Add Customer</h3>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Register a new customer profile</p>
+              <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>{isEditing ? 'Edit Customer' : 'Add Customer'}</h3>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                {isEditing ? 'Update customer contact information' : 'Register a new customer profile'}
+              </p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-lg transition-colors hover:bg-red-500/10 hover:text-red-500" style={{ color: 'var(--text-muted)' }}><X size={16} /></button>
@@ -646,7 +665,7 @@ function AddCustomerModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="h-10 px-6 rounded-xl border text-sm font-semibold transition-colors" style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}>Cancel</button>
             <button type="submit" disabled={loading} className="flex-1 h-10 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60" style={{ background: 'var(--brand-gradient)' }}>
-              {loading ? <Loader2 size={14} className="animate-spin" /> : <><CheckCircle2 size={14} /> Save Customer</>}
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <><CheckCircle2 size={14} /> {isEditing ? 'Update Customer' : 'Save Customer'}</>}
             </button>
           </div>
         </form>
@@ -659,6 +678,7 @@ function AddCustomerModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
 export default function CustomersPage() {
   const searchParams = useSearchParams()
   const [showAddModal, setShowAddModal] = useState(false)
+  const [editCustomer, setEditCustomer] = useState<Customer | null>(null)
   const [detailId, setDetailId] = useState<string | null>(null)
   const [payCustomerId, setPayCustomerId] = useState<string | null>(null)
   const [segment, setSegment] = useState('all')
@@ -781,6 +801,16 @@ export default function CustomersPage() {
               Pay
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => setEditCustomer(row.original)}
+            title="Edit customer"
+            aria-label={`Edit ${row.original.name}`}
+            className="p-1.5 rounded-lg border transition-colors hover:border-violet-500/40 hover:text-violet-500"
+            style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}
+          >
+            <Pencil size={13} />
+          </button>
           <TableActionsRow showAction={{ action: () => openDetail(row.original.id) }} />
         </div>
       ),
@@ -800,7 +830,14 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-6">
-      {showAddModal && <AddCustomerModal onClose={() => setShowAddModal(false)} onSaved={refetch} />}
+      {showAddModal && <CustomerFormModal onClose={() => setShowAddModal(false)} onSaved={refetch} />}
+      {editCustomer && (
+        <CustomerFormModal
+          customer={editCustomer}
+          onClose={() => setEditCustomer(null)}
+          onSaved={refetch}
+        />
+      )}
       {detailId     && <CustomerDetailModal customerId={detailId} onClose={() => setDetailId(null)} />}
       {payCustomerId && (() => {
         const c = customers.find(x => x.id === payCustomerId)
