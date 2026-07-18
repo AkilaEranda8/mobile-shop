@@ -932,11 +932,16 @@ model Transaction {
   description   String
   paymentMethod PaymentMethod
   reference     String?
+  /// Optional Cash & Bank register used for BANK_TRANSFER / cheque supplier payments
+  bankAccountId String?
   performedBy   String
   createdAt     DateTime        @default(now())
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch Branch @relation(fields: [branchId], references: [id])
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch      Branch       @relation(fields: [branchId], references: [id])
+  bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, bankAccountId])
 }
 
 model DailySummary {
@@ -1848,6 +1853,7 @@ model BankAccount {
   tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branch    Branch?   @relation(fields: [branchId], references: [id])
   glAccount GlAccount @relation(fields: [glAccountId], references: [id])
+  transactions Transaction[]
 
   @@unique([tenantId, name])
 }

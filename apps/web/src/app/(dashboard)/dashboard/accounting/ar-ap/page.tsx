@@ -79,9 +79,23 @@ export default function ArApPage() {
   const [payRef, setPayRef] = useState('')
   const [payLoading, setPayLoading] = useState(false)
   const [allocations, setAllocations] = useState<Record<string, string>>({})
+  const [bankAccounts, setBankAccounts] = useState<Array<{ id: string; name: string; bankName?: string | null }>>([])
+  const [bankAccountId, setBankAccountId] = useState('')
 
   const asOf = businessToday()
   const branchId = getActiveBranchId() ?? ''
+
+  useEffect(() => {
+    if (!hasAccess) return
+    accountingApi.cashBankRegisters()
+      .then((r: any) => {
+        const banks = ((r?.data ?? []) as Array<{ kind: string; id: string; name: string; bankName?: string | null }>)
+          .filter(x => x.kind === 'BANK')
+        setBankAccounts(banks)
+        if (banks.length) setBankAccountId(banks.find(b => /main/i.test(b.name))?.id ?? banks[0].id)
+      })
+      .catch(() => {})
+  }, [hasAccess])
 
   const loadSummary = useCallback(async () => {
     setLoading(true)
@@ -145,6 +159,7 @@ export default function ArApPage() {
         paymentMethod: payMethod,
         reference: payRef || undefined,
         ...(branchId ? { branchId } : {}),
+        ...(payMethod === 'BANK_TRANSFER' && bankAccountId ? { bankAccountId } : {}),
       }
       const allocEntries = Object.entries(allocations)
         .filter(([, v]) => Number(v) > 0)
@@ -275,6 +290,13 @@ export default function ArApPage() {
                       <select value={payMethod} onChange={e => setPayMethod(e.target.value)} className="input-field text-sm">
                         {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
                       </select>
+                      {payMethod === 'BANK_TRANSFER' && bankAccounts.length > 0 && (
+                        <select value={bankAccountId} onChange={e => setBankAccountId(e.target.value)} className="input-field text-sm min-w-[140px]">
+                          {bankAccounts.map(b => (
+                            <option key={b.id} value={b.id}>{b.name}{b.bankName ? ` · ${b.bankName}` : ''}</option>
+                          ))}
+                        </select>
+                      )}
                       <input type="text" placeholder="Reference" value={payRef}
                         onChange={e => setPayRef(e.target.value)} className="input-field flex-1 min-w-[80px] text-sm" />
                       <button type="button" disabled={payLoading} onClick={handleRecordPayment}

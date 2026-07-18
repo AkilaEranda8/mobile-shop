@@ -510,13 +510,34 @@ router.post('/:id/payments', authorize('OWNER', 'MANAGER'), async (req: Request,
     const supplier = await prisma.supplier.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! } })
     if (!supplier) throw new AppError('Supplier not found', 404)
 
-    const { amount, method, reference, notes, poIds } = req.body
+    const { amount, method, reference, notes, poIds, bankAccountId } = req.body
     const payAmount = Number(amount)
     if (!payAmount || payAmount <= 0) throw new AppError('Invalid payment amount', 400)
 
     const userBranch = await prisma.userBranch.findFirst({ where: { userId: req.user!.userId } })
     const branchId = userBranch?.branchId
     if (!branchId) throw new AppError('No branch assigned to this user', 400)
+
+    // CHEQUE is UI-only — store as BANK_TRANSFER
+    const rawMethod = String(method || 'CASH').toUpperCase()
+    const paymentMethod = (rawMethod === 'CHEQUE' ? 'BANK_TRANSFER' : rawMethod) as
+      'CASH' | 'CARD' | 'UPI' | 'BANK_TRANSFER' | 'WALLET' | 'CREDIT'
+    if (!['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET'].includes(paymentMethod)) {
+      throw new AppError('Invalid payment method', 400)
+    }
+
+    let resolvedBankAccountId: string | undefined
+    if (bankAccountId) {
+      const bank = await prisma.bankAccount.findFirst({
+        where: { id: String(bankAccountId), tenantId: req.tenantId!, isActive: true },
+        select: { id: true, name: true },
+      })
+      if (!bank) throw new AppError('Bank account not found', 404)
+      resolvedBankAccountId = bank.id
+      if (paymentMethod !== 'BANK_TRANSFER') {
+        throw new AppError('Bank account can only be used with Bank Transfer / Cheque', 400)
+      }
+    }
 
     // Fetch target POs (specified or auto-select unpaid ones FIFO)
     const poWhere: any = {
@@ -563,8 +584,9 @@ router.post('/:id/payments', authorize('OWNER', 'MANAGER'), async (req: Request,
         category:      'Supplier Payment',
         amount:        payAmount,
         description:   `Payment to ${supplier.name}${reference ? ' · Ref: ' + reference : ''}`,
-        paymentMethod: method || 'CASH',
+        paymentMethod,
         reference:     reference || undefined,
+        bankAccountId: resolvedBankAccountId,
         performedBy:   req.user?.userId ?? 'system',
       },
     })

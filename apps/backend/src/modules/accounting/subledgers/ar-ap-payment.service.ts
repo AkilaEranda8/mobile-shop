@@ -31,7 +31,16 @@ export async function resolvePaymentGlAccountId(
   tenantId: string,
   branchId: string,
   method: PaymentMethod,
+  bankAccountId?: string | null,
 ) {
+  if (bankAccountId) {
+    const bank = await prisma.bankAccount.findFirst({
+      where: { id: bankAccountId, tenantId, isActive: true },
+      select: { glAccountId: true },
+    })
+    if (!bank) throw new AppError('Bank account not found', 404)
+    return bank.glAccountId
+  }
   if (method === 'CASH') return resolveBranchCashGlAccountId(tenantId, branchId)
   if (method === 'CARD') return resolveAccountIdByKey(tenantId, 'cardClearing')
   if (method === 'UPI' || method === 'WALLET') return resolveAccountIdByKey(tenantId, 'upiClearing')
@@ -51,6 +60,7 @@ type PaymentJournalOpts = {
   sourceEvent: string
   actorEmail?: string
   entryDate?: Date
+  bankAccountId?: string | null
   allocations?: Array<{ saleId?: string; purchaseOrderId?: string; amount: number }>
 }
 
@@ -68,7 +78,7 @@ export async function postArPaymentJournal(
   const amount = round2(Math.max(0, Number(opts.amount)))
   if (amount <= 0) throw new AppError('Payment amount must be greater than zero', 400)
 
-  const cashAccountId = await resolvePaymentGlAccountId(tenantId, opts.branchId, opts.paymentMethod)
+  const cashAccountId = await resolvePaymentGlAccountId(tenantId, opts.branchId, opts.paymentMethod, opts.bankAccountId)
   const arAccountId = await resolveAccountIdByKey(tenantId, 'ar')
 
   const metadata = {
@@ -77,6 +87,7 @@ export async function postArPaymentJournal(
     customerPhone: customer.phone,
     paymentMethod: opts.paymentMethod,
     reference: opts.reference ?? null,
+    bankAccountId: opts.bankAccountId ?? null,
     allocations: opts.allocations ?? null,
   }
 
@@ -138,7 +149,7 @@ export async function postApPaymentJournal(
   const amount = round2(Math.max(0, Number(opts.amount)))
   if (amount <= 0) throw new AppError('Payment amount must be greater than zero', 400)
 
-  const cashAccountId = await resolvePaymentGlAccountId(tenantId, opts.branchId, opts.paymentMethod)
+  const cashAccountId = await resolvePaymentGlAccountId(tenantId, opts.branchId, opts.paymentMethod, opts.bankAccountId)
   const apAccountId = await resolveAccountIdByKey(tenantId, 'ap')
 
   const metadata = {
@@ -146,6 +157,7 @@ export async function postApPaymentJournal(
     supplierName: supplier.name,
     paymentMethod: opts.paymentMethod,
     reference: opts.reference ?? null,
+    bankAccountId: opts.bankAccountId ?? null,
     allocations: opts.allocations ?? null,
   }
 
@@ -248,6 +260,7 @@ export async function postApPaymentFromTransaction(tenantId: string, txId: strin
     sourceEvent: 'AP_PAYMENT_MADE',
     actorEmail: actorEmail ?? tx.performedBy,
     entryDate: tx.createdAt,
+    bankAccountId: tx.bankAccountId,
   })
 }
 
@@ -303,6 +316,7 @@ export async function recordApPayment(
     paymentMethod: PaymentMethod
     reference?: string
     notes?: string
+    bankAccountId?: string
     allocations?: Array<{ purchaseOrderId: string; amount: number }>
   },
   actorEmail?: string,
@@ -320,6 +334,7 @@ export async function recordApPayment(
     sourceEvent: 'AP_PAYMENT_MADE',
     actorEmail,
     allocations: body.allocations,
+    bankAccountId: body.bankAccountId,
   })
 
   await syncApOperationalPayment(
@@ -332,6 +347,7 @@ export async function recordApPayment(
     body.reference,
     body.allocations,
     je.id,
+    body.bankAccountId,
   )
 
   return { journalEntry: je, paymentId }
@@ -448,6 +464,7 @@ async function syncApOperationalPayment(
   reference?: string,
   allocations?: Array<{ purchaseOrderId: string; amount: number }>,
   journalEntryId?: string,
+  bankAccountId?: string,
 ) {
   const supplier = await prisma.supplier.findFirst({ where: { id: supplierId, tenantId } })
   if (!supplier) return
@@ -505,6 +522,7 @@ async function syncApOperationalPayment(
         description: `Payment to ${supplier.name}${reference ? ` · Ref: ${reference}` : ''} — via Accounting`,
         paymentMethod,
         reference,
+        bankAccountId: bankAccountId || undefined,
         performedBy,
       },
     })

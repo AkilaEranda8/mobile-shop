@@ -10,7 +10,7 @@ import { TableActionsRow } from '@/components/table/table-actions-row'
 import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useSuppliers, usePurchaseOrders, useProducts } from '@/lib/hooks'
-import { suppliersApi, imeiApi, productsApi } from '@/lib/api'
+import { suppliersApi, imeiApi, productsApi, accountingApi } from '@/lib/api'
 import { getActiveBranchId } from '@/lib/active-branch'
 import toast from 'react-hot-toast'
 import { productSearchHaystack } from '@/lib/barcode-scan'
@@ -415,6 +415,16 @@ export function IMEIRegisterModal({ po, products, onClose, onSaved }: {
 /* ── Record Payment Modal ─────────────────────────────────────────── */
 const PAYMENT_METHODS = ['CASH', 'BANK_TRANSFER', 'CHEQUE', 'UPI', 'CARD'] as const
 
+type BankRegister = {
+  kind: string
+  id: string
+  name: string
+  bankName?: string | null
+  accountNo?: string | null
+  balance?: number
+  code?: string
+}
+
 export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
   supplier: Supplier
   allPOs: PurchaseOrder[]
@@ -429,15 +439,31 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
   const [method, setMethod] = useState<string>('CASH')
   const [reference, setReference] = useState('')
   const [loading, setLoading] = useState(false)
+  const [bankAccounts, setBankAccounts] = useState<BankRegister[]>([])
+  const [bankAccountId, setBankAccountId] = useState('')
 
   const selectedList = unpaidPOs.filter(p => selectedPOs.has(p.id))
   const totalDue = selectedList.reduce((s, p) => s + p.dueAmount, 0)
   const totalPoValue = selectedList.reduce((s, p) => s + (p.total ?? 0), 0)
   const [amount, setAmount] = useState(() => (totalDue > 0 ? totalDue.toFixed(2) : ''))
+  const needsBankAccount = method === 'BANK_TRANSFER' || method === 'CHEQUE'
 
   useEffect(() => {
     if (totalDue > 0) setAmount(totalDue.toFixed(2))
   }, [totalDue])
+
+  useEffect(() => {
+    accountingApi.cashBankRegisters()
+      .then((r: any) => {
+        const banks = ((r?.data ?? r) as BankRegister[]).filter(x => x.kind === 'BANK')
+        setBankAccounts(banks)
+        if (banks.length) {
+          const main = banks.find(b => /main/i.test(b.name)) ?? banks[0]
+          setBankAccountId(main.id)
+        }
+      })
+      .catch(() => setBankAccounts([]))
+  }, [])
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -463,6 +489,10 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
       toast.error('Enter a valid payment amount')
       return
     }
+    if (needsBankAccount && bankAccounts.length > 0 && !bankAccountId) {
+      toast.error('Select the bank account to pay from')
+      return
+    }
     setLoading(true)
     try {
       await suppliersApi.recordPayment(supplier.id, {
@@ -470,6 +500,7 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
         method,
         reference: reference || undefined,
         poIds: [...selectedPOs],
+        ...(needsBankAccount && bankAccountId ? { bankAccountId } : {}),
       })
       toast.success('Payment recorded successfully')
       onSaved()
@@ -482,6 +513,7 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
   }
 
   const methodLabel = (m: string) => m.replace(/_/g, ' ')
+  const selectedBank = bankAccounts.find(b => b.id === bankAccountId)
 
   return (
     <div
@@ -565,7 +597,10 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
               <div className="flex items-center gap-1.5">
                 <CreditCard size={13} style={{ color: 'var(--text-muted)' }} />
                 <span style={{ color: 'var(--text-muted)' }}>Method:</span>
-                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{methodLabel(method)}</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {methodLabel(method)}
+                  {needsBankAccount && selectedBank ? ` · ${selectedBank.name}` : ''}
+                </span>
               </div>
             </div>
 
@@ -739,6 +774,35 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
               })}
             </div>
           </div>
+
+          {needsBankAccount && (
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                Pay from bank account
+              </label>
+              {bankAccounts.length > 0 ? (
+                <select
+                  className="input-field"
+                  value={bankAccountId}
+                  onChange={e => setBankAccountId(e.target.value)}
+                  required
+                >
+                  {bankAccounts.map(b => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                      {b.bankName ? ` · ${b.bankName}` : ''}
+                      {b.accountNo ? ` · ${b.accountNo}` : ''}
+                      {typeof b.balance === 'number' ? ` · Bal ${formatCurrency(b.balance)}` : ''}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-xs rounded-lg border px-3 py-2" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                  No bank accounts found. Add one under Accounting → Cash & Bank, or payment will use the default Bank — Main mapping.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Footer */}
           <div
