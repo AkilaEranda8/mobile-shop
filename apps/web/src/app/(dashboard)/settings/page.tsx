@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import {
   Save, Building2, User, Bell, Shield, Palette, CreditCard, Users,
   Loader2, Eye, EyeOff, Trash2, Plus, X, CheckCircle, Check, FileText, Smartphone, ChevronRight, BookOpen,
-  Package, Tag, Wallet,
+  Package, Tag, Wallet, Copy,
 } from 'lucide-react'
 import { authApi, usersApi, tenantApi, uploadApi, deviceCatalogApi, plansApi, branchesApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
@@ -142,6 +142,7 @@ export default function SettingsPage() {
 
   /* ── Shop Info ── */
   const [tenant, setTenant]       = useState<any>(null)
+  const [showFullTenantId, setShowFullTenantId] = useState(false)
   const [shopForm, setShopForm]   = useState({ name: '', ownerName: '', ownerEmail: '', phone: '', address: '', city: '' })
   const [shopBranchId, setShopBranchId] = useState('')
   const [shopSaving, setShopSaving] = useState(false)
@@ -582,8 +583,31 @@ export default function SettingsPage() {
                 <div className="pt-3 border-t border-white/5">
                   <p className="text-xs text-gray-500 dark:text-slate-500 mb-2">Read-only information</p>
                   <div className="grid sm:grid-cols-3 gap-3">
+                    <div className="bg-white/3 rounded-xl p-3 border border-white/5">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[10px] text-slate-600 uppercase tracking-wide">Tenant ID</p>
+                        <button
+                          type="button"
+                          title="Copy Tenant ID"
+                          onClick={() => {
+                            navigator.clipboard.writeText(tenant.id ?? '')
+                              .then(() => toast.success('Tenant ID copied'))
+                              .catch(() => toast.error('Copy failed'))
+                          }}
+                          className="p-1 rounded-md text-slate-500 hover:text-violet-500 hover:bg-violet-500/10 transition-colors flex-shrink-0"
+                        >
+                          <Copy size={12} />
+                        </button>
+                      </div>
+                      <p
+                        title={showFullTenantId ? 'Click to shorten' : 'Click to show full ID'}
+                        onClick={() => setShowFullTenantId(p => !p)}
+                        className={`text-xs text-gray-700 dark:text-slate-300 font-medium mt-0.5 cursor-pointer select-all ${showFullTenantId ? 'break-all' : 'truncate'}`}
+                      >
+                        {showFullTenantId ? tenant.id : tenant.id?.slice(0, 12) + '…'}
+                      </p>
+                    </div>
                     {[
-                      { label: 'Tenant ID',  value: tenant.id?.slice(0, 12) + '…' },
                       { label: 'Slug',       value: tenant.slug },
                       { label: 'Plan',       value: tenant.plan },
                       { label: 'Status',     value: tenant.status },
