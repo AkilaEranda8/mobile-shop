@@ -187,8 +187,10 @@ export default function DailyClosingPage() {
     if (!d?.cash) return 0
     const open = typeof openingCash === 'number' ? openingCash : (d.openingCash ?? 0)
     const refunds = d.cash.cashRefunds ?? 0
-    const supplierPayments = d.expenses?.supplierPayments ?? 0
-    return Math.round((open + d.cash.cashSales - d.expenses.totalExpenses - supplierPayments - d.cash.bankDeposits - refunds) * 100) / 100
+    const cashExpenses = d.expenses?.cashOperatingExpenses ?? d.expenses?.totalExpenses ?? 0
+    const cashSupplierPayments = d.expenses?.cashSupplierPayments ?? 0
+    const cashBankDeposits = d.cash.cashBankDeposits ?? d.cash.bankDeposits ?? 0
+    return Math.round((open + d.cash.cashSales - cashExpenses - cashSupplierPayments - cashBankDeposits - refunds) * 100) / 100
   }, [d, openingCash])
 
   const variance = Math.round((expectedCash - cashTotal) * 100) / 100
@@ -649,8 +651,8 @@ export default function DailyClosingPage() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                     <MetricCard label="Opening Cash" value={formatCurrency(typeof openingCash === 'number' ? openingCash : (d?.openingCash ?? 0))} />
                     <MetricCard label="Cash Sales" value={formatCurrency(d?.cash?.cashSales ?? 0)} tone="green" />
-                    <MetricCard label="OpEx (Cash Out)" value={formatCurrency(d?.expenses?.totalExpenses ?? 0)} tone="red" />
-                    <MetricCard label="Supplier Payments" value={formatCurrency(d?.expenses?.supplierPayments ?? 0)} tone="amber" />
+                    <MetricCard label="Cash OpEx" value={formatCurrency(d?.expenses?.cashOperatingExpenses ?? d?.expenses?.totalExpenses ?? 0)} tone="red" />
+                    <MetricCard label="Cash Supplier Payments" value={formatCurrency(d?.expenses?.cashSupplierPayments ?? 0)} tone="amber" />
                     <MetricCard label="Bank Deposits" value={formatCurrency(d?.cash?.bankDeposits ?? 0)} />
                     <MetricCard label="Cash In Bank" value={formatCurrency(d?.cash?.cashInBank ?? 0)} />
                   </div>

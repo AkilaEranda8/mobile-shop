@@ -923,8 +923,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
     if (!dayEndData?.cash) return 0
     const open = dayEndData.openingCash ?? 0
     const refunds = dayEndData.cash.cashRefunds ?? 0
-    const supplierPayments = dayEndData.expenses?.supplierPayments ?? 0
-    return Math.round((open + dayEndData.cash.cashSales - dayEndData.expenses.totalExpenses - supplierPayments - dayEndData.cash.bankDeposits - refunds) * 100) / 100
+    const cashExpenses = dayEndData.expenses?.cashOperatingExpenses ?? dayEndData.expenses.totalExpenses ?? 0
+    const cashSupplierPayments = dayEndData.expenses?.cashSupplierPayments ?? 0
+    const cashBankDeposits = dayEndData.cash.cashBankDeposits ?? dayEndData.cash.bankDeposits ?? 0
+    return Math.round((open + dayEndData.cash.cashSales - cashExpenses - cashSupplierPayments - cashBankDeposits - refunds) * 100) / 100
   }, [dayEndData])
 
   const dayEndVariance = Math.round((dayEndExpectedCash - dayEndCashTotal) * 100) / 100

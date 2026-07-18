@@ -1,0 +1,232 @@
+import { Prisma, type PaymentMethod } from '@prisma/client'
+import { prisma } from '../../config/database'
+import { AppError } from '../../middleware/error.middleware'
+import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
+import { emitApPaymentAccounting } from '../accounting/integration/accounting-events.service'
+
+const round2 = (value: number) => Math.round(value * 100) / 100
+
+export type SupplierPaymentAllocationInput = {
+  purchaseOrderId: string
+  amount?: number
+}
+
+export type RecordSupplierPaymentInput = {
+  tenantId: string
+  supplierId: string
+  branchId: string
+  amount: number
+  method: string
+  reference?: string
+  notes?: string
+  bankAccountId?: string
+  occurredAt?: Date
+  performedBy: string
+  actorEmail?: string
+  allocations: SupplierPaymentAllocationInput[]
+}
+
+function normalizeMethod(raw: string): PaymentMethod {
+  const method = raw.toUpperCase() === 'CHEQUE' ? 'BANK_TRANSFER' : raw.toUpperCase()
+  if (!['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET'].includes(method)) {
+    throw new AppError('Invalid payment method', 400)
+  }
+  return method as PaymentMethod
+}
+
+export async function recordSupplierPayment(input: RecordSupplierPaymentInput) {
+  const payAmount = round2(Number(input.amount))
+  if (!Number.isFinite(payAmount) || payAmount <= 0) {
+    throw new AppError('Invalid payment amount', 400)
+  }
+
+  const supplier = await prisma.supplier.findFirst({
+    where: { id: input.supplierId, tenantId: input.tenantId, isActive: true },
+  })
+  if (!supplier) throw new AppError('Supplier not found', 404)
+
+  const normalized = input.allocations
+    .map(a => ({
+      purchaseOrderId: String(a.purchaseOrderId ?? '').trim(),
+      amount: a.amount == null ? undefined : round2(Number(a.amount)),
+    }))
+    .filter(a => a.purchaseOrderId)
+  if (!normalized.length) throw new AppError('Select at least one unpaid purchase order', 400)
+  if (new Set(normalized.map(a => a.purchaseOrderId)).size !== normalized.length) {
+    throw new AppError('A purchase order can only be selected once', 400)
+  }
+  if (normalized.some(a => a.amount != null && (!Number.isFinite(a.amount) || a.amount <= 0))) {
+    throw new AppError('Invalid purchase order allocation amount', 400)
+  }
+  const hasExplicitAmounts = normalized.some(a => a.amount != null)
+  if (hasExplicitAmounts && normalized.some(a => a.amount == null)) {
+    throw new AppError('Provide an amount for every selected purchase order', 400)
+  }
+  if (hasExplicitAmounts) {
+    const allocationTotal = round2(normalized.reduce((sum, a) => sum + Number(a.amount), 0))
+    if (allocationTotal !== payAmount) {
+      throw new AppError('Purchase order allocations must equal the payment amount', 400)
+    }
+  }
+
+  const paymentMethod = normalizeMethod(input.method || 'CASH')
+  let resolvedBankAccountId: string | undefined
+  if (paymentMethod !== 'CASH') {
+    if (!input.bankAccountId) throw new AppError('Select the bank account to pay from', 400)
+    const bank = await prisma.bankAccount.findFirst({
+      where: {
+        id: input.bankAccountId,
+        tenantId: input.tenantId,
+        isActive: true,
+        OR: [{ branchId: null }, { branchId: input.branchId }],
+      },
+      select: { id: true },
+    })
+    if (!bank) throw new AppError('Bank account not found for this branch', 404)
+    resolvedBankAccountId = bank.id
+  } else if (input.bankAccountId) {
+    throw new AppError('A bank account cannot be used for a cash payment', 400)
+  }
+
+  await assertBusinessDayOpenIfEnabled(input.tenantId, input.branchId, input.occurredAt ?? new Date())
+
+  const runTransaction = () => prisma.$transaction(async tx => {
+    const selectedIds = normalized.map(a => a.purchaseOrderId)
+    const purchaseOrders = await tx.purchaseOrder.findMany({
+      where: {
+        id: { in: selectedIds },
+        tenantId: input.tenantId,
+        supplierId: input.supplierId,
+        branchId: input.branchId,
+        status: 'RECEIVED',
+        dueAmount: { gt: 0 },
+      },
+      orderBy: { createdAt: 'asc' },
+    })
+    if (purchaseOrders.length !== selectedIds.length) {
+      throw new AppError('One or more selected purchase orders are invalid or already paid', 400)
+    }
+
+    const selectedDue = round2(purchaseOrders.reduce((sum, po) => sum + Number(po.dueAmount), 0))
+    if (payAmount > selectedDue) {
+      throw new AppError(`Payment cannot exceed selected outstanding amount (${selectedDue.toFixed(2)})`, 400)
+    }
+
+    const requestedByPo = new Map(normalized.map(a => [a.purchaseOrderId, a.amount]))
+    let remaining = payAmount
+    const updates: Array<{
+      id: string
+      poNumber: string
+      amount: number
+      paidAmount: number
+      dueAmount: number
+      status: 'CLOSED' | 'RECEIVED'
+    }> = []
+
+    for (const po of purchaseOrders) {
+      if (remaining <= 0) break
+      const requested = requestedByPo.get(po.id)
+      const allocate = round2(Math.min(requested ?? remaining, remaining, Number(po.dueAmount)))
+      if (requested != null && allocate !== requested) {
+        throw new AppError(`Allocation exceeds the outstanding amount for ${po.poNumber}`, 400)
+      }
+      if (allocate <= 0) continue
+      const newPaid = round2(Number(po.paidAmount) + allocate)
+      const newDue = round2(Math.max(0, Number(po.dueAmount) - allocate))
+      await tx.purchaseOrder.update({
+        where: { id: po.id },
+        // PurchaseOrder.status is primarily a fulfilment state. Keep a partially
+        // paid received order RECEIVED so it can never be received/restocked twice.
+        data: { paidAmount: newPaid, dueAmount: newDue, status: newDue === 0 ? 'CLOSED' : 'RECEIVED' },
+      })
+      updates.push({
+        id: po.id,
+        poNumber: po.poNumber,
+        amount: allocate,
+        paidAmount: newPaid,
+        dueAmount: newDue,
+        status: newDue === 0 ? 'CLOSED' : 'RECEIVED',
+      })
+      remaining = round2(remaining - allocate)
+    }
+    if (remaining !== 0) throw new AppError('Payment could not be fully allocated', 409)
+
+    const allocationText = updates.map(u => `${u.poNumber}: ${u.amount.toFixed(2)}`).join(', ')
+    const transaction = await tx.transaction.create({
+      data: {
+        tenantId: input.tenantId,
+        branchId: input.branchId,
+        type: 'EXPENSE',
+        category: 'Supplier Payment',
+        amount: payAmount,
+        description: `Payment to ${supplier.name} · ${allocationText}${input.reference ? ` · Ref: ${input.reference.trim()}` : ''}${input.notes ? ` · ${input.notes.trim()}` : ''}`,
+        paymentMethod,
+        reference: input.reference?.trim() || undefined,
+        bankAccountId: resolvedBankAccountId,
+        supplierId: supplier.id,
+        purchaseOrderId: updates[0].id,
+        occurredAt: input.occurredAt,
+        performedBy: input.performedBy,
+      },
+    })
+    await tx.supplierPaymentAllocation.createMany({
+      data: updates.map(u => ({
+        tenantId: input.tenantId,
+        transactionId: transaction.id,
+        purchaseOrderId: u.id,
+        amount: u.amount,
+      })),
+    })
+
+    const agg = await tx.purchaseOrder.aggregate({
+      where: { supplierId: supplier.id, tenantId: input.tenantId },
+      _count: { id: true },
+      _sum: { total: true, dueAmount: true },
+    })
+    await tx.supplier.update({
+      where: { id: supplier.id },
+      data: {
+        totalOrders: agg._count.id ?? 0,
+        totalPurchaseValue: agg._sum.total ?? 0,
+        outstandingDues: agg._sum.dueAmount ?? 0,
+      },
+    })
+
+    const accounting = await tx.accountingSettings.findUnique({
+      where: { tenantId: input.tenantId },
+      select: { initializedAt: true },
+    })
+    if (accounting?.initializedAt) {
+      await tx.accountingOutbox.create({
+        data: {
+          tenantId: input.tenantId,
+          branchId: input.branchId,
+          sourceType: 'Transaction',
+          sourceId: transaction.id,
+          eventType: 'AP_PAYMENT_MADE',
+          payload: { allocations: updates.map(u => ({ purchaseOrderId: u.id, amount: u.amount })) },
+        },
+      })
+    }
+    return { transaction, updates }
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
+
+  let result: Awaited<ReturnType<typeof runTransaction>> | undefined
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      result = await runTransaction()
+      break
+    } catch (error) {
+      if ((error as { code?: string }).code !== 'P2034' || attempt === 3) throw error
+    }
+  }
+  if (!result) throw new AppError('Payment could not be recorded', 409)
+
+  await emitApPaymentAccounting(
+    input.tenantId,
+    result.transaction.id,
+    input.branchId,
+    input.actorEmail,
+  )
+  return result
+}

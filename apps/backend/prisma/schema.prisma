@@ -905,6 +905,7 @@ model PurchaseOrder {
   items        POItem[]
   imeiRecords  ImeiRecord[]
   transactions Transaction[]
+  paymentAllocations SupplierPaymentAllocation[]
 
   @@unique([tenantId, poNumber])
 }
@@ -954,10 +955,27 @@ model Transaction {
   bankAccount   BankAccount?   @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
   supplier      Supplier?      @relation(fields: [supplierId], references: [id], onDelete: SetNull)
   purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  supplierPaymentAllocations SupplierPaymentAllocation[]
 
   @@index([tenantId, bankAccountId])
   @@index([tenantId, category, createdAt])
   @@index([tenantId, supplierId])
+}
+
+model SupplierPaymentAllocation {
+  id              String   @id @default(cuid())
+  tenantId        String
+  transactionId   String
+  purchaseOrderId String
+  amount          Float
+  createdAt       DateTime @default(now())
+
+  transaction   Transaction   @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+
+  @@unique([transactionId, purchaseOrderId])
+  @@index([tenantId, purchaseOrderId])
+  @@index([tenantId, transactionId])
 }
 
 model DailySummary {

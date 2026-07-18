@@ -120,7 +120,10 @@ export async function processAccountingOutbox(tenantId: string, limit = 50, acto
       } else if (item.eventType === 'AR_PAYMENT_RECEIVED' && item.sourceType === 'Transaction') {
         await postArPaymentFromTransaction(tenantId, item.sourceId, actorEmail)
       } else if (item.eventType === 'AP_PAYMENT_MADE' && item.sourceType === 'Transaction') {
-        await postApPaymentFromTransaction(tenantId, item.sourceId, actorEmail)
+        const payload = item.payload as {
+          allocations?: Array<{ purchaseOrderId?: string; amount: number }>
+        } | null
+        await postApPaymentFromTransaction(tenantId, item.sourceId, actorEmail, payload?.allocations)
       } else {
         throw new AppError(`Unsupported outbox item: ${item.sourceType} ${item.eventType}`, 400)
       }

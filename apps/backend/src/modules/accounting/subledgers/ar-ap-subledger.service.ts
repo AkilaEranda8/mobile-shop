@@ -385,7 +385,12 @@ export async function getApSupplierDetail(opts: SubledgerOpts & { supplierId: st
   )
 
   const openPurchaseOrders = await prisma.purchaseOrder.findMany({
-    where: { tenantId: opts.tenantId, supplierId: opts.supplierId, dueAmount: { gt: 0 } },
+    where: {
+      tenantId: opts.tenantId,
+      supplierId: opts.supplierId,
+      status: 'RECEIVED',
+      dueAmount: { gt: 0 },
+    },
     orderBy: { createdAt: 'asc' },
     select: { id: true, poNumber: true, dueAmount: true, createdAt: true },
   })

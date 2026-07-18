@@ -30,7 +30,8 @@ import {
   getArCustomerDetail,
   getArSubledgerSummary,
 } from './subledgers/ar-ap-subledger.service'
-import { recordApPayment, recordArPayment } from './subledgers/ar-ap-payment.service'
+import { recordArPayment } from './subledgers/ar-ap-payment.service'
+import { recordSupplierPayment } from '../suppliers/supplier-payment.service'
 import {
   createManualJournalEntry,
   getJournalEntry,
@@ -572,18 +573,22 @@ router.post('/ap/payments', authorize('OWNER', 'MANAGER'), async (req: Request, 
   try {
     const branchId = (req.body.branchId as string) || effectiveBranchId(req)
     if (!branchId) throw new AppError('branchId is required', 400)
+    const result = await recordSupplierPayment({
+      tenantId: req.tenantId!,
+      supplierId: String(req.body.supplierId ?? ''),
+      branchId,
+      amount: Number(req.body.amount),
+      method: String(req.body.paymentMethod ?? 'CASH'),
+      reference: req.body.reference ? String(req.body.reference) : undefined,
+      notes: req.body.notes ? String(req.body.notes) : undefined,
+      bankAccountId: req.body.bankAccountId ? String(req.body.bankAccountId) : undefined,
+      performedBy: req.user?.userId ?? 'system',
+      actorEmail: req.user?.email,
+      allocations: Array.isArray(req.body.allocations) ? req.body.allocations : [],
+    })
     sendSuccess(
       res,
-      await recordApPayment(req.tenantId!, {
-        supplierId: req.body.supplierId,
-        branchId,
-        amount: Number(req.body.amount),
-        paymentMethod: req.body.paymentMethod ?? 'CASH',
-        reference: req.body.reference,
-        notes: req.body.notes,
-        bankAccountId: req.body.bankAccountId,
-        allocations: req.body.allocations,
-      }, req.user?.email),
+      { transaction: result.transaction, updatedPOs: result.updates.length },
       'AP payment recorded',
       201,
     )

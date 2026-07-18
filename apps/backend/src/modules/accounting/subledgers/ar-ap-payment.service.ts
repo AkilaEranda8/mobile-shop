@@ -5,6 +5,7 @@ import { createPostedJournalEntry } from '../journals/journal-create.service'
 import type { JournalDraftLine } from '../journals/journal-validator.util'
 import { round2 } from '../reports/gl-balances.util'
 import { requireAccountingInitialized } from '../accounting-init.service'
+import { businessDateDb, businessDateFromInstant } from '../../../utils/date-range'
 
 async function getSettingsOrThrow(tenantId: string) {
   return requireAccountingInitialized(tenantId)
@@ -78,6 +79,40 @@ export async function postArPaymentJournal(
   const amount = round2(Math.max(0, Number(opts.amount)))
   if (amount <= 0) throw new AppError('Payment amount must be greater than zero', 400)
 
+  // Recover cleanly if journal creation succeeded but the idempotency link did not.
+  const existingJournal = await prisma.journalEntry.findUnique({
+    where: {
+      tenantId_sourceRefType_sourceRefId_sourceEvent: {
+        tenantId,
+        sourceRefType: opts.sourceRefType,
+        sourceRefId: opts.sourceRefId,
+        sourceEvent: opts.sourceEvent,
+      },
+    },
+    include: { lines: true },
+  })
+  if (existingJournal) {
+    await prisma.integrationLink.upsert({
+      where: {
+        tenantId_sourceType_sourceId_eventType: {
+          tenantId,
+          sourceType: opts.sourceRefType,
+          sourceId: opts.sourceRefId,
+          eventType: opts.sourceEvent,
+        },
+      },
+      create: {
+        tenantId,
+        sourceType: opts.sourceRefType,
+        sourceId: opts.sourceRefId,
+        eventType: opts.sourceEvent,
+        journalEntryId: existingJournal.id,
+      },
+      update: { journalEntryId: existingJournal.id },
+    })
+    return existingJournal
+  }
+
   const cashAccountId = await resolvePaymentGlAccountId(tenantId, opts.branchId, opts.paymentMethod, opts.bankAccountId)
   const arAccountId = await resolveAccountIdByKey(tenantId, 'ar')
 
@@ -122,14 +157,23 @@ export async function postArPaymentJournal(
     lines,
   })
 
-  await prisma.integrationLink.create({
-    data: {
+  await prisma.integrationLink.upsert({
+    where: {
+      tenantId_sourceType_sourceId_eventType: {
+        tenantId,
+        sourceType: opts.sourceRefType,
+        sourceId: opts.sourceRefId,
+        eventType: opts.sourceEvent,
+      },
+    },
+    create: {
       tenantId,
       sourceType: opts.sourceRefType,
       sourceId: opts.sourceRefId,
       eventType: opts.sourceEvent,
       journalEntryId: je.id,
     },
+    update: { journalEntryId: je.id },
   })
 
   return je
@@ -148,6 +192,40 @@ export async function postApPaymentJournal(
 
   const amount = round2(Math.max(0, Number(opts.amount)))
   if (amount <= 0) throw new AppError('Payment amount must be greater than zero', 400)
+
+  // Recover cleanly if journal creation succeeded but the idempotency link did not.
+  const existingJournal = await prisma.journalEntry.findUnique({
+    where: {
+      tenantId_sourceRefType_sourceRefId_sourceEvent: {
+        tenantId,
+        sourceRefType: opts.sourceRefType,
+        sourceRefId: opts.sourceRefId,
+        sourceEvent: opts.sourceEvent,
+      },
+    },
+    include: { lines: true },
+  })
+  if (existingJournal) {
+    await prisma.integrationLink.upsert({
+      where: {
+        tenantId_sourceType_sourceId_eventType: {
+          tenantId,
+          sourceType: opts.sourceRefType,
+          sourceId: opts.sourceRefId,
+          eventType: opts.sourceEvent,
+        },
+      },
+      create: {
+        tenantId,
+        sourceType: opts.sourceRefType,
+        sourceId: opts.sourceRefId,
+        eventType: opts.sourceEvent,
+        journalEntryId: existingJournal.id,
+      },
+      update: { journalEntryId: existingJournal.id },
+    })
+    return existingJournal
+  }
 
   const cashAccountId = await resolvePaymentGlAccountId(tenantId, opts.branchId, opts.paymentMethod, opts.bankAccountId)
   const apAccountId = await resolveAccountIdByKey(tenantId, 'ap')
@@ -192,14 +270,23 @@ export async function postApPaymentJournal(
     lines,
   })
 
-  await prisma.integrationLink.create({
-    data: {
+  await prisma.integrationLink.upsert({
+    where: {
+      tenantId_sourceType_sourceId_eventType: {
+        tenantId,
+        sourceType: opts.sourceRefType,
+        sourceId: opts.sourceRefId,
+        eventType: opts.sourceEvent,
+      },
+    },
+    create: {
       tenantId,
       sourceType: opts.sourceRefType,
       sourceId: opts.sourceRefId,
       eventType: opts.sourceEvent,
       journalEntryId: je.id,
     },
+    update: { journalEntryId: je.id },
   })
 
   return je
@@ -232,10 +319,19 @@ export async function postArPaymentFromTransaction(tenantId: string, txId: strin
     entryDate: tx.createdAt,
   })
 }
-
-export async function postApPaymentFromTransaction(tenantId: string, txId: string, actorEmail?: string) {
+export async function postApPaymentFromTransaction(
+  tenantId: string,
+  txId: string,
+  actorEmail?: string,
+  allocations?: Array<{ purchaseOrderId?: string; amount: number }>,
+) {
   const tx = await prisma.transaction.findFirst({
     where: { id: txId, tenantId, type: 'EXPENSE', category: 'Supplier Payment' },
+    include: {
+      supplierPaymentAllocations: {
+        select: { purchaseOrderId: true, amount: true },
+      },
+    },
   })
   if (!tx) throw new AppError('AP payment transaction not found', 404)
 
@@ -262,8 +358,9 @@ export async function postApPaymentFromTransaction(tenantId: string, txId: strin
     sourceRefId: tx.id,
     sourceEvent: 'AP_PAYMENT_MADE',
     actorEmail: actorEmail ?? tx.performedBy,
-    entryDate: tx.occurredAt ?? tx.createdAt,
+    entryDate: businessDateDb(businessDateFromInstant(tx.occurredAt ?? tx.createdAt)),
     bankAccountId: tx.bankAccountId,
+    allocations: allocations?.length ? allocations : tx.supplierPaymentAllocations,
   })
 }
 
@@ -305,52 +402,6 @@ export async function recordArPayment(
     body.reference,
     body.allocations,
     je.id,
-  )
-
-  return { journalEntry: je, paymentId }
-}
-
-export async function recordApPayment(
-  tenantId: string,
-  body: {
-    supplierId: string
-    branchId: string
-    amount: number
-    paymentMethod: PaymentMethod
-    reference?: string
-    notes?: string
-    bankAccountId?: string
-    allocations?: Array<{ purchaseOrderId: string; amount: number }>
-  },
-  actorEmail?: string,
-) {
-  const paymentId = `app-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-  const je = await postApPaymentJournal(tenantId, body.supplierId, {
-    tenantId,
-    branchId: body.branchId,
-    amount: body.amount,
-    paymentMethod: body.paymentMethod,
-    reference: body.reference,
-    memo: body.notes ?? `Manual AP payment`,
-    sourceRefType: 'ApPayment',
-    sourceRefId: paymentId,
-    sourceEvent: 'AP_PAYMENT_MADE',
-    actorEmail,
-    allocations: body.allocations,
-    bankAccountId: body.bankAccountId,
-  })
-
-  await syncApOperationalPayment(
-    tenantId,
-    body.supplierId,
-    body.branchId,
-    body.amount,
-    body.paymentMethod,
-    actorEmail ?? 'system',
-    body.reference,
-    body.allocations,
-    je.id,
-    body.bankAccountId,
   )
 
   return { journalEntry: je, paymentId }
@@ -454,109 +505,5 @@ async function syncArOperationalPayment(
         },
       })
     }
-  })
-}
-
-async function syncApOperationalPayment(
-  tenantId: string,
-  supplierId: string,
-  branchId: string,
-  amount: number,
-  paymentMethod: PaymentMethod,
-  performedBy: string,
-  reference?: string,
-  allocations?: Array<{ purchaseOrderId: string; amount: number }>,
-  journalEntryId?: string,
-  bankAccountId?: string,
-) {
-  const supplier = await prisma.supplier.findFirst({ where: { id: supplierId, tenantId } })
-  if (!supplier) return
-
-  const payAmount = round2(amount)
-
-  await prisma.$transaction(async tx => {
-    if (allocations?.length) {
-      let remaining = payAmount
-      for (const a of allocations) {
-        if (remaining <= 0) break
-        const po = await tx.purchaseOrder.findFirst({ where: { id: a.purchaseOrderId, tenantId, supplierId } })
-        if (!po || po.dueAmount <= 0) continue
-        const allocate = round2(Math.min(Number(a.amount), remaining, po.dueAmount))
-        if (allocate <= 0) continue
-        const newPaid = round2(po.paidAmount + allocate)
-        const newDue = round2(Math.max(0, po.dueAmount - allocate))
-        await tx.purchaseOrder.update({
-          where: { id: po.id },
-          data: { paidAmount: newPaid, dueAmount: newDue, status: newDue === 0 ? 'CLOSED' : 'PARTIAL' },
-        })
-        remaining = round2(remaining - allocate)
-      }
-    } else {
-      const unpaidPOs = await tx.purchaseOrder.findMany({
-        where: { tenantId, supplierId, dueAmount: { gt: 0 } },
-        orderBy: { createdAt: 'asc' },
-      })
-
-      let remaining = payAmount
-      for (const po of unpaidPOs) {
-        if (remaining <= 0) break
-        const allocate = round2(Math.min(remaining, po.dueAmount))
-        const newPaid = round2(po.paidAmount + allocate)
-        const newDue = round2(Math.max(0, po.dueAmount - allocate))
-        await tx.purchaseOrder.update({
-          where: { id: po.id },
-          data: {
-            paidAmount: newPaid,
-            dueAmount: newDue,
-            status: newDue === 0 ? 'CLOSED' : 'PARTIAL',
-          },
-        })
-        remaining = round2(remaining - allocate)
-      }
-    }
-
-    const primaryPoId = allocations?.[0]?.purchaseOrderId
-    const transaction = await tx.transaction.create({
-      data: {
-        tenantId,
-        branchId,
-        type: 'EXPENSE',
-        category: 'Supplier Payment',
-        amount: payAmount,
-        description: `Payment to ${supplier.name}${reference ? ` · Ref: ${reference}` : ''} — via Accounting`,
-        paymentMethod,
-        reference,
-        bankAccountId: bankAccountId || undefined,
-        supplierId,
-        purchaseOrderId: primaryPoId,
-        performedBy,
-      },
-    })
-
-    if (journalEntryId) {
-      await tx.integrationLink.create({
-        data: {
-          tenantId,
-          sourceType: 'Transaction',
-          sourceId: transaction.id,
-          eventType: 'AP_PAYMENT_MADE',
-          journalEntryId,
-        },
-      })
-    }
-  })
-
-  const agg = await prisma.purchaseOrder.aggregate({
-    where: { supplierId, tenantId },
-    _count: { id: true },
-    _sum: { total: true, dueAmount: true },
-  })
-  await prisma.supplier.update({
-    where: { id: supplierId },
-    data: {
-      totalOrders: agg._count.id ?? 0,
-      totalPurchaseValue: agg._sum.total ?? 0,
-      outstandingDues: agg._sum.dueAmount ?? 0,
-    },
   })
 }

@@ -8,9 +8,10 @@ import { getPagination } from '../../utils/pagination'
 import { generatePONumber } from '../../utils/counters'
 import { buildLabelsFromPoItems, ensureProductBarcode } from '../../utils/po-labels.util'
 import { effectiveBranchId } from '../../utils/active-branch'
-import { emitApPaymentAccounting, emitPurchaseAccounting } from '../accounting/integration/accounting-events.service'
+import { emitPurchaseAccounting } from '../accounting/integration/accounting-events.service'
 import { applyPurchaseOrderReceive } from '../../utils/po-receive.util'
 import { businessDayRange, normalizeBusinessDate, resolveQueryDateRange } from '../../utils/date-range'
+import { recordSupplierPayment } from './supplier-payment.service'
 
 const router = Router()
 router.use(authenticate)
@@ -147,6 +148,22 @@ router.get('/payments', async (req: Request, res: Response, next: NextFunction) 
               status: true,
             },
           },
+          supplierPaymentAllocations: {
+            select: {
+              amount: true,
+              purchaseOrder: {
+                select: {
+                  id: true,
+                  poNumber: true,
+                  total: true,
+                  paidAmount: true,
+                  dueAmount: true,
+                  status: true,
+                },
+              },
+            },
+            orderBy: { createdAt: 'asc' },
+          },
         },
       }),
       prisma.transaction.count({ where }),
@@ -154,18 +171,30 @@ router.get('/payments', async (req: Request, res: Response, next: NextFunction) 
 
     const data = rows.map(tx => {
       const paymentDate = tx.occurredAt ?? tx.createdAt
+      const allocatedPOs = tx.supplierPaymentAllocations.map(a => ({
+        purchaseOrderId: a.purchaseOrder.id,
+        purchaseInvoice: a.purchaseOrder.poNumber,
+        amount: a.amount,
+        poTotal: a.purchaseOrder.total,
+        poPaidAmount: a.purchaseOrder.paidAmount,
+        balanceDue: a.purchaseOrder.dueAmount,
+        status: a.purchaseOrder.status,
+      }))
       return {
         id: tx.id,
         supplierId: tx.supplierId,
         supplierName: tx.supplier?.name ?? null,
         purchaseOrderId: tx.purchaseOrderId,
-        purchaseInvoice: tx.purchaseOrder?.poNumber ?? null,
+        purchaseInvoice: allocatedPOs.map(a => a.purchaseInvoice).join(', ') || tx.purchaseOrder?.poNumber || null,
+        allocations: allocatedPOs,
         amountPaid: tx.amount,
         paymentMethod: tx.paymentMethod,
         paymentDate,
         reference: tx.reference,
         description: tx.description,
-        balanceDue: tx.purchaseOrder?.dueAmount
+        balanceDue: allocatedPOs.length
+          ? allocatedPOs.reduce((sum, a) => sum + Number(a.balanceDue), 0)
+          : tx.purchaseOrder?.dueAmount
           ?? tx.supplier?.outstandingDues
           ?? 0,
         supplierOutstanding: tx.supplier?.outstandingDues ?? 0,
@@ -207,7 +236,7 @@ router.get('/purchase-orders', async (req: Request, res: Response, next: NextFun
 
 router.post('/purchase-orders', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { supplierId, supplierName, subtotal, tax, total, paidAmount, dueAmount, expectedDelivery, notes, status, items, branchId: bodyBranchId } = req.body
+    const { supplierId, supplierName, subtotal, tax, total, expectedDelivery, notes, status, items, branchId: bodyBranchId } = req.body
     const poNumber = await generatePONumber(req.tenantId!)
     let branchId: string | undefined = bodyBranchId
     if (branchId) {
@@ -233,8 +262,10 @@ router.post('/purchase-orders', authorize('OWNER', 'MANAGER'), async (req: Reque
         subtotal:         Number(subtotal)   || 0,
         tax:              Number(tax)        || 0,
         total:            Number(total)      || 0,
-        paidAmount:       Number(paidAmount) || 0,
-        dueAmount:        Number(dueAmount)  || 0,
+        // All settlements must go through the Supplier Payments flow so PO,
+        // supplier, cash/bank and AP ledgers remain synchronized.
+        paidAmount:       0,
+        dueAmount:        Number(total) || 0,
         expectedDelivery: expectedDelivery ? new Date(expectedDelivery) : undefined,
         notes:            notes || undefined,
         status:           status || 'DRAFT',
@@ -429,7 +460,6 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
           data: {
             status:     'RECEIVED',
             receivedAt: new Date(),
-            paidAmount: req.body.paidAmount ?? po.paidAmount,
           },
         })
       })
@@ -447,7 +477,6 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
       where: { id: req.params.id },
       data: {
         status:     (newStatus ?? po.status) as any,
-        paidAmount: req.body.paidAmount    ?? po.paidAmount,
         receivedAt: newStatus === 'RECEIVED' ? new Date() : (req.body.receivedAt ?? po.receivedAt),
       },
       include: { items: true },
@@ -583,12 +612,11 @@ router.post('/purchase-orders/:id/register-imei', authorize('OWNER', 'MANAGER'),
 
 router.post('/:id/payments', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const supplier = await prisma.supplier.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! } })
-    if (!supplier) throw new AppError('Supplier not found', 404)
-
+    const tenantId = req.tenantId!
     const { amount, method, reference, notes, poIds, bankAccountId, paymentDate } = req.body
-    const payAmount = Number(amount)
-    if (!payAmount || payAmount <= 0) throw new AppError('Invalid payment amount', 400)
+    const selectedPoIds = Array.isArray(poIds)
+      ? [...new Set(poIds.map((id: unknown) => String(id).trim()).filter(Boolean))]
+      : []
 
     const userBranch = await prisma.userBranch.findFirst({ where: { userId: req.user!.userId } })
     const branchId = effectiveBranchId(req) ?? userBranch?.branchId
@@ -596,91 +624,27 @@ router.post('/:id/payments', authorize('OWNER', 'MANAGER'), async (req: Request,
 
     let occurredAt: Date | undefined
     if (paymentDate) {
-      const key = normalizeBusinessDate(String(paymentDate))
+      const rawDate = String(paymentDate)
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) throw new AppError('Invalid payment date', 400)
+      const key = normalizeBusinessDate(rawDate)
       occurredAt = businessDayRange(key).start
     }
 
-    // CHEQUE is UI-only — store as BANK_TRANSFER
-    const rawMethod = String(method || 'CASH').toUpperCase()
-    const paymentMethod = (rawMethod === 'CHEQUE' ? 'BANK_TRANSFER' : rawMethod) as
-      'CASH' | 'CARD' | 'UPI' | 'BANK_TRANSFER' | 'WALLET' | 'CREDIT'
-    if (!['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET'].includes(paymentMethod)) {
-      throw new AppError('Invalid payment method', 400)
-    }
-
-    let resolvedBankAccountId: string | undefined
-    if (bankAccountId) {
-      const bank = await prisma.bankAccount.findFirst({
-        where: { id: String(bankAccountId), tenantId: req.tenantId!, isActive: true },
-        select: { id: true, name: true },
-      })
-      if (!bank) throw new AppError('Bank account not found', 404)
-      resolvedBankAccountId = bank.id
-      if (paymentMethod !== 'BANK_TRANSFER') {
-        throw new AppError('Bank account can only be used with Bank Transfer / Cheque', 400)
-      }
-    }
-
-    // Fetch target POs (specified or auto-select unpaid ones FIFO)
-    const poWhere: any = {
+    const result = await recordSupplierPayment({
+      tenantId,
       supplierId: req.params.id,
-      tenantId:   req.tenantId!,
-      dueAmount:  { gt: 0 },
-      ...(poIds?.length && { id: { in: poIds } }),
-    }
-    const unpaidPOs = await prisma.purchaseOrder.findMany({
-      where:   poWhere,
-      orderBy: { createdAt: 'asc' },
+      branchId,
+      amount: Number(amount),
+      method: String(method || 'CASH'),
+      reference: reference ? String(reference) : undefined,
+      notes: notes ? String(notes) : undefined,
+      bankAccountId: bankAccountId ? String(bankAccountId) : undefined,
+      occurredAt,
+      performedBy: req.user?.userId ?? 'system',
+      actorEmail: req.user?.email,
+      allocations: selectedPoIds.map(purchaseOrderId => ({ purchaseOrderId })),
     })
-
-    // Allocate payment across POs
-    let remaining = payAmount
-    const updates: { id: string; paidAmount: number; dueAmount: number; status: string }[] = []
-
-    for (const po of unpaidPOs) {
-      if (remaining <= 0) break
-      const allocate  = Math.min(remaining, po.dueAmount)
-      const newPaid   = po.paidAmount + allocate
-      const newDue    = Math.max(0, po.dueAmount - allocate)
-      const newStatus = newDue === 0 ? 'CLOSED' : 'PARTIAL'
-      updates.push({ id: po.id, paidAmount: newPaid, dueAmount: newDue, status: newStatus })
-      remaining -= allocate
-    }
-
-    // Apply PO updates
-    await Promise.all(
-      updates.map(u =>
-        prisma.purchaseOrder.update({
-          where: { id: u.id },
-          data:  { paidAmount: u.paidAmount, dueAmount: u.dueAmount, status: u.status as any },
-        })
-      )
-    )
-
-    const primaryPoId = updates[0]?.id ?? (Array.isArray(poIds) && poIds[0] ? String(poIds[0]) : undefined)
-
-    // Create Transaction record (cash/AP settlement — not OpEx for P&L)
-    const txn = await prisma.transaction.create({
-      data: {
-        tenantId:         req.tenantId!,
-        branchId,
-        type:             'EXPENSE',
-        category:         'Supplier Payment',
-        amount:           payAmount,
-        description:      `Payment to ${supplier.name}${reference ? ' · Ref: ' + reference : ''}${notes ? ' · ' + notes : ''}`,
-        paymentMethod,
-        reference:        reference || undefined,
-        bankAccountId:    resolvedBankAccountId,
-        supplierId:       supplier.id,
-        purchaseOrderId:  primaryPoId,
-        occurredAt,
-        performedBy:      req.user?.userId ?? 'system',
-      },
-    })
-
-    await recalcSupplierStats(req.params.id, req.tenantId!)
-    void emitApPaymentAccounting(req.tenantId!, txn.id, branchId, req.user?.email)
-    sendSuccess(res, { transaction: txn, updatedPOs: updates.length }, 'Payment recorded', 201)
+    sendSuccess(res, { transaction: result.transaction, updatedPOs: result.updates.length }, 'Payment recorded', 201)
   } catch (e) { next(e) }
 })
 

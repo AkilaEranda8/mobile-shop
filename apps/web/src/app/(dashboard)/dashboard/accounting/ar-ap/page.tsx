@@ -5,6 +5,7 @@ import { ChevronRight, Loader2, RefreshCw, Users, Truck, Banknote } from 'lucide
 import toast from 'react-hot-toast'
 import { useFeatureFlag } from '@/lib/hooks'
 import { accountingApi } from '@/lib/api'
+import { authStorage } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday } from '@/lib/business-date'
 import { getActiveBranchId } from '@/lib/active-branch'
@@ -81,6 +82,8 @@ export default function ArApPage() {
   const [allocations, setAllocations] = useState<Record<string, string>>({})
   const [bankAccounts, setBankAccounts] = useState<Array<{ id: string; name: string; bankName?: string | null }>>([])
   const [bankAccountId, setBankAccountId] = useState('')
+  const role = authStorage.getUser()?.role ?? ''
+  const canRecordPayment = role === 'OWNER' || role === 'MANAGER'
 
   const asOf = businessToday()
   const branchId = getActiveBranchId() ?? ''
@@ -152,6 +155,40 @@ export default function ArApPage() {
       toast.error('Enter a valid amount')
       return
     }
+    const needsBankAccount = tab === 'ap'
+      ? payMethod !== 'CASH'
+      : payMethod === 'BANK_TRANSFER'
+    if (needsBankAccount && !bankAccountId) {
+      toast.error('Select the bank account to use')
+      return
+    }
+
+    let allocEntries = Object.entries(allocations)
+      .filter(([, v]) => Number(v) > 0)
+      .map(([id, v]) => ({ amount: Number(v), ...(tab === 'ar' ? { saleId: id } : { purchaseOrderId: id }) }))
+    if (tab === 'ap') {
+      const openPOs = detail?.openPurchaseOrders ?? []
+      if (allocEntries.length === 0) {
+        let remaining = amount
+        allocEntries = openPOs.flatMap(po => {
+          if (remaining <= 0) return []
+          const applied = Math.min(remaining, po.dueAmount)
+          remaining = Math.round((remaining - applied) * 100) / 100
+          return applied > 0 ? [{ purchaseOrderId: po.id, amount: applied }] : []
+        })
+        if (remaining > 0) {
+          toast.error('Payment exceeds the outstanding purchase-order balance')
+          return
+        }
+      } else {
+        const allocationTotal = Math.round(allocEntries.reduce((sum, a) => sum + a.amount, 0) * 100) / 100
+        if (allocationTotal !== Math.round(amount * 100) / 100) {
+          toast.error('PO allocations must equal the payment amount')
+          return
+        }
+      }
+    }
+
     setPayLoading(true)
     try {
       const body = {
@@ -159,11 +196,8 @@ export default function ArApPage() {
         paymentMethod: payMethod,
         reference: payRef || undefined,
         ...(branchId ? { branchId } : {}),
-        ...(payMethod === 'BANK_TRANSFER' && bankAccountId ? { bankAccountId } : {}),
+        ...(needsBankAccount && bankAccountId ? { bankAccountId } : {}),
       }
-      const allocEntries = Object.entries(allocations)
-        .filter(([, v]) => Number(v) > 0)
-        .map(([id, v]) => ({ amount: Number(v), ...(tab === 'ar' ? { saleId: id } : { purchaseOrderId: id }) }))
       if (tab === 'ar') {
         await accountingApi.recordArPayment({
           ...body,
@@ -174,7 +208,7 @@ export default function ArApPage() {
         await accountingApi.recordApPayment({
           ...body,
           supplierId: detailId,
-          ...(allocEntries.length ? { allocations: allocEntries as Array<{ purchaseOrderId: string; amount: number }> } : {}),
+          allocations: allocEntries as Array<{ purchaseOrderId: string; amount: number }>,
         })
       }
       toast.success('Payment posted to GL')
@@ -278,7 +312,7 @@ export default function ArApPage() {
                   </div>
                 </div>
 
-                {detail.balance > 0 && (
+                {detail.balance > 0 && canRecordPayment && (
                   <div className="mb-4 rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 space-y-2">
                     <p className="text-xs font-medium text-violet-300 flex items-center gap-1.5">
                       <Banknote size={14} />
@@ -290,7 +324,7 @@ export default function ArApPage() {
                       <select value={payMethod} onChange={e => setPayMethod(e.target.value)} className="input-field text-sm">
                         {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
                       </select>
-                      {payMethod === 'BANK_TRANSFER' && bankAccounts.length > 0 && (
+                      {((tab === 'ap' && payMethod !== 'CASH') || (tab === 'ar' && payMethod === 'BANK_TRANSFER')) && bankAccounts.length > 0 && (
                         <select value={bankAccountId} onChange={e => setBankAccountId(e.target.value)} className="input-field text-sm min-w-[140px]">
                           {bankAccounts.map(b => (
                             <option key={b.id} value={b.id}>{b.name}{b.bankName ? ` · ${b.bankName}` : ''}</option>
@@ -319,7 +353,7 @@ export default function ArApPage() {
                     )}
                     {(detail.openPurchaseOrders?.length ?? 0) > 0 && tab === 'ap' && (
                       <div className="space-y-1 pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                        <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Allocate to POs (optional)</p>
+                        <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Allocate to POs (leave blank for automatic oldest-first allocation)</p>
                         {detail.openPurchaseOrders!.map(po => (
                           <div key={po.id} className="flex items-center gap-2 text-xs">
                             <span className="flex-1" style={{ color: 'var(--text-muted)' }}>{po.poNumber} · due {formatCurrency(po.dueAmount)}</span>

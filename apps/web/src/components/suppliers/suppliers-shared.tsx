@@ -432,7 +432,7 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
   onSaved: () => void
 }) {
   const unpaidPOs = useMemo(
-    () => allPOs.filter(po => po.supplierId === supplier.id && po.dueAmount > 0),
+    () => allPOs.filter(po => po.supplierId === supplier.id && po.status === 'RECEIVED' && po.dueAmount > 0),
     [allPOs, supplier.id],
   )
   const [selectedPOs, setSelectedPOs] = useState<Set<string>>(() => new Set(unpaidPOs.map(p => p.id)))
@@ -447,7 +447,7 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
   const totalDue = selectedList.reduce((s, p) => s + p.dueAmount, 0)
   const totalPoValue = selectedList.reduce((s, p) => s + (p.total ?? 0), 0)
   const [amount, setAmount] = useState(() => (totalDue > 0 ? totalDue.toFixed(2) : ''))
-  const needsBankAccount = method === 'BANK_TRANSFER' || method === 'CHEQUE'
+  const needsBankAccount = method !== 'CASH'
 
   useEffect(() => {
     if (totalDue > 0) setAmount(totalDue.toFixed(2))
@@ -490,7 +490,15 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
       toast.error('Enter a valid payment amount')
       return
     }
-    if (needsBankAccount && bankAccounts.length > 0 && !bankAccountId) {
+    if (selectedPOs.size === 0 || totalDue <= 0) {
+      toast.error('Select at least one unpaid purchase order')
+      return
+    }
+    if (Number(amount) > totalDue + 0.001) {
+      toast.error(`Payment cannot exceed ${formatCurrency(totalDue)}`)
+      return
+    }
+    if (needsBankAccount && !bankAccountId) {
       toast.error('Select the bank account to pay from')
       return
     }
@@ -700,7 +708,7 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
               <div className="flex items-center gap-2 px-4 py-5">
                 <CheckCircle size={14} className="text-emerald-500 shrink-0" />
                 <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                  No outstanding POs — payment will be recorded against the supplier balance.
+                  No outstanding purchase orders. There is no supplier balance available to settle.
                 </p>
               </div>
             )}
@@ -818,7 +826,7 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
                 </select>
               ) : (
                 <p className="text-xs rounded-lg border px-3 py-2" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                  No bank accounts found. Add one under Accounting → Cash & Bank, or payment will use the default Bank — Main mapping.
+                  No bank accounts found. Add one under Accounting → Cash & Bank before recording this payment method.
                 </p>
               )}
             </div>
@@ -834,7 +842,14 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
             </button>
             <button
               type="submit"
-              disabled={loading || !amount || Number(amount) <= 0}
+              disabled={
+                loading
+                || !amount
+                || Number(amount) <= 0
+                || selectedPOs.size === 0
+                || Number(amount) > totalDue + 0.001
+                || (needsBankAccount && !bankAccountId)
+              }
               className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60"
             >
               {loading ? <Loader2 size={14} className="animate-spin" /> : <Banknote size={14} />}

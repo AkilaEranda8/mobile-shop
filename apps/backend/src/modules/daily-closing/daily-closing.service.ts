@@ -200,9 +200,11 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
   let otherIncome = 0
   let creditPayments = 0
   let totalExpenses = 0
+  let cashOperatingExpenses = 0
   let supplierPayments = 0
   let cashSupplierPayments = 0
   let bankDeposits = 0
+  let cashBankDeposits = 0
   const expenseMap: Record<string, number> = {}
 
   for (const tx of transactions) {
@@ -235,9 +237,14 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
         if (tx.paymentMethod === 'CASH') cashSupplierPayments += amt
         continue
       }
+      if (/^(bank\s+deposit|deposit\s+to\s+bank)$/i.test(cat.trim())) {
+        bankDeposits += amt
+        if (tx.paymentMethod === 'CASH') cashBankDeposits += amt
+        continue
+      }
       totalExpenses += amt
+      if (tx.paymentMethod === 'CASH') cashOperatingExpenses += amt
       expenseMap[cat] = (expenseMap[cat] ?? 0) + amt
-      if (/bank|deposit/i.test(cat)) bankDeposits += amt
     }
   }
 
@@ -306,7 +313,7 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
 
   const openingCash = existingClosing?.openingCash ?? openingCashFromPrev
   // Cash drawer decreases only for CASH outflows — bank/card supplier payments never touch the drawer.
-  const expectedCash = openingCash + cashSales - totalExpenses - cashSupplierPayments - bankDeposits - cashRefunds
+  const expectedCash = openingCash + cashSales - cashOperatingExpenses - cashSupplierPayments - cashBankDeposits - cashRefunds
   const cashInBank = bankFromSales + bankDeposits
 
   const expenseBreakdown = Object.entries(expenseMap)
@@ -456,6 +463,7 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
     },
     expenses: {
       totalExpenses: Math.round(totalExpenses * 100) / 100,
+      cashOperatingExpenses: Math.round(cashOperatingExpenses * 100) / 100,
       supplierPayments: Math.round(supplierPayments * 100) / 100,
       cashSupplierPayments: Math.round(cashSupplierPayments * 100) / 100,
       cashOutTotal: Math.round((totalExpenses + supplierPayments) * 100) / 100,
@@ -469,6 +477,7 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
       openingCash: Math.round(openingCash * 100) / 100,
       cashSales: Math.round(cashSales * 100) / 100,
       bankDeposits: Math.round(bankDeposits * 100) / 100,
+      cashBankDeposits: Math.round(cashBankDeposits * 100) / 100,
       qrPayments: Math.round(qrPayments * 100) / 100,
       cardPayments: Math.round(cardPayments * 100) / 100,
       cashRefunds: Math.round(cashRefunds * 100) / 100,
@@ -528,8 +537,10 @@ function previewToClosingData(
 ) {
   const openingCash = resolveOpeningCash(overrides.openingCash, preview.openingCash)
   const actualCash = overrides.actualCash ?? preview.cash.actualCash
+  const cashOperatingExpenses = preview.expenses.cashOperatingExpenses ?? 0
   const cashSupplierPayments = preview.expenses.cashSupplierPayments ?? 0
-  const expectedCash = openingCash + preview.cash.cashSales - preview.expenses.totalExpenses - cashSupplierPayments - preview.cash.bankDeposits - (preview.cash.cashRefunds ?? 0)
+  const cashBankDeposits = preview.cash.cashBankDeposits ?? 0
+  const expectedCash = openingCash + preview.cash.cashSales - cashOperatingExpenses - cashSupplierPayments - cashBankDeposits - (preview.cash.cashRefunds ?? 0)
   const cashVariance = Math.round((expectedCash - actualCash) * 100) / 100
 
   return {
@@ -571,7 +582,9 @@ function previewToClosingData(
       imei: preview.imei,
       expenses: {
         totalExpenses: preview.expenses.totalExpenses,
+        cashOperatingExpenses: preview.expenses.cashOperatingExpenses ?? 0,
         supplierPayments: preview.expenses.supplierPayments ?? 0,
+        cashSupplierPayments: preview.expenses.cashSupplierPayments ?? 0,
         cashOutTotal: preview.expenses.cashOutTotal
           ?? Math.round(((preview.expenses.totalExpenses ?? 0) + (preview.expenses.supplierPayments ?? 0)) * 100) / 100,
       },
