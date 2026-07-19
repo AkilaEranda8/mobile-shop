@@ -92,6 +92,7 @@ function AddWarrantyModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
   const [form, setForm] = useState({
     customerName: '', customerPhone: '', customerId: '',
     productName: '', brandName: '', imei: '',
+    quantity: '1',
     monthsDuration: '12', startDate: new Date().toISOString().slice(0, 10),
     invoiceNumber: '', saleId: '', productId: '',
   })
@@ -141,7 +142,13 @@ function AddWarrantyModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
       const start = new Date(form.startDate)
       const end   = new Date(start)
       end.setMonth(end.getMonth() + Number(form.monthsDuration))
-      await warrantyApi.create({ ...form, monthsDuration: Number(form.monthsDuration), startDate: start, endDate: end })
+      await warrantyApi.create({
+        ...form,
+        monthsDuration: Number(form.monthsDuration),
+        quantity: Math.max(1, Number(form.quantity) || 1),
+        startDate: start,
+        endDate: end,
+      })
       toast.success('Warranty issued'); onSaved(); onClose()
     } catch (err: any) { toast.error(err?.message ?? 'Failed to issue warranty') }
     finally { setLoading(false) }
@@ -254,10 +261,18 @@ function AddWarrantyModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
             {[
               { k: 'imei',          label: 'IMEI / Serial',   req: false },
               { k: 'invoiceNumber', label: 'Invoice No.',      req: false },
+              { k: 'quantity',      label: 'Quantity',         req: true },
             ].map(({ k, label, req }) => (
               <div key={k}>
-                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>{label}</label>
-                <input required={req} className="input-field" value={(form as any)[k]} onChange={f(k)} />
+                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>{label}{req ? ' *' : ''}</label>
+                <input
+                  required={req}
+                  type={k === 'quantity' ? 'number' : 'text'}
+                  min={k === 'quantity' ? 1 : undefined}
+                  className="input-field"
+                  value={(form as any)[k]}
+                  onChange={f(k)}
+                />
               </div>
             ))}
             <div>
@@ -513,7 +528,15 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRep
               <div className="flex items-center gap-1.5">
                 <Package size={13} style={{ color: 'var(--text-muted)' }} />
                 <span style={{ color: 'var(--text-muted)' }}>Product:</span>
-                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(warranty.productName)}</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {safeText(warranty.productName)}
+                  {(warranty.quantity ?? 1) > 1 ? ` ×${warranty.quantity}` : ''}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Package size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Qty covered:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{warranty.quantity ?? 1}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Package size={13} style={{ color: 'var(--text-muted)' }} />
@@ -895,6 +918,7 @@ function EditWarrantyModal({ warranty, onClose, onSaved }: {
     productName:    warranty.productName    ?? '',
     brandName:      warranty.brandName      ?? '',
     imei:           warranty.imei           ?? '',
+    quantity:       String(warranty.quantity ?? 1),
     monthsDuration: String(warranty.monthsDuration ?? 12),
     startDate:      warranty.startDate?.slice(0, 10) ?? '',
     endDate:        warranty.endDate?.slice(0, 10)   ?? '',
@@ -907,7 +931,11 @@ function EditWarrantyModal({ warranty, onClose, onSaved }: {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setLoading(true)
     try {
-      await warrantyApi.update(warranty.id, { ...form, monthsDuration: Number(form.monthsDuration) })
+      await warrantyApi.update(warranty.id, {
+        ...form,
+        monthsDuration: Number(form.monthsDuration),
+        quantity: Math.max(1, Number(form.quantity) || 1),
+      })
       toast.success('Warranty updated'); onSaved(); onClose()
     } catch (err: any) { toast.error(err?.message ?? 'Update failed') }
     finally { setLoading(false) }
@@ -931,10 +959,18 @@ function EditWarrantyModal({ warranty, onClose, onSaved }: {
               { k: 'productName',   label: 'Product Name *',  req: true  },
               { k: 'brandName',     label: 'Brand',           req: false },
               { k: 'imei',          label: 'IMEI / Serial',   req: false },
+              { k: 'quantity',      label: 'Quantity *',      req: true  },
             ].map(({ k, label, req }) => (
               <div key={k}>
                 <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>{label}</label>
-                <input required={req} className="input-field" value={(form as any)[k]} onChange={f(k)} />
+                <input
+                  required={req}
+                  type={k === 'quantity' ? 'number' : 'text'}
+                  min={k === 'quantity' ? 1 : undefined}
+                  className="input-field"
+                  value={(form as any)[k]}
+                  onChange={f(k)}
+                />
               </div>
             ))}
             <div>
@@ -1054,7 +1090,14 @@ export default function WarrantyPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Product" />,
       cell: ({ row }) => (
         <div>
-          <p className="text-sm truncate max-w-[180px]" style={{ color: 'var(--text-primary)' }}>{row.original.productName}</p>
+          <p className="text-sm truncate max-w-[180px]" style={{ color: 'var(--text-primary)' }}>
+            {row.original.productName}
+            {(row.original.quantity ?? 1) > 1 && (
+              <span className="ml-1.5 text-[11px] font-semibold" style={{ color: 'var(--text-muted)' }}>
+                ×{row.original.quantity}
+              </span>
+            )}
+          </p>
           {(row.original as any).imei && <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{(row.original as any).imei}</p>}
         </div>
       ),

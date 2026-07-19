@@ -168,7 +168,7 @@ export function printWarrantyCertificate(warranty: Warranty, settings: InvoiceSe
     <div class="cards-row">
       <div class="card" style="flex:2">
         <div class="card-label">Product Name</div>
-        <div class="card-value">${warranty.productName}</div>
+        <div class="card-value">${warranty.productName}${(warranty.quantity ?? 1) > 1 ? ` ×${warranty.quantity}` : ''}</div>
         <div class="card-sub">${warranty.brandName || ''}</div>
       </div>
       <div class="card">
@@ -372,7 +372,9 @@ const WarrantyCertificate = forwardRef<HTMLDivElement, WarrantyCertificateProps>
             <div style={{ display: 'flex', gap: 12, marginBottom: warranty.imei ? 12 : 22 }}>
               <div style={{ flex: 2, background: '#f8f7ff', border: '1px solid #e0e7ff', borderRadius: 10, padding: '12px 14px' }}>
                 <div style={{ fontSize: 9, color: '#6366f1', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Product Name</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#1e1b4b' }}>{warranty.productName}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#1e1b4b' }}>
+                  {warranty.productName}{(warranty.quantity ?? 1) > 1 ? ` ×${warranty.quantity}` : ''}
+                </div>
                 {warranty.brandName && <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{warranty.brandName}</div>}
               </div>
               <div style={{ flex: 1, background: '#f8f7ff', border: '1px solid #e0e7ff', borderRadius: 10, padding: '12px 14px' }}>

@@ -826,6 +826,7 @@ model Warranty {
   productName    String
   brandName      String
   imei           String?
+  quantity       Int            @default(1)
   startDate      DateTime
   endDate        DateTime
   monthsDuration Int

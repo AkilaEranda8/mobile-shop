@@ -289,6 +289,7 @@ export interface Warranty {
   productName: string
   brandName: string
   imei?: string
+  quantity?: number
   startDate: string
   endDate: string
   monthsDuration: number

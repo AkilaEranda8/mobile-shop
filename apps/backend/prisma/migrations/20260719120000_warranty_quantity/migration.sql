@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Warranty" ADD COLUMN IF NOT EXISTS "quantity" INTEGER NOT NULL DEFAULT 1;

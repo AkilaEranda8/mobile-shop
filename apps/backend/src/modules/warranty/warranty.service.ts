@@ -80,6 +80,7 @@ export async function createWarrantiesFromSaleItems(
     brandName: string
     imei?: string
     months: number
+    quantity: number
   }> = []
 
   for (const item of opts.items) {
@@ -103,22 +104,20 @@ export async function createWarrantiesFromSaleItems(
       throw new AppError(`IMEI required for warranty product "${product.name}"`, 400)
     }
 
-    // IMEI-tracked items need one unit per line (unique serial). Non-IMEI
-    // warranty accessories (e.g. Power Bank) may sell qty > 1 — we create
-    // one warranty row per unit below.
+    // IMEI-tracked items need one unit per line (unique serial → one warranty).
     if (product.trackImei && qty > 1) {
       throw new AppError(`Warranty product "${product.name}" must be sold one unit per line`, 400)
     }
 
-    for (let i = 0; i < qty; i++) {
-      eligible.push({
-        productId: product.id,
-        productName: item.productName || product.name,
-        brandName,
-        imei,
-        months,
-      })
-    }
+    // One warranty covers the full line quantity (accessories / non-IMEI).
+    eligible.push({
+      productId: product.id,
+      productName: item.productName || product.name,
+      brandName,
+      imei,
+      months,
+      quantity: qty,
+    })
   }
 
   if (eligible.length === 0) return []
@@ -154,6 +153,7 @@ async function createWarrantyRows(
       brandName: string
       imei?: string
       months: number
+      quantity?: number
     }>
     checkImeiConflict?: boolean
   },
@@ -169,6 +169,7 @@ async function createWarrantyRows(
     const end = new Date(start)
     end.setMonth(end.getMonth() + row.months)
     const warrantyCode = await uniqueWarrantyCode(tx)
+    const quantity = Math.max(1, Number(row.quantity ?? 1))
 
     const w = await tx.warranty.create({
       data: {
@@ -183,6 +184,7 @@ async function createWarrantyRows(
         productName: row.productName,
         brandName: row.brandName,
         imei: row.imei,
+        quantity,
         startDate: start,
         endDate: end,
         monthsDuration: row.months,
