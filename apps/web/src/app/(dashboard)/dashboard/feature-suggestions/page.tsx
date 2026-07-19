@@ -72,11 +72,17 @@ function NewSuggestionModal({ onClose, onSaved }: { onClose: () => void; onSaved
 
   const titleLen = title.trim().length
   const descLen = description.trim().length
-  const canSubmit = Boolean(category) && titleLen >= 10 && titleLen <= 120 && descLen >= 30 && descLen <= 5000 && !submitting
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!canSubmit || !category) return
+    if (submitting) return
+    // Keep the button clickable and explain exactly what is missing instead
+    // of silently disabling it.
+    if (!category) { toast.error('Select a category'); return }
+    if (titleLen < 10) { toast.error('Title must be at least 10 characters'); return }
+    if (titleLen > 120) { toast.error('Title must be at most 120 characters'); return }
+    if (descLen < 30) { toast.error('Description must be at least 30 characters'); return }
+    if (descLen > 5000) { toast.error('Description must be at most 5000 characters'); return }
     setSubmitting(true)
     try {
       await featureSuggestionsApi.create({
@@ -106,7 +112,7 @@ function NewSuggestionModal({ onClose, onSaved }: { onClose: () => void; onSaved
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><X size={15} /></button>
         </div>
-        <form onSubmit={handleSubmit} className="p-5 space-y-3">
+        <form onSubmit={handleSubmit} noValidate className="p-5 space-y-3">
           <div>
             <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Category *</label>
             <select
@@ -156,7 +162,7 @@ function NewSuggestionModal({ onClose, onSaved }: { onClose: () => void; onSaved
           </div>
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
-            <button type="submit" disabled={!canSubmit} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+            <button type="submit" disabled={submitting} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
               {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
               {submitting ? 'Submitting…' : 'Submit'}
             </button>
