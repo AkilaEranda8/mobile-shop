@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Plus, Phone, CreditCard } from 'lucide-react'
+import { Plus, Phone, CreditCard, Truck, Package, Wallet, AlertCircle } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -66,6 +66,13 @@ export default function SuppliersPage() {
       (s.city ?? '').toLowerCase().includes(q)
     )
   }, [suppliers, textSearch])
+
+  const stats = useMemo(() => {
+    const totalOutstanding = suppliers.reduce((s, x) => s + Number((x as any).outstandingDues ?? 0), 0)
+    const totalOrders = suppliers.reduce((s, x) => s + Number(x.totalOrders ?? 0), 0)
+    const withDues = suppliers.filter(x => Number((x as any).outstandingDues ?? 0) > 0).length
+    return { totalOutstanding, totalOrders, withDues }
+  }, [suppliers])
 
   const supplierColumns = useMemo<ColumnDef<Supplier>[]>(() => [
     {
@@ -179,6 +186,56 @@ export default function SuppliersPage() {
             <Plus size={14} />Add Supplier
           </button>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          {
+            label: 'Total Suppliers',
+            value: String(suppliers.length),
+            icon: Truck,
+            color: 'var(--brand-primary-light)',
+            bg: 'var(--brand-glow)',
+            border: 'var(--sidebar-active-border)',
+          },
+          {
+            label: 'Total Outstanding',
+            value: formatCurrency(stats.totalOutstanding),
+            icon: Wallet,
+            color: '#b91c1c',
+            bg: 'rgba(185,28,28,0.08)',
+            border: 'rgba(185,28,28,0.20)',
+          },
+          {
+            label: 'Total Orders',
+            value: String(stats.totalOrders),
+            icon: Package,
+            color: '#0369a1',
+            bg: 'rgba(3,105,161,0.08)',
+            border: 'rgba(3,105,161,0.20)',
+          },
+          {
+            label: 'With Dues',
+            value: String(stats.withDues),
+            icon: AlertCircle,
+            color: '#b45309',
+            bg: 'rgba(180,83,9,0.08)',
+            border: 'rgba(180,83,9,0.20)',
+          },
+        ].map(({ label, value, icon: Icon, color, bg, border }) => (
+          <div key={label} className="card p-4" style={{ borderColor: border, background: bg }}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{label}</span>
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center"
+                style={{ color, background: bg, border: `1px solid ${border}` }}
+              >
+                <Icon size={14} />
+              </div>
+            </div>
+            <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
+          </div>
+        ))}
       </div>
 
       <ToolbarSearch
