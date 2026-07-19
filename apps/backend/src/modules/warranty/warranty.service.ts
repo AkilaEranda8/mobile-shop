@@ -103,7 +103,10 @@ export async function createWarrantiesFromSaleItems(
       throw new AppError(`IMEI required for warranty product "${product.name}"`, 400)
     }
 
-    if (qty > 1 && !imei) {
+    // IMEI-tracked items need one unit per line (unique serial). Non-IMEI
+    // warranty accessories (e.g. Power Bank) may sell qty > 1 — we create
+    // one warranty row per unit below.
+    if (product.trackImei && qty > 1) {
       throw new AppError(`Warranty product "${product.name}" must be sold one unit per line`, 400)
     }
 
