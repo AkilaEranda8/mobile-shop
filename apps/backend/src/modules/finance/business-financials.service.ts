@@ -18,6 +18,8 @@ export interface BusinessFinancialSummary {
   opExpenses: number
   /** AP settlements — cash out only, excluded from net profit */
   supplierPayments: number
+  /** Reload provider settlements — cash out only, excluded from net profit */
+  reloadProviderPayments: number
   refundsTotal: number
   grossProfit: number
   netProfit: number
@@ -32,6 +34,7 @@ export interface DailyRevenueRow {
   cogs: number
   totalExpenses: number
   supplierPayments: number
+  reloadProviderPayments: number
   refundsTotal: number
   grossProfit: number
   profit: number
@@ -57,6 +60,7 @@ function emptySummary(): BusinessFinancialSummary {
     repairPartsCogs: 0,
     opExpenses: 0,
     supplierPayments: 0,
+    reloadProviderPayments: 0,
     refundsTotal: 0,
     grossProfit: 0,
     netProfit: 0,
@@ -79,6 +83,7 @@ function addSummaries(a: BusinessFinancialSummary, b: BusinessFinancialSummary):
     repairPartsCogs: round2(a.repairPartsCogs + b.repairPartsCogs),
     opExpenses: round2(a.opExpenses + b.opExpenses),
     supplierPayments: round2(a.supplierPayments + b.supplierPayments),
+    reloadProviderPayments: round2(a.reloadProviderPayments + b.reloadProviderPayments),
     refundsTotal: round2(a.refundsTotal + b.refundsTotal),
     grossProfit: round2(a.grossProfit + b.grossProfit),
     netProfit: round2(a.netProfit + b.netProfit),
@@ -109,6 +114,7 @@ function mapPreviewToSummary(
     repairPartsCogs,
     opExpenses: preview.expenses.totalExpenses,
     supplierPayments: round2(preview.expenses.supplierPayments ?? 0),
+    reloadProviderPayments: round2(preview.expenses.reloadProviderPayments ?? 0),
     refundsTotal: s.refundsTotal,
     grossProfit: p.grossProfit,
     netProfit: p.netProfit,
@@ -127,6 +133,7 @@ export function toDailyRevenueRow(date: string, fin: BusinessFinancialSummary): 
     cogs: totalCogs,
     totalExpenses: fin.opExpenses,
     supplierPayments: fin.supplierPayments,
+    reloadProviderPayments: fin.reloadProviderPayments,
     refundsTotal: fin.refundsTotal,
     grossProfit: fin.grossProfit,
     profit: fin.netProfit,
@@ -183,10 +190,11 @@ export async function getBranchDayFinancials(
   return mapPreviewToSummary(preview)
 }
 
-async function sumSupplierPaymentsForDay(
+async function sumSettlementExpensesForDay(
   tenantId: string,
   branchId: string,
   dateKey: string,
+  category: 'Supplier Payment' | 'Reload Provider',
 ): Promise<number> {
   const { start, end } = businessDayRange(dateKey)
   const agg = await prisma.transaction.aggregate({
@@ -194,7 +202,7 @@ async function sumSupplierPaymentsForDay(
       tenantId,
       branchId,
       type: 'EXPENSE',
-      category: 'Supplier Payment',
+      category,
       OR: [
         { occurredAt: { gte: start, lte: end } },
         { AND: [{ occurredAt: null }, { createdAt: { gte: start, lte: end } }] },
@@ -203,6 +211,14 @@ async function sumSupplierPaymentsForDay(
     _sum: { amount: true },
   })
   return round2(agg._sum.amount ?? 0)
+}
+
+async function sumSupplierPaymentsForDay(
+  tenantId: string,
+  branchId: string,
+  dateKey: string,
+): Promise<number> {
+  return sumSettlementExpensesForDay(tenantId, branchId, dateKey, 'Supplier Payment')
 }
 
 async function mapClosingRecordToSummary(closed: {
@@ -224,18 +240,26 @@ async function mapClosingRecordToSummary(closed: {
   summaryJson?: unknown
 }): Promise<BusinessFinancialSummary> {
   const summary = (closed.summaryJson ?? {}) as {
-    expenses?: { totalExpenses?: number; supplierPayments?: number }
+    expenses?: {
+      totalExpenses?: number
+      supplierPayments?: number
+      reloadProviderPayments?: number
+    }
+    profit?: { grossSales?: number; grossProfit?: number; netProfit?: number }
+    sales?: { reloadSales?: number }
   }
   const expensesMeta = summary.expenses
   const hasSplit = expensesMeta != null && typeof expensesMeta.supplierPayments === 'number'
+  const hasReloadSplit = expensesMeta != null && typeof expensesMeta.reloadProviderPayments === 'number'
+  const dateKey = closed.date.toISOString().slice(0, 10)
 
   let supplierPayments = hasSplit
     ? round2(expensesMeta.supplierPayments ?? 0)
-    : await sumSupplierPaymentsForDay(
-        closed.tenantId,
-        closed.branchId,
-        closed.date.toISOString().slice(0, 10),
-      )
+    : await sumSupplierPaymentsForDay(closed.tenantId, closed.branchId, dateKey)
+
+  let reloadProviderPayments = hasReloadSplit
+    ? round2(expensesMeta.reloadProviderPayments ?? 0)
+    : await sumSettlementExpensesForDay(closed.tenantId, closed.branchId, dateKey, 'Reload Provider')
 
   let opExpenses = round2(
     hasSplit && typeof expensesMeta?.totalExpenses === 'number'
@@ -243,6 +267,8 @@ async function mapClosingRecordToSummary(closed: {
       : closed.totalExpenses,
   )
   let netProfit = round2(closed.netProfit)
+  let grossSales = round2(closed.grossSales)
+  let grossProfit = round2(closed.grossProfit)
 
   // Legacy closes baked Supplier Payment into totalExpenses + netProfit.
   if (!hasSplit && supplierPayments > 0) {
@@ -250,12 +276,27 @@ async function mapClosingRecordToSummary(closed: {
     netProfit = round2(netProfit + supplierPayments)
   }
 
+  // Legacy closes baked Reload Provider settlements into OpEx / net profit.
+  if (!hasReloadSplit && reloadProviderPayments > 0) {
+    opExpenses = round2(Math.max(0, opExpenses - reloadProviderPayments))
+    netProfit = round2(netProfit + reloadProviderPayments)
+  }
+
+  // Legacy closes counted reload face value inside gross sales / gross profit.
+  // Current P&L keeps face value as pass-through and only counts commission.
+  const reloadSales = round2(summary.sales?.reloadSales ?? 0)
+  if (reloadSales > 0 && !hasReloadSplit) {
+    grossSales = round2(Math.max(0, grossSales - reloadSales))
+    grossProfit = round2(grossProfit - reloadSales)
+    netProfit = round2(netProfit - reloadSales)
+  }
+
   const otherIncome = round2(
     closed.repairIncome + closed.billPaymentIncome + closed.otherIncome + closed.serviceIncome,
   )
   return {
     salesRevenue: closed.totalSales,
-    grossSales: closed.grossSales,
+    grossSales,
     otherIncome,
     repairIncome: round2(closed.repairIncome),
     billPaymentIncome: round2(closed.billPaymentIncome),
@@ -267,8 +308,9 @@ async function mapClosingRecordToSummary(closed: {
     repairPartsCogs: 0,
     opExpenses,
     supplierPayments,
+    reloadProviderPayments,
     refundsTotal: 0,
-    grossProfit: closed.grossProfit,
+    grossProfit,
     netProfit,
     repairJobsCompleted: 0,
   }
@@ -346,7 +388,8 @@ export function toFinanceSummaryResponse(
     cogs: totalCogs,
     opExpenses: fin.opExpenses,
     supplierPayments: fin.supplierPayments,
-    cashOutTotal: round2(fin.opExpenses + fin.supplierPayments + fin.refundsTotal),
+    reloadProviderPayments: fin.reloadProviderPayments,
+    cashOutTotal: round2(fin.opExpenses + fin.supplierPayments + fin.reloadProviderPayments + fin.refundsTotal),
     refundsTotal: fin.refundsTotal,
     repairJobsCompleted: fin.repairJobsCompleted,
     totalExpense,

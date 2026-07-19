@@ -284,7 +284,7 @@ async function buildPeriodExpenseBreakdown(
       tenantId,
       ...bf,
       type: 'EXPENSE',
-      category: { notIn: ['Refund', 'Supplier Payment'] },
+      category: { notIn: ['Refund', 'Supplier Payment', 'Reload Provider'] },
       OR: [
         { occurredAt: { gte: start, lte: end } },
         { AND: [{ occurredAt: null }, { createdAt: { gte: start, lte: end } }] },

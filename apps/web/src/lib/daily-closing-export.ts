@@ -37,6 +37,7 @@ export function exportDailyClosingExcel(
     ['Cash Sales', data?.cash?.cashSales ?? 0],
     ['Operating Expenses', data?.expenses?.totalExpenses ?? 0],
     ['Supplier Payments', data?.expenses?.supplierPayments ?? 0],
+    ...(showReload ? [['Reload Provider Pay', data?.expenses?.reloadProviderPayments ?? 0]] : []),
     ['Bank Deposits', data?.cash?.bankDeposits ?? 0],
     ['Expected Cash', data?.cash?.expectedCash ?? 0],
     ['Actual Cash', data?.cash?.actualCash ?? 0],
@@ -50,7 +51,8 @@ export function exportDailyClosingExcel(
     [],
     ['Operating Expenses (OpEx)', data?.expenses?.totalExpenses ?? 0],
     ['Supplier Payments (Cash Out)', data?.expenses?.supplierPayments ?? 0],
-    ['Cash Out Total', data?.expenses?.cashOutTotal ?? ((data?.expenses?.totalExpenses ?? 0) + (data?.expenses?.supplierPayments ?? 0))],
+    ...(showReload ? [['Reload Provider Pay (Cash Out)', data?.expenses?.reloadProviderPayments ?? 0]] : []),
+    ['Cash Out Total', data?.expenses?.cashOutTotal ?? ((data?.expenses?.totalExpenses ?? 0) + (data?.expenses?.supplierPayments ?? 0) + (data?.expenses?.reloadProviderPayments ?? 0))],
   ]
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(expenseRows), 'Expenses')
 
@@ -101,7 +103,10 @@ export function buildPdfLines(
     ['Net Profit', formatCurrency(data?.profit?.netProfit ?? 0)],
     ['Operating Expenses', formatCurrency(data?.expenses?.totalExpenses ?? 0)],
     ['Supplier Payments', formatCurrency(data?.expenses?.supplierPayments ?? 0)],
-    ...(showReload ? [['Reload Commission', formatCurrency(data?.profit?.reloadCommission ?? 0)]] : []),
+    ...(showReload ? [
+      ['Reload Provider Pay', formatCurrency(data?.expenses?.reloadProviderPayments ?? 0)],
+      ['Reload Commission', formatCurrency(data?.profit?.reloadCommission ?? 0)],
+    ] : []),
     ['Expected Cash', formatCurrency(expectedCash)],
     ['Actual Cash', formatCurrency(actualCash)],
     ['Difference', formatCurrency(variance)],

@@ -925,8 +925,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
     const refunds = dayEndData.cash.cashRefunds ?? 0
     const cashExpenses = dayEndData.expenses?.cashOperatingExpenses ?? dayEndData.expenses.totalExpenses ?? 0
     const cashSupplierPayments = dayEndData.expenses?.cashSupplierPayments ?? 0
+    const cashReloadProviderPayments = dayEndData.expenses?.cashReloadProviderPayments ?? 0
     const cashBankDeposits = dayEndData.cash.cashBankDeposits ?? dayEndData.cash.bankDeposits ?? 0
-    return Math.round((open + dayEndData.cash.cashSales - cashExpenses - cashSupplierPayments - cashBankDeposits - refunds) * 100) / 100
+    return Math.round((open + dayEndData.cash.cashSales - cashExpenses - cashSupplierPayments - cashReloadProviderPayments - cashBankDeposits - refunds) * 100) / 100
   }, [dayEndData])
 
   const dayEndVariance = Math.round((dayEndExpectedCash - dayEndCashTotal) * 100) / 100
@@ -3615,6 +3616,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       { label: 'Cash Sales', value: formatCurrency(dayEndData.cash?.cashSales ?? 0) },
                       { label: 'OpEx', value: formatCurrency(dayEndData.expenses?.totalExpenses ?? 0) },
                       { label: 'Supplier Pay', value: formatCurrency(dayEndData.expenses?.supplierPayments ?? 0) },
+                      { label: 'Reload Pay', value: formatCurrency(dayEndData.expenses?.reloadProviderPayments ?? 0) },
                       { label: 'Opening Cash', value: formatCurrency(dayEndData.openingCash ?? 0) },
                       { label: 'Expected Cash', value: formatCurrency(dayEndExpectedCash) },
                     ].map(k => (

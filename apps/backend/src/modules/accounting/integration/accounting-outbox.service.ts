@@ -93,13 +93,13 @@ export async function syncOutboxForTenant(
       .map(s => enqueueOutboxItem({ tenantId, branchId: s.branchId, sourceType: 'Sale', sourceId: s.id, eventType: 'SALE_COGS' })),
   )
 
-  // EXPENSES (exclude supplier payments — journaled as AP)
+  // EXPENSES (exclude supplier / reload-provider settlements — not OpEx)
   const expenses = await prisma.transaction.findMany({
     where: {
       tenantId,
       ...(branchId ? { branchId } : {}),
       type: 'EXPENSE',
-      category: { not: 'Supplier Payment' },
+      category: { notIn: ['Supplier Payment', 'Reload Provider'] },
       ...createdAtFilter,
     },
     select: { id: true, branchId: true },

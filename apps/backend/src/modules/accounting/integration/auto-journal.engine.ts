@@ -485,8 +485,12 @@ export async function postExpenseJournal(tenantId: string, txId: string, actorEm
   const tx = await readExpenseTransaction(tenantId, txId)
   if (!tx) throw new AppError('Expense transaction not found', 404)
   // Supplier payments settle AP — never post as operating expense.
+  // Reload provider pay settles customer float — also not operating expense.
   if (tx.category === 'Supplier Payment') {
     throw new AppError('Supplier payments must be journaled as AP_PAYMENT_MADE, not EXPENSE_CREATED', 400)
+  }
+  if (tx.category === 'Reload Provider') {
+    throw new AppError('Reload provider payments are cash settlements, not operating expenses', 400)
   }
 
   const settings = await getSettingsOrThrow(tenantId)

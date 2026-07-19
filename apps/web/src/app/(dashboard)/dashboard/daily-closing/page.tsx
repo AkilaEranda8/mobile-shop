@@ -189,8 +189,9 @@ export default function DailyClosingPage() {
     const refunds = d.cash.cashRefunds ?? 0
     const cashExpenses = d.expenses?.cashOperatingExpenses ?? d.expenses?.totalExpenses ?? 0
     const cashSupplierPayments = d.expenses?.cashSupplierPayments ?? 0
+    const cashReloadProviderPayments = d.expenses?.cashReloadProviderPayments ?? 0
     const cashBankDeposits = d.cash.cashBankDeposits ?? d.cash.bankDeposits ?? 0
-    return Math.round((open + d.cash.cashSales - cashExpenses - cashSupplierPayments - cashBankDeposits - refunds) * 100) / 100
+    return Math.round((open + d.cash.cashSales - cashExpenses - cashSupplierPayments - cashReloadProviderPayments - cashBankDeposits - refunds) * 100) / 100
   }, [d, openingCash])
 
   const variance = Math.round((expectedCash - cashTotal) * 100) / 100
@@ -606,11 +607,12 @@ export default function DailyClosingPage() {
               {/* Step 2: Expenses */}
               {step === 2 && (
                 <>
-                  <SectionTitle title="Expense Summary" sub="Operating expenses only — supplier payments are tracked separately as cash out" />
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <SectionTitle title="Expense Summary" sub="Operating expenses only — supplier and reload-provider payments are cash out, not OpEx" />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <MetricCard label="Operating Expenses" value={formatCurrency(d?.expenses?.totalExpenses ?? 0)} tone="red" />
                     <MetricCard label="Supplier Payments" value={formatCurrency(d?.expenses?.supplierPayments ?? 0)} tone="amber" />
-                    <MetricCard label="Cash Out Total" value={formatCurrency(d?.expenses?.cashOutTotal ?? ((d?.expenses?.totalExpenses ?? 0) + (d?.expenses?.supplierPayments ?? 0)))} tone="red" />
+                    <MetricCard label="Reload Provider Pay" value={formatCurrency(d?.expenses?.reloadProviderPayments ?? 0)} tone="amber" />
+                    <MetricCard label="Cash Out Total" value={formatCurrency(d?.expenses?.cashOutTotal ?? ((d?.expenses?.totalExpenses ?? 0) + (d?.expenses?.supplierPayments ?? 0) + (d?.expenses?.reloadProviderPayments ?? 0)))} tone="red" />
                   </div>
                   <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
                     <table className="w-full text-sm">
@@ -633,7 +635,13 @@ export default function DailyClosingPage() {
                             <td className="px-4 py-2.5 text-right font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(d?.expenses?.supplierPayments ?? 0)}</td>
                           </tr>
                         )}
-                        {(d?.expenses?.breakdown ?? []).length === 0 && !(d?.expenses?.supplierPayments ?? 0) && (
+                        {(d?.expenses?.reloadProviderPayments ?? 0) > 0 && (
+                          <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'rgba(245,158,11,0.06)' }}>
+                            <td className="px-4 py-2.5 font-medium" style={{ color: 'var(--text-primary)' }}>Reload Provider Pay (cash out)</td>
+                            <td className="px-4 py-2.5 text-right font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(d?.expenses?.reloadProviderPayments ?? 0)}</td>
+                          </tr>
+                        )}
+                        {(d?.expenses?.breakdown ?? []).length === 0 && !(d?.expenses?.supplierPayments ?? 0) && !(d?.expenses?.reloadProviderPayments ?? 0) && (
                           <tr>
                             <td colSpan={2} className="text-center py-10 text-xs" style={{ color: 'var(--text-muted)' }}>No expenses recorded for this date</td>
                           </tr>
@@ -753,6 +761,9 @@ export default function DailyClosingPage() {
                     )}
                     <MetricCard label="Operating Expenses" value={formatCurrency(d?.expenses?.totalExpenses ?? 0)} tone="red" />
                     <MetricCard label="Supplier Payments" value={formatCurrency(d?.expenses?.supplierPayments ?? 0)} tone="amber" />
+                    {showReload && (
+                      <MetricCard label="Reload Provider Pay" value={formatCurrency(d?.expenses?.reloadProviderPayments ?? 0)} tone="amber" />
+                    )}
                     <MetricCard label="Net Profit" value={formatCurrency(d?.profit?.netProfit ?? 0)}
                       tone={(d?.profit?.netProfit ?? 0) >= 0 ? 'green' : 'red'} />
                   </div>

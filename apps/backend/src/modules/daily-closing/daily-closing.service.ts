@@ -203,6 +203,8 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
   let cashOperatingExpenses = 0
   let supplierPayments = 0
   let cashSupplierPayments = 0
+  let reloadProviderPayments = 0
+  let cashReloadProviderPayments = 0
   let bankDeposits = 0
   let cashBankDeposits = 0
   const expenseMap: Record<string, number> = {}
@@ -235,6 +237,13 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
       if (cat === 'Supplier Payment') {
         supplierPayments += amt
         if (tx.paymentMethod === 'CASH') cashSupplierPayments += amt
+        continue
+      }
+      // Reload provider pay settles float collected from customers — cash out only,
+      // not a business operating expense. P&L keeps reload commission as income.
+      if (cat === 'Reload Provider') {
+        reloadProviderPayments += amt
+        if (tx.paymentMethod === 'CASH') cashReloadProviderPayments += amt
         continue
       }
       if (/^(bank\s+deposit|deposit\s+to\s+bank)$/i.test(cat.trim())) {
@@ -283,7 +292,11 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
     ? (reloadSalesFromRecords > 0 ? reloadSalesFromRecords : reloadSalesFromPos)
     : 0
   if (!dailyReloadEnabled) reloadCommission = 0
-  const totalSales = mobileSales + accessorySales + serviceIncome + reloadSales
+
+  // Reload face value is pass-through volume (shown under sales.reloadSales).
+  // P&L only recognises reload commission as income from reload.
+  const productSales = mobileSales + accessorySales + serviceIncome
+  const totalSales = productSales + reloadSales
   const salesCount = posSales.length
   const posSalesTotal = posSales.reduce((s, sale) => s + Number(sale.total), 0)
 
@@ -306,14 +319,14 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
     }
   }
   const cogs = totalCogsAll
-  const grossSales = totalSales + repairIncome + billPaymentIncome + otherIncome + creditPayments
-  const grossProfit = totalSales - cogs - refundsTotal
-  // OpEx only — supplier payments are cash/AP settlement, not P&L expense.
+  const grossSales = productSales + repairIncome + billPaymentIncome + otherIncome + creditPayments
+  const grossProfit = productSales - cogs - refundsTotal
+  // OpEx only — supplier / reload-provider settlements are cash out, not P&L expense.
   const netProfit = grossSales + reloadCommission - cogs - repairPartsCogs - totalExpenses - refundsTotal
 
   const openingCash = existingClosing?.openingCash ?? openingCashFromPrev
-  // Cash drawer decreases only for CASH outflows — bank/card supplier payments never touch the drawer.
-  const expectedCash = openingCash + cashSales - cashOperatingExpenses - cashSupplierPayments - cashBankDeposits - cashRefunds
+  // Cash drawer decreases only for CASH outflows — bank/card settlements never touch the drawer.
+  const expectedCash = openingCash + cashSales - cashOperatingExpenses - cashSupplierPayments - cashReloadProviderPayments - cashBankDeposits - cashRefunds
   const cashInBank = bankFromSales + bankDeposits
 
   const expenseBreakdown = Object.entries(expenseMap)
@@ -466,7 +479,9 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
       cashOperatingExpenses: Math.round(cashOperatingExpenses * 100) / 100,
       supplierPayments: Math.round(supplierPayments * 100) / 100,
       cashSupplierPayments: Math.round(cashSupplierPayments * 100) / 100,
-      cashOutTotal: Math.round((totalExpenses + supplierPayments) * 100) / 100,
+      reloadProviderPayments: Math.round(reloadProviderPayments * 100) / 100,
+      cashReloadProviderPayments: Math.round(cashReloadProviderPayments * 100) / 100,
+      cashOutTotal: Math.round((totalExpenses + supplierPayments + reloadProviderPayments) * 100) / 100,
       breakdown: expenseBreakdown,
     },
     reload: {
@@ -585,8 +600,10 @@ function previewToClosingData(
         cashOperatingExpenses: preview.expenses.cashOperatingExpenses ?? 0,
         supplierPayments: preview.expenses.supplierPayments ?? 0,
         cashSupplierPayments: preview.expenses.cashSupplierPayments ?? 0,
+        reloadProviderPayments: preview.expenses.reloadProviderPayments ?? 0,
+        cashReloadProviderPayments: preview.expenses.cashReloadProviderPayments ?? 0,
         cashOutTotal: preview.expenses.cashOutTotal
-          ?? Math.round(((preview.expenses.totalExpenses ?? 0) + (preview.expenses.supplierPayments ?? 0)) * 100) / 100,
+          ?? Math.round(((preview.expenses.totalExpenses ?? 0) + (preview.expenses.supplierPayments ?? 0) + (preview.expenses.reloadProviderPayments ?? 0)) * 100) / 100,
       },
       ...(existingSummary?.dayStart ? { dayStart: existingSummary.dayStart } : {}),
     },
