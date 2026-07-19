@@ -47,9 +47,13 @@ router.get('/announcements', authenticate, async (req: Request, res: Response, n
     })
     const dismissedIds = dismissed.map(d => d.announcementId)
 
+    // Announcements go stale — only show ones sent in the last 14 days so new
+    // accounts don't see the entire historical backlog.
+    const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
     const candidates = await prisma.platformAnnouncement.findMany({
       where: {
         status: 'SENT',
+        sentAt: { gte: cutoff },
         ...(dismissedIds.length ? { id: { notIn: dismissedIds } } : {}),
       },
       orderBy: { sentAt: 'desc' },

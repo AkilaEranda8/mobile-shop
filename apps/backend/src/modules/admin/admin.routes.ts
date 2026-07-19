@@ -1353,6 +1353,9 @@ router.put('/settings/config', async (req: Request, res: Response, next: NextFun
         || DEFAULT_MAINTENANCE_MESSAGE
       await syncMaintenanceAnnouncement(true, message)
     }
+    if (updates['maintenance.enabled'] === 'false' && prevMaintenance.enabled) {
+      await syncMaintenanceAnnouncement(false, '')
+    }
     if (Object.keys(updates).some((k) => RATE_LIMIT_CONFIG_KEYS.includes(k as typeof RATE_LIMIT_CONFIG_KEYS[number]))) {
       await refreshRateLimitSettings()
     }

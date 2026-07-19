@@ -15,6 +15,13 @@ export async function getMaintenanceStatus() {
 }
 
 export async function syncMaintenanceAnnouncement(enabled: boolean, message: string) {
+  // Only one live maintenance banner should exist at a time. Archive previous
+  // ones both when re-enabling (avoids duplicates) and when disabling
+  // (removes the non-dismissible banner from every tenant).
+  await prisma.platformAnnouncement.updateMany({
+    where: { title: 'Maintenance Mode Active', status: 'SENT' },
+    data: { status: 'ARCHIVED' },
+  })
   if (!enabled) return
   await prisma.platformAnnouncement.create({
     data: {
