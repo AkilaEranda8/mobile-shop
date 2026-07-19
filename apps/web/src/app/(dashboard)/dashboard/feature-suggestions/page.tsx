@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Lightbulb, Send, X, Clock, CheckCircle2, XCircle, Loader2, Plus,
@@ -365,7 +365,12 @@ function FeatureSuggestionsContent() {
 
   useEffect(() => { void loadList(1) }, [loadList])
 
+  // Tracks the id already opened (or explicitly closed) so the URL-sync effect
+  // below doesn't reopen the modal while router.replace is still propagating.
+  const handledIdRef = useRef<string | null>(null)
+
   const openDetail = useCallback(async (id: string) => {
+    handledIdRef.current = id
     setSelectedId(id)
     setDetailLoading(true)
     try {
@@ -393,8 +398,12 @@ function FeatureSuggestionsContent() {
 
   useEffect(() => {
     const id = searchParams.get('id')
-    if (id && id !== selectedId) void openDetail(id)
-  }, [searchParams, selectedId, openDetail])
+    if (!id) {
+      handledIdRef.current = null
+      return
+    }
+    if (id !== handledIdRef.current) void openDetail(id)
+  }, [searchParams, openDetail])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
