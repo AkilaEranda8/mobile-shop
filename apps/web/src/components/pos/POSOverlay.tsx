@@ -1888,6 +1888,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
     setCheckoutLoading(true)
     setCheckoutError('')
     const settledOutstanding = outstandingPaying
+    // Snapshot old open-sale dues BEFORE this checkout creates a new credit invoice.
+    // Settlement must never apply to the sale we are about to create.
+    const priorOutstanding = customerOutstanding
     // Open print window synchronously with the click — browsers block window.open after await
     const shouldAutoPrint = invoiceSettings.posAutoPrintBill !== false && cart.length > 0
     const receiptWin = shouldAutoPrint ? openReceiptPrintWindow('Preparing thermal receipt…') : null
@@ -1897,17 +1900,16 @@ function POSContent({ onClose }: { onClose: () => void }) {
     try {
       const user = authStorage.getUser()
 
-      // Settle old balance first so a failed payment does not leave a new sale unpaid
-      if (!offlineNow && settleOldOutstanding && selectedCustomer && settledOutstanding > 0) {
-        await customersApi.creditPayment(selectedCustomer.id, {
-          amount: settledOutstanding,
-          paymentMethod,
-          branchId: getBranchId() || '',
-          performedBy: user?.name || 'system',
-        })
-      }
-
+      // Outstanding-only collection (no cart)
       if (cart.length === 0) {
+        if (!offlineNow && settleOldOutstanding && selectedCustomer && settledOutstanding > 0) {
+          await customersApi.creditPayment(selectedCustomer.id, {
+            amount: settledOutstanding,
+            paymentMethod,
+            branchId: getBranchId() || '',
+            performedBy: user?.name || 'system',
+          })
+        }
         try { receiptWin?.close() } catch { /* ignore */ }
         if (selectedCustomer?.id) await refreshCustomerBalance(selectedCustomer.id)
         setIncludeOutstanding(false)
@@ -2006,6 +2008,33 @@ function POSContent({ onClose }: { onClose: () => void }) {
         }
         throw createErr
       }
+
+      // Settle OLD dues only AFTER the new sale succeeds, and never apply that
+      // payment to the new invoice's intentional credit balance.
+      const newSaleId = res.data?.id as string | undefined
+      let actuallySettled = 0
+      if (settleOldOutstanding && selectedCustomer && settledOutstanding > 0) {
+        const settleAmt = Math.min(settledOutstanding, Math.max(0, priorOutstanding))
+        if (settleAmt > 0.001) {
+          try {
+            const settleRes: any = await customersApi.creditPayment(selectedCustomer.id, {
+              amount: settleAmt,
+              paymentMethod,
+              branchId: getBranchId() || '',
+              performedBy: user?.name || 'system',
+              excludeSaleIds: newSaleId ? [newSaleId] : [],
+            })
+            actuallySettled = Number(settleRes?.data?.amountPaid ?? settleAmt)
+          } catch (settleErr: any) {
+            toast.error(
+              settleErr?.message
+                ? `Sale saved, but old balance was not settled: ${settleErr.message}`
+                : 'Sale saved, but old balance settlement failed',
+            )
+          }
+        }
+      }
+
       const createdWarrantyCodes = extractSaleWarrantyCodes(res)
       const createdWarranties = extractSaleWarranties(res)
       if (createdWarrantyCodes.length > 0) {
@@ -2018,8 +2047,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
       if (saleDueAmount > 0) {
         toast.success(`${formatCurrency(saleDueAmount)} added to customer credit`, { icon: '📋' })
       }
-      if (settledOutstanding > 0) {
-        toast.success(`Old balance ${formatCurrency(settledOutstanding)} settled`, { icon: '✓' })
+      if (actuallySettled > 0) {
+        toast.success(`Old balance ${formatCurrency(actuallySettled)} settled`, { icon: '✓' })
       }
       if (selectedCustomer?.id) {
         await refreshCustomerBalance(selectedCustomer.id)
@@ -2058,16 +2087,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
       autoPrintPosReceipt(receiptData, invoiceSettings, thermalShopCtx, receiptWin)
     } catch (e: any) {
       try { receiptWin?.close() } catch { /* ignore */ }
-      if (settledOutstanding > 0) {
-        if (selectedCustomer?.id) await refreshCustomerBalance(selectedCustomer.id)
-        const base = e.message || 'Checkout failed'
-        setCheckoutError(
-          cart.length > 0
-            ? `${base} — outstanding ${formatCurrency(settledOutstanding)} was already collected`
-            : base,
-        )
-      } else {
-        setCheckoutError(e.message || 'Checkout failed')
+      setCheckoutError(e.message || 'Checkout failed')
+      if (selectedCustomer?.id) {
+        try { await refreshCustomerBalance(selectedCustomer.id) } catch { /* ignore */ }
       }
     } finally {
       setCheckoutLoading(false)

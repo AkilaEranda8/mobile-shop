@@ -108,7 +108,14 @@ export const customersService = {
     })
   },
 
-  async creditPayment(tenantId: string, customerId: string, body: { amount: number; paymentMethod: string; branchId?: string; performedBy: string }) {
+  async creditPayment(tenantId: string, customerId: string, body: {
+    amount: number
+    paymentMethod: string
+    branchId?: string
+    performedBy: string
+    /** Skip these sales when allocating (e.g. new POS invoice created in the same checkout). */
+    excludeSaleIds?: string[]
+  }) {
     const c = await prisma.customer.findFirst({ where: { id: customerId, tenantId } })
     if (!c) throw new AppError('Customer not found', 404)
 
@@ -125,10 +132,16 @@ export const customersService = {
 
     const method = paymentMethod as PaymentMethod
     const round2 = (n: number) => Math.round(n * 100) / 100
+    const exclude = new Set((body.excludeSaleIds ?? []).filter(Boolean))
 
     return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const openSales = await tx.sale.findMany({
-        where: { tenantId, customerId, dueAmount: { gt: 0 } },
+        where: {
+          tenantId,
+          customerId,
+          dueAmount: { gt: 0 },
+          ...(exclude.size ? { id: { notIn: [...exclude] } } : {}),
+        },
         orderBy: { createdAt: 'asc' },
       })
 
@@ -187,7 +200,9 @@ export const customersService = {
       }
 
       let collectionInvoice: string | undefined
-      if (remaining > 0) {
+      // When excluding the new POS invoice, never create a leftover "collection"
+      // sale — that would steal from the intentional credit left on the new bill.
+      if (remaining > 0 && exclude.size === 0) {
         const invoiceNumber = await generateInvoiceNumber(tenantId)
         collectionInvoice = invoiceNumber
         await tx.sale.create({
@@ -221,9 +236,18 @@ export const customersService = {
             },
           },
         })
+        remaining = 0
       }
 
-      const newTotalDue = round2(Math.max(0, c.totalDue - amount))
+      const amountApplied = round2(amount - remaining)
+      if (amountApplied <= 0.001) {
+        throw new AppError('No open invoices available to apply this outstanding payment', 400)
+      }
+
+      // Re-read balance inside the transaction — a concurrent POS sale may have
+      // just increased totalDue (new credit). Only reduce by what we actually applied.
+      const fresh = await tx.customer.findUnique({ where: { id: customerId }, select: { totalDue: true } })
+      const newTotalDue = round2(Math.max(0, (fresh?.totalDue ?? c.totalDue) - amountApplied))
       await tx.customer.update({ where: { id: customerId }, data: { totalDue: newTotalDue } })
 
       const invoiceRefs = [
@@ -237,7 +261,7 @@ export const customersService = {
           branchId,
           type: 'INCOME',
           category: 'Customer Credit Payment',
-          amount,
+          amount: amountApplied,
           description: `Credit payment from ${c.name} (${c.phone})${invoiceRefs.length ? ` — ${invoiceRefs.join(', ')}` : ''}`,
           paymentMethod: method,
           reference: invoiceRefs.join(', ') || undefined,
@@ -247,7 +271,7 @@ export const customersService = {
 
       return {
         customerId,
-        amountPaid: amount,
+        amountPaid: amountApplied,
         newOutstanding: newTotalDue,
         allocations,
         collectionInvoice,
