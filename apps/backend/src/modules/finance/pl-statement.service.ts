@@ -245,6 +245,8 @@ async function buildPeriodIncomeBreakdown(
     const amt = Number(tx.amount)
     const cat = tx.category ?? 'Other'
     if (cat === 'Sales') continue
+    // Legacy POS fallback recorded drawer float as INCOME — it is not revenue.
+    if (cat === 'Opening Cash') continue
     if (cat === 'Repairs') repairIncome += amt
     else if (/bill\s*pay/i.test(cat)) billPaymentIncome += amt
     else if (cat === 'Customer Credit Payment') creditPayments += amt

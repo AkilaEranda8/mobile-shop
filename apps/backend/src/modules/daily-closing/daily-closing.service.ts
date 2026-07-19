@@ -214,6 +214,8 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
     const cat = tx.category ?? 'Other'
     if (tx.type === 'INCOME') {
       if (cat === 'Sales') continue
+      // Legacy POS fallback recorded drawer float as INCOME — it is not revenue.
+      if (cat === 'Opening Cash') continue
       if (cat === 'Repairs') {
         // Repairs are the single source of repair revenue; route their payment to the
         // matching bucket so card/QR/bank repair income isn't lost from reconciliation.
