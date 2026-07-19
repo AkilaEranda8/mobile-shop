@@ -173,7 +173,7 @@ function NewSuggestionModal({ onClose, onSaved }: { onClose: () => void; onSaved
   )
 }
 
-function DetailDrawer({
+function DetailModal({
   suggestion,
   loading,
   onClose,
@@ -193,16 +193,18 @@ function DetailDrawer({
     : -1
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <button
         type="button"
-        aria-label="Close drawer"
+        aria-label="Close dialog"
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
       />
-      <aside
-        className="relative w-full max-w-lg h-full overflow-y-auto shadow-2xl border-l animate-in slide-in-from-right duration-200"
+      <div
+        className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl border animate-in fade-in zoom-in-95 duration-200"
         style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
+        role="dialog"
+        aria-modal="true"
       >
         <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b"
           style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
@@ -319,7 +321,7 @@ function DetailDrawer({
             </div>
           </div>
         )}
-      </aside>
+      </div>
     </div>
   )
 }
@@ -614,7 +616,7 @@ function FeatureSuggestionsContent() {
       </div>
 
       {(selectedId || detailLoading) && (
-        <DetailDrawer
+        <DetailModal
           suggestion={detail}
           loading={detailLoading}
           onClose={closeDetail}
