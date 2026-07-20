@@ -3064,7 +3064,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           style={{ background: selectedCustomer ? 'var(--sidebar-active-border)' : POS_THEME.bg, color: '#ffffff' }}>
           {selectedCustomer ? selectedCustomer.name[0]?.toUpperCase() : <User size={10} />}
         </div>
-        <span className="max-w-[56px] sm:max-w-[100px] md:max-w-[130px] truncate">{selectedCustomer ? selectedCustomer.name : 'Walk-in'}</span>
+        <span className="max-w-[5.5rem] sm:max-w-[7rem] truncate">{selectedCustomer ? selectedCustomer.name : 'Walk-in'}</span>
         <ChevronDown size={10} className="text-white/70" />
       </button>
       {showCustDrop && (
@@ -3234,7 +3234,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           selectedCategory === 'RELOAD' && hasDailyReload ? (
             <PosReloadPanel onAdd={addReloadToCart} />
           ) : (
-          <div className={gridView ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2 sm:gap-3' : 'space-y-1.5'}>
+          <div className={gridView ? 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-1.5 sm:gap-2' : 'space-y-1.5'}>
             {pagedProducts.length === 0 ? (
               <div className="col-span-full flex flex-col items-center justify-center h-40 opacity-30">
                 <PackageSearch size={32} className="mb-2" style={{ color: POS_THEME.muted }} />
@@ -3318,12 +3318,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
                   return (
                     <div key={item.id}
-                      className={`relative flex flex-col h-full rounded-xl overflow-hidden border transition-all group cursor-pointer select-none ${isOut ? 'opacity-40 cursor-not-allowed' : 'hover:shadow-lg hover:shadow-black/25 hover:-translate-y-0.5'}`}
+                      className={`relative flex flex-col h-full rounded-lg overflow-hidden border transition-all group cursor-pointer select-none ${isOut ? 'opacity-40 cursor-not-allowed' : 'hover:shadow-md hover:shadow-black/20 hover:-translate-y-0.5'}`}
                       style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}
                       onClick={handlePick}>
 
-                      {/* Image */}
-                      <div className="relative aspect-[4/3] overflow-hidden">
+                      {/* Image — compact */}
+                      <div className="relative aspect-[5/4] overflow-hidden">
                         <div className="absolute inset-0" style={{ background: gradient }}>
                           <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 65% 20%, rgba(255,255,255,0.18) 0%, transparent 55%)' }} />
                         </div>
@@ -3333,64 +3333,64 @@ function POSContent({ onClose }: { onClose: () => void }) {
                           <img src={item.imageUrl} alt={item.name} className="absolute inset-0 w-full h-full object-cover" />
                         ) : (
                           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.22)', backdropFilter: 'blur(4px)' }}>
-                              <CardIcon size={24} style={{ color: iconColor }} />
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.22)', backdropFilter: 'blur(4px)' }}>
+                              <CardIcon size={16} style={{ color: iconColor }} />
                             </div>
                           </div>
                         )}
 
                         {!isOut && (
                           <div className="absolute inset-0 hidden [@media(hover:hover)]:flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: 'rgba(0,0,0,0.28)' }}>
-                            <div className="w-7 h-7 rounded-full flex items-center justify-center border border-white/50" style={{ background: 'rgba(255,255,255,0.15)' }}>
-                              <Plus size={14} className="text-white" />
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center border border-white/50" style={{ background: 'rgba(255,255,255,0.15)' }}>
+                              <Plus size={12} className="text-white" />
                             </div>
                           </div>
                         )}
 
                         {isHot && !isLow && (
-                          <div className="absolute top-1 left-1 px-1.5 py-px rounded text-[8px] font-extrabold tracking-wide text-white" style={{ background: POS_THEME.red }}>HOT</div>
+                          <div className="absolute top-0.5 left-0.5 px-1 py-px rounded text-[7px] font-extrabold tracking-wide text-white" style={{ background: POS_THEME.red }}>HOT</div>
                         )}
                         {isLow && (
-                          <div className="absolute top-1 left-1 flex items-center gap-0.5 px-1.5 py-px rounded-full text-[8px] font-bold border border-white/30 text-white" style={{ background: 'rgba(0,0,0,0.35)' }}>⚠ LOW</div>
+                          <div className="absolute top-0.5 left-0.5 flex items-center gap-0.5 px-1 py-px rounded-full text-[7px] font-bold border border-white/30 text-white" style={{ background: 'rgba(0,0,0,0.35)' }}>⚠ LOW</div>
                         )}
                         {vars.length > 0 && (
-                          <div className="absolute bottom-1 left-1 px-1.5 py-px rounded text-[8px] font-bold text-white/90" style={{ background: 'rgba(0,0,0,0.4)' }}>{vars.length} variants</div>
+                          <div className="absolute bottom-0.5 left-0.5 px-1 py-px rounded text-[7px] font-bold text-white/90" style={{ background: 'rgba(0,0,0,0.4)' }}>{vars.length} var</div>
                         )}
                         {showWarrantyBadge && (
-                          <div className="absolute bottom-1 right-1 flex items-center gap-0.5 px-1.5 py-px rounded text-[8px] font-bold text-white" style={{ background: 'rgba(16,185,129,0.85)' }}>
-                            <Shield size={8} /> {formatWarrantyMonths(item.warrantyMonths ?? 0)}
+                          <div className="absolute bottom-0.5 right-0.5 flex items-center gap-0.5 px-1 py-px rounded text-[7px] font-bold text-white" style={{ background: 'rgba(16,185,129,0.85)' }}>
+                            <Shield size={7} /> {formatWarrantyMonths(item.warrantyMonths ?? 0)}
                           </div>
                         )}
                         <button type="button" onClick={e => { e.stopPropagation(); setFavorites(prev => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n }) }}
-                          className={`absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center transition-all ${isFav ? 'opacity-100 text-red-400' : 'opacity-0 [@media(hover:hover)]:group-hover:opacity-100 text-white/70 hover:text-red-400'}`}
+                          className={`absolute top-0.5 right-0.5 w-4 h-4 rounded-full flex items-center justify-center transition-all ${isFav ? 'opacity-100 text-red-400' : 'opacity-0 [@media(hover:hover)]:group-hover:opacity-100 text-white/70 hover:text-red-400'}`}
                           style={{ background: 'rgba(0,0,0,0.35)' }}>
-                          <Heart size={10} fill={isFav ? 'currentColor' : 'none'} />
+                          <Heart size={8} fill={isFav ? 'currentColor' : 'none'} />
                         </button>
                       </div>
 
-                      {/* Info */}
-                      <div className="flex flex-col px-2.5 sm:px-3 py-2 sm:py-2.5 gap-1 flex-1">
-                        <p className="text-xs sm:text-sm font-bold leading-snug line-clamp-2 min-h-[2.25rem] sm:min-h-[2.5rem]" style={{ color: POS_THEME.text }}>{item.name}</p>
-                        <p className="text-[10px] sm:text-[11px] font-mono truncate" style={{ color: POS_THEME.muted }}>{item.sku}</p>
-                        <div className="flex items-end justify-between gap-2 mt-auto pt-1">
+                      {/* Info — compact */}
+                      <div className="flex flex-col px-1.5 sm:px-2 py-1.5 gap-0.5 flex-1">
+                        <p className="text-[11px] font-bold leading-snug line-clamp-1" style={{ color: POS_THEME.text }}>{item.name}</p>
+                        <p className="text-[9px] font-mono truncate" style={{ color: POS_THEME.muted }}>{item.sku}</p>
+                        <div className="flex items-end justify-between gap-1 mt-auto pt-0.5">
                           <div className="min-w-0">
-                            <p className="text-white text-xs sm:text-sm font-extrabold leading-none">{price}</p>
+                            <p className="text-white text-[11px] sm:text-xs font-extrabold leading-none truncate">{price}</p>
                             {isService ? (
-                              <p className="text-[11px] mt-1 truncate" style={{ color: POS_THEME.muted }}>
+                              <p className="text-[9px] mt-0.5 truncate" style={{ color: POS_THEME.muted }}>
                                 Cost {formatCurrency(Number(item.cost ?? 0))}
                               </p>
                             ) : (
-                              <p className="text-[11px] font-semibold flex items-center gap-1 mt-1 truncate" style={{ color: stockColor }}>
-                                <span className="w-1.5 h-1.5 rounded-full inline-block shrink-0" style={{ background: stockColor }} />
+                              <p className="text-[9px] font-semibold flex items-center gap-0.5 mt-0.5 truncate" style={{ color: stockColor }}>
+                                <span className="w-1 h-1 rounded-full inline-block shrink-0" style={{ background: stockColor }} />
                                 {stockLabel}
                               </p>
                             )}
                           </div>
                           <button type="button" disabled={isOut}
                             onClick={e => { e.stopPropagation(); handlePick() }}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center text-white transition-all disabled:opacity-30 hover:scale-105 active:scale-95 shrink-0"
-                            style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, boxShadow: `0 2px 8px ${POS_THEME.purple}55` }}>
-                            <Plus size={15} />
+                            className="w-6 h-6 rounded-md flex items-center justify-center text-white transition-all disabled:opacity-30 hover:scale-105 active:scale-95 shrink-0"
+                            style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, boxShadow: `0 2px 6px ${POS_THEME.purple}55` }}>
+                            <Plus size={12} />
                           </button>
                         </div>
                       </div>

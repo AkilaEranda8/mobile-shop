@@ -206,13 +206,13 @@ export function HexaPosLayout({
 
       {/* ── Main column ── */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
-        {/* Top toolbar */}
+        {/* Top toolbar — left tools | growing search | right actions */}
         <div className="shrink-0 px-2 sm:px-3 py-2 border-b" style={{ borderColor: C.border, background: C.panel }}>
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 w-full min-w-0">
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-lg hover:bg-white/5 text-white touch-manipulation"
+              className="p-2 rounded-lg hover:bg-white/5 text-white touch-manipulation shrink-0"
               title="Close POS"
               aria-label="Close POS"
             >
@@ -223,7 +223,7 @@ export function HexaPosLayout({
               <span className="hidden md:inline">Scan IMEI</span>
             </button>
             {imeiSlot}
-            <div className="flex-1 min-w-0 basis-full sm:basis-[12rem] md:basis-auto sm:min-w-[140px] lg:min-w-[180px] relative order-last sm:order-none w-full sm:w-auto sm:max-w-none lg:max-w-xl xl:max-w-2xl">
+            <div className="flex-1 min-w-0 relative">
               <ScanLine size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: C.muted }} />
               <input
                 ref={searchRef}
@@ -236,44 +236,46 @@ export function HexaPosLayout({
               />
               <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] px-1.5 py-0.5 rounded font-mono hidden sm:inline" style={{ background: C.bg, color: C.muted }}>F1</kbd>
             </div>
-            <button type="button" onClick={onFiltersClick}
-              className="h-9 px-2 sm:px-3 rounded-xl text-xs font-semibold border shrink-0 flex items-center gap-1.5 transition-colors touch-manipulation"
-              style={{
-                borderColor: filtersActive ? C.purple : C.border,
-                background: filtersActive ? `${C.purple}22` : C.card,
-                color: filtersActive ? C.text : C.muted,
-              }}>
-              <SlidersHorizontal size={14} />
-              <span className="hidden md:inline">Filters</span>
-            </button>
-            {toolbarActions}
-            <button
-              type="button"
-              onClick={() => onMobileViewChange?.('cart')}
-              className="lg:hidden relative h-9 w-9 rounded-xl border flex items-center justify-center shrink-0 hover:bg-white/5 touch-manipulation"
-              style={{ borderColor: showCartPane ? C.purple : C.border, background: showCartPane ? `${C.purple}22` : C.card }}
-              title="Cart"
-              aria-label="Open cart"
-            >
-              <ShoppingCart size={15} className="text-white" />
-              {cartItemCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center text-white" style={{ background: C.purple }}>
-                  {cartItemCount > 99 ? '99+' : cartItemCount}
-                </span>
-              )}
-            </button>
-            <button type="button" onClick={onBellClick} className="relative h-9 w-9 rounded-xl border flex items-center justify-center shrink-0 hover:bg-white/5 touch-manipulation" style={{ borderColor: C.border, background: C.card }} title="Held carts" aria-label="Held carts">
-              <Archive size={15} className="text-white" />
-              {heldBadgeCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center text-white" style={{ background: C.red }}>
-                  {heldBadgeCount}
-                </span>
-              )}
-            </button>
-            <button type="button" onClick={() => onNavAction?.('settings')} className="hidden sm:flex h-9 w-9 rounded-xl border items-center justify-center shrink-0 hover:bg-white/5 touch-manipulation" style={{ borderColor: C.border, background: C.card }}>
-              <Settings size={15} style={{ color: C.muted }} />
-            </button>
-            <div className="shrink-0 max-w-[40vw] sm:max-w-none">{customerSlot}</div>
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <button type="button" onClick={onFiltersClick}
+                className="h-9 px-2 sm:px-3 rounded-xl text-xs font-semibold border flex items-center gap-1.5 transition-colors touch-manipulation"
+                style={{
+                  borderColor: filtersActive ? C.purple : C.border,
+                  background: filtersActive ? `${C.purple}22` : C.card,
+                  color: filtersActive ? C.text : C.muted,
+                }}>
+                <SlidersHorizontal size={14} />
+                <span className="hidden md:inline">Filters</span>
+              </button>
+              {toolbarActions}
+              <button
+                type="button"
+                onClick={() => onMobileViewChange?.('cart')}
+                className="lg:hidden relative h-9 w-9 rounded-xl border flex items-center justify-center hover:bg-white/5 touch-manipulation"
+                style={{ borderColor: showCartPane ? C.purple : C.border, background: showCartPane ? `${C.purple}22` : C.card }}
+                title="Cart"
+                aria-label="Open cart"
+              >
+                <ShoppingCart size={15} className="text-white" />
+                {cartItemCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center text-white" style={{ background: C.purple }}>
+                    {cartItemCount > 99 ? '99+' : cartItemCount}
+                  </span>
+                )}
+              </button>
+              <button type="button" onClick={onBellClick} className="relative h-9 w-9 rounded-xl border flex items-center justify-center hover:bg-white/5 touch-manipulation" style={{ borderColor: C.border, background: C.card }} title="Held carts" aria-label="Held carts">
+                <Archive size={15} className="text-white" />
+                {heldBadgeCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center text-white" style={{ background: C.red }}>
+                    {heldBadgeCount}
+                  </span>
+                )}
+              </button>
+              <button type="button" onClick={() => onNavAction?.('settings')} className="hidden sm:flex h-9 w-9 rounded-xl border items-center justify-center hover:bg-white/5 touch-manipulation" style={{ borderColor: C.border, background: C.card }}>
+                <Settings size={15} style={{ color: C.muted }} />
+              </button>
+              <div className="max-w-[9rem] sm:max-w-[11rem]">{customerSlot}</div>
+            </div>
           </div>
         </div>
 
