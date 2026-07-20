@@ -187,11 +187,31 @@ interface SidebarProps {
   onToggle?: () => void
 }
 
-const PLAN_COLOR: Record<string, string> = {
-  TRIAL:      'text-amber-400',
-  STARTER:    'text-slate-400',
-  PRO:        'text-blue-400',
-  ENTERPRISE: 'text-violet-400',
+const PLAN_STYLE: Record<string, { text: string; bg: string; border: string; dot: string }> = {
+  TRIAL: {
+    text: 'text-amber-300',
+    bg: 'bg-amber-500/10',
+    border: 'border-amber-500/25',
+    dot: 'bg-amber-400',
+  },
+  STARTER: {
+    text: 'text-slate-300',
+    bg: 'bg-white/5',
+    border: 'border-white/10',
+    dot: 'bg-slate-400',
+  },
+  PRO: {
+    text: 'text-sky-300',
+    bg: 'bg-sky-500/10',
+    border: 'border-sky-500/25',
+    dot: 'bg-sky-400',
+  },
+  ENTERPRISE: {
+    text: 'text-indigo-300',
+    bg: 'bg-indigo-500/10',
+    border: 'border-indigo-500/25',
+    dot: 'bg-indigo-400',
+  },
 }
 
 // UX: hide the "NEW" badge across the sidebar.
@@ -332,6 +352,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   }
 
   const inventorySectionPaths = ['/inventory', '/dashboard/inventory', '/dashboard/stock-transfer']
+  const planStyle = PLAN_STYLE[plan] ?? PLAN_STYLE.STARTER
 
   return (
     <aside className={cn(
@@ -349,34 +370,61 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
         {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
       </button>
 
-      {/* Logo */}
+      {/* Brand header */}
       <div
         className={cn(
-          'flex items-center border-b min-h-[72px]',
+          'relative flex items-center border-b min-h-[76px] overflow-hidden',
           collapsed ? 'justify-center px-2' : 'gap-3 px-3.5',
         )}
         style={{ borderColor: 'var(--border-subtle)' }}
       >
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden shadow-lg ring-1 ring-white/10" style={{ background: logo ? 'transparent' : undefined }}>
-          {logo
-            ? <img src={logo} alt={shopName} className="w-full h-full object-contain" />
-            : <div className="w-full h-full accent-gradient-br flex items-center justify-center"><span className="text-white font-black text-sm">{(shopName || 'H').charAt(0).toUpperCase()}</span></div>
-          }
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-60"
+          style={{
+            background:
+              'radial-gradient(ellipse 90% 140% at 8% 50%, var(--brand-glow), transparent 62%)',
+          }}
+        />
+
+        <div
+          className={cn(
+            'relative flex-shrink-0 w-10 h-10 rounded-2xl overflow-hidden',
+            'ring-1 ring-white/12 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.55)]',
+            'bg-[color-mix(in_srgb,var(--bg-card)_88%,transparent)]',
+          )}
+        >
+          {logo ? (
+            <img src={logo} alt={shopName || 'Shop'} className="w-full h-full object-contain p-0.5" />
+          ) : (
+            <div className="w-full h-full accent-gradient-br flex items-center justify-center">
+              <span className="text-white font-black text-sm tracking-tight">
+                {(shopName || 'H').charAt(0).toUpperCase()}
+              </span>
+            </div>
+          )}
         </div>
+
         {!collapsed && (
-          <div className="min-w-0 flex-1">
-            <span
-              className="font-bold text-[15px] leading-tight block break-words line-clamp-2"
+          <div className="relative min-w-0 flex-1 py-0.5">
+            <p
+              className="font-semibold text-[15px] leading-snug tracking-tight break-words line-clamp-2"
               style={{ color: 'var(--text-primary)' }}
               title={shopName || 'My Shop'}
             >
               {shopName || 'My Shop'}
-            </span>
+            </p>
             {plan && (
-              <span className={cn(
-                'inline-flex mt-1 rounded-full border px-2 py-0.5 text-[10px] font-bold capitalize leading-none',
-                PLAN_COLOR[plan] ?? 'text-slate-400',
-              )} style={{ borderColor: 'currentColor', opacity: 0.9 }}>
+              <span
+                className={cn(
+                  'mt-1.5 inline-flex items-center gap-1.5 rounded-md border px-1.5 py-0.5',
+                  'text-[10px] font-semibold uppercase tracking-[0.06em] leading-none',
+                  planStyle.text,
+                  planStyle.bg,
+                  planStyle.border,
+                )}
+              >
+                <span className={cn('h-1.5 w-1.5 rounded-full', planStyle.dot)} />
                 {plan.charAt(0) + plan.slice(1).toLowerCase()}
               </span>
             )}

@@ -377,9 +377,9 @@ export default function ProductTraceabilityPage() {
   const sectionIcon = SECTIONS.find(s => s.id === activeSection)?.icon ?? History
 
   return (
-    <div className="max-w-6xl mx-auto pb-8">
+    <div className="w-full max-w-none pb-8">
       <div
-        className="rounded-xl shadow-sm border overflow-hidden"
+        className="rounded-xl shadow-sm border overflow-hidden w-full"
         style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', borderColor: 'var(--border-default)' }}
       >
         {/* Sticky header — matches Product Details modal */}
@@ -578,9 +578,9 @@ export default function ProductTraceabilityPage() {
             ))}
           </div>
 
-          {/* Main + sidebar layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-2 space-y-4">
+          {/* Main history (full width) + summary */}
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_280px] gap-4">
+            <div className="min-w-0 space-y-4">
               {activeSection === 'analytics' ? (
                 <DetailPanel title="Analytics summary" icon={BarChart3}>
                   <div className="p-3 grid grid-cols-2 gap-3">

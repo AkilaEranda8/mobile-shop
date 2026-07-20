@@ -207,6 +207,56 @@ function AdminPasswordField({
   )
 }
 
+/** Shown immediately when Edit is clicked — must enter password before the edit form. */
+function EditPasswordGate({
+  invoiceNumber, onClose, onVerified,
+}: { invoiceNumber: string; onClose: () => void; onVerified: (password: string) => void }) {
+  const [adminPassword, setAdminPassword] = useState('')
+
+  const continueEdit = () => {
+    if (!adminPassword.trim()) {
+      toast.error('Admin password is required')
+      return
+    }
+    onVerified(adminPassword)
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <form
+        className="rounded-xl w-full max-w-md border shadow-2xl p-5 space-y-4"
+        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
+        onClick={e => e.stopPropagation()}
+        onSubmit={(e) => { e.preventDefault(); continueEdit() }}
+      >
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-lg bg-violet-500/15 text-violet-500">
+            <Lock size={18} />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Admin password required</h3>
+            <p className="text-[12px] mt-1" style={{ color: 'var(--text-muted)' }}>
+              Enter the owner / admin password to edit invoice{' '}
+              <span className="font-mono font-semibold">{invoiceNumber}</span>.
+            </p>
+          </div>
+        </div>
+        <AdminPasswordField value={adminPassword} onChange={setAdminPassword} autoFocus />
+        <div className="flex gap-2 justify-end pt-1">
+          <button type="button" className="btn-secondary text-sm" onClick={onClose}>Cancel</button>
+          <button
+            type="submit"
+            className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg font-semibold bg-violet-600 text-white hover:bg-violet-500"
+          >
+            <Pencil size={14} />
+            Continue to edit
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 function DeleteSaleModal({
   sale, onClose, onDeleted,
 }: { sale: any; onClose: () => void; onDeleted: () => void }) {
@@ -280,8 +330,8 @@ function DeleteSaleModal({
 }
 
 function EditSaleModal({
-  sale, onClose, onSaved,
-}: { sale: any; onClose: () => void; onSaved: (updated: any) => void }) {
+  sale, onClose, onSaved, initialAdminPassword = '',
+}: { sale: any; onClose: () => void; onSaved: (updated: any) => void; initialAdminPassword?: string }) {
   const hasReturns = (sale._count?.returns ?? sale.returns?.length ?? 0) > 0
   const [customerName, setCustomerName] = useState(sale.customerName ?? '')
   const [customerPhone, setCustomerPhone] = useState(sale.customerPhone ?? '')
@@ -305,7 +355,7 @@ function EditSaleModal({
       reference: p.reference ?? '',
     })),
   )
-  const [adminPassword, setAdminPassword] = useState('')
+  const [adminPassword, setAdminPassword] = useState(initialAdminPassword)
   const [saving, setSaving] = useState(false)
 
   const subtotal = items.reduce(
@@ -373,6 +423,18 @@ function EditSaleModal({
         </div>
 
         <div className="p-5 space-y-4">
+          {initialAdminPassword ? (
+            <div
+              className="flex items-center gap-2 text-[12px] px-3 py-2 rounded-lg border"
+              style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)', color: 'var(--text-secondary)' }}
+            >
+              <Lock size={12} className="text-violet-500" />
+              Admin password entered — save will use it to confirm changes.
+            </div>
+          ) : (
+            <AdminPasswordField value={adminPassword} onChange={setAdminPassword} autoFocus />
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-[11px] font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Customer name</label>
@@ -546,8 +608,6 @@ function EditSaleModal({
             </>
           )}
 
-          <AdminPasswordField value={adminPassword} onChange={setAdminPassword} />
-
           <div className="flex gap-2 justify-end pt-1">
             <button type="button" className="btn-secondary text-sm" onClick={onClose} disabled={saving}>Cancel</button>
             <button
@@ -576,7 +636,9 @@ function SaleDetailsModal({
 }) {
   const invoiceRef  = useRef<HTMLDivElement>(null)
   const [downloading, setDownloading] = useState(false)
+  const [showEditAuth, setShowEditAuth] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
+  const [editAdminPassword, setEditAdminPassword] = useState('')
   const [showDelete, setShowDelete] = useState(false)
   const [liveSale, setLiveSale] = useState(sale)
   const shopName = authStorage.getUser()?.name?.split(' ')[0] + ' Shop' || 'Our Shop'
@@ -842,7 +904,7 @@ function SaleDetailsModal({
               <>
                 <button
                   type="button"
-                  onClick={() => setShowEdit(true)}
+                  onClick={() => setShowEditAuth(true)}
                   className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border font-semibold text-violet-700 dark:text-violet-300 border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20"
                 >
                   <Pencil size={14} />
@@ -901,10 +963,25 @@ function SaleDetailsModal({
         </div>
       </div>
 
+      {showEditAuth && (
+        <EditPasswordGate
+          invoiceNumber={liveSale.invoiceNumber}
+          onClose={() => setShowEditAuth(false)}
+          onVerified={(password) => {
+            setEditAdminPassword(password)
+            setShowEditAuth(false)
+            setShowEdit(true)
+          }}
+        />
+      )}
       {showEdit && (
         <EditSaleModal
           sale={liveSale}
-          onClose={() => setShowEdit(false)}
+          initialAdminPassword={editAdminPassword}
+          onClose={() => {
+            setShowEdit(false)
+            setEditAdminPassword('')
+          }}
           onSaved={(updated) => {
             setLiveSale((prev: any) => ({ ...prev, ...updated }))
             onChanged()
@@ -938,7 +1015,9 @@ export default function SalesPage() {
 
   const openDetail = useCallback((sale: any) => setDetailSale(sale), [])
   const canManage = ['OWNER', 'MANAGER', 'PLATFORM_ADMIN'].includes(authStorage.getUser()?.role ?? '')
+  const [editAuthSale, setEditAuthSale] = useState<any>(null)
   const [editSale, setEditSale] = useState<any>(null)
+  const [editAdminPassword, setEditAdminPassword] = useState('')
   const [deleteSale, setDeleteSale] = useState<any>(null)
 
   useEffect(() => {
@@ -1066,30 +1145,17 @@ export default function SalesPage() {
       id: 'actions',
       cell: ({ row }) => {
         const s = row.original
+        const canEditDelete = canManage && s.status !== 'RETURNED'
         return (
-          <div className="flex items-center gap-1">
-            <TableActionsRow showAction={{ action: () => openDetail(s) }} />
-            {canManage && s.status !== 'RETURNED' && (
-              <>
-                <button
-                  type="button"
-                  title="Edit invoice"
-                  onClick={() => setEditSale(s)}
-                  className="p-1.5 rounded-lg transition-colors hover:bg-violet-500/10 text-violet-400"
-                >
-                  <Pencil size={14} />
-                </button>
-                <button
-                  type="button"
-                  title="Delete invoice"
-                  onClick={() => setDeleteSale(s)}
-                  className="p-1.5 rounded-lg transition-colors hover:bg-rose-500/10 text-rose-400"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </>
-            )}
-          </div>
+          <TableActionsRow
+            showAction={{ action: () => openDetail(s) }}
+            {...(canEditDelete
+              ? {
+                  editAction: { action: () => setEditAuthSale(s) },
+                  deleteAction: { action: () => setDeleteSale(s) },
+                }
+              : {})}
+          />
         )
       },
     },
@@ -1181,10 +1247,25 @@ export default function SalesPage() {
           onChanged={() => { void load() }}
         />
       )}
+      {editAuthSale && (
+        <EditPasswordGate
+          invoiceNumber={editAuthSale.invoiceNumber}
+          onClose={() => setEditAuthSale(null)}
+          onVerified={(password) => {
+            setEditAdminPassword(password)
+            setEditSale(editAuthSale)
+            setEditAuthSale(null)
+          }}
+        />
+      )}
       {editSale && (
         <EditSaleModal
           sale={editSale}
-          onClose={() => setEditSale(null)}
+          initialAdminPassword={editAdminPassword}
+          onClose={() => {
+            setEditSale(null)
+            setEditAdminPassword('')
+          }}
           onSaved={() => { void load() }}
         />
       )}
