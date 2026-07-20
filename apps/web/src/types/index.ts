@@ -79,6 +79,8 @@ export interface ProductVariation {
   colorHex: string
   sku?: string
   sellingPrice: number
+  /** Wholesale sell price; 0/omitted → fall back to sellingPrice (retail) */
+  wholesalePrice?: number
   costPrice: number
   stock?: number
 }
@@ -110,6 +112,8 @@ export interface Product {
   description?: string
   buyingPrice: number
   sellingPrice: number
+  /** Wholesale sell price; 0/omitted → fall back to sellingPrice (retail) */
+  wholesalePrice?: number
   mrp: number
   trackImei: boolean
   warrantyMonths: number

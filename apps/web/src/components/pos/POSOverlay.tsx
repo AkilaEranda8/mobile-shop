@@ -47,6 +47,7 @@ import { printStockFormInvoice } from '@/components/invoice/StockFormInvoice'
 import { whatsappApi, formatWhatsAppPhone } from '@/lib/whatsapp-api'
 import { captureElementAsPdfBase64 } from '@/lib/invoice-pdf'
 import { Switch } from '@/components/ui/Switch'
+import { resolveCatalogPrice, type PriceMode } from '@/lib/productPrice'
 
 function receiptCustomerCity(customer?: { city?: string; address?: string } | null): string {
   return customer?.city?.trim() || customer?.address?.trim() || ''
@@ -418,12 +419,14 @@ function VariationPickerModal({
   product,
   variations,
   branchId,
+  priceMode = 'retail',
   onClose,
   onAdd,
 }: {
   product: any
   variations: ProductVariation[]
   branchId?: string
+  priceMode?: PriceMode
   onClose: () => void
   onAdd: (v: ProductVariation, imei?: string) => void
 }) {
@@ -677,7 +680,7 @@ function VariationPickerModal({
             <div className="rounded-xl p-4 grid grid-cols-3 gap-4" style={{ background: POS_THEME.bg, border: `1px solid ${POS_THEME.border}` }}>
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: POS_THEME.muted }}>Price</p>
-                <p className="pos-price text-lg font-extrabold leading-none">{formatCurrency(selected.sellingPrice)}</p>
+                <p className="pos-price text-lg font-extrabold leading-none">{formatCurrency(resolveCatalogPrice(selected, priceMode))}</p>
               </div>
               {selected.sku && (
                 <div className="text-center">
@@ -724,6 +727,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
   const { pendingCustomer, clearPendingCustomer } = useUIStore()
   const [cart, setCart]                         = useState<CartItem[]>([])
+  const [priceMode, setPriceMode]               = useState<PriceMode>('retail')
   const [search, setSearch]                     = useState('')
   const [paymentMethod, setPaymentMethod]       = useState<PaymentMethodKey>('CASH')
   const payMethods = usePaymentMethods()
@@ -829,6 +833,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const hasServices = useFeatureFlag('SERVICES')
   const hasDailyClosing = useFeatureFlag('DAILY_CLOSING')
   const hasWarranty = useFeatureFlag('WARRANTY')
+  const hasWholesalePricing = useFeatureFlag('WHOLESALE_PRICING')
+  const effectivePriceMode: PriceMode = hasWholesalePricing ? priceMode : 'retail'
   useEffect(() => {
     if (selectedCategory === 'RELOAD' && !hasDailyReload) setSelectedCategory('ALL')
     if (selectedCategory === 'SERVICES' && !hasServices) setSelectedCategory('ALL')
@@ -1463,7 +1469,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
   }
 
   const addToCart = (product: any, imei?: string, variation?: ProductVariation) => {
-    const price = variation ? variation.sellingPrice : (product.sellingPrice ?? product.price)
+    const price = variation
+      ? resolveCatalogPrice(variation, effectivePriceMode)
+      : resolveCatalogPrice(product, effectivePriceMode)
     const sku   = variation?.sku ?? product.sku ?? product.category ?? ''
     const name  = variation
       ? `${product.name} · ${variation.storage} / ${variation.colorName}`
@@ -2542,6 +2550,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           product={variationPickerProduct}
           variations={Array.isArray(variationPickerProduct.storageVariations) ? variationPickerProduct.storageVariations : []}
           branchId={posBranchId || undefined}
+          priceMode={effectivePriceMode}
           onClose={() => setVariationPickerProduct(null)}
           onAdd={(variation, imei) => {
             addToCart(variationPickerProduct, imei, variation)
@@ -2668,7 +2677,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   const isHot  = !isService && !isOut && posSellableStock(item, hasIMEI) >= 25
                   const { gradient, iconColor, Icon: CardIcon } = isService ? { gradient: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, iconColor: '#c4b5fd', Icon: Wrench } : getProductCardStyle(item)
                   const isFav  = favorites.has(item.id)
-                  const price  = formatCurrency(isService ? item.price : item.sellingPrice)
+                  const price  = formatCurrency(isService ? item.price : resolveCatalogPrice(item, effectivePriceMode))
                   const stockLabel = stockInfo.label
                   const stockColor = stockInfo.color
                   const handlePick = () => {
@@ -2972,6 +2981,35 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       <span className="font-bold text-sm" style={{ color: POS_THEME.text }}>Cart ({cart.length})</span>
                     </div>
                     <div className="flex items-center gap-1.5">
+                      {hasWholesalePricing && (
+                      <div
+                        className="flex items-center rounded-xl border p-0.5 gap-0.5"
+                        style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setPriceMode('retail')}
+                          className="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all duration-200"
+                          style={priceMode === 'retail'
+                            ? { background: POS_THEME.card, color: POS_THEME.text, boxShadow: '0 1px 3px rgba(0,0,0,0.35)', border: `1px solid ${POS_THEME.border}` }
+                            : { background: 'transparent', color: POS_THEME.muted, border: '1px solid transparent' }}
+                          title="Retail prices for walk-in customers"
+                        >
+                          Retail
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPriceMode('wholesale')}
+                          className="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all duration-200"
+                          style={priceMode === 'wholesale'
+                            ? { background: POS_THEME.card, color: POS_THEME.text, boxShadow: '0 1px 3px rgba(0,0,0,0.35)', border: `1px solid ${POS_THEME.border}` }
+                            : { background: 'transparent', color: POS_THEME.muted, border: '1px solid transparent' }}
+                          title="Wholesale prices (falls back to retail if unset)"
+                        >
+                          Wholesale
+                        </button>
+                      </div>
+                      )}
                       {cart.length > 0 && (
                         <button type="button" onClick={() => { setCart([]); setCartView('items') }} className="text-xs font-semibold hover:opacity-80" style={{ color: POS_THEME.red }}>
                           Clear Cart

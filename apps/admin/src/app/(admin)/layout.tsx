@@ -66,7 +66,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Sidebar — fixed on desktop, drawer on mobile */}
       <div className={`fixed lg:static inset-y-0 left-0 z-50 transition-transform duration-200 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <AdminSidebar onClose={() => setSidebarOpen(false)} />
+        <AdminSidebar
+          onClose={() => setSidebarOpen(false)}
+          onLogout={handleLogout}
+        />
       </div>
 
       {/* Main */}

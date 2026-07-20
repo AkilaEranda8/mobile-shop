@@ -68,6 +68,20 @@ import {
   payPayrollRun,
   postStatutoryRemittance,
 } from './payroll/payroll.service'
+
+/** Temporary: block Fill/Settle/Petty spam while cash registers are being reconciled */
+const CASH_TRANSFER_LOCKED_TENANTS = new Set([
+  'cmrggsith01b3ukdxrg0xc9pf', // Sahasma / I phone market
+])
+
+function assertCashTransfersAllowed(tenantId: string) {
+  if (CASH_TRANSFER_LOCKED_TENANTS.has(tenantId)) {
+    throw new AppError(
+      'Cash/Bank Fill, Settle and Petty transfers are temporarily locked for this shop while balances are reconciled. Contact Hexalyte support.',
+      423,
+    )
+  }
+}
 import { listAuditEvents } from './audit/audit.service'
 
 const router = Router()
@@ -176,6 +190,7 @@ router.post('/cash-bank/accounts', authorize('OWNER'), async (req: Request, res:
 
 router.post('/cash-bank/transfers', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
+    assertCashTransfersAllowed(req.tenantId!)
     const branchId = (req.body.branchId as string) || effectiveBranchId(req)
     if (!branchId) throw new AppError('branchId is required', 400)
     sendSuccess(
@@ -252,6 +267,7 @@ router.get('/petty-cash', authorize('OWNER', 'MANAGER'), async (req: Request, re
 
 router.post('/petty-cash/expenses', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
+    assertCashTransfersAllowed(req.tenantId!)
     const branchId = (req.body.branchId as string) || effectiveBranchId(req)
     if (!branchId) throw new AppError('branchId is required', 400)
     sendSuccess(
@@ -265,6 +281,7 @@ router.post('/petty-cash/expenses', authorize('OWNER', 'MANAGER'), async (req: R
 
 router.post('/petty-cash/replenish', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
+    assertCashTransfersAllowed(req.tenantId!)
     const branchId = (req.body.branchId as string) || effectiveBranchId(req)
     if (!branchId) throw new AppError('branchId is required', 400)
     sendSuccess(

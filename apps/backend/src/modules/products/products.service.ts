@@ -229,10 +229,12 @@ export const productsService = {
 
     const {
       name, description, sku, barcode, categoryId, brandId, branchId,
-      buyingPrice, sellingPrice, mrp, trackImei, warrantyMonths, warrantyNote,
+      buyingPrice, sellingPrice, wholesalePrice, mrp, trackImei, warrantyMonths, warrantyNote,
       imageUrl, stock, minStock, isActive, storageVariations, colorVariations,
       subCategory, deviceModel, condition,
     } = body
+
+    const wholesale = Math.max(0, Number(wholesalePrice) || 0)
 
     const raw: any = await prisma.product.create({
       data: {
@@ -246,6 +248,7 @@ export const productsService = {
         description: description?.trim() || null,
         buyingPrice: Number(buyingPrice),
         sellingPrice: Number(sellingPrice),
+        wholesalePrice: wholesale,
         mrp: Number(mrp ?? sellingPrice),
         trackImei: Boolean(trackImei),
         warrantyMonths: Number(warrantyMonths) || 0,
@@ -316,7 +319,7 @@ export const productsService = {
     }
 
     const { name, description, sku, barcode, categoryId, brandId,
-            buyingPrice, sellingPrice, mrp, trackImei, warrantyMonths, warrantyNote,
+            buyingPrice, sellingPrice, wholesalePrice, mrp, trackImei, warrantyMonths, warrantyNote,
             imageUrl, stock, minStock, isActive,
             storageVariations, colorVariations } = body
     const data: any = {}
@@ -328,6 +331,7 @@ export const productsService = {
     if (brandId           !== undefined) data.brandId           = brandId
     if (buyingPrice       !== undefined) data.buyingPrice       = Number(buyingPrice)
     if (sellingPrice      !== undefined) data.sellingPrice      = Number(sellingPrice)
+    if (wholesalePrice    !== undefined) data.wholesalePrice    = Math.max(0, Number(wholesalePrice) || 0)
     if (mrp               !== undefined) data.mrp               = Number(mrp)
     if (trackImei         !== undefined) data.trackImei         = Boolean(trackImei)
     if (warrantyMonths    !== undefined) data.warrantyMonths    = Number(warrantyMonths)

@@ -104,7 +104,8 @@ export async function postSaleJournal(tenantId: string, saleId: string, actorEma
     })
   }
 
-  // Credit: revenue split by item type (mobile/accessory/service/reload)
+  // Credit: revenue split by item type (mobile/accessory/service/reload).
+  // Item line totals are pre-discount; scale to net revenue (subtotal − discount) so the journal balances.
   let mobileRev = 0
   let accessoryRev = 0
   let serviceRev = 0
@@ -120,10 +121,36 @@ export async function postSaleJournal(tenantId: string, saleId: string, actorEma
     else if (isMobileProduct(item.product)) mobileRev += amt
     else accessoryRev += amt
   }
-  mobileRev = round2(mobileRev)
-  accessoryRev = round2(accessoryRev)
-  serviceRev = round2(serviceRev)
-  reloadRev = round2(reloadRev)
+  const itemsGross = round2(mobileRev + accessoryRev + serviceRev + reloadRev)
+  if (itemsGross > 0 && revenue >= 0 && revenue !== itemsGross) {
+    const scale = revenue / itemsGross
+    mobileRev = round2(mobileRev * scale)
+    accessoryRev = round2(accessoryRev * scale)
+    serviceRev = round2(serviceRev * scale)
+    reloadRev = round2(reloadRev * scale)
+    // Absorb rounding residue on the largest bucket so credits equal net revenue
+    const scaledSum = round2(mobileRev + accessoryRev + serviceRev + reloadRev)
+    const residue = round2(revenue - scaledSum)
+    if (residue !== 0) {
+      const buckets: Array<{ key: 'mobile' | 'accessory' | 'service' | 'reload'; val: number }> = [
+        { key: 'mobile', val: mobileRev },
+        { key: 'accessory', val: accessoryRev },
+        { key: 'service', val: serviceRev },
+        { key: 'reload', val: reloadRev },
+      ]
+      buckets.sort((a, b) => b.val - a.val)
+      const top = buckets[0]?.key
+      if (top === 'mobile') mobileRev = round2(mobileRev + residue)
+      else if (top === 'accessory') accessoryRev = round2(accessoryRev + residue)
+      else if (top === 'service') serviceRev = round2(serviceRev + residue)
+      else reloadRev = round2(reloadRev + residue)
+    }
+  } else {
+    mobileRev = round2(mobileRev)
+    accessoryRev = round2(accessoryRev)
+    serviceRev = round2(serviceRev)
+    reloadRev = round2(reloadRev)
+  }
 
   if (mobileRev + accessoryRev + serviceRev + reloadRev > 0) {
     if (mobileRev > 0) lines.push({ accountId: await resolveAccountIdByKey(tenantId, 'salesMobile'), debit: 0, credit: mobileRev, description: 'Sales Revenue — Mobile' })

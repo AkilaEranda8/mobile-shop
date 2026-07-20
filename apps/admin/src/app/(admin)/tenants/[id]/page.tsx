@@ -50,6 +50,7 @@ const FEATURE_DEFS = [
   { key: 'PROFIT_ALLOCATION', label: 'Profit Allocation', desc: 'Daily profit allocation & fund management', optIn: true },
   { key: 'CUSTOMER_CREDIT', label: 'Customer Credit',    desc: 'Customer credit payments & outstanding', optIn: true  },
   { key: 'ACCOUNTING',      label: 'Accounting (GL)',    desc: 'Double-entry general ledger, COA, journals & GL reports', optIn: true },
+  { key: 'WHOLESALE_PRICING', label: 'Wholesale Pricing', desc: 'Retail + Wholesale prices on products and POS price mode toggle', optIn: true },
 ]
 const SALE_STATUS_BADGE: Record<string, string> = {
   PAID: 'badge-green', PARTIAL: 'badge-yellow', UNPAID: 'badge-red', REFUNDED: 'badge-gray',

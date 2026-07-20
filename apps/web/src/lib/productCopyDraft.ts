@@ -42,6 +42,7 @@ export type ProductCopyDraft = {
     purchaseEx: string
     purchaseInc: string
     sellingEx: string
+    wholesaleEx: string
     margin: string
   }
   extra: {
@@ -58,6 +59,7 @@ export type ProductCopyDraft = {
     colorHex: string
     sku: string
     sellingPrice: string
+    wholesalePrice: string
     costPrice: string
   }>
 }
@@ -77,6 +79,7 @@ export type ProductCopySnapshot = {
     colorName: string
     colorHex: string
     sellingPrice: string
+    wholesalePrice: string
     costPrice: string
   }>
 }
@@ -92,6 +95,7 @@ function normVariants(
     colorName: string
     colorHex: string
     sellingPrice: string
+    wholesalePrice: string
     costPrice: string
   }>,
 ) {
@@ -101,6 +105,7 @@ function normVariants(
       colorName: v.colorName.trim(),
       colorHex: v.colorHex.trim().toLowerCase(),
       sellingPrice: normPrice(v.sellingPrice),
+      wholesalePrice: normPrice(v.wholesalePrice),
       costPrice: normPrice(v.costPrice),
     }))
     .sort((a, b) =>
@@ -134,6 +139,7 @@ export function snapshotFromDraft(draft: ProductCopyDraft): ProductCopySnapshot 
       purchaseEx: normPrice(draft.pricing.purchaseEx),
       purchaseInc: normPrice(draft.pricing.purchaseInc),
       sellingEx: normPrice(draft.pricing.sellingEx),
+      wholesaleEx: normPrice(draft.pricing.wholesaleEx),
       margin: normPrice(draft.pricing.margin),
     },
     extra: {
@@ -180,6 +186,7 @@ export function buildProductCopyDraft(
 ): ProductCopyDraft {
   const buy = String(product.buyingPrice || '')
   const sell = String(product.sellingPrice || '')
+  const wholesale = String(product.wholesalePrice || '')
   const margin = buy && sell && Number(buy) > 0
     ? String(Math.round(((Number(sell) - Number(buy)) / Number(buy)) * 10000) / 100)
     : ''
@@ -214,6 +221,7 @@ export function buildProductCopyDraft(
       purchaseEx: buy,
       purchaseInc: buy,
       sellingEx: sell,
+      wholesaleEx: wholesale,
       margin,
     },
     extra: {
@@ -230,6 +238,7 @@ export function buildProductCopyDraft(
       colorHex: v.colorHex,
       sku: '',
       sellingPrice: String(v.sellingPrice ?? ''),
+      wholesalePrice: String(v.wholesalePrice ?? ''),
       costPrice: String(v.costPrice ?? ''),
     })),
   }

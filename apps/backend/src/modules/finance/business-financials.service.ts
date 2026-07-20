@@ -271,14 +271,15 @@ async function mapClosingRecordToSummary(closed: {
   let grossProfit = round2(closed.grossProfit)
 
   // Legacy closes baked Supplier Payment into totalExpenses + netProfit.
-  if (!hasSplit && supplierPayments > 0) {
-    opExpenses = round2(Math.max(0, opExpenses - supplierPayments))
+  // Only unwind when OpEx still includes those settlements (otherwise we'd inflate profit).
+  if (!hasSplit && supplierPayments > 0 && opExpenses + 0.01 >= supplierPayments) {
+    opExpenses = round2(opExpenses - supplierPayments)
     netProfit = round2(netProfit + supplierPayments)
   }
 
   // Legacy closes baked Reload Provider settlements into OpEx / net profit.
-  if (!hasReloadSplit && reloadProviderPayments > 0) {
-    opExpenses = round2(Math.max(0, opExpenses - reloadProviderPayments))
+  if (!hasReloadSplit && reloadProviderPayments > 0 && opExpenses + 0.01 >= reloadProviderPayments) {
+    opExpenses = round2(opExpenses - reloadProviderPayments)
     netProfit = round2(netProfit + reloadProviderPayments)
   }
 

@@ -359,6 +359,7 @@ model Product {
   description       String?
   buyingPrice       Float
   sellingPrice      Float
+  wholesalePrice    Float            @default(0)
   mrp               Float
   trackImei         Boolean          @default(false)
   warrantyMonths    Int              @default(0)

@@ -10,6 +10,7 @@ export type BranchCatalogSource = {
   description: string | null
   buyingPrice: number
   sellingPrice: number
+  wholesalePrice?: number
   mrp: number
   trackImei: boolean
   warrantyMonths: number
@@ -57,6 +58,9 @@ export function buildBranchCatalogData(
     description: (overrides.description as string | null | undefined) ?? source.description,
     buyingPrice: overrides.buyingPrice !== undefined ? Number(overrides.buyingPrice) : source.buyingPrice,
     sellingPrice: overrides.sellingPrice !== undefined ? Number(overrides.sellingPrice) : source.sellingPrice,
+    wholesalePrice: overrides.wholesalePrice !== undefined
+      ? Math.max(0, Number(overrides.wholesalePrice) || 0)
+      : Math.max(0, Number(source.wholesalePrice) || 0),
     mrp: overrides.mrp !== undefined ? Number(overrides.mrp) : source.mrp,
     trackImei: overrides.trackImei !== undefined ? Boolean(overrides.trackImei) : source.trackImei,
     warrantyMonths:

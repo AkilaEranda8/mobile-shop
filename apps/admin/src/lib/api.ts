@@ -7,6 +7,9 @@ const API_BASE   = process.env.NEXT_PUBLIC_API_URL       || 'http://localhost:30
 
 // ─── Token storage ────────────────────────────────────────────────────────────
 const TOKEN_KEY = 'admin_token'
+const USER_KEY = 'admin_user'
+
+export type AdminUserInfo = { id?: string; name: string; email: string; role: string }
 
 export const adminAuth = {
   getToken: () => (typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null),
@@ -14,8 +17,41 @@ export const adminAuth = {
     localStorage.setItem(TOKEN_KEY, t)
     document.cookie = `admin_token=${t}; path=/; max-age=${60 * 60 * 8}; SameSite=Strict`
   },
+  getUser: (): AdminUserInfo | null => {
+    if (typeof window === 'undefined') return null
+    try {
+      const raw = localStorage.getItem(USER_KEY)
+      if (raw) return JSON.parse(raw) as AdminUserInfo
+    } catch { /* ignore */ }
+    // Fallback for sessions created before user was persisted
+    try {
+      const token = localStorage.getItem(TOKEN_KEY)
+      if (!token) return null
+      const payload = JSON.parse(atob(token.split('.')[1] ?? '')) as {
+        email?: string
+        name?: string
+        userId?: string
+        sub?: string
+        role?: string
+      }
+      if (!payload.email && !payload.name) return null
+      const email = payload.email || ''
+      return {
+        id: payload.userId || payload.sub,
+        name: payload.name || (email.includes('@') ? email.split('@')[0] : email) || 'Admin',
+        email,
+        role: payload.role || 'PLATFORM_ADMIN',
+      }
+    } catch {
+      return null
+    }
+  },
+  setUser: (user: AdminUserInfo) => {
+    localStorage.setItem(USER_KEY, JSON.stringify(user))
+  },
   clear: () => {
     localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(USER_KEY)
     document.cookie = 'admin_token=; path=/; max-age=0'
   },
 }
@@ -119,13 +155,22 @@ export interface HealthData {
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 export async function adminLogin(email: string, password: string) {
-  const data = await req<{ accessToken: string; user: { role: string } }>(
+  const data = await req<{
+    accessToken: string
+    user: { id?: string; name?: string; email?: string; role: string }
+  }>(
     API_BASE, '/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) },
   )
   if (data.user.role !== 'PLATFORM_ADMIN') {
     throw new Error('This account is not a platform admin. Use your platform admin email, not a shop login.')
   }
   adminAuth.setToken(data.accessToken)
+  adminAuth.setUser({
+    id: data.user.id,
+    name: data.user.name || data.user.email || 'Admin',
+    email: data.user.email || email,
+    role: data.user.role,
+  })
   return data
 }
 

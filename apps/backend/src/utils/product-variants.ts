@@ -6,6 +6,8 @@ export type VariantRow = {
   sku?: string
   stock?: number
   sellingPrice?: number
+  /** Wholesale sell price; 0/omitted → fall back to sellingPrice (retail) */
+  wholesalePrice?: number
   costPrice?: number
 }
 

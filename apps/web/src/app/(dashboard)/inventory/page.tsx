@@ -8,7 +8,7 @@ import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { useProducts, useCategories, useProductVariantSettings } from '@/lib/hooks'
+import { useProducts, useCategories, useProductVariantSettings, useFeatureFlag } from '@/lib/hooks'
 import { getVisibleBranches, hasMultipleBranches } from '@/lib/active-branch'
 import { authStorage } from '@/lib/auth'
 import { DEFAULT_PRODUCT_VARIANT_SETTINGS } from '@/lib/productVariantSettings'
@@ -507,13 +507,14 @@ const genEditId = () => Math.random().toString(36).slice(2, 9)
 
 interface EditVariantRow {
   id: string; storage: string; colorName: string; colorHex: string
-  sku: string; stock: string; sellingPrice: string; costPrice: string
+  sku: string; stock: string; sellingPrice: string; wholesalePrice: string; costPrice: string
 }
 
 function EditProductModal({ product, onClose, onSaved }: { product: Product; onClose: () => void; onSaved: () => void }) {
   const router = useRouter()
   const { data: cats, refetch: refetchCats } = useCategories()
   const { data: variantSettings } = useProductVariantSettings()
+  const hasWholesalePricing = useFeatureFlag('WHOLESALE_PRICING')
   const branches = useMemo(
     () => getVisibleBranches().map(b => ({ id: b.id, name: b.name })),
     [],
@@ -537,6 +538,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
     categoryName: product.categoryName ?? '',
     brandName: product.brandName ?? '',
     buyingPrice: String(product.buyingPrice), sellingPrice: String(product.sellingPrice),
+    wholesalePrice: String(product.wholesalePrice ?? ''),
     stock: String(product.stock), minStock: String(product.minStock),
     imageUrl: product.imageUrl ?? '',
     condition: (product.condition ?? 'BRAND_NEW') as ProductCondition,
@@ -564,6 +566,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
       sku: v.sku ?? '',
       stock: String(v.stock ?? 0),
       sellingPrice: String(v.sellingPrice),
+      wholesalePrice: String(v.wholesalePrice ?? ''),
       costPrice: String(v.costPrice),
     }))
   )
@@ -573,7 +576,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
     storage: storageOpts.find(s => s === '128GB') ?? storageOpts[0] ?? '128GB',
     colorName: colorOpts[0]?.name ?? 'Black',
     colorHex: colorOpts[0]?.hex ?? '#1a1a1a',
-    sku: '', stock: '0', sellingPrice: '', costPrice: '',
+    sku: '', stock: '0', sellingPrice: '', wholesalePrice: '', costPrice: '',
   }])
   const delVariant = (id: string) => setVariants(p => p.filter(v => v.id !== id))
   const updVariant = (id: string, k: keyof EditVariantRow, val: string) => setVariants(p => p.map(v => v.id === id ? { ...v, [k]: val } : v))
@@ -588,6 +591,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
       await productsApi.update(product.id, {
         ...form,
         buyingPrice: Number(form.buyingPrice), sellingPrice: Number(form.sellingPrice),
+        wholesalePrice: Math.max(0, Number(form.wholesalePrice) || 0),
         mrp: Number(form.sellingPrice),
         // With variants, stock is derived from the per-variant quantities
         stock: variants.length > 0 ? undefined : Number(form.stock),
@@ -606,6 +610,7 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
           sku: v.sku || undefined,
           stock: Math.max(0, Number(v.stock) || 0),
           sellingPrice: Number(v.sellingPrice) || 0,
+          wholesalePrice: Math.max(0, Number(v.wholesalePrice) || 0),
           costPrice: Number(v.costPrice) || 0,
         })),
         colorVariations: variants.map(v => ({ name: v.colorName, hex: v.colorHex })),
@@ -777,9 +782,16 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
               <input type="number" min="0" className="input-field" value={form.buyingPrice} onChange={f('buyingPrice')} />
             </div>
             <div>
-              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Selling Price (LKR)</label>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Retail Price (LKR)</label>
               <input type="number" min="0" className="input-field" value={form.sellingPrice} onChange={f('sellingPrice')} />
             </div>
+            {hasWholesalePricing && (
+            <div>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Wholesale Price (LKR)</label>
+              <input type="number" min="0" className="input-field" placeholder="Optional" value={form.wholesalePrice} onChange={f('wholesalePrice')} />
+              <p className="mt-1 text-[10px] text-gray-500 dark:text-slate-500">Leave blank to use retail price at POS</p>
+            </div>
+            )}
             <div>
               <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Stock Qty</label>
               <input type="number" min="0" className="input-field" value={form.stock} onChange={f('stock')} />
@@ -870,7 +882,10 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
                       <thead>
                         <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
-                          {['#', 'Storage', 'Color', 'SKU', 'Stock', 'Sell Price', 'Cost Price', ''].map((h, i) => (
+                          {(hasWholesalePricing
+                            ? ['#', 'Storage', 'Color', 'SKU', 'Stock', 'Retail', 'Wholesale', 'Cost', '']
+                            : ['#', 'Storage', 'Color', 'SKU', 'Stock', 'Retail', 'Cost', '']
+                          ).map((h, i) => (
                             <th key={i} style={{ padding: '7px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)', whiteSpace: 'nowrap' }}>{h}</th>
                           ))}
                         </tr>
@@ -920,11 +935,18 @@ function EditProductModal({ product, onClose, onSaved }: { product: Product; onC
                                 value={v.stock} onChange={e => updVariant(v.id, 'stock', e.target.value)} />
                             </td>
 
-                            {/* Sell Price */}
+                            {/* Retail */}
                             <td style={{ padding: '6px 4px' }}>
                               <input type="number" min={0} style={inputSt} placeholder="0.00"
                                 value={v.sellingPrice} onChange={e => updVariant(v.id, 'sellingPrice', e.target.value)} />
                             </td>
+
+                            {hasWholesalePricing && (
+                            <td style={{ padding: '6px 4px' }}>
+                              <input type="number" min={0} style={inputSt} placeholder="Optional"
+                                value={v.wholesalePrice} onChange={e => updVariant(v.id, 'wholesalePrice', e.target.value)} />
+                            </td>
+                            )}
 
                             {/* Cost Price */}
                             <td style={{ padding: '6px 4px' }}>
@@ -974,6 +996,7 @@ function warrantyMonthsLabel(months: number): string {
 function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Product; onClose: () => void; onEdit?: () => void; onCopy?: () => void }) {
   const [detail, setDetail] = useState<Product>(product)
   const [loadingDetail, setLoadingDetail] = useState(true)
+  const hasWholesalePricing = useFeatureFlag('WHOLESALE_PRICING')
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -1142,9 +1165,15 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
                     <span className={`font-medium ${isOut ? 'text-rose-500' : isLow ? 'text-amber-500' : ''}`}>{detail.stock}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span style={{ color: 'var(--text-muted)' }}>Selling</span>
+                    <span style={{ color: 'var(--text-muted)' }}>Retail</span>
                     <span className="font-medium">{formatCurrency(detail.sellingPrice)}</span>
                   </div>
+                  {(hasWholesalePricing && (detail.wholesalePrice ?? 0) > 0) && (
+                    <div className="flex justify-between">
+                      <span style={{ color: 'var(--text-muted)' }}>Wholesale</span>
+                      <span className="font-medium">{formatCurrency(detail.wholesalePrice ?? 0)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
                     <span className="font-semibold">Stock value</span>
                     <span className="font-semibold">{formatCurrency(stockValue)}</span>
@@ -1250,7 +1279,8 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
                           <th className="px-3 py-2 text-left">Storage</th>
                           <th className="px-3 py-2 text-left">Color</th>
                           <th className="px-3 py-2 text-left">SKU</th>
-                          <th className="px-3 py-2 text-right">Sell</th>
+                          <th className="px-3 py-2 text-right">Retail</th>
+                          {hasWholesalePricing && <th className="px-3 py-2 text-right">Wholesale</th>}
                           <th className="px-3 py-2 text-right">Cost</th>
                           <th className="px-3 py-2 text-right">Stock</th>
                         </tr>
@@ -1268,6 +1298,11 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
                             </td>
                             <td className="px-3 py-2 font-mono text-[11px]" style={{ color: 'var(--text-muted)' }}>{safeText(v.sku)}</td>
                             <td className="px-3 py-2 text-right font-semibold whitespace-nowrap">{formatCurrency(v.sellingPrice)}</td>
+                            {hasWholesalePricing && (
+                            <td className="px-3 py-2 text-right whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
+                              {(v.wholesalePrice ?? 0) > 0 ? formatCurrency(v.wholesalePrice!) : '—'}
+                            </td>
+                            )}
                             <td className="px-3 py-2 text-right whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{formatCurrency(v.costPrice)}</td>
                             <td className="px-3 py-2 text-right font-medium">{v.stock ?? 0}</td>
                           </tr>
@@ -1328,9 +1363,15 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
                 </div>
                 <div className="pt-2 border-t space-y-2" style={{ borderColor: 'var(--border-subtle)' }}>
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold">Selling price:</span>
+                    <span className="font-semibold">Retail price:</span>
                     <span className="font-semibold">{formatCurrency(detail.sellingPrice)}</span>
                   </div>
+                  {(hasWholesalePricing && (detail.wholesalePrice ?? 0) > 0) && (
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold">Wholesale price:</span>
+                      <span className="font-semibold">{formatCurrency(detail.wholesalePrice ?? 0)}</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <span style={{ color: 'var(--text-muted)' }}>Margin:</span>
                     <span className={`font-medium ${margin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
@@ -1467,6 +1508,7 @@ interface FlatRow {
   // Computed display fields
   displaySku: string
   displayPrice: number
+  displayWholesale?: number
   displayStock: number
   displayMinStock: number
   displayName: string   // includes Storage / Color label if variant
@@ -1493,6 +1535,7 @@ export default function InventoryPage() {
   const [filtersReady, setFiltersReady] = useState(false)
   const { data: productsData, loading, refetch } = useProducts({ limit: '2000' })
   const { data: catsData, refetch: refetchCats } = useCategories()
+  const hasWholesalePricing = useFeatureFlag('WHOLESALE_PRICING')
   const allCategories: Category[] = (catsData ?? []) as Category[]
   const products: Product[] = (productsData?.data ?? []) as Product[]
 
@@ -1551,6 +1594,7 @@ export default function InventoryPage() {
           product,
           displaySku: product.sku,
           displayPrice: product.sellingPrice,
+          displayWholesale: product.wholesalePrice ?? 0,
           displayStock: product.stock,
           displayMinStock: product.minStock,
           displayName: product.name,
@@ -1566,6 +1610,7 @@ export default function InventoryPage() {
             variation: v,
             displaySku: v.sku ?? product.sku,
             displayPrice: v.sellingPrice,
+            displayWholesale: v.wholesalePrice ?? product.wholesalePrice ?? 0,
             displayStock: v.stock ?? 0,
             displayMinStock: product.minStock,
             displayName: product.name,
@@ -1761,7 +1806,17 @@ export default function InventoryPage() {
       id: 'sellingPrice',
       accessorFn: (row) => row.displayPrice,
       header: ({ column }) => <DataTableColumnHeader column={column} title="Price" />,
-      cell: ({ row }) => <span className="text-sm font-semibold text-gray-900 dark:text-white">{formatCurrency(row.original.displayPrice)}</span>,
+      cell: ({ row }) => {
+        const wholesale = row.original.displayWholesale ?? 0
+        return (
+          <div>
+            <span className="text-sm font-semibold text-gray-900 dark:text-white">{formatCurrency(row.original.displayPrice)}</span>
+            {hasWholesalePricing && wholesale > 0 && (
+              <p className="text-[10px] text-gray-500 dark:text-slate-500 mt-0.5">Wholesale {formatCurrency(wholesale)}</p>
+            )}
+          </div>
+        )
+      },
     },
     {
       id: 'stock',
@@ -1841,7 +1896,7 @@ export default function InventoryPage() {
         </div>
       ),
     },
-  ], [handleDelete, openCopy, setViewProduct, setEditProduct])
+  ], [handleDelete, openCopy, setViewProduct, setEditProduct, hasWholesalePricing])
 
 
   if (showAddProduct || copyProduct) {
