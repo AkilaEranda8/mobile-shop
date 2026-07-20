@@ -1,2 +1,2 @@
-﻿-- AlterTable
+-- AlterTable
 ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "wholesalePrice" DOUBLE PRECISION NOT NULL DEFAULT 0;
