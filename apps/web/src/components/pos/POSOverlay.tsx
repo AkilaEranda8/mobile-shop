@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Search, Plus, Minus, CreditCard, Banknote, Smartphone, Receipt,
-  ScanLine, X, Loader2, UserPlus, Edit2, Check, Download, Tag, Printer,
+  ScanLine, X, Loader2, UserPlus, Check, Download, Tag, Printer,
   Heart, Trash2, ChevronRight, ChevronLeft, ChevronDown, Archive,
   FileText, FilePlus2, Calculator, SlidersHorizontal, Package, Tablet,
   Headphones, Wrench, PackageSearch, ShoppingBag, User, CheckCircle2, Shield,
@@ -795,14 +795,14 @@ function VariationPickerModal({
         role="dialog"
         aria-modal="true"
         aria-label={`Configure ${product.name}`}
-        className="relative w-full sm:max-w-lg max-h-[min(92dvh,640px)] flex flex-col rounded-t-2xl sm:rounded-xl shadow-2xl border overflow-hidden"
+        className="relative w-full sm:max-w-xl max-h-[min(92dvh,720px)] flex flex-col rounded-t-2xl sm:rounded-2xl shadow-2xl border overflow-hidden"
         style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}
         onClick={e => e.stopPropagation()}
       >
         {/* Compact header */}
-        <div className="shrink-0 flex items-center gap-2.5 px-3 pt-3 pb-2 border-b" style={{ borderColor: POS_THEME.border }}>
+        <div className="shrink-0 flex items-center gap-3 px-4 pt-3.5 pb-3 border-b" style={{ borderColor: POS_THEME.border }}>
           <div
-            className="relative w-9 h-9 rounded-lg overflow-hidden shrink-0 border"
+            className="relative w-11 h-11 rounded-xl overflow-hidden shrink-0 border"
             style={{ borderColor: POS_THEME.border, background: gradient }}
           >
             {product.imageUrl ? (
@@ -810,15 +810,15 @@ function VariationPickerModal({
               <img src={product.imageUrl} alt={product.name} className="absolute inset-0 w-full h-full object-cover" />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center">
-                <CardIcon size={16} style={{ color: iconColor }} />
+                <CardIcon size={18} style={{ color: iconColor }} />
               </div>
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-white leading-tight truncate">{product.name}</p>
-            <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[9px]">
+            <p className="text-base font-bold text-white leading-tight truncate">{product.name}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px]">
               {selected && (
-                <span className="font-semibold px-1.5 py-px rounded" style={{ background: `${POS_THEME.purple}22`, color: '#c4b5fd' }}>
+                <span className="font-semibold px-2 py-0.5 rounded-md" style={{ background: `${POS_THEME.purple}22`, color: '#c4b5fd' }}>
                   {selected.storage} · {selected.colorName}
                 </span>
               )}
@@ -828,49 +828,49 @@ function VariationPickerModal({
                 </span>
               )}
               {product.sku && (
-                <span className="font-mono truncate max-w-[10rem]" style={{ color: POS_THEME.muted }}>{product.sku}</span>
+                <span className="font-mono truncate max-w-[12rem]" style={{ color: POS_THEME.muted }}>{product.sku}</span>
               )}
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border hover:bg-white/5"
+            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border hover:bg-white/5"
             style={{ borderColor: POS_THEME.border, color: POS_THEME.muted, background: POS_THEME.bg }}
             aria-label="Close"
           >
-            <X size={14} />
+            <X size={15} />
           </button>
         </div>
 
         {/* Step progress */}
         {steps.length > 1 && (
-          <div className="shrink-0 flex items-center gap-1 px-3 py-1.5 border-b" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
+          <div className="shrink-0 flex items-center gap-1.5 px-4 py-2 border-b" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
             {steps.map((s, i) => (
               <button
                 key={s}
                 type="button"
                 onClick={() => { if (i <= stepIdx) setStepIdx(i) }}
-                className="flex-1 h-1.5 rounded-full transition-colors"
+                className="flex-1 h-2 rounded-full transition-colors"
                 style={{ background: i <= stepIdx ? POS_THEME.purple : POS_THEME.border }}
                 title={stepLabel[s]}
                 aria-label={`Step ${i + 1}: ${stepLabel[s]}`}
               />
             ))}
-            <span className="text-[9px] font-bold ml-1.5 shrink-0 tabular-nums" style={{ color: POS_THEME.muted }}>
+            <span className="text-[10px] font-bold ml-2 shrink-0 tabular-nums" style={{ color: POS_THEME.muted }}>
               {stepIdx + 1}/{steps.length} {stepLabel[step]}
             </span>
           </div>
         )}
 
-        {/* Step body — no tall scroll */}
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-2.5">
+        {/* Step body */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-3.5">
           {step === 'storage' && (
             <section>
-              <p className="text-[10px] font-bold uppercase tracking-wide mb-1.5" style={{ color: POS_THEME.muted }}>
+              <p className="text-[11px] font-bold uppercase tracking-wide mb-2.5" style={{ color: POS_THEME.muted }}>
                 Storage <span className="normal-case font-medium opacity-70">· ← → then Enter</span>
               </p>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {storageOptions.map((s, i) => {
                   const active = selStorage === s
                   return (
@@ -879,7 +879,7 @@ function VariationPickerModal({
                       type="button"
                       data-picker-focus={i === 0 || active ? '1' : undefined}
                       onClick={() => { setSelStorage(s); clearImeiSelection() }}
-                      className="h-9 rounded-lg text-xs font-bold border transition-all focus:outline-none focus:ring-2 focus:ring-violet-400/60"
+                      className="h-11 rounded-xl text-sm font-bold border transition-all focus:outline-none focus:ring-2 focus:ring-violet-400/60"
                       style={chip(active)}
                     >
                       {s}
@@ -892,10 +892,10 @@ function VariationPickerModal({
 
           {step === 'color' && (
             <section>
-              <p className="text-[10px] font-bold uppercase tracking-wide mb-1.5" style={{ color: POS_THEME.muted }}>
+              <p className="text-[11px] font-bold uppercase tracking-wide mb-2.5" style={{ color: POS_THEME.muted }}>
                 Color <span className="normal-case font-medium opacity-70">· ← → then Enter</span>
               </p>
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-2 gap-2">
                 {colorOptions.map((v, i) => {
                   const active = selColor === v.colorName
                   return (
@@ -904,17 +904,17 @@ function VariationPickerModal({
                       type="button"
                       data-picker-focus={i === 0 || active ? '1' : undefined}
                       onClick={() => { setSelColor(v.colorName); clearImeiSelection() }}
-                      className="h-9 px-2 rounded-lg text-xs font-semibold border flex items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-violet-400/60"
+                      className="h-11 px-3 rounded-xl text-sm font-semibold border flex items-center gap-2.5 transition-all focus:outline-none focus:ring-2 focus:ring-violet-400/60"
                       style={active
                         ? { background: `${POS_THEME.purple}28`, borderColor: POS_THEME.purple, color: '#fff' }
                         : { background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
                     >
                       <span
-                        className="w-3.5 h-3.5 rounded-full border shrink-0"
+                        className="w-4 h-4 rounded-full border shrink-0"
                         style={{ background: colorDot(v.colorName), borderColor: active ? '#fff' : 'rgba(255,255,255,0.25)' }}
                       />
                       <span className="truncate flex-1 text-left">{v.colorName}</span>
-                      {active && <Check size={12} className="text-violet-300 shrink-0" />}
+                      {active && <Check size={14} className="text-violet-300 shrink-0" />}
                     </button>
                   )
                 })}
@@ -923,41 +923,41 @@ function VariationPickerModal({
           )}
 
           {step === 'imei' && (
-            <section className="space-y-2">
-              <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: POS_THEME.muted }}>
+            <section className="space-y-2.5">
+              <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: POS_THEME.muted }}>
                 IMEI <span className="text-rose-400">*</span>
                 <span className="normal-case font-medium opacity-70 ml-1">· scan / select · Enter</span>
               </p>
               {loadingImeis ? (
-                <div className="flex items-center gap-2 text-[11px] py-2" style={{ color: POS_THEME.muted }}>
-                  <Loader2 size={13} className="animate-spin" /> Loading…
+                <div className="flex items-center gap-2 text-xs py-2" style={{ color: POS_THEME.muted }}>
+                  <Loader2 size={14} className="animate-spin" /> Loading…
                 </div>
               ) : availableImeis.length === 0 ? (
-                <div className="rounded-lg px-2.5 py-2 text-[11px] leading-snug" style={{ background: 'rgba(239,68,68,0.1)', color: '#fca5a5' }}>
+                <div className="rounded-xl px-3 py-2.5 text-xs leading-snug" style={{ background: 'rgba(239,68,68,0.1)', color: '#fca5a5' }}>
                   No IN_STOCK IMEIs for {selected?.storage} / {selected?.colorName}.
                 </div>
               ) : (
                 <>
                   <div
-                    className="flex gap-2 items-center px-2.5 h-9 rounded-lg border"
+                    className="flex gap-2 items-center px-3 h-11 rounded-xl border"
                     style={{ background: `${POS_THEME.purple}18`, borderColor: `${POS_THEME.purple}55` }}
                   >
-                    <ScanLine size={13} className="text-violet-300 shrink-0" />
+                    <ScanLine size={15} className="text-violet-300 shrink-0" />
                     <input
                       ref={imeiScanRef}
-                      className="flex-1 bg-transparent outline-none text-xs font-mono tracking-wider placeholder:text-white/30"
+                      className="flex-1 bg-transparent outline-none text-sm font-mono tracking-wider placeholder:text-white/30"
                       style={{ color: '#fff' }}
                       placeholder="Scan or type IMEI…"
                       value={imeiScanValue}
                       onChange={e => { setImeiScanValue(e.target.value); setImeiScanError('') }}
                     />
                   </div>
-                  {imeiScanError && <p className="text-[10px] text-rose-400">{imeiScanError}</p>}
+                  {imeiScanError && <p className="text-[11px] text-rose-400">{imeiScanError}</p>}
                   <div className="relative">
                     <select
                       value={selImei}
                       onChange={e => { setSelImei(e.target.value); setImeiScanError(''); setImeiScanValue('') }}
-                      className="w-full h-9 pl-2.5 pr-8 rounded-lg text-xs border outline-none appearance-none font-mono"
+                      className="w-full h-11 pl-3 pr-9 rounded-xl text-sm border outline-none appearance-none font-mono"
                       style={{
                         background: POS_THEME.bg,
                         borderColor: POS_THEME.border,
@@ -970,10 +970,10 @@ function VariationPickerModal({
                         <option key={i.imei} value={i.imei}>{i.imei}</option>
                       ))}
                     </select>
-                    <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
                   </div>
                   {selImei && (
-                    <p className="text-[10px] font-mono truncate" style={{ color: POS_THEME.green }}>✓ {selImei}</p>
+                    <p className="text-[11px] font-mono truncate" style={{ color: POS_THEME.green }}>✓ {selImei}</p>
                   )}
                 </>
               )}
@@ -981,17 +981,17 @@ function VariationPickerModal({
           )}
 
           {step === 'warranty' && (
-            <section className="space-y-2">
+            <section className="space-y-2.5">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-[10px] font-bold uppercase tracking-wide flex items-center gap-1" style={{ color: POS_THEME.muted }}>
-                  <Shield size={11} style={{ color: POS_THEME.green }} /> Warranty
+                <p className="text-[11px] font-bold uppercase tracking-wide flex items-center gap-1.5" style={{ color: POS_THEME.muted }}>
+                  <Shield size={12} style={{ color: POS_THEME.green }} /> Warranty
                   <span className="normal-case font-medium opacity-70">· ← → / 1–{POS_WARRANTY_MONTHS_OPTS.length}</span>
                 </p>
-                <span className="text-[10px] font-semibold" style={{ color: Number(warrantyMonths) > 0 ? POS_THEME.green : POS_THEME.muted }}>
+                <span className="text-[11px] font-semibold" style={{ color: Number(warrantyMonths) > 0 ? POS_THEME.green : POS_THEME.muted }}>
                   {posWarrantyMonthsLabel(Number(warrantyMonths) || 0)}
                 </span>
               </div>
-              <div className="grid grid-cols-3 gap-1.5">
+              <div className="grid grid-cols-3 gap-2">
                 {POS_WARRANTY_MONTHS_OPTS.map((m, i) => {
                   const active = warrantyMonths === String(m)
                   return (
@@ -1000,7 +1000,7 @@ function VariationPickerModal({
                       type="button"
                       data-picker-focus={active || i === 0 ? '1' : undefined}
                       onClick={() => setWarrantyMonths(String(m))}
-                      className="h-8 rounded-lg text-[11px] font-bold border transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400/50"
+                      className="h-10 rounded-xl text-xs font-bold border transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400/50"
                       style={active
                         ? { background: 'rgba(16,185,129,0.2)', borderColor: 'rgba(16,185,129,0.5)', color: '#6ee7b7' }
                         : { background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
@@ -1015,17 +1015,17 @@ function VariationPickerModal({
                 placeholder="Warranty note (optional)"
                 value={warrantyNote}
                 onChange={e => setWarrantyNote(e.target.value)}
-                className="w-full h-8 rounded-lg border px-2.5 text-[11px] text-white placeholder:text-white/30 outline-none focus:border-emerald-500/40"
+                className="w-full h-10 rounded-xl border px-3 text-xs text-white placeholder:text-white/30 outline-none focus:border-emerald-500/40"
                 style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }}
               />
             </section>
           )}
 
           {step === 'price' && selected && (
-            <section className="space-y-2">
+            <section className="space-y-2.5">
               {(showWholesale || showCredit) && (
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: POS_THEME.muted }}>
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: POS_THEME.muted }}>
                     Price type <span className="normal-case font-medium opacity-70">· 1 Retail{showWholesale ? ' · 2 Wholesale' : ''}{showCredit ? ' · 3 Credit' : ''}</span>
                   </p>
                   <PriceModeToggle
@@ -1037,7 +1037,7 @@ function VariationPickerModal({
                 </div>
               )}
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: POS_THEME.muted }}>
+                <p className="text-[11px] font-bold uppercase tracking-wide mb-1.5" style={{ color: POS_THEME.muted }}>
                   {allowPriceEdit ? 'Sale price (LKR)' : 'Price'}
                 </p>
                 {allowPriceEdit ? (
@@ -1049,26 +1049,26 @@ function VariationPickerModal({
                       step="0.01"
                       inputMode="decimal"
                       data-picker-focus="1"
-                      className="w-full h-9 px-3 rounded-lg text-base font-extrabold outline-none border text-white focus:ring-2 focus:ring-violet-400/50"
+                      className="w-full h-11 px-3.5 rounded-xl text-lg font-extrabold outline-none border text-white focus:ring-2 focus:ring-violet-400/50"
                       style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }}
                       value={salePrice}
                       onChange={e => setSalePrice(e.target.value)}
                     />
-                    <p className="text-[9px] mt-1 truncate" style={{ color: POS_THEME.muted }}>
+                    <p className="text-[10px] mt-1.5 truncate" style={{ color: POS_THEME.muted }}>
                       Catalog {formatCurrency(catalogPrice)}{selected.sku ? ` · ${selected.sku}` : ''}
                     </p>
                   </>
                 ) : (
-                  <p className="text-lg font-extrabold text-white">{formatCurrency(catalogPrice)}</p>
+                  <p className="text-xl font-extrabold text-white">{formatCurrency(catalogPrice)}</p>
                 )}
               </div>
-              <div className="rounded-lg border px-2.5 py-1.5 flex items-center justify-between gap-2 text-[10px]" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
+              <div className="rounded-xl border px-3 py-2 flex items-center justify-between gap-2 text-[11px]" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
                 <span style={{ color: POS_THEME.muted }}>
                   {selected.storage} · {selected.colorName}
                   {selImei ? ` · …${selImei.slice(-4)}` : ''}
                   {showWarranty ? ` · ${posWarrantyMonthsLabel(Number(warrantyMonths) || 0)}` : ''}
                 </span>
-                <span className="font-extrabold text-white shrink-0">
+                <span className="font-extrabold text-white shrink-0 text-sm">
                   {formatCurrency(allowPriceEdit ? (Number.isFinite(parsedSalePrice) ? parsedSalePrice : catalogPrice) : catalogPrice)}
                 </span>
               </div>
@@ -1078,17 +1078,17 @@ function VariationPickerModal({
 
         {/* Footer */}
         <div
-          className="shrink-0 border-t px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] space-y-1.5"
+          className="shrink-0 border-t px-4 pt-2.5 pb-[max(0.65rem,env(safe-area-inset-bottom))] space-y-2"
           style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}
         >
-          <p className="text-[9px] text-center" style={{ color: POS_THEME.muted }}>
+          <p className="text-[10px] text-center" style={{ color: POS_THEME.muted }}>
             Esc cancel · Backspace back · Enter {isLast ? 'add to cart' : 'next'}
           </p>
-          <div className="flex gap-2">
+          <div className="flex gap-2.5">
             <button
               type="button"
               onClick={goBack}
-              className="flex-1 h-9 rounded-lg text-xs font-bold border"
+              className="flex-1 h-11 rounded-xl text-sm font-bold border"
               style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }}
             >
               {stepIdx === 0 ? 'Cancel' : 'Back'}
@@ -1097,10 +1097,10 @@ function VariationPickerModal({
               type="button"
               disabled={!stepReady() || (isLast && !canAdd)}
               onClick={goNext}
-              className="flex-[1.5] h-9 rounded-lg text-xs font-bold text-white flex items-center justify-center gap-1.5 disabled:opacity-40"
+              className="flex-[1.5] h-11 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-40"
               style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})` }}
             >
-              {isLast ? (<><ShoppingCart size={13} /> Add · Enter</>) : (<>Next · Enter <ChevronRight size={13} /></>)}
+              {isLast ? (<><ShoppingCart size={15} /> Add · Enter</>) : (<>Next · Enter <ChevronRight size={15} /></>)}
             </button>
           </div>
         </div>
@@ -1257,11 +1257,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [checkoutLoading, setCheckoutLoading]   = useState(false)
   const [checkoutError, setCheckoutError]       = useState('')
   const [showRegister, setShowRegister]         = useState(false)
-  const [editPriceId, setEditPriceId]           = useState<string | null>(null)
-  const [editPriceVal, setEditPriceVal]         = useState('')
-  const [editWarrantyId, setEditWarrantyId]     = useState<string | null>(null)
-  const [editWarrantyMonths, setEditWarrantyMonths] = useState('0')
-  const [editWarrantyNote, setEditWarrantyNote] = useState('')
   const [downloading, setDownloading]           = useState(false)
   const [showA4Invoice, setShowA4Invoice]       = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL')
@@ -2331,28 +2326,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
       return { ...i, quantity: Math.max(1, qty) }
     }))
 
-  const saveEditPrice = (cartId: string) => {
-    const val = parseFloat(editPriceVal)
-    if (!isNaN(val) && val >= 0) setCart(prev => prev.map(i => i.cartId === cartId ? { ...i, price: val } : i))
-    setEditPriceId(null)
-  }
-
-  const openEditWarranty = (item: CartItem) => {
-    setEditPriceId(null)
-    setEditWarrantyId(item.cartId)
-    setEditWarrantyMonths(String(item.warrantyMonths ?? 0))
-    setEditWarrantyNote(item.warrantyNote ?? '')
-  }
-
-  const saveEditWarranty = (cartId: string) => {
-    const months = Math.max(0, parseInt(editWarrantyMonths, 10) || 0)
-    const note = editWarrantyNote.trim() || undefined
-    setCart(prev => prev.map(i => (
-      i.cartId === cartId ? { ...i, warrantyMonths: months, warrantyNote: note } : i
-    )))
-    setEditWarrantyId(null)
-  }
-
   const subtotal       = cart.reduce((s, i) => s + i.price * i.quantity, 0)
   const serviceCostTotal = cart.filter(i => i.isService).reduce((s, i) => s + (i.cost ?? 0) * i.quantity, 0)
   const serviceRevenue   = cart.filter(i => i.isService).reduce((s, i) => s + i.price * i.quantity, 0)
@@ -3191,17 +3164,17 @@ function POSContent({ onClose }: { onClose: () => void }) {
   }
 
   const customerSlot = (
-    <div className="relative flex-shrink-0">
+    <div className="relative w-full">
       <button type="button" onClick={() => { setShowCustDrop(o => !o); setShowCartCustDrop(false); setCustSearch(''); setShowRegister(false) }}
-        className="h-9 px-3 rounded-xl border flex items-center gap-2 text-xs font-medium"
+        className="h-10 w-full px-3 sm:px-3.5 rounded-xl border flex items-center gap-2.5 text-sm font-semibold"
         style={{ background: POS_THEME.card, borderColor: POS_THEME.border, color: '#ffffff' }}
         title="Select customer (F2)">
-        <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
+        <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
           style={{ background: selectedCustomer ? 'var(--sidebar-active-border)' : POS_THEME.bg, color: '#ffffff' }}>
-          {selectedCustomer ? selectedCustomer.name[0]?.toUpperCase() : <User size={10} />}
+          {selectedCustomer ? selectedCustomer.name[0]?.toUpperCase() : <User size={12} />}
         </div>
-        <span className="max-w-[5.5rem] sm:max-w-[7rem] truncate">{selectedCustomer ? selectedCustomer.name : 'Walk-in'}</span>
-        <ChevronDown size={10} className="text-white/70" />
+        <span className="min-w-0 flex-1 truncate text-left">{selectedCustomer ? selectedCustomer.name : 'Walk-in'}</span>
+        <ChevronDown size={12} className="text-white/70 shrink-0" />
       </button>
       {showCustDrop && (
         <div className={`absolute top-full mt-1.5 right-0 z-[60] rounded-2xl shadow-2xl overflow-hidden border ${showRegister ? 'w-[min(24rem,calc(100vw-1.25rem))]' : 'w-[min(16rem,calc(100vw-1.25rem))]'}`} style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
@@ -3370,7 +3343,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           selectedCategory === 'RELOAD' && hasDailyReload ? (
             <PosReloadPanel onAdd={addReloadToCart} />
           ) : (
-          <div className={gridView ? 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-1.5 sm:gap-2' : 'space-y-1.5'}>
+          <div className={gridView ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-2.5' : 'space-y-1.5'}>
             {pagedProducts.length === 0 ? (
               <div className="col-span-full flex flex-col items-center justify-center h-40 opacity-30">
                 <PackageSearch size={32} className="mb-2" style={{ color: POS_THEME.muted }} />
@@ -3436,12 +3409,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
                   return (
                     <div key={item.id}
-                      className={`relative flex flex-col h-full rounded-lg overflow-hidden border transition-all group cursor-pointer select-none ${isOut ? 'opacity-40 cursor-not-allowed' : 'hover:shadow-md hover:shadow-black/20 hover:-translate-y-0.5'}`}
+                      className={`relative flex flex-col h-full rounded-xl overflow-hidden border transition-all group cursor-pointer select-none ${isOut ? 'opacity-40 cursor-not-allowed' : 'hover:shadow-lg hover:shadow-black/25 hover:-translate-y-0.5'}`}
                       style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}
                       onClick={handlePick}>
 
-                      {/* Image — compact */}
-                      <div className="relative aspect-[5/4] overflow-hidden">
+                      {/* Image */}
+                      <div className="relative aspect-[4/3] overflow-hidden">
                         <div className="absolute inset-0" style={{ background: gradient }}>
                           <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 65% 20%, rgba(255,255,255,0.18) 0%, transparent 55%)' }} />
                         </div>
@@ -3451,64 +3424,64 @@ function POSContent({ onClose }: { onClose: () => void }) {
                           <img src={item.imageUrl} alt={item.name} className="absolute inset-0 w-full h-full object-cover" />
                         ) : (
                           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.22)', backdropFilter: 'blur(4px)' }}>
-                              <CardIcon size={16} style={{ color: iconColor }} />
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.22)', backdropFilter: 'blur(4px)' }}>
+                              <CardIcon size={20} style={{ color: iconColor }} />
                             </div>
                           </div>
                         )}
 
                         {!isOut && (
                           <div className="absolute inset-0 hidden [@media(hover:hover)]:flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: 'rgba(0,0,0,0.28)' }}>
-                            <div className="w-6 h-6 rounded-full flex items-center justify-center border border-white/50" style={{ background: 'rgba(255,255,255,0.15)' }}>
-                              <Plus size={12} className="text-white" />
+                            <div className="w-7 h-7 rounded-full flex items-center justify-center border border-white/50" style={{ background: 'rgba(255,255,255,0.15)' }}>
+                              <Plus size={14} className="text-white" />
                             </div>
                           </div>
                         )}
 
                         {isHot && !isLow && (
-                          <div className="absolute top-0.5 left-0.5 px-1 py-px rounded text-[7px] font-extrabold tracking-wide text-white" style={{ background: POS_THEME.red }}>HOT</div>
+                          <div className="absolute top-1 left-1 px-1.5 py-px rounded text-[8px] font-extrabold tracking-wide text-white" style={{ background: POS_THEME.red }}>HOT</div>
                         )}
                         {isLow && (
-                          <div className="absolute top-0.5 left-0.5 flex items-center gap-0.5 px-1 py-px rounded-full text-[7px] font-bold border border-white/30 text-white" style={{ background: 'rgba(0,0,0,0.35)' }}>⚠ LOW</div>
+                          <div className="absolute top-1 left-1 flex items-center gap-0.5 px-1.5 py-px rounded-full text-[8px] font-bold border border-white/30 text-white" style={{ background: 'rgba(0,0,0,0.35)' }}>⚠ LOW</div>
                         )}
                         {vars.length > 0 && (
-                          <div className="absolute bottom-0.5 left-0.5 px-1 py-px rounded text-[7px] font-bold text-white/90" style={{ background: 'rgba(0,0,0,0.4)' }}>{vars.length} var</div>
+                          <div className="absolute bottom-1 left-1 px-1.5 py-px rounded text-[8px] font-bold text-white/90" style={{ background: 'rgba(0,0,0,0.4)' }}>{vars.length} var</div>
                         )}
                         {showWarrantyBadge && (
-                          <div className="absolute bottom-0.5 right-0.5 flex items-center gap-0.5 px-1 py-px rounded text-[7px] font-bold text-white" style={{ background: 'rgba(16,185,129,0.85)' }}>
-                            <Shield size={7} /> {formatWarrantyMonths(item.warrantyMonths ?? 0)}
+                          <div className="absolute bottom-1 right-1 flex items-center gap-0.5 px-1.5 py-px rounded text-[8px] font-bold text-white" style={{ background: 'rgba(16,185,129,0.85)' }}>
+                            <Shield size={8} /> {formatWarrantyMonths(item.warrantyMonths ?? 0)}
                           </div>
                         )}
                         <button type="button" onClick={e => { e.stopPropagation(); setFavorites(prev => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n }) }}
-                          className={`absolute top-0.5 right-0.5 w-4 h-4 rounded-full flex items-center justify-center transition-all ${isFav ? 'opacity-100 text-red-400' : 'opacity-0 [@media(hover:hover)]:group-hover:opacity-100 text-white/70 hover:text-red-400'}`}
+                          className={`absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center transition-all ${isFav ? 'opacity-100 text-red-400' : 'opacity-0 [@media(hover:hover)]:group-hover:opacity-100 text-white/70 hover:text-red-400'}`}
                           style={{ background: 'rgba(0,0,0,0.35)' }}>
-                          <Heart size={8} fill={isFav ? 'currentColor' : 'none'} />
+                          <Heart size={10} fill={isFav ? 'currentColor' : 'none'} />
                         </button>
                       </div>
 
-                      {/* Info — compact */}
-                      <div className="flex flex-col px-1.5 sm:px-2 py-1.5 gap-0.5 flex-1">
-                        <p className="text-[11px] font-bold leading-snug line-clamp-1" style={{ color: POS_THEME.text }}>{item.name}</p>
-                        <p className="text-[9px] font-mono truncate" style={{ color: POS_THEME.muted }}>{item.sku}</p>
-                        <div className="flex items-end justify-between gap-1 mt-auto pt-0.5">
+                      {/* Info */}
+                      <div className="flex flex-col px-2 sm:px-2.5 py-2 gap-0.5 flex-1">
+                        <p className="text-xs sm:text-[13px] font-bold leading-snug line-clamp-2 min-h-[2rem]" style={{ color: POS_THEME.text }}>{item.name}</p>
+                        <p className="text-[10px] font-mono truncate" style={{ color: POS_THEME.muted }}>{item.sku}</p>
+                        <div className="flex items-end justify-between gap-1.5 mt-auto pt-1">
                           <div className="min-w-0">
-                            <p className="text-white text-[11px] sm:text-xs font-extrabold leading-none truncate">{price}</p>
+                            <p className="text-white text-xs sm:text-sm font-extrabold leading-none truncate">{price}</p>
                             {isService ? (
-                              <p className="text-[9px] mt-0.5 truncate" style={{ color: POS_THEME.muted }}>
+                              <p className="text-[10px] mt-0.5 truncate" style={{ color: POS_THEME.muted }}>
                                 Cost {formatCurrency(Number(item.cost ?? 0))}
                               </p>
                             ) : (
-                              <p className="text-[9px] font-semibold flex items-center gap-0.5 mt-0.5 truncate" style={{ color: stockColor }}>
-                                <span className="w-1 h-1 rounded-full inline-block shrink-0" style={{ background: stockColor }} />
+                              <p className="text-[10px] font-semibold flex items-center gap-1 mt-0.5 truncate" style={{ color: stockColor }}>
+                                <span className="w-1.5 h-1.5 rounded-full inline-block shrink-0" style={{ background: stockColor }} />
                                 {stockLabel}
                               </p>
                             )}
                           </div>
                           <button type="button" disabled={isOut}
                             onClick={e => { e.stopPropagation(); handlePick() }}
-                            className="w-6 h-6 rounded-md flex items-center justify-center text-white transition-all disabled:opacity-30 hover:scale-105 active:scale-95 shrink-0"
-                            style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, boxShadow: `0 2px 6px ${POS_THEME.purple}55` }}>
-                            <Plus size={12} />
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-white transition-all disabled:opacity-30 hover:scale-105 active:scale-95 shrink-0"
+                            style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, boxShadow: `0 2px 8px ${POS_THEME.purple}55` }}>
+                            <Plus size={14} />
                           </button>
                         </div>
                       </div>
@@ -3755,51 +3728,24 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         </p>
                       )}
                       {item.imei && <p className="text-[10px] font-mono mt-0.5 text-white/70 truncate">IMEI: {item.imei}</p>}
-                      {hasWarranty && !item.isService && !item.isReload && editWarrantyId !== item.cartId && (
-                        <button
-                          type="button"
-                          onClick={() => openEditWarranty(item)}
-                          className="mt-1.5 inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold transition-colors hover:bg-white/[0.04]"
+                      {hasWarranty && !item.isService && !item.isReload && (item.warrantyMonths ?? 0) > 0 && (
+                        <span
+                          className="mt-1.5 inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold"
                           style={{
-                            borderColor: (item.warrantyMonths ?? 0) > 0 ? 'rgba(16,185,129,0.35)' : POS_THEME.border,
-                            color: (item.warrantyMonths ?? 0) > 0 ? POS_THEME.green : POS_THEME.muted,
-                            background: (item.warrantyMonths ?? 0) > 0 ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.03)',
+                            borderColor: 'rgba(16,185,129,0.35)',
+                            color: POS_THEME.green,
+                            background: 'rgba(16,185,129,0.1)',
                           }}
                         >
                           <Shield size={9} className="shrink-0" />
-                          <span className="truncate">
-                            {(item.warrantyMonths ?? 0) > 0
-                              ? `${posWarrantyMonthsLabel(item.warrantyMonths ?? 0)} warranty`
-                              : 'Add warranty'}
-                          </span>
+                          <span className="truncate">{posWarrantyMonthsLabel(item.warrantyMonths ?? 0)} warranty</span>
                           {item.warrantyNote?.trim() && <span className="shrink-0 opacity-60">· note</span>}
-                          <Edit2 size={9} className="shrink-0 opacity-50" />
-                        </button>
+                        </span>
                       )}
-                      {hasPosPriceEdit && (editPriceId === item.cartId ? (
-                        <div className="flex items-center gap-1.5 mt-1.5">
-                          <input autoFocus type="number" min="0"
-                            className="w-24 h-7 rounded-lg px-2 text-xs text-white outline-none border"
-                            style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }}
-                            value={editPriceVal} onChange={e => setEditPriceVal(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') saveEditPrice(item.cartId); if (e.key === 'Escape') setEditPriceId(null) }} />
-                          <button type="button" onClick={() => saveEditPrice(item.cartId)}
-                            className="h-7 px-2 rounded-lg text-[10px] font-semibold text-white"
-                            style={{ background: `${POS_THEME.purple}33`, border: `1px solid ${POS_THEME.purple}55` }}>Save</button>
-                          <button type="button" onClick={() => setEditPriceId(null)}
-                            className="h-7 px-2 rounded-lg text-[10px] font-semibold border text-white/60"
-                            style={{ borderColor: POS_THEME.border, background: 'rgba(255,255,255,0.04)' }}>Cancel</button>
-                        </div>
-                      ) : (
-                        <button type="button" onClick={() => { setEditWarrantyId(null); setEditPriceId(item.cartId); setEditPriceVal(String(item.price)) }}
-                          className="flex items-center gap-1 mt-1.5 text-[10px] hover:opacity-80 transition-opacity" style={{ color: POS_THEME.muted }}>
-                          {formatCurrency(item.price)} each {item.price !== item.originalPrice && <span className="text-white">✓</span>}
-                          <Edit2 size={9} className="opacity-50" />
-                        </button>
-                      ))}
-                      {!hasPosPriceEdit && (
-                        <p className="mt-1.5 text-[10px]" style={{ color: POS_THEME.muted }}>{formatCurrency(item.price)} each</p>
-                      )}
+                      <p className="mt-1.5 text-[10px]" style={{ color: POS_THEME.muted }}>
+                        {formatCurrency(item.price)} each
+                        {item.price !== item.originalPrice && <span className="text-white ml-1">✓</span>}
+                      </p>
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0 pt-0.5">
                       {isQtyLockedLine(item) ? (
@@ -3825,70 +3771,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     <button type="button" onClick={() => setCart(prev => prev.filter(i => i.cartId !== item.cartId))}
                       className="w-8 h-8 sm:w-6 sm:h-6 rounded-md flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0 mt-0.5 touch-manipulation" aria-label="Remove item"><X size={11} /></button>
                     </div>
-
-                    {hasWarranty && !item.isService && !item.isReload && editWarrantyId === item.cartId && (
-                      <div
-                        className="mx-2.5 mb-2.5 rounded-lg border p-2.5 space-y-2.5"
-                        style={{ borderColor: POS_THEME.border, background: POS_THEME.panel, colorScheme: 'dark' }}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <Shield size={12} style={{ color: POS_THEME.green }} />
-                            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: POS_THEME.muted }}>Edit warranty</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => saveEditWarranty(item.cartId)}
-                              className="h-7 px-2.5 rounded-md text-[10px] font-semibold border border-emerald-500/40 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors"
-                            >
-                              Save
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setEditWarrantyId(null)}
-                              className="h-7 px-2.5 rounded-md text-[10px] font-semibold border border-white/10 text-white/60 bg-white/5 hover:bg-white/10 transition-colors"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-1.5">
-                          {POS_WARRANTY_MONTHS_OPTS.map(m => {
-                            const active = editWarrantyMonths === String(m)
-                            return (
-                              <button
-                                key={m}
-                                type="button"
-                                onClick={() => setEditWarrantyMonths(String(m))}
-                                className={`h-7 rounded-md text-[10px] font-semibold border transition-colors ${
-                                  active
-                                    ? 'bg-emerald-500/20 border-emerald-500/45 text-emerald-300'
-                                    : 'bg-white/[0.03] border-white/10 text-white/75 hover:bg-white/[0.06] hover:border-white/20'
-                                }`}
-                              >
-                                {posWarrantyMonthsLabel(m)}
-                              </button>
-                            )
-                          })}
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-semibold mb-1" style={{ color: POS_THEME.muted }}>Warranty note</label>
-                          <textarea
-                            rows={2}
-                            placeholder="Optional — prints on bill under warranty"
-                            value={editWarrantyNote}
-                            onChange={e => setEditWarrantyNote(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEditWarranty(item.cartId) }
-                              if (e.key === 'Escape') setEditWarrantyId(null)
-                            }}
-                            className="w-full resize-none rounded-md border px-2 py-1.5 text-[10px] leading-relaxed text-white placeholder:text-white/30 focus:outline-none focus:border-emerald-500/50"
-                            style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}
-                          />
-                        </div>
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>

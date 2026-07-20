@@ -223,20 +223,20 @@ export function HexaPosLayout({
               <span className="hidden md:inline">Scan IMEI</span>
             </button>
             {imeiSlot}
-            <div className="flex-1 min-w-0 relative">
-              <ScanLine size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: C.muted }} />
+            <div className="flex-1 min-w-0 max-w-[14rem] sm:max-w-[18rem] lg:max-w-[22rem] relative">
+              <ScanLine size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: C.muted }} />
               <input
                 ref={searchRef}
                 value={search}
                 onChange={e => onSearchChange(e.target.value)}
                 onKeyDown={onSearchKeyDown}
                 placeholder="Search name, SKU, barcode, IMEI…"
-                className="w-full h-9 pl-9 pr-3 sm:pr-12 rounded-xl text-sm outline-none border text-white placeholder:text-white/40"
+                className="w-full h-8 pl-8 pr-2 sm:pr-10 rounded-lg text-xs outline-none border text-white placeholder:text-white/40"
                 style={{ background: C.card, borderColor: C.border }}
               />
-              <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] px-1.5 py-0.5 rounded font-mono hidden sm:inline" style={{ background: C.bg, color: C.muted }}>F1</kbd>
+              <kbd className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[8px] px-1 py-0.5 rounded font-mono hidden sm:inline" style={{ background: C.bg, color: C.muted }}>F1</kbd>
             </div>
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
               <button type="button" onClick={onFiltersClick}
                 className="h-9 px-2 sm:px-3 rounded-xl text-xs font-semibold border flex items-center gap-1.5 transition-colors touch-manipulation"
                 style={{
@@ -274,7 +274,7 @@ export function HexaPosLayout({
               <button type="button" onClick={() => onNavAction?.('settings')} className="hidden sm:flex h-9 w-9 rounded-xl border items-center justify-center hover:bg-white/5 touch-manipulation" style={{ borderColor: C.border, background: C.card }}>
                 <Settings size={15} style={{ color: C.muted }} />
               </button>
-              <div className="max-w-[9rem] sm:max-w-[11rem]">{customerSlot}</div>
+              <div className="min-w-[8.5rem] sm:min-w-[11rem] max-w-[14rem] sm:max-w-[16rem]">{customerSlot}</div>
             </div>
           </div>
         </div>
