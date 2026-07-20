@@ -479,6 +479,7 @@ function VariationPickerModal({
   allowPriceEdit = false,
   showWholesale = false,
   showCredit = false,
+  showWarranty = false,
   onPriceModeChange,
   onClose,
   onAdd,
@@ -490,9 +491,15 @@ function VariationPickerModal({
   allowPriceEdit?: boolean
   showWholesale?: boolean
   showCredit?: boolean
+  showWarranty?: boolean
   onPriceModeChange?: (mode: PriceMode) => void
   onClose: () => void
-  onAdd: (v: ProductVariation, imei?: string, price?: number) => void
+  onAdd: (
+    v: ProductVariation,
+    imei?: string,
+    price?: number,
+    warranty?: { months: number; note?: string },
+  ) => void
 }) {
   const storageOptions = [...new Set(variations.map(v => v.storage))]
   const [selStorage, setSelStorage] = useState<string>(storageOptions[0] ?? '')
@@ -507,6 +514,8 @@ function VariationPickerModal({
   const [imeiScanValue, setImeiScanValue] = useState('')
   const [imeiScanError, setImeiScanError] = useState('')
   const imeiScanRef = useRef<HTMLInputElement>(null)
+  const [warrantyMonths, setWarrantyMonths] = useState(() => String(Number(product.warrantyMonths ?? 0) || 0))
+  const [warrantyNote, setWarrantyNote] = useState(() => String(product.warrantyNote ?? '').trim())
 
   const selected = variations.find(v => v.storage === selStorage && v.colorName === selColor)
   const catalogPrice = selected ? resolveCatalogPrice(selected, priceMode) : 0
@@ -584,7 +593,14 @@ function VariationPickerModal({
 
   const confirmAdd = () => {
     if (!selected || !priceValid) return
-    onAdd(selected, selImei || undefined, allowPriceEdit ? parsedSalePrice : undefined)
+    const months = showWarranty ? Math.max(0, parseInt(warrantyMonths, 10) || 0) : Number(product.warrantyMonths ?? 0)
+    const note = showWarranty ? (warrantyNote.trim() || undefined) : (product.warrantyNote?.trim() || undefined)
+    onAdd(
+      selected,
+      selImei || undefined,
+      allowPriceEdit ? parsedSalePrice : undefined,
+      showWarranty ? { months, note } : undefined,
+    )
   }
   const { gradient, Icon: CardIcon, iconColor } = (() => {
     const cat = (product.categoryName ?? '').toLowerCase()
@@ -610,122 +626,193 @@ function VariationPickerModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="relative w-full max-w-2xl mx-4 rounded-2xl shadow-2xl overflow-hidden border" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
-
-        {/* Header — product image + name */}
-        <div className="relative overflow-hidden" style={{ height: 130 }}>
-          <div className="absolute inset-0" style={{ background: gradient }}>
-            <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 65% 20%, rgba(255,255,255,0.16) 0%, transparent 55%)' }} />
-          </div>
-          {product.imageUrl
-            // eslint-disable-next-line @next/next/no-img-element
-            ? <img src={product.imageUrl} alt={product.name} className="absolute inset-0 w-full h-full object-cover" />
-            : (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(4px)' }}>
-                  <CardIcon size={26} style={{ color: iconColor }} />
-                </div>
-              </div>
-            )
-          }
-          {/* Close button */}
-          <button onClick={onClose} className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center hover:bg-black/40 text-white transition-colors" style={{ background: 'rgba(0,0,0,0.3)' }}>
-            <X size={14} />
-          </button>
-          {/* Gradient overlay for text readability */}
-          <div className="absolute bottom-0 left-0 right-0 h-12" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)' }} />
-          <p className="absolute bottom-2 left-3 text-[13px] font-bold text-white leading-tight pr-8">{product.name}</p>
+    <div
+      className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4"
+      style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(8px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div
+        className="relative w-full sm:max-w-lg max-h-[92dvh] sm:max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-2xl shadow-2xl border overflow-hidden"
+        style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Drag handle (mobile) */}
+        <div className="sm:hidden flex justify-center pt-2 pb-1 shrink-0">
+          <span className="w-10 h-1 rounded-full bg-white/20" />
         </div>
 
-        {/* Body */}
-        <div className="p-5 space-y-4">
+        {/* Compact header */}
+        <div className="shrink-0 flex items-start gap-3 px-4 sm:px-5 pt-2 sm:pt-5 pb-4 border-b" style={{ borderColor: POS_THEME.border }}>
+          <div
+            className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden shrink-0 border"
+            style={{ borderColor: POS_THEME.border, background: gradient }}
+          >
+            {product.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={product.imageUrl} alt={product.name} className="absolute inset-0 w-full h-full object-cover" />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <CardIcon size={22} style={{ color: iconColor }} />
+              </div>
+            )}
+          </div>
+          <div className="min-w-0 flex-1 pt-0.5">
+            <p className="text-base sm:text-lg font-bold text-white leading-snug line-clamp-2">{product.name}</p>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              {product.sku && (
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md border" style={{ borderColor: POS_THEME.border, color: POS_THEME.muted, background: POS_THEME.bg }}>
+                  SKU {product.sku}
+                </span>
+              )}
+              {selected && (
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md" style={{ background: `${POS_THEME.purple}22`, color: '#c4b5fd' }}>
+                  {selected.storage} · {selected.colorName}
+                </span>
+              )}
+              {selected?.stock != null && (
+                <span
+                  className="text-[10px] font-bold px-2 py-0.5 rounded-md"
+                  style={{
+                    background: (selected.stock ?? 0) === 0 ? 'rgba(239,68,68,0.15)' : 'rgba(16,185,129,0.15)',
+                    color: (selected.stock ?? 0) === 0 ? POS_THEME.red : POS_THEME.green,
+                  }}
+                >
+                  {(selected.stock ?? 0) === 0 ? 'Out of stock' : `${selected.stock} in stock`}
+                </span>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border touch-manipulation hover:bg-white/5"
+            style={{ borderColor: POS_THEME.border, color: POS_THEME.muted, background: POS_THEME.bg }}
+          >
+            <X size={16} />
+          </button>
+        </div>
 
-          {/* Storage selection */}
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-5 py-4 space-y-5">
+          {/* Storage */}
           {storageOptions.length > 0 && (
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: POS_THEME.muted }}>Storage</p>
-              <div className="flex flex-wrap gap-2">
-                {storageOptions.map(s => (
-                  <button key={s} onClick={() => { setSelStorage(s); clearImeiSelection() }}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold border transition-all"
-                    style={selStorage === s
-                      ? { background: POS_THEME.purple, borderColor: POS_THEME.purple, color: '#fff', boxShadow: `0 2px 8px ${POS_THEME.purple}55` }
-                      : { background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }}>
-                    {s}
-                  </button>
-                ))}
+            <section>
+              <div className="flex items-center justify-between mb-2.5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.08em]" style={{ color: POS_THEME.muted }}>Storage</p>
+                <span className="text-[10px]" style={{ color: POS_THEME.muted }}>{storageOptions.length} options</span>
               </div>
-            </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {storageOptions.map(s => {
+                  const active = selStorage === s
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => { setSelStorage(s); clearImeiSelection() }}
+                      className="h-11 rounded-xl text-sm font-bold border transition-all touch-manipulation active:scale-[0.98]"
+                      style={active
+                        ? { background: POS_THEME.purple, borderColor: POS_THEME.purple, color: '#fff', boxShadow: `0 4px 16px ${POS_THEME.purple}44` }
+                        : { background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
+                    >
+                      {s}
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
           )}
 
-          {/* Color selection */}
+          {/* Color */}
           {colorOptions.length > 0 && (
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: POS_THEME.muted }}>Color</p>
-              <div className="flex flex-wrap gap-2">
-                {colorOptions.map(v => (
-                  <button key={v.colorName} onClick={() => { setSelColor(v.colorName); clearImeiSelection() }}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
-                    style={selColor === v.colorName
-                      ? { background: POS_THEME.purple, borderColor: POS_THEME.purple, color: '#fff', boxShadow: `0 2px 8px ${POS_THEME.purple}55` }
-                      : { background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }}>
-                    <span className="w-3 h-3 rounded-full border border-white/30 flex-shrink-0" style={{ background: colorDot(v.colorName) }} />
-                    {v.colorName}
-                  </button>
-                ))}
+            <section>
+              <div className="flex items-center justify-between mb-2.5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.08em]" style={{ color: POS_THEME.muted }}>Color</p>
+                <span className="text-[10px]" style={{ color: POS_THEME.muted }}>{colorOptions.length} options</span>
               </div>
-            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {colorOptions.map(v => {
+                  const active = selColor === v.colorName
+                  return (
+                    <button
+                      key={v.colorName}
+                      type="button"
+                      onClick={() => { setSelColor(v.colorName); clearImeiSelection() }}
+                      className="h-12 px-3 rounded-xl text-sm font-semibold border flex items-center gap-3 transition-all touch-manipulation active:scale-[0.98]"
+                      style={active
+                        ? { background: `${POS_THEME.purple}28`, borderColor: POS_THEME.purple, color: '#fff' }
+                        : { background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
+                    >
+                      <span
+                        className="w-5 h-5 rounded-full border-2 shrink-0"
+                        style={{
+                          background: colorDot(v.colorName),
+                          borderColor: active ? '#fff' : 'rgba(255,255,255,0.25)',
+                          boxShadow: active ? `0 0 0 2px ${POS_THEME.purple}` : undefined,
+                        }}
+                      />
+                      <span className="truncate flex-1 text-left">{v.colorName}</span>
+                      {active && <Check size={14} className="text-violet-300 shrink-0" />}
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
           )}
 
-          {/* IMEI — select from this variant's in-stock units only */}
+          {/* IMEI */}
           {product.trackImei && (
-            <div className="space-y-2">
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: POS_THEME.muted }}>
-                Select IMEI * {selected ? `(${selected.storage} / ${selected.colorName})` : ''}
-              </p>
+            <section className="rounded-2xl border p-3.5 space-y-3" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] font-bold uppercase tracking-[0.08em]" style={{ color: POS_THEME.muted }}>
+                  IMEI <span className="text-rose-400">*</span>
+                </p>
+                {selected && (
+                  <span className="text-[10px] font-medium truncate" style={{ color: POS_THEME.muted }}>
+                    {selected.storage} / {selected.colorName}
+                  </span>
+                )}
+              </div>
 
               {loadingImeis ? (
-                <div className="flex items-center gap-2 text-xs text-white/50 py-2">
-                  <Loader2 size={12} className="animate-spin" /> Loading stock IMEIs...
+                <div className="flex items-center gap-2 text-xs py-3" style={{ color: POS_THEME.muted }}>
+                  <Loader2 size={14} className="animate-spin" /> Loading stock IMEIs…
                 </div>
               ) : availableImeis.length === 0 ? (
-                <p className="text-xs text-red-400">
+                <div className="rounded-xl px-3 py-3 text-xs leading-relaxed" style={{ background: 'rgba(239,68,68,0.1)', color: '#fca5a5' }}>
                   No IN_STOCK IMEIs for {selected?.storage} / {selected?.colorName}.
-                  {(selected?.stock ?? 0) > 0 && ' Stock is recorded but IMEIs are not registered — use Purchase Orders → Register IMEI first.'}
-                </p>
+                  {(selected?.stock ?? 0) > 0 && ' Stock exists but IMEIs are not registered — use Purchase Orders → Register IMEI first.'}
+                </div>
               ) : (
                 <>
-                  {/* Scan to pick from variant stock */}
-                  <div className="flex gap-2 items-center px-3 h-10 rounded-xl border"
-                    style={{ background: 'var(--brand-glow)', borderColor: 'var(--sidebar-active-border)' }}>
-                    <Hash size={13} className="text-violet-400 flex-shrink-0" />
+                  <div
+                    className="flex gap-2 items-center px-3 h-12 rounded-xl border"
+                    style={{ background: `${POS_THEME.purple}18`, borderColor: `${POS_THEME.purple}55` }}
+                  >
+                    <ScanLine size={15} className="text-violet-300 flex-shrink-0" />
                     <input
                       ref={imeiScanRef}
                       autoFocus
-                      className="flex-1 bg-transparent outline-none text-sm font-mono tracking-widest placeholder:text-white/30"
-                      style={{ color: 'var(--text-primary, #fff)' }}
-                      placeholder="Scan IMEI from this variant..."
+                      className="flex-1 bg-transparent outline-none text-sm font-mono tracking-wider placeholder:text-white/30"
+                      style={{ color: '#fff' }}
+                      placeholder="Scan or type IMEI…"
                       value={imeiScanValue}
                       onChange={e => { setImeiScanValue(e.target.value); setImeiScanError('') }}
                       onKeyDown={e => {
                         if (e.key === 'Enter') { e.preventDefault(); handleImeiScanInModal(imeiScanValue) }
                       }}
                     />
-                    {imeiScanValue.replace(/\D/g, '').length === 15
-                      ? <span className="text-[10px] text-green-400 font-bold flex-shrink-0">✓</span>
-                      : null}
+                    {imeiScanValue.replace(/\D/g, '').length === 15 && (
+                      <span className="text-[10px] text-green-400 font-bold flex-shrink-0">✓</span>
+                    )}
                   </div>
 
-                  {imeiScanError && <p className="text-xs text-red-400">{imeiScanError}</p>}
+                  {imeiScanError && <p className="text-xs text-rose-400">{imeiScanError}</p>}
 
-                  {/* Dropdown — variant stock IMEIs only */}
                   <div className="relative">
                     <select
                       value={selImei}
                       onChange={e => { setSelImei(e.target.value); setImeiScanError(''); setImeiScanValue('') }}
-                      className="w-full h-10 px-3 rounded-xl text-sm border outline-none appearance-none font-mono"
+                      className="w-full h-12 pl-3 pr-10 rounded-xl text-sm border outline-none appearance-none font-mono"
                       style={{
                         background: POS_THEME.card,
                         borderColor: POS_THEME.border,
@@ -734,7 +821,7 @@ function VariationPickerModal({
                       }}
                     >
                       <option value="" disabled style={{ background: '#1e293b', color: '#94a3b8' }}>
-                        -- Select IMEI ({availableImeis.length} in stock) --
+                        Select from {availableImeis.length} in stock
                       </option>
                       {availableImeis.map(i => (
                         <option key={i.imei} value={i.imei} style={{ background: '#1e293b', color: '#f8fafc' }}>
@@ -742,29 +829,80 @@ function VariationPickerModal({
                         </option>
                       ))}
                     </select>
-                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none" />
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
                   </div>
 
                   {selImei && (
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-mono"
-                      style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: '#86efac' }}>
-                      <Check size={12} />
-                      <span className="tracking-widest">{selImei}</span>
-                      <button type="button" onClick={() => { setSelImei(''); imeiScanRef.current?.focus() }}
-                        className="ml-auto text-white/40 hover:text-white/70"><X size={12} /></button>
+                    <div
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-mono"
+                      style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.35)', color: '#86efac' }}
+                    >
+                      <Check size={13} className="shrink-0" />
+                      <span className="tracking-wider truncate flex-1">{selImei}</span>
+                      <button
+                        type="button"
+                        onClick={() => { setSelImei(''); imeiScanRef.current?.focus() }}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/10 text-white/50"
+                      >
+                        <X size={13} />
+                      </button>
                     </div>
                   )}
                 </>
               )}
-            </div>
+            </section>
           )}
 
-          {/* Selected variant info + optional editable sale price */}
+          {/* Warranty */}
+          {showWarranty && (
+            <section className="rounded-2xl border p-3.5 space-y-3" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <Shield size={13} style={{ color: POS_THEME.green }} />
+                  <p className="text-[11px] font-bold uppercase tracking-[0.08em]" style={{ color: POS_THEME.muted }}>Warranty</p>
+                </div>
+                <span className="text-[10px] font-semibold" style={{ color: Number(warrantyMonths) > 0 ? POS_THEME.green : POS_THEME.muted }}>
+                  {posWarrantyMonthsLabel(Number(warrantyMonths) || 0)}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {POS_WARRANTY_MONTHS_OPTS.map(m => {
+                  const active = warrantyMonths === String(m)
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setWarrantyMonths(String(m))}
+                      className="h-10 rounded-xl text-xs font-bold border transition-all touch-manipulation active:scale-[0.98]"
+                      style={active
+                        ? { background: 'rgba(16,185,129,0.2)', borderColor: 'rgba(16,185,129,0.5)', color: '#6ee7b7' }
+                        : { background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text }}
+                    >
+                      {posWarrantyMonthsLabel(m)}
+                    </button>
+                  )
+                })}
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold mb-1.5" style={{ color: POS_THEME.muted }}>Warranty note (optional)</label>
+                <textarea
+                  rows={2}
+                  placeholder="Prints on bill under warranty…"
+                  value={warrantyNote}
+                  onChange={e => setWarrantyNote(e.target.value)}
+                  className="w-full resize-none rounded-xl border px-3 py-2 text-xs leading-relaxed text-white placeholder:text-white/30 outline-none focus:border-emerald-500/40"
+                  style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}
+                />
+              </div>
+            </section>
+          )}
+
+          {/* Price */}
           {selected && (
-            <div className="rounded-xl p-4 space-y-3" style={{ background: POS_THEME.bg, border: `1px solid ${POS_THEME.border}` }}>
+            <section className="rounded-2xl border p-3.5 space-y-3" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
               {(showWholesale || showCredit) && (
-                <div className="space-y-1.5">
-                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: POS_THEME.muted }}>Price type</p>
+                <div className="space-y-2">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.08em]" style={{ color: POS_THEME.muted }}>Price type</p>
                   <PriceModeToggle
                     mode={priceMode}
                     onChange={mode => onPriceModeChange?.(mode)}
@@ -773,67 +911,77 @@ function VariationPickerModal({
                   />
                 </div>
               )}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div className="sm:col-span-1 col-span-2">
-                  <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: POS_THEME.muted }}>
-                    {allowPriceEdit ? 'Sale price (LKR)' : 'Price'}
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-2" style={{ color: POS_THEME.muted }}>
+                  {allowPriceEdit ? 'Sale price (LKR)' : 'Price'}
+                </p>
+                {allowPriceEdit ? (
+                  <>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      inputMode="decimal"
+                      className="w-full h-12 px-4 rounded-xl text-xl font-extrabold outline-none border text-white"
+                      style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}
+                      value={salePrice}
+                      onChange={e => setSalePrice(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') { e.preventDefault(); confirmAdd() }
+                      }}
+                    />
+                    <p className="text-[11px] mt-1.5" style={{ color: POS_THEME.muted }}>
+                      Catalog {formatCurrency(catalogPrice)}
+                      {selected.sku ? ` · SKU ${selected.sku}` : ''}
+                    </p>
+                  </>
+                ) : (
+                  <p className="pos-price text-2xl font-extrabold leading-none">
+                    {formatCurrency(catalogPrice)}
                   </p>
-                  {allowPriceEdit ? (
-                    <>
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        inputMode="decimal"
-                        className="w-full h-10 px-3 rounded-xl text-base font-extrabold outline-none border text-white"
-                        style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}
-                        value={salePrice}
-                        onChange={e => setSalePrice(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') { e.preventDefault(); confirmAdd() }
-                        }}
-                      />
-                      <p className="text-[10px] mt-1" style={{ color: POS_THEME.muted }}>
-                        Catalog {formatCurrency(catalogPrice)}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="pos-price text-lg font-extrabold leading-none h-10 flex items-center">
-                      {formatCurrency(catalogPrice)}
-                    </p>
-                  )}
-                </div>
-                {selected.sku && (
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: POS_THEME.muted }}>SKU</p>
-                    <p className="text-[11px] font-mono text-white/70 h-10 flex items-center">{selected.sku}</p>
-                  </div>
-                )}
-                {(selected.stock != null) && (
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: POS_THEME.muted }}>Stock</p>
-                    <p className="text-[11px] font-semibold h-10 flex items-center" style={{ color: (selected.stock ?? 0) === 0 ? POS_THEME.red : (selected.stock ?? 0) <= 4 ? POS_THEME.amber : POS_THEME.green }}>
-                      {(selected.stock ?? 0) === 0 ? 'Out' : selected.stock}
-                    </p>
-                  </div>
                 )}
               </div>
+            </section>
+          )}
+        </div>
+
+        {/* Sticky footer */}
+        <div
+          className="shrink-0 border-t px-4 sm:px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] space-y-3"
+          style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}
+        >
+          {selected && (
+            <div className="flex items-end justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: POS_THEME.muted }}>Total</p>
+                <p className="text-xl font-extrabold text-white leading-tight">
+                  {formatCurrency(allowPriceEdit ? (Number.isFinite(parsedSalePrice) ? parsedSalePrice : catalogPrice) : catalogPrice)}
+                </p>
+              </div>
+              <p className="text-[11px] text-right truncate max-w-[55%]" style={{ color: POS_THEME.muted }}>
+                {selected.storage} · {selected.colorName}
+                {selImei ? ` · …${selImei.slice(-4)}` : ''}
+                {showWarranty && Number(warrantyMonths) > 0 ? ` · ${posWarrantyMonthsLabel(Number(warrantyMonths) || 0)}` : ''}
+              </p>
             </div>
           )}
-
-          {/* Action buttons */}
-          <div className="flex gap-3 pt-1">
-            <button onClick={onClose}
-              className="flex-1 h-11 rounded-xl text-sm font-bold border transition-colors"
-              style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }}>
+          <div className="flex gap-2.5">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 h-12 rounded-xl text-sm font-bold border touch-manipulation"
+              style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }}
+            >
               Cancel
             </button>
             <button
+              type="button"
               disabled={!canAdd}
               onClick={confirmAdd}
-              className="flex-1 h-11 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-40"
-              style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, boxShadow: `0 2px 14px ${POS_THEME.purple}55` }}>
-              <ShoppingCart size={15} />
+              className="flex-[1.4] h-12 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 touch-manipulation active:scale-[0.98] disabled:opacity-40"
+              style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, boxShadow: canAdd ? `0 6px 22px ${POS_THEME.purple}55` : 'none' }}
+            >
+              <ShoppingCart size={16} />
               Add to Cart
             </button>
           </div>
@@ -1109,6 +1257,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
   }, [])
+
+  useEffect(() => {
+    if (isDesktop) setMobileView('products')
+  }, [isDesktop])
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000)
@@ -1529,6 +1681,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
   }
 
   const restoreHeldCart = (entry: typeof heldCarts[0]) => {
+    if (cart.length > 0 && !window.confirm('Replace the current cart with this held sale? Current items will be lost unless you Hold them first.')) {
+      return
+    }
     setCart(entry.items)
     setDiscountPct(entry.discountPct)
     setDiscountFlat(entry.discountFlat)
@@ -1536,8 +1691,36 @@ function POSContent({ onClose }: { onClose: () => void }) {
     saveHeldCarts(heldCarts.filter(h => h.id !== entry.id))
     setShowHeldCarts(false)
     selectCustomer(entry.customer)
+    setMobileView('cart')
+    setCartView('items')
     toast.success(`${entry.label} restored`)
   }
+
+  const requestClosePos = useCallback(() => {
+    if (cart.length > 0 || cartView === 'checkout') {
+      if (!window.confirm('Close POS? Unsaved cart items will be lost unless held.')) return
+    }
+    onClose()
+  }, [cart.length, cartView, onClose])
+
+  const clearCartWithConfirm = useCallback(() => {
+    if (cart.length === 0) return
+    if (!window.confirm(`Clear cart (${cart.length} line${cart.length === 1 ? '' : 's'})?`)) return
+    setCart([])
+    setCartView('items')
+  }, [cart.length])
+
+  const openCustomerPicker = useCallback(() => {
+    setCustSearch('')
+    setShowRegister(false)
+    if (cartView === 'checkout') {
+      setShowCartCustDrop(true)
+      setShowCustDrop(false)
+    } else {
+      setShowCustDrop(true)
+      setShowCartCustDrop(false)
+    }
+  }, [cartView])
 
   const genDocNumber = (prefix: string) => `${prefix}-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(Math.random()*9000+1000)}`
 
@@ -1576,7 +1759,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
   /** Remember last price mode for the next add (does not reprice items already in cart). */
   const selectPriceMode = useCallback((mode: PriceMode) => {
     setPriceMode(mode)
-    setEditPriceId(null)
   }, [])
 
   useEffect(() => {
@@ -1758,7 +1940,13 @@ function POSContent({ onClose }: { onClose: () => void }) {
     return { gradient: 'linear-gradient(160deg, #1c2333 0%, #151921 100%)', iconColor: '#9CA3AF', Icon: Package }
   }
 
-  const addToCart = (product: any, imei?: string, variation?: ProductVariation, priceOverride?: number) => {
+  const addToCart = (
+    product: any,
+    imei?: string,
+    variation?: ProductVariation,
+    priceOverride?: number,
+    warranty?: { months?: number; note?: string },
+  ) => {
     const catalogPrice = variation
       ? resolveCatalogPrice(variation, effectivePriceMode)
       : resolveCatalogPrice(product, effectivePriceMode)
@@ -1768,18 +1956,32 @@ function POSContent({ onClose }: { onClose: () => void }) {
       : (isService ? Number(product.price) || 0 : catalogPrice)
     const sku   = variation?.sku ?? product.sku ?? product.category ?? ''
     const name  = variation
-      ? `${product.name} · ${variation.storage} / ${variation.colorName}`
+      ? (variation.storage === 'Standard' && variation.colorName === 'Default'
+        ? product.name
+        : `${product.name} · ${variation.storage} / ${variation.colorName}`)
       : product.name
     const cost = isService ? Number(product.cost ?? 0) : Number(variation?.costPrice ?? product.buyingPrice ?? 0)
     const serviceId = isService ? product.id : undefined
+    const warrantyMonths = isService
+      ? 0
+      : Math.max(0, Number(warranty?.months ?? product.warrantyMonths ?? 0) || 0)
+    const warrantyNote = isService
+      ? undefined
+      : (warranty?.note?.trim() || product.warrantyNote?.trim() || undefined)
+    const isSyntheticVariant = Boolean(variation && variation.storage === 'Standard' && variation.colorName === 'Default')
     setCart(prev => {
       const trackImei = Boolean(product.trackImei)
       if (!imei) {
-        // Match by productId + variation + same unit price so custom prices stay separate lines
-        const varKey = variation ? `${variation.storage}::${variation.colorName}` : ''
+        // Match by productId + variation + price + warranty so different warranties stay separate
+        const varKey = isSyntheticVariant ? '' : (variation ? `${variation.storage}::${variation.colorName}` : '')
         const existing = prev.find(i => i.isService
           ? i.serviceId === serviceId && i.name === name && i.price === price
-          : i.productId === product.id && !i.imei && (i.variationLabel ?? '') === varKey && i.price === price)
+          : i.productId === product.id
+            && !i.imei
+            && (i.variationLabel ?? '') === varKey
+            && i.price === price
+            && (i.warrantyMonths ?? 0) === warrantyMonths
+            && (i.warrantyNote ?? '') === (warrantyNote ?? ''))
         if (existing) return prev.map(i => i.cartId === existing.cartId ? { ...i, quantity: i.quantity + 1 } : i)
       }
       return [...prev, {
@@ -1794,9 +1996,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
         quantity: 1,
         imei,
         isService,
-        variationLabel: variation ? `${variation.storage}::${variation.colorName}` : undefined,
-        warrantyMonths: isService ? 0 : Number(product.warrantyMonths ?? 0),
-        warrantyNote: isService ? undefined : (product.warrantyNote?.trim() || undefined),
+        variationLabel: isSyntheticVariant ? undefined : (variation ? `${variation.storage}::${variation.colorName}` : undefined),
+        warrantyMonths,
+        warrantyNote,
         trackImei,
         condition: isService ? undefined : (product.condition === 'USED' ? 'USED' : product.condition === 'BRAND_NEW' ? 'BRAND_NEW' : undefined),
       }]
@@ -1995,7 +2197,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
   const saveEditPrice = (cartId: string) => {
     const val = parseFloat(editPriceVal)
-    if (!isNaN(val) && val > 0) setCart(prev => prev.map(i => i.cartId === cartId ? { ...i, price: val } : i))
+    if (!isNaN(val) && val >= 0) setCart(prev => prev.map(i => i.cartId === cartId ? { ...i, price: val } : i))
     setEditPriceId(null)
   }
 
@@ -2055,7 +2257,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
     : 0
 
   const currentUser = authStorage.getUser()
-  const shopName = currentUser?.name?.split(' ')[0] + ' Shop' || 'Our Shop'
+  const shopName = currentUser?.name?.split(' ')[0]
+    ? `${currentUser.name.split(' ')[0]} Shop`
+    : 'Our Shop'
   const [invoiceSettings, setInvoiceSettings] = useState<InvoiceSettings>(() => getInvoiceSettings())
   const [thermalShopCtx, setThermalShopCtx] = useState<ShopContext | undefined>(undefined)
   const [tenantSlug, setTenantSlug] = useState<string | undefined>(undefined)
@@ -2262,6 +2466,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         customerId:    selectedCustomer?.id || undefined,
         customerName:  selectedCustomer?.name || 'Walk-in Customer',
         customerPhone: selectedCustomer?.phone || '',
+        priceMode:     effectivePriceMode,
         subtotal,
         discount:      discountAmount,
         tax,
@@ -2457,7 +2662,13 @@ function POSContent({ onClose }: { onClose: () => void }) {
     const openCheckout = () => {
       const ck = checkoutKeyboardRef.current
       if (ck.canOpenCheckout && !completedSale) {
+        if (cart.length > 0 && warrantyCartItems.length > 0 && !selectedCustomer) {
+          toast.error('Select a customer — warranty products require customer details')
+          openCustomerPicker()
+          return
+        }
         if (cart.length === 0 && ck.customerOutstanding > 0) setIncludeOutstanding(true)
+        setMobileView('cart')
         setCartView('checkout')
         setTimeout(() => {
           if (cart.length > 0) payNowRef.current?.focus()
@@ -2495,11 +2706,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
       if (e.key === 'Escape') {
         e.preventDefault()
+        e.stopPropagation()
         if (pricePrompt) { setPricePrompt(null); setPricePromptVal(''); return }
         if (showRecentInvoices) setShowRecentInvoices(false)
         else if (showHeldCarts) setShowHeldCarts(false)
         else if (showCalc) setShowCalc(false)
-        else if (showReturnModal) setShowReturnModal(false)
+        else if (showReturnModal) { setShowReturnModal(false); setActiveNavId('products') }
         else if (showDocPreview) setShowDocPreview(null)
         else if (showMoreMenu) setShowMoreMenu(false)
         else if (showFilters) setShowFilters(false)
@@ -2510,6 +2722,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
         else if (showRegister && (showCartCustDrop || showCustDrop)) setShowRegister(false)
         else if (showCartCustDrop || showCustDrop) { setShowCartCustDrop(false); setShowCustDrop(false); setShowRegister(false) }
         else if (cartView === 'checkout' && !completedSale) setCartView('items')
+        else if (mobileView === 'cart' && !isDesktop) setMobileView('products')
+        else requestClosePos()
         return
       }
 
@@ -2533,7 +2747,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
       if (fnKey || (e.ctrlKey && e.key === 'Enter')) {
         if (e.key === 'F1') { e.preventDefault(); searchRef.current?.focus(); searchRef.current?.select() }
-        if (e.key === 'F2') { e.preventDefault(); setShowCartCustDrop(true); setCustSearch('') }
+        if (e.key === 'F2') { e.preventDefault(); openCustomerPicker() }
         if (e.key === 'F3') { e.preventDefault(); payNow() }
         if (e.key === 'F4') { e.preventDefault(); handleHoldSales() }
         if (e.key === 'F5') {
@@ -2608,7 +2822,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cart, cartView, checkoutLoading, completedSale, selectedCustomer, customerOutstanding, subtotal, discountAmount, saleTotal, invoiceSettings, pricePrompt, variationPickerProduct])
+  }, [cart, cartView, checkoutLoading, completedSale, selectedCustomer, customerOutstanding, subtotal, discountAmount, saleTotal, invoiceSettings, pricePrompt, variationPickerProduct, mobileView, isDesktop, requestClosePos, openCustomerPicker, showCustDrop, showCartCustDrop, showRegister, showRecentInvoices, showHeldCarts, showCalc, showReturnModal, showDocPreview, showMoreMenu, showFilters, showOpeningCash, showDayEnd, showCashFlow])
 
   const downloadInvoice = async () => {
     if (!a4Ref.current) return
@@ -2668,13 +2882,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const syncTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
 
   const handleNavAction = useCallback((id: string) => {
-    setActiveNavId(id)
-    if (id === 'products') return
-    if (id === 'sales') { openRecentSales(); return }
-    if (id === 'customers') { setShowCartCustDrop(true); setCustSearch(''); return }
+    if (id === 'products') { setActiveNavId('products'); return }
+    if (id === 'sales') { setActiveNavId('sales'); openRecentSales(); return }
+    if (id === 'customers') { openCustomerPicker(); return }
     if (id === 'imei') { setShowScanInput(true); return }
     if (id === 'cash') { setCashFlowMode('IN'); setShowCashFlow(true); return }
-    if (id === 'returns') { setShowReturnModal(true); return }
+    if (id === 'returns') { setActiveNavId('returns'); setShowReturnModal(true); return }
     if (id === 'reload') { setSelectedCategory('RELOAD'); setActiveNavId('products'); return }
     const routes: Record<string, string> = {
       repairs: '/dashboard/repairs',
@@ -2685,10 +2898,13 @@ function POSContent({ onClose }: { onClose: () => void }) {
       settings: '/dashboard/settings',
     }
     if (routes[id]) {
+      if (cart.length > 0 && !window.confirm('Leave POS? Unsaved cart items will be lost unless held.')) {
+        return
+      }
       onClose()
       router.push(routes[id])
     }
-  }, [onClose, router, openRecentSales])
+  }, [onClose, router, openRecentSales, openCustomerPicker, cart.length])
 
   const posNavItems = useMemo(
     () => buildPosNavItems({ hasIMEI, hasFinance, hasDailyReload }),
@@ -2848,11 +3064,11 @@ function POSContent({ onClose }: { onClose: () => void }) {
           style={{ background: selectedCustomer ? 'var(--sidebar-active-border)' : POS_THEME.bg, color: '#ffffff' }}>
           {selectedCustomer ? selectedCustomer.name[0]?.toUpperCase() : <User size={10} />}
         </div>
-        <span className="max-w-[110px] truncate">{selectedCustomer ? selectedCustomer.name : 'Walk-in Customer'}</span>
+        <span className="max-w-[72px] sm:max-w-[110px] truncate">{selectedCustomer ? selectedCustomer.name : 'Walk-in'}</span>
         <ChevronDown size={10} className="text-white/70" />
       </button>
       {showCustDrop && (
-        <div className={`absolute top-full mt-1.5 right-0 z-[60] rounded-2xl shadow-2xl overflow-hidden border ${showRegister ? 'w-96' : 'w-64'}`} style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
+        <div className={`absolute top-full mt-1.5 right-0 z-[60] rounded-2xl shadow-2xl overflow-hidden border ${showRegister ? 'w-[min(24rem,calc(100vw-1.25rem))]' : 'w-[min(16rem,calc(100vw-1.25rem))]'}`} style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
           {renderCustomerList(true)}
         </div>
       )}
@@ -2882,12 +3098,13 @@ function POSContent({ onClose }: { onClose: () => void }) {
           allowPriceEdit={hasPosPriceEdit}
           showWholesale={hasWholesalePricing}
           showCredit={hasCreditPricing}
+          showWarranty={hasWarranty}
           onPriceModeChange={selectPriceMode}
           onClose={() => setVariationPickerProduct(null)}
-          onAdd={(variation, imei, price) => {
+          onAdd={(variation, imei, price, warranty) => {
             const product = variationPickerProduct
             setVariationPickerProduct(null)
-            addToCart(product, imei, variation, price)
+            addToCart(product, imei, variation, price, warranty)
             toast.success(`Added: ${product.name} · ${variation.storage} / ${variation.colorName}`)
           }}
         />
@@ -2941,7 +3158,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
       <HexaPosLayout
         shopName={storeName}
-        onClose={onClose}
+        onClose={requestClosePos}
         cashierName={cashierName}
         syncTime={syncTime}
         search={search}
@@ -2954,6 +3171,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
         navItems={posNavItems}
         activeNavId={activeNavId}
         heldBadgeCount={heldCarts.length}
+        mobileView={mobileView}
+        cartItemCount={cart.length}
+        onMobileViewChange={setMobileView}
         onFiltersClick={() => setShowFilters(v => !v)}
         filtersActive={showFilters || hideOutOfStock || showFavoritesOnly}
         filtersPanel={showFilters ? (
@@ -2994,7 +3214,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         imeiSlot={imeiSlot}
         customerSlot={customerSlot}
         categoryBar={(
-          <div className="flex items-center gap-2 px-4 py-2.5 border-b shrink-0 overflow-x-auto scrollbar-none" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
+          <div className="flex items-center gap-2 px-2 sm:px-4 py-2 sm:py-2.5 border-b shrink-0 overflow-x-auto scrollbar-none" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
             {categoryTabs.map(({ id, name, icon: Icon }) => (
               <button key={id} onClick={() => setSelectedCategory(id)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all flex-shrink-0 whitespace-nowrap"
@@ -3014,7 +3234,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           selectedCategory === 'RELOAD' && hasDailyReload ? (
             <PosReloadPanel onAdd={addReloadToCart} />
           ) : (
-          <div className={gridView ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3' : 'space-y-1.5'}>
+          <div className={gridView ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-3' : 'space-y-1.5'}>
             {pagedProducts.length === 0 ? (
               <div className="col-span-full flex flex-col items-center justify-center h-40 opacity-30">
                 <PackageSearch size={32} className="mb-2" style={{ color: POS_THEME.muted }} />
@@ -3038,8 +3258,20 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     if (isOut) return
                     if (vars.length > 0) { setVariationPickerProduct(item); return }
                     if (!isService && item.trackImei && hasIMEI) {
-                      toast('Scan IMEI barcode to add this product', { icon: '📱' })
-                      searchRef.current?.focus()
+                      // Open picker with a single synthetic variant so IMEI list/scan works
+                      setVariationPickerProduct({
+                        ...item,
+                        storageVariations: [{
+                          storage: 'Standard',
+                          colorName: 'Default',
+                          sellingPrice: item.sellingPrice,
+                          wholesalePrice: item.wholesalePrice,
+                          creditPrice: item.creditPrice,
+                          costPrice: item.buyingPrice,
+                          stock: item.availableStock ?? item.stock ?? 0,
+                          sku: item.sku,
+                        }],
+                      })
                       return
                     }
                     promptAddToCart(item)
@@ -3137,12 +3369,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       </div>
 
                       {/* Info */}
-                      <div className="flex flex-col px-3 py-2.5 gap-1 flex-1">
-                        <p className="text-sm font-bold leading-snug line-clamp-2 min-h-[2.5rem]" style={{ color: POS_THEME.text }}>{item.name}</p>
-                        <p className="text-[11px] font-mono truncate" style={{ color: POS_THEME.muted }}>{item.sku}</p>
+                      <div className="flex flex-col px-2.5 sm:px-3 py-2 sm:py-2.5 gap-1 flex-1">
+                        <p className="text-xs sm:text-sm font-bold leading-snug line-clamp-2 min-h-[2.25rem] sm:min-h-[2.5rem]" style={{ color: POS_THEME.text }}>{item.name}</p>
+                        <p className="text-[10px] sm:text-[11px] font-mono truncate" style={{ color: POS_THEME.muted }}>{item.sku}</p>
                         <div className="flex items-end justify-between gap-2 mt-auto pt-1">
                           <div className="min-w-0">
-                            <p className="text-white text-sm font-extrabold leading-none">{price}</p>
+                            <p className="text-white text-xs sm:text-sm font-extrabold leading-none">{price}</p>
                             {isService ? (
                               <p className="text-[11px] mt-1 truncate" style={{ color: POS_THEME.muted }}>
                                 Cost {formatCurrency(Number(item.cost ?? 0))}
@@ -3200,10 +3432,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
           </div>
         )}
         bottomActions={(
-          <div className="flex flex-wrap gap-2 px-4 py-3 border-t shrink-0" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
+          <div className="flex flex-wrap gap-2 px-2 sm:px-4 py-2 sm:py-3 border-t shrink-0 overflow-x-auto" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
             {bottomActionButtons.map(btn => (
               <button key={btn.label} type="button" onClick={btn.onClick}
-                className="flex-1 min-w-[110px] h-10 rounded-xl text-xs font-bold text-white border"
+                className="flex-1 min-w-[88px] h-10 rounded-xl text-[11px] sm:text-xs font-bold text-white border touch-manipulation"
                 style={{ background: btn.bg, borderColor: POS_THEME.border }}>
                 {btn.label}
               </button>
@@ -3328,14 +3560,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
                 ) : (
                   <>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => setMobileView('products')} className="md:hidden flex items-center gap-1 text-xs mr-1 px-2 py-1 rounded-lg hover:bg-white/5 transition-colors" style={{ color: POS_THEME.muted }}>
+                      <button onClick={() => setMobileView('products')} className="lg:hidden flex items-center gap-1 text-xs mr-1 px-2 py-1 rounded-lg hover:bg-white/5 transition-colors" style={{ color: POS_THEME.muted }}>
                         <ChevronLeft size={14} /><span>Products</span>
                       </button>
                       <ShoppingBag size={14} className="text-white" />
                       <span className="font-bold text-sm" style={{ color: POS_THEME.text }}>Cart ({cart.length})</span>
                     </div>
                     {cart.length > 0 && (
-                      <button type="button" onClick={() => { setCart([]); setCartView('items') }} className="text-xs font-semibold hover:opacity-80" style={{ color: POS_THEME.red }}>
+                      <button type="button" onClick={clearCartWithConfirm} className="text-xs font-semibold hover:opacity-80" style={{ color: POS_THEME.red }}>
                         Clear Cart
                       </button>
                     )}
@@ -3355,7 +3587,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         <p className="text-sm font-semibold text-white">{selectedCustomer.name}</p>
                         <p className="text-xl font-extrabold text-red-400 mt-1">{formatCurrency(customerOutstanding)}</p>
                         <p className="text-xs text-white/50 mt-1 text-center">Outstanding balance — press F9 to collect</p>
-                        <button type="button" onClick={() => { setCartView('checkout'); setIncludeOutstanding(true) }}
+                        <button type="button" onClick={() => { setMobileView('cart'); setCartView('checkout'); setIncludeOutstanding(true) }}
                           className="mt-4 px-4 py-2.5 rounded-xl text-sm font-bold text-white"
                           style={{ background: 'var(--brand-gradient)' }}>
                           Collect Outstanding <kbd className="ml-1 px-1 rounded text-[10px]" style={{ background: 'rgba(0,0,0,0.25)' }}>F9</kbd>
@@ -3457,23 +3689,24 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         <span className="w-8 text-center text-xs font-bold" style={{ color: POS_THEME.text }}>{item.quantity}</span>
                       ) : (
                         <>
-                      <button onClick={() => updateQty(item.cartId, -1)} className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 text-white flex items-center justify-center transition-colors"><Minus size={10} /></button>
+                      <button onClick={() => updateQty(item.cartId, -1)} className="w-8 h-8 sm:w-6 sm:h-6 rounded-md bg-white/5 hover:bg-white/10 text-white flex items-center justify-center transition-colors touch-manipulation" aria-label="Decrease quantity"><Minus size={10} /></button>
                       <input
                         type="number"
                         min="1"
                         value={item.quantity}
                         onChange={e => { const v = parseInt(e.target.value); if (!isNaN(v) && v > 0) setQty(item.cartId, v) }}
                         onFocus={e => e.target.select()}
-                        className="w-8 h-6 text-center text-xs font-bold rounded border focus:outline-none focus:border-violet-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                        className="w-8 h-8 sm:h-6 text-center text-xs font-bold rounded border focus:outline-none focus:border-violet-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
                         style={{ color: POS_THEME.text, background: POS_THEME.card, borderColor: POS_THEME.border }}
+                        aria-label="Quantity"
                       />
-                      <button onClick={() => updateQty(item.cartId, 1)} className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 text-white flex items-center justify-center transition-colors"><Plus size={10} /></button>
+                      <button onClick={() => updateQty(item.cartId, 1)} className="w-8 h-8 sm:w-6 sm:h-6 rounded-md bg-white/5 hover:bg-white/10 text-white flex items-center justify-center transition-colors touch-manipulation" aria-label="Increase quantity"><Plus size={10} /></button>
                         </>
                       )}
                     </div>
                     <span className="text-xs font-bold w-[4.5rem] text-right flex-shrink-0 pt-1" style={{ color: POS_THEME.text }}>{formatCurrency(item.price * item.quantity)}</span>
                     <button type="button" onClick={() => setCart(prev => prev.filter(i => i.cartId !== item.cartId))}
-                      className="w-6 h-6 rounded-md flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0 mt-0.5"><X size={11} /></button>
+                      className="w-8 h-8 sm:w-6 sm:h-6 rounded-md flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0 mt-0.5 touch-manipulation" aria-label="Remove item"><X size={11} /></button>
                     </div>
 
                     {hasWarranty && !item.isService && !item.isReload && editWarrantyId === item.cartId && (
@@ -3550,7 +3783,16 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     <span className="text-xs" style={{ color: POS_THEME.muted }}>{cart.length} item{cart.length !== 1 ? 's' : ''}</span>
                     <span className="pos-price text-xl font-extrabold">{formatCurrency(saleTotal)}</span>
                   </div>
-                  <button type="button" onClick={() => { setCartView('checkout'); setTimeout(() => payNowRef.current?.focus(), 80) }}
+                  <button type="button" onClick={() => {
+                    if (hasWarranty && warrantyCartItems.length > 0 && !selectedCustomer) {
+                      toast.error('Select a customer — warranty products require customer details')
+                      openCustomerPicker()
+                      return
+                    }
+                    setMobileView('cart')
+                    setCartView('checkout')
+                    setTimeout(() => payNowRef.current?.focus(), 80)
+                  }}
                     className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-bold text-sm transition-all hover:opacity-95"
                     style={{ background: 'var(--brand-gradient)', boxShadow: '0 4px 20px var(--brand-glow)' }}>
                     Checkout
@@ -3610,7 +3852,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       </button>
                     </div>
                     {showCartCustDrop && (
-                      <div className={`absolute left-0 right-0 top-full mt-1 z-[60] rounded-2xl shadow-2xl overflow-hidden border ${showRegister ? 'min-w-[320px]' : ''}`} style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
+                      <div className={`absolute left-0 right-0 top-full mt-1 z-[60] rounded-2xl shadow-2xl overflow-hidden border ${showRegister ? 'min-w-[min(320px,calc(100vw-2rem))]' : ''}`} style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
                         {renderCustomerList(true)}
                       </div>
                     )}
@@ -3881,7 +4123,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       <span className="text-lg font-extrabold" style={{ color: POS_THEME.green }}>{formatCurrency(changeAmount)}</span>
                     </div>
                   )}
-                  {checkoutError && <p className="text-xs text-white text-center">{checkoutError}</p>}
+                  {checkoutError && (
+                    <p className="text-xs text-center font-semibold px-3 py-2 rounded-xl border"
+                      style={{ color: '#fecaca', background: 'rgba(239,68,68,0.15)', borderColor: 'rgba(239,68,68,0.35)' }}>
+                      {checkoutError}
+                    </p>
+                  )}
                   <button type="button" onClick={handleCheckout} disabled={checkoutLoading || (cart.length === 0 && outstandingPaying <= 0)}
                     className="w-full flex items-center justify-center gap-2 px-5 py-4 rounded-2xl text-white font-bold text-base transition-all disabled:opacity-60"
                     style={{ background: 'var(--brand-gradient)', boxShadow: checkoutLoading ? 'none' : '0 8px 28px var(--brand-glow)' }}>
@@ -3898,27 +4145,11 @@ function POSContent({ onClose }: { onClose: () => void }) {
       />
       </div>
 
-      {/* ── Mobile Cart FAB ── */}
-      {mobileView === 'products' && cart.length > 0 && (
-        <div className="fixed bottom-4 left-3 right-3 z-30 md:hidden">
-          <button onClick={() => setMobileView('cart')}
-            className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl font-bold"
-            style={{ background: 'var(--brand-gradient)', boxShadow: '0 8px 30px var(--brand-glow)', color: '#ffffff' }}>
-            <div className="flex items-center gap-2" style={{ color: '#ffffff' }}>
-              <ShoppingBag size={17} color="#ffffff" />
-              <span className="text-sm" style={{ color: '#ffffff' }}>{cart.length} item{cart.length !== 1 ? 's' : ''}</span>
-            </div>
-            <div className="flex items-center gap-2" style={{ color: '#ffffff' }}>
-              <span className="text-base font-extrabold" style={{ color: '#ffffff' }}>{formatCurrency(saleTotal)}</span>
-              <ChevronRight size={16} color="#ffffff" />
-            </div>
-          </button>
-        </div>
-      )}
+      {/* Mobile sticky cart bar removed — bottom Products|Cart tabs + toolbar cart icon */}
 
       {/* ── Calculator ── */}
       {showCalc && (
-        <div data-pos="dark" className="fixed bottom-4 right-4 z-[115] w-72 rounded-2xl shadow-2xl overflow-hidden border" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
+        <div data-pos="dark" className="fixed bottom-20 right-3 left-3 sm:left-auto sm:bottom-4 sm:right-4 z-[115] w-auto sm:w-72 rounded-2xl shadow-2xl overflow-hidden border" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
           <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
             <div className="flex items-center gap-2">
               <Calculator size={13} className="text-violet-400" />
@@ -4254,9 +4485,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
                 { label: `Held Carts (${heldCarts.length})`, icon: Archive, onClick: () => { setShowMoreMenu(false); setShowHeldCarts(true) } },
                 { label: 'Calculator (F12)', icon: Calculator, onClick: () => { setShowMoreMenu(false); setShowCalc(true) } },
                 { label: 'Open Cash Drawer', icon: Banknote, onClick: () => { setShowMoreMenu(false); openDrawer() } },
-                { label: 'Print Draft', icon: Printer, onClick: () => { setShowMoreMenu(false); cart.length > 0 ? setShowDocPreview('DRAFT') : toast.error('Cart is empty') } },
-                { label: 'Save Quote (F7)', icon: FileText, onClick: () => { setShowMoreMenu(false); cart.length > 0 ? setShowDocPreview('QUOTE') : toast.error('Cart is empty') } },
-                { label: 'Draft Invoice (F8)', icon: FilePlus2, onClick: () => { setShowMoreMenu(false); cart.length > 0 ? setShowDocPreview('DRAFT') : toast.error('Cart is empty') } },
+                { label: 'Quote (Ctrl+F7)', icon: FileText, onClick: () => { setShowMoreMenu(false); cart.length > 0 ? setShowDocPreview('QUOTE') : toast.error('Cart is empty') } },
+                { label: 'Draft invoice (Ctrl+F8)', icon: FilePlus2, onClick: () => { setShowMoreMenu(false); cart.length > 0 ? setShowDocPreview('DRAFT') : toast.error('Cart is empty') } },
                 { label: 'WhatsApp Share', icon: MessageCircle, onClick: () => { setShowMoreMenu(false); shareWhatsApp() } },
               ].map(({ label, icon: Icon, onClick }) => (
                 <button key={label} type="button" onClick={onClick}
@@ -4463,16 +4693,8 @@ export function POSOverlay() {
     return () => { document.body.style.overflow = prev }
   }, [posOpen])
 
-  useEffect(() => {
-    if (!posOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !['INPUT', 'TEXTAREA'].includes((document.activeElement as HTMLElement)?.tagName ?? '')) {
-        closePos()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [posOpen, closePos])
+  // Escape is handled inside POSContent (modal stack → checkout → confirm close).
+  // Do not attach a second Esc listener here — it raced and closed POS mid-checkout.
 
   if (!posOpen || !hasPos) return null
 
@@ -4485,8 +4707,11 @@ export function POSOverlay() {
         exit={{ opacity: 0 }}
         transition={{ duration: 0.15 }}
         data-pos="dark"
-        className="pos-shell fixed inset-0 z-[100] flex flex-col overflow-hidden h-screen"
+        className="pos-shell fixed inset-0 z-[100] flex flex-col overflow-hidden h-dvh max-h-dvh supports-[height:100dvh]:h-dvh"
         style={{ background: '#0B0E14' }}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Point of Sale"
       >
         <POSContent onClose={closePos} />
       </motion.div>

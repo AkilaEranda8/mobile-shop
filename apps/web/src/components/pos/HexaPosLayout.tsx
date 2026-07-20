@@ -2,7 +2,7 @@
 
 import React from 'react'
 import {
-  ShoppingCart, ScanLine, Bell, X, Smartphone, Headphones, Tablet,
+  ShoppingCart, ScanLine, Archive, X, Smartphone, Headphones, Tablet,
   Laptop, Watch, Package, LayoutGrid, Receipt, Users, Hash,
   Wallet, RotateCcw, Settings, Phone,
   SlidersHorizontal, type LucideIcon,
@@ -77,6 +77,10 @@ interface HexaPosLayoutProps {
   cartPanel: React.ReactNode
   mainOverlay?: React.ReactNode
   hasDailyReload?: boolean
+  /** Phone/tablet single-pane mode: products or cart */
+  mobileView?: 'products' | 'cart'
+  cartItemCount?: number
+  onMobileViewChange?: (view: 'products' | 'cart') => void
 }
 
 export function HexaPosLayout({
@@ -107,13 +111,18 @@ export function HexaPosLayout({
   cartPanel,
   mainOverlay,
   hasDailyReload = false,
+  mobileView = 'products',
+  cartItemCount = 0,
+  onMobileViewChange,
 }: HexaPosLayoutProps) {
   const sidebarItems: PosNavItem[] = navItems ?? NAV_ITEMS
+  const showProductsPane = mobileView === 'products'
+  const showCartPane = mobileView === 'cart'
 
   return (
     <div
       data-pos="dark"
-      className="pos-shell flex h-full w-full overflow-hidden [&_input]:text-white [&_select]:text-white"
+      className="pos-shell flex h-full w-full min-h-0 overflow-hidden [&_input]:text-white [&_select]:text-white"
       style={{ background: C.bg, color: C.text, fontFamily: "'Segoe UI', system-ui, sans-serif" }}
     >
       {/* ── Left Sidebar ── */}
@@ -188,48 +197,73 @@ export function HexaPosLayout({
       {/* ── Main column ── */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {/* Top toolbar */}
-        <div className="shrink-0 px-3 py-2 border-b" style={{ borderColor: C.border, background: C.panel }}>
-          <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={onClose} className="lg:hidden p-2 rounded-lg hover:bg-white/5 text-white" title="Close POS"><X size={16} /></button>
-            <button type="button" onClick={onScanClick} className="h-9 px-3 rounded-xl text-xs font-semibold border shrink-0 flex items-center gap-1.5" style={{ borderColor: C.border, background: C.card, color: C.text }}>
-              <ScanLine size={14} style={{ color: C.muted }} /> Scan IMEI
+        <div className="shrink-0 px-2 sm:px-3 py-2 border-b" style={{ borderColor: C.border, background: C.panel }}>
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 rounded-lg hover:bg-white/5 text-white touch-manipulation"
+              title="Close POS"
+              aria-label="Close POS"
+            >
+              <X size={16} />
+            </button>
+            <button type="button" onClick={onScanClick} className="h-9 px-2.5 sm:px-3 rounded-xl text-xs font-semibold border shrink-0 flex items-center gap-1.5 touch-manipulation" style={{ borderColor: C.border, background: C.card, color: C.text }}>
+              <ScanLine size={14} style={{ color: C.muted }} />
+              <span className="hidden sm:inline">Scan IMEI</span>
             </button>
             {imeiSlot}
-            <div className="flex-1 min-w-[180px] relative">
+            <div className="flex-1 min-w-0 basis-[min(100%,14rem)] sm:basis-auto sm:min-w-[160px] relative order-last sm:order-none w-full sm:w-auto">
               <ScanLine size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: C.muted }} />
               <input
                 ref={searchRef}
                 value={search}
                 onChange={e => onSearchChange(e.target.value)}
                 onKeyDown={onSearchKeyDown}
-                placeholder="Search products by name, SKU, barcode, IMEI..."
-                className="w-full h-9 pl-9 pr-12 rounded-xl text-sm outline-none border text-white placeholder:text-white/40"
+                placeholder="Search name, SKU, barcode, IMEI…"
+                className="w-full h-9 pl-9 pr-3 sm:pr-12 rounded-xl text-sm outline-none border text-white placeholder:text-white/40"
                 style={{ background: C.card, borderColor: C.border }}
               />
               <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] px-1.5 py-0.5 rounded font-mono hidden sm:inline" style={{ background: C.bg, color: C.muted }}>F1</kbd>
             </div>
             <button type="button" onClick={onFiltersClick}
-              className="h-9 px-3 rounded-xl text-xs font-semibold border shrink-0 flex items-center gap-1.5 transition-colors"
+              className="h-9 px-2.5 sm:px-3 rounded-xl text-xs font-semibold border shrink-0 flex items-center gap-1.5 transition-colors touch-manipulation"
               style={{
                 borderColor: filtersActive ? C.purple : C.border,
                 background: filtersActive ? `${C.purple}22` : C.card,
                 color: filtersActive ? C.text : C.muted,
               }}>
-              <SlidersHorizontal size={14} /> Filters
+              <SlidersHorizontal size={14} />
+              <span className="hidden sm:inline">Filters</span>
             </button>
             {toolbarActions}
-            <button type="button" onClick={onBellClick} className="relative h-9 w-9 rounded-xl border flex items-center justify-center shrink-0 hover:bg-white/5" style={{ borderColor: C.border, background: C.card }}>
-              <Bell size={15} className="text-white" />
+            <button
+              type="button"
+              onClick={() => onMobileViewChange?.('cart')}
+              className="lg:hidden relative h-9 w-9 rounded-xl border flex items-center justify-center shrink-0 hover:bg-white/5 touch-manipulation"
+              style={{ borderColor: showCartPane ? C.purple : C.border, background: showCartPane ? `${C.purple}22` : C.card }}
+              title="Cart"
+              aria-label="Open cart"
+            >
+              <ShoppingCart size={15} className="text-white" />
+              {cartItemCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center text-white" style={{ background: C.purple }}>
+                  {cartItemCount > 99 ? '99+' : cartItemCount}
+                </span>
+              )}
+            </button>
+            <button type="button" onClick={onBellClick} className="relative h-9 w-9 rounded-xl border flex items-center justify-center shrink-0 hover:bg-white/5 touch-manipulation" style={{ borderColor: C.border, background: C.card }} title="Held carts" aria-label="Held carts">
+              <Archive size={15} className="text-white" />
               {heldBadgeCount > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center text-white" style={{ background: C.red }}>
                   {heldBadgeCount}
                 </span>
               )}
             </button>
-            <button type="button" onClick={() => onNavAction?.('settings')} className="h-9 w-9 rounded-xl border flex items-center justify-center shrink-0 hover:bg-white/5" style={{ borderColor: C.border, background: C.card }}>
+            <button type="button" onClick={() => onNavAction?.('settings')} className="h-9 w-9 rounded-xl border flex items-center justify-center shrink-0 hover:bg-white/5 touch-manipulation" style={{ borderColor: C.border, background: C.card }}>
               <Settings size={15} style={{ color: C.muted }} />
             </button>
-            {customerSlot}
+            <div className="shrink-0 max-w-full">{customerSlot}</div>
           </div>
         </div>
 
@@ -237,18 +271,58 @@ export function HexaPosLayout({
 
         <div className="flex flex-1 min-h-0 relative">
           {mainOverlay}
-          <div className="flex-1 flex flex-col min-w-0 min-h-0" style={{ background: C.bg }}>
+          <div
+            className={`flex-1 flex-col min-w-0 min-h-0 ${showProductsPane ? 'flex' : 'hidden'} lg:flex`}
+            style={{ background: C.bg }}
+          >
             {categoryBar}
-            <div className="flex-1 overflow-y-auto px-3 py-3">{productGrid}</div>
+            <div className={`flex-1 overflow-y-auto overscroll-contain px-2 sm:px-3 py-2 sm:py-3 lg:pb-3 ${cartItemCount > 0 && showProductsPane ? 'pb-4' : 'pb-3'}`}>{productGrid}</div>
             {pagination}
             {bottomActions}
           </div>
-          <div className="w-[min(400px,36vw)] shrink-0 flex flex-col border-l min-h-0" style={{ borderColor: C.border, background: C.card }}>
+          <div
+            className={`flex-col border-l min-h-0 min-w-0 ${
+              showCartPane ? 'flex' : 'hidden'
+            } lg:flex w-full lg:w-[min(380px,36vw)] xl:w-[400px] shrink-0`}
+            style={{ borderColor: C.border, background: C.card }}
+          >
             {cartPanel}
           </div>
         </div>
 
-        <footer className="shrink-0 flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 border-t text-xs" style={{ borderColor: C.border, background: C.card, color: C.muted }}>
+        {/* Mobile / tablet bottom nav */}
+        <div
+          className="lg:hidden shrink-0 grid grid-cols-2 gap-1 px-2 py-2 border-t"
+          style={{ borderColor: C.border, background: C.card, paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
+        >
+          <button
+            type="button"
+            onClick={() => onMobileViewChange?.('products')}
+            className="h-11 rounded-xl text-xs font-bold flex items-center justify-center gap-2 touch-manipulation"
+            style={showProductsPane
+              ? { background: `${C.purple}33`, color: C.text, border: `1px solid ${C.purple}66` }
+              : { background: C.bg, color: C.muted, border: `1px solid ${C.border}` }}
+          >
+            <LayoutGrid size={15} /> Products
+          </button>
+          <button
+            type="button"
+            onClick={() => onMobileViewChange?.('cart')}
+            className="h-11 rounded-xl text-xs font-bold flex items-center justify-center gap-2 touch-manipulation relative"
+            style={showCartPane
+              ? { background: `${C.purple}33`, color: C.text, border: `1px solid ${C.purple}66` }
+              : { background: C.bg, color: C.muted, border: `1px solid ${C.border}` }}
+          >
+            <ShoppingCart size={15} /> Cart
+            {cartItemCount > 0 && (
+              <span className="min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center text-white" style={{ background: C.purple }}>
+                {cartItemCount > 99 ? '99+' : cartItemCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        <footer className="hidden lg:flex shrink-0 flex-wrap items-center justify-between gap-3 px-5 py-3.5 border-t text-xs" style={{ borderColor: C.border, background: C.card, color: C.muted }}>
           <span className="font-medium">© 2026 Hexa-Mobile-Shop POS System</span>
           <div className="flex flex-wrap items-center gap-3">
             <span>Terminal: T01</span>

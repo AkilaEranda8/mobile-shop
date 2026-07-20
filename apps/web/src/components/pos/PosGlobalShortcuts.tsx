@@ -3,24 +3,28 @@
 import { useEffect } from 'react'
 import { usePos } from '@/lib/use-pos'
 
-/** Global F2 shortcut to open POS from anywhere in the dashboard. */
+/**
+ * Global F2 opens POS from the dashboard.
+ * When POS is already open, F2 is owned by POSContent (customer picker) — never closes POS.
+ */
 export function PosGlobalShortcuts() {
-  const { openPos, posOpen, closePos, hasPos } = usePos()
+  const { openPos, posOpen, hasPos } = usePos()
 
   useEffect(() => {
     if (!hasPos) return
     const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'F2') return
       const tag = (document.activeElement as HTMLElement)?.tagName ?? ''
       const inField = ['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)
-      if (e.key === 'F2' && !inField) {
-        e.preventDefault()
-        if (posOpen) closePos()
-        else openPos()
-      }
+      if (inField) return
+      // POS overlay handles F2 while open
+      if (posOpen) return
+      e.preventDefault()
+      openPos()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [hasPos, openPos, closePos, posOpen])
+  }, [hasPos, openPos, posOpen])
 
   return null
 }
