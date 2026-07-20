@@ -570,12 +570,14 @@ function CustomerFormModal({ customer, onClose, onSaved }: {
   onSaved: () => void
 }) {
   const isEditing = Boolean(customer)
+  const hasCustomerCredit = useFeatureFlag('CUSTOMER_CREDIT')
   const [form, setForm] = useState({
     name: customer?.name ?? '',
     phone: customer?.phone ?? '',
     email: customer?.email ?? '',
     city: customer?.city ?? '',
     address: customer?.address ?? '',
+    openingDue: '',
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -585,11 +587,22 @@ function CustomerFormModal({ customer, onClose, onSaved }: {
     setLoading(true); setError('')
     try {
       if (customer) {
-        await customersApi.update(customer.id, form)
+        const { openingDue: _od, ...updateBody } = form
+        await customersApi.update(customer.id, updateBody)
         toast.success('Customer updated')
       } else {
-        await customersApi.create(form)
-        toast.success('Customer created')
+        const openingDue = hasCustomerCredit ? Math.max(0, Number(form.openingDue) || 0) : 0
+        await customersApi.create({
+          name: form.name,
+          phone: form.phone,
+          email: form.email || undefined,
+          city: form.city || undefined,
+          address: form.address || undefined,
+          ...(openingDue > 0 ? { openingDue, branchId: getActiveBranchId() || undefined } : {}),
+        })
+        toast.success(openingDue > 0
+          ? `Customer created with ${formatCurrency(openingDue)} prior credit`
+          : 'Customer created')
       }
       onSaved(); onClose()
     } catch (err: any) { setError(err.message || `Failed to ${isEditing ? 'update' : 'create'} customer`) }
@@ -659,6 +672,30 @@ function CustomerFormModal({ customer, onClose, onSaved }: {
               <input className="input-field h-11" placeholder="Street address" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
             </div>
           </div>
+
+          {!isEditing && hasCustomerCredit && (
+            <div>
+              <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                Prior credit / outstanding (LKR)
+                <span className="ml-1 font-normal" style={{ color: 'var(--text-muted)' }}>(Optional)</span>
+              </label>
+              <div className="relative">
+                <Wallet size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  className="input-field pl-10 h-11"
+                  placeholder="0.00"
+                  value={form.openingDue}
+                  onChange={e => setForm(f => ({ ...f, openingDue: e.target.value }))}
+                />
+              </div>
+              <p className="mt-1.5 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                Old credit balance from before Hexalyte — recorded as opening outstanding
+              </p>
+            </div>
+          )}
 
           {error && <p className="text-xs text-red-400">{error}</p>}
 

@@ -72,7 +72,7 @@ export async function syncOutboxForTenant(
     where: {
       tenantId,
       ...(branchId ? { branchId } : {}),
-      source: { not: 'REPAIR' },
+      source: { notIn: ['REPAIR', 'OPENING_BALANCE', 'CREDIT_COLLECTION'] },
       status: { in: ['PAID', 'PARTIAL', 'DUE'] },
       ...createdAtFilter,
     },

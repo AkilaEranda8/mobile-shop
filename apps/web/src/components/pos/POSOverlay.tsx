@@ -348,7 +348,8 @@ function InvoiceTemplate({ sale, shopName, settings }: { sale: any; shopName: st
 
 /* ── Register Customer (inline in customer dropdown) ─────────────────────── */
 function RegisterCustomerInline({ onBack, onCreated }: { onBack: () => void; onCreated: (c: any) => void }) {
-  const [form, setForm] = useState({ name: '', phone: '', email: '' })
+  const hasCustomerCredit = useFeatureFlag('CUSTOMER_CREDIT')
+  const [form, setForm] = useState({ name: '', phone: '', email: '', openingDue: '' })
   const [loading, setLoading] = useState(false)
 
   const inputCls = 'w-full h-11 px-3 rounded-xl text-sm outline-none border text-white placeholder:text-white/50'
@@ -358,8 +359,16 @@ function RegisterCustomerInline({ onBack, onCreated }: { onBack: () => void; onC
     if (!form.name || !form.phone) return toast.error('Name and phone required')
     setLoading(true)
     try {
-      const res: any = await customersApi.create(form)
-      toast.success('Customer registered')
+      const openingDue = hasCustomerCredit ? Math.max(0, Number(form.openingDue) || 0) : 0
+      const res: any = await customersApi.create({
+        name: form.name,
+        phone: form.phone,
+        email: form.email || undefined,
+        ...(openingDue > 0 ? { openingDue, branchId: getOperationalBranchId() || undefined } : {}),
+      })
+      toast.success(openingDue > 0
+        ? `Customer registered · prior credit ${formatCurrency(openingDue)}`
+        : 'Customer registered')
       onCreated(res?.data)
     } catch (e: any) {
       if (e?.status === 409 || e?.message?.toLowerCase().includes('already')) {
@@ -405,6 +414,15 @@ function RegisterCustomerInline({ onBack, onCreated }: { onBack: () => void; onC
           value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
           onKeyDown={e => { if (e.key === 'Enter') submit() }} />
       </div>
+      {hasCustomerCredit && (
+        <div>
+          <label className="text-xs font-medium text-white/70 mb-1.5 block">Prior credit (LKR, optional)</label>
+          <input className={inputCls} style={inputStyle} type="number" min={0} step="0.01" placeholder="0.00"
+            value={form.openingDue} onChange={e => setForm(p => ({ ...p, openingDue: e.target.value }))}
+            onKeyDown={e => { if (e.key === 'Enter') submit() }} />
+          <p className="text-[10px] text-white/40 mt-1">Old outstanding before joining this system</p>
+        </div>
+      )}
       <button type="button" onClick={submit} disabled={loading}
         className="w-full h-11 rounded-xl text-sm font-bold text-white disabled:opacity-50 flex items-center justify-center mt-1"
         style={{ background: POS_THEME.purple }}>

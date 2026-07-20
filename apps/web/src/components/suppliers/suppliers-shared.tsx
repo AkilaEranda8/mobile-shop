@@ -1239,15 +1239,29 @@ export function EditSupplierModal({ supplier, onClose, onSaved }: { supplier: Su
 
 /* â”€â”€ Add Supplier Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 export function AddSupplierModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({ name: '', contactName: '', phone: '', email: '', city: '', address: '', gstin: '' })
+  const [form, setForm] = useState({
+    name: '', contactName: '', phone: '', email: '', city: '', address: '', gstin: '', openingDue: '',
+  })
   const [loading, setLoading] = useState(false)
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(p => ({ ...p, [k]: e.target.value }))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setLoading(true)
     try {
-      await suppliersApi.create(form)
-      toast.success('Supplier added')
+      const openingDue = Math.max(0, Number(form.openingDue) || 0)
+      await suppliersApi.create({
+        name: form.name,
+        contactName: form.contactName || undefined,
+        phone: form.phone,
+        email: form.email || undefined,
+        city: form.city || undefined,
+        address: form.address || undefined,
+        gstin: form.gstin || undefined,
+        ...(openingDue > 0 ? { openingDue, branchId: getActiveBranchId() || undefined } : {}),
+      })
+      toast.success(openingDue > 0
+        ? `Supplier added with ${formatCurrency(openingDue)} prior outstanding`
+        : 'Supplier added')
       onSaved(); onClose()
     } catch (err: any) { toast.error(err?.message ?? 'Failed to add supplier') }
     finally { setLoading(false) }
@@ -1289,6 +1303,24 @@ export function AddSupplierModal({ onClose, onSaved }: { onClose: () => void; on
             <div className="col-span-2">
               <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">VAT Number</label>
               <input className="input-field" placeholder="123456789-7000" value={form.gstin} onChange={f('gstin')} />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">
+                Prior outstanding (LKR)
+                <span className="ml-1 text-gray-500 dark:text-slate-500 font-normal">(Optional)</span>
+              </label>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                className="input-field"
+                placeholder="0.00"
+                value={form.openingDue}
+                onChange={f('openingDue')}
+              />
+              <p className="mt-1.5 text-[10px] text-gray-500 dark:text-slate-500">
+                Old balance owed to this supplier before Hexalyte — payable via Supplier Payments
+              </p>
             </div>
           </div>
           <div className="flex gap-3 pt-1">

@@ -95,7 +95,105 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 })
 
 router.post('/', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
-  try { sendSuccess(res, await prisma.supplier.create({ data: { ...req.body, tenantId: req.tenantId! } }), 'Supplier created', 201) } catch (e) { next(e) }
+  try {
+    const tenantId = req.tenantId!
+    const name = String(req.body.name ?? '').trim()
+    const phone = String(req.body.phone ?? '').trim()
+    if (!name) throw new AppError('Supplier name is required', 400)
+    if (!phone) throw new AppError('Phone number is required', 400)
+
+    const contactName = String(req.body.contactName ?? '').trim() || name
+    const email = req.body.email != null ? String(req.body.email).trim() || null : null
+    const address = req.body.address != null ? String(req.body.address).trim() || null : null
+    const city = req.body.city != null ? String(req.body.city).trim() || null : null
+    const gstin = req.body.gstin != null ? String(req.body.gstin).trim() || null : null
+    const openingDue = Math.max(0, Number(req.body.openingDue ?? req.body.outstandingDues) || 0)
+    const round2 = (n: number) => Math.round(n * 100) / 100
+    const due = round2(openingDue)
+
+    if (due <= 0) {
+      const created = await prisma.supplier.create({
+        data: {
+          tenantId,
+          name,
+          contactName,
+          phone,
+          email,
+          address,
+          city,
+          gstin,
+          outstandingDues: 0,
+        },
+      })
+      sendSuccess(res, created, 'Supplier created', 201)
+      return
+    }
+
+    let branchId: string | undefined = req.body.branchId ? String(req.body.branchId) : undefined
+    if (branchId) {
+      const valid = await prisma.branch.findFirst({ where: { id: branchId, tenantId } })
+      if (!valid) branchId = undefined
+    }
+    if (!branchId) {
+      const userBranch = await prisma.userBranch.findFirst({ where: { userId: req.user!.userId } })
+      branchId = userBranch?.branchId
+    }
+    if (!branchId) {
+      const firstBranch = await prisma.branch.findFirst({ where: { tenantId, isActive: true } })
+      branchId = firstBranch?.id
+    }
+    if (!branchId) throw new AppError('No branch found for this tenant — contact admin', 400)
+
+    const created = await prisma.$transaction(async (tx) => {
+      const supplier = await tx.supplier.create({
+        data: {
+          tenantId,
+          name,
+          contactName,
+          phone,
+          email,
+          address,
+          city,
+          gstin,
+          outstandingDues: due,
+          totalOrders: 1,
+          totalPurchaseValue: due,
+        },
+      })
+
+      const poNumber = await generatePONumber(tenantId)
+      await tx.purchaseOrder.create({
+        data: {
+          tenantId,
+          branchId: branchId!,
+          poNumber,
+          supplierId: supplier.id,
+          supplierName: supplier.name,
+          status: 'RECEIVED',
+          subtotal: due,
+          tax: 0,
+          total: due,
+          paidAmount: 0,
+          dueAmount: due,
+          // Keep receivedAt null so inventory/accounting receive posts are not triggered
+          notes: 'OPENING_BALANCE — Prior supplier outstanding brought into the system',
+          items: {
+            create: [{
+              productName: 'Opening supplier balance',
+              quantity: 1,
+              receivedQuantity: 1,
+              unitCost: due,
+              total: due,
+            }],
+          },
+        },
+      })
+
+      return supplier
+    })
+
+    sendSuccess(res, created, 'Supplier created', 201)
+  } catch (e) { next(e) }
 })
 
 router.put('/:id', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {

@@ -50,9 +50,76 @@ export const customersService = {
   },
 
   async create(tenantId: string, body: any) {
-    const existing = await prisma.customer.findFirst({ where: { tenantId, phone: body.phone } })
+    const name = String(body.name ?? '').trim()
+    const phone = String(body.phone ?? '').trim()
+    if (!name) throw new AppError('Customer name is required', 400)
+    if (!phone) throw new AppError('Phone number is required', 400)
+
+    const existing = await prisma.customer.findFirst({ where: { tenantId, phone } })
     if (existing) throw new AppError('Phone number already registered', 409)
-    return prisma.customer.create({ data: { ...body, tenantId } })
+
+    const openingDue = Math.max(0, Number(body.openingDue ?? body.totalDue) || 0)
+    const email = body.email != null ? String(body.email).trim() || null : null
+    const address = body.address != null ? String(body.address).trim() || null : null
+    const city = body.city != null ? String(body.city).trim() || null : null
+    const notes = body.notes != null ? String(body.notes).trim() || null : null
+
+    if (openingDue <= 0) {
+      return prisma.customer.create({
+        data: { tenantId, name, phone, email, address, city, notes, totalDue: 0 },
+      })
+    }
+
+    let branchId = body.branchId ? String(body.branchId) : undefined
+    if (!branchId) {
+      const branch = await prisma.branch.findFirst({ where: { tenantId, isActive: true }, select: { id: true } })
+      branchId = branch?.id
+    }
+    if (!branchId) throw new AppError('Branch is required to record opening customer credit', 400)
+
+    const round2 = (n: number) => Math.round(n * 100) / 100
+    const due = round2(openingDue)
+
+    return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const customer = await tx.customer.create({
+        data: { tenantId, name, phone, email, address, city, notes, totalDue: due },
+      })
+
+      const invoiceNumber = await generateInvoiceNumber(tenantId)
+      await tx.sale.create({
+        data: {
+          tenantId,
+          branchId,
+          invoiceNumber,
+          customerId: customer.id,
+          customerName: customer.name,
+          customerPhone: customer.phone,
+          subtotal: due,
+          discount: 0,
+          tax: 0,
+          total: due,
+          paidAmount: 0,
+          dueAmount: due,
+          status: 'DUE',
+          cashierName: 'System',
+          source: 'OPENING_BALANCE',
+          notes: 'Opening / prior customer credit brought into the system',
+          items: {
+            create: [{
+              productName: 'Opening customer credit',
+              quantity: 1,
+              unitPrice: due,
+              total: due,
+            }],
+          },
+          payments: {
+            create: [{ method: 'CREDIT', amount: due, reference: 'Opening balance' }],
+          },
+        },
+      })
+
+      return customer
+    })
   },
 
   async update(tenantId: string, id: string, body: any) {
