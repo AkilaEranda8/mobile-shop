@@ -478,7 +478,7 @@ function PriceModeToggle({
   )
 }
 
-/* ── Variation Picker Modal (compact + keyboard step flow) ─────────────── */
+/* ── Variation Picker Modal (single popup — all options at once) ───────── */
 function VariationPickerModal({
   product,
   variations,
@@ -538,22 +538,10 @@ function VariationPickerModal({
   const catalogPrice = selected ? resolveCatalogPrice(selected, priceMode) : 0
   const [salePrice, setSalePrice] = useState(() => (catalogPrice > 0 ? String(catalogPrice) : ''))
 
-  type PickerStep = 'storage' | 'color' | 'imei' | 'warranty' | 'price'
-  const steps = useMemo(() => {
-    const s: PickerStep[] = []
-    if (storageOptions.length > 1) s.push('storage')
-    const anyMultiColor = storageOptions.some(st => variations.filter(v => v.storage === st).length > 1)
-    if (anyMultiColor || colorOptions.length > 1) s.push('color')
-    if (product.trackImei) s.push('imei')
-    if (showWarranty) s.push('warranty')
-    if (allowPriceEdit || showWholesale || showCredit) s.push('price')
-    if (s.length === 0) s.push('price')
-    return s
-  }, [storageOptions, variations, colorOptions.length, product.trackImei, showWarranty, allowPriceEdit, showWholesale, showCredit])
-
-  const [stepIdx, setStepIdx] = useState(0)
-  const step = steps[Math.min(stepIdx, steps.length - 1)] ?? 'price'
-  const isLast = stepIdx >= steps.length - 1
+  const showStorage = storageOptions.length > 1
+  const showColor = colorOptions.length > 1 || storageOptions.some(st => variations.filter(v => v.storage === st).length > 1)
+  const showImei = !!product.trackImei
+  const showPriceBlock = allowPriceEdit || showWholesale || showCredit
 
   useEffect(() => {
     const next = selected ? resolveCatalogPrice(selected, priceMode) : 0
@@ -596,23 +584,16 @@ function VariationPickerModal({
     else if (selImei && !availableImeis.some(i => i.imei === selImei)) setSelImei('')
   }, [availableImeis])
 
-  // Focus primary control when step changes
   useEffect(() => {
     const t = window.setTimeout(() => {
-      if (step === 'imei') {
-        imeiScanRef.current?.focus()
-        return
-      }
-      if (step === 'price' && allowPriceEdit) {
+      if (showImei) imeiScanRef.current?.focus()
+      else if (allowPriceEdit) {
         priceInputRef.current?.focus()
         priceInputRef.current?.select()
-        return
       }
-      const el = panelRef.current?.querySelector<HTMLElement>('[data-picker-focus="1"]')
-      el?.focus()
     }, 40)
     return () => window.clearTimeout(t)
-  }, [step, allowPriceEdit])
+  }, [showImei, allowPriceEdit])
 
   const handleImeiScanInModal = (raw: string) => {
     const digits = raw.replace(/\D/g, '')
@@ -641,7 +622,7 @@ function VariationPickerModal({
     && priceValid
 
   const confirmAdd = () => {
-    if (!selected || !priceValid) return
+    if (!selected || !canAdd) return
     const months = showWarranty ? Math.max(0, parseInt(warrantyMonths, 10) || 0) : Number(product.warrantyMonths ?? 0)
     const note = showWarranty ? (warrantyNote.trim() || undefined) : (product.warrantyNote?.trim() || undefined)
     onAdd(
@@ -652,37 +633,7 @@ function VariationPickerModal({
     )
   }
 
-  const stepReady = () => {
-    if (step === 'storage') return !!selStorage
-    if (step === 'color') return !!selColor
-    if (step === 'imei') return !!selImei
-    if (step === 'warranty') return true
-    if (step === 'price') return priceValid
-    return true
-  }
-
-  const goNext = () => {
-    if (!stepReady()) return
-    if (isLast) {
-      if (canAdd) confirmAdd()
-      return
-    }
-    setStepIdx(i => Math.min(i + 1, steps.length - 1))
-  }
-
-  const goBack = () => {
-    if (stepIdx <= 0) { onClose(); return }
-    setStepIdx(i => Math.max(i - 1, 0))
-  }
-
-  const cycleOption = <T,>(list: T[], current: T, dir: 1 | -1, pick: (v: T) => void) => {
-    if (list.length === 0) return
-    const idx = Math.max(0, list.findIndex(v => v === current))
-    const next = list[(idx + dir + list.length) % list.length]
-    pick(next)
-  }
-
-  // Modal keyboard controller
+  // Keyboard: Esc close, Enter add (or resolve IMEI scan first)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName
@@ -697,54 +648,26 @@ function VariationPickerModal({
 
       if (e.key === 'Enter' && !e.shiftKey) {
         if (tag === 'TEXTAREA') return
-        if (step === 'imei' && isText && imeiScanValue) {
+        if (isText && imeiScanValue) {
           e.preventDefault()
           e.stopPropagation()
-          if (handleImeiScanInModal(imeiScanValue)) goNext()
+          handleImeiScanInModal(imeiScanValue)
           return
         }
-        e.preventDefault()
-        e.stopPropagation()
-        goNext()
-        return
+        if (isText && tag === 'INPUT' && (e.target as HTMLInputElement).type === 'number') {
+          e.preventDefault()
+          e.stopPropagation()
+          if (canAdd) confirmAdd()
+          return
+        }
+        if (!isText) {
+          e.preventDefault()
+          e.stopPropagation()
+          if (canAdd) confirmAdd()
+        }
       }
 
-      if (e.key === 'Backspace' && !isText) {
-        e.preventDefault()
-        goBack()
-        return
-      }
-
-      // Arrow / number shortcuts on option steps
-      if (step === 'storage' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
-        e.preventDefault()
-        const dir = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1
-        cycleOption(storageOptions, selStorage, dir as 1 | -1, s => { setSelStorage(s); clearImeiSelection() })
-        return
-      }
-      if (step === 'color' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
-        e.preventDefault()
-        const dir = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1
-        const names = colorOptions.map(c => c.colorName)
-        cycleOption(names, selColor, dir as 1 | -1, c => { setSelColor(c); clearImeiSelection() })
-        return
-      }
-      if (step === 'warranty' && !isText) {
-        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-          e.preventDefault()
-          const opts = POS_WARRANTY_MONTHS_OPTS.map(String)
-          const dir = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1
-          cycleOption(opts, warrantyMonths, dir as 1 | -1, setWarrantyMonths)
-          return
-        }
-        const n = parseInt(e.key, 10)
-        if (n >= 1 && n <= POS_WARRANTY_MONTHS_OPTS.length) {
-          e.preventDefault()
-          setWarrantyMonths(String(POS_WARRANTY_MONTHS_OPTS[n - 1]))
-          return
-        }
-      }
-      if (step === 'price' && !isText && (showWholesale || showCredit)) {
+      if (!isText && (showWholesale || showCredit)) {
         if (e.key === '1') { e.preventDefault(); onPriceModeChange?.('retail') }
         if (e.key === '2' && showWholesale) { e.preventDefault(); onPriceModeChange?.('wholesale') }
         if (e.key === '3' && showCredit) { e.preventDefault(); onPriceModeChange?.('credit') }
@@ -753,7 +676,7 @@ function VariationPickerModal({
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, stepIdx, steps, selStorage, selColor, warrantyMonths, imeiScanValue, canAdd, priceValid, storageOptions, colorOptions, showWholesale, showCredit, allowPriceEdit, salePrice, selImei, selected])
+  }, [imeiScanValue, canAdd, salePrice, selImei, selected, showWholesale, showCredit, availableImeis])
 
   const { gradient, Icon: CardIcon, iconColor } = (() => {
     const cat = (product.categoryName ?? '').toLowerCase()
@@ -777,22 +700,17 @@ function VariationPickerModal({
     return '#6b7280'
   }
 
-  const stepLabel: Record<PickerStep, string> = {
-    storage: 'Storage',
-    color: 'Color',
-    imei: 'IMEI',
-    warranty: 'Warranty',
-    price: 'Price',
-  }
-
-  const optionStyle = (active: boolean) => ({
+  const chip = (active: boolean) => ({
     background: active ? `linear-gradient(145deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})` : POS_THEME.bg,
     borderColor: active ? POS_THEME.purple : POS_THEME.border,
     color: active ? '#fff' : POS_THEME.text,
-    boxShadow: active ? `0 10px 28px ${POS_THEME.purple}33` : 'none',
+    boxShadow: active ? `0 6px 18px ${POS_THEME.purple}30` : 'none',
   } as const)
 
   const stockOut = selected?.stock != null && (selected.stock ?? 0) === 0
+  const displayPrice = allowPriceEdit
+    ? (Number.isFinite(parsedSalePrice) ? parsedSalePrice : catalogPrice)
+    : catalogPrice
 
   return (
     <div
@@ -805,7 +723,7 @@ function VariationPickerModal({
         role="dialog"
         aria-modal="true"
         aria-label={`Configure ${product.name}`}
-        className="relative w-full sm:max-w-lg max-h-[min(92dvh,760px)] flex flex-col rounded-t-3xl sm:rounded-3xl shadow-2xl border overflow-hidden"
+        className="relative w-full sm:max-w-xl max-h-[min(92dvh,820px)] flex flex-col rounded-t-3xl sm:rounded-3xl shadow-2xl border overflow-hidden"
         style={{
           background: `radial-gradient(900px 280px at 50% -20%, ${POS_THEME.purple}22 0%, transparent 55%), ${POS_THEME.card}`,
           borderColor: POS_THEME.border,
@@ -814,126 +732,79 @@ function VariationPickerModal({
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="shrink-0 px-4 sm:px-5 pt-4 pb-3">
-          <div className="flex items-start gap-3">
-            <div
-              className="relative w-12 h-12 rounded-2xl overflow-hidden shrink-0 border"
-              style={{ borderColor: POS_THEME.border, background: gradient }}
-            >
-              {product.imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={product.imageUrl} alt={product.name} className="absolute inset-0 w-full h-full object-cover" />
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <CardIcon size={20} style={{ color: iconColor }} />
-                </div>
+        <div className="shrink-0 flex items-start gap-3 px-4 sm:px-5 pt-4 pb-3 border-b" style={{ borderColor: POS_THEME.border }}>
+          <div
+            className="relative w-12 h-12 rounded-2xl overflow-hidden shrink-0 border"
+            style={{ borderColor: POS_THEME.border, background: gradient }}
+          >
+            {product.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={product.imageUrl} alt={product.name} className="absolute inset-0 w-full h-full object-cover" />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <CardIcon size={20} style={{ color: iconColor }} />
+              </div>
+            )}
+          </div>
+          <div className="min-w-0 flex-1 pt-0.5">
+            <p className="text-lg font-extrabold leading-tight truncate" style={{ color: POS_THEME.text }}>{product.name}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {selected && (
+                <span
+                  className="text-[11px] font-bold px-2.5 py-1 rounded-full"
+                  style={{ background: `${POS_THEME.purple}24`, color: POS_THEME.purple, border: `1px solid ${POS_THEME.purple}44` }}
+                >
+                  {selected.storage} · {selected.colorName}
+                </span>
+              )}
+              {selected?.stock != null && (
+                <span
+                  className="text-[11px] font-bold px-2.5 py-1 rounded-full"
+                  style={{
+                    background: stockOut ? `${POS_THEME.red}18` : `${POS_THEME.green}18`,
+                    color: stockOut ? POS_THEME.red : POS_THEME.green,
+                    border: `1px solid ${stockOut ? POS_THEME.red : POS_THEME.green}44`,
+                  }}
+                >
+                  {stockOut ? 'Out of stock' : `${selected.stock} in stock`}
+                </span>
+              )}
+              {product.sku && (
+                <span
+                  className="text-[10px] font-mono px-2 py-1 rounded-full truncate max-w-[10rem]"
+                  style={{ background: POS_THEME.bg, color: POS_THEME.muted, border: `1px solid ${POS_THEME.border}` }}
+                >
+                  {product.sku}
+                </span>
               )}
             </div>
-            <div className="min-w-0 flex-1 pt-0.5">
-              <p className="text-lg font-extrabold leading-tight truncate" style={{ color: POS_THEME.text }}>{product.name}</p>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                {selected && (
-                  <span
-                    className="text-[11px] font-bold px-2.5 py-1 rounded-full"
-                    style={{ background: `${POS_THEME.purple}24`, color: POS_THEME.purple, border: `1px solid ${POS_THEME.purple}44` }}
-                  >
-                    {selected.storage} · {selected.colorName}
-                  </span>
-                )}
-                {selected?.stock != null && (
-                  <span
-                    className="text-[11px] font-bold px-2.5 py-1 rounded-full"
-                    style={{
-                      background: stockOut ? `${POS_THEME.red}18` : `${POS_THEME.green}18`,
-                      color: stockOut ? POS_THEME.red : POS_THEME.green,
-                      border: `1px solid ${stockOut ? POS_THEME.red : POS_THEME.green}44`,
-                    }}
-                  >
-                    {stockOut ? 'Out of stock' : `${selected.stock} in stock`}
-                  </span>
-                )}
-                {product.sku && (
-                  <span
-                    className="text-[10px] font-mono px-2 py-1 rounded-full truncate max-w-[10rem]"
-                    style={{ background: POS_THEME.bg, color: POS_THEME.muted, border: `1px solid ${POS_THEME.border}` }}
-                  >
-                    {product.sku}
-                  </span>
-                )}
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 border hover:bg-white/5"
-              style={{ borderColor: POS_THEME.border, color: POS_THEME.muted, background: POS_THEME.bg }}
-              aria-label="Close"
-            >
-              <X size={16} />
-            </button>
           </div>
-
-          {/* Stepper */}
-          {steps.length > 1 && (
-            <div className="mt-4 flex items-center gap-2">
-              {steps.map((s, i) => {
-                const done = i < stepIdx
-                const active = i === stepIdx
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => { if (i <= stepIdx) setStepIdx(i) }}
-                    className="flex items-center gap-1.5 min-w-0"
-                    title={stepLabel[s]}
-                    aria-label={`Step ${i + 1}: ${stepLabel[s]}`}
-                  >
-                    <span
-                      className="w-6 h-6 rounded-full text-[10px] font-extrabold flex items-center justify-center shrink-0"
-                      style={{
-                        background: active || done ? POS_THEME.purple : POS_THEME.bg,
-                        color: active || done ? '#fff' : POS_THEME.muted,
-                        boxShadow: active ? `0 0 0 3px ${POS_THEME.purple}33` : 'none',
-                      }}
-                    >
-                      {done ? <Check size={12} /> : i + 1}
-                    </span>
-                    {active && (
-                      <span className="text-[11px] font-bold truncate hidden sm:inline" style={{ color: POS_THEME.text }}>
-                        {stepLabel[s]}
-                      </span>
-                    )}
-                    {i < steps.length - 1 && (
-                      <span className="w-4 sm:w-6 h-px mx-0.5" style={{ background: i < stepIdx ? POS_THEME.purple : POS_THEME.border }} />
-                    )}
-                  </button>
-                )
-              })}
-              <span className="ml-auto text-[10px] font-bold tabular-nums" style={{ color: POS_THEME.muted }}>
-                {stepIdx + 1}/{steps.length}
-              </span>
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 border hover:bg-black/5"
+            style={{ borderColor: POS_THEME.border, color: POS_THEME.muted, background: POS_THEME.bg }}
+            aria-label="Close"
+          >
+            <X size={16} />
+          </button>
         </div>
 
-        {/* Step body */}
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-5 pb-4">
-          {step === 'storage' && (
+        {/* All options — single scrollable page */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-5 py-4 space-y-4">
+          {showStorage && (
             <section>
-              <p className="text-[11px] font-bold uppercase tracking-[0.12em] mb-3" style={{ color: POS_THEME.muted }}>
-                Choose storage <span className="normal-case tracking-normal font-medium opacity-70">· ← → Enter</span>
-              </p>
-              <div className="grid grid-cols-2 gap-2.5">
-                {storageOptions.map((s, i) => {
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: POS_THEME.muted }}>Storage</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {storageOptions.map(s => {
                   const active = selStorage === s
                   return (
                     <button
                       key={s}
                       type="button"
-                      data-picker-focus={i === 0 || active ? '1' : undefined}
                       onClick={() => { setSelStorage(s); clearImeiSelection() }}
-                      className="h-14 rounded-2xl text-base font-extrabold border transition-all focus:outline-none"
-                      style={optionStyle(active)}
+                      className="h-11 rounded-xl text-sm font-extrabold border transition-all"
+                      style={chip(active)}
                     >
                       {s}
                     </button>
@@ -943,29 +814,26 @@ function VariationPickerModal({
             </section>
           )}
 
-          {step === 'color' && (
+          {showColor && (
             <section>
-              <p className="text-[11px] font-bold uppercase tracking-[0.12em] mb-3" style={{ color: POS_THEME.muted }}>
-                Choose color <span className="normal-case tracking-normal font-medium opacity-70">· ← → Enter</span>
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {colorOptions.map((v, i) => {
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: POS_THEME.muted }}>Color</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {colorOptions.map(v => {
                   const active = selColor === v.colorName
                   return (
                     <button
                       key={v.colorName}
                       type="button"
-                      data-picker-focus={i === 0 || active ? '1' : undefined}
                       onClick={() => { setSelColor(v.colorName); clearImeiSelection() }}
-                      className="h-14 px-3.5 rounded-2xl text-sm font-bold border flex items-center gap-3 transition-all focus:outline-none"
-                      style={optionStyle(active)}
+                      className="h-11 px-3 rounded-xl text-sm font-bold border flex items-center gap-2.5 transition-all"
+                      style={chip(active)}
                     >
                       <span
-                        className="w-5 h-5 rounded-full border-2 shrink-0"
+                        className="w-4 h-4 rounded-full border-2 shrink-0"
                         style={{ background: colorDot(v.colorName), borderColor: active ? '#fff' : 'rgba(255,255,255,0.2)' }}
                       />
                       <span className="truncate flex-1 text-left">{v.colorName}</span>
-                      {active && <Check size={16} className="shrink-0" />}
+                      {active && <Check size={14} className="shrink-0" />}
                     </button>
                   )
                 })}
@@ -973,27 +841,26 @@ function VariationPickerModal({
             </section>
           )}
 
-          {step === 'imei' && (
-            <section className="space-y-3">
+          {showImei && (
+            <section className="space-y-2">
               <p className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: POS_THEME.muted }}>
-                Select IMEI <span style={{ color: POS_THEME.red }}>*</span>
-                <span className="normal-case tracking-normal font-medium opacity-70 ml-1">· scan / pick</span>
+                IMEI <span style={{ color: POS_THEME.red }}>*</span>
               </p>
               {loadingImeis ? (
-                <div className="flex items-center gap-2 text-xs py-3" style={{ color: POS_THEME.muted }}>
+                <div className="flex items-center gap-2 text-xs py-2" style={{ color: POS_THEME.muted }}>
                   <Loader2 size={14} className="animate-spin" /> Loading…
                 </div>
               ) : availableImeis.length === 0 ? (
-                <div className="rounded-2xl px-3.5 py-3 text-xs leading-snug" style={{ background: `${POS_THEME.red}14`, color: POS_THEME.red, border: `1px solid ${POS_THEME.red}33` }}>
+                <div className="rounded-xl px-3 py-2.5 text-xs" style={{ background: `${POS_THEME.red}14`, color: POS_THEME.red, border: `1px solid ${POS_THEME.red}33` }}>
                   No IN_STOCK IMEIs for {selected?.storage} / {selected?.colorName}.
                 </div>
               ) : (
                 <>
                   <div
-                    className="flex gap-2.5 items-center px-3.5 h-12 rounded-2xl border"
+                    className="flex gap-2 items-center px-3 h-11 rounded-xl border"
                     style={{ background: `${POS_THEME.purple}14`, borderColor: `${POS_THEME.purple}55` }}
                   >
-                    <ScanLine size={16} style={{ color: POS_THEME.purple }} className="shrink-0" />
+                    <ScanLine size={15} style={{ color: POS_THEME.purple }} className="shrink-0" />
                     <input
                       ref={imeiScanRef}
                       className="flex-1 bg-transparent outline-none text-sm font-mono tracking-wider placeholder:opacity-35"
@@ -1008,7 +875,7 @@ function VariationPickerModal({
                     <select
                       value={selImei}
                       onChange={e => { setSelImei(e.target.value); setImeiScanError(''); setImeiScanValue('') }}
-                      className="w-full h-12 pl-3.5 pr-10 rounded-2xl text-sm border outline-none appearance-none font-mono"
+                      className="w-full h-11 pl-3 pr-9 rounded-xl text-sm border outline-none appearance-none font-mono"
                       style={{
                         background: POS_THEME.bg,
                         borderColor: POS_THEME.border,
@@ -1021,18 +888,15 @@ function VariationPickerModal({
                         <option key={i.imei} value={i.imei}>{i.imei}</option>
                       ))}
                     </select>
-                    <ChevronDown size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-40" />
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-40" />
                   </div>
-                  {selImei && (
-                    <p className="text-[11px] font-mono truncate" style={{ color: POS_THEME.green }}>✓ {selImei}</p>
-                  )}
                 </>
               )}
             </section>
           )}
 
-          {step === 'warranty' && (
-            <section className="space-y-3">
+          {showWarranty && (
+            <section className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-[11px] font-bold uppercase tracking-[0.12em] flex items-center gap-1.5" style={{ color: POS_THEME.muted }}>
                   <Shield size={12} style={{ color: POS_THEME.green }} /> Warranty
@@ -1042,15 +906,14 @@ function VariationPickerModal({
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-2">
-                {POS_WARRANTY_MONTHS_OPTS.map((m, i) => {
+                {POS_WARRANTY_MONTHS_OPTS.map(m => {
                   const active = warrantyMonths === String(m)
                   return (
                     <button
                       key={m}
                       type="button"
-                      data-picker-focus={active || i === 0 ? '1' : undefined}
                       onClick={() => setWarrantyMonths(String(m))}
-                      className="h-11 rounded-2xl text-xs font-bold border transition-all focus:outline-none"
+                      className="h-10 rounded-xl text-xs font-bold border transition-all"
                       style={active
                         ? { background: `${POS_THEME.green}22`, borderColor: `${POS_THEME.green}66`, color: POS_THEME.green }
                         : { background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
@@ -1065,19 +928,17 @@ function VariationPickerModal({
                 placeholder="Warranty note (optional)"
                 value={warrantyNote}
                 onChange={e => setWarrantyNote(e.target.value)}
-                className="w-full h-11 rounded-2xl border px-3.5 text-xs outline-none placeholder:opacity-40"
+                className="w-full h-10 rounded-xl border px-3 text-xs outline-none placeholder:opacity-40"
                 style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
               />
             </section>
           )}
 
-          {step === 'price' && selected && (
-            <section className="space-y-3">
+          {showPriceBlock && selected && (
+            <section className="space-y-2">
               {(showWholesale || showCredit) && (
                 <div className="space-y-1.5">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: POS_THEME.muted }}>
-                    Price type
-                  </p>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: POS_THEME.muted }}>Price type</p>
                   <PriceModeToggle
                     mode={priceMode}
                     onChange={mode => onPriceModeChange?.(mode)}
@@ -1086,74 +947,72 @@ function VariationPickerModal({
                   />
                 </div>
               )}
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: POS_THEME.muted }}>
-                  {allowPriceEdit ? 'Sale price (LKR)' : 'Price'}
-                </p>
-                {allowPriceEdit ? (
-                  <>
-                    <input
-                      ref={priceInputRef}
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      inputMode="decimal"
-                      data-picker-focus="1"
-                      className="w-full h-14 px-4 rounded-2xl text-2xl font-extrabold outline-none border"
-                      style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
-                      value={salePrice}
-                      onChange={e => setSalePrice(e.target.value)}
-                    />
-                    <p className="text-[10px] mt-2 truncate" style={{ color: POS_THEME.muted }}>
-                      Catalog {formatCurrency(catalogPrice)}{selected.sku ? ` · ${selected.sku}` : ''}
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-3xl font-extrabold" style={{ color: POS_THEME.text }}>{formatCurrency(catalogPrice)}</p>
-                )}
-              </div>
-              <div
-                className="rounded-2xl border px-3.5 py-3 flex items-center justify-between gap-2 text-[11px]"
-                style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}
-              >
-                <span style={{ color: POS_THEME.muted }}>
-                  {selected.storage} · {selected.colorName}
-                  {selImei ? ` · …${selImei.slice(-4)}` : ''}
-                  {showWarranty ? ` · ${posWarrantyMonthsLabel(Number(warrantyMonths) || 0)}` : ''}
-                </span>
-                <span className="font-extrabold shrink-0 text-sm" style={{ color: POS_THEME.text }}>
-                  {formatCurrency(allowPriceEdit ? (Number.isFinite(parsedSalePrice) ? parsedSalePrice : catalogPrice) : catalogPrice)}
-                </span>
-              </div>
+              {allowPriceEdit ? (
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] mb-1.5" style={{ color: POS_THEME.muted }}>Sale price (LKR)</p>
+                  <input
+                    ref={priceInputRef}
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    inputMode="decimal"
+                    className="w-full h-12 px-3.5 rounded-xl text-xl font-extrabold outline-none border"
+                    style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
+                    value={salePrice}
+                    onChange={e => setSalePrice(e.target.value)}
+                  />
+                  <p className="text-[10px] mt-1.5" style={{ color: POS_THEME.muted }}>
+                    Catalog {formatCurrency(catalogPrice)}{selected.sku ? ` · ${selected.sku}` : ''}
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-xl border px-3.5 py-3 flex items-center justify-between" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
+                  <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: POS_THEME.muted }}>Price</span>
+                  <span className="text-xl font-extrabold" style={{ color: POS_THEME.text }}>{formatCurrency(catalogPrice)}</span>
+                </div>
+              )}
             </section>
+          )}
+
+          {!showPriceBlock && selected && (
+            <div className="rounded-xl border px-3.5 py-3 flex items-center justify-between" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
+              <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: POS_THEME.muted }}>Price</span>
+              <span className="text-xl font-extrabold" style={{ color: POS_THEME.text }}>{formatCurrency(catalogPrice)}</span>
+            </div>
           )}
         </div>
 
         {/* Footer */}
         <div
-          className="shrink-0 border-t px-4 sm:px-5 pt-3 pb-[max(0.85rem,env(safe-area-inset-bottom))] space-y-2.5"
+          className="shrink-0 border-t px-4 sm:px-5 pt-3 pb-[max(0.85rem,env(safe-area-inset-bottom))] space-y-2"
           style={{ borderColor: POS_THEME.border, background: `${POS_THEME.panel}ee` }}
         >
-          <p className="text-[10px] text-center font-medium" style={{ color: POS_THEME.muted }}>
-            Esc cancel · Backspace back · Enter {isLast ? 'add to cart' : 'next'}
-          </p>
+          <div className="flex items-center justify-between gap-2 text-[11px] px-0.5">
+            <span className="truncate" style={{ color: POS_THEME.muted }}>
+              {selected ? `${selected.storage} · ${selected.colorName}` : 'Select variant'}
+              {selImei ? ` · …${selImei.slice(-4)}` : ''}
+            </span>
+            <span className="font-extrabold shrink-0 text-sm" style={{ color: POS_THEME.text }}>
+              {formatCurrency(displayPrice)}
+            </span>
+          </div>
           <div className="flex gap-2.5">
             <button
               type="button"
-              onClick={goBack}
+              onClick={onClose}
               className="flex-1 h-12 rounded-2xl text-sm font-bold border"
               style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }}
             >
-              {stepIdx === 0 ? 'Cancel' : 'Back'}
+              Cancel
             </button>
             <button
               type="button"
-              disabled={!stepReady() || (isLast && !canAdd)}
-              onClick={goNext}
+              disabled={!canAdd}
+              onClick={confirmAdd}
               className="flex-[1.6] h-12 rounded-2xl text-sm font-extrabold text-white flex items-center justify-center gap-2 disabled:opacity-40"
               style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, boxShadow: `0 12px 28px ${POS_THEME.purple}40` }}
             >
-              {isLast ? (<><ShoppingCart size={15} /> Add · Enter</>) : (<>Next · Enter <ChevronRight size={15} /></>)}
+              <ShoppingCart size={15} /> Add to cart
             </button>
           </div>
         </div>

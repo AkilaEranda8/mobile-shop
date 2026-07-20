@@ -2112,13 +2112,13 @@ export default function InventoryPage() {
         data={flatRows}
         columns={columns}
         isLoading={loading}
-        pageSize={50}
+        pageSize={100}
         searchableColumns={[]}
         showFilter={false}
         withIndex={false}
         config={{
           features: { sorting: false },
-          pagination: { defaultPageSize: 50, pageSizeOptions: [20, 50, 100, 200] },
+          pagination: { defaultPageSize: 100, pageSizeOptions: [50, 100, 200, 500, 1000] },
         }}
       />
     </div>
