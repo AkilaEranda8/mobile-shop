@@ -3,8 +3,8 @@
 import React from 'react'
 import {
   ShoppingCart, ScanLine, Archive, X, Smartphone, Headphones, Tablet,
-  Laptop, Watch, Package, LayoutGrid, Receipt, Users, Hash,
-  Wallet, RotateCcw, Settings, Phone,
+  Laptop, Watch, Package, LayoutGrid, Receipt, Users,
+  RotateCcw, Settings,
   SlidersHorizontal, type LucideIcon,
 } from 'lucide-react'
 
@@ -110,7 +110,6 @@ export function HexaPosLayout({
   bottomActions,
   cartPanel,
   mainOverlay,
-  hasDailyReload = false,
   mobileView = 'products',
   cartItemCount = 0,
   onMobileViewChange,
@@ -125,71 +124,82 @@ export function HexaPosLayout({
       className="pos-shell flex h-full w-full min-h-0 overflow-hidden [&_input]:text-white [&_select]:text-white"
       style={{ background: C.bg, color: C.text, fontFamily: "'Segoe UI', system-ui, sans-serif" }}
     >
-      {/* ── Left Sidebar ── */}
+      {/* ── Left Sidebar — compact POS rail (icon + label always visible) ── */}
       <aside
-        className="pos-aside hidden lg:flex w-[200px] shrink-0 flex-col border-r"
+        className="pos-aside hidden lg:flex w-[84px] shrink-0 flex-col border-r"
         style={{ borderColor: C.border, background: C.card }}
       >
-        <div className="flex items-center gap-2.5 px-4 py-4 border-b" style={{ borderColor: C.border }}>
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${C.purple}, ${C.purpleDark})` }}>
-            <ShoppingCart size={16} className="text-white" />
+        <div className="flex flex-col items-center gap-1.5 px-2 py-3 border-b" style={{ borderColor: C.border }}>
+          <div
+            className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-lg"
+            style={{ background: `linear-gradient(135deg, ${C.purple}, ${C.purpleDark})`, boxShadow: `0 6px 16px ${C.purple}40` }}
+          >
+            <ShoppingCart size={17} className="text-white" />
           </div>
-          <div className="min-w-0">
-            <p className="text-xs font-bold truncate">Hexa POS</p>
-            <p className="text-[10px] truncate" style={{ color: C.muted }}>{shopName}</p>
+          <div className="text-center w-full min-w-0">
+            <p className="text-[10px] font-extrabold tracking-wide text-white leading-tight">POS</p>
+            <p className="text-[8px] leading-tight truncate px-0.5" style={{ color: C.muted }} title={shopName}>{shopName}</p>
           </div>
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
+        <nav className="flex-1 overflow-y-auto overscroll-contain py-2 px-1.5 space-y-1">
           {sidebarItems.map(({ id, label, icon: Icon }) => {
             const active = id === activeNavId
+            const short =
+              id === 'imei' ? 'IMEI'
+              : id === 'cash' ? 'Cash'
+              : id === 'customers' ? 'Customer'
+              : id === 'products' ? 'Products'
+              : id === 'sales' ? 'Sales'
+              : id === 'returns' ? 'Returns'
+              : id === 'reload' ? 'Reload'
+              : label
             return (
               <button
                 key={id}
                 type="button"
+                title={label}
+                aria-label={label}
                 onClick={() => onNavAction?.(id)}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-[11px] font-semibold transition-colors"
+                className="w-full flex flex-col items-center gap-1 px-1 py-2 rounded-xl transition-all touch-manipulation"
                 style={active
-                  ? { background: `${C.purple}33`, color: C.text, borderLeft: `3px solid ${C.purple}` }
-                  : { color: C.muted, borderLeft: '3px solid transparent' }}
+                  ? { background: `${C.purple}28`, color: C.text, boxShadow: `inset 0 0 0 1px ${C.purple}66` }
+                  : { color: C.muted }}
               >
-                <Icon size={14} style={{ color: active ? C.purple : C.muted }} />
-                {label}
+                <span
+                  className="w-9 h-9 rounded-xl flex items-center justify-center"
+                  style={{ background: active ? `${C.purple}40` : C.bg }}
+                >
+                  <Icon size={16} style={{ color: active ? '#c4b5fd' : C.muted }} />
+                </span>
+                <span
+                  className="text-[9px] font-bold leading-tight text-center w-full px-0.5"
+                  style={{ color: active ? C.text : C.muted }}
+                >
+                  {short}
+                </span>
               </button>
             )
           })}
         </nav>
 
-        <div className="px-3 py-3 border-t space-y-1" style={{ borderColor: C.border }}>
-          <p className="text-[9px] font-bold uppercase tracking-wider px-1" style={{ color: C.muted }}>Shortcuts</p>
-          {[
-            ['F1', 'Search'],
-            ['F2', 'Customer'],
-            ['F3', 'Pay Now'],
-            ['F4', 'Hold Sale'],
-            ['F5', 'Recent / Print'],
-            ...(hasDailyReload ? [['F6', 'Reload']] as const : [['F6', 'Held Carts']] as const),
-            ['Shift+F6', 'Held Carts'],
-            ['F7', 'Day Start'],
-            ['F8', 'Cash In/Out'],
-            ['F9', 'Checkout'],
-            ['F10', 'New Sale'],
-            ['F11', 'Day End'],
-            ['Ctrl+F7', 'Quote'],
-            ['Ctrl+F8', 'Draft'],
-            ['Esc', 'Back / Close'],
-            ['1 / 2 / 3', 'Pay method'],
-            ['O', 'Old balance'],
-            ['Enter', 'Pay now'],
-          ].map(([key, label]) => (
-            <div key={key} className="flex items-center justify-between text-[10px] px-1" style={{ color: C.muted }}>
-              <span>{label}</span>
-              <kbd className="px-1.5 py-0.5 rounded text-[9px] font-mono" style={{ background: C.bg, color: C.text }}>{key}</kbd>
-            </div>
-          ))}
-          <div className="flex items-center gap-1.5 pt-2 px-1 text-[10px]" style={{ color: C.green }}>
+        <div className="px-1.5 py-2.5 border-t space-y-1.5" style={{ borderColor: C.border }}>
+          <button
+            type="button"
+            title="Settings"
+            aria-label="Settings"
+            onClick={() => onNavAction?.('settings')}
+            className="w-full flex flex-col items-center gap-1 px-1 py-2 rounded-xl transition-colors hover:bg-white/5"
+            style={{ color: C.muted }}
+          >
+            <span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: C.bg }}>
+              <Settings size={15} style={{ color: C.muted }} />
+            </span>
+            <span className="text-[9px] font-bold">Settings</span>
+          </button>
+          <div className="flex flex-col items-center gap-1 pt-1">
             <span className="w-1.5 h-1.5 rounded-full" style={{ background: C.green }} />
-            Terminal T01 · Online
+            <span className="text-[8px] font-semibold" style={{ color: C.green }}>Online</span>
           </div>
         </div>
       </aside>
@@ -208,12 +218,12 @@ export function HexaPosLayout({
             >
               <X size={16} />
             </button>
-            <button type="button" onClick={onScanClick} className="h-9 px-2.5 sm:px-3 rounded-xl text-xs font-semibold border shrink-0 flex items-center gap-1.5 touch-manipulation" style={{ borderColor: C.border, background: C.card, color: C.text }}>
+            <button type="button" onClick={onScanClick} className="h-9 px-2 sm:px-3 rounded-xl text-xs font-semibold border shrink-0 flex items-center gap-1.5 touch-manipulation" style={{ borderColor: C.border, background: C.card, color: C.text }}>
               <ScanLine size={14} style={{ color: C.muted }} />
-              <span className="hidden sm:inline">Scan IMEI</span>
+              <span className="hidden md:inline">Scan IMEI</span>
             </button>
             {imeiSlot}
-            <div className="flex-1 min-w-0 basis-[min(100%,14rem)] sm:basis-auto sm:min-w-[160px] relative order-last sm:order-none w-full sm:w-auto">
+            <div className="flex-1 min-w-0 basis-full sm:basis-[12rem] md:basis-auto sm:min-w-[140px] lg:min-w-[180px] relative order-last sm:order-none w-full sm:w-auto sm:max-w-none lg:max-w-xl xl:max-w-2xl">
               <ScanLine size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: C.muted }} />
               <input
                 ref={searchRef}
@@ -227,14 +237,14 @@ export function HexaPosLayout({
               <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] px-1.5 py-0.5 rounded font-mono hidden sm:inline" style={{ background: C.bg, color: C.muted }}>F1</kbd>
             </div>
             <button type="button" onClick={onFiltersClick}
-              className="h-9 px-2.5 sm:px-3 rounded-xl text-xs font-semibold border shrink-0 flex items-center gap-1.5 transition-colors touch-manipulation"
+              className="h-9 px-2 sm:px-3 rounded-xl text-xs font-semibold border shrink-0 flex items-center gap-1.5 transition-colors touch-manipulation"
               style={{
                 borderColor: filtersActive ? C.purple : C.border,
                 background: filtersActive ? `${C.purple}22` : C.card,
                 color: filtersActive ? C.text : C.muted,
               }}>
               <SlidersHorizontal size={14} />
-              <span className="hidden sm:inline">Filters</span>
+              <span className="hidden md:inline">Filters</span>
             </button>
             {toolbarActions}
             <button
@@ -260,10 +270,10 @@ export function HexaPosLayout({
                 </span>
               )}
             </button>
-            <button type="button" onClick={() => onNavAction?.('settings')} className="h-9 w-9 rounded-xl border flex items-center justify-center shrink-0 hover:bg-white/5 touch-manipulation" style={{ borderColor: C.border, background: C.card }}>
+            <button type="button" onClick={() => onNavAction?.('settings')} className="hidden sm:flex h-9 w-9 rounded-xl border items-center justify-center shrink-0 hover:bg-white/5 touch-manipulation" style={{ borderColor: C.border, background: C.card }}>
               <Settings size={15} style={{ color: C.muted }} />
             </button>
-            <div className="shrink-0 max-w-full">{customerSlot}</div>
+            <div className="shrink-0 max-w-[40vw] sm:max-w-none">{customerSlot}</div>
           </div>
         </div>
 
@@ -283,14 +293,14 @@ export function HexaPosLayout({
           <div
             className={`flex-col border-l min-h-0 min-w-0 ${
               showCartPane ? 'flex' : 'hidden'
-            } lg:flex w-full lg:w-[min(380px,36vw)] xl:w-[400px] shrink-0`}
+            } lg:flex w-full lg:w-[min(340px,38vw)] xl:w-[380px] 2xl:w-[420px] shrink-0`}
             style={{ borderColor: C.border, background: C.card }}
           >
             {cartPanel}
           </div>
         </div>
 
-        {/* Mobile / tablet bottom nav */}
+        {/* Mobile / tablet bottom nav (< lg) */}
         <div
           className="lg:hidden shrink-0 grid grid-cols-2 gap-1 px-2 py-2 border-t"
           style={{ borderColor: C.border, background: C.card, paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
@@ -322,17 +332,13 @@ export function HexaPosLayout({
           </button>
         </div>
 
-        <footer className="hidden lg:flex shrink-0 flex-wrap items-center justify-between gap-3 px-5 py-3.5 border-t text-xs" style={{ borderColor: C.border, background: C.card, color: C.muted }}>
-          <span className="font-medium">© 2026 Hexa-Mobile-Shop POS System</span>
-          <div className="flex flex-wrap items-center gap-3">
-            <span>Terminal: T01</span>
-            <span>|</span>
-            <span>Cashier: {cashierName}</span>
-            <span>|</span>
-            <span>Session: 01</span>
-            <span>|</span>
-            <span>Last Sync: {syncTime}</span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold" style={{ background: `${C.green}22`, color: C.green }}>
+        <footer className="hidden lg:flex shrink-0 flex-wrap items-center justify-between gap-2 xl:gap-3 px-3 xl:px-5 py-2 xl:py-3.5 border-t text-[10px] xl:text-xs" style={{ borderColor: C.border, background: C.card, color: C.muted }}>
+          <span className="font-medium truncate">© 2026 Hexa POS</span>
+          <div className="flex flex-wrap items-center gap-2 xl:gap-3 min-w-0">
+            <span className="truncate">Cashier: {cashierName}</span>
+            <span className="hidden xl:inline">|</span>
+            <span className="hidden xl:inline">Last Sync: {syncTime}</span>
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 xl:px-2.5 xl:py-1 rounded-full text-[10px] xl:text-[11px] font-bold" style={{ background: `${C.green}22`, color: C.green }}>
               <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: C.green }} /> Synced
             </span>
           </div>

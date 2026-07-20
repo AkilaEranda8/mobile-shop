@@ -632,7 +632,7 @@ function VariationPickerModal({
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
-        className="relative w-full sm:max-w-lg max-h-[92dvh] sm:max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-2xl shadow-2xl border overflow-hidden"
+        className="relative w-full sm:max-w-2xl max-h-[92dvh] sm:max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-2xl shadow-2xl border overflow-hidden"
         style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}
         onClick={e => e.stopPropagation()}
       >
@@ -3064,7 +3064,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           style={{ background: selectedCustomer ? 'var(--sidebar-active-border)' : POS_THEME.bg, color: '#ffffff' }}>
           {selectedCustomer ? selectedCustomer.name[0]?.toUpperCase() : <User size={10} />}
         </div>
-        <span className="max-w-[72px] sm:max-w-[110px] truncate">{selectedCustomer ? selectedCustomer.name : 'Walk-in'}</span>
+        <span className="max-w-[56px] sm:max-w-[100px] md:max-w-[130px] truncate">{selectedCustomer ? selectedCustomer.name : 'Walk-in'}</span>
         <ChevronDown size={10} className="text-white/70" />
       </button>
       {showCustDrop && (
@@ -3076,8 +3076,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
   )
 
   const imeiSlot = showScanInput ? (
-    <div className="relative shrink-0">
-      <input autoFocus type="text" placeholder="IMEI Search" className="h-9 w-36 pl-3 pr-8 rounded-xl text-sm outline-none border"
+    <div className="relative shrink-0 w-[min(9.5rem,42vw)] sm:w-40">
+      <input autoFocus type="text" placeholder="IMEI Search" className="h-9 w-full pl-3 pr-8 rounded-xl text-sm outline-none border"
         style={{ background: POS_THEME.card, borderColor: 'rgba(59,130,246,0.4)', color: POS_THEME.text }}
         value={imeiScan} onChange={e => setImeiScan(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter') { handleImeiScan(imeiScan); setShowScanInput(false) } if (e.key === 'Escape') { setShowScanInput(false); setImeiScan('') } }}
@@ -3234,7 +3234,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           selectedCategory === 'RELOAD' && hasDailyReload ? (
             <PosReloadPanel onAdd={addReloadToCart} />
           ) : (
-          <div className={gridView ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-3' : 'space-y-1.5'}>
+          <div className={gridView ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2 sm:gap-3' : 'space-y-1.5'}>
             {pagedProducts.length === 0 ? (
               <div className="col-span-full flex flex-col items-center justify-center h-40 opacity-30">
                 <PackageSearch size={32} className="mb-2" style={{ color: POS_THEME.muted }} />
@@ -3401,41 +3401,41 @@ function POSContent({ onClose }: { onClose: () => void }) {
           )
         )}
         pagination={selectedCategory === 'RELOAD' ? null : (
-          <div className="flex items-center justify-between px-4 py-2.5 border-t shrink-0" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
-            <span className="text-xs" style={{ color: POS_THEME.muted }}>Showing {(page - 1) * perPage + 1} to {Math.min(page * perPage, displayItems.length)} of {displayItems.length} items</span>
-            <div className="flex items-center gap-1">
+          <div className="flex items-center justify-between gap-2 px-2 sm:px-4 py-2 sm:py-2.5 border-t shrink-0" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
+            <span className="hidden md:inline text-xs truncate" style={{ color: POS_THEME.muted }}>Showing {(page - 1) * perPage + 1}–{Math.min(page * perPage, displayItems.length)} of {displayItems.length}</span>
+            <div className="flex items-center gap-1 mx-auto md:mx-0">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                className="w-7 h-7 rounded-lg flex items-center justify-center border border-white/10 hover:bg-white/5 disabled:opacity-30 text-white transition-colors">
+                className="w-8 h-8 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center border border-white/10 hover:bg-white/5 disabled:opacity-30 text-white transition-colors touch-manipulation">
                 <ChevronLeft size={12} />
               </button>
               {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
                 const p = totalPages <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= totalPages - 2 ? totalPages - 4 + i : page - 2 + i
                 return (
                   <button key={p} onClick={() => setPage(p)}
-                    className={`w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center border transition-colors ${page === p ? 'text-white' : 'text-white hover:bg-white/5'}`}
+                    className={`w-8 h-8 sm:w-7 sm:h-7 rounded-lg text-xs font-bold flex items-center justify-center border transition-colors touch-manipulation ${page === p ? 'text-white' : 'text-white hover:bg-white/5'}`}
                     style={page === p ? { background: POS_THEME.purple, borderColor: POS_THEME.purple } : { borderColor: POS_THEME.border }}>{p}</button>
                 )
               })}
               {totalPages > 5 && page < totalPages - 2 && <>
                 <span className="text-white text-xs px-0.5">…</span>
-                <button onClick={() => setPage(totalPages)} className="w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center border border-white/10 text-white hover:bg-white/5 transition-colors">{totalPages}</button>
+                <button onClick={() => setPage(totalPages)} className="w-8 h-8 sm:w-7 sm:h-7 rounded-lg text-xs font-bold flex items-center justify-center border border-white/10 text-white hover:bg-white/5 transition-colors touch-manipulation">{totalPages}</button>
               </>}
               <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                className="w-7 h-7 rounded-lg flex items-center justify-center border border-white/10 hover:bg-white/5 disabled:opacity-30 text-white transition-colors">
+                className="w-8 h-8 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center border border-white/10 hover:bg-white/5 disabled:opacity-30 text-white transition-colors touch-manipulation">
                 <ChevronRight size={12} />
               </button>
             </div>
             <select value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(1) }}
-              className="text-xs py-1 h-7 rounded-lg px-2 border outline-none" style={{ width: 90, background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text }}>
-              {[15, 20, 30, 50].map(n => <option key={n} value={n}>{n} / page</option>)}
+              className="text-xs py-1 h-8 sm:h-7 rounded-lg px-1.5 sm:px-2 border outline-none shrink-0" style={{ width: 78, background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text }}>
+              {[15, 20, 30, 50].map(n => <option key={n} value={n}>{n}/pg</option>)}
             </select>
           </div>
         )}
         bottomActions={(
-          <div className="flex flex-wrap gap-2 px-2 sm:px-4 py-2 sm:py-3 border-t shrink-0 overflow-x-auto" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
+          <div className="flex flex-nowrap gap-2 px-2 sm:px-4 py-2 sm:py-3 border-t shrink-0 overflow-x-auto scrollbar-none" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
             {bottomActionButtons.map(btn => (
               <button key={btn.label} type="button" onClick={btn.onClick}
-                className="flex-1 min-w-[88px] h-10 rounded-xl text-[11px] sm:text-xs font-bold text-white border touch-manipulation"
+                className="flex-none min-w-[5.5rem] sm:flex-1 sm:min-w-[88px] h-10 rounded-xl text-[11px] sm:text-xs font-bold text-white border touch-manipulation whitespace-nowrap"
                 style={{ background: btn.bg, borderColor: POS_THEME.border }}>
                 {btn.label}
               </button>
@@ -3549,13 +3549,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
                 {cartView === 'checkout' ? (
                   <>
                     <button type="button" onClick={() => setCartView('items')}
-                      className="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg hover:bg-white/5 transition-colors"
+                      className="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg hover:bg-white/5 transition-colors shrink-0"
                       style={{ color: POS_THEME.muted }}>
                       <ChevronLeft size={14} /><span>Cart</span>
                     </button>
-                    <span className="font-bold text-sm" style={{ color: POS_THEME.text }}>Checkout</span>
-                    <kbd className="px-1.5 py-0.5 rounded text-[9px] font-mono" style={{ background: POS_THEME.bg, color: POS_THEME.muted }}>F9</kbd>
-                    <span className="pos-price text-sm font-bold">{formatCurrency(saleTotal)}</span>
+                    <span className="font-bold text-sm truncate" style={{ color: POS_THEME.text }}>Checkout</span>
+                    <span className="pos-price text-sm font-bold shrink-0 ml-auto">{formatCurrency(saleTotal)}</span>
                   </>
                 ) : (
                   <>
@@ -4506,23 +4505,23 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
       {/* ── Held Carts Modal ── */}
       {showHeldCarts && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div data-pos="dark" className="w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
-            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-              <div className="flex items-center gap-2">
-                <Archive size={15} className="text-amber-400" />
-                <h3 className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Held Carts ({heldCarts.length})</h3>
+        <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm">
+          <div data-pos="dark" className="w-full max-w-md rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden border max-h-[88dvh] flex flex-col" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
+            <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b flex-shrink-0 gap-2" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="flex items-center gap-2 min-w-0">
+                <Archive size={15} className="text-amber-400 shrink-0" />
+                <h3 className="font-bold text-sm truncate" style={{ color: 'var(--text-primary)' }}>Held Carts ({heldCarts.length})</h3>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 {cart.length > 0 && (
-                  <button onClick={holdCart} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 border border-amber-500/20 transition-colors">
-                    <Archive size={12} /> Hold Current Cart
+                  <button onClick={holdCart} className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 border border-amber-500/20 transition-colors">
+                    <Archive size={12} /><span className="hidden sm:inline">Hold Current</span><span className="sm:hidden">Hold</span>
                   </button>
                 )}
                 <button onClick={() => setShowHeldCarts(false)} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'var(--text-muted)' }}><X size={14} /></button>
               </div>
             </div>
-            <div className="overflow-y-auto" style={{ maxHeight: 360 }}>
+            <div className="overflow-y-auto flex-1" style={{ maxHeight: 360 }}>
               {heldCarts.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-24 opacity-30">
                   <p className="text-sm text-slate-500">No held carts</p>
@@ -4632,15 +4631,15 @@ function POSContent({ onClose }: { onClose: () => void }) {
       {showRecentInvoices && (
         <div className="fixed inset-0 z-[110] flex" data-pos="dark">
           <div className="flex-1 bg-black/50 backdrop-blur-sm" onClick={() => setShowRecentInvoices(false)} />
-          <div className="w-[480px] flex flex-col shadow-2xl" style={{ background: POS_THEME.card, borderLeft: `1px solid ${POS_THEME.border}` }}>
-            <div className="flex items-center justify-between px-5 py-4 border-b flex-shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
+          <div className="w-full sm:w-[min(480px,100vw)] flex flex-col shadow-2xl max-h-dvh" style={{ background: POS_THEME.card, borderLeft: `1px solid ${POS_THEME.border}` }}>
+            <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b flex-shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="flex items-center gap-2">
                 <Receipt size={15} className="text-violet-400" />
                 <h3 className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Recent Invoices</h3>
               </div>
               <button onClick={() => setShowRecentInvoices(false)} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'var(--text-muted)' }}><X size={14} /></button>
             </div>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto overscroll-contain">
               {recentLoading ? (
                 <div className="flex items-center justify-center h-32"><Loader2 size={20} className="animate-spin text-violet-400" /></div>
               ) : recentSales.length === 0 ? (
