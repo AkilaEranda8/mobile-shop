@@ -99,4 +99,10 @@ export const tenantsController = {
   async updateProductCodeSettings(req: Request, res: Response, next: NextFunction) {
     try { assertTenantAccess(req); sendSuccess(res, await tenantsService.updateProductCodeSettings(req.params.id, req.body)) } catch (e) { next(e) }
   },
+  async getPosUiSettings(req: Request, res: Response, next: NextFunction) {
+    try { assertTenantAccess(req); sendSuccess(res, await tenantsService.getPosUiSettings(req.params.id)) } catch (e) { next(e) }
+  },
+  async updatePosUiSettings(req: Request, res: Response, next: NextFunction) {
+    try { assertTenantAccess(req); sendSuccess(res, await tenantsService.updatePosUiSettings(req.params.id, req.body)) } catch (e) { next(e) }
+  },
 }

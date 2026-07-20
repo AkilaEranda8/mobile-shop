@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import {
   Save, Building2, User, Bell, Shield, Palette, CreditCard, Users,
   Loader2, Eye, EyeOff, Trash2, Plus, X, CheckCircle, Check, FileText, Smartphone, ChevronRight, BookOpen,
-  Package, Tag, Wallet, Copy,
+  Package, Tag, Wallet, Copy, Monitor,
 } from 'lucide-react'
 import { authApi, usersApi, tenantApi, uploadApi, deviceCatalogApi, plansApi, branchesApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
@@ -55,10 +55,25 @@ import {
   type PaymentMethodKey,
   type TenantPaymentMethod,
 } from '@/lib/payment-methods'
+import {
+  DEFAULT_POS_UI_SETTINGS,
+  POS_BOTTOM_ACTION_IDS,
+  POS_BOTTOM_ACTION_LABELS,
+  POS_SHORTCUT_KEYS,
+  POS_SHORTCUT_ACTIONS,
+  POS_SHORTCUT_ACTION_LABELS,
+  fetchPosUiSettings,
+  pushPosUiSettings,
+  type PosBottomActionId,
+  type PosShortcutActionId,
+  type PosShortcutKey,
+  type PosUiSettings,
+} from '@/lib/posUiSettings'
 
 const tabs = [
   { key: 'shop',          label: 'Shop Info',       icon: Building2  },
   { key: 'invoice',       label: 'Invoice',         icon: FileText   },
+  { key: 'pos',           label: 'POS Display',     icon: Monitor    },
   { key: 'barcode',       label: 'Barcode Labels',  icon: Tag        },
   { key: 'manual',        label: 'User Manual',     icon: BookOpen   },
   { key: 'devices',       label: 'Devices',         icon: Smartphone },
@@ -112,6 +127,50 @@ export default function SettingsPage() {
   const [payMethodsSaving, setPayMethodsSaving] = useState(false)
   const [newPayKey, setNewPayKey] = useState<PaymentMethodKey | ''>('')
   const [newPayLabel, setNewPayLabel] = useState('')
+
+  /* ── POS Display ── */
+  const [posUiForm, setPosUiForm] = useState<PosUiSettings>(() => ({
+    ...DEFAULT_POS_UI_SETTINGS,
+    productGrid: { ...DEFAULT_POS_UI_SETTINGS.productGrid },
+    layout: { ...DEFAULT_POS_UI_SETTINGS.layout },
+    bottomActions: { visible: [...DEFAULT_POS_UI_SETTINGS.bottomActions.visible] },
+    shortcuts: { ...DEFAULT_POS_UI_SETTINGS.shortcuts },
+    behavior: { ...DEFAULT_POS_UI_SETTINGS.behavior },
+  }))
+  const [posUiLoading, setPosUiLoading] = useState(false)
+  const [posUiSaving, setPosUiSaving] = useState(false)
+
+  useEffect(() => {
+    if (activeTab !== 'pos') return
+    setPosUiLoading(true)
+    fetchPosUiSettings()
+      .then(setPosUiForm)
+      .finally(() => setPosUiLoading(false))
+  }, [activeTab])
+
+  const savePosUi = async () => {
+    setPosUiSaving(true)
+    try {
+      const saved = await pushPosUiSettings(posUiForm)
+      setPosUiForm(saved)
+      toast.success('POS display settings saved')
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to save POS settings')
+    } finally {
+      setPosUiSaving(false)
+    }
+  }
+
+  const toggleBottomAction = (id: PosBottomActionId) => {
+    setPosUiForm(prev => {
+      const has = prev.bottomActions.visible.includes(id)
+      if (has && id === 'newSale') return prev
+      const visible = has
+        ? prev.bottomActions.visible.filter(x => x !== id)
+        : [...prev.bottomActions.visible, id]
+      return { ...prev, bottomActions: { visible } }
+    })
+  }
 
   useEffect(() => {
     if (!tenantId) return
@@ -933,6 +992,172 @@ export default function SettingsPage() {
                   <input type="email" className="input-field" value={profile.email} onChange={e => setProfile(p => ({ ...p, email: e.target.value }))} />
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ── POS DISPLAY ── */}
+          {activeTab === 'pos' && (
+            <div className="card p-6 space-y-6">
+              <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                <div>
+                  <h2 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Monitor size={15} className="text-violet-400" /> POS Display
+                  </h2>
+                  <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                    Customize POS theme, product cards, bottom bar, and F-key shortcuts. Defaults match current Hexa POS.
+                  </p>
+                </div>
+                <button onClick={savePosUi} disabled={posUiSaving || posUiLoading} className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
+                  {posUiSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Save POS Settings
+                </button>
+              </div>
+
+              {posUiLoading ? (
+                <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+                  <Loader2 size={14} className="animate-spin" /> Loading…
+                </div>
+              ) : (
+                <>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Theme</label>
+                      <select
+                        className="input-field"
+                        value={posUiForm.theme}
+                        onChange={e => setPosUiForm(p => ({ ...p, theme: e.target.value as PosUiSettings['theme'] }))}
+                      >
+                        <option value="hexa-dark">Hexa Dark</option>
+                        <option value="hexa-light">Hexa Light</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Accent color (hex)</label>
+                      <input
+                        className="input-field font-mono"
+                        placeholder="#7C3AED"
+                        value={posUiForm.accent}
+                        onChange={e => setPosUiForm(p => ({ ...p, accent: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Density</label>
+                      <select
+                        className="input-field"
+                        value={posUiForm.density}
+                        onChange={e => setPosUiForm(p => ({ ...p, density: e.target.value as PosUiSettings['density'] }))}
+                      >
+                        <option value="comfortable">Comfortable</option>
+                        <option value="compact">Compact</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Desktop columns</label>
+                      <select
+                        className="input-field"
+                        value={posUiForm.productGrid.columnsDesktop}
+                        onChange={e => setPosUiForm(p => ({
+                          ...p,
+                          productGrid: { ...p.productGrid, columnsDesktop: Number(e.target.value) as 3 | 4 | 5 | 6 },
+                        }))}
+                      >
+                        {[3, 4, 5, 6].map(n => <option key={n} value={n}>{n} columns</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Cart position</label>
+                      <select
+                        className="input-field"
+                        value={posUiForm.layout.cartPosition}
+                        onChange={e => setPosUiForm(p => ({
+                          ...p,
+                          layout: { ...p.layout, cartPosition: e.target.value as 'right' | 'left' },
+                        }))}
+                      >
+                        <option value="right">Right</option>
+                        <option value="left">Left</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Default price mode</label>
+                      <select
+                        className="input-field"
+                        value={posUiForm.behavior.defaultPriceMode}
+                        onChange={e => setPosUiForm(p => ({
+                          ...p,
+                          behavior: { ...p.behavior, defaultPriceMode: e.target.value as PosUiSettings['behavior']['defaultPriceMode'] },
+                        }))}
+                      >
+                        <option value="retail">Retail</option>
+                        <option value="wholesale">Wholesale</option>
+                        <option value="credit">Credit</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    {([
+                      ['showSidebar', 'Show left sidebar', posUiForm.layout.showSidebar, (v: boolean) => setPosUiForm(p => ({ ...p, layout: { ...p.layout, showSidebar: v } }))],
+                      ['showBottom', 'Show bottom action bar', posUiForm.layout.showBottomActions, (v: boolean) => setPosUiForm(p => ({ ...p, layout: { ...p.layout, showBottomActions: v } }))],
+                      ['showSku', 'Show SKU on cards', posUiForm.productGrid.showSku, (v: boolean) => setPosUiForm(p => ({ ...p, productGrid: { ...p.productGrid, showSku: v } }))],
+                      ['showStock', 'Show stock badge', posUiForm.productGrid.showStockBadge, (v: boolean) => setPosUiForm(p => ({ ...p, productGrid: { ...p.productGrid, showStockBadge: v } }))],
+                      ['showHot', 'Show HOT badge', posUiForm.productGrid.showHotBadge, (v: boolean) => setPosUiForm(p => ({ ...p, productGrid: { ...p.productGrid, showHotBadge: v } }))],
+                      ['showWarranty', 'Show warranty badge', posUiForm.productGrid.showWarrantyBadge, (v: boolean) => setPosUiForm(p => ({ ...p, productGrid: { ...p.productGrid, showWarrantyBadge: v } }))],
+                      ['confirmLeave', 'Confirm leave with cart', posUiForm.behavior.confirmLeaveWithCart, (v: boolean) => setPosUiForm(p => ({ ...p, behavior: { ...p.behavior, confirmLeaveWithCart: v } }))],
+                      ['focusSearch', 'Focus search on open', posUiForm.behavior.focusSearchOnOpen, (v: boolean) => setPosUiForm(p => ({ ...p, behavior: { ...p.behavior, focusSearchOnOpen: v } }))],
+                    ] as Array<[string, string, boolean, (v: boolean) => void]>).map(([key, label, checked, onChange]) => (
+                      <label key={key} className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 cursor-pointer" style={{ borderColor: 'var(--border)' }}>
+                        <span className="text-sm text-gray-900 dark:text-white">{label}</span>
+                        <Switch checked={checked} onChange={onChange} />
+                      </label>
+                    ))}
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-widest text-violet-400 mb-2">Bottom actions</p>
+                    <div className="flex flex-wrap gap-2">
+                      {POS_BOTTOM_ACTION_IDS.map(id => {
+                        const on = posUiForm.bottomActions.visible.includes(id)
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => toggleBottomAction(id)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${on ? 'bg-violet-500/20 border-violet-500/40 text-violet-200' : 'border-white/10 text-slate-400'}`}
+                          >
+                            {POS_BOTTOM_ACTION_LABELS[id]}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-widest text-violet-400 mb-2">Keyboard shortcuts</p>
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {POS_SHORTCUT_KEYS.map(key => (
+                        <div key={key} className="flex items-center gap-2">
+                          <span className="w-10 text-xs font-mono font-bold text-violet-300">{key}</span>
+                          <select
+                            className="input-field text-xs flex-1"
+                            value={posUiForm.shortcuts[key] ?? ''}
+                            onChange={e => setPosUiForm(p => ({
+                              ...p,
+                              shortcuts: {
+                                ...p.shortcuts,
+                                [key]: e.target.value as PosShortcutActionId,
+                              },
+                            }))}
+                          >
+                            {POS_SHORTCUT_ACTIONS.map(a => (
+                              <option key={a} value={a}>{POS_SHORTCUT_ACTION_LABELS[a]}</option>
+                            ))}
+                          </select>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
 

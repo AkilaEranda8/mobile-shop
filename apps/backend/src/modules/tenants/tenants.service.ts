@@ -82,6 +82,14 @@ export const tenantsService = {
     return setTenantConfig(tenantId, 'productCode', body)
   },
 
+  async getPosUiSettings(tenantId: string) {
+    return getTenantConfig(tenantId, 'posUi')
+  },
+
+  async updatePosUiSettings(tenantId: string, body: Record<string, unknown>) {
+    return setTenantConfig(tenantId, 'posUi', body)
+  },
+
   async getBranches(tenantId: string, userId: string, role: string) {
     const where: { tenantId: string; id?: { in: string[] } } = { tenantId }
     if (!OWNER_ROLES.has(role)) {

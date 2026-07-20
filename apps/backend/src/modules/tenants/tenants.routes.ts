@@ -59,5 +59,7 @@ router.get('/:id/product-variant-settings', authorize('PLATFORM_ADMIN', 'OWNER',
 router.patch('/:id/product-variant-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER'), tenantsController.updateProductVariantSettings)
 router.get('/:id/product-code-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'), tenantsController.getProductCodeSettings)
 router.patch('/:id/product-code-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER'), tenantsController.updateProductCodeSettings)
+router.get('/:id/pos-ui-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'), tenantsController.getPosUiSettings)
+router.patch('/:id/pos-ui-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER'), tenantsController.updatePosUiSettings)
 
 export default router

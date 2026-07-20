@@ -4,6 +4,7 @@ export type ConfigDomain =
   | 'paymentMethod'
   | 'productVariant'
   | 'productCode'
+  | 'posUi'
 
 export type ConfigDomainMeta = {
   domain: ConfigDomain
@@ -18,4 +19,5 @@ export const CONFIG_DOMAIN_META: ConfigDomainMeta[] = [
   { domain: 'paymentMethod', column: 'paymentMethodSettings', description: 'POS payment method enablement' },
   { domain: 'productVariant', column: 'productVariantSettings', description: 'Product variant UI/behavior' },
   { domain: 'productCode', column: 'productCodeSettings', description: 'SKU / barcode generation' },
+  { domain: 'posUi', column: 'posUiSettings', description: 'POS layout / theme / shortcuts / card display' },
 ]

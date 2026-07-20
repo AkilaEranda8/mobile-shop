@@ -9,6 +9,7 @@ import {
 } from '../products/product-code-settings.util'
 import { peekProductCodes } from '../../utils/counters'
 import { normalizeInvoiceSettings } from '../tenants/invoice-settings.util'
+import { normalizePosUiSettings } from '../tenants/pos-ui-settings.util'
 import { cacheGet, cacheInvalidate, cacheSet } from './configuration-engine.cache'
 import { CONFIG_DOMAIN_META, type ConfigDomain } from './configuration-engine.types'
 
@@ -72,6 +73,7 @@ export async function getTenantConfig<T = unknown>(
       paymentMethodSettings: true,
       productVariantSettings: true,
       productCodeSettings: true,
+      posUiSettings: true,
     },
   })
   if (!t) throw new AppError('Tenant not found', 404)
@@ -96,6 +98,9 @@ export async function getTenantConfig<T = unknown>(
       value = { ...settings, nextSku: peek.sku, nextBarcode: peek.barcode, prefix: peek.prefix }
       break
     }
+    case 'posUi':
+      value = normalizePosUiSettings(t.posUiSettings)
+      break
   }
 
   cacheSet(tenantId, domain, value, opts?.ttlMs ?? DEFAULT_TTL_MS)
@@ -121,6 +126,7 @@ export async function setTenantConfig(
       paymentMethodSettings: true,
       productVariantSettings: true,
       productCodeSettings: true,
+      posUiSettings: true,
     },
   })
   if (!existing) throw new AppError('Tenant not found', 404)
@@ -154,6 +160,15 @@ export async function setTenantConfig(
       column = 'productCodeSettings'
       normalized = normalizeProductCodeSettings(patch)
       break
+    case 'posUi': {
+      column = 'posUiSettings'
+      const prev =
+        existing.posUiSettings && typeof existing.posUiSettings === 'object'
+          ? (existing.posUiSettings as Record<string, unknown>)
+          : {}
+      normalized = normalizePosUiSettings(deepMergePatch(prev, patch))
+      break
+    }
   }
 
   await prisma.tenant.update({
@@ -173,14 +188,15 @@ export async function setTenantConfig(
 
 /** Aggregated settings bag — foundation for future GET /tenants/me/settings. */
 export async function getAllTenantConfigs(tenantId: string) {
-  const [invoice, reload, paymentMethod, productVariant, productCode] = await Promise.all([
+  const [invoice, reload, paymentMethod, productVariant, productCode, posUi] = await Promise.all([
     getTenantConfig(tenantId, 'invoice'),
     getTenantConfig(tenantId, 'reload'),
     getTenantConfig(tenantId, 'paymentMethod'),
     getTenantConfig(tenantId, 'productVariant'),
     getTenantConfig(tenantId, 'productCode'),
+    getTenantConfig(tenantId, 'posUi'),
   ])
-  return { invoice, reload, paymentMethod, productVariant, productCode }
+  return { invoice, reload, paymentMethod, productVariant, productCode, posUi }
 }
 
 export function invalidateTenantConfigCache(tenantId: string, domain?: ConfigDomain) {

@@ -38,6 +38,12 @@ import { businessToday } from '@/lib/business-date'
 import toast from 'react-hot-toast'
 import { getInvoiceSettings, fetchInvoiceSettings, shopContextFromTenant, resolveInvoiceTemplate, HEXALYTE_SOFTWARE_FOOTER, type InvoiceSettings, type ShopContext } from '@/lib/invoiceSettings'
 import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
+import {
+  usePosUiSettings,
+  gridColsClass,
+  resolvePosShortcutAction,
+  type PosShortcutActionId,
+} from '@/lib/posUiSettings'
 import { cacheProductsForOffline, cacheCategoriesForOffline, getCachedProducts, getCachedCategories } from '@/lib/offline/products-cache'
 import { buildOfflineInvoiceNumber, queueOfflineSale } from '@/lib/offline/queue-sale'
 import { isBrowserOnline, isNetworkError } from '@/lib/offline/sync'
@@ -1242,12 +1248,20 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [search, setSearch]                     = useState('')
   const [paymentMethod, setPaymentMethod]       = useState<PaymentMethodKey>('CASH')
   const payMethods = usePaymentMethods()
+  const posUi = usePosUiSettings()
   const payMethodsRef = useRef(payMethods)
   useEffect(() => {
     payMethodsRef.current = payMethods
     // Reset to cash if the selected method was removed from settings
     setPaymentMethod(prev => payMethods.some(m => m.key === prev) ? prev : 'CASH')
   }, [payMethods])
+
+  useEffect(() => {
+    const mode = posUi.behavior.defaultPriceMode
+    if (mode === 'wholesale' || mode === 'credit' || mode === 'retail') {
+      setPriceMode(mode)
+    }
+  }, [posUi.behavior.defaultPriceMode])
   const [customerPaid, setCustomerPaid]         = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null)
   const [discountPct, setDiscountPct]           = useState(0)
@@ -1397,6 +1411,15 @@ function POSContent({ onClose }: { onClose: () => void }) {
     collectAtCheckout: 0,
     hasSelectedCustomer: false,
   })
+
+  useEffect(() => {
+    if (!posUi.behavior.focusSearchOnOpen) return
+    const t = window.setTimeout(() => {
+      searchRef.current?.focus()
+      searchRef.current?.select()
+    }, 80)
+    return () => window.clearTimeout(t)
+  }, [posUi.behavior.focusSearchOnOpen])
 
   const calcInput = (val: string) => {
     if (calcDisplay === '0' || calcReset) { setCalcDisplay(val); setCalcReset(false) }
@@ -1810,11 +1833,11 @@ function POSContent({ onClose }: { onClose: () => void }) {
   }
 
   const requestClosePos = useCallback(() => {
-    if (cart.length > 0 || cartView === 'checkout') {
+    if ((cart.length > 0 || cartView === 'checkout') && posUi.behavior.confirmLeaveWithCart) {
       if (!window.confirm('Close POS? Unsaved cart items will be lost unless held.')) return
     }
     onClose()
-  }, [cart.length, cartView, onClose])
+  }, [cart.length, cartView, onClose, posUi.behavior.confirmLeaveWithCart])
 
   const clearCartWithConfirm = useCallback(() => {
     if (cart.length === 0) return
@@ -2855,46 +2878,51 @@ function POSContent({ onClose }: { onClose: () => void }) {
       }
 
       if (fnKey || (e.ctrlKey && e.key === 'Enter')) {
-        if (e.key === 'F1') { e.preventDefault(); searchRef.current?.focus(); searchRef.current?.select() }
-        if (e.key === 'F2') { e.preventDefault(); openCustomerPicker() }
-        if (e.key === 'F3') { e.preventDefault(); payNow() }
-        if (e.key === 'F4') { e.preventDefault(); handleHoldSales() }
-        if (e.key === 'F5') {
+        const runShortcut = (action: PosShortcutActionId | null) => {
+          if (!action) return
           e.preventDefault()
-          if (completedSale) {
-            const saleData: PosReceiptSale = {
-              invoiceNumber: completedSale.invoiceNumber,
-              createdAt: completedSale.createdAt,
-              customerName: completedSale.customerName,
-              customerPhone: completedSale.customerPhone,
-              items: completedSale.items ?? [],
-              subtotal,
-              discountAmount,
-              total: completedSale.total ?? saleTotal,
-              paymentMethod: completedSale.paymentMethod,
-              cashReceived: completedSale.cashReceived,
-              changeAmount: completedSale.changeAmount,
-              warrantyNumbers: completedSale.warrantyNumbers,
-              warrantyMonths: completedSale.warrantyMonths,
-              warranties: completedSale.warranties,
-            }
-            printPosReceipt(saleData, invoiceSettings, thermalShopCtx)
-          } else openRecentSales()
+          switch (action) {
+            case 'focusSearch': searchRef.current?.focus(); searchRef.current?.select(); break
+            case 'customer': openCustomerPicker(); break
+            case 'payNow': payNow(); break
+            case 'hold': handleHoldSales(); break
+            case 'recent':
+              if (completedSale) {
+                const saleData: PosReceiptSale = {
+                  invoiceNumber: completedSale.invoiceNumber,
+                  createdAt: completedSale.createdAt,
+                  customerName: completedSale.customerName,
+                  customerPhone: completedSale.customerPhone,
+                  items: completedSale.items ?? [],
+                  subtotal,
+                  discountAmount,
+                  total: completedSale.total ?? saleTotal,
+                  paymentMethod: completedSale.paymentMethod,
+                  cashReceived: completedSale.cashReceived,
+                  changeAmount: completedSale.changeAmount,
+                  warrantyNumbers: completedSale.warrantyNumbers,
+                  warrantyMonths: completedSale.warrantyMonths,
+                  warranties: completedSale.warranties,
+                }
+                printPosReceipt(saleData, invoiceSettings, thermalShopCtx)
+              } else openRecentSales()
+              break
+            case 'reload':
+              if (hasDailyReload) {
+                setSelectedCategory('RELOAD')
+                setActiveNavId('products')
+              } else setShowHeldCarts(true)
+              break
+            case 'dayStart': openDayStartModal(); break
+            case 'cashFlow': setCashFlowMode('IN'); setShowCashFlow(true); break
+            case 'checkout': openCheckout(); break
+            case 'newSale': handleNewSale(); break
+            case 'dayEnd': if (hasDailyClosing) openDayEnd(); break
+            case 'calculator': setShowCalc(p => !p); break
+          }
         }
-        if (e.key === 'F6') {
-          e.preventDefault()
-          if (hasDailyReload) {
-            setSelectedCategory('RELOAD')
-            setActiveNavId('products')
-          } else setShowHeldCarts(true)
-        }
-        if (e.key === 'F7') { e.preventDefault(); openDayStartModal() }
-        if (e.key === 'F8') { e.preventDefault(); setCashFlowMode('IN'); setShowCashFlow(true) }
-        if (e.key === 'F9') { e.preventDefault(); openCheckout() }
-        if (e.key === 'F10') { e.preventDefault(); handleNewSale() }
-        if (e.key === 'F11' && hasDailyClosing) { e.preventDefault(); openDayEnd() }
-        if (e.key === 'F12') { e.preventDefault(); setShowCalc(p => !p) }
-        if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); payNow() }
+        if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); payNow(); return }
+        if (fnKey) runShortcut(resolvePosShortcutAction(e.key, posUi))
         return
       }
 
@@ -2931,7 +2959,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cart, cartView, checkoutLoading, completedSale, selectedCustomer, customerOutstanding, subtotal, discountAmount, saleTotal, invoiceSettings, pricePrompt, variationPickerProduct, mobileView, isDesktop, requestClosePos, openCustomerPicker, showCustDrop, showCartCustDrop, showRegister, showRecentInvoices, showHeldCarts, showCalc, showReturnModal, showDocPreview, showMoreMenu, showFilters, showOpeningCash, showDayEnd, showCashFlow])
+  }, [cart, cartView, checkoutLoading, completedSale, selectedCustomer, customerOutstanding, subtotal, discountAmount, saleTotal, invoiceSettings, pricePrompt, variationPickerProduct, mobileView, isDesktop, requestClosePos, openCustomerPicker, showCustDrop, showCartCustDrop, showRegister, showRecentInvoices, showHeldCarts, showCalc, showReturnModal, showDocPreview, showMoreMenu, showFilters, showOpeningCash, showDayEnd, showCashFlow, posUi])
 
   const downloadInvoice = async () => {
     if (!a4Ref.current) return
@@ -3007,13 +3035,13 @@ function POSContent({ onClose }: { onClose: () => void }) {
       settings: '/dashboard/settings',
     }
     if (routes[id]) {
-      if (cart.length > 0 && !window.confirm('Leave POS? Unsaved cart items will be lost unless held.')) {
+      if (cart.length > 0 && posUi.behavior.confirmLeaveWithCart && !window.confirm('Leave POS? Unsaved cart items will be lost unless held.')) {
         return
       }
       onClose()
       router.push(routes[id])
     }
-  }, [onClose, router, openRecentSales, openCustomerPicker, cart.length])
+  }, [onClose, router, openRecentSales, openCustomerPicker, cart.length, posUi.behavior.confirmLeaveWithCart])
 
   const posNavItems = useMemo(
     () => buildPosNavItems({ hasIMEI, hasFinance, hasDailyReload }),
@@ -3031,6 +3059,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       heldCount: heldCarts.length,
       dayStarted,
       dayIsClosed,
+      visibleIds: posUi.bottomActions.visible,
       handlers: {
         newSale: handleNewSale,
         holdSales: handleHoldSales,
@@ -3042,7 +3071,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         moreMenu: () => setShowMoreMenu(true),
       },
     }),
-    [hasDailyReload, hasDailyClosing, heldCarts.length, dayStarted, dayIsClosed, handleNewSale, handleHoldSales, openRecentSales, openDayStartModal, openDayEnd],
+    [hasDailyReload, hasDailyClosing, heldCarts.length, dayStarted, dayIsClosed, handleNewSale, handleHoldSales, openRecentSales, openDayStartModal, openDayEnd, posUi.bottomActions.visible],
   )
 
   const sendWhatsAppInvoice = useCallback(async () => {
@@ -3283,6 +3312,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
         mobileView={mobileView}
         cartItemCount={cart.length}
         onMobileViewChange={setMobileView}
+        layoutPrefs={{
+          theme: posUi.theme,
+          accent: posUi.accent,
+          density: posUi.density,
+          showSidebar: posUi.layout.showSidebar,
+          showBottomActions: posUi.layout.showBottomActions,
+          cartPosition: posUi.layout.cartPosition,
+        }}
         onFiltersClick={() => setShowFilters(v => !v)}
         filtersActive={showFilters || hideOutOfStock || showFavoritesOnly}
         filtersPanel={showFilters ? (
@@ -3343,7 +3380,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           selectedCategory === 'RELOAD' && hasDailyReload ? (
             <PosReloadPanel onAdd={addReloadToCart} />
           ) : (
-          <div className={gridView ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-2.5' : 'space-y-1.5'}>
+          <div className={gridView ? gridColsClass(posUi.productGrid.columnsDesktop) : 'space-y-1.5'}>
             {pagedProducts.length === 0 ? (
               <div className="col-span-full flex flex-col items-center justify-center h-40 opacity-30">
                 <PackageSearch size={32} className="mb-2" style={{ color: POS_THEME.muted }} />
@@ -3367,7 +3404,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     if (isOut) return
                     openProductForSale(item)
                   }
-                  const showWarrantyBadge = hasWarranty && !isService && (item.warrantyMonths ?? 0) > 0
+                  const showWarrantyBadge = posUi.productGrid.showWarrantyBadge && hasWarranty && !isService && (item.warrantyMonths ?? 0) > 0
 
                   if (!gridView) {
                     return (
@@ -3384,7 +3421,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-bold truncate" style={{ color: POS_THEME.text }}>{item.name}</p>
-                          <p className="text-[11px] font-mono truncate" style={{ color: POS_THEME.muted }}>{item.sku}</p>
+                          {posUi.productGrid.showSku && (
+                            <p className="text-[11px] font-mono truncate" style={{ color: POS_THEME.muted }}>{item.sku}</p>
+                          )}
                           {showWarrantyBadge && (
                             <p className="text-[10px] font-semibold flex items-center gap-1 mt-0.5" style={{ color: POS_THEME.green }}>
                               <Shield size={9} /> {formatWarrantyMonths(item.warrantyMonths ?? 0)} warranty
@@ -3393,7 +3432,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         </div>
                         <div className="text-right shrink-0 hidden sm:block">
                           <p className="text-sm font-extrabold text-white">{price}</p>
-                          {!isService && (
+                          {!isService && posUi.productGrid.showStockBadge && (
                             <p className="text-[10px] font-semibold" style={{ color: stockColor }}>{stockLabel}</p>
                           )}
                         </div>
@@ -3438,10 +3477,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
                           </div>
                         )}
 
-                        {isHot && !isLow && (
+                        {isHot && !isLow && posUi.productGrid.showHotBadge && (
                           <div className="absolute top-1 left-1 px-1.5 py-px rounded text-[8px] font-extrabold tracking-wide text-white" style={{ background: POS_THEME.red }}>HOT</div>
                         )}
-                        {isLow && (
+                        {isLow && posUi.productGrid.showStockBadge && (
                           <div className="absolute top-1 left-1 flex items-center gap-0.5 px-1.5 py-px rounded-full text-[8px] font-bold border border-white/30 text-white" style={{ background: 'rgba(0,0,0,0.35)' }}>⚠ LOW</div>
                         )}
                         {vars.length > 0 && (
@@ -3462,7 +3501,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       {/* Info */}
                       <div className="flex flex-col px-2 sm:px-2.5 py-2 gap-0.5 flex-1">
                         <p className="text-xs sm:text-[13px] font-bold leading-snug line-clamp-2 min-h-[2rem]" style={{ color: POS_THEME.text }}>{item.name}</p>
-                        <p className="text-[10px] font-mono truncate" style={{ color: POS_THEME.muted }}>{item.sku}</p>
+                        {posUi.productGrid.showSku && (
+                          <p className="text-[10px] font-mono truncate" style={{ color: POS_THEME.muted }}>{item.sku}</p>
+                        )}
                         <div className="flex items-end justify-between gap-1.5 mt-auto pt-1">
                           <div className="min-w-0">
                             <p className="text-white text-xs sm:text-sm font-extrabold leading-none truncate">{price}</p>
@@ -3470,12 +3511,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
                               <p className="text-[10px] mt-0.5 truncate" style={{ color: POS_THEME.muted }}>
                                 Cost {formatCurrency(Number(item.cost ?? 0))}
                               </p>
-                            ) : (
+                            ) : posUi.productGrid.showStockBadge ? (
                               <p className="text-[10px] font-semibold flex items-center gap-1 mt-0.5 truncate" style={{ color: stockColor }}>
                                 <span className="w-1.5 h-1.5 rounded-full inline-block shrink-0" style={{ background: stockColor }} />
                                 {stockLabel}
                               </p>
-                            )}
+                            ) : null}
                           </div>
                           <button type="button" disabled={isOut}
                             onClick={e => { e.stopPropagation(); handlePick() }}

@@ -81,6 +81,47 @@ interface HexaPosLayoutProps {
   mobileView?: 'products' | 'cart'
   cartItemCount?: number
   onMobileViewChange?: (view: 'products' | 'cart') => void
+  /** Tenant POS UI preferences (defaults = current Hexa look). */
+  layoutPrefs?: {
+    theme?: 'hexa-dark' | 'hexa-light'
+    accent?: string
+    density?: 'comfortable' | 'compact'
+    showSidebar?: boolean
+    showBottomActions?: boolean
+    cartPosition?: 'right' | 'left'
+  }
+}
+
+function resolveTheme(prefs?: HexaPosLayoutProps['layoutPrefs']) {
+  const light = prefs?.theme === 'hexa-light'
+  const accent = prefs?.accent && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(prefs.accent)
+    ? prefs.accent
+    : light ? '#6D28D9' : C.purple
+  const purpleDark = light ? '#5B21B6' : C.purpleDark
+  if (!light) {
+    return { ...C, purple: accent || C.purple, purpleDark: prefs?.accent ? accent : purpleDark }
+  }
+  return {
+    bg: '#F4F6FA',
+    panel: '#EEF1F7',
+    card: '#FFFFFF',
+    cardHover: '#F8FAFC',
+    border: '#D8DEE9',
+    muted: '#64748B',
+    text: '#0F172A',
+    purple: accent,
+    purpleDark,
+    green: '#059669',
+    greenDark: '#047857',
+    blue: '#2563EB',
+    blueDark: '#1D4ED8',
+    amber: '#D97706',
+    amberDark: '#B45309',
+    red: '#DC2626',
+    redDark: '#B91C1C',
+    teal: '#0F766E',
+    tealDark: '#115E59',
+  }
 }
 
 export function HexaPosLayout({
@@ -113,32 +154,63 @@ export function HexaPosLayout({
   mobileView = 'products',
   cartItemCount = 0,
   onMobileViewChange,
+  layoutPrefs,
 }: HexaPosLayoutProps) {
+  const T = resolveTheme(layoutPrefs)
   const sidebarItems: PosNavItem[] = navItems ?? NAV_ITEMS
   const showProductsPane = mobileView === 'products'
   const showCartPane = mobileView === 'cart'
+  const showSidebar = layoutPrefs?.showSidebar !== false
+  const showBottom = layoutPrefs?.showBottomActions !== false
+  const cartLeft = layoutPrefs?.cartPosition === 'left'
+  const railW = layoutPrefs?.density === 'compact' ? 'w-[72px]' : 'w-[84px]'
+  const isLight = layoutPrefs?.theme === 'hexa-light'
+
+  const productsCol = (
+    <div
+      className={`flex-1 flex-col min-w-0 min-h-0 ${showProductsPane ? 'flex' : 'hidden'} lg:flex`}
+      style={{ background: T.bg }}
+    >
+      {categoryBar}
+      <div className={`flex-1 overflow-y-auto overscroll-contain px-2 sm:px-3 py-2 sm:py-3 lg:pb-3 ${cartItemCount > 0 && showProductsPane ? 'pb-4' : 'pb-3'}`}>{productGrid}</div>
+      {pagination}
+      {showBottom ? bottomActions : null}
+    </div>
+  )
+
+  const cartCol = (
+    <div
+      className={`flex-col min-h-0 min-w-0 ${
+        showCartPane ? 'flex' : 'hidden'
+      } lg:flex w-full lg:w-[min(340px,38vw)] xl:w-[380px] 2xl:w-[420px] shrink-0 ${cartLeft ? 'border-r' : 'border-l'}`}
+      style={{ borderColor: T.border, background: T.card }}
+    >
+      {cartPanel}
+    </div>
+  )
 
   return (
     <div
-      data-pos="dark"
-      className="pos-shell flex h-full w-full min-h-0 overflow-hidden [&_input]:text-white [&_select]:text-white"
-      style={{ background: C.bg, color: C.text, fontFamily: "'Segoe UI', system-ui, sans-serif" }}
+      data-pos={isLight ? 'light' : 'dark'}
+      className={`pos-shell flex h-full w-full min-h-0 overflow-hidden ${isLight ? '[&_input]:text-slate-900 [&_select]:text-slate-900' : '[&_input]:text-white [&_select]:text-white'}`}
+      style={{ background: T.bg, color: T.text, fontFamily: "'Segoe UI', system-ui, sans-serif", ['--pos-accent' as string]: T.purple }}
     >
       {/* ── Left Sidebar — compact POS rail (icon + label always visible) ── */}
+      {showSidebar && (
       <aside
-        className="pos-aside hidden lg:flex w-[84px] shrink-0 flex-col border-r"
-        style={{ borderColor: C.border, background: C.card }}
+        className={`pos-aside hidden lg:flex ${railW} shrink-0 flex-col border-r`}
+        style={{ borderColor: T.border, background: T.card }}
       >
-        <div className="flex flex-col items-center gap-1.5 px-2 py-3 border-b" style={{ borderColor: C.border }}>
+        <div className="flex flex-col items-center gap-1.5 px-2 py-3 border-b" style={{ borderColor: T.border }}>
           <div
             className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-lg"
-            style={{ background: `linear-gradient(135deg, ${C.purple}, ${C.purpleDark})`, boxShadow: `0 6px 16px ${C.purple}40` }}
+            style={{ background: `linear-gradient(135deg, ${T.purple}, ${T.purpleDark})`, boxShadow: `0 6px 16px ${T.purple}40` }}
           >
             <ShoppingCart size={17} className="text-white" />
           </div>
           <div className="text-center w-full min-w-0">
-            <p className="text-[10px] font-extrabold tracking-wide text-white leading-tight">POS</p>
-            <p className="text-[8px] leading-tight truncate px-0.5" style={{ color: C.muted }} title={shopName}>{shopName}</p>
+            <p className="text-[10px] font-extrabold tracking-wide leading-tight" style={{ color: T.text }}>POS</p>
+            <p className="text-[8px] leading-tight truncate px-0.5" style={{ color: T.muted }} title={shopName}>{shopName}</p>
           </div>
         </div>
 
@@ -163,18 +235,18 @@ export function HexaPosLayout({
                 onClick={() => onNavAction?.(id)}
                 className="w-full flex flex-col items-center gap-1 px-1 py-2 rounded-xl transition-all touch-manipulation"
                 style={active
-                  ? { background: `${C.purple}28`, color: C.text, boxShadow: `inset 0 0 0 1px ${C.purple}66` }
-                  : { color: C.muted }}
+                  ? { background: `${T.purple}28`, color: T.text, boxShadow: `inset 0 0 0 1px ${T.purple}66` }
+                  : { color: T.muted }}
               >
                 <span
                   className="w-9 h-9 rounded-xl flex items-center justify-center"
-                  style={{ background: active ? `${C.purple}40` : C.bg }}
+                  style={{ background: active ? `${T.purple}40` : T.bg }}
                 >
-                  <Icon size={16} style={{ color: active ? '#c4b5fd' : C.muted }} />
+                  <Icon size={16} style={{ color: active ? T.purple : T.muted }} />
                 </span>
                 <span
                   className="text-[9px] font-bold leading-tight text-center w-full px-0.5"
-                  style={{ color: active ? C.text : C.muted }}
+                  style={{ color: active ? T.text : T.muted }}
                 >
                   {short}
                 </span>
@@ -183,66 +255,68 @@ export function HexaPosLayout({
           })}
         </nav>
 
-        <div className="px-1.5 py-2.5 border-t space-y-1.5" style={{ borderColor: C.border }}>
+        <div className="px-1.5 py-2.5 border-t space-y-1.5" style={{ borderColor: T.border }}>
           <button
             type="button"
             title="Settings"
             aria-label="Settings"
             onClick={() => onNavAction?.('settings')}
-            className="w-full flex flex-col items-center gap-1 px-1 py-2 rounded-xl transition-colors hover:bg-white/5"
-            style={{ color: C.muted }}
+            className="w-full flex flex-col items-center gap-1 px-1 py-2 rounded-xl transition-colors hover:bg-black/5"
+            style={{ color: T.muted }}
           >
-            <span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: C.bg }}>
-              <Settings size={15} style={{ color: C.muted }} />
+            <span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: T.bg }}>
+              <Settings size={15} style={{ color: T.muted }} />
             </span>
             <span className="text-[9px] font-bold">Settings</span>
           </button>
           <div className="flex flex-col items-center gap-1 pt-1">
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: C.green }} />
-            <span className="text-[8px] font-semibold" style={{ color: C.green }}>Online</span>
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: T.green }} />
+            <span className="text-[8px] font-semibold" style={{ color: T.green }}>Online</span>
           </div>
         </div>
       </aside>
+      )}
 
       {/* ── Main column ── */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {/* Top toolbar — left tools | growing search | right actions */}
-        <div className="shrink-0 px-2 sm:px-3 py-2 border-b" style={{ borderColor: C.border, background: C.panel }}>
+        <div className="shrink-0 px-2 sm:px-3 py-2 border-b" style={{ borderColor: T.border, background: T.panel }}>
           <div className="flex items-center gap-1.5 sm:gap-2 w-full min-w-0">
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-lg hover:bg-white/5 text-white touch-manipulation shrink-0"
+              className="p-2 rounded-lg hover:bg-black/5 touch-manipulation shrink-0"
+              style={{ color: T.text }}
               title="Close POS"
               aria-label="Close POS"
             >
               <X size={16} />
             </button>
-            <button type="button" onClick={onScanClick} className="h-9 px-2 sm:px-3 rounded-xl text-xs font-semibold border shrink-0 flex items-center gap-1.5 touch-manipulation" style={{ borderColor: C.border, background: C.card, color: C.text }}>
-              <ScanLine size={14} style={{ color: C.muted }} />
+            <button type="button" onClick={onScanClick} className="h-9 px-2 sm:px-3 rounded-xl text-xs font-semibold border shrink-0 flex items-center gap-1.5 touch-manipulation" style={{ borderColor: T.border, background: T.card, color: T.text }}>
+              <ScanLine size={14} style={{ color: T.muted }} />
               <span className="hidden md:inline">Scan IMEI</span>
             </button>
             {imeiSlot}
             <div className="flex-1 min-w-0 max-w-[18rem] sm:max-w-[24rem] lg:max-w-[28rem] relative">
-              <ScanLine size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: C.muted }} />
+              <ScanLine size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: T.muted }} />
               <input
                 ref={searchRef}
                 value={search}
                 onChange={e => onSearchChange(e.target.value)}
                 onKeyDown={onSearchKeyDown}
                 placeholder="Search name, SKU, barcode, IMEI…"
-                className="w-full h-10 pl-9 pr-3 sm:pr-11 rounded-xl text-sm outline-none border text-white placeholder:text-white/40"
-                style={{ background: C.card, borderColor: C.border }}
+                className="w-full h-10 pl-9 pr-3 sm:pr-11 rounded-xl text-sm outline-none border placeholder:opacity-40"
+                style={{ background: T.card, borderColor: T.border, color: T.text }}
               />
-              <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] px-1.5 py-0.5 rounded font-mono hidden sm:inline" style={{ background: C.bg, color: C.muted }}>F1</kbd>
+              <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] px-1.5 py-0.5 rounded font-mono hidden sm:inline" style={{ background: T.bg, color: T.muted }}>F1</kbd>
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
               <button type="button" onClick={onFiltersClick}
                 className="h-9 px-2 sm:px-3 rounded-xl text-xs font-semibold border flex items-center gap-1.5 transition-colors touch-manipulation"
                 style={{
-                  borderColor: filtersActive ? C.purple : C.border,
-                  background: filtersActive ? `${C.purple}22` : C.card,
-                  color: filtersActive ? C.text : C.muted,
+                  borderColor: filtersActive ? T.purple : T.border,
+                  background: filtersActive ? `${T.purple}22` : T.card,
+                  color: filtersActive ? T.text : T.muted,
                 }}>
                 <SlidersHorizontal size={14} />
                 <span className="hidden md:inline">Filters</span>
@@ -251,28 +325,28 @@ export function HexaPosLayout({
               <button
                 type="button"
                 onClick={() => onMobileViewChange?.('cart')}
-                className="lg:hidden relative h-9 w-9 rounded-xl border flex items-center justify-center hover:bg-white/5 touch-manipulation"
-                style={{ borderColor: showCartPane ? C.purple : C.border, background: showCartPane ? `${C.purple}22` : C.card }}
+                className="lg:hidden relative h-9 w-9 rounded-xl border flex items-center justify-center hover:bg-black/5 touch-manipulation"
+                style={{ borderColor: showCartPane ? T.purple : T.border, background: showCartPane ? `${T.purple}22` : T.card }}
                 title="Cart"
                 aria-label="Open cart"
               >
-                <ShoppingCart size={15} className="text-white" />
+                <ShoppingCart size={15} style={{ color: T.text }} />
                 {cartItemCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center text-white" style={{ background: C.purple }}>
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center text-white" style={{ background: T.purple }}>
                     {cartItemCount > 99 ? '99+' : cartItemCount}
                   </span>
                 )}
               </button>
-              <button type="button" onClick={onBellClick} className="relative h-9 w-9 rounded-xl border flex items-center justify-center hover:bg-white/5 touch-manipulation" style={{ borderColor: C.border, background: C.card }} title="Held carts" aria-label="Held carts">
-                <Archive size={15} className="text-white" />
+              <button type="button" onClick={onBellClick} className="relative h-9 w-9 rounded-xl border flex items-center justify-center hover:bg-black/5 touch-manipulation" style={{ borderColor: T.border, background: T.card }} title="Held carts" aria-label="Held carts">
+                <Archive size={15} style={{ color: T.text }} />
                 {heldBadgeCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center text-white" style={{ background: C.red }}>
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center text-white" style={{ background: T.red }}>
                     {heldBadgeCount}
                   </span>
                 )}
               </button>
-              <button type="button" onClick={() => onNavAction?.('settings')} className="hidden sm:flex h-9 w-9 rounded-xl border items-center justify-center hover:bg-white/5 touch-manipulation" style={{ borderColor: C.border, background: C.card }}>
-                <Settings size={15} style={{ color: C.muted }} />
+              <button type="button" onClick={() => onNavAction?.('settings')} className="hidden sm:flex h-9 w-9 rounded-xl border items-center justify-center hover:bg-black/5 touch-manipulation" style={{ borderColor: T.border, background: T.card }}>
+                <Settings size={15} style={{ color: T.muted }} />
               </button>
               <div className="w-[12rem] sm:w-[14rem] lg:w-[16rem] shrink-0">{customerSlot}</div>
             </div>
@@ -283,37 +357,21 @@ export function HexaPosLayout({
 
         <div className="flex flex-1 min-h-0 relative">
           {mainOverlay}
-          <div
-            className={`flex-1 flex-col min-w-0 min-h-0 ${showProductsPane ? 'flex' : 'hidden'} lg:flex`}
-            style={{ background: C.bg }}
-          >
-            {categoryBar}
-            <div className={`flex-1 overflow-y-auto overscroll-contain px-2 sm:px-3 py-2 sm:py-3 lg:pb-3 ${cartItemCount > 0 && showProductsPane ? 'pb-4' : 'pb-3'}`}>{productGrid}</div>
-            {pagination}
-            {bottomActions}
-          </div>
-          <div
-            className={`flex-col border-l min-h-0 min-w-0 ${
-              showCartPane ? 'flex' : 'hidden'
-            } lg:flex w-full lg:w-[min(340px,38vw)] xl:w-[380px] 2xl:w-[420px] shrink-0`}
-            style={{ borderColor: C.border, background: C.card }}
-          >
-            {cartPanel}
-          </div>
+          {cartLeft ? <>{cartCol}{productsCol}</> : <>{productsCol}{cartCol}</>}
         </div>
 
         {/* Mobile / tablet bottom nav (< lg) */}
         <div
           className="lg:hidden shrink-0 grid grid-cols-2 gap-1 px-2 py-2 border-t"
-          style={{ borderColor: C.border, background: C.card, paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
+          style={{ borderColor: T.border, background: T.card, paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
         >
           <button
             type="button"
             onClick={() => onMobileViewChange?.('products')}
             className="h-11 rounded-xl text-xs font-bold flex items-center justify-center gap-2 touch-manipulation"
             style={showProductsPane
-              ? { background: `${C.purple}33`, color: C.text, border: `1px solid ${C.purple}66` }
-              : { background: C.bg, color: C.muted, border: `1px solid ${C.border}` }}
+              ? { background: `${T.purple}33`, color: T.text, border: `1px solid ${T.purple}66` }
+              : { background: T.bg, color: T.muted, border: `1px solid ${T.border}` }}
           >
             <LayoutGrid size={15} /> Products
           </button>
@@ -322,26 +380,26 @@ export function HexaPosLayout({
             onClick={() => onMobileViewChange?.('cart')}
             className="h-11 rounded-xl text-xs font-bold flex items-center justify-center gap-2 touch-manipulation relative"
             style={showCartPane
-              ? { background: `${C.purple}33`, color: C.text, border: `1px solid ${C.purple}66` }
-              : { background: C.bg, color: C.muted, border: `1px solid ${C.border}` }}
+              ? { background: `${T.purple}33`, color: T.text, border: `1px solid ${T.purple}66` }
+              : { background: T.bg, color: T.muted, border: `1px solid ${T.border}` }}
           >
             <ShoppingCart size={15} /> Cart
             {cartItemCount > 0 && (
-              <span className="min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center text-white" style={{ background: C.purple }}>
+              <span className="min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center text-white" style={{ background: T.purple }}>
                 {cartItemCount > 99 ? '99+' : cartItemCount}
               </span>
             )}
           </button>
         </div>
 
-        <footer className="hidden lg:flex shrink-0 flex-wrap items-center justify-between gap-2 xl:gap-3 px-3 xl:px-5 py-2 xl:py-3.5 border-t text-[10px] xl:text-xs" style={{ borderColor: C.border, background: C.card, color: C.muted }}>
+        <footer className="hidden lg:flex shrink-0 flex-wrap items-center justify-between gap-2 xl:gap-3 px-3 xl:px-5 py-2 xl:py-3.5 border-t text-[10px] xl:text-xs" style={{ borderColor: T.border, background: T.card, color: T.muted }}>
           <span className="font-medium truncate">© 2026 Hexa POS</span>
           <div className="flex flex-wrap items-center gap-2 xl:gap-3 min-w-0">
             <span className="truncate">Cashier: {cashierName}</span>
             <span className="hidden xl:inline">|</span>
             <span className="hidden xl:inline">Last Sync: {syncTime}</span>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 xl:px-2.5 xl:py-1 rounded-full text-[10px] xl:text-[11px] font-bold" style={{ background: `${C.green}22`, color: C.green }}>
-              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: C.green }} /> Synced
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 xl:px-2.5 xl:py-1 rounded-full text-[10px] xl:text-[11px] font-bold" style={{ background: `${T.green}22`, color: T.green }}>
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: T.green }} /> Synced
             </span>
           </div>
         </footer>

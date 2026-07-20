@@ -219,6 +219,8 @@ export const tenantApi = {
   updateProductVariantSettings: (id: string, body: unknown) => api.patch(`/tenants/${id}/product-variant-settings`, body),
   getProductCodeSettings: (id: string) => api.get(`/tenants/${id}/product-code-settings`),
   updateProductCodeSettings: (id: string, body: unknown) => api.patch(`/tenants/${id}/product-code-settings`, body),
+  getPosUiSettings: (id: string) => api.get(`/tenants/${id}/pos-ui-settings`),
+  updatePosUiSettings: (id: string, body: unknown) => api.patch(`/tenants/${id}/pos-ui-settings`, body),
   myFeatures: () => api.get<{ data: { features: Record<string, boolean>; prices: Record<string, number | null> } }>('/tenants/my-features'),
   updateMyFeatures: (features: Record<string, boolean>) =>
     api.patch<{ data: { features: Record<string, boolean>; prices: Record<string, number | null> } }>('/tenants/my-features', { features }),
