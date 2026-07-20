@@ -334,6 +334,8 @@ export const salesApi = {
     api.get(`/sales${params ? '?' + new URLSearchParams(params) : ''}`),
   getById: (id: string) => api.get(`/sales/${id}`),
   create: (body: unknown) => api.post('/sales', body),
+  update: (id: string, body: unknown) => api.patch(`/sales/${id}`, body),
+  void: (id: string, body: unknown) => api.post(`/sales/${id}/void`, body),
   processReturn: (saleId: string, body: unknown) => api.post(`/sales/${saleId}/returns`, body),
   listReturns: (params?: Record<string, string>) =>
     api.get(`/sales/returns${params ? '?' + new URLSearchParams(params) : ''}`),

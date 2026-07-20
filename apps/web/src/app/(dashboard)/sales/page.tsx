@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -6,6 +6,7 @@ import {
   Receipt, Eye, X, Calendar, User, Package,
   CreditCard, Loader2, Hash, ShoppingBag,
   Banknote, Smartphone, TrendingUp, Download, Truck, RotateCcw,
+  Pencil, Trash2, Lock, AlertTriangle,
 } from 'lucide-react'
 import { TableDensityToggle, type TableDensity } from '@/components/ui/TableDensityToggle'
 import { type ColumnDef } from '@tanstack/react-table'
@@ -38,7 +39,7 @@ const methodIcon: Record<string, React.ReactNode> = {
   UPI:    <Smartphone size={11} />,
 }
 
-/* ── Printable Invoice Template ─────────────────────────────────────────── */
+/* â”€â”€ Printable Invoice Template â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const INV_NAVY   = '#0d1b2e'
 const INV_ORANGE = '#f59e0b'
 const INV_DARK2  = '#162436'
@@ -54,7 +55,7 @@ function InvLabel({ children }: { children: React.ReactNode }) {
 function InvoiceTemplate({ sale, shopName, settings }: { sale: any; shopName: string; settings: InvoiceSettings }) {
   const fc = (n: number) => formatCurrency(n)
   const dateStr = sale.createdAt ? new Date(sale.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : ''
-  const payMethod = sale.payments?.map((p: any) => p.method).join(' + ') || '—'
+  const payMethod = sale.payments?.map((p: any) => p.method).join(' + ') || 'â€”'
   const displayName = settings.shopName || shopName
 
   return (
@@ -109,7 +110,7 @@ function InvoiceTemplate({ sale, shopName, settings }: { sale: any; shopName: st
               <tr key={item.id ?? idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
                 <td style={{ padding: '10px 12px', fontSize: 12, color: '#1e293b', fontWeight: 500 }}>
                   {item.productName}
-                  {item.sku && <span style={{ display: 'block', fontSize: 9, color: '#94a3b8', fontFamily: 'monospace', marginTop: 1 }}>{item.sku}{item.imei ? ' · IMEI: ' + item.imei : ''}</span>}
+                  {item.sku && <span style={{ display: 'block', fontSize: 9, color: '#94a3b8', fontFamily: 'monospace', marginTop: 1 }}>{item.sku}{item.imei ? ' Â· IMEI: ' + item.imei : ''}</span>}
                 </td>
                 <td style={{ padding: '10px 12px', fontSize: 12, color: '#475569', textAlign: 'right' }}>{fc(item.unitPrice)}</td>
                 <td style={{ padding: '10px 12px', fontSize: 12, color: '#475569', textAlign: 'right' }}>{item.quantity}</td>
@@ -170,7 +171,7 @@ function InvoiceTemplate({ sale, shopName, settings }: { sale: any; shopName: st
         <div>
           {sale.notes && <p style={{ margin: '0 0 4px', fontSize: 11, color: '#475569', fontStyle: 'italic' }}>{sale.notes}</p>}
           <p style={{ margin: '0 0 3px', fontSize: 12, color: '#475569', fontStyle: 'italic' }}>{settings.footerNote || 'Thanks for your business!'}</p>
-          <p style={{ margin: 0, fontSize: 10, color: '#94a3b8' }}>Computer-generated invoice · {displayName}</p>
+          <p style={{ margin: 0, fontSize: 10, color: '#94a3b8' }}>Computer-generated invoice Â· {displayName}</p>
         </div>
         <div style={{ textAlign: 'center' }}>
           <div style={{ borderTop: '2px solid ' + INV_NAVY, paddingTop: 4, width: 140 }}>
@@ -184,14 +185,408 @@ function InvoiceTemplate({ sale, shopName, settings }: { sale: any; shopName: st
   )
 }
 
-/* ── Sale Details Modal ──────────────────────────────────────────────────── */
-function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void }) {
+/* â”€â”€ Admin password gate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+function AdminPasswordField({
+  value, onChange, autoFocus,
+}: { value: string; onChange: (v: string) => void; autoFocus?: boolean }) {
+  return (
+    <div>
+      <label className="block text-[11px] font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+        <span className="inline-flex items-center gap-1"><Lock size={11} /> Owner / Admin password</span>
+      </label>
+      <input
+        type="password"
+        autoFocus={autoFocus}
+        className="input-field w-full text-sm"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder="Enter owner password to confirm"
+        autoComplete="current-password"
+      />
+    </div>
+  )
+}
+
+function DeleteSaleModal({
+  sale, onClose, onDeleted,
+}: { sale: any; onClose: () => void; onDeleted: () => void }) {
+  const [adminPassword, setAdminPassword] = useState('')
+  const [reason, setReason] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const submit = async () => {
+    if (!adminPassword.trim()) { toast.error('Admin password is required'); return }
+    setSaving(true)
+    try {
+      await salesApi.void(sale.id, {
+        adminPassword,
+        reason: reason.trim() || 'Deleted by admin',
+      })
+      toast.success(`Invoice ${sale.invoiceNumber} voided â€” stock restored`)
+      onDeleted()
+      onClose()
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to delete sale')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="rounded-xl w-full max-w-md border shadow-2xl p-5 space-y-4"
+        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-lg bg-rose-500/15 text-rose-500">
+            <AlertTriangle size={18} />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Delete sales invoice?</h3>
+            <p className="text-[12px] mt-1" style={{ color: 'var(--text-muted)' }}>
+              Invoice <span className="font-mono font-semibold">{sale.invoiceNumber}</span> will be voided.
+              Stock and IMEI will be restored, and accounting will reverse via a return journal.
+              This cannot be undone.
+            </p>
+          </div>
+        </div>
+        <div>
+          <label className="block text-[11px] font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Reason (optional)</label>
+          <input
+            className="input-field w-full text-sm"
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            placeholder="Wrong entry / cashier mistakeâ€¦"
+          />
+        </div>
+        <AdminPasswordField value={adminPassword} onChange={setAdminPassword} autoFocus />
+        <div className="flex gap-2 justify-end pt-1">
+          <button type="button" className="btn-secondary text-sm" onClick={onClose} disabled={saving}>Cancel</button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg font-semibold bg-rose-600 text-white hover:bg-rose-500 disabled:opacity-60"
+          >
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+            {saving ? 'Deletingâ€¦' : 'Delete invoice'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EditSaleModal({
+  sale, onClose, onSaved,
+}: { sale: any; onClose: () => void; onSaved: (updated: any) => void }) {
+  const hasReturns = (sale._count?.returns ?? sale.returns?.length ?? 0) > 0
+  const [customerName, setCustomerName] = useState(sale.customerName ?? '')
+  const [customerPhone, setCustomerPhone] = useState(sale.customerPhone ?? '')
+  const [notes, setNotes] = useState(sale.notes ?? '')
+  const [discount, setDiscount] = useState(String(sale.discount ?? 0))
+  const [items, setItems] = useState(
+    (sale.items ?? []).map((i: any) => ({
+      id: i.id,
+      productName: i.productName,
+      quantity: String(i.quantity),
+      unitPrice: String(i.unitPrice),
+      sku: i.sku,
+      imei: i.imei ?? null,
+    })),
+  )
+  const [payments, setPayments] = useState(
+    (sale.payments ?? []).map((p: any) => ({
+      id: p.id,
+      method: p.method,
+      amount: String(p.amount),
+      reference: p.reference ?? '',
+    })),
+  )
+  const [adminPassword, setAdminPassword] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const subtotal = items.reduce(
+    (s: number, i: { unitPrice: string; quantity: string }) =>
+      s + Number(i.unitPrice || 0) * Number(i.quantity || 0),
+    0,
+  )
+  const disc = Number(discount) || 0
+  const tax = Number(sale.tax ?? 0)
+  const total = Math.max(0, Math.round((subtotal - disc + tax) * 100) / 100)
+
+  const submit = async () => {
+    if (!adminPassword.trim()) { toast.error('Admin password is required'); return }
+    setSaving(true)
+    try {
+      const body: any = {
+        adminPassword,
+        customerName: customerName.trim() || null,
+        customerPhone: customerPhone.trim() || null,
+        notes: notes.trim() || null,
+      }
+      if (!hasReturns) {
+        body.discount = disc
+        body.items = items.map((i: { id: string; unitPrice: string; quantity: string }) => ({
+          id: i.id,
+          unitPrice: Number(i.unitPrice) || 0,
+          quantity: Math.max(1, Math.floor(Number(i.quantity) || 1)),
+        }))
+        body.payments = payments.map((p: { id?: string; method: string; amount: string; reference: string }) => ({
+          id: p.id,
+          method: p.method,
+          amount: Number(p.amount) || 0,
+          reference: p.reference || null,
+        }))
+      }
+      const res: any = await salesApi.update(sale.id, body)
+      toast.success('Invoice updated')
+      onSaved(res?.data ?? res)
+      onClose()
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to update sale')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="rounded-xl w-full max-w-2xl border shadow-2xl max-h-[92vh] overflow-y-auto"
+        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-3 border-b sticky top-0 z-10" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
+          <div className="flex items-center gap-2">
+            <Pencil size={15} className="text-emerald-500" />
+            <div>
+              <p className="text-sm font-semibold">Edit invoice {sale.invoiceNumber}</p>
+              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Requires owner / admin password</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg" style={{ color: 'var(--text-muted)' }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Customer name</label>
+              <input className="input-field w-full text-sm" value={customerName} onChange={e => setCustomerName(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-[11px] font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Customer phone</label>
+              <input className="input-field w-full text-sm" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <label className="block text-[11px] font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Notes</label>
+            <textarea className="input-field w-full text-sm min-h-[64px]" value={notes} onChange={e => setNotes(e.target.value)} />
+          </div>
+
+          {hasReturns ? (
+            <p className="text-[12px] rounded-lg border px-3 py-2" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)', background: 'var(--bg-subtle)' }}>
+              This invoice has returns — only customer name, phone and notes can be edited.
+            </p>
+          ) : (
+            <>
+              <div>
+                <p className="text-[11px] font-semibold mb-2 uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>Line items</p>
+                <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <table className="w-full text-[12px]">
+                    <thead style={{ background: 'var(--bg-subtle)' }}>
+                      <tr>
+                        <th className="text-left px-3 py-2 font-medium">Item</th>
+                        <th className="text-right px-3 py-2 font-medium">Qty</th>
+                        <th className="text-right px-3 py-2 font-medium">Unit price</th>
+                        <th className="text-right px-3 py-2 font-medium">Line total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map((item: {
+                        id: string
+                        productName: string
+                        sku?: string
+                        quantity: string
+                        unitPrice: string
+                        imei?: string | null
+                      }, idx: number) => {
+                        const lineTotal = (Number(item.unitPrice) || 0) * (Number(item.quantity) || 0)
+                        const imeiLocked = !!item.imei
+                        return (
+                        <tr key={item.id} className="border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                          <td className="px-3 py-2">
+                            <p className="font-medium">{item.productName}</p>
+                            {item.sku && <p className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>{item.sku}</p>}
+                            {imeiLocked && (
+                              <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>IMEI locked to qty 1</p>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <input
+                              type="number"
+                              min={1}
+                              step={1}
+                              disabled={imeiLocked}
+                              className="input-field text-sm py-1 w-20 text-right ml-auto disabled:opacity-60"
+                              value={item.quantity}
+                              onChange={e => {
+                                const next = [...items]
+                                next[idx] = { ...item, quantity: e.target.value }
+                                setItems(next)
+                              }}
+                            />
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              className="input-field text-sm py-1 w-28 text-right ml-auto"
+                              value={item.unitPrice}
+                              onChange={e => {
+                                const next = [...items]
+                                next[idx] = { ...item, unitPrice: e.target.value }
+                                setItems(next)
+                              }}
+                            />
+                          </td>
+                          <td className="px-3 py-2 text-right font-medium">{formatCurrency(lineTotal)}</td>
+                        </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Discount</label>
+                  <input type="number" min={0} step="0.01" className="input-field w-full text-sm" value={discount} onChange={e => setDiscount(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Tax</label>
+                  <input className="input-field w-full text-sm" value={tax} disabled />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>New total</label>
+                  <input className="input-field w-full text-sm font-semibold" value={formatCurrency(total)} disabled />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>Payments</p>
+                  <button
+                    type="button"
+                    className="text-[11px] font-semibold text-emerald-600"
+                    onClick={() => setPayments([...payments, { method: 'CASH', amount: '0', reference: '' }])}
+                  >
+                    + Add payment
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {payments.map((p: { id?: string; method: string; amount: string; reference: string }, idx: number) => (
+                    <div key={idx} className="grid grid-cols-3 gap-2">
+                      <select
+                        className="input-field text-sm"
+                        value={p.method}
+                        onChange={e => {
+                          const next = [...payments]
+                          next[idx] = { ...p, method: e.target.value }
+                          setPayments(next)
+                        }}
+                      >
+                        {['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CREDIT'].map(m => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        className="input-field text-sm"
+                        value={p.amount}
+                        onChange={e => {
+                          const next = [...payments]
+                          next[idx] = { ...p, amount: e.target.value }
+                          setPayments(next)
+                        }}
+                      />
+                      <div className="flex gap-1">
+                        <input
+                          className="input-field text-sm flex-1"
+                          placeholder="Ref"
+                          value={p.reference}
+                          onChange={e => {
+                            const next = [...payments]
+                            next[idx] = { ...p, reference: e.target.value }
+                            setPayments(next)
+                          }}
+                        />
+                        {payments.length > 1 && (
+                          <button
+                            type="button"
+                            className="px-2 rounded-lg text-rose-500 hover:bg-rose-500/10"
+                            onClick={() => setPayments(payments.filter((_: unknown, i: number) => i !== idx))}
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          <AdminPasswordField value={adminPassword} onChange={setAdminPassword} />
+
+          <div className="flex gap-2 justify-end pt-1">
+            <button type="button" className="btn-secondary text-sm" onClick={onClose} disabled={saving}>Cancel</button>
+            <button
+              type="button"
+              onClick={submit}
+              disabled={saving}
+              className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg font-semibold bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-60"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Pencil size={14} />}
+              {saving ? 'Savingâ€¦' : 'Save changes'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* â”€â”€ Sale Details Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+function SaleDetailsModal({
+  sale, onClose, onChanged,
+}: {
+  sale: any
+  onClose: () => void
+  onChanged: () => void
+}) {
   const invoiceRef  = useRef<HTMLDivElement>(null)
   const [downloading, setDownloading] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
+  const [showDelete, setShowDelete] = useState(false)
+  const [liveSale, setLiveSale] = useState(sale)
   const shopName = authStorage.getUser()?.name?.split(' ')[0] + ' Shop' || 'Our Shop'
   const [invSettings, setInvSettings] = useState<InvoiceSettings>(() => getInvoiceSettings())
   const [tenantSlug, setTenantSlug] = useState<string | undefined>()
   const activeTemplate = resolveInvoiceTemplate(invSettings, tenantSlug)
+  const canManage = ['OWNER', 'MANAGER', 'PLATFORM_ADMIN'].includes(authStorage.getUser()?.role ?? '')
+  const isReturned = liveSale.status === 'RETURNED'
+
+  useEffect(() => { setLiveSale(sale) }, [sale])
 
   useEffect(() => {
     const user = authStorage.getUser()
@@ -247,7 +642,7 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
           yMM += sliceHMM
         }
       }
-      pdf.save(`Invoice_${sale.invoiceNumber}.pdf`)
+      pdf.save(`Invoice_${liveSale.invoiceNumber}.pdf`)
       toast.success('Invoice downloaded')
     } catch { toast.error('Download failed') }
     finally { setDownloading(false) }
@@ -259,7 +654,7 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
     const w = window.open('', '_blank', 'width=900,height=1200')
     if (!w) return
     w.document.write(`
-      <html><head><title>Invoice ${sale.invoiceNumber}</title>
+      <html><head><title>Invoice ${liveSale.invoiceNumber}</title>
       <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3/dist/tailwind.min.css" rel="stylesheet">
       <style>
         body { margin: 0; background: white; font-family: 'Segoe UI', sans-serif; }
@@ -273,12 +668,12 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
     setTimeout(() => { w.print(); w.close() }, 400)
   }
 
-  const paymentStatus = sale?.dueAmount > 0 ? 'Partial' : 'Paid'
-  const paymentStatusClass = sale?.dueAmount > 0
+  const paymentStatus = liveSale?.dueAmount > 0 ? 'Partial' : 'Paid'
+  const paymentStatusClass = liveSale?.dueAmount > 0
     ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/25'
     : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
 
-  const safeText = (v: any) => (v === null || v === undefined || v === '' ? '—' : String(v))
+  const safeText = (v: any) => (v === null || v === undefined || v === '' ? 'â€”' : String(v))
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
@@ -296,10 +691,10 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
             <Receipt size={16} className="text-emerald-500 mt-0.5" />
             <div>
               <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                Sell Details ( Invoice No : <span className="font-mono">{safeText(sale.invoiceNumber)}</span> )
+                Sell Details ( Invoice No : <span className="font-mono">{safeText(liveSale.invoiceNumber)}</span> )
               </p>
               <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                {safeText(sale.customerName || 'Walk-in Customer')}
+                {safeText(liveSale.customerName || 'Walk-in Customer')}
               </p>
             </div>
           </div>
@@ -308,10 +703,10 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
             <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${paymentStatusClass}`}>
               {paymentStatus}
             </span>
-            <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${statusColors[sale.status] ?? ''}`}
-              style={!statusColors[sale.status] ? { background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-secondary)' } : undefined}
+            <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${statusColors[liveSale.status] ?? ''}`}
+              style={!statusColors[liveSale.status] ? { background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-secondary)' } : undefined}
             >
-              {safeText(sale.status)}
+              {safeText(liveSale.status)}
             </span>
             <button
               type="button"
@@ -333,17 +728,17 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
               <div className="flex items-center gap-1.5">
                 <Calendar size={13} style={{ color: 'var(--text-muted)' }} />
                 <span style={{ color: 'var(--text-muted)' }}>Date:</span>
-                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(formatDate(sale.createdAt))}</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(formatDate(liveSale.createdAt))}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Hash size={13} style={{ color: 'var(--text-muted)' }} />
                 <span style={{ color: 'var(--text-muted)' }}>Invoice No:</span>
-                <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{safeText(sale.invoiceNumber)}</span>
+                <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{safeText(liveSale.invoiceNumber)}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Receipt size={13} style={{ color: 'var(--text-muted)' }} />
                 <span style={{ color: 'var(--text-muted)' }}>Status:</span>
-                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(sale.status)}</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(liveSale.status)}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <CreditCard size={13} style={{ color: 'var(--text-muted)' }} />
@@ -356,171 +751,36 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
               <div className="flex items-center gap-1.5">
                 <User size={13} style={{ color: 'var(--text-muted)' }} />
                 <span style={{ color: 'var(--text-muted)' }}>Customer name:</span>
-                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(sale.customerName || 'Walk-in Customer')}</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(liveSale.customerName || 'Walk-in Customer')}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Package size={13} style={{ color: 'var(--text-muted)' }} />
-                <span style={{ color: 'var(--text-muted)' }}>Address:</span>
-                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(sale.customerAddress)}</span>
+                <span style={{ color: 'var(--text-muted)' }}>Phone:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(liveSale.customerPhone)}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <User size={13} style={{ color: 'var(--text-muted)' }} />
                 <span style={{ color: 'var(--text-muted)' }}>Service staff:</span>
-                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(sale.cashierName)}</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(liveSale.cashierName)}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Truck size={13} style={{ color: 'var(--text-muted)' }} />
                 <span style={{ color: 'var(--text-muted)' }}>Shipping:</span>
-                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(sale.shippingMethod || sale.source === 'DELIVERY' ? 'Delivery' : '')}</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(liveSale.shippingMethod || liveSale.source === 'DELIVERY' ? 'Delivery' : '')}</span>
               </div>
             </div>
 
             <div className="rounded-lg border p-3 text-[12px]" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
               <div className="flex items-center justify-between border-b pb-2 mb-2" style={{ borderColor: 'var(--border-subtle)' }}>
-                <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Quick totals</span>
-                <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{safeText(sale.currency || 'LKR')}</span>
+                <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Totals</span>
               </div>
-              <div className="space-y-1">
-                <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>Subtotal</span><span className="font-medium">{formatCurrency(sale.subtotal ?? 0)}</span></div>
-                <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>Discount</span><span className="font-medium">{formatCurrency(sale.discount ?? 0)}</span></div>
-                <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>Order Tax</span><span className="font-medium">{formatCurrency(sale.tax ?? 0)}</span></div>
-                <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>Shipping</span><span className="font-medium">{formatCurrency(sale.shippingFee ?? 0)}</span></div>
-                <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>Round Off</span><span className="font-medium">{formatCurrency(sale.roundOff ?? 0)}</span></div>
-                <div className="flex justify-between pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}><span className="font-semibold">Total Payable</span><span className="font-semibold">{formatCurrency(sale.total ?? 0)}</span></div>
-                <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>Total paid</span><span className="font-medium">{formatCurrency(sale.paidAmount ?? (sale.total ?? 0) - (sale.dueAmount ?? 0))}</span></div>
-                <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>Total remaining</span><span className="font-medium">{formatCurrency(sale.dueAmount ?? 0)}</span></div>
-              </div>
-            </div>
-          </div>
-
-          {/* Products + Payments + Totals layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Left column: products + payment table + notes */}
-            <div className="lg:col-span-2 space-y-4">
-              {/* Products */}
-              <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-                <div className="bg-emerald-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide">
-                  Products
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="min-w-[860px] w-full text-[12px]">
-                    <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
-                      <tr style={{ color: 'var(--text-secondary)' }}>
-                        <th className="px-3 py-2 text-left w-10">#</th>
-                        <th className="px-3 py-2 text-left">Product</th>
-                        <th className="px-3 py-2 text-left">Lot &amp; Expiry</th>
-                        <th className="px-3 py-2 text-right">Quantity</th>
-                        <th className="px-3 py-2 text-right">Unit Price</th>
-                        <th className="px-3 py-2 text-right">Discount</th>
-                        <th className="px-3 py-2 text-right">Tax</th>
-                        <th className="px-3 py-2 text-right">Price inc. tax</th>
-                        <th className="px-3 py-2 text-right">Subtotal</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(sale.items ?? []).map((item: any, idx: number) => {
-                        const qty = Number(item.quantity ?? 0)
-                        const unit = Number(item.unitPrice ?? 0)
-                        const subtotal = Number(item.total ?? qty * unit)
-                        const itemDiscount = Number(item.discount ?? 0)
-                        const itemTax = Number(item.tax ?? 0)
-                        const priceIncTax = qty > 0 ? (subtotal + itemTax) / qty : (unit + (itemTax || 0))
-                        return (
-                          <tr key={item.id ?? idx} className="border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
-                            <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{idx + 1}</td>
-                            <td className="px-3 py-2">
-                              <div className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(item.productName)}</div>
-                              {(item.sku || item.imei) && (
-                                <div className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
-                                  {safeText(item.sku)}{item.imei ? ` · ${item.imei}` : ''}
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{safeText(item.lotExpiry || item.lot || item.expiry)}</td>
-                            <td className="px-3 py-2 text-right">{safeText(qty ? qty.toFixed(2) + ' Qty' : '')}</td>
-                            <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(unit)}</td>
-                            <td className="px-3 py-2 text-right whitespace-nowrap">{itemDiscount ? formatCurrency(itemDiscount) : '0.00'}</td>
-                            <td className="px-3 py-2 text-right whitespace-nowrap">{itemTax ? formatCurrency(itemTax) : '0.00'}</td>
-                            <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(priceIncTax)}</td>
-                            <td className="px-3 py-2 text-right whitespace-nowrap font-semibold">{formatCurrency(subtotal)}</td>
-                          </tr>
-                        )
-                      })}
-                      {(!sale.items || sale.items.length === 0) && (
-                        <tr>
-                          <td colSpan={9} className="px-3 py-6 text-center" style={{ color: 'var(--text-muted)' }}>No items</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Payment info */}
-              <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-                <div className="bg-emerald-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide">
-                  Payment info
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="min-w-[720px] w-full text-[12px]">
-                    <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
-                      <tr style={{ color: 'var(--text-secondary)' }}>
-                        <th className="px-3 py-2 text-left w-10">#</th>
-                        <th className="px-3 py-2 text-left">Date</th>
-                        <th className="px-3 py-2 text-left">Reference No</th>
-                        <th className="px-3 py-2 text-right">Amount</th>
-                        <th className="px-3 py-2 text-left">Payment mode</th>
-                        <th className="px-3 py-2 text-left">Payment note</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(sale.payments ?? []).map((p: any, idx: number) => (
-                        <tr key={p.id ?? idx} className="border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
-                          <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{idx + 1}</td>
-                          <td className="px-3 py-2">{safeText(p.date ? formatDate(p.date) : formatDate(sale.createdAt))}</td>
-                          <td className="px-3 py-2 font-mono" style={{ color: 'var(--text-secondary)' }}>{safeText(p.reference)}</td>
-                          <td className="px-3 py-2 text-right whitespace-nowrap font-medium">{formatCurrency(p.amount ?? 0)}</td>
-                          <td className="px-3 py-2">{safeText(p.method)}</td>
-                          <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{safeText(p.note)}</td>
-                        </tr>
-                      ))}
-                      {(!sale.payments || sale.payments.length === 0) && (
-                        <tr>
-                          <td colSpan={6} className="px-3 py-6 text-center" style={{ color: 'var(--text-muted)' }}>No payments</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Notes */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Sell note:</p>
-                  <p className="text-[12px]" style={{ color: 'var(--text-primary)' }}>{safeText(sale.notes)}</p>
-                </div>
-                <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Staff note:</p>
-                  <p className="text-[12px]" style={{ color: 'var(--text-primary)' }}>{safeText(sale.staffNote)}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Right column: totals (detailed) */}
-            <div className="rounded-lg border overflow-hidden h-fit" style={{ borderColor: 'var(--border-subtle)' }}>
-              <div className="px-3 py-2 border-b flex items-center justify-between" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
-                <p className="text-[12px] font-semibold" style={{ color: 'var(--text-primary)' }}>Total</p>
-                <p className="text-[12px] font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(sale.total ?? 0)}</p>
-              </div>
-              <div className="p-3 text-[12px] space-y-2">
-                {[
-                  { label: 'Discount', value: sale.discount ?? 0 },
-                  { label: 'Service Charge', value: sale.serviceCharge ?? 0 },
-                  { label: 'Order Tax', value: sale.tax ?? 0 },
-                  { label: 'Shipping', value: sale.shippingFee ?? 0 },
-                  { label: 'Round Off', value: sale.roundOff ?? 0 },
-                ].map(r => (
+              {[
+                { label: 'Subtotal', value: liveSale.subtotal ?? 0 },
+                { label: 'Discount', value: liveSale.discount ?? 0 },
+                { label: 'Order Tax', value: liveSale.tax ?? 0 },
+                { label: 'Shipping', value: liveSale.shippingFee ?? 0 },
+                { label: 'Round Off', value: liveSale.roundOff ?? 0 },
+              ].map(r => (
                   <div key={r.label} className="flex items-center justify-between">
                     <span style={{ color: 'var(--text-muted)' }}>{r.label}:</span>
                     <span className="font-medium">{formatCurrency(Number(r.value ?? 0))}</span>
@@ -529,23 +789,75 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
                 <div className="pt-2 border-t space-y-2" style={{ borderColor: 'var(--border-subtle)' }}>
                   <div className="flex items-center justify-between">
                     <span className="font-semibold">Total Payable:</span>
-                    <span className="font-semibold">{formatCurrency(sale.total ?? 0)}</span>
+                    <span className="font-semibold">{formatCurrency(liveSale.total ?? 0)}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span style={{ color: 'var(--text-muted)' }}>Total paid:</span>
-                    <span className="font-medium">{formatCurrency(sale.paidAmount ?? (sale.total ?? 0) - (sale.dueAmount ?? 0))}</span>
+                    <span className="font-medium">{formatCurrency(liveSale.paidAmount ?? (liveSale.total ?? 0) - (liveSale.dueAmount ?? 0))}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span style={{ color: 'var(--text-muted)' }}>Total remaining:</span>
-                    <span className="font-medium">{formatCurrency(sale.dueAmount ?? 0)}</span>
+                    <span className="font-medium">{formatCurrency(liveSale.dueAmount ?? 0)}</span>
                   </div>
                 </div>
-              </div>
             </div>
           </div>
 
+          {/* Items preview */}
+          {Array.isArray(liveSale.items) && liveSale.items.length > 0 && (
+            <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+              <table className="w-full text-[12px]">
+                <thead style={{ background: 'var(--bg-subtle)' }}>
+                  <tr>
+                    <th className="text-left px-3 py-2 font-medium">Item</th>
+                    <th className="text-right px-3 py-2 font-medium">Qty</th>
+                    <th className="text-right px-3 py-2 font-medium">Price</th>
+                    <th className="text-right px-3 py-2 font-medium">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {liveSale.items.map((item: any) => (
+                    <tr key={item.id} className="border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                      <td className="px-3 py-2">
+                        <p className="font-medium">{item.productName}</p>
+                        {(item.sku || item.imei) && (
+                          <p className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
+                            {[item.sku, item.imei ? `IMEI ${item.imei}` : null].filter(Boolean).join(' Â· ')}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right">{item.quantity}</td>
+                      <td className="px-3 py-2 text-right">{formatCurrency(item.unitPrice)}</td>
+                      <td className="px-3 py-2 text-right font-medium">{formatCurrency(item.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
           {/* Bottom actions */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-end pt-2">
+            {canManage && !isReturned && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowEdit(true)}
+                  className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border font-semibold text-violet-700 dark:text-violet-300 border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20"
+                >
+                  <Pencil size={14} />
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDelete(true)}
+                  className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border font-semibold text-rose-700 dark:text-rose-300 border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20"
+                >
+                  <Trash2 size={14} />
+                  Delete
+                </button>
+              </>
+            )}
             <button
               type="button"
               onClick={printInvoice}
@@ -562,7 +874,7 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
               className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25 font-semibold disabled:opacity-60"
             >
               {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-              {downloading ? 'Generating…' : 'Download PDF'}
+              {downloading ? 'Generatingâ€¦' : 'Download PDF'}
             </button>
             <button
               type="button"
@@ -578,7 +890,7 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
           <div style={{ position: 'fixed', left: '-9999px', top: 0, pointerEvents: 'none' }}>
             <InvoiceA4View
               ref={invoiceRef}
-              sale={sale}
+              sale={liveSale}
               settings={invSettings}
               tenantSlug={tenantSlug}
               shopName={shopName}
@@ -588,6 +900,27 @@ function SaleDetailsModal({ sale, onClose }: { sale: any; onClose: () => void })
           </div>
         </div>
       </div>
+
+      {showEdit && (
+        <EditSaleModal
+          sale={liveSale}
+          onClose={() => setShowEdit(false)}
+          onSaved={(updated) => {
+            setLiveSale((prev: any) => ({ ...prev, ...updated }))
+            onChanged()
+          }}
+        />
+      )}
+      {showDelete && (
+        <DeleteSaleModal
+          sale={liveSale}
+          onClose={() => setShowDelete(false)}
+          onDeleted={() => {
+            onChanged()
+            onClose()
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -604,6 +937,9 @@ export default function SalesPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'PAID' | 'PARTIAL' | 'UNPAID' | 'RETURNED' | 'REFUNDED'>('all')
 
   const openDetail = useCallback((sale: any) => setDetailSale(sale), [])
+  const canManage = ['OWNER', 'MANAGER', 'PLATFORM_ADMIN'].includes(authStorage.getUser()?.role ?? '')
+  const [editSale, setEditSale] = useState<any>(null)
+  const [deleteSale, setDeleteSale] = useState<any>(null)
 
   useEffect(() => {
     const q = searchParams.get('q')
@@ -731,13 +1067,33 @@ export default function SalesPage() {
       cell: ({ row }) => {
         const s = row.original
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <TableActionsRow showAction={{ action: () => openDetail(s) }} />
+            {canManage && s.status !== 'RETURNED' && (
+              <>
+                <button
+                  type="button"
+                  title="Edit invoice"
+                  onClick={() => setEditSale(s)}
+                  className="p-1.5 rounded-lg transition-colors hover:bg-violet-500/10 text-violet-400"
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  type="button"
+                  title="Delete invoice"
+                  onClick={() => setDeleteSale(s)}
+                  className="p-1.5 rounded-lg transition-colors hover:bg-rose-500/10 text-rose-400"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </>
+            )}
           </div>
         )
       },
     },
-  ], [openDetail])
+  ], [openDetail, canManage])
 
   return (
     <div className="space-y-5">
@@ -755,7 +1111,7 @@ export default function SalesPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: 'Total Sales', value: String(meta?.total ?? '—'), icon: ShoppingBag, color: 'violet', filter: 'all' as const },
+          { label: 'Total Sales', value: String(meta?.total ?? 'â€”'), icon: ShoppingBag, color: 'violet', filter: 'all' as const },
           { label: 'Revenue', value: formatCurrency(totalRevenue), icon: TrendingUp, color: 'green', filter: 'all' as const },
           { label: 'Paid', value: String(paidCount), icon: Receipt, color: 'green', filter: 'PAID' as const },
           { label: 'Returned', value: String(returnedCount), icon: RotateCcw, color: 'rose', filter: 'RETURNED' as const },
@@ -781,7 +1137,7 @@ export default function SalesPage() {
         <ToolbarSearch
           value={textSearch}
           onChange={setTextSearch}
-          placeholder="Search invoice, customer, phone…"
+          placeholder="Search invoice, customer, phoneâ€¦"
           className="w-full sm:w-auto sm:min-w-[220px]"
         />
         <div className="flex gap-1 p-1 rounded-xl flex-wrap" style={{ background: 'var(--bg-subtle)' }}>
@@ -818,7 +1174,27 @@ export default function SalesPage() {
         />
       </div>
 
-      {detailSale && <SaleDetailsModal sale={detailSale} onClose={() => setDetailSale(null)} />}
+      {detailSale && (
+        <SaleDetailsModal
+          sale={detailSale}
+          onClose={() => setDetailSale(null)}
+          onChanged={() => { void load() }}
+        />
+      )}
+      {editSale && (
+        <EditSaleModal
+          sale={editSale}
+          onClose={() => setEditSale(null)}
+          onSaved={() => { void load() }}
+        />
+      )}
+      {deleteSale && (
+        <DeleteSaleModal
+          sale={deleteSale}
+          onClose={() => setDeleteSale(null)}
+          onDeleted={() => { void load() }}
+        />
+      )}
     </div>
   )
 }
