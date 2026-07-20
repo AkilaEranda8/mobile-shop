@@ -77,6 +77,10 @@
     --secondary-hover-bg: #eff6ff;
     --shadow-card:   0 1px 4px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.05);
     --shadow-card-hover: 0 2px 8px rgba(0,0,0,0.10), 0 8px 24px rgba(0,0,0,0.07);
+    /* Status / warning — never yellow in light mode */
+    --status-warn: #0284c7;
+    --status-warn-soft: rgba(2,132,199,0.12);
+    --status-warn-border: rgba(2,132,199,0.32);
   }
 
   /* ── Dark theme ────────────────────────────────────────── */
@@ -145,6 +149,9 @@
     --sidebar-active-border: rgba(37,99,235,0.30);
     --secondary-hover-bg: rgba(37,99,235,0.08);
     --shadow-card:   none;
+    --status-warn: #f59e0b;
+    --status-warn-soft: rgba(245,158,11,0.12);
+    --status-warn-border: rgba(245,158,11,0.32);
   }
 
   * {
@@ -565,16 +572,31 @@ html:not(.dark) .bg-white\/15 { background-color: rgba(0,0,0,0.08); }
 html:not(.dark) .hover\:bg-white\/5:hover  { background-color: rgba(0,0,0,0.04); }
 html:not(.dark) .hover\:bg-white\/10:hover { background-color: rgba(0,0,0,0.07); }
 
-/* Colored text — too light on white background */
-html:not(.dark) .text-amber-400  { color: #b45309 !important; }
-html:not(.dark) .text-amber-300  { color: #92400e !important; }
-html:not(.dark) .text-yellow-400  { color: #a16207 !important; }
-html:not(.dark) .text-yellow-300  { color: #854d0e !important; }
+/* Colored text — too light on white background.
+   Light mode: never use yellow/amber — remap warnings to sky. */
+html:not(.dark) .text-amber-200,
+html:not(.dark) .text-amber-300,
+html:not(.dark) .text-amber-400,
+html:not(.dark) .text-amber-500,
+html:not(.dark) .text-amber-600,
+html:not(.dark) .text-amber-700,
+html:not(.dark) .text-amber-800  { color: #0369a1 !important; }
+html:not(.dark) .text-yellow-200,
+html:not(.dark) .text-yellow-300,
+html:not(.dark) .text-yellow-400,
+html:not(.dark) .text-yellow-500,
+html:not(.dark) .text-yellow-600,
+html:not(.dark) .text-yellow-700,
+html:not(.dark) .text-yellow-800  { color: #0369a1 !important; }
+html:not(.dark) .fill-yellow-300,
+html:not(.dark) .fill-yellow-400,
+html:not(.dark) .fill-yellow-500,
+html:not(.dark) .fill-amber-400,
+html:not(.dark) .fill-amber-500   { fill: #0284c7 !important; color: #0284c7 !important; }
 html:not(.dark) .text-green-400   { color: #15803d !important; }
 html:not(.dark) .text-green-300   { color: #166534 !important; }
 html:not(.dark) .text-emerald-400  { color: #059669 !important; }
 html:not(.dark) .text-emerald-500  { color: #047857 !important; }
-html:not(.dark) .text-amber-500   { color: #b45309 !important; }
 html:not(.dark) .text-blue-400    { color: #1d4ed8 !important; }
 html:not(.dark) .text-blue-300    { color: #1e40af !important; }
 html:not(.dark) .text-purple-400  { color: #7e22ce !important; }
@@ -589,12 +611,24 @@ html:not(.dark) .text-cyan-400    { color: #0e7490 !important; }
 html:not(.dark) .text-teal-400    { color: #0f766e !important; }
 html:not(.dark) .text-pink-400    { color: #be185d !important; }
 
-/* Badge/pill backgrounds — too faint on white */
+/* Badge/pill backgrounds — yellow/amber → sky in light mode */
+html:not(.dark) .bg-amber-50,
+html:not(.dark) .bg-yellow-50     { background-color: #e0f2fe !important; }
+html:not(.dark) .bg-amber-100,
+html:not(.dark) .bg-yellow-100    { background-color: #bae6fd !important; }
+html:not(.dark) .bg-amber-400,
+html:not(.dark) .bg-yellow-400,
+html:not(.dark) .bg-amber-500,
+html:not(.dark) .bg-yellow-500    { background-color: #0284c7 !important; }
 html:not(.dark) .bg-amber-500\/10,
 html:not(.dark) .bg-amber-500\/15,
-html:not(.dark) .bg-amber-500\/20 { background-color: rgba(217,119,6,0.12)  !important; }
+html:not(.dark) .bg-amber-500\/20,
+html:not(.dark) .bg-amber-500\/25,
 html:not(.dark) .bg-yellow-500\/10,
-html:not(.dark) .bg-yellow-500\/20 { background-color: rgba(202,138,4,0.12)  !important; }
+html:not(.dark) .bg-yellow-500\/15,
+html:not(.dark) .bg-yellow-500\/20,
+html:not(.dark) .bg-yellow-500\/25,
+html:not(.dark) .bg-yellow-500\/60 { background-color: rgba(2,132,199,0.12) !important; }
 html:not(.dark) .bg-green-500\/10,
 html:not(.dark) .bg-green-500\/20  { background-color: rgba(21,128,61,0.10)  !important; }
 html:not(.dark) .bg-emerald-500\/10,
@@ -616,9 +650,15 @@ html:not(.dark) .bg-slate-500\/20  { background-color: rgba(71,85,105,0.10)  !im
 html:not(.dark) .bg-cyan-500\/10,
 html:not(.dark) .bg-cyan-500\/20   { background-color: rgba(14,116,144,0.10) !important; }
 
-/* Badge borders — too faint on white */
+/* Badge borders — yellow/amber → sky in light mode */
+html:not(.dark) .border-amber-500\/15,
+html:not(.dark) .border-amber-500\/20,
+html:not(.dark) .border-amber-500\/25,
+html:not(.dark) .border-amber-500\/30,
+html:not(.dark) .border-yellow-500\/15,
 html:not(.dark) .border-yellow-500\/20,
-html:not(.dark) .border-yellow-500\/30 { border-color: rgba(202,138,4,0.35)  !important; }
+html:not(.dark) .border-yellow-500\/25,
+html:not(.dark) .border-yellow-500\/30 { border-color: rgba(2,132,199,0.32) !important; }
 html:not(.dark) .border-green-500\/20,
 html:not(.dark) .border-green-500\/30  { border-color: rgba(21,128,61,0.30)  !important; }
 html:not(.dark) .border-blue-500\/20,
@@ -633,6 +673,14 @@ html:not(.dark) .border-red-500\/20,
 html:not(.dark) .border-red-500\/30    { border-color: rgba(185,28,28,0.30)  !important; }
 html:not(.dark) .border-slate-500\/20,
 html:not(.dark) .border-slate-500\/30  { border-color: rgba(71,85,105,0.25)  !important; }
+
+/* Light-mode hover yellow/amber */
+html:not(.dark) .hover\:bg-amber-500\/25:hover,
+html:not(.dark) .hover\:bg-yellow-500\/25:hover,
+html:not(.dark) .hover\:bg-amber-500\/10:hover,
+html:not(.dark) .hover\:bg-yellow-500\/10:hover { background-color: rgba(2,132,199,0.18) !important; }
+html:not(.dark) .hover\:text-amber-400:hover,
+html:not(.dark) .hover\:text-yellow-400:hover { color: #0369a1 !important; }
 
 /* Hardcoded dark hex backgrounds (modals, dropdowns, cards) */
 html:not(.dark) [class*="#0f1623"] { background-color: var(--bg-card) !important; }
@@ -658,7 +706,7 @@ html:not(.dark) [data-modal="dark"] .text-emerald-400                      { col
 html:not(.dark) [data-modal="dark"] .text-green-400                        { color: #4ade80 !important; }
 html:not(.dark) [data-modal="dark"] .text-blue-400                         { color: #60a5fa !important; }
 html:not(.dark) [data-modal="dark"] .text-pink-400                         { color: #f472b6 !important; }
-html:not(.dark) [data-modal="dark"] .text-amber-400                        { color: #fbbf24 !important; }
+html:not(.dark) [data-modal="dark"] .text-amber-400                        { color: #38bdf8 !important; }
 html:not(.dark) [data-modal="dark"] .text-cyan-400                         { color: #22d3ee !important; }
 html:not(.dark) [data-modal="dark"] .text-red-400                          { color: #f87171 !important; }
 html:not(.dark) [data-modal="dark"] .text-orange-600                       { color: #ea580c !important; }
@@ -735,8 +783,8 @@ html:not(.dark) [data-pos="dark"] .text-green-400                    { color: #1
 html:not(.dark) [data-pos="dark"] .text-emerald-400                   { color: #10B981 !important; }
 html:not(.dark) [data-pos="dark"] .text-blue-400                     { color: #3B82F6 !important; }
 html:not(.dark) [data-pos="dark"] .text-red-400                      { color: #EF4444 !important; }
-html:not(.dark) [data-pos="dark"] .text-amber-300                    { color: #F59E0B !important; }
-html:not(.dark) [data-pos="dark"] .text-amber-400                    { color: #F59E0B !important; }
+html:not(.dark) [data-pos="dark"] .text-amber-300                    { color: #38BDF8 !important; }
+html:not(.dark) [data-pos="dark"] .text-amber-400                    { color: #38BDF8 !important; }
 html:not(.dark) [data-pos="dark"] .text-violet-400                   { color: #a78bfa !important; }
 html:not(.dark) [data-pos="dark"] .pos-price                         { color: #7C3AED !important; }
 html:not(.dark) [data-pos="dark"] .input-field                        { background: rgba(255,255,255,0.08) !important; border-color: rgba(255,255,255,0.15) !important; color: #f1f5f9 !important; }
@@ -771,6 +819,13 @@ html:not(.dark) [data-pos="dark"] .border-violet-500\/20              { border-c
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
+  :root:not(.dark) .brand-gradient-text-warm,
+  html:not(.dark) .brand-gradient-text-warm {
+    background: linear-gradient(135deg, #0284c7 0%, var(--brand-primary) 60%, #06b6d4 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
 
   /* ── Brand gradient backgrounds ── */
   .brand-gradient-bg {
@@ -792,6 +847,8 @@ html:not(.dark) [data-pos="dark"] .border-violet-500\/20              { border-c
   .kpi-bar-cyan   { background: linear-gradient(90deg, #0891b2, #06b6d4); }
   .kpi-bar-green  { background: linear-gradient(90deg, #16a34a, #22c55e); }
   .kpi-bar-amber  { background: linear-gradient(90deg, #b45309, #f59e0b); }
+  :root:not(.dark) .kpi-bar-amber,
+  html:not(.dark) .kpi-bar-amber { background: linear-gradient(90deg, #0369a1, #38bdf8); }
 
   /* ── Health score ring ── */
   .health-ring {
@@ -1000,7 +1057,8 @@ html:not(.dark) [data-pos="dark"] .border-violet-500\/20              { border-c
   }
 
   /* ── Rank Badges ── */
-  .rank-gold   { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #451a03; }
+  .rank-gold   { background: linear-gradient(135deg, #38bdf8, #0284c7); color: #0c4a6e; }
+  .dark .rank-gold { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #451a03; }
   .rank-silver { background: linear-gradient(135deg, #d1d5db, #9ca3af); color: #1f2937; }
   .rank-bronze { background: linear-gradient(135deg, #d97706, #b45309); color: #fff7ed; }
 
@@ -1020,7 +1078,7 @@ html:not(.dark) [data-pos="dark"] .border-violet-500\/20              { border-c
 
   /* ── Health Ring Gradient ── */
   .health-gradient-excellent { stop-color: #22c55e; }
-  .health-gradient-good      { stop-color: #f59e0b; }
+  .health-gradient-good      { stop-color: var(--status-warn); }
   .health-gradient-warning   { stop-color: #ef4444; }
 }
 

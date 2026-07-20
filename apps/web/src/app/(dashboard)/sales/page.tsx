@@ -41,7 +41,7 @@ const methodIcon: Record<string, React.ReactNode> = {
 
 /* â”€â”€ Printable Invoice Template â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const INV_NAVY   = '#0d1b2e'
-const INV_ORANGE = '#f59e0b'
+const INV_ORANGE = 'var(--status-warn)'
 const INV_DARK2  = '#162436'
 
 function InvLabel({ children }: { children: React.ReactNode }) {

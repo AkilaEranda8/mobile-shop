@@ -337,7 +337,7 @@ export default function CategoryReportPage() {
                           <td className="px-3 py-2.5 text-xs text-right text-red-600 dark:text-red-400">{formatCurrency(p.cogs)}</td>
                           <td className="px-3 py-2.5 text-xs text-right font-semibold text-green-600 dark:text-green-400">{formatCurrency(p.profit)}</td>
                           <td className="px-3 py-2.5 text-right">
-                            <span className={`text-xs font-semibold ${p.margin >= 20 ? 'text-green-600 dark:text-green-400' : p.margin >= 10 ? 'text-yellow-500' : 'text-red-500'}`}>{p.margin}%</span>
+                              <span className={`text-xs font-semibold ${p.margin >= 20 ? 'text-green-600 dark:text-green-400' : p.margin >= 10 ? 'text-sky-600 dark:text-sky-400' : 'text-red-500'}`}>{p.margin}%</span>
                           </td>
                           <td className="px-3 py-2.5 text-xs text-right" style={{ color: 'var(--text-secondary)' }}>{Number(p.unitsSold).toLocaleString()}</td>
                           <td className="px-3 py-2.5 text-xs text-right" style={{ color: 'var(--text-secondary)' }}>{p.transactions}</td>
@@ -408,7 +408,7 @@ export default function CategoryReportPage() {
                       <td className="px-3 py-2.5 text-xs text-right text-red-600 dark:text-red-400">{formatCurrency(c.cogs)}</td>
                       <td className="px-3 py-2.5 text-xs text-right font-semibold text-green-600 dark:text-green-400">{formatCurrency(c.profit)}</td>
                       <td className="px-3 py-2.5 text-right">
-                        <span className={`text-xs font-semibold ${c.margin >= 20 ? 'text-green-600 dark:text-green-400' : c.margin >= 10 ? 'text-yellow-500' : 'text-red-500'}`}>
+                        <span className={`text-xs font-semibold ${c.margin >= 20 ? 'text-green-600 dark:text-green-400' : c.margin >= 10 ? 'text-sky-600 dark:text-sky-400' : 'text-red-500'}`}>
                           {c.margin}%
                         </span>
                       </td>
@@ -440,7 +440,7 @@ export default function CategoryReportPage() {
                       <td className="px-3 py-2.5 text-xs text-right font-bold text-red-600 dark:text-red-400">{formatCurrency(totals.cogs)}</td>
                       <td className="px-3 py-2.5 text-xs text-right font-bold text-green-600 dark:text-green-400">{formatCurrency(totals.profit)}</td>
                       <td className="px-3 py-2.5 text-right">
-                        <span className={`text-xs font-bold ${totals.margin >= 20 ? 'text-green-600 dark:text-green-400' : 'text-yellow-500'}`}>{totals.margin}%</span>
+                        <span className={`text-xs font-bold ${totals.margin >= 20 ? 'text-green-600 dark:text-green-400' : 'text-sky-600 dark:text-sky-400'}`}>{totals.margin}%</span>
                       </td>
                       <td className="px-3 py-2.5 text-xs text-right font-bold" style={{ color: 'var(--text-primary)' }}>{totals.units.toLocaleString()}</td>
                       <td colSpan={2} />

@@ -128,7 +128,7 @@ export default function DashboardPage() {
     { name: 'In Repair',        value: repairStats.inProg,    color: '#3b82f6' },
     { name: 'Received',         value: repairStats.received,  color: 'var(--brand-light)' },
     { name: 'Diagnosed',        value: repairStats.diagnosed, color: '#a855f7' },
-    { name: 'Quality Check',    value: repairStats.qc,        color: '#f59e0b' },
+    { name: 'Quality Check',    value: repairStats.qc,        color: 'var(--status-warn)' },
     { name: 'Ready for Pickup', value: repairStats.ready,     color: '#22c55e' },
   ].filter(d => d.value > 0)
 
@@ -277,7 +277,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-4 pt-4 border-t border-gray-50 dark:border-slate-700">
             {[
               { label: 'Sales',         value: formatCurrency(totalRevenue),      color: 'var(--brand-primary)' },
-              { label: 'COGS',          value: formatCurrency(totalCogs),         color: '#f59e0b' },
+              { label: 'COGS',          value: formatCurrency(totalCogs),         color: 'var(--status-warn)' },
               { label: 'Gross Profit',  value: formatCurrency(totalGrossProfit),  color: '#22c55e' },
               { label: 'Expenses',      value: formatCurrency(totalExpenses),     color: '#ef4444' },
               { label: 'Net Profit',    value: formatCurrency(totalNetProfit),    color: '#2563eb' },
@@ -493,7 +493,7 @@ export default function DashboardPage() {
                   <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg flex-shrink-0 ${
                     (p.stock ?? 0) <= 2 ? 'bg-red-50   text-red-600   dark:bg-red-500/10   dark:text-red-400' :
                     (p.stock ?? 0) <= 5 ? 'bg-orange-50 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400' :
-                                          'bg-yellow-50 text-yellow-600 dark:bg-yellow-500/10 dark:text-yellow-400'
+                                          'bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-400'
                   }`}>
                     Stock: {p.stock ?? 0}
                   </span>

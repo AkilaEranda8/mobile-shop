@@ -13,7 +13,9 @@ import {
   Grid3X3, List as ListIcon, MessageCircle, Star, RefreshCw, RotateCcw,
   LayoutGrid, Hash, Wallet, Users, PhoneCall, PlayCircle, Lock, AlertTriangle, Calendar,
 } from 'lucide-react'
-import { HexaPosLayout, POS_THEME, categoryIcon } from './HexaPosLayout'
+import { HexaPosLayout, categoryIcon } from './HexaPosLayout'
+import { StudioPosLayout } from './StudioPosLayout'
+import { POS_THEME, syncPosThemeRuntime } from './pos-theme'
 import { PosReturnModal } from './PosReturnModal'
 import { PosReloadPanel, type ReloadProvider } from './PosReloadPanel'
 import type { CartItem } from './types'
@@ -223,7 +225,7 @@ function InvoiceTemplate({ sale, shopName, settings }: { sale: any; shopName: st
         <div style={{ marginLeft: 'auto' }}>
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 5,
-            background: isPaid ? IV.teal : '#f59e0b',
+            background: isPaid ? IV.teal : 'var(--status-warn)',
             color: '#fff', fontSize: 10, fontWeight: 800,
             padding: '5px 14px', borderRadius: 99, letterSpacing: 1,
           }}>
@@ -1249,6 +1251,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [paymentMethod, setPaymentMethod]       = useState<PaymentMethodKey>('CASH')
   const payMethods = usePaymentMethods()
   const posUi = usePosUiSettings()
+  useMemo(() => syncPosThemeRuntime(posUi.theme, posUi.accent), [posUi.theme, posUi.accent])
+  const PosShell = posUi.theme === 'studio' ? StudioPosLayout : HexaPosLayout
   const payMethodsRef = useRef(payMethods)
   useEffect(() => {
     payMethodsRef.current = payMethods
@@ -3294,7 +3298,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       )}
 
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-      <HexaPosLayout
+      <PosShell
         shopName={storeName}
         onClose={requestClosePos}
         cashierName={cashierName}
@@ -4330,7 +4334,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         </div>
                       </div>
                       {dayEndVariance !== 0 && (
-                        <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-xl border" style={{ borderColor: '#f59e0b40', background: '#f59e0b12', color: '#fbbf24' }}>
+                        <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-xl border" style={{ borderColor: `${POS_THEME.amber}40`, background: `${POS_THEME.amber}12`, color: POS_THEME.amber }}>
                           <AlertTriangle size={14} />
                           {dayEndVariance > 0 ? `Shortage ${formatCurrency(dayEndVariance)}` : `Overage ${formatCurrency(Math.abs(dayEndVariance))}`}
                         </div>

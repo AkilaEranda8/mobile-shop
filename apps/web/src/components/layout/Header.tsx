@@ -73,7 +73,7 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
   }
 
   const typeColor: Record<string, string> = {
-    warning: 'bg-yellow-400',
+    warning: 'bg-sky-400',
     success: 'bg-green-400',
     info:    'bg-blue-400',
   }
@@ -159,8 +159,8 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
                 )}
                 {notifications.map((n) => (
                   <div key={n.id} className="px-4 py-3 flex gap-3 transition-colors hover:bg-white/3">
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${n.type === 'warning' ? 'bg-yellow-500/10' : n.type === 'success' ? 'bg-green-500/10' : 'bg-blue-500/10'}`}>
-                      <n.icon size={13} className={n.type === 'warning' ? 'text-yellow-400' : n.type === 'success' ? 'text-green-400' : 'text-blue-400'} />
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${n.type === 'warning' ? 'bg-sky-500/10' : n.type === 'success' ? 'bg-green-500/10' : 'bg-blue-500/10'}`}>
+                      <n.icon size={13} className={n.type === 'warning' ? 'text-sky-500' : n.type === 'success' ? 'text-green-400' : 'text-blue-400'} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{n.message}</p>

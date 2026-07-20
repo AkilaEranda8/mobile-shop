@@ -20,7 +20,7 @@ import { financeApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import type { Transaction as AppTransaction } from '@/types'
 
-const COLORS = ['var(--brand-primary)', '#06b6d4', '#10b981', '#f59e0b', '#ef4444']
+const COLORS = ['var(--brand-primary)', '#06b6d4', '#10b981', 'var(--status-warn)', '#ef4444']
 
 function AddTransactionModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState({ type: 'EXPENSE', category: 'Other Expenses', amount: '', description: '', paymentMethod: 'CASH' })

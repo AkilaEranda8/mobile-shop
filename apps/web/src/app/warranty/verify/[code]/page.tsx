@@ -22,7 +22,7 @@ type VerifyResult = {
 const STATUS_STYLE: Record<string, { color: string; bg: string; label: string }> = {
   ACTIVE:  { color: '#10b981', bg: 'rgba(16,185,129,0.12)', label: 'Active' },
   EXPIRED: { color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', label: 'Expired' },
-  CLAIMED: { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', label: 'Claim in progress' },
+  CLAIMED: { color: 'var(--status-warn)', bg: 'var(--status-warn-soft)', label: 'Claim in progress' },
   VOID:    { color: '#ef4444', bg: 'rgba(239,68,68,0.12)', label: 'Void' },
 }
 

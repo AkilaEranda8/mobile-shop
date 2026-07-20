@@ -372,7 +372,7 @@ export default function DailyClosingPage() {
           {d?.isClosed && canClose && (
             <button onClick={reopenDay} disabled={saving}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-colors"
-              style={{ borderColor: 'rgba(245,158,11,0.3)', color: '#f59e0b', background: 'rgba(245,158,11,0.08)' }}>
+              style={{ borderColor: 'var(--status-warn-border)', color: 'var(--status-warn)', background: 'var(--status-warn-soft)' }}>
               <Unlock size={13} /> Reopen
             </button>
           )}
@@ -417,8 +417,8 @@ export default function DailyClosingPage() {
               sub="Opening + cash in − out" color="#3b82f6" bg="rgba(59,130,246,0.1)" />
             <KpiCard icon={variance === 0 ? CheckCircle2 : AlertTriangle} label="Cash Difference" value={formatCurrency(variance)}
               sub={variance > 0 ? 'Shortage' : variance < 0 ? 'Overage' : 'Balanced'}
-              color={varianceTone === 'green' ? '#10b981' : varianceTone === 'amber' ? '#f59e0b' : '#ef4444'}
-              bg={varianceTone === 'green' ? 'rgba(16,185,129,0.1)' : varianceTone === 'amber' ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)'} />
+              color={varianceTone === 'green' ? '#10b981' : varianceTone === 'amber' ? 'var(--status-warn)' : '#ef4444'}
+              bg={varianceTone === 'green' ? 'rgba(16,185,129,0.1)' : varianceTone === 'amber' ? 'var(--status-warn-soft)' : 'rgba(239,68,68,0.1)'} />
           </div>
 
           {/* ── Insights ── */}
@@ -714,8 +714,8 @@ export default function DailyClosingPage() {
                     {variance !== 0 && (
                       <div className="mt-3 flex items-center gap-2 text-xs px-3 py-2.5 rounded-xl"
                         style={{
-                          background: varianceTone === 'red' ? 'rgba(239,68,68,0.08)' : 'rgba(245,158,11,0.08)',
-                          color: varianceTone === 'red' ? '#ef4444' : '#f59e0b',
+                          background: varianceTone === 'red' ? 'rgba(239,68,68,0.08)' : 'var(--status-warn-soft)',
+                          color: varianceTone === 'red' ? '#ef4444' : 'var(--status-warn)',
                           border: `1px solid ${varianceTone === 'red' ? 'rgba(239,68,68,0.25)' : 'rgba(245,158,11,0.25)'}`,
                         }}>
                         <AlertTriangle size={14} />
@@ -887,7 +887,7 @@ export default function DailyClosingPage() {
                 {showReload && (
                   <KpiCard icon={PhoneCall} label="Reloads" value={String(d.dataSources.reloadRecords ?? 0)} color="#10b981" bg="rgba(16,185,129,0.1)" />
                 )}
-                <KpiCard icon={RotateCcw} label="Returns" value={String(d.dataSources.returnsProcessed ?? 0)} color="#f59e0b" bg="rgba(245,158,11,0.1)" />
+                <KpiCard icon={RotateCcw} label="Returns" value={String(d.dataSources.returnsProcessed ?? 0)} color="var(--status-warn)" bg="var(--status-warn-soft)" />
               </div>
               <div className="flex flex-wrap gap-2">
                 {[

@@ -186,7 +186,7 @@ export function BusinessHealthCard({ data }: { data: BusinessHealthInput }) {
     [factors],
   )
 
-  const color = score >= 75 ? '#22c55e' : score >= 50 ? '#f59e0b' : '#ef4444'
+  const color = score >= 75 ? '#22c55e' : score >= 50 ? 'var(--status-warn)' : '#ef4444'
   const label = score >= 85 ? 'Excellent' : score >= 75 ? 'Strong' : score >= 50 ? 'Good' : score >= 30 ? 'Fair' : 'Needs Attention'
   const subtitle =
     score >= 75 ? "You're on a solid track"
@@ -263,7 +263,7 @@ export function BusinessHealthCard({ data }: { data: BusinessHealthInput }) {
 
       <div className="space-y-1 flex-1">
         {factors.map(f => {
-          const statusColor = f.ok ? '#22c55e' : f.warn ? '#f59e0b' : '#ef4444'
+          const statusColor = f.ok ? '#22c55e' : f.warn ? 'var(--status-warn)' : '#ef4444'
           const Icon = f.icon
           const pct = Math.round((f.score / f.max) * 100)
           return (

@@ -99,7 +99,7 @@ export function ImeiProductTypeSelector({
         })}
       </div>
       {suggestion && suggestion !== value && (
-        <p style={{ fontSize: 10, color: '#f59e0b', marginTop: 8 }}>
+        <p style={{ fontSize: 10, color: 'var(--status-warn)', marginTop: 8 }}>
           Tip: &quot;{categoryName || deviceModel}&quot; is usually{' '}
           {suggestion === 'device' ? 'a phone/tablet with IMEI' : 'a product without IMEI'}.
         </p>

@@ -631,7 +631,7 @@ export default function StockTransferPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Qty" />,
       cell: ({ row }) => (
         <span className="text-sm font-mono font-semibold"
-          style={{ color: row.original.quantity > 0 ? '#4ade80' : '#fbbf24' }}>
+          style={{ color: row.original.quantity > 0 ? '#4ade80' : 'var(--status-warn)' }}>
           {row.original.quantity > 0 ? `+${row.original.quantity}` : row.original.quantity}
         </span>
       ),

@@ -289,7 +289,7 @@ export default function DailyReloadPage() {
       cell: ({ row: { original: r } }) => (
         <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{
           background: r.status === 'Success' ? 'rgba(16,185,129,0.12)' : r.status === 'Failed' ? 'rgba(239,68,68,0.12)' : 'rgba(245,158,11,0.12)',
-          color:      r.status === 'Success' ? '#10b981'               : r.status === 'Failed' ? '#ef4444'               : '#f59e0b',
+          color:      r.status === 'Success' ? '#10b981'               : r.status === 'Failed' ? '#ef4444'               : 'var(--status-warn)',
         }}>{r.status}</span>
       ),
     },
@@ -411,7 +411,7 @@ export default function DailyReloadPage() {
           { icon: PhoneCall,     label: 'Total Reloads',  value: summary.total.toString(),      color: 'var(--brand-light)', bg: 'rgba(139,92,246,0.1)' },
           { icon: TrendingUp,    label: 'Reload Total',   value: formatAmt(summary.totalAmount), color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
           { icon: TrendingUp,    label: 'Commission (Earned)',  value: formatAmt(summary.commission),  color: '#10b981', bg: 'rgba(16,185,129,0.1)' },
-          { icon: CheckCircle2,  label: 'Net to Provider', value: formatAmt(netPayable), color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+          { icon: CheckCircle2,  label: 'Net to Provider', value: formatAmt(netPayable), color: 'var(--status-warn)', bg: 'var(--status-warn-soft)' },
         ].map(({ icon: Icon, label, value, color, bg }) => (
           <div key={label} className="card rounded-2xl p-4 flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: bg }}>
@@ -609,7 +609,7 @@ export default function DailyReloadPage() {
                                   onClick={() => handlePayProvider(row.provider)}
                                   disabled={payingProvider !== null}
                                   className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-colors disabled:opacity-40"
-                                  style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}
+                                  style={{ background: 'var(--status-warn-soft)', color: 'var(--status-warn)', border: '1px solid var(--status-warn-border)' }}
                                 >
                                   {payingProvider === row.provider ? <RefreshCw size={11} className="animate-spin" /> : <Banknote size={11} />}
                                   Pay
@@ -673,7 +673,7 @@ export default function DailyReloadPage() {
                 {[
                   ...(payModal.priorBalance > 0.01 ? [{ label: 'Prior Balance', value: formatAmt(payModal.priorBalance), color: '#f97316' }] : []),
                   ...(payModal.todayNetPayable > 0.01 ? [{ label: 'Today Net', value: formatAmt(payModal.todayNetPayable), color: 'var(--text-primary)' }] : []),
-                  { label: 'Net to Pay', value: formatAmt(payModal.netPayable), color: '#f59e0b' },
+                  { label: 'Net to Pay', value: formatAmt(payModal.netPayable), color: 'var(--status-warn)' },
                   { label: 'Paid', value: formatAmt(payModal.paid), color: '#10b981' },
                   { label: 'Balance', value: formatAmt(payModal.remaining), color: '#ef4444' },
                 ].map(({ label, value, color }) => (
@@ -700,7 +700,7 @@ export default function DailyReloadPage() {
                     type="button"
                     onClick={() => setPayAmount(payModal.remaining.toFixed(2))}
                     className="px-2.5 py-1 rounded-lg text-[10px] font-semibold"
-                    style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}
+                    style={{ background: 'var(--status-warn-soft)', color: 'var(--status-warn)' }}
                   >
                     Full balance
                   </button>
@@ -747,7 +747,7 @@ export default function DailyReloadPage() {
                   onClick={submitProviderPay}
                   disabled={!!payingProvider}
                   className="flex-1 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40"
-                  style={{ background: 'rgba(245,158,11,0.2)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.35)' }}
+                  style={{ background: 'var(--status-warn-soft)', color: 'var(--status-warn)', border: '1px solid var(--status-warn-border)' }}
                 >
                   {payingProvider === payModal.provider ? <RefreshCw size={14} className="animate-spin" /> : <Banknote size={14} />}
                   Record payment

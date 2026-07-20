@@ -39,9 +39,11 @@ export const POS_SHORTCUT_ACTIONS = [
 
 export type PosShortcutActionId = (typeof POS_SHORTCUT_ACTIONS)[number]
 
+export type PosUiThemeId = 'hexa-dark' | 'hexa-light' | 'studio'
+
 export type PosUiSettings = {
-  theme: 'hexa-dark' | 'hexa-light'
-  /** Hex accent override; empty = default purple */
+  theme: PosUiThemeId
+  /** Hex accent override; empty = theme default accent */
   accent: string
   density: 'comfortable' | 'compact'
   productGrid: {
@@ -163,7 +165,10 @@ export function normalizePosUiSettings(raw: unknown): PosUiSettings {
   const bottom = asRecord(src.bottomActions)
   const behavior = asRecord(src.behavior)
 
-  const theme = src.theme === 'hexa-light' ? 'hexa-light' : 'hexa-dark'
+  const theme: PosUiThemeId =
+    src.theme === 'hexa-light' ? 'hexa-light'
+    : src.theme === 'studio' ? 'studio'
+    : 'hexa-dark'
   const density = src.density === 'compact' ? 'compact' : 'comfortable'
   const cartPosition = layout.cartPosition === 'left' ? 'left' : 'right'
   const priceMode =

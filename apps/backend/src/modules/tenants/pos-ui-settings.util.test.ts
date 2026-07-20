@@ -29,4 +29,10 @@ assert(badAccent.accent === '', 'invalid accent cleared')
 
 assert(DEFAULT_POS_UI_SETTINGS.shortcuts.F10 === 'newSale', 'default F10')
 
+const studio = normalizePosUiSettings({ theme: 'studio' })
+assert(studio.theme === 'studio', 'studio theme')
+
+const unknownTheme = normalizePosUiSettings({ theme: 'neon' })
+assert(unknownTheme.theme === 'hexa-dark', 'unknown theme falls back')
+
 console.log('pos-ui-settings.util.test.ts: all checks passed')

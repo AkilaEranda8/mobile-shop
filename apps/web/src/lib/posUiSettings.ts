@@ -38,8 +38,10 @@ export const POS_SHORTCUT_ACTIONS = [
 
 export type PosShortcutActionId = (typeof POS_SHORTCUT_ACTIONS)[number]
 
+export type PosUiThemeId = 'hexa-dark' | 'hexa-light' | 'studio'
+
 export type PosUiSettings = {
-  theme: 'hexa-dark' | 'hexa-light'
+  theme: PosUiThemeId
   accent: string
   density: 'comfortable' | 'compact'
   productGrid: {
@@ -157,9 +159,14 @@ export function gridColsClass(columns: 3 | 4 | 5 | 6): string {
 function coerce(raw: unknown): PosUiSettings {
   if (!raw || typeof raw !== 'object') return { ...DEFAULT_POS_UI_SETTINGS, productGrid: { ...DEFAULT_POS_UI_SETTINGS.productGrid }, layout: { ...DEFAULT_POS_UI_SETTINGS.layout }, bottomActions: { visible: [...DEFAULT_POS_UI_SETTINGS.bottomActions.visible] }, shortcuts: { ...DEFAULT_POS_UI_SETTINGS.shortcuts }, behavior: { ...DEFAULT_POS_UI_SETTINGS.behavior } }
   const s = raw as Partial<PosUiSettings>
+  const theme: PosUiThemeId =
+    s.theme === 'hexa-light' ? 'hexa-light'
+    : s.theme === 'studio' ? 'studio'
+    : 'hexa-dark'
   return {
     ...DEFAULT_POS_UI_SETTINGS,
     ...s,
+    theme,
     productGrid: { ...DEFAULT_POS_UI_SETTINGS.productGrid, ...(s.productGrid ?? {}) },
     layout: { ...DEFAULT_POS_UI_SETTINGS.layout, ...(s.layout ?? {}) },
     bottomActions: {

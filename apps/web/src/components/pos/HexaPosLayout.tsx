@@ -7,28 +7,7 @@ import {
   RotateCcw, Settings,
   SlidersHorizontal, type LucideIcon,
 } from 'lucide-react'
-
-const C = {
-  bg: '#0B0E14',
-  panel: '#0B0E14',
-  card: '#161B22',
-  cardHover: '#1c2333',
-  border: '#2a3344',
-  muted: '#9CA3AF',
-  text: '#FFFFFF',
-  purple: '#7C3AED',
-  purpleDark: '#6D28D9',
-  green: '#10B981',
-  greenDark: '#059669',
-  blue: '#3B82F6',
-  blueDark: '#2563EB',
-  amber: '#F59E0B',
-  amberDark: '#D97706',
-  red: '#EF4444',
-  redDark: '#DC2626',
-  teal: '#0D9488',
-  tealDark: '#047857',
-}
+import { resolvePosTheme, type PosThemeId } from './pos-theme'
 
 export function categoryIcon(name: string) {
   const n = name.toLowerCase()
@@ -49,7 +28,7 @@ const NAV_ITEMS: PosNavItem[] = [
 
 export type PosNavItem = { id: string; label: string; icon: LucideIcon }
 
-interface HexaPosLayoutProps {
+export interface HexaPosLayoutProps {
   shopName: string
   onClose: () => void
   cashierName: string
@@ -83,7 +62,7 @@ interface HexaPosLayoutProps {
   onMobileViewChange?: (view: 'products' | 'cart') => void
   /** Tenant POS UI preferences (defaults = current Hexa look). */
   layoutPrefs?: {
-    theme?: 'hexa-dark' | 'hexa-light'
+    theme?: PosThemeId
     accent?: string
     density?: 'comfortable' | 'compact'
     showSidebar?: boolean
@@ -93,35 +72,7 @@ interface HexaPosLayoutProps {
 }
 
 function resolveTheme(prefs?: HexaPosLayoutProps['layoutPrefs']) {
-  const light = prefs?.theme === 'hexa-light'
-  const accent = prefs?.accent && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(prefs.accent)
-    ? prefs.accent
-    : light ? '#6D28D9' : C.purple
-  const purpleDark = light ? '#5B21B6' : C.purpleDark
-  if (!light) {
-    return { ...C, purple: accent || C.purple, purpleDark: prefs?.accent ? accent : purpleDark }
-  }
-  return {
-    bg: '#F4F6FA',
-    panel: '#EEF1F7',
-    card: '#FFFFFF',
-    cardHover: '#F8FAFC',
-    border: '#D8DEE9',
-    muted: '#64748B',
-    text: '#0F172A',
-    purple: accent,
-    purpleDark,
-    green: '#059669',
-    greenDark: '#047857',
-    blue: '#2563EB',
-    blueDark: '#1D4ED8',
-    amber: '#D97706',
-    amberDark: '#B45309',
-    red: '#DC2626',
-    redDark: '#B91C1C',
-    teal: '#0F766E',
-    tealDark: '#115E59',
-  }
+  return resolvePosTheme(prefs?.theme, prefs?.accent)
 }
 
 export function HexaPosLayout({
@@ -408,4 +359,6 @@ export function HexaPosLayout({
   )
 }
 
-export { C as POS_THEME }
+export { POS_THEME } from './pos-theme'
+export { resolvePosTheme } from './pos-theme'
+export type { PosThemeId, PosThemeTokens } from './pos-theme'
