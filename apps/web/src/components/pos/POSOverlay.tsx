@@ -723,18 +723,18 @@ function VariationPickerModal({
         role="dialog"
         aria-modal="true"
         aria-label={`Configure ${product.name}`}
-        className="relative w-full sm:max-w-xl max-h-[min(92dvh,820px)] flex flex-col rounded-t-3xl sm:rounded-3xl shadow-2xl border overflow-hidden"
+        className="relative w-full sm:max-w-lg max-h-[min(88dvh,680px)] flex flex-col rounded-t-2xl sm:rounded-2xl shadow-2xl border overflow-hidden"
         style={{
-          background: `radial-gradient(900px 280px at 50% -20%, ${POS_THEME.purple}22 0%, transparent 55%), ${POS_THEME.card}`,
+          background: `radial-gradient(720px 220px at 50% -20%, ${POS_THEME.purple}1a 0%, transparent 55%), ${POS_THEME.card}`,
           borderColor: POS_THEME.border,
-          boxShadow: `0 28px 80px rgba(0,0,0,0.55), 0 0 0 1px ${POS_THEME.border}`,
+          boxShadow: `0 20px 50px rgba(0,0,0,0.45), 0 0 0 1px ${POS_THEME.border}`,
         }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="shrink-0 flex items-start gap-3 px-4 sm:px-5 pt-4 pb-3 border-b" style={{ borderColor: POS_THEME.border }}>
+        <div className="shrink-0 flex items-start gap-2.5 px-3.5 sm:px-4 pt-3 pb-2.5 border-b" style={{ borderColor: POS_THEME.border }}>
           <div
-            className="relative w-12 h-12 rounded-2xl overflow-hidden shrink-0 border"
+            className="relative w-10 h-10 rounded-xl overflow-hidden shrink-0 border"
             style={{ borderColor: POS_THEME.border, background: gradient }}
           >
             {product.imageUrl ? (
@@ -747,11 +747,11 @@ function VariationPickerModal({
             )}
           </div>
           <div className="min-w-0 flex-1 pt-0.5">
-            <p className="text-lg font-extrabold leading-tight truncate" style={{ color: POS_THEME.text }}>{product.name}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <p className="text-sm sm:text-[15px] font-extrabold leading-tight truncate" style={{ color: POS_THEME.text }}>{product.name}</p>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {selected && (
                 <span
-                  className="text-[11px] font-bold px-2.5 py-1 rounded-full"
+                  className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                   style={{ background: `${POS_THEME.purple}24`, color: POS_THEME.purple, border: `1px solid ${POS_THEME.purple}44` }}
                 >
                   {selected.storage} · {selected.colorName}
@@ -759,7 +759,7 @@ function VariationPickerModal({
               )}
               {selected?.stock != null && (
                 <span
-                  className="text-[11px] font-bold px-2.5 py-1 rounded-full"
+                  className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                   style={{
                     background: stockOut ? `${POS_THEME.red}18` : `${POS_THEME.green}18`,
                     color: stockOut ? POS_THEME.red : POS_THEME.green,
@@ -771,7 +771,7 @@ function VariationPickerModal({
               )}
               {product.sku && (
                 <span
-                  className="text-[10px] font-mono px-2 py-1 rounded-full truncate max-w-[10rem]"
+                  className="text-[10px] font-mono px-1.5 py-0.5 rounded-full truncate max-w-[10rem]"
                   style={{ background: POS_THEME.bg, color: POS_THEME.muted, border: `1px solid ${POS_THEME.border}` }}
                 >
                   {product.sku}
@@ -782,20 +782,20 @@ function VariationPickerModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 border hover:bg-black/5"
+            className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 border hover:bg-black/5"
             style={{ borderColor: POS_THEME.border, color: POS_THEME.muted, background: POS_THEME.bg }}
             aria-label="Close"
           >
-            <X size={16} />
+            <X size={14} />
           </button>
         </div>
 
         {/* All options — single scrollable page */}
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-5 py-4 space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3.5 sm:px-4 py-3 space-y-3">
           {showStorage && (
             <section>
-              <p className="text-[11px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: POS_THEME.muted }}>Storage</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.1em] mb-1.5" style={{ color: POS_THEME.muted }}>Storage</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                 {storageOptions.map(s => {
                   const active = selStorage === s
                   return (
@@ -803,7 +803,7 @@ function VariationPickerModal({
                       key={s}
                       type="button"
                       onClick={() => { setSelStorage(s); clearImeiSelection() }}
-                      className="h-11 rounded-xl text-sm font-extrabold border transition-all"
+                      className="h-10 rounded-xl text-sm font-extrabold border transition-all"
                       style={chip(active)}
                     >
                       {s}
@@ -816,8 +816,8 @@ function VariationPickerModal({
 
           {showColor && (
             <section>
-              <p className="text-[11px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: POS_THEME.muted }}>Color</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.1em] mb-1.5" style={{ color: POS_THEME.muted }}>Color</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 {colorOptions.map(v => {
                   const active = selColor === v.colorName
                   return (
@@ -825,7 +825,7 @@ function VariationPickerModal({
                       key={v.colorName}
                       type="button"
                       onClick={() => { setSelColor(v.colorName); clearImeiSelection() }}
-                      className="h-11 px-3 rounded-xl text-sm font-bold border flex items-center gap-2.5 transition-all"
+                      className="h-10 px-3 rounded-xl text-sm font-bold border flex items-center gap-2 transition-all"
                       style={chip(active)}
                     >
                       <span
@@ -956,7 +956,7 @@ function VariationPickerModal({
                     min={0}
                     step="0.01"
                     inputMode="decimal"
-                    className="w-full h-12 px-3.5 rounded-xl text-xl font-extrabold outline-none border"
+                    className="w-full h-11 px-3 rounded-xl text-lg font-extrabold outline-none border"
                     style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
                     value={salePrice}
                     onChange={e => setSalePrice(e.target.value)}
@@ -966,25 +966,25 @@ function VariationPickerModal({
                   </p>
                 </div>
               ) : (
-                <div className="rounded-xl border px-3.5 py-3 flex items-center justify-between" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
-                  <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: POS_THEME.muted }}>Price</span>
-                  <span className="text-xl font-extrabold" style={{ color: POS_THEME.text }}>{formatCurrency(catalogPrice)}</span>
+                <div className="rounded-xl border px-3 py-2.5 flex items-center justify-between" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
+                  <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: POS_THEME.muted }}>Price</span>
+                  <span className="text-lg font-extrabold" style={{ color: POS_THEME.text }}>{formatCurrency(catalogPrice)}</span>
                 </div>
               )}
             </section>
           )}
 
           {!showPriceBlock && selected && (
-            <div className="rounded-xl border px-3.5 py-3 flex items-center justify-between" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
-              <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: POS_THEME.muted }}>Price</span>
-              <span className="text-xl font-extrabold" style={{ color: POS_THEME.text }}>{formatCurrency(catalogPrice)}</span>
+            <div className="rounded-xl border px-3 py-2.5 flex items-center justify-between" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
+              <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: POS_THEME.muted }}>Price</span>
+              <span className="text-lg font-extrabold" style={{ color: POS_THEME.text }}>{formatCurrency(catalogPrice)}</span>
             </div>
           )}
         </div>
 
         {/* Footer */}
         <div
-          className="shrink-0 border-t px-4 sm:px-5 pt-3 pb-[max(0.85rem,env(safe-area-inset-bottom))] space-y-2"
+          className="shrink-0 border-t px-3.5 sm:px-4 pt-2.5 pb-[max(0.65rem,env(safe-area-inset-bottom))] space-y-2"
           style={{ borderColor: POS_THEME.border, background: `${POS_THEME.panel}ee` }}
         >
           <div className="flex items-center justify-between gap-2 text-[11px] px-0.5">
@@ -996,11 +996,11 @@ function VariationPickerModal({
               {formatCurrency(displayPrice)}
             </span>
           </div>
-          <div className="flex gap-2.5">
+          <div className="flex gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 h-12 rounded-2xl text-sm font-bold border"
+              className="flex-1 h-10 rounded-xl text-xs font-bold border"
               style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }}
             >
               Cancel
@@ -1009,10 +1009,10 @@ function VariationPickerModal({
               type="button"
               disabled={!canAdd}
               onClick={confirmAdd}
-              className="flex-[1.6] h-12 rounded-2xl text-sm font-extrabold text-white flex items-center justify-center gap-2 disabled:opacity-40"
-              style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, boxShadow: `0 12px 28px ${POS_THEME.purple}40` }}
+              className="flex-[1.5] h-10 rounded-xl text-xs font-extrabold text-white flex items-center justify-center gap-1.5 disabled:opacity-40"
+              style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, boxShadow: `0 8px 18px ${POS_THEME.purple}35` }}
             >
-              <ShoppingCart size={15} /> Add to cart
+              <ShoppingCart size={14} /> Add to cart
             </button>
           </div>
         </div>
@@ -1021,7 +1021,7 @@ function VariationPickerModal({
   )
 }
 
-/* ── Price prompt before add-to-cart ─────────────────────────────────────── */
+/* ── Price prompt before add-to-cart (simple products / price edit) ─────── */
 function PricePromptModal({
   productName,
   subtitle,
@@ -1061,36 +1061,48 @@ function PricePromptModal({
 
   return (
     <div
-      className="fixed inset-0 z-[210] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-      onClick={onClose}
+      className="fixed inset-0 z-[210] flex items-end sm:items-center justify-center p-0 sm:p-3"
+      style={{ background: 'rgba(4,10,12,0.72)', backdropFilter: 'blur(10px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
+      {/* Compact dialog sized for laptop — content-height, not a tall sheet */}
       <div
-        data-pos="dark"
-        className="w-full max-w-md rounded-2xl shadow-2xl border overflow-hidden"
-        style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}
+        className="relative w-full sm:w-[min(100%,380px)] flex flex-col rounded-t-2xl sm:rounded-2xl shadow-2xl border overflow-hidden"
+        style={{
+          background: `radial-gradient(640px 180px at 50% -30%, ${POS_THEME.purple}1a 0%, transparent 55%), ${POS_THEME.card}`,
+          borderColor: POS_THEME.border,
+          boxShadow: `0 20px 50px rgba(0,0,0,0.45), 0 0 0 1px ${POS_THEME.border}`,
+        }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: POS_THEME.border }}>
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: `${POS_THEME.purple}22`, border: `1px solid ${POS_THEME.purple}44` }}
-            >
-              <Tag size={15} style={{ color: POS_THEME.purple }} />
-            </div>
-            <div className="min-w-0">
-              <h3 className="text-sm font-bold text-white truncate">Set sale price</h3>
-              <p className="text-[11px] text-white/50 truncate">{productName}{subtitle ? ` · ${subtitle}` : ''}</p>
-            </div>
+        <div className="shrink-0 flex items-center gap-2.5 px-3.5 sm:px-4 pt-3 pb-2.5 border-b" style={{ borderColor: POS_THEME.border }}>
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: `linear-gradient(145deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, boxShadow: `0 6px 14px ${POS_THEME.purple}28` }}
+          >
+            <Tag size={15} className="text-white" />
           </div>
-          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/5 text-white/70 shrink-0">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm font-extrabold leading-tight truncate" style={{ color: POS_THEME.text }}>Set sale price</h3>
+            <p className="text-[11px] mt-0.5 truncate" style={{ color: POS_THEME.muted }}>
+              {productName}{subtitle ? ` · ${subtitle}` : ''}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 border hover:bg-black/5"
+            style={{ borderColor: POS_THEME.border, color: POS_THEME.muted, background: POS_THEME.bg }}
+            aria-label="Close"
+          >
             <X size={14} />
           </button>
         </div>
-        <div className="p-5 space-y-4">
+
+        <div className="px-3.5 sm:px-4 py-3 space-y-3">
           {(showWholesale || showCredit) && (
             <div className="space-y-1.5">
-              <p className="text-xs text-white/50">Price type</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: POS_THEME.muted }}>Price type</p>
               <PriceModeToggle
                 mode={priceMode}
                 onChange={mode => onPriceModeChange?.(mode)}
@@ -1100,15 +1112,15 @@ function PricePromptModal({
             </div>
           )}
           <div>
-            <p className="text-xs text-white/50 mb-1.5">Sale price (LKR)</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] mb-1.5" style={{ color: POS_THEME.muted }}>Sale price (LKR)</p>
             <input
               ref={inputRef}
               type="number"
               min={0}
               step="0.01"
               inputMode="decimal"
-              className="w-full h-11 px-3 rounded-xl text-base font-bold outline-none border text-white"
-              style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }}
+              className="w-full h-11 px-3 rounded-xl text-lg font-extrabold outline-none border"
+              style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
               value={value}
               onChange={e => onChange(e.target.value)}
               onKeyDown={e => {
@@ -1116,28 +1128,35 @@ function PricePromptModal({
                 if (e.key === 'Escape') { e.preventDefault(); onClose() }
               }}
             />
-            <p className="text-[10px] text-white/40 mt-1.5">Catalog {formatCurrency(catalogPrice)}</p>
+            <p className="text-[11px] mt-1.5" style={{ color: POS_THEME.muted }}>
+              Catalog {formatCurrency(catalogPrice)}
+            </p>
           </div>
         </div>
-        <div className="px-5 py-4 border-t flex gap-2" style={{ borderColor: POS_THEME.border }}>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 h-11 rounded-xl text-sm font-semibold border text-white/70 hover:bg-white/5"
-            style={{ borderColor: POS_THEME.border }}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={!valid}
-            onClick={onConfirm}
-            className="flex-1 h-11 rounded-xl text-sm font-bold text-white disabled:opacity-40 flex items-center justify-center gap-2"
-            style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})` }}
-          >
-            <ShoppingCart size={14} />
-            Add to Cart
-          </button>
+
+        <div
+          className="shrink-0 border-t px-3.5 sm:px-4 pt-2.5 pb-[max(0.65rem,env(safe-area-inset-bottom))]"
+          style={{ borderColor: POS_THEME.border, background: `${POS_THEME.panel}ee` }}
+        >
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 h-10 rounded-xl text-xs font-bold border"
+              style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={!valid}
+              onClick={onConfirm}
+              className="flex-[1.5] h-10 rounded-xl text-xs font-extrabold text-white flex items-center justify-center gap-1.5 disabled:opacity-40"
+              style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, boxShadow: `0 8px 18px ${POS_THEME.purple}35` }}
+            >
+              <ShoppingCart size={14} /> Add to Cart
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -3383,7 +3402,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       onClick={handlePick}>
 
                       {/* Image */}
-                      <div className="relative aspect-[4/3] overflow-hidden">
+                      <div className="relative aspect-[5/3] lg:aspect-[16/10] overflow-hidden">
                         <div className="absolute inset-0" style={{ background: gradient }}>
                           <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 65% 20%, rgba(255,255,255,0.18) 0%, transparent 55%)' }} />
                         </div>
@@ -3429,8 +3448,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       </div>
 
                       {/* Info */}
-                      <div className="flex flex-col px-2 sm:px-2.5 py-2 gap-0.5 flex-1">
-                        <p className="text-xs sm:text-[13px] font-bold leading-snug line-clamp-2 min-h-[2rem]" style={{ color: POS_THEME.text }}>{item.name}</p>
+                      <div className="flex flex-col px-2 sm:px-2.5 py-1.5 sm:py-2 gap-0.5 flex-1">
+                        <p className="text-[11px] sm:text-xs font-bold leading-snug line-clamp-2 min-h-[1.75rem]" style={{ color: POS_THEME.text }}>{item.name}</p>
                         {posUi.productGrid.showSku && (
                           <p className="text-[10px] font-mono truncate" style={{ color: POS_THEME.muted }}>{item.sku}</p>
                         )}

@@ -94,7 +94,7 @@ export function StudioPosLayout(props: HexaPosLayoutProps) {
     <div
       className={`flex-col min-h-0 min-w-0 ${
         showCartPane ? 'flex' : 'hidden'
-      } lg:flex w-full lg:w-[min(360px,40vw)] xl:w-[400px] 2xl:w-[440px] shrink-0 p-2 lg:p-3`}
+      } lg:flex w-full lg:w-[min(300px,34vw)] xl:w-[340px] 2xl:w-[380px] shrink-0 p-2 lg:p-2.5`}
     >
       <div
         className="flex-1 flex flex-col min-h-0 rounded-2xl overflow-hidden border"

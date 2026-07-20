@@ -133,7 +133,7 @@ export function HexaPosLayout({
     <div
       className={`flex-col min-h-0 min-w-0 ${
         showCartPane ? 'flex' : 'hidden'
-      } lg:flex w-full lg:w-[min(340px,38vw)] xl:w-[380px] 2xl:w-[420px] shrink-0 ${cartLeft ? 'border-r' : 'border-l'}`}
+      } lg:flex w-full lg:w-[min(300px,34vw)] xl:w-[340px] 2xl:w-[380px] shrink-0 ${cartLeft ? 'border-r' : 'border-l'}`}
       style={{ borderColor: T.border, background: T.card }}
     >
       {cartPanel}
