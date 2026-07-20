@@ -785,17 +785,19 @@ function VariationPickerModal({
     price: 'Price',
   }
 
-  const chip = (active: boolean) => ({
-    background: active ? POS_THEME.purple : POS_THEME.bg,
+  const optionStyle = (active: boolean) => ({
+    background: active ? `linear-gradient(145deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})` : POS_THEME.bg,
     borderColor: active ? POS_THEME.purple : POS_THEME.border,
     color: active ? '#fff' : POS_THEME.text,
-    boxShadow: active ? `0 2px 10px ${POS_THEME.purple}40` : 'none',
+    boxShadow: active ? `0 10px 28px ${POS_THEME.purple}33` : 'none',
   } as const)
+
+  const stockOut = selected?.stock != null && (selected.stock ?? 0) === 0
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-3"
-      style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(8px)' }}
+      className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4"
+      style={{ background: 'rgba(4,10,12,0.78)', backdropFilter: 'blur(12px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
@@ -803,82 +805,125 @@ function VariationPickerModal({
         role="dialog"
         aria-modal="true"
         aria-label={`Configure ${product.name}`}
-        className="relative w-full sm:max-w-xl max-h-[min(92dvh,720px)] flex flex-col rounded-t-2xl sm:rounded-2xl shadow-2xl border overflow-hidden"
-        style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}
+        className="relative w-full sm:max-w-lg max-h-[min(92dvh,760px)] flex flex-col rounded-t-3xl sm:rounded-3xl shadow-2xl border overflow-hidden"
+        style={{
+          background: `radial-gradient(900px 280px at 50% -20%, ${POS_THEME.purple}22 0%, transparent 55%), ${POS_THEME.card}`,
+          borderColor: POS_THEME.border,
+          boxShadow: `0 28px 80px rgba(0,0,0,0.55), 0 0 0 1px ${POS_THEME.border}`,
+        }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Compact header */}
-        <div className="shrink-0 flex items-center gap-3 px-4 pt-3.5 pb-3 border-b" style={{ borderColor: POS_THEME.border }}>
-          <div
-            className="relative w-11 h-11 rounded-xl overflow-hidden shrink-0 border"
-            style={{ borderColor: POS_THEME.border, background: gradient }}
-          >
-            {product.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={product.imageUrl} alt={product.name} className="absolute inset-0 w-full h-full object-cover" />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <CardIcon size={18} style={{ color: iconColor }} />
-              </div>
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-base font-bold text-white leading-tight truncate">{product.name}</p>
-            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px]">
-              {selected && (
-                <span className="font-semibold px-2 py-0.5 rounded-md" style={{ background: `${POS_THEME.purple}22`, color: '#c4b5fd' }}>
-                  {selected.storage} · {selected.colorName}
-                </span>
-              )}
-              {selected?.stock != null && (
-                <span className="font-bold" style={{ color: (selected.stock ?? 0) === 0 ? POS_THEME.red : POS_THEME.green }}>
-                  {(selected.stock ?? 0) === 0 ? 'Out' : `${selected.stock} stk`}
-                </span>
-              )}
-              {product.sku && (
-                <span className="font-mono truncate max-w-[12rem]" style={{ color: POS_THEME.muted }}>{product.sku}</span>
+        {/* Header */}
+        <div className="shrink-0 px-4 sm:px-5 pt-4 pb-3">
+          <div className="flex items-start gap-3">
+            <div
+              className="relative w-12 h-12 rounded-2xl overflow-hidden shrink-0 border"
+              style={{ borderColor: POS_THEME.border, background: gradient }}
+            >
+              {product.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={product.imageUrl} alt={product.name} className="absolute inset-0 w-full h-full object-cover" />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <CardIcon size={20} style={{ color: iconColor }} />
+                </div>
               )}
             </div>
+            <div className="min-w-0 flex-1 pt-0.5">
+              <p className="text-lg font-extrabold leading-tight truncate" style={{ color: POS_THEME.text }}>{product.name}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {selected && (
+                  <span
+                    className="text-[11px] font-bold px-2.5 py-1 rounded-full"
+                    style={{ background: `${POS_THEME.purple}24`, color: POS_THEME.purple, border: `1px solid ${POS_THEME.purple}44` }}
+                  >
+                    {selected.storage} · {selected.colorName}
+                  </span>
+                )}
+                {selected?.stock != null && (
+                  <span
+                    className="text-[11px] font-bold px-2.5 py-1 rounded-full"
+                    style={{
+                      background: stockOut ? `${POS_THEME.red}18` : `${POS_THEME.green}18`,
+                      color: stockOut ? POS_THEME.red : POS_THEME.green,
+                      border: `1px solid ${stockOut ? POS_THEME.red : POS_THEME.green}44`,
+                    }}
+                  >
+                    {stockOut ? 'Out of stock' : `${selected.stock} in stock`}
+                  </span>
+                )}
+                {product.sku && (
+                  <span
+                    className="text-[10px] font-mono px-2 py-1 rounded-full truncate max-w-[10rem]"
+                    style={{ background: POS_THEME.bg, color: POS_THEME.muted, border: `1px solid ${POS_THEME.border}` }}
+                  >
+                    {product.sku}
+                  </span>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 border hover:bg-white/5"
+              style={{ borderColor: POS_THEME.border, color: POS_THEME.muted, background: POS_THEME.bg }}
+              aria-label="Close"
+            >
+              <X size={16} />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border hover:bg-white/5"
-            style={{ borderColor: POS_THEME.border, color: POS_THEME.muted, background: POS_THEME.bg }}
-            aria-label="Close"
-          >
-            <X size={15} />
-          </button>
+
+          {/* Stepper */}
+          {steps.length > 1 && (
+            <div className="mt-4 flex items-center gap-2">
+              {steps.map((s, i) => {
+                const done = i < stepIdx
+                const active = i === stepIdx
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => { if (i <= stepIdx) setStepIdx(i) }}
+                    className="flex items-center gap-1.5 min-w-0"
+                    title={stepLabel[s]}
+                    aria-label={`Step ${i + 1}: ${stepLabel[s]}`}
+                  >
+                    <span
+                      className="w-6 h-6 rounded-full text-[10px] font-extrabold flex items-center justify-center shrink-0"
+                      style={{
+                        background: active || done ? POS_THEME.purple : POS_THEME.bg,
+                        color: active || done ? '#fff' : POS_THEME.muted,
+                        boxShadow: active ? `0 0 0 3px ${POS_THEME.purple}33` : 'none',
+                      }}
+                    >
+                      {done ? <Check size={12} /> : i + 1}
+                    </span>
+                    {active && (
+                      <span className="text-[11px] font-bold truncate hidden sm:inline" style={{ color: POS_THEME.text }}>
+                        {stepLabel[s]}
+                      </span>
+                    )}
+                    {i < steps.length - 1 && (
+                      <span className="w-4 sm:w-6 h-px mx-0.5" style={{ background: i < stepIdx ? POS_THEME.purple : POS_THEME.border }} />
+                    )}
+                  </button>
+                )
+              })}
+              <span className="ml-auto text-[10px] font-bold tabular-nums" style={{ color: POS_THEME.muted }}>
+                {stepIdx + 1}/{steps.length}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Step progress */}
-        {steps.length > 1 && (
-          <div className="shrink-0 flex items-center gap-1.5 px-4 py-2 border-b" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
-            {steps.map((s, i) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => { if (i <= stepIdx) setStepIdx(i) }}
-                className="flex-1 h-2 rounded-full transition-colors"
-                style={{ background: i <= stepIdx ? POS_THEME.purple : POS_THEME.border }}
-                title={stepLabel[s]}
-                aria-label={`Step ${i + 1}: ${stepLabel[s]}`}
-              />
-            ))}
-            <span className="text-[10px] font-bold ml-2 shrink-0 tabular-nums" style={{ color: POS_THEME.muted }}>
-              {stepIdx + 1}/{steps.length} {stepLabel[step]}
-            </span>
-          </div>
-        )}
-
         {/* Step body */}
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-3.5">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-5 pb-4">
           {step === 'storage' && (
             <section>
-              <p className="text-[11px] font-bold uppercase tracking-wide mb-2.5" style={{ color: POS_THEME.muted }}>
-                Storage <span className="normal-case font-medium opacity-70">· ← → then Enter</span>
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] mb-3" style={{ color: POS_THEME.muted }}>
+                Choose storage <span className="normal-case tracking-normal font-medium opacity-70">· ← → Enter</span>
               </p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2.5">
                 {storageOptions.map((s, i) => {
                   const active = selStorage === s
                   return (
@@ -887,8 +932,8 @@ function VariationPickerModal({
                       type="button"
                       data-picker-focus={i === 0 || active ? '1' : undefined}
                       onClick={() => { setSelStorage(s); clearImeiSelection() }}
-                      className="h-11 rounded-xl text-sm font-bold border transition-all focus:outline-none focus:ring-2 focus:ring-violet-400/60"
-                      style={chip(active)}
+                      className="h-14 rounded-2xl text-base font-extrabold border transition-all focus:outline-none"
+                      style={optionStyle(active)}
                     >
                       {s}
                     </button>
@@ -900,10 +945,10 @@ function VariationPickerModal({
 
           {step === 'color' && (
             <section>
-              <p className="text-[11px] font-bold uppercase tracking-wide mb-2.5" style={{ color: POS_THEME.muted }}>
-                Color <span className="normal-case font-medium opacity-70">· ← → then Enter</span>
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] mb-3" style={{ color: POS_THEME.muted }}>
+                Choose color <span className="normal-case tracking-normal font-medium opacity-70">· ← → Enter</span>
               </p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {colorOptions.map((v, i) => {
                   const active = selColor === v.colorName
                   return (
@@ -912,17 +957,15 @@ function VariationPickerModal({
                       type="button"
                       data-picker-focus={i === 0 || active ? '1' : undefined}
                       onClick={() => { setSelColor(v.colorName); clearImeiSelection() }}
-                      className="h-11 px-3 rounded-xl text-sm font-semibold border flex items-center gap-2.5 transition-all focus:outline-none focus:ring-2 focus:ring-violet-400/60"
-                      style={active
-                        ? { background: `${POS_THEME.purple}28`, borderColor: POS_THEME.purple, color: '#fff' }
-                        : { background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
+                      className="h-14 px-3.5 rounded-2xl text-sm font-bold border flex items-center gap-3 transition-all focus:outline-none"
+                      style={optionStyle(active)}
                     >
                       <span
-                        className="w-4 h-4 rounded-full border shrink-0"
-                        style={{ background: colorDot(v.colorName), borderColor: active ? '#fff' : 'rgba(255,255,255,0.25)' }}
+                        className="w-5 h-5 rounded-full border-2 shrink-0"
+                        style={{ background: colorDot(v.colorName), borderColor: active ? '#fff' : 'rgba(255,255,255,0.2)' }}
                       />
                       <span className="truncate flex-1 text-left">{v.colorName}</span>
-                      {active && <Check size={14} className="text-violet-300 shrink-0" />}
+                      {active && <Check size={16} className="shrink-0" />}
                     </button>
                   )
                 })}
@@ -931,45 +974,45 @@ function VariationPickerModal({
           )}
 
           {step === 'imei' && (
-            <section className="space-y-2.5">
-              <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: POS_THEME.muted }}>
-                IMEI <span className="text-rose-400">*</span>
-                <span className="normal-case font-medium opacity-70 ml-1">· scan / select · Enter</span>
+            <section className="space-y-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: POS_THEME.muted }}>
+                Select IMEI <span style={{ color: POS_THEME.red }}>*</span>
+                <span className="normal-case tracking-normal font-medium opacity-70 ml-1">· scan / pick</span>
               </p>
               {loadingImeis ? (
-                <div className="flex items-center gap-2 text-xs py-2" style={{ color: POS_THEME.muted }}>
+                <div className="flex items-center gap-2 text-xs py-3" style={{ color: POS_THEME.muted }}>
                   <Loader2 size={14} className="animate-spin" /> Loading…
                 </div>
               ) : availableImeis.length === 0 ? (
-                <div className="rounded-xl px-3 py-2.5 text-xs leading-snug" style={{ background: 'rgba(239,68,68,0.1)', color: '#fca5a5' }}>
+                <div className="rounded-2xl px-3.5 py-3 text-xs leading-snug" style={{ background: `${POS_THEME.red}14`, color: POS_THEME.red, border: `1px solid ${POS_THEME.red}33` }}>
                   No IN_STOCK IMEIs for {selected?.storage} / {selected?.colorName}.
                 </div>
               ) : (
                 <>
                   <div
-                    className="flex gap-2 items-center px-3 h-11 rounded-xl border"
-                    style={{ background: `${POS_THEME.purple}18`, borderColor: `${POS_THEME.purple}55` }}
+                    className="flex gap-2.5 items-center px-3.5 h-12 rounded-2xl border"
+                    style={{ background: `${POS_THEME.purple}14`, borderColor: `${POS_THEME.purple}55` }}
                   >
-                    <ScanLine size={15} className="text-violet-300 shrink-0" />
+                    <ScanLine size={16} style={{ color: POS_THEME.purple }} className="shrink-0" />
                     <input
                       ref={imeiScanRef}
-                      className="flex-1 bg-transparent outline-none text-sm font-mono tracking-wider placeholder:text-white/30"
-                      style={{ color: '#fff' }}
+                      className="flex-1 bg-transparent outline-none text-sm font-mono tracking-wider placeholder:opacity-35"
+                      style={{ color: POS_THEME.text }}
                       placeholder="Scan or type IMEI…"
                       value={imeiScanValue}
                       onChange={e => { setImeiScanValue(e.target.value); setImeiScanError('') }}
                     />
                   </div>
-                  {imeiScanError && <p className="text-[11px] text-rose-400">{imeiScanError}</p>}
+                  {imeiScanError && <p className="text-[11px]" style={{ color: POS_THEME.red }}>{imeiScanError}</p>}
                   <div className="relative">
                     <select
                       value={selImei}
                       onChange={e => { setSelImei(e.target.value); setImeiScanError(''); setImeiScanValue('') }}
-                      className="w-full h-11 pl-3 pr-9 rounded-xl text-sm border outline-none appearance-none font-mono"
+                      className="w-full h-12 pl-3.5 pr-10 rounded-2xl text-sm border outline-none appearance-none font-mono"
                       style={{
                         background: POS_THEME.bg,
                         borderColor: POS_THEME.border,
-                        color: selImei ? '#fff' : POS_THEME.muted,
+                        color: selImei ? POS_THEME.text : POS_THEME.muted,
                         colorScheme: 'dark',
                       }}
                     >
@@ -978,7 +1021,7 @@ function VariationPickerModal({
                         <option key={i.imei} value={i.imei}>{i.imei}</option>
                       ))}
                     </select>
-                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
+                    <ChevronDown size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-40" />
                   </div>
                   {selImei && (
                     <p className="text-[11px] font-mono truncate" style={{ color: POS_THEME.green }}>✓ {selImei}</p>
@@ -989,13 +1032,12 @@ function VariationPickerModal({
           )}
 
           {step === 'warranty' && (
-            <section className="space-y-2.5">
+            <section className="space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-[11px] font-bold uppercase tracking-wide flex items-center gap-1.5" style={{ color: POS_THEME.muted }}>
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] flex items-center gap-1.5" style={{ color: POS_THEME.muted }}>
                   <Shield size={12} style={{ color: POS_THEME.green }} /> Warranty
-                  <span className="normal-case font-medium opacity-70">· ← → / 1–{POS_WARRANTY_MONTHS_OPTS.length}</span>
                 </p>
-                <span className="text-[11px] font-semibold" style={{ color: Number(warrantyMonths) > 0 ? POS_THEME.green : POS_THEME.muted }}>
+                <span className="text-[11px] font-bold" style={{ color: Number(warrantyMonths) > 0 ? POS_THEME.green : POS_THEME.muted }}>
                   {posWarrantyMonthsLabel(Number(warrantyMonths) || 0)}
                 </span>
               </div>
@@ -1008,9 +1050,9 @@ function VariationPickerModal({
                       type="button"
                       data-picker-focus={active || i === 0 ? '1' : undefined}
                       onClick={() => setWarrantyMonths(String(m))}
-                      className="h-10 rounded-xl text-xs font-bold border transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400/50"
+                      className="h-11 rounded-2xl text-xs font-bold border transition-all focus:outline-none"
                       style={active
-                        ? { background: 'rgba(16,185,129,0.2)', borderColor: 'rgba(16,185,129,0.5)', color: '#6ee7b7' }
+                        ? { background: `${POS_THEME.green}22`, borderColor: `${POS_THEME.green}66`, color: POS_THEME.green }
                         : { background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
                     >
                       {posWarrantyMonthsLabel(m)}
@@ -1023,18 +1065,18 @@ function VariationPickerModal({
                 placeholder="Warranty note (optional)"
                 value={warrantyNote}
                 onChange={e => setWarrantyNote(e.target.value)}
-                className="w-full h-10 rounded-xl border px-3 text-xs text-white placeholder:text-white/30 outline-none focus:border-emerald-500/40"
-                style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }}
+                className="w-full h-11 rounded-2xl border px-3.5 text-xs outline-none placeholder:opacity-40"
+                style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
               />
             </section>
           )}
 
           {step === 'price' && selected && (
-            <section className="space-y-2.5">
+            <section className="space-y-3">
               {(showWholesale || showCredit) && (
                 <div className="space-y-1.5">
-                  <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: POS_THEME.muted }}>
-                    Price type <span className="normal-case font-medium opacity-70">· 1 Retail{showWholesale ? ' · 2 Wholesale' : ''}{showCredit ? ' · 3 Credit' : ''}</span>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: POS_THEME.muted }}>
+                    Price type
                   </p>
                   <PriceModeToggle
                     mode={priceMode}
@@ -1045,7 +1087,7 @@ function VariationPickerModal({
                 </div>
               )}
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-wide mb-1.5" style={{ color: POS_THEME.muted }}>
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: POS_THEME.muted }}>
                   {allowPriceEdit ? 'Sale price (LKR)' : 'Price'}
                 </p>
                 {allowPriceEdit ? (
@@ -1057,26 +1099,29 @@ function VariationPickerModal({
                       step="0.01"
                       inputMode="decimal"
                       data-picker-focus="1"
-                      className="w-full h-11 px-3.5 rounded-xl text-lg font-extrabold outline-none border text-white focus:ring-2 focus:ring-violet-400/50"
-                      style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }}
+                      className="w-full h-14 px-4 rounded-2xl text-2xl font-extrabold outline-none border"
+                      style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
                       value={salePrice}
                       onChange={e => setSalePrice(e.target.value)}
                     />
-                    <p className="text-[10px] mt-1.5 truncate" style={{ color: POS_THEME.muted }}>
+                    <p className="text-[10px] mt-2 truncate" style={{ color: POS_THEME.muted }}>
                       Catalog {formatCurrency(catalogPrice)}{selected.sku ? ` · ${selected.sku}` : ''}
                     </p>
                   </>
                 ) : (
-                  <p className="text-xl font-extrabold text-white">{formatCurrency(catalogPrice)}</p>
+                  <p className="text-3xl font-extrabold" style={{ color: POS_THEME.text }}>{formatCurrency(catalogPrice)}</p>
                 )}
               </div>
-              <div className="rounded-xl border px-3 py-2 flex items-center justify-between gap-2 text-[11px]" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
+              <div
+                className="rounded-2xl border px-3.5 py-3 flex items-center justify-between gap-2 text-[11px]"
+                style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}
+              >
                 <span style={{ color: POS_THEME.muted }}>
                   {selected.storage} · {selected.colorName}
                   {selImei ? ` · …${selImei.slice(-4)}` : ''}
                   {showWarranty ? ` · ${posWarrantyMonthsLabel(Number(warrantyMonths) || 0)}` : ''}
                 </span>
-                <span className="font-extrabold text-white shrink-0 text-sm">
+                <span className="font-extrabold shrink-0 text-sm" style={{ color: POS_THEME.text }}>
                   {formatCurrency(allowPriceEdit ? (Number.isFinite(parsedSalePrice) ? parsedSalePrice : catalogPrice) : catalogPrice)}
                 </span>
               </div>
@@ -1086,17 +1131,17 @@ function VariationPickerModal({
 
         {/* Footer */}
         <div
-          className="shrink-0 border-t px-4 pt-2.5 pb-[max(0.65rem,env(safe-area-inset-bottom))] space-y-2"
-          style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}
+          className="shrink-0 border-t px-4 sm:px-5 pt-3 pb-[max(0.85rem,env(safe-area-inset-bottom))] space-y-2.5"
+          style={{ borderColor: POS_THEME.border, background: `${POS_THEME.panel}ee` }}
         >
-          <p className="text-[10px] text-center" style={{ color: POS_THEME.muted }}>
+          <p className="text-[10px] text-center font-medium" style={{ color: POS_THEME.muted }}>
             Esc cancel · Backspace back · Enter {isLast ? 'add to cart' : 'next'}
           </p>
           <div className="flex gap-2.5">
             <button
               type="button"
               onClick={goBack}
-              className="flex-1 h-11 rounded-xl text-sm font-bold border"
+              className="flex-1 h-12 rounded-2xl text-sm font-bold border"
               style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }}
             >
               {stepIdx === 0 ? 'Cancel' : 'Back'}
@@ -1105,8 +1150,8 @@ function VariationPickerModal({
               type="button"
               disabled={!stepReady() || (isLast && !canAdd)}
               onClick={goNext}
-              className="flex-[1.5] h-11 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-40"
-              style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})` }}
+              className="flex-[1.6] h-12 rounded-2xl text-sm font-extrabold text-white flex items-center justify-center gap-2 disabled:opacity-40"
+              style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, boxShadow: `0 12px 28px ${POS_THEME.purple}40` }}
             >
               {isLast ? (<><ShoppingCart size={15} /> Add · Enter</>) : (<>Next · Enter <ChevronRight size={15} /></>)}
             </button>
@@ -3173,8 +3218,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
       <div className="p-2 border-b" style={{ borderColor: POS_THEME.border }}>
         <input
           autoFocus={autoFocus}
-          className="w-full h-8 px-2 rounded-lg text-xs outline-none border text-white placeholder:text-white/50"
-          style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }}
+          className="w-full h-8 px-2 rounded-lg text-xs outline-none border placeholder:opacity-40"
+          style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
           placeholder="Search customer… (F2)"
           value={custSearch}
           onChange={e => setCustSearch(e.target.value)}
@@ -3182,13 +3227,13 @@ function POSContent({ onClose }: { onClose: () => void }) {
         />
       </div>
       <div className="overflow-y-auto max-h-60">
-        <button type="button" onClick={() => selectCustomer(null)} className="w-full px-3 py-2 text-xs text-left border-b hover:bg-white/5 text-white" style={{ borderColor: POS_THEME.border }}>Walk-in Customer</button>
-        <button type="button" onClick={() => setShowRegister(true)} className="w-full px-3 py-2 text-xs text-left border-b flex items-center gap-1 hover:bg-white/5 text-white" style={{ borderColor: POS_THEME.border }}><Plus size={10} />New Customer</button>
-        {custLoading && <p className="px-3 py-2 text-[10px] text-white/60">Loading…</p>}
+        <button type="button" onClick={() => selectCustomer(null)} className="w-full px-3 py-2 text-xs text-left border-b hover:bg-black/5" style={{ borderColor: POS_THEME.border, color: POS_THEME.text }}>Walk-in Customer</button>
+        <button type="button" onClick={() => setShowRegister(true)} className="w-full px-3 py-2 text-xs text-left border-b flex items-center gap-1 hover:bg-black/5" style={{ borderColor: POS_THEME.border, color: POS_THEME.text }}><Plus size={10} />New Customer</button>
+        {custLoading && <p className="px-3 py-2 text-[10px]" style={{ color: POS_THEME.muted }}>Loading…</p>}
         {filteredCustomers.slice(0, 80).map((c: any) => (
-          <button key={c.id} type="button" onClick={() => selectCustomer(c)} className="w-full px-3 py-2 text-left border-b hover:bg-white/5" style={{ borderColor: POS_THEME.border }}>
-            <p className="text-xs font-semibold text-white">{c.name}</p>
-            <p className="text-[10px] text-white/70">{c.phone}{(c.totalDue ?? 0) > 0 ? ` · Due ${formatCurrency(c.totalDue)}` : ''}</p>
+          <button key={c.id} type="button" onClick={() => selectCustomer(c)} className="w-full px-3 py-2 text-left border-b hover:bg-black/5" style={{ borderColor: POS_THEME.border }}>
+            <p className="text-xs font-semibold" style={{ color: POS_THEME.text }}>{c.name}</p>
+            <p className="text-[10px]" style={{ color: POS_THEME.muted }}>{c.phone}{(c.totalDue ?? 0) > 0 ? ` · Due ${formatCurrency(c.totalDue)}` : ''}</p>
           </button>
         ))}
       </div>
@@ -3200,14 +3245,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
     <div className="relative w-full">
       <button type="button" onClick={() => { setShowCustDrop(o => !o); setShowCartCustDrop(false); setCustSearch(''); setShowRegister(false) }}
         className="h-10 w-full px-3 sm:px-3.5 rounded-xl border flex items-center gap-2.5 text-sm font-semibold"
-        style={{ background: POS_THEME.card, borderColor: POS_THEME.border, color: '#ffffff' }}
+        style={{ background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text }}
         title="Select customer (F2)">
         <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
-          style={{ background: selectedCustomer ? 'var(--sidebar-active-border)' : POS_THEME.bg, color: '#ffffff' }}>
+          style={{ background: selectedCustomer ? POS_THEME.purple : POS_THEME.bg, color: selectedCustomer ? '#fff' : POS_THEME.muted }}>
           {selectedCustomer ? selectedCustomer.name[0]?.toUpperCase() : <User size={12} />}
         </div>
         <span className="min-w-0 flex-1 truncate text-left">{selectedCustomer ? selectedCustomer.name : 'Walk-in'}</span>
-        <ChevronDown size={12} className="text-white/70 shrink-0" />
+        <ChevronDown size={12} className="shrink-0 opacity-60" />
       </button>
       {showCustDrop && (
         <div className={`absolute top-full mt-1.5 right-0 z-[60] rounded-2xl shadow-2xl overflow-hidden border ${showRegister ? 'w-[min(24rem,calc(100vw-1.25rem))]' : 'w-[min(16rem,calc(100vw-1.25rem))]'}`} style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
@@ -3328,8 +3373,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
         filtersActive={showFilters || hideOutOfStock || showFavoritesOnly}
         filtersPanel={showFilters ? (
           <div className="shrink-0 w-full px-4 py-2.5 flex flex-wrap items-center gap-x-8 gap-y-2 border-b" style={{ borderColor: POS_THEME.border, background: POS_THEME.card }}>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">Filters</span>
-            <label className="flex items-center gap-2.5 text-[11px] font-medium text-white cursor-pointer">
+            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: POS_THEME.muted }}>Filters</span>
+            <label className="flex items-center gap-2.5 text-[11px] font-medium cursor-pointer" style={{ color: POS_THEME.text }}>
               Hide Out of Stock
               <Switch
                 checked={hideOutOfStock}
@@ -3337,7 +3382,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                 trackStyle={{ background: hideOutOfStock ? POS_THEME.purple : POS_THEME.border }}
               />
             </label>
-            <label className="flex items-center gap-2.5 text-[11px] font-medium text-white cursor-pointer">
+            <label className="flex items-center gap-2.5 text-[11px] font-medium cursor-pointer" style={{ color: POS_THEME.text }}>
               Favorites only
               <Switch
                 checked={showFavoritesOnly}
@@ -3350,14 +3395,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
         toolbarActions={(
           <>
             <button type="button" onClick={openRecentSales} title="Recent Sales"
-              className="h-9 w-9 rounded-xl border flex items-center justify-center shrink-0 hover:bg-white/5"
-              style={{ borderColor: POS_THEME.border, background: POS_THEME.card }}>
-              <Receipt size={15} className="text-white" />
+              className="h-9 w-9 rounded-xl border flex items-center justify-center shrink-0 hover:bg-black/5"
+              style={{ borderColor: POS_THEME.border, background: POS_THEME.card, color: POS_THEME.text }}>
+              <Receipt size={15} />
             </button>
             <button type="button" onClick={() => setShowCalc(true)} title="Calculator (F12)"
-              className="h-9 w-9 rounded-xl border flex items-center justify-center shrink-0 hover:bg-white/5"
-              style={{ borderColor: POS_THEME.border, background: POS_THEME.card }}>
-              <Calculator size={15} className="text-white" />
+              className="h-9 w-9 rounded-xl border flex items-center justify-center shrink-0 hover:bg-black/5"
+              style={{ borderColor: POS_THEME.border, background: POS_THEME.card, color: POS_THEME.text }}>
+              <Calculator size={15} />
             </button>
           </>
         )}
@@ -3374,9 +3419,31 @@ function POSContent({ onClose }: { onClose: () => void }) {
                 <Icon size={11} />{name}
               </button>
             ))}
-            <div className="ml-auto flex items-center gap-2 shrink-0">
-              <button type="button" onClick={() => setGridView(true)} className="p-1.5 rounded-lg border text-white" style={{ borderColor: gridView ? POS_THEME.purple : POS_THEME.border }}><Grid3X3 size={14} /></button>
-              <button type="button" onClick={() => setGridView(false)} className="p-1.5 rounded-lg border text-white" style={{ borderColor: !gridView ? POS_THEME.purple : POS_THEME.border }}><ListIcon size={14} /></button>
+            <div className="ml-auto flex items-center gap-1 p-0.5 rounded-xl border shrink-0" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
+              <button
+                type="button"
+                onClick={() => setGridView(true)}
+                title="Grid view"
+                aria-pressed={gridView}
+                className="p-1.5 rounded-lg transition-colors outline-none"
+                style={gridView
+                  ? { background: POS_THEME.purple, color: '#fff' }
+                  : { background: 'transparent', color: POS_THEME.muted }}
+              >
+                <Grid3X3 size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setGridView(false)}
+                title="List view"
+                aria-pressed={!gridView}
+                className="p-1.5 rounded-lg transition-colors outline-none"
+                style={!gridView
+                  ? { background: POS_THEME.purple, color: '#fff' }
+                  : { background: 'transparent', color: POS_THEME.muted }}
+              >
+                <ListIcon size={14} />
+              </button>
             </div>
           </div>
         )}
@@ -3435,7 +3502,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                           )}
                         </div>
                         <div className="text-right shrink-0 hidden sm:block">
-                          <p className="text-sm font-extrabold text-white">{price}</p>
+                          <p className="text-sm font-extrabold" style={{ color: POS_THEME.text }}>{price}</p>
                           {!isService && posUi.productGrid.showStockBadge && (
                             <p className="text-[10px] font-semibold" style={{ color: stockColor }}>{stockLabel}</p>
                           )}
@@ -3510,7 +3577,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         )}
                         <div className="flex items-end justify-between gap-1.5 mt-auto pt-1">
                           <div className="min-w-0">
-                            <p className="text-white text-xs sm:text-sm font-extrabold leading-none truncate">{price}</p>
+                            <p className="text-xs sm:text-sm font-extrabold leading-none truncate" style={{ color: POS_THEME.text }}>{price}</p>
                             {isService ? (
                               <p className="text-[10px] mt-0.5 truncate" style={{ color: POS_THEME.muted }}>
                                 Cost {formatCurrency(Number(item.cost ?? 0))}
@@ -3541,23 +3608,27 @@ function POSContent({ onClose }: { onClose: () => void }) {
             <span className="hidden md:inline text-xs truncate" style={{ color: POS_THEME.muted }}>Showing {(page - 1) * perPage + 1}–{Math.min(page * perPage, displayItems.length)} of {displayItems.length}</span>
             <div className="flex items-center gap-1 mx-auto md:mx-0">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                className="w-8 h-8 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center border border-white/10 hover:bg-white/5 disabled:opacity-30 text-white transition-colors touch-manipulation">
+                className="w-8 h-8 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center border hover:bg-black/5 disabled:opacity-30 transition-colors touch-manipulation"
+                style={{ borderColor: POS_THEME.border, color: POS_THEME.text }}>
                 <ChevronLeft size={12} />
               </button>
               {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
                 const p = totalPages <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= totalPages - 2 ? totalPages - 4 + i : page - 2 + i
                 return (
                   <button key={p} onClick={() => setPage(p)}
-                    className={`w-8 h-8 sm:w-7 sm:h-7 rounded-lg text-xs font-bold flex items-center justify-center border transition-colors touch-manipulation ${page === p ? 'text-white' : 'text-white hover:bg-white/5'}`}
-                    style={page === p ? { background: POS_THEME.purple, borderColor: POS_THEME.purple } : { borderColor: POS_THEME.border }}>{p}</button>
+                    className="w-8 h-8 sm:w-7 sm:h-7 rounded-lg text-xs font-bold flex items-center justify-center border transition-colors touch-manipulation"
+                    style={page === p
+                      ? { background: POS_THEME.purple, borderColor: POS_THEME.purple, color: '#fff' }
+                      : { borderColor: POS_THEME.border, color: POS_THEME.text, background: POS_THEME.card }}>{p}</button>
                 )
               })}
               {totalPages > 5 && page < totalPages - 2 && <>
-                <span className="text-white text-xs px-0.5">…</span>
-                <button onClick={() => setPage(totalPages)} className="w-8 h-8 sm:w-7 sm:h-7 rounded-lg text-xs font-bold flex items-center justify-center border border-white/10 text-white hover:bg-white/5 transition-colors touch-manipulation">{totalPages}</button>
+                <span className="text-xs px-0.5" style={{ color: POS_THEME.muted }}>…</span>
+                <button onClick={() => setPage(totalPages)} className="w-8 h-8 sm:w-7 sm:h-7 rounded-lg text-xs font-bold flex items-center justify-center border hover:bg-black/5 transition-colors touch-manipulation" style={{ borderColor: POS_THEME.border, color: POS_THEME.text }}>{totalPages}</button>
               </>}
               <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                className="w-8 h-8 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center border border-white/10 hover:bg-white/5 disabled:opacity-30 text-white transition-colors touch-manipulation">
+                className="w-8 h-8 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center border hover:bg-black/5 disabled:opacity-30 transition-colors touch-manipulation"
+                style={{ borderColor: POS_THEME.border, color: POS_THEME.text }}>
                 <ChevronRight size={12} />
               </button>
             </div>
@@ -3571,8 +3642,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
           <div className="flex flex-nowrap gap-2 px-2 sm:px-4 py-2 sm:py-3 border-t shrink-0 overflow-x-auto scrollbar-none" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
             {bottomActionButtons.map(btn => (
               <button key={btn.label} type="button" onClick={btn.onClick}
-                className="flex-none min-w-[5.5rem] sm:flex-1 sm:min-w-[88px] h-10 rounded-xl text-[11px] sm:text-xs font-bold text-white border touch-manipulation whitespace-nowrap"
-                style={{ background: btn.bg, borderColor: POS_THEME.border }}>
+                className="flex-none min-w-[5.5rem] sm:flex-1 sm:min-w-[88px] h-10 rounded-xl text-[11px] sm:text-xs font-bold border touch-manipulation whitespace-nowrap"
+                style={{ background: btn.bg, borderColor: POS_THEME.border, color: btn.color ?? '#ffffff' }}>
                 {btn.label}
               </button>
             ))}
@@ -3698,7 +3769,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       <button onClick={() => setMobileView('products')} className="lg:hidden flex items-center gap-1 text-xs mr-1 px-2 py-1 rounded-lg hover:bg-white/5 transition-colors" style={{ color: POS_THEME.muted }}>
                         <ChevronLeft size={14} /><span>Products</span>
                       </button>
-                      <ShoppingBag size={14} className="text-white" />
+                      <ShoppingBag size={14} style={{ color: POS_THEME.purple }} />
                       <span className="font-bold text-sm" style={{ color: POS_THEME.text }}>Cart ({cart.length})</span>
                     </div>
                     {cart.length > 0 && (

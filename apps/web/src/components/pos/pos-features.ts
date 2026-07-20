@@ -42,6 +42,8 @@ export interface BottomAction {
   label: string
   onClick: () => void
   bg: string
+  /** Text color; defaults to white (for gradient buttons). */
+  color?: string
 }
 
 export function buildBottomActions(opts: {
@@ -64,6 +66,11 @@ export function buildBottomActions(opts: {
 }): BottomAction[] {
   const { flags, heldCount, dayStarted, dayIsClosed, handlers, visibleIds } = opts
 
+  const secondary: Pick<BottomAction, 'bg' | 'color'> = {
+    bg: POS_THEME.bg,
+    color: POS_THEME.text,
+  }
+
   const catalog: Record<string, BottomAction | null> = {
     newSale: { label: 'New Sale (F10)', onClick: handlers.newSale, bg: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})` },
     hold: { label: 'Hold Sales (F4)', onClick: handlers.holdSales, bg: `linear-gradient(135deg, ${POS_THEME.blue}, ${POS_THEME.blueDark})` },
@@ -73,12 +80,12 @@ export function buildBottomActions(opts: {
       : null,
     dayStart: flags.hasDailyClosing
       ? { label: dayStarted ? 'Day Started ✓ (F7)' : 'Day Start (F7)', onClick: handlers.dayStart, bg: `linear-gradient(135deg, ${POS_THEME.green}, ${POS_THEME.greenDark})` }
-      : { label: 'Opening Cash (F7)', onClick: handlers.dayStart, bg: `linear-gradient(135deg, ${POS_THEME.amber}, ${POS_THEME.amberDark})` },
+      : { label: 'Opening Cash (F7)', onClick: handlers.dayStart, bg: `linear-gradient(135deg, ${POS_THEME.blue}, ${POS_THEME.blueDark})` },
     dayEnd: flags.hasDailyClosing
       ? { label: dayIsClosed ? 'Day Closed ✓ (F11)' : 'Day End (F11)', onClick: handlers.dayEnd, bg: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})` }
       : null,
-    cashFlow: { label: 'Cash In/Out (F8)', onClick: handlers.cashFlow, bg: POS_THEME.card },
-    more: { label: heldCount > 0 ? `More (${heldCount})` : 'More', onClick: handlers.moreMenu, bg: POS_THEME.card },
+    cashFlow: { label: 'Cash In/Out (F8)', onClick: handlers.cashFlow, ...secondary },
+    more: { label: heldCount > 0 ? `More (${heldCount})` : 'More', onClick: handlers.moreMenu, ...secondary },
   }
 
   const order = visibleIds?.length
