@@ -192,22 +192,6 @@ export async function recordSupplierPayment(input: RecordSupplierPaymentInput) {
       },
     })
 
-    const accounting = await tx.accountingSettings.findUnique({
-      where: { tenantId: input.tenantId },
-      select: { initializedAt: true },
-    })
-    if (accounting?.initializedAt) {
-      await tx.accountingOutbox.create({
-        data: {
-          tenantId: input.tenantId,
-          branchId: input.branchId,
-          sourceType: 'Transaction',
-          sourceId: transaction.id,
-          eventType: 'AP_PAYMENT_MADE',
-          payload: { allocations: updates.map(u => ({ purchaseOrderId: u.id, amount: u.amount })) },
-        },
-      })
-    }
     return { transaction, updates }
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
 
@@ -222,11 +206,12 @@ export async function recordSupplierPayment(input: RecordSupplierPaymentInput) {
   }
   if (!result) throw new AppError('Payment could not be recorded', 409)
 
-  await emitApPaymentAccounting(
+  const accounting = await emitApPaymentAccounting(
     input.tenantId,
     result.transaction.id,
     input.branchId,
     input.actorEmail,
+    { allocations: result.updates.map(u => ({ purchaseOrderId: u.id, amount: u.amount })) },
   )
-  return result
+  return { ...result, accounting }
 }

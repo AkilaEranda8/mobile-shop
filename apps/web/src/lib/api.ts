@@ -254,6 +254,25 @@ export const productsApi = {
   importFromMaster: (body: unknown) => api.post('/products/import-from-master', body),
 }
 
+function traceabilityQs(params?: Record<string, string>) {
+  return params ? '?' + new URLSearchParams(params) : ''
+}
+
+export const productTraceabilityApi = {
+  summary: (productId: string, params?: Record<string, string>) =>
+    api.get(`/product-traceability/${productId}/summary${traceabilityQs(params)}`),
+  purchases: (productId: string, params?: Record<string, string>) =>
+    api.get(`/product-traceability/${productId}/purchases${traceabilityQs(params)}`),
+  sales: (productId: string, params?: Record<string, string>) =>
+    api.get(`/product-traceability/${productId}/sales${traceabilityQs(params)}`),
+  movements: (productId: string, params?: Record<string, string>) =>
+    api.get(`/product-traceability/${productId}/movements${traceabilityQs(params)}`),
+  serials: (productId: string, params?: Record<string, string>) =>
+    api.get(`/product-traceability/${productId}/serials${traceabilityQs(params)}`),
+  timeline: (productId: string, params?: Record<string, string>) =>
+    api.get(`/product-traceability/${productId}/timeline${traceabilityQs(params)}`),
+}
+
 export const masterCatalogApi = {
   listCategories: () => api.get('/master-catalog/categories'),
   listBrands: (type?: 'PHONE' | 'ACCESSORY', opts?: { withPhoneModels?: boolean; withAccessories?: boolean }) => {

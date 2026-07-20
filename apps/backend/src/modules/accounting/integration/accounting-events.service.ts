@@ -8,6 +8,16 @@ type EventPayload = {
   sourceType: string
   sourceId: string
   eventType: string
+  payload?: Record<string, unknown>
+}
+
+export type EmitAccountingResult = {
+  skipped?: boolean
+  reason?: string
+  processed?: number
+  failed?: number
+  scanned?: number
+  error?: string
 }
 
 async function accountingReady(tenantId: string) {
@@ -15,15 +25,15 @@ async function accountingReady(tenantId: string) {
   return settings?.initializedAt ? settings : null
 }
 
-/** Enqueue GL events and auto-post when enabled (non-blocking for callers). */
+/** Enqueue GL events and auto-post when enabled. Returns status for callers to surface warnings. */
 export async function emitAccountingEvents(
   events: EventPayload[],
   actorEmail?: string,
-) {
-  if (!events.length) return
+): Promise<EmitAccountingResult> {
+  if (!events.length) return { skipped: true, reason: 'no events' }
   try {
     const settings = await accountingReady(events[0].tenantId)
-    if (!settings) return
+    if (!settings) return { skipped: true, reason: 'accounting not initialized' }
 
     for (const e of events) {
       await enqueueOutboxItem({
@@ -32,14 +42,22 @@ export async function emitAccountingEvents(
         sourceType: e.sourceType,
         sourceId: e.sourceId,
         eventType: e.eventType,
+        payload: e.payload,
       })
     }
 
     if (settings.autoPostEnabled) {
-      await processAccountingOutbox(events[0].tenantId, 50, actorEmail)
+      const result = await processAccountingOutbox(events[0].tenantId, 50, actorEmail)
+      if (result.failed > 0) {
+        return { ...result, error: 'One or more accounting entries failed to post' }
+      }
+      return result
     }
+    return { skipped: true, reason: 'autoPost disabled' }
   } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
     console.error('[accounting] emitAccountingEvents failed:', err)
+    return { failed: 1, error: msg }
   }
 }
 
@@ -70,15 +88,50 @@ export function emitPurchaseAccounting(tenantId: string, poId: string, branchId:
   ], actorEmail)
 }
 
+export function emitOpeningSupplierApAccounting(
+  tenantId: string,
+  poId: string,
+  branchId: string | null,
+  actorEmail?: string,
+) {
+  return emitAccountingEvents([
+    { tenantId, branchId, sourceType: 'PurchaseOrder', sourceId: poId, eventType: 'OPENING_SUPPLIER_AP' },
+  ], actorEmail)
+}
+
+export function emitOpeningCustomerArAccounting(
+  tenantId: string,
+  saleId: string,
+  branchId: string | null,
+  actorEmail?: string,
+) {
+  return emitAccountingEvents([
+    { tenantId, branchId, sourceType: 'Sale', sourceId: saleId, eventType: 'OPENING_CUSTOMER_AR' },
+  ], actorEmail)
+}
+
 export function emitExpenseAccounting(tenantId: string, txId: string, branchId: string | null, actorEmail?: string) {
   return emitAccountingEvents([
     { tenantId, branchId, sourceType: 'Transaction', sourceId: txId, eventType: 'EXPENSE_CREATED' },
   ], actorEmail)
 }
 
-export function emitApPaymentAccounting(tenantId: string, txId: string, branchId: string | null, actorEmail?: string) {
+export function emitApPaymentAccounting(
+  tenantId: string,
+  txId: string,
+  branchId: string | null,
+  actorEmail?: string,
+  payload?: Record<string, unknown>,
+) {
   return emitAccountingEvents([
-    { tenantId, branchId, sourceType: 'Transaction', sourceId: txId, eventType: 'AP_PAYMENT_MADE' },
+    {
+      tenantId,
+      branchId,
+      sourceType: 'Transaction',
+      sourceId: txId,
+      eventType: 'AP_PAYMENT_MADE',
+      payload,
+    },
   ], actorEmail)
 }
 

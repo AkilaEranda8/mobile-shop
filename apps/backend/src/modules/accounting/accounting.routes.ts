@@ -5,7 +5,7 @@ import { requireAccountingFeature } from './accounting.middleware'
 import { getAccountingStatus, listGlAccounts } from './accounting.service'
 import { initializeAccounting } from './accounting-init.service'
 import { effectiveBranchId } from '../../utils/active-branch'
-import { resolveQueryDateRange } from '../../utils/date-range'
+import { resolveQueryDateRange, businessDayRange, normalizeBusinessDate } from '../../utils/date-range'
 import { getPagination } from '../../utils/pagination'
 import { syncOutboxForTenant } from './integration/accounting-outbox.service'
 import { processAccountingOutbox } from './integration/accounting-processor.service'
@@ -590,6 +590,15 @@ router.post('/ap/payments', authorize('OWNER', 'MANAGER'), async (req: Request, 
   try {
     const branchId = (req.body.branchId as string) || effectiveBranchId(req)
     if (!branchId) throw new AppError('branchId is required', 400)
+
+    let occurredAt: Date | undefined
+    const paymentDate = req.body.paymentDate ?? req.body.occurredAt
+    if (paymentDate) {
+      const rawDate = String(paymentDate)
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) throw new AppError('Invalid payment date', 400)
+      occurredAt = businessDayRange(normalizeBusinessDate(rawDate)).start
+    }
+
     const result = await recordSupplierPayment({
       tenantId: req.tenantId!,
       supplierId: String(req.body.supplierId ?? ''),
@@ -599,13 +608,14 @@ router.post('/ap/payments', authorize('OWNER', 'MANAGER'), async (req: Request, 
       reference: req.body.reference ? String(req.body.reference) : undefined,
       notes: req.body.notes ? String(req.body.notes) : undefined,
       bankAccountId: req.body.bankAccountId ? String(req.body.bankAccountId) : undefined,
+      occurredAt,
       performedBy: req.user?.userId ?? 'system',
       actorEmail: req.user?.email,
       allocations: Array.isArray(req.body.allocations) ? req.body.allocations : [],
     })
     sendSuccess(
       res,
-      { transaction: result.transaction, updatedPOs: result.updates.length },
+      { transaction: result.transaction, updatedPOs: result.updates.length, accounting: result.accounting },
       'AP payment recorded',
       201,
     )

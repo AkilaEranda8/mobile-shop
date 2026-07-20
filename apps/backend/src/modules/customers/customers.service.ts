@@ -4,6 +4,7 @@ import { AppError } from '../../middleware/error.middleware'
 import { getPagination } from '../../utils/pagination'
 import { generateInvoiceNumber } from '../../utils/counters'
 import { Request } from 'express'
+import { emitOpeningCustomerArAccounting } from '../accounting/integration/accounting-events.service'
 
 export const customersService = {
   async list(tenantId: string, req: Request) {
@@ -49,7 +50,7 @@ export const customersService = {
     return c
   },
 
-  async create(tenantId: string, body: any) {
+  async create(tenantId: string, body: any, actorEmail?: string) {
     const name = String(body.name ?? '').trim()
     const phone = String(body.phone ?? '').trim()
     if (!name) throw new AppError('Customer name is required', 400)
@@ -80,13 +81,13 @@ export const customersService = {
     const round2 = (n: number) => Math.round(n * 100) / 100
     const due = round2(openingDue)
 
-    return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const created = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const customer = await tx.customer.create({
         data: { tenantId, name, phone, email, address, city, notes, totalDue: due },
       })
 
       const invoiceNumber = await generateInvoiceNumber(tenantId)
-      await tx.sale.create({
+      const sale = await tx.sale.create({
         data: {
           tenantId,
           branchId,
@@ -118,8 +119,16 @@ export const customersService = {
         },
       })
 
-      return customer
+      return { customer, openingSaleId: sale.id }
     })
+
+    const accounting = await emitOpeningCustomerArAccounting(
+      tenantId,
+      created.openingSaleId,
+      branchId,
+      actorEmail,
+    )
+    return { ...created.customer, accounting }
   },
 
   async update(tenantId: string, id: string, body: any) {

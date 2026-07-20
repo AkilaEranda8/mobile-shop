@@ -2,7 +2,7 @@
 
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, RotateCcw, ChevronDown, ChevronUp, GripVertical, Smartphone, Shield, Building2, ArrowLeftRight, Copy, Hash, Calendar } from 'lucide-react'
+import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, RotateCcw, ChevronDown, ChevronUp, GripVertical, Smartphone, Shield, Building2, ArrowLeftRight, Copy, Hash, Calendar, Route } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -23,6 +23,7 @@ import { ImeiProductTypeSelector } from '@/components/inventory/ImeiProductTypeS
 import { imeiTypeToTrackFlag, trackFlagToImeiType, inferImeiProductType, isImeiHealthBannerDismissed, dismissImeiHealthBanner, type ImeiProductType } from '@/lib/productImei'
 import { PRODUCT_CONDITION_OPTS, type ProductCondition, productConditionLabel } from '@/lib/productCondition'
 import { compareSkuOrder, formatSkuOrderLabel, parseSkuOrderNumber } from '@/lib/productCodes'
+import { PERMISSIONS, useHasPermission } from '@/lib/permissions'
 import {
   PRODUCT_CSV_COLUMNS,
   PRODUCT_CSV_TEMPLATE,
@@ -1576,6 +1577,7 @@ export default function InventoryPage() {
   const { data: catsData, refetch: refetchCats } = useCategories()
   const hasWholesalePricing = useFeatureFlag('WHOLESALE_PRICING')
   const hasCreditPricing = useFeatureFlag('CREDIT_PRICING')
+  const canViewTraceability = useHasPermission(PERMISSIONS.PRODUCT_TRACEABILITY_VIEW)
   const allCategories: Category[] = (catsData ?? []) as Category[]
   const products: Product[] = (productsData?.data ?? []) as Product[]
 
@@ -1939,10 +1941,20 @@ export default function InventoryPage() {
           >
             <Copy size={14} />
           </button>
+          {canViewTraceability && (
+            <button
+              type="button"
+              title="Product Traceability"
+              onClick={() => router.push(`/inventory/product-traceability/${row.original.product.id}`)}
+              className="p-1.5 rounded-lg transition-colors hover:bg-violet-500/10 text-violet-400"
+            >
+              <Route size={14} />
+            </button>
+          )}
         </div>
       ),
     },
-  ], [handleDelete, openCopy, setViewProduct, setEditProduct, hasWholesalePricing, hasCreditPricing])
+  ], [handleDelete, openCopy, setViewProduct, setEditProduct, hasWholesalePricing, hasCreditPricing, canViewTraceability, router])
 
 
   if (showAddProduct || copyProduct) {

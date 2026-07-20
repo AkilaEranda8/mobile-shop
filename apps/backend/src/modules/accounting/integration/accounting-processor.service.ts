@@ -3,6 +3,8 @@ import { AppError } from '../../../middleware/error.middleware'
 import {
   postDailyClosingVarianceJournal,
   postExpenseJournal,
+  postOpeningCustomerArJournal,
+  postOpeningSupplierApJournal,
   postPurchaseJournal,
   postRepairCogsJournal,
   postRepairJournal,
@@ -65,6 +67,8 @@ export async function processAccountingOutbox(tenantId: string, limit = 50, acto
     PURCHASE_RECEIVED: 10,
     EXPENSE_CREATED: 10,
     SALE_RETURN_CREATED: 10,
+    OPENING_SUPPLIER_AP: 5,
+    OPENING_CUSTOMER_AR: 5,
     AR_PAYMENT_RECEIVED: 10,
     AP_PAYMENT_MADE: 10,
     DAILY_CLOSING_VARIANCE: 15,
@@ -109,6 +113,10 @@ export async function processAccountingOutbox(tenantId: string, limit = 50, acto
         await postRepairJournal(tenantId, item.sourceId, actorEmail)
       } else if (item.eventType === 'REPAIR_COGS' && item.sourceType === 'RepairTicket') {
         await postRepairCogsJournal(tenantId, item.sourceId, actorEmail)
+      } else if (item.eventType === 'OPENING_SUPPLIER_AP' && item.sourceType === 'PurchaseOrder') {
+        await postOpeningSupplierApJournal(tenantId, item.sourceId, actorEmail)
+      } else if (item.eventType === 'OPENING_CUSTOMER_AR' && item.sourceType === 'Sale') {
+        await postOpeningCustomerArJournal(tenantId, item.sourceId, actorEmail)
       } else if (item.eventType === 'PURCHASE_RECEIVED' && item.sourceType === 'PurchaseOrder') {
         await postPurchaseJournal(tenantId, item.sourceId, actorEmail)
       } else if (item.eventType === 'DAILY_CLOSING_VARIANCE' && item.sourceType === 'DailyClosing') {

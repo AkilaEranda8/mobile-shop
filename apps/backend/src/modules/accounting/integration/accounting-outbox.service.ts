@@ -24,7 +24,18 @@ export async function enqueueOutboxItem(opts: {
     if (existing.status === 'FAILED') {
       await prisma.accountingOutbox.update({
         where: { id: existing.id },
-        data: { status: 'PENDING', lastError: null },
+        data: {
+          status: 'PENDING',
+          lastError: null,
+          ...(opts.payload ? { payload: opts.payload as any } : {}),
+        },
+      })
+      return
+    }
+    if (opts.payload && existing.status === 'PENDING' && !existing.payload) {
+      await prisma.accountingOutbox.update({
+        where: { id: existing.id },
+        data: { payload: opts.payload as any },
       })
     }
     return
@@ -91,6 +102,32 @@ export async function syncOutboxForTenant(
     sales
       .filter(s => !saleCogsLinked.has(s.id))
       .map(s => enqueueOutboxItem({ tenantId, branchId: s.branchId, sourceType: 'Sale', sourceId: s.id, eventType: 'SALE_COGS' })),
+  )
+
+  // OPENING CUSTOMER AR — prior customer credit without POS revenue
+  const openingCustomerSales = await prisma.sale.findMany({
+    where: {
+      tenantId,
+      ...(branchId ? { branchId } : {}),
+      source: 'OPENING_BALANCE',
+      total: { gt: 0 },
+      ...createdAtFilter,
+    },
+    select: { id: true, branchId: true },
+    take: 5000,
+  })
+  const openingSaleIds = openingCustomerSales.map(s => s.id)
+  const openingSaleLinked = await existingLinksSet(tenantId, 'Sale', 'OPENING_CUSTOMER_AR', openingSaleIds)
+  await Promise.all(
+    openingCustomerSales
+      .filter(s => !openingSaleLinked.has(s.id))
+      .map(s => enqueueOutboxItem({
+        tenantId,
+        branchId: s.branchId,
+        sourceType: 'Sale',
+        sourceId: s.id,
+        eventType: 'OPENING_CUSTOMER_AR',
+      })),
   )
 
   // EXPENSES (exclude supplier / reload-provider settlements — not OpEx)
@@ -196,6 +233,33 @@ export async function syncOutboxForTenant(
       .map(p => enqueueOutboxItem({ tenantId, branchId: p.branchId, sourceType: 'PurchaseOrder', sourceId: p.id, eventType: 'PURCHASE_RECEIVED' })),
   )
 
+  // OPENING SUPPLIER AP — prior outstanding without inventory receive
+  const openingSupplierPos = await prisma.purchaseOrder.findMany({
+    where: {
+      tenantId,
+      ...(branchId ? { branchId } : {}),
+      notes: { contains: 'OPENING_BALANCE' },
+      receivedAt: null,
+      total: { gt: 0 },
+      ...createdAtFilter,
+    },
+    select: { id: true, branchId: true },
+    take: 5000,
+  })
+  const openingPoIds = openingSupplierPos.map(p => p.id)
+  const openingPoLinked = await existingLinksSet(tenantId, 'PurchaseOrder', 'OPENING_SUPPLIER_AP', openingPoIds)
+  await Promise.all(
+    openingSupplierPos
+      .filter(p => !openingPoLinked.has(p.id))
+      .map(p => enqueueOutboxItem({
+        tenantId,
+        branchId: p.branchId,
+        sourceType: 'PurchaseOrder',
+        sourceId: p.id,
+        eventType: 'OPENING_SUPPLIER_AP',
+      })),
+  )
+
   // DAILY CLOSING — cash variance (closed days only, non-zero variance)
   const closingDateFilter = (from || to)
     ? {
@@ -262,10 +326,12 @@ export async function syncOutboxForTenant(
     enqueued: {
       sales: sales.length - saleLinked.size,
       saleCogs: sales.filter(s => !saleCogsLinked.has(s.id)).length,
+      openingCustomerAr: openingCustomerSales.length - openingSaleLinked.size,
       expenses: expenses.length - expLinked.size,
       repairs: repairs.length - repairLinked.size,
       repairCogs: repairs.filter(r => !repairCogsLinked.has(r.id)).length,
       purchases: purchases.length - poLinked.size,
+      openingSupplierAp: openingSupplierPos.length - openingPoLinked.size,
       dailyClosingVariance: closingsToEnqueue.length,
       saleReturns: saleReturns.length - returnLinked.size,
       saleReturnCogs: saleReturns.filter(r => !returnCogsLinked.has(r.id)).length,
@@ -274,9 +340,11 @@ export async function syncOutboxForTenant(
     },
     scanned: {
       sales: sales.length,
+      openingCustomerAr: openingCustomerSales.length,
       expenses: expenses.length,
       repairs: repairs.length,
       purchases: purchases.length,
+      openingSupplierAp: openingSupplierPos.length,
       dailyClosings: closings.length,
       saleReturns: saleReturns.length,
       arPayments: arPayments.length,

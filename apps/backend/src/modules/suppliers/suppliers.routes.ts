@@ -8,7 +8,7 @@ import { getPagination } from '../../utils/pagination'
 import { generatePONumber } from '../../utils/counters'
 import { buildLabelsFromPoItems, ensureProductBarcode } from '../../utils/po-labels.util'
 import { effectiveBranchId } from '../../utils/active-branch'
-import { emitPurchaseAccounting } from '../accounting/integration/accounting-events.service'
+import { emitPurchaseAccounting, emitOpeningSupplierApAccounting } from '../accounting/integration/accounting-events.service'
 import { applyPurchaseOrderReceive } from '../../utils/po-receive.util'
 import { businessDayRange, normalizeBusinessDate, resolveQueryDateRange } from '../../utils/date-range'
 import { recordSupplierPayment } from './supplier-payment.service'
@@ -162,7 +162,7 @@ router.post('/', authorize('OWNER', 'MANAGER'), async (req: Request, res: Respon
       })
 
       const poNumber = await generatePONumber(tenantId)
-      await tx.purchaseOrder.create({
+      const po = await tx.purchaseOrder.create({
         data: {
           tenantId,
           branchId: branchId!,
@@ -189,10 +189,20 @@ router.post('/', authorize('OWNER', 'MANAGER'), async (req: Request, res: Respon
         },
       })
 
-      return supplier
+      return { supplier, openingPoId: po.id }
     })
 
-    sendSuccess(res, created, 'Supplier created', 201)
+    let openingApAccounting: unknown | undefined
+    if (due > 0) {
+      openingApAccounting = await emitOpeningSupplierApAccounting(tenantId, created.openingPoId, branchId, req.user?.email)
+    }
+
+    sendSuccess(
+      res,
+      due > 0 ? { ...created.supplier, accounting: openingApAccounting } : created.supplier,
+      'Supplier created',
+      201,
+    )
   } catch (e) { next(e) }
 })
 
@@ -742,7 +752,11 @@ router.post('/:id/payments', authorize('OWNER', 'MANAGER'), async (req: Request,
       actorEmail: req.user?.email,
       allocations: selectedPoIds.map(purchaseOrderId => ({ purchaseOrderId })),
     })
-    sendSuccess(res, { transaction: result.transaction, updatedPOs: result.updates.length }, 'Payment recorded', 201)
+    sendSuccess(res, {
+      transaction: result.transaction,
+      updatedPOs: result.updates.length,
+      accounting: result.accounting,
+    }, 'Payment recorded', 201)
   } catch (e) { next(e) }
 })
 

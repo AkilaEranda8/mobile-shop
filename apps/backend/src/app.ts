@@ -41,6 +41,7 @@ import releaseNotesRoutes from './modules/release-notes/release-notes.routes'
 import accountingRoutes from './modules/accounting/accounting.routes'
 import featureSuggestionsRoutes from './modules/feature-suggestions/feature-suggestions.routes'
 import notificationsRoutes from './modules/feature-suggestions/notifications.routes'
+import productTraceabilityRoutes from './modules/product-traceability/product-traceability.routes'
 
 const app = express()
 
@@ -136,6 +137,7 @@ app.use(`${API}/users`, usersRoutes)
 app.use(`${API}/tenants`, tenantsRoutes)
 app.use(`${API}/branches`, branchesRoutes)
 app.use(`${API}/products`, productsRoutes)
+app.use(`${API}/product-traceability`, productTraceabilityRoutes)
 app.use(`${API}/inventory`, inventoryRoutes)
 app.use(`${API}/imei`, imeiRoutes)
 app.use(`${API}/customers`, customersRoutes)

@@ -23,6 +23,7 @@ const permissionMatrix = [
   { feature: 'Dashboard', owner: true, manager: true, technician: false, sales: false },
   { feature: 'Point of Sale', owner: true, manager: true, technician: false, sales: true },
   { feature: 'Inventory', owner: true, manager: true, technician: false, sales: false },
+  { feature: 'Product Traceability', owner: true, manager: true, technician: false, sales: false },
   { feature: 'Repair Jobs', owner: true, manager: true, technician: true, sales: false },
   { feature: 'Customers', owner: true, manager: true, technician: false, sales: true },
   { feature: 'Finance', owner: true, manager: true, technician: false, sales: false },

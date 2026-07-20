@@ -10,6 +10,7 @@ import { ensureTenantAccess } from '../utils/tenant-access'
 import { resolveActiveBranch } from '../utils/active-branch'
 import { isKcAuthEnabled } from '../utils/keycloakAdmin'
 import { prisma } from '../config/database'
+import { roleHasPermission, type PermissionKey } from '../utils/permissions'
 
 declare global {
   namespace Express {
@@ -139,6 +140,18 @@ export function authorize(...roles: string[]) {
     if (!req.user) { sendError(res, 'Unauthorized', 401); return }
     if (req.user.role === 'PLATFORM_ADMIN') { next(); return }
     if (roles.length && !roles.includes(req.user.role)) {
+      sendError(res, 'Forbidden: insufficient permissions', 403)
+      return
+    }
+    next()
+  }
+}
+
+export function requirePermission(permission: PermissionKey) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user) { sendError(res, 'Unauthorized', 401); return }
+    if (req.user.role === 'PLATFORM_ADMIN') { next(); return }
+    if (!roleHasPermission(req.user.role, permission)) {
       sendError(res, 'Forbidden: insufficient permissions', 403)
       return
     }

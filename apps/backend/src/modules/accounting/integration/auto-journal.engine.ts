@@ -915,3 +915,158 @@ export async function postSaleReturnCogsJournal(tenantId: string, returnId: stri
   return je
 }
 
+/** Credit AP for supplier opening-balance POs (no inventory receive). Dr Retained Earnings / Cr AP. */
+export async function postOpeningSupplierApJournal(tenantId: string, purchaseOrderId: string, actorEmail?: string) {
+  const po = await prisma.purchaseOrder.findFirst({
+    where: { id: purchaseOrderId, tenantId },
+    select: {
+      id: true,
+      poNumber: true,
+      branchId: true,
+      supplierId: true,
+      supplierName: true,
+      total: true,
+      notes: true,
+      receivedAt: true,
+      createdAt: true,
+    },
+  })
+  if (!po) throw new AppError('Purchase order not found', 404)
+  if (!po.notes?.includes('OPENING_BALANCE')) {
+    throw new AppError('Purchase order is not an opening supplier balance', 400)
+  }
+  if (po.receivedAt != null) {
+    throw new AppError('Opening supplier balance must not have a receive date', 400)
+  }
+
+  const amount = round2(Math.max(0, Number(po.total ?? 0)))
+  if (amount <= 0) throw new AppError('Opening supplier balance has no amount to post', 400)
+
+  const existing = await prisma.integrationLink.findUnique({
+    where: {
+      tenantId_sourceType_sourceId_eventType: {
+        tenantId,
+        sourceType: 'PurchaseOrder',
+        sourceId: po.id,
+        eventType: 'OPENING_SUPPLIER_AP',
+      },
+    },
+  })
+  if (existing) return null
+
+  const je = await createPostedJournalEntry({
+    tenantId,
+    branchId: po.branchId,
+    entryDate: po.createdAt,
+    sourceModule: 'PURCHASE',
+    sourceRefType: 'PurchaseOrder',
+    sourceRefId: po.id,
+    sourceEvent: 'OPENING_SUPPLIER_AP',
+    memo: `Opening supplier AP ${po.poNumber} — ${po.supplierName}`,
+    createdByEmail: actorEmail,
+    lines: [
+      {
+        accountId: await resolveAccountIdByKey(tenantId, 'retainedEarnings'),
+        debit: amount,
+        credit: 0,
+        description: 'Opening equity — prior supplier outstanding',
+        metadata: { purchaseOrderId: po.id, poNumber: po.poNumber, supplierId: po.supplierId },
+      },
+      {
+        accountId: await resolveAccountIdByKey(tenantId, 'ap'),
+        debit: 0,
+        credit: amount,
+        description: 'Accounts Payable — opening balance',
+        supplierId: po.supplierId,
+        metadata: { purchaseOrderId: po.id, poNumber: po.poNumber },
+      },
+    ],
+  })
+
+  await prisma.integrationLink.create({
+    data: {
+      tenantId,
+      sourceType: 'PurchaseOrder',
+      sourceId: po.id,
+      eventType: 'OPENING_SUPPLIER_AP',
+      journalEntryId: je.id,
+    },
+  })
+
+  return je
+}
+
+/** Debit AR for customer opening-balance sales (no POS revenue). Dr AR / Cr Retained Earnings. */
+export async function postOpeningCustomerArJournal(tenantId: string, saleId: string, actorEmail?: string) {
+  const sale = await prisma.sale.findFirst({
+    where: { id: saleId, tenantId, source: 'OPENING_BALANCE' },
+    select: {
+      id: true,
+      invoiceNumber: true,
+      branchId: true,
+      customerId: true,
+      customerName: true,
+      total: true,
+      createdAt: true,
+    },
+  })
+  if (!sale) throw new AppError('Opening customer balance sale not found', 404)
+  if (!sale.branchId) throw new AppError('Sale branchId is required for accounting', 400)
+
+  const amount = round2(Math.max(0, Number(sale.total ?? 0)))
+  if (amount <= 0) throw new AppError('Opening customer balance has no amount to post', 400)
+
+  const existing = await prisma.integrationLink.findUnique({
+    where: {
+      tenantId_sourceType_sourceId_eventType: {
+        tenantId,
+        sourceType: 'Sale',
+        sourceId: sale.id,
+        eventType: 'OPENING_CUSTOMER_AR',
+      },
+    },
+  })
+  if (existing) return null
+
+  const je = await createPostedJournalEntry({
+    tenantId,
+    branchId: sale.branchId,
+    entryDate: sale.createdAt,
+    sourceModule: 'SALES',
+    sourceRefType: 'Sale',
+    sourceRefId: sale.id,
+    sourceEvent: 'OPENING_CUSTOMER_AR',
+    memo: `Opening customer AR ${sale.invoiceNumber} — ${sale.customerName ?? 'Customer'}`,
+    createdByEmail: actorEmail,
+    lines: [
+      {
+        accountId: await resolveAccountIdByKey(tenantId, 'ar'),
+        debit: amount,
+        credit: 0,
+        description: 'Accounts Receivable — opening balance',
+        customerId: sale.customerId ?? undefined,
+        metadata: { saleId: sale.id, invoiceNumber: sale.invoiceNumber },
+      },
+      {
+        accountId: await resolveAccountIdByKey(tenantId, 'retainedEarnings'),
+        debit: 0,
+        credit: amount,
+        description: 'Opening equity — prior customer credit',
+        metadata: { saleId: sale.id, invoiceNumber: sale.invoiceNumber, customerId: sale.customerId },
+      },
+    ],
+  })
+
+  await prisma.integrationLink.create({
+    data: {
+      tenantId,
+      sourceType: 'Sale',
+      sourceId: sale.id,
+      eventType: 'OPENING_CUSTOMER_AR',
+      journalEntryId: je.id,
+    },
+  })
+
+  return je
+}
+

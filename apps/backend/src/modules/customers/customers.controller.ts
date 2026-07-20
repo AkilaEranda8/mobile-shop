@@ -10,7 +10,14 @@ export const customersController = {
     try { sendSuccess(res, await customersService.getById(req.tenantId!, req.params.id)) } catch (e) { next(e) }
   },
   async create(req: Request, res: Response, next: NextFunction) {
-    try { sendSuccess(res, await customersService.create(req.tenantId!, req.body), 'Customer created', 201) } catch (e) { next(e) }
+    try {
+      sendSuccess(
+        res,
+        await customersService.create(req.tenantId!, req.body, req.user?.email),
+        'Customer created',
+        201,
+      )
+    } catch (e) { next(e) }
   },
   async update(req: Request, res: Response, next: NextFunction) {
     try { sendSuccess(res, await customersService.update(req.tenantId!, req.params.id, req.body)) } catch (e) { next(e) }
