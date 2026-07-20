@@ -502,10 +502,18 @@ function VariationPickerModal({
   ) => void
 }) {
   const storageOptions = [...new Set(variations.map(v => v.storage))]
-  const [selStorage, setSelStorage] = useState<string>(storageOptions[0] ?? '')
+  const preferStorage = typeof product._scanPreferStorage === 'string' ? product._scanPreferStorage : ''
+  const preferColor = typeof product._scanPreferColor === 'string' ? product._scanPreferColor : ''
+  const [selStorage, setSelStorage] = useState<string>(
+    (preferStorage && storageOptions.includes(preferStorage) ? preferStorage : storageOptions[0]) ?? '',
+  )
 
   const colorOptions = variations.filter(v => v.storage === selStorage)
-  const [selColor, setSelColor] = useState<string>(colorOptions[0]?.colorName ?? '')
+  const [selColor, setSelColor] = useState<string>(() => {
+    const colors = variations.filter(v => v.storage === (preferStorage && storageOptions.includes(preferStorage) ? preferStorage : storageOptions[0]))
+    if (preferColor && colors.some(c => c.colorName === preferColor)) return preferColor
+    return colors[0]?.colorName ?? ''
+  })
 
   const [imeis, setImeis] = useState<any[]>([])
   const [selImei, setSelImei] = useState<string>('')
@@ -2161,6 +2169,37 @@ function POSContent({ onClose }: { onClose: () => void }) {
     return vars.length === 1 ? vars[0] : undefined
   }
 
+  /** Same entry path as product card click — opens picker when variants / IMEI need input. */
+  const openProductForSale = (product: any, preferredVariation?: ProductVariation | null) => {
+    if (!product) return
+    const vars: ProductVariation[] = Array.isArray(product.storageVariations) ? product.storageVariations : []
+    if (vars.length > 0) {
+      setVariationPickerProduct({
+        ...product,
+        _scanPreferStorage: preferredVariation?.storage,
+        _scanPreferColor: preferredVariation?.colorName,
+      })
+      return
+    }
+    if (product.trackImei && hasIMEI) {
+      setVariationPickerProduct({
+        ...product,
+        storageVariations: [{
+          storage: 'Standard',
+          colorName: 'Default',
+          sellingPrice: product.sellingPrice,
+          wholesalePrice: product.wholesalePrice,
+          creditPrice: product.creditPrice,
+          costPrice: product.buyingPrice,
+          stock: product.availableStock ?? product.stock ?? 0,
+          sku: product.sku,
+        }],
+      })
+      return
+    }
+    promptAddToCart(product, undefined, preferredVariation ?? undefined)
+  }
+
   const handleImeiScan = async (scanned: string) => {
     const imei = scanned.trim()
     if (!imei) return
@@ -2244,9 +2283,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
     if (e.key !== 'Enter') return
     const code = normalizeScanCode(search)
     if (!code) return
+    e.preventDefault()
 
     if (isImeiCode(code)) {
-      e.preventDefault()
       setSearch('')
       await handleImeiScan(code)
       return
@@ -2254,16 +2293,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
     const local = findProductByCode(products, code)
     if (local) {
-      e.preventDefault()
       const { product, variation } = local
-      if (product.trackImei && !variation) {
-        toast('Scan IMEI barcode for this device', { icon: '📱' })
-        setShowScanInput(true)
-        setImeiScan(code)
-      } else {
-        promptAddToCart(product, undefined, variation as any)
-      }
       setSearch('')
+      openProductForSale(product, variation as ProductVariation | undefined)
       return
     }
 
@@ -2271,25 +2303,19 @@ function POSContent({ onClose }: { onClose: () => void }) {
       const res: any = await productsApi.lookupCode(code)
       const data = res?.data ?? res
       if (data?.matchType === 'imei') {
-        e.preventDefault()
         setSearch('')
         await handleImeiScan(code)
         return
       }
       const hit = data?.product
       if (hit) {
-        e.preventDefault()
-        const variation = hit.matchedVariation
-        if (hit.trackImei && !variation) {
-          toast('Scan IMEI barcode for this device', { icon: '📱' })
-          setShowScanInput(true)
-        } else {
-          promptAddToCart(hit, undefined, variation)
-        }
         setSearch('')
+        openProductForSale(hit, hit.matchedVariation)
+        return
       }
+      toast.error('No product found for this barcode')
     } catch {
-      /* keep default list filter on Enter */
+      toast.error('Barcode lookup failed')
     }
   }
 
@@ -3366,25 +3392,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   const stockColor = stockInfo.color
                   const handlePick = () => {
                     if (isOut) return
-                    if (vars.length > 0) { setVariationPickerProduct(item); return }
-                    if (!isService && item.trackImei && hasIMEI) {
-                      // Open picker with a single synthetic variant so IMEI list/scan works
-                      setVariationPickerProduct({
-                        ...item,
-                        storageVariations: [{
-                          storage: 'Standard',
-                          colorName: 'Default',
-                          sellingPrice: item.sellingPrice,
-                          wholesalePrice: item.wholesalePrice,
-                          creditPrice: item.creditPrice,
-                          costPrice: item.buyingPrice,
-                          stock: item.availableStock ?? item.stock ?? 0,
-                          sku: item.sku,
-                        }],
-                      })
-                      return
-                    }
-                    promptAddToCart(item)
+                    openProductForSale(item)
                   }
                   const showWarrantyBadge = hasWarranty && !isService && (item.warrantyMonths ?? 0) > 0
 
