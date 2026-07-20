@@ -8,6 +8,15 @@ import { createWarrantiesFromSaleItems } from '../warranty/warranty.service'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 import type { CompleteExchangeInput } from './exchanges.schema'
 import { effectiveBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
+import {
+  executeExchangeSoldStockEffects,
+  executeExchangeTradeInStockEffects,
+} from '../../utils/exchange-stock.util'
+import {
+  applyExchangeSoldStockEffectsIfEnabled,
+  applyExchangeTradeInStockEffectsIfEnabled,
+} from '../inventory-engine/inventory-engine.service'
+import { resolveCatalogPrice } from '../pricing-engine/pricing-engine.resolve'
 
 function resolveItemSku(
   product: { sku: string; storageVariations?: unknown },
@@ -18,24 +27,6 @@ function resolveItemSku(
   if (!Array.isArray(vars)) return product.sku
   const match = vars.find(v => v.sku === variation || `${v.storage}::${v.colorName}` === variation)
   return match?.sku ?? product.sku
-}
-
-async function syncImeiTrackedStock(
-  tx: Prisma.TransactionClient,
-  productId: string,
-): Promise<void> {
-  const product = await tx.product.findUnique({
-    where: { id: productId },
-    select: { trackImei: true },
-  })
-  if (!product?.trackImei) return
-  const imeiCount = await tx.imeiRecord.count({
-    where: { productId, status: 'IN_STOCK' },
-  })
-  await tx.product.update({
-    where: { id: productId },
-    data:  { stock: imeiCount },
-  })
 }
 
 async function validateTradeInImei(
@@ -103,11 +94,14 @@ function resolveVariantDetails(
 }
 
 function resolveSellPrice(product: { sellingPrice: number; storageVariations?: unknown }, variation?: string | null): number {
-  if (!variation || !product.storageVariations) return product.sellingPrice
+  if (!variation || !product.storageVariations) {
+    return resolveCatalogPrice(product, 'retail')
+  }
   const vars = product.storageVariations as any[]
-  if (!Array.isArray(vars)) return product.sellingPrice
+  if (!Array.isArray(vars)) return resolveCatalogPrice(product, 'retail')
   const match = vars.find(v => v.sku === variation || `${v.storage}::${v.colorName}` === variation)
-  return match?.sellingPrice ?? product.sellingPrice
+  if (match) return resolveCatalogPrice(match, 'retail')
+  return resolveCatalogPrice(product, 'retail')
 }
 
 async function resolveBranchId(tenantId: string, branchId?: string, userId?: string): Promise<string> {
@@ -236,31 +230,6 @@ async function ensureTradeInProduct(
       storageVariations: storageVariations as any,
     },
   })
-}
-
-function bumpVariantStock(
-  variations: any[] | null | undefined,
-  storage?: string | null,
-  color?: string | null,
-  buyPrice?: number,
-): { variations: any[]; changed: boolean } {
-  if (!storage || !color) return { variations: variations ?? [], changed: false }
-  const list = Array.isArray(variations) ? [...variations] : []
-  const idx  = list.findIndex(v => v.storage === storage && v.colorName === color)
-  if (idx >= 0) {
-    list[idx] = { ...list[idx], stock: (list[idx].stock || 0) + 1 }
-    return { variations: list, changed: true }
-  }
-  list.push({
-    storage,
-    colorName:    color,
-    colorHex:     '#6b7280',
-    sellingPrice: (buyPrice ?? 0) * 1.15,
-    costPrice:    buyPrice ?? 0,
-    stock:        1,
-    sku:          `VAR-${Date.now().toString(36)}`,
-  })
-  return { variations: list, changed: true }
 }
 
 export const exchangesService = {
@@ -415,57 +384,31 @@ export const exchangesService = {
 
       const tradeInProduct = await ensureTradeInProduct(tx, tenantId, branchId, input)
 
-      const { variations, changed } = bumpVariantStock(
-        tradeInProduct.storageVariations as any[],
-        input.oldStorage,
-        input.oldColor,
+      const tradeInInput = {
+        tx,
+        tenantId,
+        branchId,
+        exchangeNumber,
+        performedBy: cashierName,
+        tradeInProduct: {
+          id: tradeInProduct.id,
+          storageVariations: tradeInProduct.storageVariations,
+        },
+        oldImei: input.oldImei,
+        oldBrand: input.oldBrand,
+        oldModel: input.oldModel,
+        oldStorage: input.oldStorage,
+        oldColor: input.oldColor,
         buyPrice,
-      )
-
-      await tx.product.update({
-        where: { id: tradeInProduct.id },
-        data: {
-          stock: { increment: 1 },
-          buyingPrice: buyPrice,
-          ...(changed ? { storageVariations: variations } : {}),
-        },
-      })
-
-      const tradeInImei = existingImei
-        ? await tx.imeiRecord.update({
-            where: { imei: input.oldImei },
-            data: {
-              productId: tradeInProduct.id,
-              branchId,
-              status:    'IN_STOCK',
-              variation: tradeInVariation,
-              customerId: null,
-              saleId:     null,
-            },
-          })
-        : await tx.imeiRecord.create({
-            data: {
-              imei:      input.oldImei,
-              productId: tradeInProduct.id,
-              branchId,
-              status:    'IN_STOCK',
-              variation: tradeInVariation,
-            },
-          })
-
-      await syncImeiTrackedStock(tx, tradeInProduct.id)
-
-      await tx.stockMovement.create({
-        data: {
-          productId:   tradeInProduct.id,
-          branchId,
-          type:        'EXCHANGE_IN',
-          quantity:    1,
-          reference:   exchangeNumber,
-          note:        `Exchange trade-in purchase — ${input.oldBrand} ${input.oldModel}`,
-          performedBy: cashierName,
-        },
-      })
+        tradeInVariation,
+        existingImei: !!existingImei,
+      }
+      const tradeInHandled = await applyExchangeTradeInStockEffectsIfEnabled(tradeInInput)
+      if (!tradeInHandled) {
+        await executeExchangeTradeInStockEffects(tradeInInput)
+      }
+      const tradeInImei = await tx.imeiRecord.findUnique({ where: { imei: input.oldImei } })
+      if (!tradeInImei) throw new AppError('Trade-in IMEI record missing after stock update', 500)
 
       const sale = await tx.sale.create({
         data: {
@@ -517,51 +460,23 @@ export const exchangesService = {
         include: { items: true, payments: true },
       })
 
-      await tx.imeiRecord.update({
-        where: { imei: input.soldImei },
-        data:  { status: 'SOLD', customerId, saleId: sale.id },
-      })
-
-      const soldProduct = await tx.product.findUnique({
-        where: { id: soldImeiRecord.productId },
-        select: { storageVariations: true },
-      })
-      if (soldProduct?.storageVariations) {
-        let updatedVariations = soldProduct.storageVariations as any[]
-        if (Array.isArray(updatedVariations)) {
-          let changedSold = false
-          updatedVariations = updatedVariations.map((v: any) => {
-            const matchSku = soldImeiRecord.variation && v.sku === soldImeiRecord.variation
-            const matchProps = soldImeiRecord.variation &&
-              `${v.storage}::${v.colorName}` === soldImeiRecord.variation
-            if (matchSku || matchProps) {
-              changedSold = true
-              return { ...v, stock: Math.max(0, (v.stock || 0) - 1) }
-            }
-            return v
-          })
-          if (changedSold) {
-            await tx.product.update({
-              where: { id: soldImeiRecord.productId },
-              data: { storageVariations: updatedVariations },
-            })
-          }
-        }
+      const soldStockInput = {
+        tx,
+        tenantId,
+        branchId,
+        exchangeNumber,
+        invoiceNumber,
+        performedBy: cashierName,
+        soldProductId: soldImeiRecord.productId,
+        soldImei: input.soldImei,
+        soldVariation: soldImeiRecord.variation ?? input.soldVariation,
+        customerId,
+        saleId: sale.id,
       }
-
-      await syncImeiTrackedStock(tx, soldImeiRecord.productId)
-
-      await tx.stockMovement.create({
-        data: {
-          productId:   soldImeiRecord.productId,
-          branchId,
-          type:        'SALE',
-          quantity:    -1,
-          reference:   invoiceNumber,
-          note:        `Exchange sale — ${exchangeNumber}`,
-          performedBy: cashierName,
-        },
-      })
+      const soldHandled = await applyExchangeSoldStockEffectsIfEnabled(soldStockInput)
+      if (!soldHandled) {
+        await executeExchangeSoldStockEffects(soldStockInput)
+      }
 
       if (customerId) {
         await tx.customer.update({

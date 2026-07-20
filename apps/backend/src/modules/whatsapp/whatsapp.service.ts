@@ -11,6 +11,7 @@ import {
   restoreQrSessions,
   type QrSessionState,
 } from './whatsapp-session.manager'
+import { loadInvoiceSettingsForTemplates, renderWhatsAppSaleInvoice } from '../template-engine/template-engine.service'
 
 export { restoreQrSessions }
 
@@ -41,13 +42,6 @@ async function metaPost(path: string, token: string, body: Record<string, any>) 
 function maskToken(token: string): string {
   if (!token || token.length <= 12) return token ? '***' : ''
   return token.slice(0, 8) + '***' + token.slice(-4)
-}
-
-function formatTemplate(template: string, vars: Record<string, string>): string {
-  return Object.entries(vars).reduce(
-    (t, [k, v]) => t.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v),
-    template,
-  )
 }
 
 function decodePdfBase64(input: string): Buffer {
@@ -475,16 +469,21 @@ export const whatsappService = {
       )
     }
 
-    const template = cfg.invoiceTemplate || `Hello {{customer_name}},\n\nThank you for your purchase! 🎉\n\nOrder: {{order_id}}\nAmount: LKR {{amount}}\n\nThank you for choosing us!`
+    const template = cfg.invoiceTemplate || undefined
 
-    const messageBody = input.message ?? formatTemplate(template, {
-      customer_name: input.customerName ?? 'Customer',
-      order_id:      input.orderId,
-      amount:        input.amount ? input.amount.toLocaleString() : '0',
-      currency:      'LKR',
-      date:          new Date().toLocaleDateString(),
-      shop_name:     'Hexalyte',
-    })
+    let shopName = 'Hexalyte'
+    try {
+      const inv = await loadInvoiceSettingsForTemplates(tenantId)
+      shopName = inv.shopName || inv.companyLegalName || shopName
+    } catch { /* keep default */ }
+
+    const messageBody = input.message ?? renderWhatsAppSaleInvoice({
+      templateBody: template,
+      customerName: input.customerName,
+      orderId: input.orderId,
+      amount: input.amount,
+      shopName,
+    }).body
 
     const sendPdf = !!input.pdfBase64 && (input.attachPdf === true || cfg.sendPdfInvoice)
     const pdfFilename = sendPdf

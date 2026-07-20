@@ -8,6 +8,8 @@ import { buildBranchCatalogData, findBranchCatalogProduct } from '../../utils/br
 import { generateProductBarcode, generateProductSku, peekProductCodes } from '../../utils/counters'
 import { hasVariants, sumVariantStock } from '../../utils/product-variants'
 import { Prisma } from '@prisma/client'
+import { isInventoryEngineEnabled } from '../inventory-engine/inventory-engine.feature'
+import { applyStockAdjustmentEffects } from '../inventory-engine/inventory-engine.service'
 
 function withEffectiveStock<T extends { stock: number; storageVariations?: unknown }>(p: T): T {
   if (!hasVariants(p.storageVariations)) return p
@@ -171,7 +173,7 @@ export const productsService = {
     throw new AppError('No product found for this barcode or SKU', 404)
   },
 
-  async create(tenantId: string, body: any) {
+  async create(tenantId: string, body: any, req?: Request) {
     const slug = await loadTenantSlug(tenantId)
     if (!body.sku?.trim()) {
       body.sku = await generateProductSku(tenantId, slug)
@@ -218,11 +220,11 @@ export const productsService = {
     }
 
     if (body.trackImei === undefined) {
-      const hasVariants = Array.isArray(body.storageVariations) && body.storageVariations.length > 0
+      const bodyHasVariants = Array.isArray(body.storageVariations) && body.storageVariations.length > 0
       const inferred = inferTrackImeiFromMeta({
         categoryName: body.categoryName,
         productName: body.name,
-        hasVariants,
+        hasVariants: bodyHasVariants,
       })
       if (inferred !== null) body.trackImei = inferred
     }
@@ -236,36 +238,64 @@ export const productsService = {
 
     const wholesale = Math.max(0, Number(wholesalePrice) || 0)
     const credit = Math.max(0, Number(creditPrice) || 0)
+    const variations = Array.isArray(storageVariations) ? storageVariations : undefined
+    const initialStock = hasVariants(variations)
+      ? sumVariantStock(variations)
+      : Math.max(0, Number(stock) || 0)
+    const engineOn = await isInventoryEngineEnabled(tenantId)
+    const performedBy = req?.user?.email ?? 'system'
 
-    const raw: any = await prisma.product.create({
-      data: {
-        tenantId,
-        branchId,
-        name: String(name).trim(),
-        sku: String(sku).trim(),
-        barcode: barcode?.trim() || null,
-        categoryId,
-        brandId,
-        description: description?.trim() || null,
-        buyingPrice: Number(buyingPrice),
-        sellingPrice: Number(sellingPrice),
-        wholesalePrice: wholesale,
-        creditPrice: credit,
-        mrp: Number(mrp ?? sellingPrice),
-        trackImei: Boolean(trackImei),
-        warrantyMonths: Number(warrantyMonths) || 0,
-        warrantyNote: warrantyNote?.trim() || null,
-        imageUrl: imageUrl || null,
-        stock: Math.max(0, Number(stock) || 0),
-        minStock: Math.max(0, Number(minStock) || 0),
-        isActive: isActive !== false,
-        storageVariations: Array.isArray(storageVariations) ? storageVariations : undefined,
-        colorVariations: Array.isArray(colorVariations) ? colorVariations : undefined,
-        subCategory: subCategory?.trim() || null,
-        deviceModel: deviceModel?.trim() || null,
-        condition: condition === 'USED' ? 'USED' : 'BRAND_NEW',
-      },
-      include: { category: { select: { name: true } }, brand: { select: { name: true } } },
+    const createData = {
+      tenantId,
+      branchId,
+      name: String(name).trim(),
+      sku: String(sku).trim(),
+      barcode: barcode?.trim() || null,
+      categoryId,
+      brandId,
+      description: description?.trim() || null,
+      buyingPrice: Number(buyingPrice),
+      sellingPrice: Number(sellingPrice),
+      wholesalePrice: wholesale,
+      creditPrice: credit,
+      mrp: Number(mrp ?? sellingPrice),
+      trackImei: Boolean(trackImei),
+      warrantyMonths: Number(warrantyMonths) || 0,
+      warrantyNote: warrantyNote?.trim() || null,
+      imageUrl: imageUrl || null,
+      stock: initialStock,
+      minStock: Math.max(0, Number(minStock) || 0),
+      isActive: isActive !== false,
+      storageVariations: variations,
+      colorVariations: Array.isArray(colorVariations) ? colorVariations : undefined,
+      subCategory: subCategory?.trim() || null,
+      deviceModel: deviceModel?.trim() || null,
+      condition: (condition === 'USED' ? 'USED' : 'BRAND_NEW') as 'USED' | 'BRAND_NEW',
+    }
+
+    const raw: any = await prisma.$transaction(async (tx) => {
+      const created = await tx.product.create({
+        data: createData as Prisma.ProductUncheckedCreateInput,
+        include: { category: { select: { name: true } }, brand: { select: { name: true } } },
+      })
+
+      if (engineOn && initialStock !== 0) {
+        await applyStockAdjustmentEffects({
+          tx,
+          tenantId,
+          productId: created.id,
+          branchId: created.branchId,
+          performedBy,
+          reference: `PRODUCT_CREATE:${created.id}`,
+          note: 'Initial catalog stock',
+          targetStock: initialStock,
+          targetStorageVariations: variations,
+          previousEffectiveStock: 0,
+          movementOnly: true,
+        })
+      }
+
+      return created
     })
     return { ...raw, categoryName: raw.category?.name, brandName: raw.brand?.name }
   },
@@ -377,8 +407,50 @@ export const productsService = {
       data.branchId = catalogTargets[0]
     }
 
+    const engineOn = await isInventoryEngineEnabled(tenantId)
+    const stockTouch = stock !== undefined || storageVariations !== undefined
+    let pendingAdjust: {
+      targetStock: number
+      targetStorageVariations?: unknown
+    } | null = null
+
+    if (engineOn && stockTouch) {
+      const targetStorageVariations =
+        storageVariations !== undefined ? storageVariations : undefined
+      const targetStock =
+        targetStorageVariations !== undefined && hasVariants(targetStorageVariations)
+          ? sumVariantStock(targetStorageVariations)
+          : stock !== undefined
+            ? Number(stock)
+            : hasVariants(p.storageVariations)
+              ? sumVariantStock(p.storageVariations)
+              : p.stock
+      if (Number.isNaN(targetStock) || targetStock < 0) {
+        throw new AppError('Stock cannot be negative', 400)
+      }
+      pendingAdjust = { targetStock, targetStorageVariations }
+      delete data.stock
+      delete data.storageVariations
+    }
+
+    const performedBy = req?.user?.email ?? 'system'
+
     return prisma.$transaction(async (tx) => {
       const updated = await tx.product.update({ where: { id }, data })
+
+      if (pendingAdjust) {
+        await applyStockAdjustmentEffects({
+          tx,
+          tenantId,
+          productId: id,
+          branchId: updated.branchId,
+          performedBy,
+          reference: `PRODUCT_UPDATE:${id}`,
+          note: 'Catalog stock adjustment',
+          targetStock: pendingAdjust.targetStock,
+          targetStorageVariations: pendingAdjust.targetStorageVariations,
+        })
+      }
 
       const catalogAssigned: { branchId: string; productId: string }[] = []
       const assignTargets = moveBranch ? [] : catalogTargets
@@ -388,11 +460,15 @@ export const productsService = {
         catalogAssigned.push({ branchId: targetBranchId, productId: dest.id })
       }
 
+      const resultBase = pendingAdjust
+        ? ((await tx.product.findUnique({ where: { id } })) ?? updated)
+        : updated
+
       if (catalogAssigned.length > 0) {
-        return { ...updated, catalogAssigned }
+        return { ...resultBase, catalogAssigned }
       }
 
-      return updated
+      return resultBase
     })
   },
 

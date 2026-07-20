@@ -1,4 +1,6 @@
-/** POS / catalog price mode: non-retail modes fall back to retail when unset (0). */
+/** POS / catalog price mode: non-retail modes fall back to retail when unset (0).
+ *  Keep in sync with apps/backend/src/modules/pricing-engine/pricing-engine.resolve.ts
+ */
 export type PriceMode = 'retail' | 'wholesale' | 'credit'
 
 export function resolveCatalogPrice(

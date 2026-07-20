@@ -1,5 +1,10 @@
 import { prisma } from '../../../config/database'
 import { businessDateDb, businessDayRange } from '../../../utils/date-range'
+import {
+  OPENING_BALANCE_NOTES_MARKER,
+  BUSINESS_RULE_KEYS,
+} from '../../../constants/business-rules.constants'
+import { saleSourcesSkippedForAutoJournal } from '../../business-rules-engine/business-rules-engine.service'
 
 export type SyncWindow = { from?: string; to?: string }
 
@@ -83,7 +88,7 @@ export async function syncOutboxForTenant(
     where: {
       tenantId,
       ...(branchId ? { branchId } : {}),
-      source: { notIn: ['REPAIR', 'OPENING_BALANCE', 'CREDIT_COLLECTION'] },
+      source: { notIn: [...saleSourcesSkippedForAutoJournal()] },
       status: { in: ['PAID', 'PARTIAL', 'DUE'] },
       ...createdAtFilter,
     },
@@ -109,7 +114,7 @@ export async function syncOutboxForTenant(
     where: {
       tenantId,
       ...(branchId ? { branchId } : {}),
-      source: 'OPENING_BALANCE',
+      source: BUSINESS_RULE_KEYS.OPENING_BALANCE,
       total: { gt: 0 },
       ...createdAtFilter,
     },
@@ -238,7 +243,7 @@ export async function syncOutboxForTenant(
     where: {
       tenantId,
       ...(branchId ? { branchId } : {}),
-      notes: { contains: 'OPENING_BALANCE' },
+      notes: { contains: OPENING_BALANCE_NOTES_MARKER },
       receivedAt: null,
       total: { gt: 0 },
       ...createdAtFilter,

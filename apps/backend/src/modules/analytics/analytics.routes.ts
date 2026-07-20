@@ -8,6 +8,11 @@ import { getDailyRevenueBreakdown, getPeriodFinancials } from '../finance/busine
 import { effectiveBranchId } from '../../utils/active-branch'
 import { isReloadSaleItem } from '../finance/reload-item.util'
 import { saleItemCogsExpr } from '../../utils/sale-item-cost.util'
+import {
+  businessRangeWhere,
+  resolveBusinessReportRange,
+  resolveOptionalBusinessReportRange,
+} from '../report-engine/report-engine.service'
 
 const router = Router()
 router.use(authenticate)
@@ -103,15 +108,7 @@ router.get('/dashboard', async (req: Request, res: Response, next: NextFunction)
 
 router.get('/revenue', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const tenantId = req.tenantId!
-    const branchId = effectiveBranchId(req)
-    const days = parseInt(req.query.days as string) || 30
-    const { fromKey, toKey } = resolveQueryDateRange({
-      from: req.query.from as string | undefined,
-      to: req.query.to as string | undefined,
-      days: req.query.from || req.query.to ? undefined : days,
-    })
-
+    const { fromKey, toKey, branchId, tenantId } = resolveBusinessReportRange(req)
     const result = await getDailyRevenueBreakdown(tenantId, fromKey, toKey, branchId)
     sendSuccess(res, result)
   } catch (e) { next(e) }
@@ -122,18 +119,8 @@ router.get('/top-products', async (req: Request, res: Response, next: NextFuncti
     const tenantId = req.tenantId!
     const limit = parseInt(req.query.limit as string) || 10
     const branchId = effectiveBranchId(req)
-    let dateFilter = {}
-    if (req.query.from || req.query.to) {
-      const { start, end } = resolveQueryDateRange({
-        from: req.query.from as string | undefined,
-        to: req.query.to as string | undefined,
-        days: 30,
-      })
-      dateFilter = { createdAt: { gte: start, lte: end } }
-    } else if (req.query.days) {
-      const { start, end } = resolveQueryDateRange({ days: parseInt(req.query.days as string) || 30 })
-      dateFilter = { createdAt: { gte: start, lte: end } }
-    }
+    const range = resolveOptionalBusinessReportRange(req)
+    const dateFilter = range ? businessRangeWhere('createdAt', range) : {}
     const items = await prisma.saleItem.findMany({
       where: {
         productId: { not: null },
@@ -200,13 +187,8 @@ router.get('/delivery-summary', async (req: Request, res: Response, next: NextFu
   try {
     const tenantId = req.tenantId!
     const branchId = effectiveBranchId(req)
-    const days = parseInt(req.query.days as string) || 30
-    const { start: from, end: to } = resolveQueryDateRange({
-      from: req.query.from as string | undefined,
-      to: req.query.to as string | undefined,
-      days: req.query.from || req.query.to ? undefined : days,
-    })
-    const dateFilter = { createdAt: { gte: from, lte: to } }
+    const range = resolveBusinessReportRange(req)
+    const dateFilter = businessRangeWhere('createdAt', range)
     const branchFilter = branchId ? { branchId } : {}
 
     const [byStatus, revenue, codTotal] = await Promise.all([
@@ -242,11 +224,7 @@ router.get('/category-products', async (req: Request, res: Response, next: NextF
     const category = (req.query.category as string) ?? ''
     const branchId = effectiveBranchId(req)
     const includeServices = await tenantHasServices(tenantId)
-    const { start: from, end: to } = resolveQueryDateRange({
-      from: req.query.from as string | undefined,
-      to: req.query.to as string | undefined,
-      days: parseInt(req.query.days as string) || 30,
-    })
+    const { start: from, end: to } = resolveBusinessReportRange(req)
 
     const branchClause = branchId ? Prisma.sql`AND s."branchId" = ${branchId}` : Prisma.empty
     const categoryClause = category
@@ -336,11 +314,7 @@ router.get('/category-sales', async (req: Request, res: Response, next: NextFunc
     const tenantId = req.tenantId!
     const branchId = effectiveBranchId(req)
     const includeServices = await tenantHasServices(tenantId)
-    const { start: from, end: to } = resolveQueryDateRange({
-      from: req.query.from as string | undefined,
-      to: req.query.to as string | undefined,
-      days: parseInt(req.query.days as string) || 30,
-    })
+    const { start: from, end: to } = resolveBusinessReportRange(req)
 
     const branchClause = branchId ? Prisma.sql`AND s."branchId" = ${branchId}` : Prisma.empty
     const itemTypeClause = serviceSaleItemClause(includeServices)
@@ -433,11 +407,7 @@ router.get('/customer-sales', async (req: Request, res: Response, next: NextFunc
   try {
     const tenantId = req.tenantId!
     const branchId = effectiveBranchId(req)
-    const { start: from, end: to } = resolveQueryDateRange({
-      from: req.query.from as string | undefined,
-      to: req.query.to as string | undefined,
-      days: parseInt(req.query.days as string) || 30,
-    })
+    const { start: from, end: to } = resolveBusinessReportRange(req)
     const branchClause = branchId ? Prisma.sql`AND s."branchId" = ${branchId}` : Prisma.empty
 
     const saleRows: Array<{
@@ -566,11 +536,7 @@ router.get('/customer-sales-detail', async (req: Request, res: Response, next: N
     const branchId = effectiveBranchId(req)
     const customerId = (req.query.customerId as string | undefined)?.trim() || null
     const walkIn = req.query.walkIn === '1' || customerId === '__walkin__'
-    const { start: from, end: to } = resolveQueryDateRange({
-      from: req.query.from as string | undefined,
-      to: req.query.to as string | undefined,
-      days: parseInt(req.query.days as string) || 30,
-    })
+    const { start: from, end: to } = resolveBusinessReportRange(req)
 
     const sales = await prisma.sale.findMany({
       where: {
@@ -620,11 +586,7 @@ router.get('/purchase-report', async (req: Request, res: Response, next: NextFun
   try {
     const tenantId = req.tenantId!
     const branchId = effectiveBranchId(req)
-    const { start: from, end: to } = resolveQueryDateRange({
-      from: req.query.from as string | undefined,
-      to: req.query.to as string | undefined,
-      days: parseInt(req.query.days as string) || 30,
-    })
+    const { start: from, end: to } = resolveBusinessReportRange(req)
     const branchClause = branchId ? Prisma.sql`AND po."branchId" = ${branchId}` : Prisma.empty
 
     const saleRows: Array<{
@@ -753,11 +715,7 @@ router.get('/purchase-report-detail', async (req: Request, res: Response, next: 
       sendSuccess(res, [])
       return
     }
-    const { start: from, end: to } = resolveQueryDateRange({
-      from: req.query.from as string | undefined,
-      to: req.query.to as string | undefined,
-      days: parseInt(req.query.days as string) || 30,
-    })
+    const { start: from, end: to } = resolveBusinessReportRange(req)
 
     const orders = await prisma.purchaseOrder.findMany({
       where: {

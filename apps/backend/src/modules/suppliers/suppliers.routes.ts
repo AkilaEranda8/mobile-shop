@@ -10,8 +10,11 @@ import { buildLabelsFromPoItems, ensureProductBarcode } from '../../utils/po-lab
 import { effectiveBranchId } from '../../utils/active-branch'
 import { emitPurchaseAccounting, emitOpeningSupplierApAccounting } from '../accounting/integration/accounting-events.service'
 import { applyPurchaseOrderReceive } from '../../utils/po-receive.util'
+import { applyPurchaseOrderReceiveEffectsIfEnabled } from '../inventory-engine/inventory-engine.service'
 import { businessDayRange, normalizeBusinessDate, resolveQueryDateRange } from '../../utils/date-range'
 import { recordSupplierPayment } from './supplier-payment.service'
+import { OPENING_BALANCE_SUPPLIER_PO_NOTES } from '../../constants/business-rules.constants'
+import { assertPurchaseOrderTransitionIfEnabled } from '../workflow-validators/workflow-validators.service'
 
 const router = Router()
 router.use(authenticate)
@@ -176,7 +179,7 @@ router.post('/', authorize('OWNER', 'MANAGER'), async (req: Request, res: Respon
           paidAmount: 0,
           dueAmount: due,
           // Keep receivedAt null so inventory/accounting receive posts are not triggered
-          notes: 'OPENING_BALANCE — Prior supplier outstanding brought into the system',
+          notes: OPENING_BALANCE_SUPPLIER_PO_NOTES,
           items: {
             create: [{
               productName: 'Opening supplier balance',
@@ -406,7 +409,7 @@ router.post('/purchase-orders', authorize('OWNER', 'MANAGER'), async (req: Reque
 
     if (po.status === 'RECEIVED') {
       await prisma.$transaction(async (tx) => {
-        await applyPurchaseOrderReceive({
+        const handled = await applyPurchaseOrderReceiveEffectsIfEnabled({
           tx,
           tenantId: req.tenantId!,
           poId: po.id,
@@ -416,6 +419,18 @@ router.post('/purchase-orders', authorize('OWNER', 'MANAGER'), async (req: Reque
           items: mapPoItemsForReceive(po.items),
           resolveProduct: (item) => resolvePoItemProduct(tx, req.tenantId!, po.branchId, item),
         })
+        if (!handled) {
+          await applyPurchaseOrderReceive({
+            tx,
+            tenantId: req.tenantId!,
+            poId: po.id,
+            poNumber: po.poNumber,
+            branchId: po.branchId,
+            performedBy: req.user?.userId ?? 'system',
+            items: mapPoItemsForReceive(po.items),
+            resolveProduct: (item) => resolvePoItemProduct(tx, req.tenantId!, po.branchId, item),
+          })
+        }
         await tx.purchaseOrder.update({
           where: { id: po.id },
           data: { receivedAt: new Date() },
@@ -504,6 +519,10 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
     const newStatus = req.body.status as string | undefined
     const isReceiving = newStatus === 'RECEIVED' && po.status !== 'RECEIVED'
 
+    if (newStatus && newStatus !== po.status) {
+      await assertPurchaseOrderTransitionIfEnabled(req.tenantId!, po.status, newStatus)
+    }
+
     if (isReceiving) {
       const labelsToPrint: Array<{
         productId: string
@@ -523,7 +542,7 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
       const tenantSlug = tenant?.slug ?? 'tenant'
 
       await prisma.$transaction(async (tx) => {
-        await applyPurchaseOrderReceive({
+        const handled = await applyPurchaseOrderReceiveEffectsIfEnabled({
           tx,
           tenantId: req.tenantId!,
           poId: po.id,
@@ -533,6 +552,18 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
           items: mapPoItemsForReceive(po.items),
           resolveProduct: (item) => resolvePoItemProduct(tx, req.tenantId!, po.branchId, item),
         })
+        if (!handled) {
+          await applyPurchaseOrderReceive({
+            tx,
+            tenantId: req.tenantId!,
+            poId: po.id,
+            poNumber: po.poNumber,
+            branchId: po.branchId,
+            performedBy: req.user?.userId ?? 'system',
+            items: mapPoItemsForReceive(po.items),
+            resolveProduct: (item) => resolvePoItemProduct(tx, req.tenantId!, po.branchId, item),
+          })
+        }
 
         for (const item of po.items) {
           const resolved = await resolvePoItemProduct(tx, req.tenantId!, po.branchId, item)

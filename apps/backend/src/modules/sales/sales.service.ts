@@ -1,21 +1,22 @@
 import { prisma } from '../../config/database'
 import { Prisma } from '@prisma/client'
 import { AppError } from '../../middleware/error.middleware'
-import { getPagination } from '../../utils/pagination'
 import { generateInvoiceNumber } from '../../utils/counters'
 import { Request } from 'express'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
-import { effectiveBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
+import { assertBranchRecordAccess } from '../../utils/active-branch'
 import { createDailyReloadsFromSaleItems } from '../daily-reload/pos-reload.util'
 import { createWarrantiesFromSaleItems } from '../warranty/warranty.service'
 import { emitSaleAccounting } from '../accounting/integration/accounting-events.service'
 import { hasVariants, sumVariantStock } from '../../utils/product-variants'
 import { resolveSaleItemUnitCost } from '../../utils/sale-item-cost.util'
+import { applySaleStockEffectsIfEnabled } from '../inventory-engine/inventory-engine.service'
+import { applySalePricingIfEnabled } from '../pricing-engine/pricing-engine.service'
+import { buildReportFilterContext } from '../report-engine/report-engine.service'
 
 export const salesService = {
   async list(tenantId: string, req: Request) {
-    const { skip, limit, page, search } = getPagination(req)
-    const branchId = effectiveBranchId(req)
+    const { skip, limit, page, search, branchId } = buildReportFilterContext(req)
     const status = req.query.status as string | undefined
     const customerId = req.query.customerId as string | undefined
     const where: any = { tenantId, ...(branchId && { branchId }), ...(status && { status }), ...(customerId && { customerId }), ...(search && { OR: [{ invoiceNumber: { contains: search, mode: 'insensitive' } }, { customerName: { contains: search, mode: 'insensitive' } }, { customerPhone: { contains: search } }] }) }
@@ -65,19 +66,46 @@ export const salesService = {
     if (body.branchId) await assertBusinessDayOpenIfEnabled(tenantId, body.branchId)
     else await assertBusinessDayOpenIfEnabled(tenantId, branchId)
     const invoiceNumber = await generateInvoiceNumber(tenantId)
-    const items: any[] = Array.isArray(body.items) ? body.items : []
+    let items: any[] = Array.isArray(body.items) ? body.items : []
 
     const productIds = [...new Set(items.map((i) => i.productId).filter(Boolean))] as string[]
-    const productCostMap = new Map<string, { buyingPrice: number; storageVariations: unknown }>()
+    const productCostMap = new Map<string, {
+      buyingPrice: number
+      storageVariations: unknown
+      sellingPrice: number
+      wholesalePrice: number
+      creditPrice: number
+    }>()
     if (productIds.length) {
       const products = await prisma.product.findMany({
         where: { tenantId, id: { in: productIds } },
-        select: { id: true, buyingPrice: true, storageVariations: true },
+        select: {
+          id: true,
+          buyingPrice: true,
+          storageVariations: true,
+          sellingPrice: true,
+          wholesalePrice: true,
+          creditPrice: true,
+        },
       })
       for (const p of products) {
-        productCostMap.set(p.id, { buyingPrice: p.buyingPrice, storageVariations: p.storageVariations })
+        productCostMap.set(p.id, {
+          buyingPrice: p.buyingPrice,
+          storageVariations: p.storageVariations,
+          sellingPrice: p.sellingPrice,
+          wholesalePrice: p.wholesalePrice,
+          creditPrice: p.creditPrice,
+        })
       }
     }
+
+    const priced = await applySalePricingIfEnabled({
+      tenantId,
+      priceMode: body.priceMode,
+      items,
+      productsById: productCostMap,
+    })
+    if (priced) items = priced.items
 
     for (const item of items) {
       if (!item.productId) continue
@@ -143,66 +171,78 @@ export const salesService = {
         },
         include: { items: true, payments: true },
       })
-      for (const item of items) {
-        if (!item.productId) continue  // service items have no productId — skip stock ops
-        const product = await tx.product.findUnique({ where: { id: item.productId }, select: { stock: true, name: true, storageVariations: true } })
-        if (!product) continue         // productId present but not found — skip safely
+      const stockHandledByEngine = await applySaleStockEffectsIfEnabled({
+        tx,
+        tenantId,
+        branchId,
+        saleId: s.id,
+        invoiceNumber,
+        cashierName,
+        customerId: body.customerId,
+        items,
+      })
+      if (!stockHandledByEngine) {
+        for (const item of items) {
+          if (!item.productId) continue  // service items have no productId — skip stock ops
+          const product = await tx.product.findUnique({ where: { id: item.productId }, select: { stock: true, name: true, storageVariations: true } })
+          if (!product) continue         // productId present but not found — skip safely
 
-        const variantMode = hasVariants(product.storageVariations)
-        const available = variantMode ? sumVariantStock(product.storageVariations) : product.stock
-        if (available < item.quantity) {
-          throw new AppError(`Insufficient stock for "${product.name}". Available: ${available}, Requested: ${item.quantity}`, 400)
-        }
+          const variantMode = hasVariants(product.storageVariations)
+          const available = variantMode ? sumVariantStock(product.storageVariations) : product.stock
+          if (available < item.quantity) {
+            throw new AppError(`Insufficient stock for "${product.name}". Available: ${available}, Requested: ${item.quantity}`, 400)
+          }
 
-        if (variantMode) {
-          let updatedVariations = product.storageVariations as any[]
-          let changed = false
-          updatedVariations = updatedVariations.map((v: any) => {
-            const matchSku = item.sku && v.sku === item.sku
-            const matchProps = (item as any).variationLabel &&
-              `${v.storage}::${v.colorName}` === (item as any).variationLabel
-            if (matchSku || matchProps) {
-              changed = true
-              return { ...v, stock: Math.max(0, (v.stock || 0) - item.quantity) }
+          if (variantMode) {
+            let updatedVariations = product.storageVariations as any[]
+            let changed = false
+            updatedVariations = updatedVariations.map((v: any) => {
+              const matchSku = item.sku && v.sku === item.sku
+              const matchProps = (item as any).variationLabel &&
+                `${v.storage}::${v.colorName}` === (item as any).variationLabel
+              if (matchSku || matchProps) {
+                changed = true
+                return { ...v, stock: Math.max(0, (v.stock || 0) - item.quantity) }
+              }
+              return v
+            })
+            if (!changed) {
+              throw new AppError(`Insufficient stock for "${product.name}". Variant not found for this sale line`, 400)
             }
-            return v
-          })
-          if (!changed) {
-            throw new AppError(`Insufficient stock for "${product.name}". Variant not found for this sale line`, 400)
-          }
-          await tx.product.update({
-            where: { id: item.productId },
-            data: {
-              storageVariations: updatedVariations,
-              stock: sumVariantStock(updatedVariations),
-            },
-          })
-        } else {
-          const dec = await tx.product.updateMany({
-            where: { id: item.productId, stock: { gte: item.quantity } },
-            data:  { stock: { decrement: item.quantity } },
-          })
-          if (dec.count === 0) {
-            throw new AppError(`Insufficient stock for "${product.name}". Available: ${product.stock}, Requested: ${item.quantity}`, 400)
-          }
-        }
-        await tx.stockMovement.create({ data: { productId: item.productId, branchId, type: 'SALE', quantity: -item.quantity, reference: invoiceNumber, performedBy: cashierName } })
-        if (item.imei) {
-          const existingImei = await tx.imeiRecord.findUnique({ where: { imei: item.imei } })
-          if (existingImei) {
-            await tx.imeiRecord.update({ where: { imei: item.imei }, data: { status: 'SOLD', customerId: body.customerId ?? existingImei.customerId, saleId: s.id } })
-          } else if (item.productId) {
-            await tx.imeiRecord.create({
+            await tx.product.update({
+              where: { id: item.productId },
               data: {
-                imei: item.imei,
-                productId: item.productId,
-                branchId,
-                status: 'SOLD',
-                variation: (item as any).variationLabel ?? undefined,
-                customerId: body.customerId,
-                saleId: s.id,
+                storageVariations: updatedVariations,
+                stock: sumVariantStock(updatedVariations),
               },
             })
+          } else {
+            const dec = await tx.product.updateMany({
+              where: { id: item.productId, stock: { gte: item.quantity } },
+              data:  { stock: { decrement: item.quantity } },
+            })
+            if (dec.count === 0) {
+              throw new AppError(`Insufficient stock for "${product.name}". Available: ${product.stock}, Requested: ${item.quantity}`, 400)
+            }
+          }
+          await tx.stockMovement.create({ data: { productId: item.productId, branchId, type: 'SALE', quantity: -item.quantity, reference: invoiceNumber, performedBy: cashierName } })
+          if (item.imei) {
+            const existingImei = await tx.imeiRecord.findUnique({ where: { imei: item.imei } })
+            if (existingImei) {
+              await tx.imeiRecord.update({ where: { imei: item.imei }, data: { status: 'SOLD', customerId: body.customerId ?? existingImei.customerId, saleId: s.id } })
+            } else if (item.productId) {
+              await tx.imeiRecord.create({
+                data: {
+                  imei: item.imei,
+                  productId: item.productId,
+                  branchId,
+                  status: 'SOLD',
+                  variation: (item as any).variationLabel ?? undefined,
+                  customerId: body.customerId,
+                  saleId: s.id,
+                },
+              })
+            }
           }
         }
       }

@@ -8,6 +8,7 @@ import { round2 } from '../reports/gl-balances.util'
 import { generateJournalEntryNo } from './journal-number.util'
 import { resolveOpenPeriodForDate } from './journal-period.util'
 import { requireAccountingInitialized } from '../accounting-init.service'
+import { recordAuditEvent } from '../../audit-engine/audit-engine.service'
 
 async function assertInitialized(tenantId: string) {
   await requireAccountingInitialized(tenantId)
@@ -210,16 +211,14 @@ export async function createManualJournalEntry(
     lines: draftLines,
   })
 
-  await prisma.auditEvent.create({
-    data: {
-      tenantId,
-      branchId: body.branchId,
-      actorEmail: actorEmail ?? 'system',
-      eventType: 'MANUAL_JOURNAL_POSTED',
-      entityType: 'JournalEntry',
-      entityId: je.id,
-      afterJson: { entryNo: je.entryNo, totalDebit: je.totalDebit },
-    },
+  await recordAuditEvent({
+    tenantId,
+    branchId: body.branchId,
+    actorEmail: actorEmail ?? 'system',
+    eventType: 'MANUAL_JOURNAL_POSTED',
+    entityType: 'JournalEntry',
+    entityId: je.id,
+    afterJson: { entryNo: je.entryNo, totalDebit: je.totalDebit },
   })
 
   return getJournalEntry(tenantId, je.id)
@@ -337,15 +336,13 @@ export async function approvePendingJournal(tenantId: string, entryId: string, a
     data: { status: 'APPROVED', approvedBy: actorEmail ?? 'system', resolvedAt: new Date() },
   })
 
-  await prisma.auditEvent.create({
-    data: {
-      tenantId,
-      actorEmail: actorEmail ?? 'system',
-      eventType: 'MANUAL_JOURNAL_APPROVED',
-      entityType: 'JournalEntry',
-      entityId: entryId,
-      afterJson: { entryNo: updated.entryNo },
-    },
+  await recordAuditEvent({
+    tenantId,
+    actorEmail: actorEmail ?? 'system',
+    eventType: 'MANUAL_JOURNAL_APPROVED',
+    entityType: 'JournalEntry',
+    entityId: entryId,
+    afterJson: { entryNo: updated.entryNo },
   })
 
   return getJournalEntry(tenantId, entryId)
@@ -424,15 +421,13 @@ export async function reverseManualJournalEntry(
     lines: reversalLines,
   })
 
-  await prisma.auditEvent.create({
-    data: {
-      tenantId,
-      actorEmail: actorEmail ?? 'system',
-      eventType: 'MANUAL_JOURNAL_REVERSED',
-      entityType: 'JournalEntry',
-      entityId: je.id,
-      afterJson: { reversesEntryNo: original.entryNo, entryNo: je.entryNo },
-    },
+  await recordAuditEvent({
+    tenantId,
+    actorEmail: actorEmail ?? 'system',
+    eventType: 'MANUAL_JOURNAL_REVERSED',
+    entityType: 'JournalEntry',
+    entityId: je.id,
+    afterJson: { reversesEntryNo: original.entryNo, entryNo: je.entryNo },
   })
 
   return getJournalEntry(tenantId, je.id)

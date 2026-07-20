@@ -37,7 +37,7 @@ export const productsController = {
         const allowed = await getUserBranchIds(user.userId, tenantId, user.role)
         if (!allowed.includes(body.branchId)) throw new AppError('Branch access denied', 403)
       }
-      sendSuccess(res, await productsService.create(tenantId, body), 'Product created', 201)
+      sendSuccess(res, await productsService.create(tenantId, body, req), 'Product created', 201)
     } catch (e) { next(e) }
   },
   async update(req: Request, res: Response, next: NextFunction) {

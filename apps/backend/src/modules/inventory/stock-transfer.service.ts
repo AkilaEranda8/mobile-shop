@@ -1,23 +1,18 @@
 import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import { getUserBranchIds } from '../../utils/active-branch'
+import { destBranchSku, findBranchCatalogProduct } from '../../utils/branch-catalog'
 import {
-  destBranchSku,
-  ensureBranchCatalogProduct,
-  findBranchCatalogProduct,
-} from '../../utils/branch-catalog'
-import { syncImeiTrackedStock } from '../../utils/product-stock'
-import {
-  adjustVariantStock,
   countAvailableStock,
   findVariant,
   hasVariants,
   imeiMatchesVariant,
   imeiVariationFilter,
   listTransferableVariantsForBranch,
-  mergeVariantStock,
   variantLabel,
 } from '../../utils/product-variants'
+import { executeStockTransferEffects } from '../../utils/stock-transfer.util'
+import { applyStockTransferEffectsIfEnabled } from '../inventory-engine/inventory-engine.service'
 import { Prisma } from '@prisma/client'
 
 type TransferProduct = {
@@ -89,44 +84,6 @@ async function validateTransferImeis(
     }
   }
   return unique
-}
-
-async function recordTransferMovements(
-  tx: Prisma.TransactionClient,
-  opts: {
-    sourceProductId: string
-    destProductId: string
-    fromBranchId: string
-    toBranchId: string
-    quantity: number
-    reference: string
-    note?: string
-    performedBy: string
-  },
-) {
-  const { sourceProductId, destProductId, fromBranchId, toBranchId, quantity, reference, note, performedBy } = opts
-  await tx.stockMovement.createMany({
-    data: [
-      {
-        productId: sourceProductId,
-        branchId: fromBranchId,
-        type: 'TRANSFER_OUT',
-        quantity: -quantity,
-        reference,
-        note,
-        performedBy,
-      },
-      {
-        productId: destProductId,
-        branchId: toBranchId,
-        type: 'TRANSFER_IN',
-        quantity,
-        reference,
-        note,
-        performedBy,
-      },
-    ],
-  })
 }
 
 export const stockTransferService = {
@@ -244,102 +201,25 @@ export const stockTransferService = {
     const reference = `TRF-${Date.now().toString(36).toUpperCase()}`
 
     return prisma.$transaction(async (tx) => {
-      const destCatalog = await findBranchCatalogProduct(tx, tenantId, product.sku, toBranchId)
-      const mergeIntoDest = !!destCatalog && destCatalog.id !== productId
-
-      // Whole product relocate (no variants, full qty, no separate dest catalog, all IMEIs when tracked)
-      if (isFullProduct && !mergeIntoDest && (!product.trackImei || isFullImeiTransfer)) {
-        await tx.product.update({
-          where: { id: productId },
-          data: { branchId: toBranchId },
-        })
-        if (product.trackImei && imeis) {
-          await tx.imeiRecord.updateMany({
-            where: { imei: { in: imeis }, productId, branchId: fromBranchId, status: 'IN_STOCK' },
-            data: { branchId: toBranchId },
-          })
-        }
-        await recordTransferMovements(tx, {
-          sourceProductId: productId,
-          destProductId: productId,
-          fromBranchId,
-          toBranchId,
-          quantity,
-          reference,
-          note: movementNote,
-          performedBy,
-        })
-        return { reference, productId, fromBranchId, toBranchId, quantity, mode: 'relocate' as const }
-      }
-
-      const destProduct = mergeIntoDest
-        ? destCatalog!
-        : await ensureBranchCatalogProduct(tx, tenantId, product as TransferProduct, toBranchId)
-
-      const sourceUpdate: Prisma.ProductUpdateInput = {
-        stock: { decrement: quantity },
-      }
-      if (variationKey && sourceVariant) {
-        sourceUpdate.storageVariations = adjustVariantStock(
-          product.storageVariations,
-          variationKey,
-          -quantity,
-        ) as Prisma.InputJsonValue
-      }
-
-      const destUpdate: Prisma.ProductUpdateInput = {
-        stock: { increment: quantity },
-      }
-      if (variationKey && sourceVariant) {
-        destUpdate.storageVariations = mergeVariantStock(
-          destProduct.storageVariations,
-          sourceVariant,
-          quantity,
-        ) as Prisma.InputJsonValue
-      }
-
-      await tx.product.update({ where: { id: productId }, data: sourceUpdate })
-      await tx.product.update({ where: { id: destProduct.id }, data: destUpdate })
-
-      if (product.trackImei && imeis) {
-        await validateTransferImeis(tx, {
-          productId,
-          fromBranchId,
-          imeis,
-          variationKey,
-          sourceVariant,
-        })
-        await tx.imeiRecord.updateMany({
-          where: { imei: { in: imeis }, productId, branchId: fromBranchId, status: 'IN_STOCK' },
-          data: { productId: destProduct.id, branchId: toBranchId },
-        })
-        await syncImeiTrackedStock(tx, productId)
-        await syncImeiTrackedStock(tx, destProduct.id)
-      }
-
-      await recordTransferMovements(tx, {
-        sourceProductId: productId,
-        destProductId: destProduct.id,
-        fromBranchId,
-        toBranchId,
-        quantity,
-        reference,
-        note: movementNote,
-        performedBy,
-      })
-
-      return {
-        reference,
+      const transferInput = {
+        tx,
+        tenantId,
+        product: product as TransferProduct,
         productId,
-        toProductId: destProduct.id,
         fromBranchId,
         toBranchId,
         quantity,
-        variationKey: variationKey ?? null,
-        imeis: imeis ?? null,
-        mode: mergeIntoDest ? ('merge' as const) : ('partial' as const),
-        destSku: destBranchSku(product.sku, toBranchId),
+        variationKey,
+        imeis,
+        isFullProduct,
+        isFullImeiTransfer: !!isFullImeiTransfer,
+        reference,
+        movementNote,
+        performedBy,
       }
+      const engineResult = await applyStockTransferEffectsIfEnabled(transferInput)
+      if (engineResult) return engineResult
+      return executeStockTransferEffects(transferInput)
     })
   },
 

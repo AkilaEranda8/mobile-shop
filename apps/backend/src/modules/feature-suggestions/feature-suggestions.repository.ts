@@ -10,6 +10,7 @@ import type {
   CreateSuggestionInput,
   HistoryCreateInput,
 } from './feature-suggestions.types'
+import { dispatchInAppNotification } from '../notification-engine/notification-engine.adapter.in-app'
 
 const submitterSelect = {
   id: true,
@@ -73,17 +74,9 @@ export const featureSuggestionsRepository = {
       relatedId?: string | null
     },
   ) {
-    return tx.userNotification.create({
-      data: {
-        tenantId: data.tenantId,
-        userId: data.userId,
-        type: data.type,
-        title: data.title,
-        message: data.message,
-        link: data.link ?? null,
-        relatedId: data.relatedId ?? null,
-      },
-    })
+    const result = await dispatchInAppNotification(data, tx)
+    if (!result.ok) throw new Error(result.error ?? 'Failed to create notification')
+    return { id: result.messageId! }
   },
 
   async countTodayByUser(tenantId: string, userId: string, since: Date) {

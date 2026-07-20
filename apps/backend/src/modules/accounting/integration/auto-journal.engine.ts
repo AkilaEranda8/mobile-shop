@@ -17,6 +17,7 @@ import {
   round2,
 } from './inventory-cogs.util'
 import { requireAccountingInitialized } from '../accounting-init.service'
+import { evaluatePoIsOpeningSupplierBalance } from '../../business-rules-engine/business-rules-engine.service'
 
 async function getSettingsOrThrow(tenantId: string) {
   return requireAccountingInitialized(tenantId)
@@ -932,7 +933,7 @@ export async function postOpeningSupplierApJournal(tenantId: string, purchaseOrd
     },
   })
   if (!po) throw new AppError('Purchase order not found', 404)
-  if (!po.notes?.includes('OPENING_BALANCE')) {
+  if (!evaluatePoIsOpeningSupplierBalance(tenantId, { notes: po.notes, receivedAt: undefined })) {
     throw new AppError('Purchase order is not an opening supplier balance', 400)
   }
   if (po.receivedAt != null) {

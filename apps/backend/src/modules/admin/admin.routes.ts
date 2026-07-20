@@ -24,6 +24,7 @@ import { getClientIp, logPlatformActivity } from '../../utils/activity-log'
 import { clearTenantTrialData } from '../../utils/clear-tenant-data'
 import { resolveTenantOwnerPhone, resolveTenantOwnerPhoneSync } from '../../utils/tenant-owner-phone'
 import { whatsappService } from '../whatsapp/whatsapp.service'
+import { notifySaleInvoice } from '../notification-engine/notification-engine.service'
 import { validate } from '../../middleware/validate.middleware'
 import {
   connectSchema,
@@ -553,7 +554,7 @@ router.post('/subscriptions/:tenantId/send-invoice', validate(sendInvoiceSchema)
     const phone = normalizeBillingPhone(rawPhone)
     if (!/^\+[1-9]\d{6,14}$/.test(phone)) throw new AppError('Invalid phone number format', 400)
 
-    const data = await whatsappService.sendInvoice(billingTenantId, {
+    const data = await notifySaleInvoice(billingTenantId, {
       ...req.body,
       phone,
       customerName: req.body.customerName ?? tenant.ownerName,

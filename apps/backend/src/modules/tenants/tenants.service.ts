@@ -1,18 +1,13 @@
 import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
-import { normalizeReloadSettings } from '../daily-reload/reload-settings.util'
-import { normalizePaymentMethodSettings } from './payment-method-settings.util'
-import { normalizeProductVariantSettings } from '../products/product-variant-settings.util'
-import {
-  applyProductCodeSettings,
-  normalizeProductCodeSettings,
-} from '../products/product-code-settings.util'
-import { peekProductCodes } from '../../utils/counters'
 import { getUserBranchIds } from '../../utils/active-branch'
+import { INVOICE_TEMPLATE_OPTIONS } from './invoice-settings.util'
 import {
-  INVOICE_TEMPLATE_OPTIONS,
-  normalizeInvoiceSettings,
-} from './invoice-settings.util'
+  getAllTenantConfigs,
+  getTenantConfig,
+  listConfigDomains,
+  setTenantConfig,
+} from '../configuration-engine/configuration-engine.service'
 
 const OWNER_ROLES = new Set(['OWNER', 'PLATFORM_ADMIN'])
 
@@ -28,7 +23,6 @@ export const tenantsService = {
   },
 
   async update(id: string, body: Partial<{ name: string; plan: string; status: string }> & Record<string, unknown>) {
-    // Defensive allowlist — never trust arbitrary client fields onto the tenant row.
     const data: Record<string, unknown> = {}
     if (body.name   !== undefined) data.name   = body.name
     if (body.plan   !== undefined) data.plan   = body.plan
@@ -40,127 +34,54 @@ export const tenantsService = {
     return INVOICE_TEMPLATE_OPTIONS
   },
 
+  listConfigDomains() {
+    return listConfigDomains()
+  },
+
+  async getAllSettings(tenantId: string) {
+    return getAllTenantConfigs(tenantId)
+  },
+
   async getInvoiceSettings(tenantId: string, _branchId?: string) {
-    const t = await prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: { invoiceSettings: true, slug: true },
-    })
-    if (!t) throw new AppError('Tenant not found', 404)
-    return normalizeInvoiceSettings(t.invoiceSettings, t.slug)
+    return getTenantConfig(tenantId, 'invoice')
   },
 
   async updateInvoiceSettings(tenantId: string, patch: Record<string, unknown>) {
-    const existing = await prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: { invoiceSettings: true, slug: true },
-    })
-    if (!existing) throw new AppError('Tenant not found', 404)
-    const prev =
-      existing.invoiceSettings && typeof existing.invoiceSettings === 'object'
-        ? (existing.invoiceSettings as Record<string, unknown>)
-        : {}
-    const patchBarcode =
-      patch.barcodeLabel && typeof patch.barcodeLabel === 'object'
-        ? (patch.barcodeLabel as Record<string, unknown>)
-        : undefined
-    const merged = {
-      ...prev,
-      ...patch,
-      ...(patchBarcode
-        ? {
-            barcodeLabel: {
-              ...(prev.barcodeLabel && typeof prev.barcodeLabel === 'object'
-                ? (prev.barcodeLabel as Record<string, unknown>)
-                : {}),
-              ...patchBarcode,
-            },
-          }
-        : {}),
-    }
-    const normalized = normalizeInvoiceSettings(merged, existing.slug)
-    const t = await prisma.tenant.update({
-      where: { id: tenantId },
-      data: { invoiceSettings: normalized as any },
-      select: { invoiceSettings: true, slug: true },
-    })
-    return normalizeInvoiceSettings(t.invoiceSettings, t.slug)
+    return setTenantConfig(tenantId, 'invoice', patch)
   },
 
   async getReloadSettings(tenantId: string) {
-    const t = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { reloadSettings: true } })
-    if (!t) throw new AppError('Tenant not found', 404)
-    return normalizeReloadSettings(t.reloadSettings)
+    return getTenantConfig(tenantId, 'reload')
   },
 
   async updateReloadSettings(tenantId: string, settings: Record<string, unknown>) {
-    const normalized = normalizeReloadSettings(settings)
-    const t = await prisma.tenant.update({
-      where: { id: tenantId },
-      data: { reloadSettings: normalized as any },
-      select: { reloadSettings: true },
-    })
-    return normalizeReloadSettings(t.reloadSettings)
+    return setTenantConfig(tenantId, 'reload', settings)
   },
 
   async getPaymentMethodSettings(tenantId: string) {
-    const t = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { paymentMethodSettings: true } })
-    if (!t) throw new AppError('Tenant not found', 404)
-    return normalizePaymentMethodSettings(t.paymentMethodSettings)
+    return getTenantConfig(tenantId, 'paymentMethod')
   },
 
   async updatePaymentMethodSettings(tenantId: string, settings: Record<string, unknown>) {
-    const normalized = normalizePaymentMethodSettings(settings)
-    const t = await prisma.tenant.update({
-      where: { id: tenantId },
-      data: { paymentMethodSettings: normalized as any },
-      select: { paymentMethodSettings: true },
-    })
-    return normalizePaymentMethodSettings(t.paymentMethodSettings)
+    return setTenantConfig(tenantId, 'paymentMethod', settings)
   },
 
   async getProductVariantSettings(tenantId: string) {
-    const t = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { productVariantSettings: true } })
-    if (!t) throw new AppError('Tenant not found', 404)
-    return normalizeProductVariantSettings(t.productVariantSettings)
+    return getTenantConfig(tenantId, 'productVariant')
   },
 
   async updateProductVariantSettings(tenantId: string, settings: Record<string, unknown>) {
-    const normalized = normalizeProductVariantSettings(settings)
-    const t = await prisma.tenant.update({
-      where: { id: tenantId },
-      data: { productVariantSettings: normalized as any },
-      select: { productVariantSettings: true },
-    })
-    return normalizeProductVariantSettings(t.productVariantSettings)
+    return setTenantConfig(tenantId, 'productVariant', settings)
   },
 
   async getProductCodeSettings(tenantId: string) {
-    const t = await prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: { productCodeSettings: true, slug: true },
-    })
-    if (!t) throw new AppError('Tenant not found', 404)
-    const settings = normalizeProductCodeSettings(t.productCodeSettings)
-    const peek = await peekProductCodes(tenantId, t.slug)
-    return { ...settings, nextSku: peek.sku, nextBarcode: peek.barcode, prefix: peek.prefix }
+    return getTenantConfig(tenantId, 'productCode')
   },
 
   async updateProductCodeSettings(tenantId: string, body: Record<string, unknown>) {
-    const t = await prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: { slug: true },
-    })
-    if (!t) throw new AppError('Tenant not found', 404)
-    const normalized = normalizeProductCodeSettings(body)
-    await prisma.tenant.update({
-      where: { id: tenantId },
-      data: { productCodeSettings: normalized as any },
-    })
-    await applyProductCodeSettings(tenantId, t.slug, normalized)
-    return this.getProductCodeSettings(tenantId)
+    return setTenantConfig(tenantId, 'productCode', body)
   },
 
-  // Branch CRUD
   async getBranches(tenantId: string, userId: string, role: string) {
     const where: { tenantId: string; id?: { in: string[] } } = { tenantId }
     if (!OWNER_ROLES.has(role)) {

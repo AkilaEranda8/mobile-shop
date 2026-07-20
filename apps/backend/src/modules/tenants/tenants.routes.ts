@@ -42,10 +42,13 @@ router.patch('/my-features', authorize('OWNER', 'MANAGER'), async (req: Request,
 })
 
 router.get('/invoice-templates', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'), tenantsController.listInvoiceTemplates)
+router.get('/config-domains', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER'), tenantsController.listConfigDomains)
+router.get('/me/settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'), tenantsController.getMySettings)
 router.get('/', authorize('PLATFORM_ADMIN'), tenantsController.list)
 router.get('/me', tenantsController.getMe)
 router.get('/:id', authorize('PLATFORM_ADMIN', 'OWNER'), tenantsController.getById)
 router.put('/:id', authorize('PLATFORM_ADMIN', 'OWNER'), tenantsController.update)
+router.get('/:id/settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'), tenantsController.getAllSettings)
 router.get('/:id/invoice-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'), tenantsController.getInvoiceSettings)
 router.patch('/:id/invoice-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER'), validate(updateInvoiceSettingsSchema), tenantsController.updateInvoiceSettings)
 router.get('/:id/reload-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'), tenantsController.getReloadSettings)

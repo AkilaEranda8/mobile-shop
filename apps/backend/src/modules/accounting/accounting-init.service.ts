@@ -1,5 +1,6 @@
 import { prisma } from '../../config/database'
 import { MOBILE_SHOP_COA, DEFAULT_ACCOUNT_KEYS } from './seed/mobile-shop-coa.seed'
+import { recordAuditEvent } from '../audit-engine/audit-engine.service'
 
 function currentPeriodName(d = new Date()) {
   return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' }).slice(0, 7)
@@ -164,16 +165,14 @@ export async function initializeAccounting(tenantId: string, actorEmail = 'syste
       },
     })
 
-    await tx.auditEvent.create({
-      data: {
-        tenantId,
-        actorEmail,
-        eventType: 'ACCOUNTING_INITIALIZED',
-        entityType: 'AccountingSettings',
-        entityId: tenantId,
-        afterJson: { periodName, accountCount: MOBILE_SHOP_COA.length, branchCount: branches.length },
-      },
-    })
+    await recordAuditEvent({
+      tenantId,
+      actorEmail,
+      eventType: 'ACCOUNTING_INITIALIZED',
+      entityType: 'AccountingSettings',
+      entityId: tenantId,
+      afterJson: { periodName, accountCount: MOBILE_SHOP_COA.length, branchCount: branches.length },
+    }, tx)
   })
 
   const settings = await prisma.accountingSettings.findUniqueOrThrow({ where: { tenantId } })

@@ -6,6 +6,7 @@ import type { JournalDraftLine } from '../journals/journal-validator.util'
 import { getProfitAndLoss } from '../reports/gl-reports.service'
 import { round2 } from '../reports/gl-balances.util'
 import { requireAccountingInitialized } from '../accounting-init.service'
+import { recordAuditEvent } from '../../audit-engine/audit-engine.service'
 
 async function assertInitialized(tenantId: string) {
   await requireAccountingInitialized(tenantId)
@@ -170,15 +171,13 @@ export async function softClosePeriod(tenantId: string, periodId: string, actorE
     data: { status: 'SOFT_CLOSED', closedBy: actorEmail, closedAt: new Date() },
   })
 
-  await prisma.auditEvent.create({
-    data: {
-      tenantId,
-      actorEmail: actorEmail ?? 'system',
-      eventType: 'PERIOD_SOFT_CLOSED',
-      entityType: 'AccountingPeriod',
-      entityId: period.id,
-      afterJson: { name: period.name },
-    },
+  await recordAuditEvent({
+    tenantId,
+    actorEmail: actorEmail ?? 'system',
+    eventType: 'PERIOD_SOFT_CLOSED',
+    entityType: 'AccountingPeriod',
+    entityId: period.id,
+    afterJson: { name: period.name },
   })
 
   return updated
@@ -227,18 +226,16 @@ export async function hardClosePeriod(tenantId: string, periodId: string, actorE
     data: { status: 'HARD_CLOSED', closedBy: actorEmail, closedAt: new Date() },
   })
 
-  await prisma.auditEvent.create({
-    data: {
-      tenantId,
-      actorEmail: actorEmail ?? 'system',
-      eventType: 'PERIOD_HARD_CLOSED',
-      entityType: 'AccountingPeriod',
-      entityId: period.id,
-      afterJson: {
-        name: period.name,
-        netIncome: pl.netIncome,
-        closingJournalId: closingJournal?.id ?? null,
-      },
+  await recordAuditEvent({
+    tenantId,
+    actorEmail: actorEmail ?? 'system',
+    eventType: 'PERIOD_HARD_CLOSED',
+    entityType: 'AccountingPeriod',
+    entityId: period.id,
+    afterJson: {
+      name: period.name,
+      netIncome: pl.netIncome,
+      closingJournalId: closingJournal?.id ?? null,
     },
   })
 
@@ -294,15 +291,13 @@ export async function reopenPeriod(tenantId: string, periodId: string, actorEmai
     data: { status: 'OPEN', closedBy: null, closedAt: null },
   })
 
-  await prisma.auditEvent.create({
-    data: {
-      tenantId,
-      actorEmail: actorEmail ?? 'system',
-      eventType: 'PERIOD_REOPENED',
-      entityType: 'AccountingPeriod',
-      entityId: period.id,
-      afterJson: { name: period.name, priorStatus: period.status },
-    },
+  await recordAuditEvent({
+    tenantId,
+    actorEmail: actorEmail ?? 'system',
+    eventType: 'PERIOD_REOPENED',
+    entityType: 'AccountingPeriod',
+    entityId: period.id,
+    afterJson: { name: period.name, priorStatus: period.status },
   })
 
   return { period: updated, reversalJournal }

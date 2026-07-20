@@ -8,6 +8,8 @@ import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 import { effectiveBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
 import { emitRepairAccounting } from '../accounting/integration/accounting-events.service'
 import { formatRepairServiceItemName } from '../../utils/repair-item-label'
+import { applyRepairSparePartsStockEffectsIfEnabled } from '../inventory-engine/inventory-engine.service'
+import { assertRepairTransitionIfEnabled } from '../workflow-validators/workflow-validators.service'
 
 function normalizeFaultName(input: unknown) {
   const s = String(input ?? '')
@@ -189,9 +191,7 @@ export const repairsService = {
   async updateStatus(tenantId: string, id: string, status: string, changedBy: string, note?: string) {
     const r = await prisma.repairTicket.findFirst({ where: { id, tenantId } })
     if (!r) throw new AppError('Repair ticket not found', 404)
-    if (status === 'DELIVERED') {
-      throw new AppError('Use Collect Payment to complete and deliver this repair', 400)
-    }
+    await assertRepairTransitionIfEnabled(tenantId, r.status, status)
     await prisma.$transaction([
       prisma.repairTicket.update({ where: { id }, data: { status: status as any } }),
       prisma.repairStatusHistory.create({ data: { repairId: id, status: status as any, changedBy, note } }),
@@ -268,6 +268,7 @@ export const repairsService = {
     if (r.status === 'DELIVERED') throw new AppError('Payment has already been collected for this ticket', 400)
     if (r.status === 'CANCELLED') throw new AppError('Cannot collect payment on a cancelled repair', 400)
     if (r.status !== 'READY') throw new AppError('Repair must be marked Ready before collecting payment', 400)
+    await assertRepairTransitionIfEnabled(tenantId, r.status, 'DELIVERED', { via: 'collect_payment' })
     await assertBusinessDayOpenIfEnabled(tenantId, r.branchId)
 
     const serviceFee  = Number(r.estimatedCost) || 0
@@ -374,29 +375,39 @@ export const repairsService = {
           data: { totalPurchases: { increment: 1 } },
         }).catch(() => {})
       }
-      for (const p of r.spareParts) {
-        if (p.productId) {
-          const prod = await tx.product.findUnique({ where: { id: p.productId }, select: { stock: true, name: true } })
-          if (prod) {
-            // Atomic conditional decrement prevents overselling under concurrent writes.
-            const dec = await tx.product.updateMany({
-              where: { id: p.productId, stock: { gte: p.quantity } },
-              data:  { stock: { decrement: p.quantity } },
-            })
-            if (dec.count === 0) {
-              throw new AppError(`Insufficient stock for "${prod.name}". Available: ${prod.stock}, Required: ${p.quantity}`, 400)
+      const stockHandledByEngine = await applyRepairSparePartsStockEffectsIfEnabled({
+        tx,
+        tenantId,
+        branchId: r.branchId,
+        ticketNumber: r.ticketNumber,
+        performedBy: cashierName,
+        items: r.spareParts,
+      })
+      if (!stockHandledByEngine) {
+        for (const p of r.spareParts) {
+          if (p.productId) {
+            const prod = await tx.product.findUnique({ where: { id: p.productId }, select: { stock: true, name: true } })
+            if (prod) {
+              // Atomic conditional decrement prevents overselling under concurrent writes.
+              const dec = await tx.product.updateMany({
+                where: { id: p.productId, stock: { gte: p.quantity } },
+                data:  { stock: { decrement: p.quantity } },
+              })
+              if (dec.count === 0) {
+                throw new AppError(`Insufficient stock for "${prod.name}". Available: ${prod.stock}, Required: ${p.quantity}`, 400)
+              }
+              await tx.stockMovement.create({
+                data: {
+                  productId:   p.productId,
+                  branchId:    r.branchId,
+                  type:        'REPAIR_USE',
+                  quantity:    -p.quantity,
+                  reference:   r.ticketNumber,
+                  note:        `Spare part used in repair ${r.ticketNumber}`,
+                  performedBy: cashierName,
+                },
+              })
             }
-            await tx.stockMovement.create({
-              data: {
-                productId:   p.productId,
-                branchId:    r.branchId,
-                type:        'REPAIR_USE',
-                quantity:    -p.quantity,
-                reference:   r.ticketNumber,
-                note:        `Spare part used in repair ${r.ticketNumber}`,
-                performedBy: cashierName,
-              },
-            })
           }
         }
       }

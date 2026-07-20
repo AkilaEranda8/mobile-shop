@@ -210,3 +210,12 @@ Local / Compose: see `docker-compose.yml` and `docs/HEXALYTE_SYSTEM_GUIDE_EN_SI.
 | [`HEXALYTE_USER_MANUAL_EN_SI.md`](./HEXALYTE_USER_MANUAL_EN_SI.md) | End-user how-to (EN + SI) |
 
 **Code pointers:** `apps/backend/src/app.ts`, `apps/backend/prisma/schema.prisma`, auth middleware, `nginx/hexalyte.conf`, `docker-compose.yml`.
+
+## Official Engineering Bible
+
+For long-term onboarding and maintainability governance, see:
+- `docs/ENTERPRISE_PLATFORM_ARCHITECTURE_BLUEPRINT_10Y.md`
+- **`docs/ENGINES_PHASE1_REPORT.md`** — **all shared engines Phase 1 summary (start here)**
+- `docs/adr/` — Architectural Decision Records (ADR-001–005)
+- Per-engine detail: `docs/*-adoption.md` (inventory, pricing, report, workflow, template, audit, notification, configuration, business-rules)
+- Modules: `apps/backend/src/modules/{inventory,pricing,report,workflow-validators,template,audit,notification,configuration,business-rules}-engine/`

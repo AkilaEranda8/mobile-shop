@@ -58,6 +58,20 @@ export const tenantsController = {
   async listInvoiceTemplates(_req: Request, res: Response, next: NextFunction) {
     try { sendSuccess(res, tenantsService.listInvoiceTemplates()) } catch (e) { next(e) }
   },
+  async getAllSettings(req: Request, res: Response, next: NextFunction) {
+    try {
+      assertTenantAccess(req)
+      sendSuccess(res, await tenantsService.getAllSettings(req.params.id))
+    } catch (e) { next(e) }
+  },
+  async getMySettings(req: Request, res: Response, next: NextFunction) {
+    try {
+      sendSuccess(res, await tenantsService.getAllSettings(req.tenantId!))
+    } catch (e) { next(e) }
+  },
+  async listConfigDomains(_req: Request, res: Response, next: NextFunction) {
+    try { sendSuccess(res, tenantsService.listConfigDomains()) } catch (e) { next(e) }
+  },
   async updateInvoiceSettings(req: Request, res: Response, next: NextFunction) {
     try { assertTenantAccess(req); sendSuccess(res, await tenantsService.updateInvoiceSettings(req.params.id, req.body)) } catch (e) { next(e) }
   },

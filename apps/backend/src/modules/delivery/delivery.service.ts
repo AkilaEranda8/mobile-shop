@@ -1,7 +1,7 @@
 import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
-import { whatsappService } from '../whatsapp/whatsapp.service'
 import { generateInvoiceNumber } from '../../utils/counters'
+import { notifyDeliveryDispatched } from '../notification-engine/notification-engine.service'
 import type {
   CreateDeliveryOrderInput,
   UpdateDeliveryOrderInput,
@@ -127,12 +127,23 @@ async function sendTrackingNotification(tenantId: string, orderId: string) {
   })
 
   try {
-    await whatsappService.sendTextMessage(tenantId, order.customerPhone, message)
-
-    await prisma.deliveryNotification.update({
-      where: { id: notif.id },
-      data:  { status: 'SENT', sentAt: new Date() },
+    const result = await notifyDeliveryDispatched({
+      tenantId,
+      phone: order.customerPhone,
+      message,
     })
+
+    if (result.ok) {
+      await prisma.deliveryNotification.update({
+        where: { id: notif.id },
+        data:  { status: 'SENT', sentAt: new Date() },
+      })
+    } else {
+      await prisma.deliveryNotification.update({
+        where: { id: notif.id },
+        data:  { status: 'FAILED', errorMessage: result.error },
+      })
+    }
   } catch (err: any) {
     await prisma.deliveryNotification.update({
       where: { id: notif.id },

@@ -2,35 +2,19 @@ import { Request } from 'express'
 import { Prisma, StockMovementType } from '@prisma/client'
 import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
-import { getPagination } from '../../utils/pagination'
-import { effectiveBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
+import { assertBranchRecordAccess } from '../../utils/active-branch'
 import { hasVariants, sumVariantStock } from '../../utils/product-variants'
+import { evaluateNotesContainOpeningBalance } from '../business-rules-engine/business-rules-engine.service'
+import {
+  buildReportFilterContext,
+  dateWhereClause,
+} from '../report-engine/report-engine.service'
 
-function parseDateRange(req: Request) {
-  const fromRaw = req.query.from as string | undefined
-  const toRaw = req.query.to as string | undefined
-  const from = fromRaw ? new Date(fromRaw) : undefined
-  const to = toRaw ? new Date(toRaw) : undefined
-  if (to && !Number.isNaN(to.getTime())) to.setHours(23, 59, 59, 999)
-  return {
-    from: from && !Number.isNaN(from.getTime()) ? from : undefined,
-    to: to && !Number.isNaN(to.getTime()) ? to : undefined,
-  }
-}
-
-function branchFilter(req: Request) {
-  const branchId = (req.query.branchId as string | undefined) || effectiveBranchId(req)
-  return branchId || undefined
-}
-
-function dateWhere(field: string, from?: Date, to?: Date): Record<string, unknown> {
-  if (!from && !to) return {}
-  return {
-    [field]: {
-      ...(from ? { gte: from } : {}),
-      ...(to ? { lte: to } : {}),
-    },
-  }
+function reportFilters(req: Request) {
+  return buildReportFilterContext(req, {
+    dateMode: 'instant',
+    allowQueryBranchOverride: true,
+  })
 }
 
 function effectiveStock(product: { stock: number; storageVariations?: unknown }) {
@@ -134,8 +118,7 @@ function serialSearch(search: string | undefined): Prisma.ImeiRecordWhereInput |
 export const productTraceabilityService = {
   async getSummary(tenantId: string, productId: string, req: Request) {
     const product = await loadProduct(tenantId, productId, req)
-    const branchId = branchFilter(req)
-    const { from, to } = parseDateRange(req)
+    const { branchId, from, to } = reportFilters(req)
 
     const poWhere: Prisma.POItemWhereInput = {
       productId,
@@ -143,7 +126,7 @@ export const productTraceabilityService = {
         tenantId,
         ...(branchId ? { branchId } : {}),
         ...poItemSearch(req.query.search as string | undefined),
-        ...dateWhere('createdAt', from, to),
+        ...dateWhereClause('createdAt', from, to),
       },
     }
 
@@ -153,7 +136,7 @@ export const productTraceabilityService = {
         tenantId,
         ...(branchId ? { branchId } : {}),
         ...saleItemSearch(req.query.search as string | undefined),
-        ...dateWhere('createdAt', from, to),
+        ...dateWhereClause('createdAt', from, to),
       },
     }
 
@@ -161,7 +144,7 @@ export const productTraceabilityService = {
       productId,
       ...(branchId ? { branchId } : {}),
       ...movementSearch(req.query.search as string | undefined),
-      ...dateWhere('createdAt', from, to),
+      ...dateWhereClause('createdAt', from, to),
     }
 
     const [
@@ -187,7 +170,7 @@ export const productTraceabilityService = {
           return: {
             tenantId,
             ...(branchId ? { branchId } : {}),
-            ...dateWhere('createdAt', from, to),
+            ...dateWhereClause('createdAt', from, to),
           },
         },
         select: { quantity: true, total: true },
@@ -262,9 +245,7 @@ export const productTraceabilityService = {
 
   async getPurchases(tenantId: string, productId: string, req: Request) {
     await loadProduct(tenantId, productId, req)
-    const { skip, limit, page, search } = getPagination(req)
-    const branchId = branchFilter(req)
-    const { from, to } = parseDateRange(req)
+    const { skip, limit, page, search, branchId, from, to } = reportFilters(req)
 
     const where: Prisma.POItemWhereInput = {
       productId,
@@ -272,7 +253,7 @@ export const productTraceabilityService = {
         tenantId,
         ...(branchId ? { branchId } : {}),
         ...poItemSearch(search),
-        ...dateWhere('createdAt', from, to),
+        ...dateWhereClause('createdAt', from, to),
       },
     }
 
@@ -303,7 +284,7 @@ export const productTraceabilityService = {
     const data = rows.map(item => {
       const po = item.purchaseOrder
       const refKey = `${po.id}:${item.id}`
-      const isOpening = (po.notes ?? '').includes('OPENING_BALANCE')
+      const isOpening = evaluateNotesContainOpeningBalance(tenantId, po.notes)
       return {
         id: item.id,
         purchaseOrderId: po.id,
@@ -327,9 +308,7 @@ export const productTraceabilityService = {
 
   async getSales(tenantId: string, productId: string, req: Request) {
     await loadProduct(tenantId, productId, req)
-    const { skip, limit, page, search } = getPagination(req)
-    const branchId = branchFilter(req)
-    const { from, to } = parseDateRange(req)
+    const { skip, limit, page, search, branchId, from, to } = reportFilters(req)
 
     const where: Prisma.SaleItemWhereInput = {
       productId,
@@ -337,7 +316,7 @@ export const productTraceabilityService = {
         tenantId,
         ...(branchId ? { branchId } : {}),
         ...saleItemSearch(search),
-        ...dateWhere('createdAt', from, to),
+        ...dateWhereClause('createdAt', from, to),
       },
     }
 
@@ -378,15 +357,13 @@ export const productTraceabilityService = {
 
   async getMovements(tenantId: string, productId: string, req: Request) {
     await loadProduct(tenantId, productId, req)
-    const { skip, limit, page, search } = getPagination(req)
-    const branchId = branchFilter(req)
-    const { from, to } = parseDateRange(req)
+    const { skip, limit, page, search, branchId, from, to } = reportFilters(req)
 
     const where: Prisma.StockMovementWhereInput = {
       productId,
       ...(branchId ? { branchId } : {}),
       ...movementSearch(search),
-      ...dateWhere('createdAt', from, to),
+      ...dateWhereClause('createdAt', from, to),
     }
 
     const [total, priorAgg, rows] = await Promise.all([
@@ -436,15 +413,13 @@ export const productTraceabilityService = {
     const product = await loadProduct(tenantId, productId, req)
     if (!product.trackImei) return { data: [], total: 0, page: 1, limit: 20 }
 
-    const { skip, limit, page, search } = getPagination(req)
-    const branchId = branchFilter(req)
-    const { from, to } = parseDateRange(req)
+    const { skip, limit, page, search, branchId, from, to } = reportFilters(req)
 
     const where: Prisma.ImeiRecordWhereInput = {
       productId,
       ...(branchId ? { branchId } : {}),
       ...serialSearch(search),
-      ...dateWhere('updatedAt', from, to),
+      ...dateWhereClause('updatedAt', from, to),
     }
 
     const [rows, total] = await Promise.all([
@@ -499,14 +474,12 @@ export const productTraceabilityService = {
 
   async getTimeline(tenantId: string, productId: string, req: Request) {
     await loadProduct(tenantId, productId, req)
-    const { skip, limit, page } = getPagination(req)
-    const branchId = branchFilter(req)
-    const { from, to } = parseDateRange(req)
+    const { skip, limit, page, branchId, from, to } = reportFilters(req)
 
     const where: Prisma.StockMovementWhereInput = {
       productId,
       ...(branchId ? { branchId } : {}),
-      ...dateWhere('createdAt', from, to),
+      ...dateWhereClause('createdAt', from, to),
     }
 
     const [rows, total] = await Promise.all([

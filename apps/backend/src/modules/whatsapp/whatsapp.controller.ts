@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import { whatsappService } from './whatsapp.service'
+import { notifySaleInvoice } from '../notification-engine/notification-engine.service'
 import { sendSuccess } from '../../utils/response'
 import { prisma } from '../../config/database'
 
@@ -56,7 +57,7 @@ export const whatsappController = {
 
   async sendInvoice(req: Request, res: Response, next: NextFunction) {
     try {
-      const data = await whatsappService.sendInvoice(req.user!.tenantId, req.body)
+      const data = await notifySaleInvoice(req.user!.tenantId, req.body)
       sendSuccess(res, data, 'Invoice sent via WhatsApp')
     } catch (e) { next(e) }
   },
