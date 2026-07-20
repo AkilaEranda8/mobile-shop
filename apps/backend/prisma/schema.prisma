@@ -360,6 +360,7 @@ model Product {
   buyingPrice       Float
   sellingPrice      Float
   wholesalePrice    Float            @default(0)
+  creditPrice       Float            @default(0)
   mrp               Float
   trackImei         Boolean          @default(false)
   warrantyMonths    Int              @default(0)

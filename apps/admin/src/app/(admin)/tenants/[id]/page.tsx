@@ -48,9 +48,11 @@ const FEATURE_DEFS = [
   { key: 'DAILY_RELOAD',   label: 'Daily Reload',       desc: 'POS mobile reload sales + daily reload reports (per tenant)', optIn: true  },
   { key: 'DAILY_CLOSING',  label: 'Daily Closing',      desc: 'End-of-day business summary, cash count & day lock', optIn: true  },
   { key: 'PROFIT_ALLOCATION', label: 'Profit Allocation', desc: 'Daily profit allocation & fund management', optIn: true },
-  { key: 'CUSTOMER_CREDIT', label: 'Customer Credit',    desc: 'Customer credit payments & outstanding', optIn: true  },
+  { key: 'CUSTOMER_CREDIT', label: 'Customer Credit',    desc: 'Customer credit payments & outstanding balances', optIn: true  },
   { key: 'ACCOUNTING',      label: 'Accounting (GL)',    desc: 'Double-entry general ledger, COA, journals & GL reports', optIn: true },
-  { key: 'WHOLESALE_PRICING', label: 'Wholesale Pricing', desc: 'Retail + Wholesale prices on products and POS price mode toggle', optIn: true },
+  { key: 'WHOLESALE_PRICING', label: 'Wholesale Pricing', desc: 'Wholesale product price + POS Retail|Wholesale toggle', optIn: true },
+  { key: 'CREDIT_PRICING',    label: 'Credit Pricing',    desc: 'Credit product price + POS Retail|Credit toggle', optIn: true },
+  { key: 'POS_PRICE_EDIT',    label: 'POS Price Edit',    desc: 'Edit sale price in popup before adding to cart (incl. variants)', optIn: true },
 ]
 const SALE_STATUS_BADGE: Record<string, string> = {
   PAID: 'badge-green', PARTIAL: 'badge-yellow', UNPAID: 'badge-red', REFUNDED: 'badge-gray',

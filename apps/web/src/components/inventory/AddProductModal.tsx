@@ -22,7 +22,7 @@ import { variantSkuFromBase } from '@/lib/productCodes'
 
 interface VariantRow {
   id: string; storage: string; colorName: string; colorHex: string
-  sku: string; sellingPrice: string; wholesalePrice: string; costPrice: string
+  sku: string; sellingPrice: string; wholesalePrice: string; creditPrice: string; costPrice: string
 }
 interface AddProductModalProps {
   onClose: () => void
@@ -401,6 +401,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
   const { data: suppliersRaw } = useSuppliers()
   const { data: variantSettings, refetch: refetchVariantSettings } = useProductVariantSettings()
   const hasWholesalePricing = useFeatureFlag('WHOLESALE_PRICING')
+  const hasCreditPricing = useFeatureFlag('CREDIT_PRICING')
 
   const variantCfg = variantSettings ?? DEFAULT_PRODUCT_VARIANT_SETTINGS
   const storageOpts = variantCfg.storageOptions
@@ -439,7 +440,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
   const [minStock,      setMinStock]      = useState(() => copyDraft?.minStock ?? '5')
   const [manageStock,   setManageStock]   = useState(() => copyDraft?.manageStock ?? 'Yes')
   const [initialQty,    setInitialQty]    = useState(() => copyDraft?.initialQty ?? '0')
-  const [pricing, setPricing] = useState(() => copyDraft?.pricing ?? { tax: 'None', taxType: 'Exclusive', purchaseEx: '', purchaseInc: '', sellingEx: '', wholesaleEx: '', margin: '' })
+  const [pricing, setPricing] = useState(() => copyDraft?.pricing ?? { tax: 'None', taxType: 'Exclusive', purchaseEx: '', purchaseInc: '', sellingEx: '', wholesaleEx: '', creditEx: '', margin: '' })
   const [extra,   setExtra]   = useState(() => copyDraft?.extra ?? { supplierId: '', warranty: '1 Year', warrantyNote: '', hsCode: '', tags: '' })
   const [variants, setVariants] = useState<VariantRow[]>(() => copyDraft?.variants ?? [])
   const [showMasterImport, setShowMasterImport] = useState(false)
@@ -594,16 +595,18 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
 
   const resolveSellPrice = () => Number(pricing.sellingEx) || 0
   const resolveWholesalePrice = () => hasWholesalePricing ? Math.max(0, Number(pricing.wholesaleEx) || 0) : 0
+  const resolveCreditPrice = () => hasCreditPricing ? Math.max(0, Number(pricing.creditEx) || 0) : 0
 
   const buildPayload = useCallback((opts: {
     name: string; sku: string; barcode?: string; brandName: string; categoryName: string
-    buyingPrice: number; sellingPrice: number; wholesalePrice?: number; trackImei: boolean
+    buyingPrice: number; sellingPrice: number; wholesalePrice?: number; creditPrice?: number; trackImei: boolean
     subCategory?: string; deviceModel?: string; description?: string; imageUrl?: string
     condition?: ProductCondition
     variantRows?: VariantRow[]
   }) => {
     const rows = opts.variantRows ?? []
     const defaultWholesale = Math.max(0, Number(opts.wholesalePrice) || 0)
+    const defaultCredit = Math.max(0, Number(opts.creditPrice) || 0)
     return {
       name:         opts.name.trim(),
       sku:          opts.sku.trim(),
@@ -618,6 +621,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
       buyingPrice:  opts.buyingPrice,
       sellingPrice: opts.sellingPrice,
       wholesalePrice: defaultWholesale,
+      creditPrice: defaultCredit,
       mrp:          opts.sellingPrice,
       stock:        manageStock === 'Yes' ? Math.max(0, Number(initialQty) || 0) : 0,
       minStock:     lowStock ? Number(minStock) || 5 : 0,
@@ -630,6 +634,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
         sku: v.sku || undefined, stock: 0,
         sellingPrice: Number(v.sellingPrice) || 0,
         wholesalePrice: Math.max(0, Number(v.wholesalePrice) || defaultWholesale || 0),
+        creditPrice: Math.max(0, Number(v.creditPrice) || defaultCredit || 0),
         costPrice:    Number(v.costPrice)    || 0,
       })),
       colorVariations: rows.map(v => ({ name: v.colorName, hex: v.colorHex })),
@@ -647,6 +652,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
       sku: form.sku ? variantSkuFromBase(form.sku, storage, colorName) : '',
       sellingPrice: pricing.sellingEx,
       wholesalePrice: pricing.wholesaleEx,
+      creditPrice: pricing.creditEx,
       costPrice: pricing.purchaseEx,
     }])
   }
@@ -714,12 +720,14 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
     const defaultBuy  = resolveBuyPrice()
     const defaultSell = resolveSellPrice()
     const defaultWholesale = resolveWholesalePrice()
+    const defaultCredit = resolveCreditPrice()
 
     const resolvedVariants = variants.map(v => ({
       ...v,
       costPrice:    v.costPrice    || (defaultBuy  ? String(defaultBuy)  : ''),
       sellingPrice: v.sellingPrice || (defaultSell ? String(defaultSell) : ''),
       wholesalePrice: v.wholesalePrice || (defaultWholesale ? String(defaultWholesale) : ''),
+      creditPrice: v.creditPrice || (defaultCredit ? String(defaultCredit) : ''),
     }))
 
     const buyingPrice  = variants.length > 0
@@ -731,6 +739,9 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
     const wholesalePrice = variants.length > 0
       ? Math.max(0, Number(resolvedVariants[0]?.wholesalePrice) || defaultWholesale)
       : defaultWholesale
+    const creditPrice = variants.length > 0
+      ? Math.max(0, Number(resolvedVariants[0]?.creditPrice) || defaultCredit)
+      : defaultCredit
 
     if (!buyingPrice)  { failSubmit('Buying price required — enter it in Pricing & Stock', true); return }
     if (!sellingPrice) { failSubmit('Retail price required — enter it in Pricing & Stock', true); return }
@@ -744,7 +755,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
       await productsApi.create(buildPayload({
         name: form.name, sku: form.sku, barcode: form.barcodeValue.trim() || undefined,
         brandName: form.brandName, categoryName: form.categoryName,
-        buyingPrice, sellingPrice, wholesalePrice, trackImei,
+        buyingPrice, sellingPrice, wholesalePrice, creditPrice, trackImei,
         subCategory: form.subCategory, deviceModel: form.deviceModel,
         description: form.description, imageUrl: form.imageUrl,
         condition,
@@ -772,7 +783,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
       description: draft.description ?? '',
     }))
     setCondition('BRAND_NEW')
-    setPricing({ tax: 'None', taxType: 'Exclusive', purchaseEx: '', purchaseInc: '', sellingEx: '', wholesaleEx: '', margin: '' })
+    setPricing({ tax: 'None', taxType: 'Exclusive', purchaseEx: '', purchaseInc: '', sellingEx: '', wholesaleEx: '', creditEx: '', margin: '' })
     setInitialQty('0')
     setManageStock('Yes')
     setVariants(draft.variants.map(v => ({
@@ -783,6 +794,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
       sku: v.sku ?? '',
       sellingPrice: '',
       wholesalePrice: '',
+      creditPrice: '',
       costPrice: '',
     })))
     setImeiType(draft.trackImei ? 'device' : 'accessory')
@@ -1064,10 +1076,12 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
                       <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
                       <tr style={{ background: 'var(--bg-subtle)' }}>
-                            {(hasWholesalePricing
-                              ? ['#', '', 'Storage (Model) *', 'Color *', 'SKU (Optional)', 'Retail (LKR) *', 'Wholesale (LKR)', 'Cost Price (LKR)', 'Action']
-                              : ['#', '', 'Storage (Model) *', 'Color *', 'SKU (Optional)', 'Retail (LKR) *', 'Cost Price (LKR)', 'Action']
-                            ).map((h, i) => (
+                            {([
+                              '#', '', 'Storage (Model) *', 'Color *', 'SKU (Optional)', 'Retail (LKR) *',
+                              ...(hasWholesalePricing ? ['Wholesale (LKR)'] : []),
+                              ...(hasCreditPricing ? ['Credit (LKR)'] : []),
+                              'Cost Price (LKR)', 'Action',
+                            ] as string[]).map((h, i) => (
                           <th key={i} style={{ padding: '9px 10px', textAlign: 'left', fontSize: 11, fontWeight: 600,
                             color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)', whiteSpace: 'nowrap',
                                 width: i === 0 ? 28 : i === 1 ? 24 : (h === 'Action' ? 48 : 'auto') }}>{h}</th>
@@ -1119,6 +1133,12 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
                           <td style={{ padding: '8px 6px' }}>
                             <input type="number" min={0} style={{ ...inputStyle, height: 32 }} placeholder="Optional"
                                   value={v.wholesalePrice} onChange={e => updVariant(v.id, 'wholesalePrice', e.target.value)} />
+                          </td>
+                          )}
+                          {hasCreditPricing && (
+                          <td style={{ padding: '8px 6px' }}>
+                            <input type="number" min={0} style={{ ...inputStyle, height: 32 }} placeholder="Optional"
+                                  value={v.creditPrice} onChange={e => updVariant(v.id, 'creditPrice', e.target.value)} />
                           </td>
                           )}
                           <td style={{ padding: '8px 6px' }}>
@@ -1186,6 +1206,9 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
                     {hasWholesalePricing && (
                       <PreviewRow label="Wholesale Price" value={pricing.wholesaleEx ? `LKR ${pricing.wholesaleEx}` : undefined} />
                     )}
+                    {hasCreditPricing && (
+                      <PreviewRow label="Credit Price" value={pricing.creditEx ? `LKR ${pricing.creditEx}` : undefined} />
+                    )}
                     <PreviewRow label="IMEI Type" value={trackImei ? 'Phone / Tablet' : 'No IMEI'} />
                     <PreviewRow label="Warranty" value={warrantyTrack ? extra.warranty : 'None'} />
                     {warrantyTrack && extra.warrantyNote.trim() && (
@@ -1241,11 +1264,17 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
                         value={pricing.sellingEx} onChange={e => setSellingEx(e.target.value)} />
                   </div>
                   {hasWholesalePricing && (
-                  <div className="sm:col-span-2 xl:col-span-1">
+                  <div>
                       <Lbl>Wholesale Price (LKR)</Lbl>
                     <input type="number" min={0} style={inputStyle} placeholder="Optional"
                         value={pricing.wholesaleEx} onChange={e => setPricing(p => ({ ...p, wholesaleEx: e.target.value }))} />
-                      <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>Leave blank to use retail price at POS</p>
+                  </div>
+                  )}
+                  {hasCreditPricing && (
+                  <div>
+                      <Lbl>Credit Price (LKR)</Lbl>
+                    <input type="number" min={0} style={inputStyle} placeholder="Optional"
+                        value={pricing.creditEx} onChange={e => setPricing(p => ({ ...p, creditEx: e.target.value }))} />
                   </div>
                   )}
                 </div>

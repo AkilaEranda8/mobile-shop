@@ -8,6 +8,8 @@ export type VariantRow = {
   sellingPrice?: number
   /** Wholesale sell price; 0/omitted → fall back to sellingPrice (retail) */
   wholesalePrice?: number
+  /** Credit sell price; 0/omitted → fall back to sellingPrice (retail) */
+  creditPrice?: number
   costPrice?: number
 }
 

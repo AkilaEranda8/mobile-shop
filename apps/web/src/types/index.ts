@@ -81,6 +81,8 @@ export interface ProductVariation {
   sellingPrice: number
   /** Wholesale sell price; 0/omitted → fall back to sellingPrice (retail) */
   wholesalePrice?: number
+  /** Credit sell price; 0/omitted → fall back to sellingPrice (retail) */
+  creditPrice?: number
   costPrice: number
   stock?: number
 }
@@ -114,6 +116,8 @@ export interface Product {
   sellingPrice: number
   /** Wholesale sell price; 0/omitted → fall back to sellingPrice (retail) */
   wholesalePrice?: number
+  /** Credit sell price; 0/omitted → fall back to sellingPrice (retail) */
+  creditPrice?: number
   mrp: number
   trackImei: boolean
   warrantyMonths: number

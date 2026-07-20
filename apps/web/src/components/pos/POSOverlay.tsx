@@ -420,6 +420,7 @@ function VariationPickerModal({
   variations,
   branchId,
   priceMode = 'retail',
+  allowPriceEdit = false,
   onClose,
   onAdd,
 }: {
@@ -427,8 +428,9 @@ function VariationPickerModal({
   variations: ProductVariation[]
   branchId?: string
   priceMode?: PriceMode
+  allowPriceEdit?: boolean
   onClose: () => void
-  onAdd: (v: ProductVariation, imei?: string) => void
+  onAdd: (v: ProductVariation, imei?: string, price?: number) => void
 }) {
   const storageOptions = [...new Set(variations.map(v => v.storage))]
   const [selStorage, setSelStorage] = useState<string>(storageOptions[0] ?? '')
@@ -445,6 +447,14 @@ function VariationPickerModal({
   const imeiScanRef = useRef<HTMLInputElement>(null)
 
   const selected = variations.find(v => v.storage === selStorage && v.colorName === selColor)
+  const catalogPrice = selected ? resolveCatalogPrice(selected, priceMode) : 0
+  const [salePrice, setSalePrice] = useState(() => (catalogPrice > 0 ? String(catalogPrice) : ''))
+
+  // Sync editable price when variant / price mode changes
+  useEffect(() => {
+    const next = selected ? resolveCatalogPrice(selected, priceMode) : 0
+    setSalePrice(next > 0 ? String(next) : '')
+  }, [selected?.storage, selected?.colorName, selected?.sellingPrice, selected?.wholesalePrice, selected?.creditPrice, priceMode])
 
   const availableImeis = filterImeisForVariant(imeis, selected, { variantCount: variations.length })
 
@@ -501,6 +511,18 @@ function VariationPickerModal({
     } else {
       setImeiScanError('This IMEI is not in stock for this variant')
     }
+  }
+
+  const parsedSalePrice = parseFloat(salePrice)
+  const priceValid = !allowPriceEdit || (Number.isFinite(parsedSalePrice) && parsedSalePrice >= 0)
+  const canAdd = !!selected
+    && !(selected.stock != null && (selected.stock ?? 0) === 0)
+    && !(product.trackImei && !selImei)
+    && priceValid
+
+  const confirmAdd = () => {
+    if (!selected || !priceValid) return
+    onAdd(selected, selImei || undefined, allowPriceEdit ? parsedSalePrice : undefined)
   }
   const { gradient, Icon: CardIcon, iconColor } = (() => {
     const cat = (product.categoryName ?? '').toLowerCase()
@@ -675,27 +697,54 @@ function VariationPickerModal({
             </div>
           )}
 
-          {/* Selected variant info */}
+          {/* Selected variant info + optional editable sale price */}
           {selected && (
-            <div className="rounded-xl p-4 grid grid-cols-3 gap-4" style={{ background: POS_THEME.bg, border: `1px solid ${POS_THEME.border}` }}>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: POS_THEME.muted }}>Price</p>
-                <p className="pos-price text-lg font-extrabold leading-none">{formatCurrency(resolveCatalogPrice(selected, priceMode))}</p>
-              </div>
-              {selected.sku && (
-                <div className="text-center">
-                  <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: POS_THEME.muted }}>SKU</p>
-                  <p className="text-[11px] font-mono text-white/70">{selected.sku}</p>
-                </div>
-              )}
-              {(selected.stock != null) && (
-                <div className="text-right">
-                  <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: POS_THEME.muted }}>Stock</p>
-                  <p className="text-[11px] font-semibold" style={{ color: (selected.stock ?? 0) === 0 ? POS_THEME.red : (selected.stock ?? 0) <= 4 ? POS_THEME.amber : POS_THEME.green }}>
-                    {(selected.stock ?? 0) === 0 ? 'Out' : selected.stock}
+            <div className="rounded-xl p-4 space-y-3" style={{ background: POS_THEME.bg, border: `1px solid ${POS_THEME.border}` }}>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-1 col-span-2">
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: POS_THEME.muted }}>
+                    {allowPriceEdit ? 'Sale price (LKR)' : 'Price'}
                   </p>
+                  {allowPriceEdit ? (
+                    <>
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        inputMode="decimal"
+                        className="w-full h-10 px-3 rounded-xl text-base font-extrabold outline-none border text-white"
+                        style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}
+                        value={salePrice}
+                        onChange={e => setSalePrice(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') { e.preventDefault(); confirmAdd() }
+                        }}
+                      />
+                      <p className="text-[10px] mt-1" style={{ color: POS_THEME.muted }}>
+                        Catalog {formatCurrency(catalogPrice)}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="pos-price text-lg font-extrabold leading-none h-10 flex items-center">
+                      {formatCurrency(catalogPrice)}
+                    </p>
+                  )}
                 </div>
-              )}
+                {selected.sku && (
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: POS_THEME.muted }}>SKU</p>
+                    <p className="text-[11px] font-mono text-white/70 h-10 flex items-center">{selected.sku}</p>
+                  </div>
+                )}
+                {(selected.stock != null) && (
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: POS_THEME.muted }}>Stock</p>
+                    <p className="text-[11px] font-semibold h-10 flex items-center" style={{ color: (selected.stock ?? 0) === 0 ? POS_THEME.red : (selected.stock ?? 0) <= 4 ? POS_THEME.amber : POS_THEME.green }}>
+                      {(selected.stock ?? 0) === 0 ? 'Out' : selected.stock}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -707,14 +756,118 @@ function VariationPickerModal({
               Cancel
             </button>
             <button
-              disabled={!selected || (selected.stock != null && (selected.stock ?? 0) === 0) || (product.trackImei && !selImei)}
-              onClick={() => selected && onAdd(selected, selImei || undefined)}
+              disabled={!canAdd}
+              onClick={confirmAdd}
               className="flex-1 h-11 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-40"
               style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, boxShadow: `0 2px 14px ${POS_THEME.purple}55` }}>
               <ShoppingCart size={15} />
               Add to Cart
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Price prompt before add-to-cart ─────────────────────────────────────── */
+function PricePromptModal({
+  productName,
+  subtitle,
+  catalogPrice,
+  value,
+  onChange,
+  onConfirm,
+  onClose,
+}: {
+  productName: string
+  subtitle?: string
+  catalogPrice: number
+  value: string
+  onChange: (v: string) => void
+  onConfirm: () => void
+  onClose: () => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    }, 50)
+    return () => window.clearTimeout(t)
+  }, [])
+
+  const parsed = parseFloat(value)
+  const valid = Number.isFinite(parsed) && parsed >= 0
+
+  return (
+    <div
+      className="fixed inset-0 z-[210] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        data-pos="dark"
+        className="w-full max-w-md rounded-2xl shadow-2xl border overflow-hidden"
+        style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: POS_THEME.border }}>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div
+              className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: `${POS_THEME.purple}22`, border: `1px solid ${POS_THEME.purple}44` }}
+            >
+              <Tag size={15} style={{ color: POS_THEME.purple }} />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-bold text-white truncate">Set sale price</h3>
+              <p className="text-[11px] text-white/50 truncate">{productName}{subtitle ? ` · ${subtitle}` : ''}</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/5 text-white/70 shrink-0">
+            <X size={14} />
+          </button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div>
+            <p className="text-xs text-white/50 mb-1.5">Sale price (LKR)</p>
+            <input
+              ref={inputRef}
+              type="number"
+              min={0}
+              step="0.01"
+              inputMode="decimal"
+              className="w-full h-11 px-3 rounded-xl text-base font-bold outline-none border text-white"
+              style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }}
+              value={value}
+              onChange={e => onChange(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { e.preventDefault(); if (valid) onConfirm() }
+                if (e.key === 'Escape') { e.preventDefault(); onClose() }
+              }}
+            />
+            <p className="text-[10px] text-white/40 mt-1.5">Catalog {formatCurrency(catalogPrice)}</p>
+          </div>
+        </div>
+        <div className="px-5 py-4 border-t flex gap-2" style={{ borderColor: POS_THEME.border }}>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 h-11 rounded-xl text-sm font-semibold border text-white/70 hover:bg-white/5"
+            style={{ borderColor: POS_THEME.border }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!valid}
+            onClick={onConfirm}
+            className="flex-1 h-11 rounded-xl text-sm font-bold text-white disabled:opacity-40 flex items-center justify-center gap-2"
+            style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})` }}
+          >
+            <ShoppingCart size={14} />
+            Add to Cart
+          </button>
         </div>
       </div>
     </div>
@@ -819,6 +972,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [outstandingPayAmount, setOutstandingPayAmount] = useState('')
   const [amountPaying, setAmountPaying] = useState('')
   const hasCustomerCredit = useFeatureFlag('CUSTOMER_CREDIT')
+  const hasCreditPricing = useFeatureFlag('CREDIT_PRICING')
+  const hasPosPriceEdit = useFeatureFlag('POS_PRICE_EDIT')
   const hasRepairs = useFeatureFlag('REPAIRS')
   const hasIMEI = useFeatureFlag('IMEI')
   const hasFinance = useFeatureFlag('FINANCE')
@@ -834,7 +989,16 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const hasDailyClosing = useFeatureFlag('DAILY_CLOSING')
   const hasWarranty = useFeatureFlag('WARRANTY')
   const hasWholesalePricing = useFeatureFlag('WHOLESALE_PRICING')
-  const effectivePriceMode: PriceMode = hasWholesalePricing ? priceMode : 'retail'
+  const showPriceModeToggle = hasWholesalePricing || hasCreditPricing
+  const effectivePriceMode: PriceMode =
+    priceMode === 'wholesale' && hasWholesalePricing ? 'wholesale'
+    : priceMode === 'credit' && hasCreditPricing ? 'credit'
+    : 'retail'
+
+  useEffect(() => {
+    if (priceMode === 'wholesale' && !hasWholesalePricing) setPriceMode('retail')
+    if (priceMode === 'credit' && !hasCreditPricing) setPriceMode('retail')
+  }, [priceMode, hasWholesalePricing, hasCreditPricing])
   useEffect(() => {
     if (selectedCategory === 'RELOAD' && !hasDailyReload) setSelectedCategory('ALL')
     if (selectedCategory === 'SERVICES' && !hasServices) setSelectedCategory('ALL')
@@ -845,6 +1009,13 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [now, setNow]                             = useState(() => new Date())
   const [gridView, setGridView]                   = useState(true)
   const [variationPickerProduct, setVariationPickerProduct] = useState<any | null>(null)
+  const [pricePrompt, setPricePrompt] = useState<{
+    product: any
+    imei?: string
+    variation?: ProductVariation
+    catalogPrice: number
+  } | null>(null)
+  const [pricePromptVal, setPricePromptVal] = useState('')
   useEffect(() => {
     const check = () => setIsDesktop(window.innerWidth >= 1024)
     check()
@@ -1468,25 +1639,28 @@ function POSContent({ onClose }: { onClose: () => void }) {
     return { gradient: 'linear-gradient(160deg, #1c2333 0%, #151921 100%)', iconColor: '#9CA3AF', Icon: Package }
   }
 
-  const addToCart = (product: any, imei?: string, variation?: ProductVariation) => {
-    const price = variation
+  const addToCart = (product: any, imei?: string, variation?: ProductVariation, priceOverride?: number) => {
+    const catalogPrice = variation
       ? resolveCatalogPrice(variation, effectivePriceMode)
       : resolveCatalogPrice(product, effectivePriceMode)
+    const isService = !variation && product.sellingPrice === undefined && product.price !== undefined
+    const price = priceOverride !== undefined
+      ? Math.max(0, Number(priceOverride) || 0)
+      : (isService ? Number(product.price) || 0 : catalogPrice)
     const sku   = variation?.sku ?? product.sku ?? product.category ?? ''
     const name  = variation
       ? `${product.name} · ${variation.storage} / ${variation.colorName}`
       : product.name
-    const isService = !variation && product.sellingPrice === undefined && product.price !== undefined
     const cost = isService ? Number(product.cost ?? 0) : Number(variation?.costPrice ?? product.buyingPrice ?? 0)
     const serviceId = isService ? product.id : undefined
     setCart(prev => {
       const trackImei = Boolean(product.trackImei)
       if (!imei) {
-        // Match by productId + variation key so each variant is a separate cart line
+        // Match by productId + variation + same unit price so custom prices stay separate lines
         const varKey = variation ? `${variation.storage}::${variation.colorName}` : ''
         const existing = prev.find(i => i.isService
-          ? i.serviceId === serviceId && i.name === name
-          : i.productId === product.id && !i.imei && (i.variationLabel ?? '') === varKey)
+          ? i.serviceId === serviceId && i.name === name && i.price === price
+          : i.productId === product.id && !i.imei && (i.variationLabel ?? '') === varKey && i.price === price)
         if (existing) return prev.map(i => i.cartId === existing.cartId ? { ...i, quantity: i.quantity + 1 } : i)
       }
       return [...prev, {
@@ -1496,7 +1670,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         name,
         sku,
         price,
-        originalPrice: price,
+        originalPrice: catalogPrice || price,
         cost,
         quantity: 1,
         imei,
@@ -1508,6 +1682,42 @@ function POSContent({ onClose }: { onClose: () => void }) {
         condition: isService ? undefined : (product.condition === 'USED' ? 'USED' : product.condition === 'BRAND_NEW' ? 'BRAND_NEW' : undefined),
       }]
     })
+  }
+
+  const promptAddToCart = (product: any, imei?: string, variation?: ProductVariation) => {
+    const isService = !variation && product.sellingPrice === undefined && product.price !== undefined
+    const catalogPrice = isService
+      ? Number(product.price) || 0
+      : variation
+        ? resolveCatalogPrice(variation, effectivePriceMode)
+        : resolveCatalogPrice(product, effectivePriceMode)
+    if (!hasPosPriceEdit) {
+      addToCart(product, imei, variation)
+      const label = variation
+        ? `${product.name} · ${variation.storage} / ${variation.colorName}`
+        : (product.displayName ?? product.name)
+      toast.success(`Added: ${label}`)
+      return
+    }
+    setPricePrompt({ product, imei, variation, catalogPrice })
+    setPricePromptVal(catalogPrice > 0 ? String(catalogPrice) : '')
+  }
+
+  const confirmPricePrompt = () => {
+    if (!pricePrompt) return
+    const val = parseFloat(pricePromptVal)
+    if (!Number.isFinite(val) || val < 0) {
+      toast.error('Enter a valid price')
+      return
+    }
+    const { product, imei, variation } = pricePrompt
+    addToCart(product, imei, variation, val)
+    const label = variation
+      ? `${product.name} · ${variation.storage} / ${variation.colorName}`
+      : (product.displayName ?? product.name)
+    toast.success(`Added: ${label}`)
+    setPricePrompt(null)
+    setPricePromptVal('')
   }
 
   const resolveVariationFromImei = (product: any, variation?: string | null): ProductVariation | undefined => {
@@ -1550,8 +1760,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           }))
           toast.success(`IMEI linked to ${product.name}`)
         } else {
-          addToCart(product, imei, resolveVariationFromImei(product, rec?.variation))
-          toast.success(`Added: ${product.name} — IMEI linked`)
+          promptAddToCart(product, imei, resolveVariationFromImei(product, rec?.variation))
         }
       } else {
         const targetIdx = cart.findIndex(i => !i.imei)
@@ -1621,8 +1830,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         setShowScanInput(true)
         setImeiScan(code)
       } else {
-        addToCart(product, undefined, variation as any)
-        toast.success(`Added: ${variation ? `${product.name} · ${variation.storage} / ${variation.colorName}` : product.name}`)
+        promptAddToCart(product, undefined, variation as any)
       }
       setSearch('')
       return
@@ -1645,8 +1853,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           toast('Scan IMEI barcode for this device', { icon: '📱' })
           setShowScanInput(true)
         } else {
-          addToCart(hit, undefined, variation)
-          toast.success(`Added: ${hit.displayName ?? hit.name}`)
+          promptAddToCart(hit, undefined, variation)
         }
         setSearch('')
       }
@@ -2169,6 +2376,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
       if (e.key === 'Escape') {
         e.preventDefault()
+        if (pricePrompt) { setPricePrompt(null); setPricePromptVal(''); return }
         if (showRecentInvoices) setShowRecentInvoices(false)
         else if (showHeldCarts) setShowHeldCarts(false)
         else if (showCalc) setShowCalc(false)
@@ -2179,6 +2387,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         else if (showOpeningCash) setShowOpeningCash(false)
         else if (showDayEnd) setShowDayEnd(false)
         else if (showCashFlow) setShowCashFlow(false)
+        else if (variationPickerProduct) setVariationPickerProduct(null)
         else if (showRegister && (showCartCustDrop || showCustDrop)) setShowRegister(false)
         else if (showCartCustDrop || showCustDrop) { setShowCartCustDrop(false); setShowCustDrop(false); setShowRegister(false) }
         else if (cartView === 'checkout' && !completedSale) setCartView('items')
@@ -2280,7 +2489,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cart, cartView, checkoutLoading, completedSale, selectedCustomer, customerOutstanding, subtotal, discountAmount, saleTotal, invoiceSettings])
+  }, [cart, cartView, checkoutLoading, completedSale, selectedCustomer, customerOutstanding, subtotal, discountAmount, saleTotal, invoiceSettings, pricePrompt, variationPickerProduct])
 
   const downloadInvoice = async () => {
     if (!a4Ref.current) return
@@ -2551,11 +2760,30 @@ function POSContent({ onClose }: { onClose: () => void }) {
           variations={Array.isArray(variationPickerProduct.storageVariations) ? variationPickerProduct.storageVariations : []}
           branchId={posBranchId || undefined}
           priceMode={effectivePriceMode}
+          allowPriceEdit={hasPosPriceEdit}
           onClose={() => setVariationPickerProduct(null)}
-          onAdd={(variation, imei) => {
-            addToCart(variationPickerProduct, imei, variation)
+          onAdd={(variation, imei, price) => {
+            const product = variationPickerProduct
             setVariationPickerProduct(null)
+            addToCart(product, imei, variation, price)
+            toast.success(`Added: ${product.name} · ${variation.storage} / ${variation.colorName}`)
           }}
+        />
+      )}
+
+      {pricePrompt && (
+        <PricePromptModal
+          productName={pricePrompt.product.displayName ?? pricePrompt.product.name}
+          subtitle={
+            pricePrompt.variation
+              ? `${pricePrompt.variation.storage} / ${pricePrompt.variation.colorName}`
+              : (pricePrompt.imei ? `IMEI ${pricePrompt.imei}` : (pricePrompt.product.sku || undefined))
+          }
+          catalogPrice={pricePrompt.catalogPrice}
+          value={pricePromptVal}
+          onChange={setPricePromptVal}
+          onConfirm={confirmPricePrompt}
+          onClose={() => { setPricePrompt(null); setPricePromptVal('') }}
         />
       )}
 
@@ -2688,7 +2916,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       searchRef.current?.focus()
                       return
                     }
-                    addToCart(item)
+                    promptAddToCart(item)
                   }
                   const showWarrantyBadge = hasWarranty && !isService && (item.warrantyMonths ?? 0) > 0
 
@@ -2981,7 +3209,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       <span className="font-bold text-sm" style={{ color: POS_THEME.text }}>Cart ({cart.length})</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      {hasWholesalePricing && (
+                      {showPriceModeToggle && (
                       <div
                         className="flex items-center rounded-xl border p-0.5 gap-0.5"
                         style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}
@@ -2997,6 +3225,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         >
                           Retail
                         </button>
+                        {hasWholesalePricing && (
                         <button
                           type="button"
                           onClick={() => setPriceMode('wholesale')}
@@ -3008,6 +3237,20 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         >
                           Wholesale
                         </button>
+                        )}
+                        {hasCreditPricing && (
+                        <button
+                          type="button"
+                          onClick={() => setPriceMode('credit')}
+                          className="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all duration-200"
+                          style={priceMode === 'credit'
+                            ? { background: POS_THEME.card, color: POS_THEME.text, boxShadow: '0 1px 3px rgba(0,0,0,0.35)', border: `1px solid ${POS_THEME.border}` }
+                            : { background: 'transparent', color: POS_THEME.muted, border: '1px solid transparent' }}
+                          title="Credit prices (falls back to retail if unset)"
+                        >
+                          Credit
+                        </button>
+                        )}
                       </div>
                       )}
                       {cart.length > 0 && (
@@ -3104,20 +3347,29 @@ function POSContent({ onClose }: { onClose: () => void }) {
                           <Edit2 size={9} className="shrink-0 opacity-50" />
                         </button>
                       )}
-                      {editPriceId === item.cartId ? (
+                      {hasPosPriceEdit && (editPriceId === item.cartId ? (
                         <div className="flex items-center gap-1.5 mt-1.5">
-                          <input autoFocus type="number" min="0" className="w-24 h-7 bg-white/5 border border-violet-500/40 rounded-md px-2 text-xs text-white focus:outline-none focus:border-violet-500/70"
+                          <input autoFocus type="number" min="0"
+                            className="w-24 h-7 rounded-lg px-2 text-xs text-white outline-none border"
+                            style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }}
                             value={editPriceVal} onChange={e => setEditPriceVal(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') saveEditPrice(item.cartId); if (e.key === 'Escape') setEditPriceId(null) }} />
-                          <button type="button" onClick={() => saveEditPrice(item.cartId)} className="h-7 px-2 rounded-md text-[10px] font-semibold border border-violet-500/40 text-violet-300 bg-violet-500/10">Save</button>
-                          <button type="button" onClick={() => setEditPriceId(null)} className="h-7 px-2 rounded-md text-[10px] font-semibold border border-white/10 text-white/60 bg-white/5">Cancel</button>
+                          <button type="button" onClick={() => saveEditPrice(item.cartId)}
+                            className="h-7 px-2 rounded-lg text-[10px] font-semibold text-white"
+                            style={{ background: `${POS_THEME.purple}33`, border: `1px solid ${POS_THEME.purple}55` }}>Save</button>
+                          <button type="button" onClick={() => setEditPriceId(null)}
+                            className="h-7 px-2 rounded-lg text-[10px] font-semibold border text-white/60"
+                            style={{ borderColor: POS_THEME.border, background: 'rgba(255,255,255,0.04)' }}>Cancel</button>
                         </div>
                       ) : (
                         <button type="button" onClick={() => { setEditWarrantyId(null); setEditPriceId(item.cartId); setEditPriceVal(String(item.price)) }}
-                          className="flex items-center gap-1 mt-1.5 text-[10px] hover:text-violet-400 transition-colors" style={{ color: POS_THEME.muted }}>
+                          className="flex items-center gap-1 mt-1.5 text-[10px] hover:opacity-80 transition-opacity" style={{ color: POS_THEME.muted }}>
                           {formatCurrency(item.price)} each {item.price !== item.originalPrice && <span className="text-white">✓</span>}
                           <Edit2 size={9} className="opacity-50" />
                         </button>
+                      ))}
+                      {!hasPosPriceEdit && (
+                        <p className="mt-1.5 text-[10px]" style={{ color: POS_THEME.muted }}>{formatCurrency(item.price)} each</p>
                       )}
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0 pt-0.5">

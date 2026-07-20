@@ -43,6 +43,7 @@ export type ProductCopyDraft = {
     purchaseInc: string
     sellingEx: string
     wholesaleEx: string
+    creditEx: string
     margin: string
   }
   extra: {
@@ -60,6 +61,7 @@ export type ProductCopyDraft = {
     sku: string
     sellingPrice: string
     wholesalePrice: string
+    creditPrice: string
     costPrice: string
   }>
 }
@@ -80,6 +82,7 @@ export type ProductCopySnapshot = {
     colorHex: string
     sellingPrice: string
     wholesalePrice: string
+    creditPrice: string
     costPrice: string
   }>
 }
@@ -96,6 +99,7 @@ function normVariants(
     colorHex: string
     sellingPrice: string
     wholesalePrice: string
+    creditPrice: string
     costPrice: string
   }>,
 ) {
@@ -106,6 +110,7 @@ function normVariants(
       colorHex: v.colorHex.trim().toLowerCase(),
       sellingPrice: normPrice(v.sellingPrice),
       wholesalePrice: normPrice(v.wholesalePrice),
+      creditPrice: normPrice(v.creditPrice),
       costPrice: normPrice(v.costPrice),
     }))
     .sort((a, b) =>
@@ -140,6 +145,7 @@ export function snapshotFromDraft(draft: ProductCopyDraft): ProductCopySnapshot 
       purchaseInc: normPrice(draft.pricing.purchaseInc),
       sellingEx: normPrice(draft.pricing.sellingEx),
       wholesaleEx: normPrice(draft.pricing.wholesaleEx),
+      creditEx: normPrice(draft.pricing.creditEx),
       margin: normPrice(draft.pricing.margin),
     },
     extra: {
@@ -187,6 +193,7 @@ export function buildProductCopyDraft(
   const buy = String(product.buyingPrice || '')
   const sell = String(product.sellingPrice || '')
   const wholesale = String(product.wholesalePrice || '')
+  const credit = String(product.creditPrice || '')
   const margin = buy && sell && Number(buy) > 0
     ? String(Math.round(((Number(sell) - Number(buy)) / Number(buy)) * 10000) / 100)
     : ''
@@ -222,6 +229,7 @@ export function buildProductCopyDraft(
       purchaseInc: buy,
       sellingEx: sell,
       wholesaleEx: wholesale,
+      creditEx: credit,
       margin,
     },
     extra: {
@@ -239,6 +247,7 @@ export function buildProductCopyDraft(
       sku: '',
       sellingPrice: String(v.sellingPrice ?? ''),
       wholesalePrice: String(v.wholesalePrice ?? ''),
+      creditPrice: String(v.creditPrice ?? ''),
       costPrice: String(v.costPrice ?? ''),
     })),
   }
