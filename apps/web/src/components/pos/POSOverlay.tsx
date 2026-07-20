@@ -414,6 +414,44 @@ function RegisterCustomerInline({ onBack, onCreated }: { onBack: () => void; onC
   )
 }
 
+/* ── Retail / Wholesale / Credit (for price popups only) ─────────────────── */
+function PriceModeToggle({
+  mode,
+  onChange,
+  showWholesale,
+  showCredit,
+}: {
+  mode: PriceMode
+  onChange: (mode: PriceMode) => void
+  showWholesale?: boolean
+  showCredit?: boolean
+}) {
+  if (!showWholesale && !showCredit) return null
+  const btn = (key: PriceMode, label: string, title: string) => (
+    <button
+      type="button"
+      onClick={() => onChange(key)}
+      className="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all duration-200"
+      style={mode === key
+        ? { background: POS_THEME.card, color: POS_THEME.text, boxShadow: '0 1px 3px rgba(0,0,0,0.35)', border: `1px solid ${POS_THEME.border}` }
+        : { background: 'transparent', color: POS_THEME.muted, border: '1px solid transparent' }}
+      title={title}
+    >
+      {label}
+    </button>
+  )
+  return (
+    <div
+      className="flex items-center rounded-xl border p-0.5 gap-0.5 w-fit"
+      style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}
+    >
+      {btn('retail', 'Retail', 'Retail catalog price')}
+      {showWholesale && btn('wholesale', 'Wholesale', 'Wholesale catalog price (falls back to retail if unset)')}
+      {showCredit && btn('credit', 'Credit', 'Credit catalog price (falls back to retail if unset)')}
+    </div>
+  )
+}
+
 /* ── Variation Picker Modal ─────────────────────────────────────────────── */
 function VariationPickerModal({
   product,
@@ -421,6 +459,9 @@ function VariationPickerModal({
   branchId,
   priceMode = 'retail',
   allowPriceEdit = false,
+  showWholesale = false,
+  showCredit = false,
+  onPriceModeChange,
   onClose,
   onAdd,
 }: {
@@ -429,6 +470,9 @@ function VariationPickerModal({
   branchId?: string
   priceMode?: PriceMode
   allowPriceEdit?: boolean
+  showWholesale?: boolean
+  showCredit?: boolean
+  onPriceModeChange?: (mode: PriceMode) => void
   onClose: () => void
   onAdd: (v: ProductVariation, imei?: string, price?: number) => void
 }) {
@@ -700,6 +744,17 @@ function VariationPickerModal({
           {/* Selected variant info + optional editable sale price */}
           {selected && (
             <div className="rounded-xl p-4 space-y-3" style={{ background: POS_THEME.bg, border: `1px solid ${POS_THEME.border}` }}>
+              {(showWholesale || showCredit) && (
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: POS_THEME.muted }}>Price type</p>
+                  <PriceModeToggle
+                    mode={priceMode}
+                    onChange={mode => onPriceModeChange?.(mode)}
+                    showWholesale={showWholesale}
+                    showCredit={showCredit}
+                  />
+                </div>
+              )}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div className="sm:col-span-1 col-span-2">
                   <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: POS_THEME.muted }}>
@@ -779,6 +834,10 @@ function PricePromptModal({
   onChange,
   onConfirm,
   onClose,
+  priceMode = 'retail',
+  showWholesale = false,
+  showCredit = false,
+  onPriceModeChange,
 }: {
   productName: string
   subtitle?: string
@@ -787,6 +846,10 @@ function PricePromptModal({
   onChange: (v: string) => void
   onConfirm: () => void
   onClose: () => void
+  priceMode?: PriceMode
+  showWholesale?: boolean
+  showCredit?: boolean
+  onPriceModeChange?: (mode: PriceMode) => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
@@ -829,6 +892,17 @@ function PricePromptModal({
           </button>
         </div>
         <div className="p-5 space-y-4">
+          {(showWholesale || showCredit) && (
+            <div className="space-y-1.5">
+              <p className="text-xs text-white/50">Price type</p>
+              <PriceModeToggle
+                mode={priceMode}
+                onChange={mode => onPriceModeChange?.(mode)}
+                showWholesale={showWholesale}
+                showCredit={showCredit}
+              />
+            </div>
+          )}
           <div>
             <p className="text-xs text-white/50 mb-1.5">Sale price (LKR)</p>
             <input
@@ -989,16 +1063,11 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const hasDailyClosing = useFeatureFlag('DAILY_CLOSING')
   const hasWarranty = useFeatureFlag('WARRANTY')
   const hasWholesalePricing = useFeatureFlag('WHOLESALE_PRICING')
-  const showPriceModeToggle = hasWholesalePricing || hasCreditPricing
   const effectivePriceMode: PriceMode =
     priceMode === 'wholesale' && hasWholesalePricing ? 'wholesale'
     : priceMode === 'credit' && hasCreditPricing ? 'credit'
     : 'retail'
 
-  useEffect(() => {
-    if (priceMode === 'wholesale' && !hasWholesalePricing) setPriceMode('retail')
-    if (priceMode === 'credit' && !hasCreditPricing) setPriceMode('retail')
-  }, [priceMode, hasWholesalePricing, hasCreditPricing])
   useEffect(() => {
     if (selectedCategory === 'RELOAD' && !hasDailyReload) setSelectedCategory('ALL')
     if (selectedCategory === 'SERVICES' && !hasServices) setSelectedCategory('ALL')
@@ -1485,6 +1554,38 @@ function POSContent({ onClose }: { onClose: () => void }) {
     [liveProducts, posBranchId],
   )
   const products: any[] = branchLiveProducts.length > 0 ? branchLiveProducts : cachedProducts
+
+  /** Remember last price mode for the next add (does not reprice items already in cart). */
+  const selectPriceMode = useCallback((mode: PriceMode) => {
+    setPriceMode(mode)
+    setEditPriceId(null)
+  }, [])
+
+  useEffect(() => {
+    if (priceMode === 'wholesale' && !hasWholesalePricing) selectPriceMode('retail')
+    else if (priceMode === 'credit' && !hasCreditPricing) selectPriceMode('retail')
+  }, [priceMode, hasWholesalePricing, hasCreditPricing, selectPriceMode])
+
+  // When price mode changes while the add-to-cart price popup is open, refresh catalog + input
+  useEffect(() => {
+    setPricePrompt(prev => {
+      if (!prev) return prev
+      const { product, variation } = prev
+      const isService = !variation && product.sellingPrice === undefined && product.price !== undefined
+      const catalogPrice = isService
+        ? Number(product.price) || 0
+        : variation
+          ? resolveCatalogPrice(variation, effectivePriceMode)
+          : resolveCatalogPrice(product, effectivePriceMode)
+      if (prev.catalogPrice === catalogPrice) return prev
+      return { ...prev, catalogPrice }
+    })
+  }, [effectivePriceMode])
+
+  useEffect(() => {
+    if (!pricePrompt) return
+    setPricePromptVal(pricePrompt.catalogPrice > 0 ? String(pricePrompt.catalogPrice) : '')
+  }, [pricePrompt?.catalogPrice])
 
   const refetchCustomers = useCallback(async () => {
     setCustLoading(true)
@@ -2761,6 +2862,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
           branchId={posBranchId || undefined}
           priceMode={effectivePriceMode}
           allowPriceEdit={hasPosPriceEdit}
+          showWholesale={hasWholesalePricing}
+          showCredit={hasCreditPricing}
+          onPriceModeChange={selectPriceMode}
           onClose={() => setVariationPickerProduct(null)}
           onAdd={(variation, imei, price) => {
             const product = variationPickerProduct
@@ -2784,6 +2888,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
           onChange={setPricePromptVal}
           onConfirm={confirmPricePrompt}
           onClose={() => { setPricePrompt(null); setPricePromptVal('') }}
+          priceMode={effectivePriceMode}
+          showWholesale={hasWholesalePricing}
+          showCredit={hasCreditPricing}
+          onPriceModeChange={selectPriceMode}
         />
       )}
 
@@ -3208,57 +3316,11 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       <ShoppingBag size={14} className="text-white" />
                       <span className="font-bold text-sm" style={{ color: POS_THEME.text }}>Cart ({cart.length})</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      {showPriceModeToggle && (
-                      <div
-                        className="flex items-center rounded-xl border p-0.5 gap-0.5"
-                        style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => setPriceMode('retail')}
-                          className="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all duration-200"
-                          style={priceMode === 'retail'
-                            ? { background: POS_THEME.card, color: POS_THEME.text, boxShadow: '0 1px 3px rgba(0,0,0,0.35)', border: `1px solid ${POS_THEME.border}` }
-                            : { background: 'transparent', color: POS_THEME.muted, border: '1px solid transparent' }}
-                          title="Retail prices for walk-in customers"
-                        >
-                          Retail
-                        </button>
-                        {hasWholesalePricing && (
-                        <button
-                          type="button"
-                          onClick={() => setPriceMode('wholesale')}
-                          className="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all duration-200"
-                          style={priceMode === 'wholesale'
-                            ? { background: POS_THEME.card, color: POS_THEME.text, boxShadow: '0 1px 3px rgba(0,0,0,0.35)', border: `1px solid ${POS_THEME.border}` }
-                            : { background: 'transparent', color: POS_THEME.muted, border: '1px solid transparent' }}
-                          title="Wholesale prices (falls back to retail if unset)"
-                        >
-                          Wholesale
-                        </button>
-                        )}
-                        {hasCreditPricing && (
-                        <button
-                          type="button"
-                          onClick={() => setPriceMode('credit')}
-                          className="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all duration-200"
-                          style={priceMode === 'credit'
-                            ? { background: POS_THEME.card, color: POS_THEME.text, boxShadow: '0 1px 3px rgba(0,0,0,0.35)', border: `1px solid ${POS_THEME.border}` }
-                            : { background: 'transparent', color: POS_THEME.muted, border: '1px solid transparent' }}
-                          title="Credit prices (falls back to retail if unset)"
-                        >
-                          Credit
-                        </button>
-                        )}
-                      </div>
-                      )}
-                      {cart.length > 0 && (
-                        <button type="button" onClick={() => { setCart([]); setCartView('items') }} className="text-xs font-semibold hover:opacity-80" style={{ color: POS_THEME.red }}>
-                          Clear Cart
-                        </button>
-                      )}
-                    </div>
+                    {cart.length > 0 && (
+                      <button type="button" onClick={() => { setCart([]); setCartView('items') }} className="text-xs font-semibold hover:opacity-80" style={{ color: POS_THEME.red }}>
+                        Clear Cart
+                      </button>
+                    )}
                   </>
                 )}
               </div>
