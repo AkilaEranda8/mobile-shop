@@ -1269,7 +1269,7 @@ export function AddSupplierModal({ onClose, onSaved }: { onClose: () => void; on
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl">
         <div className="flex items-center justify-between p-5 border-b border-white/5">
           <h3 className="text-base font-semibold text-gray-900 dark:text-white">Add Supplier</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/5"><X size={16} /></button>
