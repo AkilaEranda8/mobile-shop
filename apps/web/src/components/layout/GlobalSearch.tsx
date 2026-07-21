@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Search, Package, Users, Wrench, Receipt, Loader2, ArrowRight,
-  LayoutDashboard, Settings, BarChart3,
+  LayoutDashboard, Settings, BarChart3, BriefcaseBusiness,
 } from 'lucide-react'
 import { productsApi, customersApi, repairsApi, salesApi } from '@/lib/api'
 
@@ -24,6 +24,7 @@ const QUICK_PAGES: Result[] = [
   { id: 'customers', type: 'page', label: 'Customers', href: '/dashboard/customers', icon: Users },
   { id: 'repairs', type: 'page', label: 'Repair Jobs', href: '/dashboard/repairs', icon: Wrench },
   { id: 'analytics', type: 'page', label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
+  { id: 'business-services', type: 'page', label: 'Business Services', href: '/business-services', icon: BriefcaseBusiness },
   { id: 'settings', type: 'page', label: 'Settings', href: '/dashboard/settings', icon: Settings },
 ]
 

@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Bell, Menu, X, ChevronDown, Settings, LogOut, User, Sun, Moon, AlertTriangle, Wrench, ShoppingBag, ShoppingCart, TrendingUp } from 'lucide-react'
+import { Bell, Menu, X, ChevronDown, Settings, LogOut, User, Sun, Moon, AlertTriangle, Wrench, ShoppingBag, ShoppingCart, TrendingUp, BriefcaseBusiness } from 'lucide-react'
 import { usePos } from '@/lib/use-pos'
 import { useTheme } from 'next-themes'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { authStorage } from '@/lib/auth'
 import { authApi } from '@/lib/api'
 import { useAnalyticsDashboard } from '@/lib/hooks'
@@ -94,6 +95,21 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
 
       <div className="flex items-center gap-2 ml-auto">
         <BranchControl />
+
+        {/* Business Services */}
+        <Link
+          href="/business-services"
+          title="Business Services"
+          className="inline-flex items-center gap-1.5 h-8 px-2.5 sm:px-3 rounded-xl text-xs font-semibold border transition-all hover:opacity-90"
+          style={{
+            background: 'var(--sidebar-active-bg)',
+            color: 'var(--sidebar-active-text)',
+            borderColor: 'var(--sidebar-active-border)',
+          }}
+        >
+          <BriefcaseBusiness size={14} />
+          <span className="hidden sm:inline">Business Services</span>
+        </Link>
 
         {/* POS Terminal */}
         {hasPos && (
