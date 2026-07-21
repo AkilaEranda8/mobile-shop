@@ -26,10 +26,21 @@ export type BranchCatalogSource = {
 }
 
 /** Branch-scoped SKU suffix when the same catalog exists at multiple branches. */
+export const BRANCH_CATALOG_SKU_SUFFIX_RE = /-BR[A-Z0-9]{6}$/i
+
 export function destBranchSku(baseSku: string, toBranchId: string) {
   const suffix = `-BR${toBranchId.slice(-6).toUpperCase()}`
   const max = 100 - suffix.length
   return `${baseSku.slice(0, max)}${suffix}`
+}
+
+/** Strip `-BRxxxxxx` so HQ + branch catalog clones share one catalog key. */
+export function catalogBaseSku(sku: string) {
+  return sku.replace(BRANCH_CATALOG_SKU_SUFFIX_RE, '')
+}
+
+export function isBranchCatalogCloneSku(sku: string) {
+  return BRANCH_CATALOG_SKU_SUFFIX_RE.test(sku)
 }
 
 function zeroVariantStock(variations: unknown) {

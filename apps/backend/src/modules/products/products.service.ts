@@ -4,7 +4,7 @@ import { getPagination } from '../../utils/pagination'
 import { Request } from 'express'
 import { inferTrackImeiFromMeta } from '../../utils/productImei'
 import { effectiveBranchId, assertBranchRecordAccess, getUserBranchIds } from '../../utils/active-branch'
-import { buildBranchCatalogData, findBranchCatalogProduct } from '../../utils/branch-catalog'
+import { buildBranchCatalogData, catalogBaseSku, findBranchCatalogProduct, isBranchCatalogCloneSku } from '../../utils/branch-catalog'
 import { generateProductBarcode, generateProductSku, peekProductCodes } from '../../utils/counters'
 import { hasVariants, sumVariantStock } from '../../utils/product-variants'
 import { Prisma } from '@prisma/client'
@@ -46,28 +46,113 @@ export const productsService = {
     const { skip, limit, page, search } = getPagination(req)
     const branchId = effectiveBranchId(req)
     const categoryId = req.query.categoryId as string | undefined
-    const where: any = { tenantId, isActive: true, ...(branchId && { branchId }), ...(categoryId && { categoryId }), ...(search && { OR: [{ name: { contains: search, mode: 'insensitive' } }, { sku: { contains: search, mode: 'insensitive' } }, { barcode: { contains: search, mode: 'insensitive' } }] }) }
-    const include = { category: { select: { name: true } }, brand: { select: { name: true } } }
-    const [raw, total] = await Promise.all([prisma.product.findMany({ where, skip, take: limit, orderBy: { name: 'asc' }, include }), prisma.product.count({ where })])
-    const trackIds = raw.filter((p: any) => p.trackImei).map((p: any) => p.id)
-    const imeiCounts = trackIds.length
+    const where: any = {
+      tenantId,
+      isActive: true,
+      ...(branchId && { branchId }),
+      ...(categoryId && { categoryId }),
+      ...(search && {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { sku: { contains: search, mode: 'insensitive' } },
+          { barcode: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
+    }
+    const include = { category: { select: { name: true } }, brand: { select: { name: true } }, branch: { select: { id: true, name: true, isDefault: true, isHeadquarters: true } } }
+
+    // Single-branch view: return that branch's rows as-is (including catalog clones).
+    if (branchId) {
+      const [raw, total] = await Promise.all([
+        prisma.product.findMany({ where, skip, take: limit, orderBy: { name: 'asc' }, include }),
+        prisma.product.count({ where }),
+      ])
+      const trackIds = raw.filter((p: any) => p.trackImei).map((p: any) => p.id)
+      const imeiCounts = trackIds.length
+        ? await prisma.imeiRecord.groupBy({
+            by: ['productId'],
+            where: { productId: { in: trackIds }, status: 'IN_STOCK', branchId },
+            _count: { _all: true },
+          })
+        : []
+      const imeiMap = new Map(imeiCounts.map(c => [c.productId, c._count._all]))
+      const data = raw.map((p: any) => {
+        const base = withEffectiveStock({ ...p, categoryName: p.category?.name, brandName: p.brand?.name })
+        if (!p.trackImei) return base
+        const imeiInStock = imeiMap.get(p.id) ?? 0
+        return { ...base, imeiInStock, imeiGap: Math.max(0, base.stock - imeiInStock) }
+      })
+      return { data, total, page, limit }
+    }
+
+    // All Branches: collapse HQ + `-BRxxxxxx` catalog clones into one row per base SKU.
+    const allRaw = await prisma.product.findMany({
+      where,
+      orderBy: [{ name: 'asc' }, { createdAt: 'asc' }],
+      include,
+    })
+
+    type Row = (typeof allRaw)[number]
+    const groups = new Map<string, Row[]>()
+    for (const p of allRaw) {
+      const key = catalogBaseSku(p.sku)
+      const list = groups.get(key)
+      if (list) list.push(p)
+      else groups.set(key, [p])
+    }
+
+    const collapsed = Array.from(groups.values()).map(rows => {
+      const primary =
+        rows.find(r => !isBranchCatalogCloneSku(r.sku)) ||
+        rows.find(r => r.branch?.isDefault) ||
+        rows.find(r => r.branch?.isHeadquarters) ||
+        rows[0]
+
+      let stockSum = 0
+      for (const r of rows) {
+        stockSum += withEffectiveStock(r).stock
+      }
+
+      // Prefer showing the clean base SKU (without branch suffix) in All Branches.
+      const displaySku = catalogBaseSku(primary.sku)
+      return {
+        ...primary,
+        sku: displaySku,
+        stock: stockSum,
+        categoryName: primary.category?.name,
+        brandName: primary.brand?.name,
+        branchIds: rows.map(r => r.branchId),
+        branchCount: rows.length,
+        _groupProductIds: rows.map(r => r.id),
+      }
+    })
+
+    // Stable name sort after collapse
+    collapsed.sort((a, b) => a.name.localeCompare(b.name) || a.sku.localeCompare(b.sku))
+
+    const total = collapsed.length
+    const pageRows = collapsed.slice(skip, skip + limit)
+
+    const trackGroupIds = pageRows.filter(p => p.trackImei).flatMap(p => p._groupProductIds as string[])
+    const imeiCounts = trackGroupIds.length
       ? await prisma.imeiRecord.groupBy({
           by: ['productId'],
-          where: {
-            productId: { in: trackIds },
-            status: 'IN_STOCK',
-            ...(branchId && { branchId }),
-          },
+          where: { productId: { in: trackGroupIds }, status: 'IN_STOCK' },
           _count: { _all: true },
         })
       : []
-    const imeiMap = new Map(imeiCounts.map(c => [c.productId, c._count._all]))
-    const data = raw.map((p: any) => {
-      const base = withEffectiveStock({ ...p, categoryName: p.category?.name, brandName: p.brand?.name })
+    const imeiByProduct = new Map(imeiCounts.map(c => [c.productId, c._count._all]))
+
+    const data = pageRows.map(p => {
+      const { _groupProductIds, ...rest } = p as any
+      const base = withEffectiveStock(rest)
+      // stock already aggregated above; don't re-sum variants from primary only
+      base.stock = p.stock
       if (!p.trackImei) return base
-      const imeiInStock = imeiMap.get(p.id) ?? 0
+      const imeiInStock = (_groupProductIds as string[]).reduce((s, id) => s + (imeiByProduct.get(id) ?? 0), 0)
       return { ...base, imeiInStock, imeiGap: Math.max(0, base.stock - imeiInStock) }
     })
+
     return { data, total, page, limit }
   },
 

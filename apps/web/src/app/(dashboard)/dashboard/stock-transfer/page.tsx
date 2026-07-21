@@ -256,26 +256,62 @@ function TransferModal({
     }
   }
 
+  const labelCls = 'block text-xs font-medium mb-1.5'
+  const labelStyle = { color: 'var(--text-secondary)' } as const
+  const hintStyle = { color: 'var(--text-muted)' } as const
+  const panelStyle = {
+    background: 'var(--bg-subtle)',
+    borderColor: 'var(--border-subtle)',
+    color: 'var(--text-primary)',
+  } as const
+  const brandPanelStyle = {
+    background: 'var(--brand-glow)',
+    borderColor: 'var(--sidebar-active-border)',
+    color: 'var(--text-primary)',
+  } as const
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" data-modal="dark">
-      <div className="w-full max-w-2xl rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto bg-[#0f1623] border border-white/10 text-white">
-        <div className="flex items-center justify-between px-5 py-4 sticky top-0 z-10 bg-[#0f1623] border-b border-white/5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-violet-500/10 border border-violet-500/25">
-              <ArrowLeftRight size={14} className="text-white" />
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/55 dark:bg-black/65 backdrop-blur-sm"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        className="w-full max-w-2xl rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto border"
+        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
+        onClick={e => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="New Stock Transfer"
+      >
+        <div
+          className="flex items-center justify-between px-5 py-4 sticky top-0 z-10 border-b"
+          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div
+              className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border"
+              style={{ background: 'var(--brand-glow)', borderColor: 'var(--sidebar-active-border)', color: 'var(--brand-primary)' }}
+            >
+              <ArrowLeftRight size={14} />
             </div>
-            <h3 className="text-sm font-bold text-gray-900 dark:text-white">New Stock Transfer</h3>
+            <h3 className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>New Stock Transfer</h3>
           </div>
-          <button type="button" onClick={onClose}
-            className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/5 transition-colors">
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg transition-colors hover:opacity-90"
+            style={{ color: 'var(--text-muted)', background: 'transparent' }}
+            aria-label="Close"
+          >
             <X size={15} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4 text-white">
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium mb-1.5 text-white">From Branch</label>
+              <label className={labelCls} style={labelStyle}>From Branch</label>
               <FilterDropdown
                 value={fromBranchId}
                 onChange={v => { setFromBranchId(v); setProductId('') }}
@@ -283,11 +319,10 @@ function TransferModal({
                 icon={Building2}
                 placeholder="Source branch"
                 active={!!fromBranchId}
-                tone="dark"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium mb-1.5 text-white">To Branch</label>
+              <label className={labelCls} style={labelStyle}>To Branch</label>
               <FilterDropdown
                 value={toBranchId}
                 onChange={setToBranchId}
@@ -296,19 +331,17 @@ function TransferModal({
                 placeholder="Destination"
                 active={!!toBranchId}
                 onClear={() => setToBranchId('')}
-                tone="dark"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium mb-1.5 text-white">Product</label>
+            <label className={labelCls} style={labelStyle}>Product</label>
             <ToolbarSearch
               inputId="transfer-product-search"
               value={search}
               onChange={setSearch}
               placeholder="Search by name or SKU…"
-              tone="dark"
               className="max-w-none mb-2"
               autoFocus
             />
@@ -329,13 +362,12 @@ function TransferModal({
               placeholder={loadingProducts ? 'Loading products…' : 'Select product'}
               active={!!productId}
               onClear={() => { setProductId(''); setVariationKey(''); setSelectedImeis([]) }}
-              tone="dark"
             />
           </div>
 
           {requiresVariant && productId && (
             <div>
-              <label className="block text-xs font-medium mb-1.5 text-white">Variant</label>
+              <label className={labelCls} style={labelStyle}>Variant</label>
               <FilterDropdown
                 value={variationKey}
                 onChange={v => {
@@ -349,7 +381,6 @@ function TransferModal({
                 placeholder="Select storage / color variant"
                 active={!!variationKey}
                 onClear={() => setVariationKey('')}
-                tone="dark"
               />
             </div>
           )}
@@ -357,11 +388,12 @@ function TransferModal({
           {canPickImeis && (
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-medium text-white">Select IMEI units</label>
+                <label className="block text-xs font-medium" style={labelStyle}>Select IMEI units</label>
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    className="text-[10px] font-semibold text-white hover:text-white/80 disabled:opacity-40"
+                    className="text-[10px] font-semibold disabled:opacity-40"
+                    style={{ color: 'var(--brand-primary)' }}
                     onClick={() => setSelectedImeis(transferableImeis.map(r => r.imei))}
                     disabled={loadingImeis || transferableImeis.length === 0}
                   >
@@ -369,7 +401,8 @@ function TransferModal({
                   </button>
                   <button
                     type="button"
-                    className="text-[10px] font-semibold text-white hover:text-white/80 disabled:opacity-40"
+                    className="text-[10px] font-semibold disabled:opacity-40"
+                    style={{ color: 'var(--text-muted)' }}
                     onClick={() => setSelectedImeis([])}
                     disabled={selectedImeis.length === 0}
                   >
@@ -377,35 +410,38 @@ function TransferModal({
                   </button>
                 </div>
               </div>
-              <div className="rounded-lg border border-white/10 bg-white/[0.02] max-h-44 overflow-y-auto">
+              <div className="rounded-lg border max-h-44 overflow-y-auto" style={panelStyle}>
                 {loadingImeis ? (
-                  <p className="text-xs text-white px-3 py-4 flex items-center gap-2">
+                  <p className="text-xs px-3 py-4 flex items-center gap-2" style={hintStyle}>
                     <Loader2 size={13} className="animate-spin" /> Loading IMEIs…
                   </p>
                 ) : transferableImeis.length === 0 ? (
-                  <p className="text-xs text-white px-3 py-4">No in-stock IMEIs for this selection</p>
+                  <p className="text-xs px-3 py-4" style={hintStyle}>No in-stock IMEIs for this selection</p>
                 ) : transferableImeis.map(row => {
                   const checked = selectedImeis.includes(row.imei)
                   return (
                     <label
                       key={row.id}
-                      className={`flex items-center gap-2.5 px-3 py-2.5 cursor-pointer border-b border-white/5 last:border-0 transition-colors ${
-                        checked ? 'bg-violet-500/10' : 'hover:bg-white/[0.03]'
-                      }`}
+                      className="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer border-b last:border-0 transition-colors"
+                      style={{
+                        borderColor: 'var(--border-subtle)',
+                        background: checked ? 'var(--brand-glow)' : 'transparent',
+                      }}
                     >
                       <input
                         type="checkbox"
-                        className="rounded border-white/20 bg-transparent text-violet-500 focus:ring-violet-500/40"
+                        className="rounded focus:ring-offset-0"
+                        style={{ accentColor: 'var(--brand-primary)' }}
                         checked={checked}
                         onChange={() => toggleImei(row.imei)}
                       />
-                      <Smartphone size={12} className="text-white" />
-                      <span className="text-xs font-mono text-white">{row.imei}</span>
+                      <Smartphone size={12} style={{ color: 'var(--text-muted)' }} />
+                      <span className="text-xs font-mono" style={{ color: 'var(--text-primary)' }}>{row.imei}</span>
                     </label>
                   )
                 })}
               </div>
-              <p className="text-[10px] text-white mt-1.5">
+              <p className="text-[10px] mt-1.5" style={hintStyle}>
                 {selectedImeis.length} of {transferableImeis.length} IMEI{transferableImeis.length === 1 ? '' : 's'} selected
               </p>
             </div>
@@ -414,12 +450,12 @@ function TransferModal({
           {!isImeiProduct && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium mb-1.5 text-white">Quantity</label>
+              <label className={labelCls} style={labelStyle}>Quantity</label>
               <input
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                className="input-field text-sm text-white placeholder:text-white/50 caret-white"
+                className="input-field text-sm"
                 value={quantity}
                 onChange={e => handleQuantityChange(e.target.value)}
                 placeholder="Enter quantity"
@@ -427,10 +463,11 @@ function TransferModal({
             </div>
             <div className="flex items-end pb-2">
               {(selectedProduct && (!requiresVariant || variationKey)) && (
-                <p className="text-xs text-white">
-                  Available: <span className="font-semibold text-white">{availableStock}</span>
+                <p className="text-xs" style={hintStyle}>
+                  Available:{' '}
+                  <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{availableStock}</span>
                   {variationKey && variantOptions.find(v => v.value === variationKey) && (
-                    <span className="block text-[10px] text-white/80 mt-0.5">
+                    <span className="block text-[10px] mt-0.5">
                       {variantOptions.find(v => v.value === variationKey)?.label.split(' · ').slice(0, 2).join(' · ')}
                     </span>
                   )}
@@ -441,38 +478,45 @@ function TransferModal({
           )}
 
           {isImeiProduct && canPickImeis && (
-            <div className="rounded-lg px-3 py-2 text-xs bg-violet-500/10 border border-violet-500/20 text-white">
-              Quantity: <span className="font-semibold text-white">{selectedImeis.length}</span>
+            <div className="rounded-lg px-3 py-2 text-xs border" style={brandPanelStyle}>
+              Quantity: <span className="font-semibold">{selectedImeis.length}</span>
               {' '}unit{selectedImeis.length === 1 ? '' : 's'} (from selected IMEIs)
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-medium mb-1.5 text-white">Notes</label>
-            <input className="input-field text-sm text-white placeholder:text-white/50" value={notes} onChange={e => setNotes(e.target.value)}
-              placeholder="Optional reference or reason" />
+            <label className={labelCls} style={labelStyle}>Notes</label>
+            <input
+              className="input-field text-sm"
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Optional reference or reason"
+            />
           </div>
 
           {isImeiProduct && canPickImeis && selectedImeis.length === 0 && (
-            <div className="rounded-lg px-3 py-2 text-xs text-white flex items-center gap-2 bg-amber-500/10 border border-amber-500/20">
-              <AlertTriangle size={13} className="text-white flex-shrink-0" />
+            <div
+              className="rounded-lg px-3 py-2 text-xs flex items-center gap-2 border"
+              style={{ background: 'color-mix(in srgb, var(--status-warn) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--status-warn) 28%, transparent)', color: 'var(--text-primary)' }}
+            >
+              <AlertTriangle size={13} className="flex-shrink-0" style={{ color: 'var(--status-warn)' }} />
               Select one or more IMEI units to transfer
             </div>
           )}
 
           {selectedProduct && toBranchId && preview && (
-            <div className="rounded-lg px-3 py-2.5 text-xs bg-violet-500/10 border border-violet-500/20 text-white">
+            <div className="rounded-lg px-3 py-2.5 text-xs border" style={brandPanelStyle}>
               {preview.catalogReady ? (
-                <p className="text-white flex items-center gap-1.5">
-                  <CheckCircle size={12} className="text-white flex-shrink-0" />
+                <p className="flex items-center gap-1.5">
+                  <CheckCircle size={12} className="flex-shrink-0" style={{ color: 'var(--brand-primary)' }} />
                   Catalog already exists at destination — stock will merge into it
                 </p>
               ) : preview.willRelocate ? (
-                <p className="text-white">
+                <p>
                   No catalog at destination yet — full transfer will move this product row to the destination branch
                 </p>
               ) : (
-                <p className="text-white">
+                <p>
                   A catalog entry will be created at the destination branch when stock is transferred
                 </p>
               )}
@@ -480,13 +524,15 @@ function TransferModal({
           )}
 
           <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm text-white">Cancel</button>
-            <button type="submit"
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
+            <button
+              type="submit"
               disabled={
                 saving || !canTransfer || !toBranchId || (requiresVariant && !variationKey)
                 || (isImeiProduct && canPickImeis && selectedImeis.length === 0)
               }
-              className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+              className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+            >
               {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
               Transfer Stock
             </button>
