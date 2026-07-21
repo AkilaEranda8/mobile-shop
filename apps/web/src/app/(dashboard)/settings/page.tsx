@@ -1125,6 +1125,7 @@ export default function SettingsPage() {
                         ['showWarranty', 'Show warranty badge', posUiForm.productGrid.showWarrantyBadge, (v: boolean) => setPosUiForm(p => ({ ...p, productGrid: { ...p.productGrid, showWarrantyBadge: v } }))],
                         ['confirmLeave', 'Confirm leave with cart', posUiForm.behavior.confirmLeaveWithCart, (v: boolean) => setPosUiForm(p => ({ ...p, behavior: { ...p.behavior, confirmLeaveWithCart: v } }))],
                         ['focusSearch', 'Focus search on open', posUiForm.behavior.focusSearchOnOpen, (v: boolean) => setPosUiForm(p => ({ ...p, behavior: { ...p.behavior, focusSearchOnOpen: v } }))],
+                        ['alwaysNewLine', 'Always new line item (no qty merge)', posUiForm.behavior.alwaysNewLineItem, (v: boolean) => setPosUiForm(p => ({ ...p, behavior: { ...p.behavior, alwaysNewLineItem: v } }))],
                       ] as Array<[string, string, boolean, (v: boolean) => void]>).map(([key, label, checked, onChange]) => (
                         <label
                           key={key}

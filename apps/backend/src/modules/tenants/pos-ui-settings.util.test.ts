@@ -35,4 +35,8 @@ assert(studio.theme === 'studio', 'studio theme')
 const unknownTheme = normalizePosUiSettings({ theme: 'neon' })
 assert(unknownTheme.theme === 'hexa-dark', 'unknown theme falls back')
 
+assert(empty.behavior.alwaysNewLineItem === false, 'alwaysNewLineItem default off')
+const newLineOn = normalizePosUiSettings({ behavior: { alwaysNewLineItem: true } })
+assert(newLineOn.behavior.alwaysNewLineItem === true, 'alwaysNewLineItem can enable')
+
 console.log('pos-ui-settings.util.test.ts: all checks passed')

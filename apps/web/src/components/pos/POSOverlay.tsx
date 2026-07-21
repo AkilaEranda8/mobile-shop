@@ -2034,7 +2034,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
     const isSyntheticVariant = Boolean(variation && variation.storage === 'Standard' && variation.colorName === 'Default')
     setCart(prev => {
       const trackImei = Boolean(product.trackImei)
-      if (!imei) {
+      // Default: merge into existing line. When alwaysNewLineItem is on, every add is a new row.
+      if (!imei && !posUi.behavior.alwaysNewLineItem) {
         // Match by productId + variation + price + warranty so different warranties stay separate
         const varKey = isSyntheticVariant ? '' : (variation ? `${variation.storage}::${variation.colorName}` : '')
         const existing = prev.find(i => i.isService

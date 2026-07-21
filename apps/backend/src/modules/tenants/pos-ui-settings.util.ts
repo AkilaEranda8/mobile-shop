@@ -66,6 +66,8 @@ export type PosUiSettings = {
     defaultPriceMode: 'retail' | 'wholesale' | 'credit'
     confirmLeaveWithCart: boolean
     focusSearchOnOpen: boolean
+    /** When true, every add/scan creates a new cart line (no qty merge). Default false. */
+    alwaysNewLineItem: boolean
   }
 }
 
@@ -106,6 +108,7 @@ export const DEFAULT_POS_UI_SETTINGS: PosUiSettings = {
     defaultPriceMode: 'retail',
     confirmLeaveWithCart: true,
     focusSearchOnOpen: true,
+    alwaysNewLineItem: false,
   },
 }
 
@@ -200,6 +203,7 @@ export function normalizePosUiSettings(raw: unknown): PosUiSettings {
       defaultPriceMode: priceMode,
       confirmLeaveWithCart: behavior.confirmLeaveWithCart !== false,
       focusSearchOnOpen: behavior.focusSearchOnOpen !== false,
+      alwaysNewLineItem: behavior.alwaysNewLineItem === true,
     },
   }
 }
