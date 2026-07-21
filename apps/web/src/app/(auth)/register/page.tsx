@@ -24,6 +24,7 @@ function RegisterForm() {
   const [step, setStep] = useState(1)
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [successNote, setSuccessNote] = useState('')
   const [selectedPlan, setSelectedPlan] = useState('pro')
   const [form, setForm] = useState({
