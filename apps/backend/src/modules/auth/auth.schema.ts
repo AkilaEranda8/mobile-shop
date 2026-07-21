@@ -11,7 +11,7 @@ export const registerTenantSchema = z.object({
   password: z.string().min(8),
   shopName: z.string().min(2),
   plan: z.enum(['STARTER', 'PRO', 'ENTERPRISE']).optional(),
-  phone: z.string().min(5).optional(),
+  phone: z.string().min(9, 'Valid phone number required'),
   city: z.string().min(2).optional(),
 })
 
@@ -34,5 +34,9 @@ export const resetPasswordSchema = z.object({
 })
 
 export const impersonateExchangeSchema = z.object({
+  code: z.string().min(16),
+})
+
+export const sessionExchangeSchema = z.object({
   code: z.string().min(16),
 })

@@ -5,7 +5,7 @@ import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, ArrowRight, CheckCircle, AlertCircle } from 'lucide-react'
 import { authApi } from '@/lib/api'
-import { authStorage } from '@/lib/auth'
+import { tenantShopUrl } from '@/lib/tenant-url'
 
 const plans = [
   { id: 'starter', apiPlan: 'STARTER' as const, name: 'Starter', price: 'Rs. 2,999/mo', desc: '1 branch, 3 users' },
@@ -24,7 +24,7 @@ function RegisterForm() {
   const [step, setStep] = useState(1)
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [successNote, setSuccessNote] = useState('')
   const [selectedPlan, setSelectedPlan] = useState('pro')
   const [form, setForm] = useState({
     shopName: '', ownerName: '', email: '', phone: '', password: '', city: '',
@@ -56,9 +56,16 @@ function RegisterForm() {
         phone: form.phone.trim(),
         city: form.city.trim(),
       })
-      authStorage.save(res.data.accessToken, res.data.refreshToken, res.data.user)
+      const slug = res.data.tenant.slug
+      const code = res.data.sessionCode
+      if (res.data.whatsappSent) {
+        setSuccessNote('Login details sent to your WhatsApp. Opening your shop…')
+      } else {
+        setSuccessNote('Opening your shop workspace…')
+      }
       try { localStorage.removeItem('hx_tenant_features') } catch { /* noop */ }
-      window.location.href = '/dashboard'
+      const dest = tenantShopUrl(slug, `/establish-session?code=${encodeURIComponent(code)}`)
+      window.location.href = dest
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Registration failed. Please try again.')
       setLoading(false)
@@ -99,6 +106,13 @@ function RegisterForm() {
         </div>
 
         <div className="bg-[#0f1623] border border-white/5 rounded-2xl p-6">
+          {successNote && (
+            <div className="flex items-start gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 mb-4 text-sm text-emerald-300">
+              <CheckCircle size={16} className="flex-shrink-0 mt-0.5" />
+              <span>{successNote}</span>
+            </div>
+          )}
+
           {error && (
             <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-4 text-sm text-red-300">
               <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />

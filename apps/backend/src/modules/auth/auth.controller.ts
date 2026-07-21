@@ -55,9 +55,11 @@ export const authController = {
     try {
       let tenantSlug = String(req.header('x-tenant-id') ?? req.header('x-tenant-slug') ?? '').trim()
       if (!tenantSlug) {
-        const host = String(req.headers.host ?? '').toLowerCase()
+        const host = String(req.headers.host ?? '').toLowerCase().split(':')[0]
+        const testMatch = host.match(/^([a-z0-9-]+)\.test\.app\.hexalyte\.com$/)
+        if (testMatch) tenantSlug = testMatch[1]
         const appMatch = host.match(/^([a-z0-9-]+)\.app\.hexalyte\.com$/)
-        if (appMatch && appMatch[1] !== 'app') tenantSlug = appMatch[1]
+        if (!tenantSlug && appMatch && appMatch[1] !== 'app' && appMatch[1] !== 'test') tenantSlug = appMatch[1]
         const shopMatch = host.match(/^shop\.([^.]+)\.api\.hexalyte\.com$/)
         if (shopMatch) tenantSlug = shopMatch[1]
       }
@@ -117,6 +119,13 @@ export const authController = {
     try {
       const result = await authService.impersonateExchange(req.body.code)
       sendSuccess(res, result, 'Support session ready')
+    } catch (e) { next(e) }
+  },
+
+  async sessionExchange(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await authService.sessionExchange(req.body.code)
+      sendSuccess(res, result, 'Session ready')
     } catch (e) { next(e) }
   },
 

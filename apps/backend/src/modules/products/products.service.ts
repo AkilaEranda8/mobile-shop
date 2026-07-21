@@ -601,11 +601,35 @@ export const productsService = {
   },
 
   async getBrands(tenantId: string) {
-    return prisma.brand.findMany({ where: { tenantId }, orderBy: { name: 'asc' } })
+    const rows = await prisma.brand.findMany({
+      where: { tenantId },
+      orderBy: { name: 'asc' },
+      include: { _count: { select: { products: true } } },
+    })
+    return rows.map(({ _count, ...brand }) => ({ ...brand, productCount: _count.products }))
   },
 
   async createBrand(tenantId: string, body: { name: string; logoUrl?: string }) {
     return prisma.brand.create({ data: { tenantId, ...body } })
+  },
+
+  async deleteBrand(tenantId: string, id: string, reassignToId?: string) {
+    const brand = await prisma.brand.findFirst({ where: { id, tenantId } })
+    if (!brand) throw new AppError('Brand not found', 404)
+    const inUse = await prisma.product.count({ where: { tenantId, brandId: id } })
+    if (inUse > 0) {
+      if (!reassignToId) {
+        throw new AppError(
+          `Cannot delete — ${inUse} product${inUse > 1 ? 's' : ''} still use this brand. Choose another brand to move them to.`,
+          400,
+        )
+      }
+      if (reassignToId === id) throw new AppError('Cannot move products to the same brand', 400)
+      const target = await prisma.brand.findFirst({ where: { id: reassignToId, tenantId } })
+      if (!target) throw new AppError('Target brand not found', 404)
+      await prisma.product.updateMany({ where: { tenantId, brandId: id }, data: { brandId: reassignToId } })
+    }
+    await prisma.brand.delete({ where: { id } })
   },
 
   async getImeiHealth(tenantId: string) {

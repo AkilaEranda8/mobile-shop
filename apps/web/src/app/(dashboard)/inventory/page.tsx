@@ -2,26 +2,22 @@
 
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, Camera, RotateCcw, ChevronDown, ChevronUp, GripVertical, Smartphone, Shield, Building2, ArrowLeftRight, Copy, Hash, Calendar, Route } from 'lucide-react'
+import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, RotateCcw, Smartphone, Shield, Copy, Hash, Calendar, Route } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { useProducts, useCategories, useProductVariantSettings, useFeatureFlag } from '@/lib/hooks'
-import { getVisibleBranches, hasMultipleBranches } from '@/lib/active-branch'
-import { authStorage } from '@/lib/auth'
-import { DEFAULT_PRODUCT_VARIANT_SETTINGS } from '@/lib/productVariantSettings'
-import { productsApi, uploadApi } from '@/lib/api'
-import type { Product, Category, ProductVariation } from '@/types'
+import { useProducts, useCategories, useBrands, useFeatureFlag } from '@/lib/hooks'
+import { productsApi } from '@/lib/api'
+import type { Product, Category, Brand, ProductVariation } from '@/types'
 import toast from 'react-hot-toast'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { AddProductModal } from '@/components/inventory/AddProductModal'
-import { ImeiProductTypeSelector } from '@/components/inventory/ImeiProductTypeSelector'
-import { imeiTypeToTrackFlag, trackFlagToImeiType, inferImeiProductType, isImeiHealthBannerDismissed, dismissImeiHealthBanner, type ImeiProductType } from '@/lib/productImei'
-import { PRODUCT_CONDITION_OPTS, type ProductCondition, productConditionLabel } from '@/lib/productCondition'
+import { trackFlagToImeiType, isImeiHealthBannerDismissed, dismissImeiHealthBanner } from '@/lib/productImei'
+import { productConditionLabel } from '@/lib/productCondition'
 import { compareSkuOrder, formatSkuOrderLabel, parseSkuOrderNumber } from '@/lib/productCodes'
 import { PERMISSIONS, useHasPermission } from '@/lib/permissions'
 import {
@@ -454,558 +450,120 @@ function ManageCategoriesModal({ onClose, onChanged }: { onClose: () => void; on
   )
 }
 
-function ProductImagePicker({ imageUrl, onUploaded }: { imageUrl: string; onUploaded: (url: string) => void }) {
-  const imgRef = useRef<HTMLInputElement>(null)
-  const [uploading, setUploading] = useState(false)
+/* ── Manage Brands Modal ────────────────────────────────────────────── */
+function ManageBrandsModal({ onClose, onChanged }: { onClose: () => void; onChanged?: () => void }) {
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<Brand | null>(null)
+  const [reassignToId, setReassignToId] = useState('')
+  const { data: brandsData, refetch } = useBrands()
+  const brands: Brand[] = (brandsData ?? []) as Brand[]
 
-  const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setUploading(true)
+  const doDelete = async (brand: Brand, moveToId?: string) => {
+    setDeletingId(brand.id)
     try {
-      const { url } = await uploadApi.productImage(file)
-      onUploaded(url)
-      toast.success('Image uploaded')
-    } catch (err: any) { toast.error(err?.message ?? 'Upload failed') }
-    finally { setUploading(false); if (imgRef.current) imgRef.current.value = '' }
+      await productsApi.deleteBrand(brand.id, moveToId)
+      toast.success(`Brand "${brand.name}" deleted`)
+      setPendingDelete(null); setReassignToId('')
+      refetch(); onChanged?.()
+    } catch (err: any) { toast.error(err.message || 'Failed to delete brand') }
+    finally { setDeletingId(null) }
   }
 
-  return (
-    <div className="col-span-2">
-      <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Product Image</label>
-      <input ref={imgRef} type="file" accept="image/png,image/jpeg,image/jpg,image/webp" className="hidden" onChange={handleChange} />
-      <button type="button" onClick={() => imgRef.current?.click()} disabled={uploading}
-        className="w-full h-28 rounded-xl border-2 border-dashed flex items-center justify-center gap-3 transition-colors hover:border-violet-500/40 hover:bg-violet-500/5 disabled:opacity-50 overflow-hidden"
-        style={{ borderColor: 'var(--border-subtle)' }}>
-        {uploading ? (
-          <div className="flex flex-col items-center gap-2 text-violet-400">
-            <Loader2 size={22} className="animate-spin" />
-            <span className="text-xs">Uploading…</span>
-          </div>
-        ) : imageUrl ? (
-          <div className="relative w-full h-full group">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imageUrl} alt="Product" className="w-full h-full object-contain" />
-            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 text-white text-xs font-semibold">
-              <Camera size={14} /> Change Image
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-2" style={{ color: 'var(--text-muted)' }}>
-            <Camera size={22} />
-            <span className="text-xs">Click to upload product image</span>
-            <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>JPG, PNG, WebP · Max 5 MB</span>
-          </div>
-        )}
-      </button>
-    </div>
-  )
-}
-
-// AddProductModal is imported from @/components/inventory/AddProductModal
-
-const genEditId = () => Math.random().toString(36).slice(2, 9)
-
-interface EditVariantRow {
-  id: string; storage: string; colorName: string; colorHex: string
-  sku: string; stock: string; sellingPrice: string; wholesalePrice: string; creditPrice: string; costPrice: string
-}
-
-function EditProductModal({ product, onClose, onSaved }: { product: Product; onClose: () => void; onSaved: () => void }) {
-  const router = useRouter()
-  const { data: cats, refetch: refetchCats } = useCategories()
-  const { data: variantSettings } = useProductVariantSettings()
-  const hasWholesalePricing = useFeatureFlag('WHOLESALE_PRICING')
-  const hasCreditPricing = useFeatureFlag('CREDIT_PRICING')
-  const branches = useMemo(
-    () => getVisibleBranches().map(b => ({ id: b.id, name: b.name })),
-    [],
-  )
-  const showBranchPicker = hasMultipleBranches()
-  const stockBranchName = useMemo(() => {
-    const pool = authStorage.getUser()?.branches ?? []
-    return pool.find(b => b.id === product.branchId)?.name ?? 'Current branch'
-  }, [product.branchId])
-  const catalogBranchOptions = branches
-    .filter(b => b.id !== product.branchId)
-    .map(b => ({ value: b.id, label: b.name }))
-  const hasInventory = Number(product.stock) > 0 || product.trackImei
-  const storageOpts = variantSettings?.storageOptions ?? DEFAULT_PRODUCT_VARIANT_SETTINGS.storageOptions
-  const colorOpts = variantSettings?.colorOptions ?? DEFAULT_PRODUCT_VARIANT_SETTINGS.colorOptions
-  const categories: Category[] = (cats ?? []) as Category[]
-  const [showAddCat, setShowAddCat] = useState(false)
-  const [showVariants, setShowVariants] = useState(true)
-  const [form, setForm] = useState({
-    name: product.name, sku: product.sku,
-    categoryName: product.categoryName ?? '',
-    brandName: product.brandName ?? '',
-    buyingPrice: String(product.buyingPrice), sellingPrice: String(product.sellingPrice),
-    wholesalePrice: String(product.wholesalePrice ?? ''),
-    creditPrice: String(product.creditPrice ?? ''),
-    stock: String(product.stock), minStock: String(product.minStock),
-    imageUrl: product.imageUrl ?? '',
-    condition: (product.condition ?? 'BRAND_NEW') as ProductCondition,
-  })
-  const [imeiType, setImeiType] = useState<ImeiProductType>(trackFlagToImeiType(product.trackImei))
-  const [warrantyMonths, setWarrantyMonths] = useState(product.warrantyMonths ?? 12)
-  const [warrantyNote, setWarrantyNote] = useState(product.warrantyNote ?? '')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [catalogBranchIds, setCatalogBranchIds] = useState<string[]>([])
-
-  const toggleCatalogBranch = (branchId: string) => {
-    setCatalogBranchIds(prev =>
-      prev.includes(branchId) ? prev.filter(id => id !== branchId) : [...prev, branchId],
-    )
-  }
-
-  // Load existing variants into edit state
-  const [variants, setVariants] = useState<EditVariantRow[]>(
-    (Array.isArray(product.storageVariations) ? product.storageVariations : []).map((v: any) => ({
-      id: v.id ?? genEditId(),
-      storage: v.storage,
-      colorName: v.colorName,
-      colorHex: v.colorHex,
-      sku: v.sku ?? '',
-      stock: String(v.stock ?? 0),
-      sellingPrice: String(v.sellingPrice),
-      wholesalePrice: String(v.wholesalePrice ?? ''),
-      creditPrice: String(v.creditPrice ?? ''),
-      costPrice: String(v.costPrice),
-    }))
-  )
-
-  const addVariant = () => setVariants(p => [...p, {
-    id: genEditId(),
-    storage: storageOpts.find(s => s === '128GB') ?? storageOpts[0] ?? '128GB',
-    colorName: colorOpts[0]?.name ?? 'Black',
-    colorHex: colorOpts[0]?.hex ?? '#1a1a1a',
-    sku: '', stock: '0', sellingPrice: '', wholesalePrice: '', creditPrice: '', costPrice: '',
-  }])
-  const delVariant = (id: string) => setVariants(p => p.filter(v => v.id !== id))
-  const updVariant = (id: string, k: keyof EditVariantRow, val: string) => setVariants(p => p.map(v => v.id === id ? { ...v, [k]: val } : v))
-  const updColor = (id: string, name: string, hex: string) => setVariants(p => p.map(v => v.id === id ? { ...v, colorName: name, colorHex: hex } : v))
-
-  const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(p => ({ ...p, [k]: e.target.value }))
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true); setError('')
-    try {
-      await productsApi.update(product.id, {
-        ...form,
-        buyingPrice: Number(form.buyingPrice), sellingPrice: Number(form.sellingPrice),
-        wholesalePrice: Math.max(0, Number(form.wholesalePrice) || 0),
-        creditPrice: Math.max(0, Number(form.creditPrice) || 0),
-        mrp: Number(form.sellingPrice),
-        // With variants, stock is derived from the per-variant quantities
-        stock: variants.length > 0 ? undefined : Number(form.stock),
-        minStock: Number(form.minStock),
-        trackImei: imeiTypeToTrackFlag(imeiType),
-        warrantyMonths: Number(warrantyMonths) || 0,
-        warrantyNote: warrantyNote.trim() || null,
-        condition: form.condition,
-        imageUrl: form.imageUrl || undefined,
-        ...(showBranchPicker && catalogBranchIds.length > 0 ? { catalogBranchIds } : {}),
-        storageVariations: variants.map(v => ({
-          id: v.id,
-          storage: v.storage,
-          colorName: v.colorName,
-          colorHex: v.colorHex,
-          sku: v.sku || undefined,
-          stock: Math.max(0, Number(v.stock) || 0),
-          sellingPrice: Number(v.sellingPrice) || 0,
-          wholesalePrice: Math.max(0, Number(v.wholesalePrice) || 0),
-          creditPrice: Math.max(0, Number(v.creditPrice) || 0),
-          costPrice: Number(v.costPrice) || 0,
-        })),
-        colorVariations: variants.map(v => ({ name: v.colorName, hex: v.colorHex })),
-      })
-      if (showBranchPicker && catalogBranchIds.length > 0) {
-        const destNames = catalogBranchIds
-          .map(id => branches.find(b => b.id === id)?.name)
-          .filter(Boolean)
-          .join(', ')
-        if (hasInventory) {
-          toast((t) => (
-            <div className="text-sm">
-              <p className="font-medium">Catalog copied to {destNames}</p>
-              <p className="text-xs opacity-80 mt-0.5">Stock &amp; IMEI remain at {stockBranchName}</p>
-              <button
-                type="button"
-                className="mt-2 text-xs font-semibold text-violet-400 hover:text-violet-300"
-                onClick={() => { router.push('/dashboard/stock-transfer'); toast.dismiss(t.id) }}
-              >
-                Open Stock Transfer →
-              </button>
-            </div>
-          ), { duration: 8000 })
-        } else if (catalogBranchIds.length === 1) {
-          toast.success(`Product moved to ${destNames}`)
-        } else {
-          toast.success(`Catalog copied to ${destNames}`)
-        }
-      } else {
-        toast.success('Product updated')
+  const handleDeleteClick = (brand: Brand) => {
+    const count = brand.productCount ?? 0
+    if (count > 0) {
+      const others = brands.filter(b => b.id !== brand.id)
+      if (others.length === 0) {
+        toast.error('Create another brand first — products must be moved before deleting.')
+        return
       }
-      onSaved(); onClose()
-    } catch (err: any) { setError(err.message || 'Failed to update') }
-    finally { setLoading(false) }
+      setPendingDelete(brand)
+      setReassignToId(others[0].id)
+      return
+    }
+    if (!confirm(`Delete brand "${brand.name}"? This cannot be undone.`)) return
+    doDelete(brand)
   }
-
-  const inputSt: React.CSSProperties = {
-    width: '100%', height: 30, padding: '0 8px', borderRadius: 6,
-    fontSize: 11, outline: 'none',
-    background: 'var(--bg-subtle)',
-    border: '1px solid var(--border-default)',
-    color: 'var(--text-primary)', boxSizing: 'border-box',
-  }
-  const selSt: React.CSSProperties = { ...inputSt, paddingRight: 24, appearance: 'none', cursor: 'pointer' }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-white">Edit Product</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/5 transition-colors"><X size={16} /></button>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="card rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+          <div className="flex items-center gap-2">
+            <Tag size={15} className="text-violet-400" />
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Manage Brands</h3>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg transition-colors hover:opacity-80" style={{ color: 'var(--text-muted)' }}><X size={15} /></button>
         </div>
-        <form onSubmit={handleSubmit} className="p-5 space-y-5">
-          {/* Basic Fields */}
-          <div className="grid grid-cols-2 gap-4">
-            <ProductImagePicker imageUrl={form.imageUrl} onUploaded={url => setForm(p => ({ ...p, imageUrl: url }))} />
-            <div className="col-span-2">
-              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Product Name *</label>
-              <input required className="input-field" value={form.name} onChange={f('name')} />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">SKU *</label>
-              <input required className="input-field" value={form.sku} onChange={f('sku')} />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Brand</label>
-              <input className="input-field" value={form.brandName} onChange={f('brandName')} />
-            </div>
-            <div className="col-span-2">
-              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Category</label>
-              <div className="flex gap-2">
-                <select className="input-field flex-1" value={form.categoryName} onChange={f('categoryName')}>
-                  {form.categoryName && !categories.some(c => c.name === form.categoryName) && (
-                    <option value={form.categoryName}>{form.categoryName}</option>
-                  )}
-                  {categories.map(c => <option key={c.id} value={c.name}>{c.icon ? `${c.icon} ` : ''}{c.name}</option>)}
-                </select>
-                <button type="button" onClick={() => setShowAddCat(true)}
-                  className="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors hover:bg-violet-500/10 hover:text-violet-500"
-                  style={{ border: '1px solid var(--border-default)', color: 'var(--text-muted)' }}
-                  title="Add new category">
-                  <Plus size={15} />
-                </button>
-              </div>
-            </div>
-            {showBranchPicker && (
-              <div className="col-span-2 rounded-xl p-3 space-y-2"
-                style={{ background: 'var(--brand-glow)', border: '1px solid var(--brand-glow)' }}>
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
-                    Stock location
-                  </p>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full font-medium flex items-center gap-1"
-                    style={{ background: 'var(--brand-glow)', color: 'var(--brand-light)', border: '1px solid var(--sidebar-active-border)' }}>
-                    <Building2 size={10} />
-                    {stockBranchName}
-                    {hasInventory && (
-                      <span className="opacity-70">· {product.stock} units</span>
-                    )}
-                  </span>
-                </div>
-                {catalogBranchOptions.length > 0 && (
-                  <>
-                    <div className="flex items-center justify-between gap-2">
-                      <label className="block text-xs text-gray-600 dark:text-slate-400">
-                        {hasInventory ? 'Assign catalog to branches (optional)' : 'Move or assign to branches'}
-                      </label>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          className="text-[10px] font-semibold text-violet-400 hover:text-violet-300"
-                          onClick={() => setCatalogBranchIds(catalogBranchOptions.map(b => b.value))}
-                        >
-                          Select all
-                        </button>
-                        <button
-                          type="button"
-                          className="text-[10px] font-semibold text-gray-500 dark:text-slate-500 hover:text-gray-700 dark:hover:text-slate-300"
-                          onClick={() => setCatalogBranchIds([])}
-                          disabled={catalogBranchIds.length === 0}
-                        >
-                          Clear
-                        </button>
-                      </div>
+
+        <div className="p-5">
+          {brands.length === 0 ? (
+            <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>No brands yet. Add a brand when creating a product.</p>
+          ) : (
+            <>
+              <p className="text-[11px] uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>{brands.length} brand{brands.length === 1 ? '' : 's'}</p>
+              <div className="max-h-72 overflow-y-auto space-y-1 pr-1">
+                {brands.map(brand => (
+                  <div key={brand.id} className="rounded-lg overflow-hidden" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
+                    <div className="flex items-center justify-between gap-2 px-3 py-2">
+                      <span className="text-sm truncate flex items-center gap-2 min-w-0" style={{ color: 'var(--text-primary)' }}>
+                        <span className="truncate">{brand.name}</span>
+                        {(brand.productCount ?? 0) > 0 && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-400 flex-shrink-0 font-medium">
+                            {brand.productCount} product{(brand.productCount ?? 0) > 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteClick(brand)}
+                        disabled={deletingId === brand.id}
+                        className="p-1.5 rounded-lg hover:text-red-500 hover:bg-red-500/10 transition-colors disabled:opacity-50 flex-shrink-0"
+                        style={{ color: 'var(--text-muted)' }}>
+                        {deletingId === brand.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                      </button>
                     </div>
-                    <div className="rounded-lg border max-h-36 overflow-y-auto"
-                      style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
-                      {catalogBranchOptions.map(opt => {
-                        const checked = catalogBranchIds.includes(opt.value)
-                        return (
-                          <label
-                            key={opt.value}
-                            className={`flex items-center gap-2.5 px-3 py-2.5 cursor-pointer border-b last:border-0 transition-colors ${
-                              checked ? 'bg-violet-500/10' : 'hover:bg-white/5'
-                            }`}
-                            style={{ borderColor: 'var(--border-subtle)' }}
-                          >
-                            <input
-                              type="checkbox"
-                              className="rounded border-white/20 text-violet-500 focus:ring-violet-500/40"
-                              checked={checked}
-                              onChange={() => toggleCatalogBranch(opt.value)}
-                            />
-                            <Building2 size={12} className={checked ? 'text-violet-400' : 'text-slate-500'} />
-                            <span className="text-xs" style={{ color: 'var(--text-primary)' }}>{opt.label}</span>
-                          </label>
-                        )
-                      })}
-                    </div>
-                    {catalogBranchIds.length > 0 && (
-                      <p className="text-[10px] text-violet-400">
-                        {catalogBranchIds.length} branch{catalogBranchIds.length === 1 ? '' : 'es'} selected
-                      </p>
-                    )}
-                    <p className="text-[10px] flex items-start gap-1.5" style={{ color: 'var(--text-muted)' }}>
-                      <ArrowLeftRight size={11} className="flex-shrink-0 mt-0.5 opacity-70" />
-                      {hasInventory
-                        ? 'Copies image & details to selected branches. Move stock and IMEI via Stock Transfer.'
-                        : catalogBranchIds.length > 1
-                          ? 'Creates catalog entries at selected branches (stock stays 0).'
-                          : 'Select one branch to move this product, or multiple to copy catalog.'}
-                    </p>
-                  </>
-                )}
-              </div>
-            )}
-            <div>
-              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Buying Price (LKR)</label>
-              <input type="number" min="0" className="input-field" value={form.buyingPrice} onChange={f('buyingPrice')} />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Retail Price (LKR)</label>
-              <input type="number" min="0" className="input-field" value={form.sellingPrice} onChange={f('sellingPrice')} />
-            </div>
-            {hasWholesalePricing && (
-            <div>
-              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Wholesale Price (LKR)</label>
-              <input type="number" min="0" className="input-field" placeholder="Optional" value={form.wholesalePrice} onChange={f('wholesalePrice')} />
-            </div>
-            )}
-            {hasCreditPricing && (
-            <div>
-              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Credit Price (LKR)</label>
-              <input type="number" min="0" className="input-field" placeholder="Optional" value={form.creditPrice} onChange={f('creditPrice')} />
-            </div>
-            )}
-            <div>
-              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Stock Qty</label>
-              <input type="number" min="0" className="input-field" value={form.stock} onChange={f('stock')} />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Min Stock Alert</label>
-              <input type="number" min="0" className="input-field" value={form.minStock} onChange={f('minStock')} />
-            </div>
-            <div className="col-span-2">
-              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Condition *</label>
-              <select className="input-field" value={form.condition} onChange={f('condition')}>
-                {PRODUCT_CONDITION_OPTS.map(o => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <ImeiProductTypeSelector
-            value={imeiType}
-            onChange={setImeiType}
-            categoryName={form.categoryName}
-            hasVariants={variants.length > 0}
-            compact
-          />
-
-          <div>
-            <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Warranty Period</label>
-            <select className="input-field" value={warrantyMonths}
-              onChange={e => setWarrantyMonths(Number(e.target.value))}>
-              <option value={0}>None</option>
-              <option value={1}>1 Month</option>
-              <option value={3}>3 Months</option>
-              <option value={6}>6 Months</option>
-              <option value={12}>1 Year</option>
-              <option value={24}>2 Years</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Warranty note</label>
-            <textarea
-              className="input-field min-h-[72px] py-2 resize-y"
-              placeholder="Optional text printed on the bill under warranty"
-              value={warrantyNote}
-              onChange={e => setWarrantyNote(e.target.value)}
-            />
-          </div>
-
-          {/* ── Variants Section ────────────────────────────────────── */}
-          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
-            <button
-              type="button"
-              onClick={() => setShowVariants(p => !p)}
-              className="w-full flex items-center justify-between px-4 py-3 text-left"
-              style={{ background: 'var(--bg-subtle)' }}
-            >
-              <div className="flex items-center gap-2">
-                <Layers size={13} className="text-violet-400" />
-                <span className="text-xs font-semibold text-violet-300">Variant Combinations</span>
-                {variants.length > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400 font-medium">
-                    {variants.length}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={e => { e.stopPropagation(); addVariant() }}
-                  className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg bg-violet-600 text-white hover:bg-violet-500 transition-colors"
-                >
-                  <Plus size={11} /> Add
-                </button>
-                {showVariants ? <ChevronUp size={14} className="text-slate-400" /> : <ChevronDown size={14} className="text-slate-400" />}
-              </div>
-            </button>
-
-            {showVariants && (
-              <div className="p-3">
-                {variants.length === 0 ? (
-                  <div className="text-center py-6">
-                    <Layers size={18} className="text-slate-600 mx-auto mb-2" />
-                    <p className="text-xs text-gray-500 dark:text-slate-500">No variants yet — click "Add" to create Storage × Color combinations</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-                      <thead>
-                        <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
-                          {([
-                            '#', 'Storage', 'Color', 'SKU', 'Stock', 'Retail',
-                            ...(hasWholesalePricing ? ['Wholesale'] : []),
-                            ...(hasCreditPricing ? ['Credit'] : []),
-                            'Cost', '',
-                          ] as string[]).map((h, i) => (
-                            <th key={i} style={{ padding: '7px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)', whiteSpace: 'nowrap' }}>{h}</th>
+                    {pendingDelete?.id === brand.id && (
+                      <div className="px-3 pb-3 pt-1 space-y-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                        <p className="text-[11px] text-amber-400 font-medium">
+                          Move {brand.productCount} product{(brand.productCount ?? 0) > 1 ? 's' : ''} to another brand before deleting.
+                        </p>
+                        <select
+                          className="input-field text-sm w-full"
+                          value={reassignToId}
+                          onChange={e => setReassignToId(e.target.value)}>
+                          {brands.filter(b => b.id !== brand.id).map(b => (
+                            <option key={b.id} value={b.id}>{b.name}</option>
                           ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {variants.map((v, i) => (
-                          <tr key={v.id} style={{ borderBottom: i < variants.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
-                            <td style={{ padding: '6px 8px', color: 'var(--text-muted)', fontSize: 10 }}>{i + 1}</td>
-
-                            {/* Storage */}
-                            <td style={{ padding: '6px 4px' }}>
-                              <div style={{ position: 'relative' }}>
-                                <select value={v.storage} onChange={e => updVariant(v.id, 'storage', e.target.value)} style={selSt}>
-                                  {storageOpts.map(s => <option key={s}>{s}</option>)}
-                                  {!storageOpts.includes(v.storage) && <option value={v.storage}>{v.storage}</option>}
-                                </select>
-                                <ChevronDown size={10} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
-                              </div>
-                            </td>
-
-                            {/* Color */}
-                            <td style={{ padding: '6px 4px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                                <span style={{ width: 12, height: 12, borderRadius: '50%', background: v.colorHex, border: '1px solid rgba(255,255,255,0.2)', flexShrink: 0, display: 'inline-block' }} />
-                                <div style={{ position: 'relative', flex: 1 }}>
-                                  <select value={v.colorName} onChange={e => { const found = colorOpts.find(c => c.name === e.target.value); if (found) updColor(v.id, found.name, found.hex) }} style={selSt}>
-                                    {colorOpts.map(c => <option key={c.name}>{c.name}</option>)}
-                                    {!colorOpts.some(c => c.name === v.colorName) && (
-                                      <option value={v.colorName}>{v.colorName}</option>
-                                    )}
-                                  </select>
-                                  <ChevronDown size={10} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
-                                </div>
-                              </div>
-                            </td>
-
-                            {/* SKU */}
-                            <td style={{ padding: '6px 4px' }}>
-                              <input style={{ ...inputSt, fontFamily: 'monospace' }}
-                                placeholder={`${(form.sku || 'SKU').toUpperCase()}-${v.storage.replace(/\s/g, '')}-${v.colorName.slice(0, 3).toUpperCase()}`}
-                                value={v.sku} onChange={e => updVariant(v.id, 'sku', e.target.value)} />
-                            </td>
-
-                            {/* Stock */}
-                            <td style={{ padding: '6px 4px' }}>
-                              <input type="number" min={0} style={{ ...inputSt, width: 64 }} placeholder="0"
-                                value={v.stock} onChange={e => updVariant(v.id, 'stock', e.target.value)} />
-                            </td>
-
-                            {/* Retail */}
-                            <td style={{ padding: '6px 4px' }}>
-                              <input type="number" min={0} style={inputSt} placeholder="0.00"
-                                value={v.sellingPrice} onChange={e => updVariant(v.id, 'sellingPrice', e.target.value)} />
-                            </td>
-
-                            {hasWholesalePricing && (
-                            <td style={{ padding: '6px 4px' }}>
-                              <input type="number" min={0} style={inputSt} placeholder="Optional"
-                                value={v.wholesalePrice} onChange={e => updVariant(v.id, 'wholesalePrice', e.target.value)} />
-                            </td>
-                            )}
-
-                            {hasCreditPricing && (
-                            <td style={{ padding: '6px 4px' }}>
-                              <input type="number" min={0} style={inputSt} placeholder="Optional"
-                                value={v.creditPrice} onChange={e => updVariant(v.id, 'creditPrice', e.target.value)} />
-                            </td>
-                            )}
-
-                            {/* Cost Price */}
-                            <td style={{ padding: '6px 4px' }}>
-                              <input type="number" min={0} style={inputSt} placeholder="0.00"
-                                value={v.costPrice} onChange={e => updVariant(v.id, 'costPrice', e.target.value)} />
-                            </td>
-
-                            {/* Delete */}
-                            <td style={{ padding: '6px 8px' }}>
-                              <button type="button" onClick={() => delVariant(v.id)}
-                                style={{ padding: 5, borderRadius: 5, background: 'rgba(239,68,68,0.1)', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'flex' }}>
-                                <Trash2 size={11} />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </select>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => { setPendingDelete(null); setReassignToId('') }}
+                            className="btn-secondary flex-1 text-xs py-1.5">
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            disabled={!reassignToId || deletingId === brand.id}
+                            onClick={() => doDelete(brand, reassignToId)}
+                            className="flex-1 text-xs py-1.5 rounded-lg font-semibold bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
+                            Move & Delete
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
+                ))}
               </div>
-            )}
-          </div>
-
-          {error && <p className="text-xs text-red-400">{error}</p>}
-          <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
-            <button type="submit" disabled={loading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
-              {loading ? <Loader2 size={14} className="animate-spin" /> : null}Save Changes
-            </button>
-          </div>
-        </form>
+            </>
+          )}
+          <button type="button" onClick={onClose} className="btn-secondary w-full text-sm mt-4">Close</button>
+        </div>
       </div>
-      {showAddCat && <AddCategoryModal onClose={() => setShowAddCat(false)} onSaved={cat => { refetchCats(); setForm(p => ({ ...p, categoryName: cat.name })) }} />}
     </div>
   )
 }
-
-// AddProductModal is imported from @/components/inventory/AddProductModal
 
 function warrantyMonthsLabel(months: number): string {
   const map: Record<number, string> = { 0: 'None', 1: '1 Month', 3: '3 Months', 6: '6 Months', 12: '1 Year', 24: '2 Years' }
@@ -1566,6 +1124,7 @@ export default function InventoryPage() {
   const [copyProduct, setCopyProduct] = useState<Product | null>(null)
   const [showAddCat, setShowAddCat]   = useState(false)
   const [showManageCat, setShowManageCat] = useState(false)
+  const [showManageBrand, setShowManageBrand] = useState(false)
   const [editProduct, setEditProduct] = useState<Product | null>(null)
   const [viewProduct, setViewProduct] = useState<Product | null>(null)
   const [categoryFilter, setCategoryFilter] = useState('all')
@@ -1726,6 +1285,7 @@ export default function InventoryPage() {
   const closeAddProduct = useCallback(() => {
     setShowAddProduct(false)
     setCopyProduct(null)
+    setEditProduct(null)
     if (searchParams.get('action')) {
       const q = searchParams.get('q')
       router.replace(q ? `/inventory?q=${encodeURIComponent(q)}` : '/inventory', { scroll: false })
@@ -1741,6 +1301,18 @@ export default function InventoryPage() {
       setCopyProduct((res?.data ?? res ?? product) as Product)
     } catch {
       setCopyProduct(product)
+    }
+  }, [])
+
+  const openEdit = useCallback(async (product: Product) => {
+    setViewProduct(null)
+    setCopyProduct(null)
+    setShowAddProduct(false)
+    try {
+      const res: any = await productsApi.getById(product.id)
+      setEditProduct((res?.data ?? res ?? product) as Product)
+    } catch {
+      setEditProduct(product)
     }
   }, [])
 
@@ -1803,7 +1375,7 @@ export default function InventoryPage() {
               <button
                 className="text-sm font-medium text-gray-800 dark:text-slate-200 hover:text-violet-600 dark:hover:text-violet-400 text-left transition-colors leading-tight"
                 onClick={() => setViewProduct(product)}
-                onDoubleClick={(e) => { e.preventDefault(); setEditProduct(product) }}
+                onDoubleClick={(e) => { e.preventDefault(); void openEdit(product) }}
               >
                 {product.name}
               </button>
@@ -1930,7 +1502,7 @@ export default function InventoryPage() {
         <div className="flex items-center gap-1">
           <TableActionsRow
             showAction={{ action: () => setViewProduct(row.original.product) }}
-            editAction={{ action: () => setEditProduct(row.original.product) }}
+            editAction={{ action: () => { void openEdit(row.original.product) } }}
             deleteAction={{ action: () => handleDelete(row.original.product.id, row.original.product.name) }}
           />
           <button
@@ -1954,16 +1526,17 @@ export default function InventoryPage() {
         </div>
       ),
     },
-  ], [handleDelete, openCopy, setViewProduct, setEditProduct, hasWholesalePricing, hasCreditPricing, canViewTraceability, router])
+  ], [handleDelete, openCopy, openEdit, setViewProduct, hasWholesalePricing, hasCreditPricing, canViewTraceability, router])
 
 
-  if (showAddProduct || copyProduct) {
+  if (showAddProduct || copyProduct || editProduct) {
     return (
       <AddProductModal
-        key={copyProduct ? `copy-${copyProduct.id}` : showAddProduct ? 'new-product' : 'idle'}
+        key={editProduct ? `edit-${editProduct.id}` : copyProduct ? `copy-${copyProduct.id}` : showAddProduct ? 'new-product' : 'idle'}
         onClose={closeAddProduct}
         onSaved={() => { refetch(); closeAddProduct() }}
         copyFrom={copyProduct ?? undefined}
+        editProduct={editProduct ?? undefined}
       />
     )
   }
@@ -1973,12 +1546,12 @@ export default function InventoryPage() {
       {showImport  && <ImportModal onClose={() => setShowImport(false)} onSaved={refetch} />}
       {showAddCat    && <AddCategoryModal onClose={() => setShowAddCat(false)} onSaved={() => refetchCats()} />}
       {showManageCat && <ManageCategoriesModal onClose={() => setShowManageCat(false)} onChanged={() => { refetchCats(); refetch() }} />}
-      {editProduct && <EditProductModal product={editProduct} onClose={() => setEditProduct(null)} onSaved={refetch} />}
+      {showManageBrand && <ManageBrandsModal onClose={() => setShowManageBrand(false)} onChanged={() => { refetch() }} />}
       {viewProduct && (
         <ProductDetailModal
           product={viewProduct}
           onClose={() => setViewProduct(null)}
-          onEdit={() => { setEditProduct(viewProduct); setViewProduct(null) }}
+          onEdit={() => { void openEdit(viewProduct) }}
           onCopy={() => openCopy(viewProduct)}
         />
       )}
@@ -2014,6 +1587,9 @@ export default function InventoryPage() {
           </button>
           <button onClick={() => setShowManageCat(true)} className="btn-secondary text-sm flex items-center gap-2">
             <Layers size={14} />Manage Categories
+          </button>
+          <button onClick={() => setShowManageBrand(true)} className="btn-secondary text-sm flex items-center gap-2">
+            <Tag size={14} />Manage Brands
           </button>
           <button onClick={() => setShowAddCat(true)} className="btn-secondary text-sm flex items-center gap-2">
             <Tag size={14} />Add Category

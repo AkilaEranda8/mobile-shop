@@ -18,6 +18,10 @@ import { getMaintenanceStatus } from '../../utils/platform-config'
 import { ensureTenantAccess } from '../../utils/tenant-access'
 import { getTenantBranches, getUserBranchIds, pickDefaultBranchId } from '../../utils/active-branch'
 import { consumeImpersonationCode } from '../../utils/impersonation-codes'
+import { createSessionExchangeCode, consumeSessionExchangeCode } from '../../utils/session-exchange-codes'
+import { ensureBillingWhatsAppTenant } from '../../utils/billing-whatsapp-tenant'
+import { sendTenantOnboardWhatsApp } from '../../utils/send-tenant-onboard-whatsapp'
+import { tenantShopHost, tenantShopUrl } from '../../utils/tenant-app-domain'
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
@@ -221,7 +225,7 @@ export const authService = {
     const baseSlug = data.shopName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/^-+|-+$/g, '')
     const existing_slug = await prisma.tenant.findFirst({ where: { slug: baseSlug } })
     const slug = existing_slug ? `${baseSlug}-${Date.now().toString(36)}` : baseSlug
-    const subdomain = `${slug}.app.hexalyte.com`
+    const shopHost = tenantShopHost(slug)
     const hashedPassword = await bcrypt.hash(data.password, 12)
     const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
 
@@ -313,6 +317,47 @@ export const authService = {
       }
     }
 
+    const userPayload = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      tenantId: tenant.id,
+      branchIds: [branch.id],
+      avatar: user.avatar,
+    }
+
+    let whatsappSent = false
+    let whatsappError: string | undefined
+    if (data.phone?.trim()) {
+      try {
+        const billingTenantId = await ensureBillingWhatsAppTenant()
+        const wa = await sendTenantOnboardWhatsApp(billingTenantId, {
+          phone: data.phone.trim(),
+          shopName: data.shopName,
+          ownerName: data.ownerName,
+          email: ownerEmail,
+          password: data.password,
+          plan: (data.plan as string) || 'TRIAL',
+          subdomain: slug,
+        })
+        whatsappSent = wa.sent
+        whatsappError = wa.error
+        if (!wa.sent && wa.error) {
+          console.warn('[register] WhatsApp credentials not sent:', wa.error)
+        }
+      } catch (e) {
+        whatsappError = e instanceof Error ? e.message : 'WhatsApp send failed'
+        console.warn('[register] WhatsApp send error:', whatsappError)
+      }
+    }
+
+    const sessionCode = createSessionExchangeCode({
+      accessToken,
+      refreshToken,
+      user: userPayload,
+    })
+
     return {
       accessToken,
       refreshToken,
@@ -324,17 +369,19 @@ export const authService = {
         status: tenant.status,
         trialEndsAt: tenant.trialEndsAt,
       },
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        tenantId: tenant.id,
-        branchIds: [branch.id],
-        avatar: user.avatar,
-      },
-      subdomain,
+      user: userPayload,
+      subdomain: shopHost,
+      shopUrl: tenantShopUrl(slug),
+      sessionCode,
+      whatsappSent,
+      whatsappError,
     }
+  },
+
+  async sessionExchange(code: string) {
+    const payload = consumeSessionExchangeCode(code)
+    if (!payload) throw new AppError('Invalid or expired session code', 401)
+    return payload
   },
 
   async refresh(refreshTokenStr: string) {

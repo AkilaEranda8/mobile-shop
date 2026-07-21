@@ -11,7 +11,7 @@ function resolveApiBaseUrl(): string {
   return `${window.location.origin}/api/v1`
 }
 
-function getApiBaseUrl(): string {
+export function getApiBaseUrl(): string {
   return resolveApiBaseUrl()
 }
 
@@ -132,6 +132,10 @@ export const authApi = {
         user: import('./auth').AuthUser
         tenant: { id: string; name: string; slug: string; plan: string; status: string; trialEndsAt: string }
         subdomain: string
+        shopUrl: string
+        sessionCode: string
+        whatsappSent?: boolean
+        whatsappError?: string
       }
     }>('/auth/register', body),
 
@@ -249,6 +253,8 @@ export const productsApi = {
     api.delete(`/products/categories/${id}${reassignToId ? `?reassignToId=${encodeURIComponent(reassignToId)}` : ''}`),
   brands: () => api.get('/products/brands'),
   createBrand: (body: { name: string }) => api.post('/products/brands', body),
+  deleteBrand: (id: string, reassignToId?: string) =>
+    api.delete(`/products/brands/${id}${reassignToId ? `?reassignToId=${encodeURIComponent(reassignToId)}` : ''}`),
   imeiHealth: () => api.get('/products/imei-health'),
   bulkInferTrackImei: () => api.post('/products/bulk-infer-track-imei', {}),
   nextCodes: () => api.get('/products/next-codes'),

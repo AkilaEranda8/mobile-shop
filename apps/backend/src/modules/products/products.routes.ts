@@ -12,6 +12,7 @@ router.post('/categories', authorize('OWNER', 'MANAGER'), productsController.cre
 router.delete('/categories/:id', authorize('OWNER', 'MANAGER'), productsController.deleteCategory)
 router.get('/brands', productsController.getBrands)
 router.post('/brands', authorize('OWNER', 'MANAGER'), productsController.createBrand)
+router.delete('/brands/:id', authorize('OWNER', 'MANAGER'), productsController.deleteBrand)
 router.get('/imei-health', productsController.getImeiHealth)
 router.post('/bulk-infer-track-imei', authorize('OWNER', 'MANAGER'), productsController.bulkInferTrackImei)
 router.get('/next-codes', productsController.nextCodes)

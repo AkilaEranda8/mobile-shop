@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { Plus, Trash2, Upload, Loader2, ChevronDown, Info, GripVertical, Box, Eye, ArrowLeft, Download, RefreshCw } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Plus, Trash2, Upload, Loader2, ChevronDown, Info, GripVertical, Box, Eye, ArrowLeft, Download, RefreshCw, Building2, ArrowLeftRight } from 'lucide-react'
 import { productsApi, suppliersApi, uploadApi, deviceCatalogApi, tenantApi } from '@/lib/api'
 import { useCategories, useBrands, useSuppliers, useProductVariantSettings, useFeatureFlag } from '@/lib/hooks'
 import { DEFAULT_PRODUCT_VARIANT_SETTINGS, pushProductVariantSettings } from '@/lib/productVariantSettings'
 import { authStorage } from '@/lib/auth'
+import { getVisibleBranches, hasMultipleBranches } from '@/lib/active-branch'
 import { isKasthuriTenant } from '@/lib/invoiceSettings'
 import { getTenantSlugFromHost } from '@/lib/tenant-context'
 import type { Category, Product } from '@/types'
@@ -15,7 +17,7 @@ import { MasterCatalogImportModal } from './MasterCatalogImportModal'
 import type { MasterCatalogFormDraft } from '@/lib/masterCatalogFormDraft'
 import { inferImeiProductType, imeiTypeToTrackFlag, type ImeiProductType } from '@/lib/productImei'
 import { PRODUCT_CONDITION_OPTS, type ProductCondition } from '@/lib/productCondition'
-import { buildProductCopyDraft, isProductCopyUnchanged, snapshotFromDraft, snapshotFromFormState } from '@/lib/productCopyDraft'
+import { buildProductCopyDraft, buildProductEditDraft, isProductCopyUnchanged, snapshotFromDraft, snapshotFromFormState } from '@/lib/productCopyDraft'
 import { variantSkuFromBase } from '@/lib/productCodes'
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
@@ -23,12 +25,15 @@ import { variantSkuFromBase } from '@/lib/productCodes'
 interface VariantRow {
   id: string; storage: string; colorName: string; colorHex: string
   sku: string; sellingPrice: string; wholesalePrice: string; creditPrice: string; costPrice: string
+  stock?: string
 }
 interface AddProductModalProps {
   onClose: () => void
   onSaved: () => void
   /** Pre-fill form from an existing product; save creates a new product. */
   copyFrom?: Product
+  /** Prefill and update an existing product with the same form as Create. */
+  editProduct?: Product
 }
 interface Brand { id: string; name: string }
 interface Supplier { id: string; name: string }
@@ -390,11 +395,18 @@ function ImageUploader({ imageUrl, onUploaded }: { imageUrl: string; onUploaded:
 
 /* ─── Main Component ─────────────────────────────────────────────────────── */
 
-export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalProps) {
-  const copyDraft = useMemo(
-    () => (copyFrom ? buildProductCopyDraft(copyFrom, genId) : null),
-    [copyFrom],
+export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: AddProductModalProps) {
+  const router = useRouter()
+  const isEdit = Boolean(editProduct)
+  const seedDraft = useMemo(
+    () => (editProduct
+      ? buildProductEditDraft(editProduct, genId)
+      : copyFrom
+        ? buildProductCopyDraft(copyFrom, genId)
+        : null),
+    [copyFrom, editProduct],
   )
+  const copyDraft = !isEdit && copyFrom ? seedDraft : null
 
   const { data: catsData, refetch: refetchCats } = useCategories()
   const { data: brandsData, refetch: refetchBrands } = useBrands()
@@ -412,6 +424,22 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
   const brands: Brand[]   = (brandsData ?? []) as Brand[]
   const suppliers: Supplier[] = ((suppliersRaw as any)?.data ?? []) as Supplier[]
 
+  const branches = useMemo(
+    () => getVisibleBranches().map(b => ({ id: b.id, name: b.name })),
+    [],
+  )
+  const showBranchPicker = isEdit && hasMultipleBranches()
+  const stockBranchName = useMemo(() => {
+    if (!editProduct) return ''
+    const pool = authStorage.getUser()?.branches ?? []
+    return pool.find(b => b.id === editProduct.branchId)?.name ?? 'Current branch'
+  }, [editProduct])
+  const catalogBranchOptions = useMemo(
+    () => (editProduct ? branches.filter(b => b.id !== editProduct.branchId).map(b => ({ value: b.id, label: b.name })) : []),
+    [branches, editProduct],
+  )
+  const hasInventory = Boolean(editProduct && (Number(editProduct.stock) > 0 || editProduct.trackImei))
+
   const [loading, setLoading] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const pricingCardRef = useRef<HTMLDivElement>(null)
@@ -424,27 +452,28 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
   const [deviceModels, setDeviceModels] = useState<DeviceModel[]>([])
   const [tenantSlug, setTenantSlug] = useState<string | null>(() => getTenantSlugFromHost())
   const hideSubCatAndDeviceModel = isKasthuriTenant(tenantSlug)
+  const [catalogBranchIds, setCatalogBranchIds] = useState<string[]>([])
 
   const allBrands = [...brands, ...extraBrands.filter(eb => !brands.find(b => b.id === eb.id))]
 
-  const [form, setForm] = useState(() => copyDraft?.form ?? {
+  const [form, setForm] = useState(() => seedDraft?.form ?? {
     name: '', sku: '', barcodeValue: '', barcodeType: 'Code 128 (C128)', brandName: '',
     categoryName: '', subCategory: '', unit: 'Piece (Pc)',
     deviceModel: '', description: '', imageUrl: '',
   })
-  const [condition,     setCondition]     = useState<ProductCondition>(() => copyDraft?.condition ?? 'BRAND_NEW')
-  const [imeiType,      setImeiType]      = useState<ImeiProductType>(() => copyDraft?.imeiType ?? 'accessory')
-  const [imeiTouched,   setImeiTouched]   = useState(() => copyDraft?.imeiTouched ?? false)
-  const [warrantyTrack, setWarrantyTrack] = useState(() => copyDraft?.warrantyTrack ?? true)
-  const [lowStock,      setLowStock]      = useState(() => copyDraft?.lowStock ?? true)
-  const [minStock,      setMinStock]      = useState(() => copyDraft?.minStock ?? '5')
-  const [manageStock,   setManageStock]   = useState(() => copyDraft?.manageStock ?? 'Yes')
-  const [initialQty,    setInitialQty]    = useState(() => copyDraft?.initialQty ?? '0')
-  const [pricing, setPricing] = useState(() => copyDraft?.pricing ?? { tax: 'None', taxType: 'Exclusive', purchaseEx: '', purchaseInc: '', sellingEx: '', wholesaleEx: '', creditEx: '', margin: '' })
-  const [extra,   setExtra]   = useState(() => copyDraft?.extra ?? { supplierId: '', warranty: '1 Year', warrantyNote: '', hsCode: '', tags: '' })
-  const [variants, setVariants] = useState<VariantRow[]>(() => copyDraft?.variants ?? [])
+  const [condition,     setCondition]     = useState<ProductCondition>(() => seedDraft?.condition ?? 'BRAND_NEW')
+  const [imeiType,      setImeiType]      = useState<ImeiProductType>(() => seedDraft?.imeiType ?? 'accessory')
+  const [imeiTouched,   setImeiTouched]   = useState(() => seedDraft?.imeiTouched ?? false)
+  const [warrantyTrack, setWarrantyTrack] = useState(() => seedDraft?.warrantyTrack ?? true)
+  const [lowStock,      setLowStock]      = useState(() => seedDraft?.lowStock ?? true)
+  const [minStock,      setMinStock]      = useState(() => seedDraft?.minStock ?? '5')
+  const [manageStock,   setManageStock]   = useState(() => seedDraft?.manageStock ?? 'Yes')
+  const [initialQty,    setInitialQty]    = useState(() => seedDraft?.initialQty ?? '0')
+  const [pricing, setPricing] = useState(() => seedDraft?.pricing ?? { tax: 'None', taxType: 'Exclusive', purchaseEx: '', purchaseInc: '', sellingEx: '', wholesaleEx: '', creditEx: '', margin: '' })
+  const [extra,   setExtra]   = useState(() => seedDraft?.extra ?? { supplierId: '', warranty: '1 Year', warrantyNote: '', hsCode: '', tags: '' })
+  const [variants, setVariants] = useState<VariantRow[]>(() => seedDraft?.variants ?? [])
   const [showMasterImport, setShowMasterImport] = useState(false)
-  const [codesLoading, setCodesLoading] = useState(true)
+  const [codesLoading, setCodesLoading] = useState(!isEdit)
 
   const copyBaseline = useMemo(
     () => (copyDraft ? snapshotFromDraft(copyDraft) : null),
@@ -509,6 +538,10 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
   }, [applyAutoCodes])
 
   useEffect(() => {
+    if (isEdit) {
+      setCodesLoading(false)
+      return
+    }
     let cancelled = false
     setCodesLoading(true)
     productsApi.nextCodes()
@@ -520,13 +553,13 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
       .catch(() => {})
       .finally(() => { if (!cancelled) setCodesLoading(false) })
     return () => { cancelled = true }
-  }, [applyAutoCodes])
+  }, [applyAutoCodes, isEdit])
 
   useEffect(() => {
-    if (copyFrom) return
+    if (copyFrom || isEdit) return
     if (cats.length > 0 && !form.categoryName) f('categoryName', cats[0].name)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cats.length, copyFrom])
+  }, [cats.length, copyFrom, isEdit])
 
   useEffect(() => {
     const tenantId = authStorage.getUser()?.tenantId
@@ -565,10 +598,10 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
   })()
 
   useEffect(() => {
-    if (copyFrom) return
+    if (copyFrom || isEdit) return
     if (allBrands.length > 0 && !form.brandName) f('brandName', allBrands[0].name)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allBrands.length, copyFrom])
+  }, [allBrands.length, copyFrom, isEdit])
 
   useEffect(() => {
     if (imeiTouched) return
@@ -607,6 +640,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
     const rows = opts.variantRows ?? []
     const defaultWholesale = Math.max(0, Number(opts.wholesalePrice) || 0)
     const defaultCredit = Math.max(0, Number(opts.creditPrice) || 0)
+    const stockQty = manageStock === 'Yes' ? Math.max(0, Number(initialQty) || 0) : 0
     return {
       name:         opts.name.trim(),
       sku:          opts.sku.trim(),
@@ -623,15 +657,17 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
       wholesalePrice: defaultWholesale,
       creditPrice: defaultCredit,
       mrp:          opts.sellingPrice,
-      stock:        manageStock === 'Yes' ? Math.max(0, Number(initialQty) || 0) : 0,
+      stock:        stockQty,
       minStock:     lowStock ? Number(minStock) || 5 : 0,
       trackImei:    opts.trackImei,
       warrantyMonths: warrantyTrack ? (warrantyLabelToMonths(extra.warranty) || 12) : 0,
-      warrantyNote: warrantyTrack && extra.warrantyNote.trim() ? extra.warrantyNote.trim() : undefined,
+      warrantyNote: warrantyTrack && extra.warrantyNote.trim() ? extra.warrantyNote.trim() : (isEdit ? null : undefined),
       isActive:     true,
       storageVariations: rows.map(v => ({
+        ...(isEdit ? { id: v.id } : {}),
         storage: v.storage, colorName: v.colorName, colorHex: v.colorHex,
-        sku: v.sku || undefined, stock: 0,
+        sku: v.sku || undefined,
+        stock: isEdit ? Math.max(0, Number(v.stock) || 0) : 0,
         sellingPrice: Number(v.sellingPrice) || 0,
         wholesalePrice: Math.max(0, Number(v.wholesalePrice) || defaultWholesale || 0),
         creditPrice: Math.max(0, Number(v.creditPrice) || defaultCredit || 0),
@@ -639,7 +675,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
       })),
       colorVariations: rows.map(v => ({ name: v.colorName, hex: v.colorHex })),
     }
-  }, [lowStock, minStock, warrantyTrack, extra.warranty, extra.warrantyNote, manageStock, initialQty])
+  }, [lowStock, minStock, warrantyTrack, extra.warranty, extra.warrantyNote, manageStock, initialQty, isEdit])
 
   const addVariant = () => {
     const storage = storageOpts.find(s => s === '128GB') ?? storageOpts[0] ?? '128GB'
@@ -654,6 +690,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
       wholesalePrice: pricing.wholesaleEx,
       creditPrice: pricing.creditEx,
       costPrice: pricing.purchaseEx,
+      ...(isEdit ? { stock: '0' } : {}),
     }])
   }
   const delVariant = (id: string) => setVariants(p => p.filter(v => v.id !== id))
@@ -744,15 +781,14 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
       : defaultCredit
 
     if (!buyingPrice)  { failSubmit('Buying price required — enter it in Pricing & Stock', true); return }
-    if (!sellingPrice) { failSubmit('Retail price required — enter it in Pricing & Stock', true); return }
     if (variants.length > 0) {
-      const bad = resolvedVariants.some(v => !Number(v.costPrice) || !Number(v.sellingPrice))
-      if (bad) { failSubmit('Each variant needs buy & retail price (or set defaults in Pricing & Stock)', true); return }
+      const bad = resolvedVariants.some(v => !Number(v.costPrice))
+      if (bad) { failSubmit('Each variant needs a buy/cost price (or set Buying Price in Pricing & Stock)', true); return }
     }
 
     setLoading(true)
     try {
-      await productsApi.create(buildPayload({
+      const payload = buildPayload({
         name: form.name, sku: form.sku, barcode: form.barcodeValue.trim() || undefined,
         brandName: form.brandName, categoryName: form.categoryName,
         buyingPrice, sellingPrice, wholesalePrice, creditPrice, trackImei,
@@ -760,11 +796,49 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
         description: form.description, imageUrl: form.imageUrl,
         condition,
         variantRows: resolvedVariants,
-      }))
-      toast.success(copyFrom ? `"${form.name}" saved as a new product` : `"${form.name}" created!`)
+      })
+
+      if (editProduct) {
+        await productsApi.update(editProduct.id, {
+          ...payload,
+          // With variants, stock is derived from per-variant quantities
+          stock: resolvedVariants.length > 0 ? undefined : payload.stock,
+          ...(showBranchPicker && catalogBranchIds.length > 0 ? { catalogBranchIds } : {}),
+        })
+        if (showBranchPicker && catalogBranchIds.length > 0) {
+          const destNames = catalogBranchIds
+            .map(id => branches.find(b => b.id === id)?.name)
+            .filter(Boolean)
+            .join(', ')
+          if (hasInventory) {
+            toast((t) => (
+              <div className="text-sm">
+                <p className="font-medium">Catalog copied to {destNames}</p>
+                <p className="text-xs opacity-80 mt-0.5">Stock &amp; IMEI remain at {stockBranchName}</p>
+                <button
+                  type="button"
+                  className="mt-2 text-xs font-semibold text-violet-400 hover:text-violet-300"
+                  onClick={() => { router.push('/dashboard/stock-transfer'); toast.dismiss(t.id) }}
+                >
+                  Open Stock Transfer →
+                </button>
+              </div>
+            ), { duration: 8000 })
+          } else if (catalogBranchIds.length === 1) {
+            toast.success(`Product moved to ${destNames}`)
+          } else {
+            toast.success(`Catalog copied to ${destNames}`)
+          }
+        } else {
+          toast.success(`"${form.name}" updated`)
+        }
+      } else {
+        await productsApi.create(payload)
+        toast.success(copyFrom ? `"${form.name}" saved as a new product` : `"${form.name}" created!`)
+      }
       onSaved(); onClose()
     } catch (e: any) {
-      failSubmit(e?.message ?? 'Failed to create product')
+      failSubmit(e?.message ?? (isEdit ? 'Failed to update product' : 'Failed to create product'))
     }
     finally { setLoading(false) }
   }
@@ -822,18 +896,24 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
             <ArrowLeft size={18} />
           </button>
           <div className="min-w-0">
-            <h1 className="page-title">{copyFrom ? 'Duplicate Product' : 'Create New Product'}</h1>
+            <h1 className="page-title">
+              {isEdit ? 'Edit Product' : copyFrom ? 'Duplicate Product' : 'Create New Product'}
+            </h1>
             <p className="page-subtitle">
-              {copyFrom
-                ? `Copied from "${copyFrom.name}" — all details loaded. Change name, price, or other fields before saving. New SKU & barcode are auto-generated. Stock starts at 0.`
-                : 'Add a new product to your inventory. Import from catalog fills this form — you set prices and save.'}
+              {isEdit
+                ? `Update "${editProduct?.name}" — same fields as Add Product.`
+                : copyFrom
+                  ? `Copied from "${copyFrom.name}" — all details loaded. Change name, price, or other fields before saving. New SKU & barcode are auto-generated. Stock starts at 0.`
+                  : 'Add a new product to your inventory. Import from catalog fills this form — you set prices and save.'}
             </p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2 sm:ml-auto pl-11 sm:pl-0">
-          <button type="button" onClick={() => setShowMasterImport(true)} className="btn-secondary text-sm flex items-center gap-2">
-            <Download size={14} /> Import from Master Catalog
-          </button>
+          {!isEdit && (
+            <button type="button" onClick={() => setShowMasterImport(true)} className="btn-secondary text-sm flex items-center gap-2">
+              <Download size={14} /> Import from Master Catalog
+            </button>
+          )}
           <button type="button" onClick={onClose} className="btn-secondary text-sm">Cancel</button>
           <button
             type="button"
@@ -847,8 +927,8 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
                   : undefined
             }
             className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
-            {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-            Create Product
+            {loading ? <Loader2 size={14} className="animate-spin" /> : isEdit ? null : <Plus size={14} />}
+            {isEdit ? 'Save Changes' : 'Create Product'}
           </button>
         </div>
       </div>
@@ -929,6 +1009,9 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
                         <FieldWithPlus
                           select={
                     <Sel value={form.brandName} onChange={v => f('brandName', v)} placeholder="Select brand">
+                      {form.brandName && !allBrands.some(b => b.name === form.brandName) && (
+                        <option value={form.brandName}>{form.brandName}</option>
+                      )}
                       {allBrands.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
                     </Sel>
                           }
@@ -948,6 +1031,9 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
                         <FieldWithPlus
                           select={
                     <Sel value={form.categoryName} onChange={v => f('categoryName', v)} placeholder="Select category">
+                      {form.categoryName && !cats.some(c => c.name === form.categoryName) && (
+                        <option value={form.categoryName}>{form.categoryName}</option>
+                      )}
                       {cats.map(c => <option key={c.id} value={c.name}>{c.icon ? `${c.icon} ` : ''}{c.name}</option>)}
                     </Sel>
                           }
@@ -966,6 +1052,9 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
                             <FieldWithPlus
                               select={
                   <Sel value={form.subCategory} onChange={v => f('subCategory', v)} placeholder="Select sub category">
+                                  {form.subCategory && !subCatOpts.includes(form.subCategory) && (
+                                    <option value={form.subCategory}>{form.subCategory}</option>
+                                  )}
                                   {subCatOpts.map(s => <option key={s} value={s}>{s}</option>)}
                   </Sel>
                               }
@@ -985,6 +1074,9 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
                             <FieldWithPlus
                               select={
                                 <Sel value={form.deviceModel} onChange={v => f('deviceModel', v)} placeholder="Select device model">
+                                  {form.deviceModel && !deviceModelOpts.includes(form.deviceModel) && (
+                                    <option value={form.deviceModel}>{form.deviceModel}</option>
+                                  )}
                                   {deviceModelOpts.map(m => <option key={m} value={m}>{m}</option>)}
                                 </Sel>
                               }
@@ -1058,6 +1150,90 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
                 </div>
               </div>
 
+              {showBranchPicker && (
+                <div style={card}>
+                  <SectionHeader n={2} title="Branch Catalog" optional
+                    sub="Stock stays on the current branch unless you transfer it." />
+                  <div className="rounded-xl p-3 space-y-2"
+                    style={{ background: 'var(--brand-glow)', border: '1px solid var(--brand-glow)' }}>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                        Stock location
+                      </p>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-medium flex items-center gap-1"
+                        style={{ background: 'var(--brand-glow)', color: 'var(--brand-light)', border: '1px solid var(--sidebar-active-border)' }}>
+                        <Building2 size={10} />
+                        {stockBranchName}
+                        {hasInventory && (
+                          <span className="opacity-70">· {editProduct?.stock} units</span>
+                        )}
+                      </span>
+                    </div>
+                    {catalogBranchOptions.length > 0 && (
+                      <>
+                        <div className="flex items-center justify-between gap-2">
+                          <label className="block text-xs" style={{ color: 'var(--text-muted)' }}>
+                            {hasInventory ? 'Assign catalog to branches (optional)' : 'Move or assign to branches'}
+                          </label>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              className="text-[10px] font-semibold text-violet-400 hover:text-violet-300"
+                              onClick={() => setCatalogBranchIds(catalogBranchOptions.map(b => b.value))}
+                            >
+                              Select all
+                            </button>
+                            <button
+                              type="button"
+                              className="text-[10px] font-semibold hover:opacity-80"
+                              style={{ color: 'var(--text-muted)' }}
+                              onClick={() => setCatalogBranchIds([])}
+                              disabled={catalogBranchIds.length === 0}
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        </div>
+                        <div className="rounded-lg border max-h-36 overflow-y-auto"
+                          style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
+                          {catalogBranchOptions.map(opt => {
+                            const checked = catalogBranchIds.includes(opt.value)
+                            return (
+                              <label
+                                key={opt.value}
+                                className={`flex items-center gap-2.5 px-3 py-2.5 cursor-pointer border-b last:border-0 transition-colors ${
+                                  checked ? 'bg-violet-500/10' : 'hover:bg-white/5'
+                                }`}
+                                style={{ borderColor: 'var(--border-subtle)' }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="rounded border-white/20 text-violet-500 focus:ring-violet-500/40"
+                                  checked={checked}
+                                  onChange={() => setCatalogBranchIds(prev =>
+                                    prev.includes(opt.value) ? prev.filter(id => id !== opt.value) : [...prev, opt.value],
+                                  )}
+                                />
+                                <Building2 size={12} className={checked ? 'text-violet-400' : 'text-slate-500'} />
+                                <span className="text-xs" style={{ color: 'var(--text-primary)' }}>{opt.label}</span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                        <p className="text-[10px] flex items-start gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                          <ArrowLeftRight size={11} className="flex-shrink-0 mt-0.5 opacity-70" />
+                          {hasInventory
+                            ? 'Copies image & details to selected branches. Move stock and IMEI via Stock Transfer.'
+                            : catalogBranchIds.length > 1
+                              ? 'Creates catalog entries at selected branches (stock stays 0).'
+                              : 'Select one branch to move this product, or multiple to copy catalog.'}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* 5. Variant Combinations */}
               <div style={card}>
                 <SectionHeader n={5} title="Variant Combinations" optional
@@ -1073,11 +1249,13 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
             {variants.length > 0 ? (
               <>
                     <div className="overflow-x-auto -mx-1 px-1 rounded-lg border" style={{ borderColor: 'var(--border-subtle)' }}>
-                      <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse', fontSize: 12 }}>
+                      <table style={{ width: '100%', minWidth: isEdit ? 800 : 720, borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
                       <tr style={{ background: 'var(--bg-subtle)' }}>
                             {([
-                              '#', '', 'Storage (Model) *', 'Color *', 'SKU (Optional)', 'Retail (LKR) *',
+                              '#', '', 'Storage (Model) *', 'Color *', 'SKU (Optional)',
+                              ...(isEdit ? ['Stock'] : []),
+                              'Retail (LKR)',
                               ...(hasWholesalePricing ? ['Wholesale (LKR)'] : []),
                               ...(hasCreditPricing ? ['Credit (LKR)'] : []),
                               'Cost Price (LKR)', 'Action',
@@ -1125,6 +1303,12 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
                                   placeholder={`${(form.sku || 'PROD').toUpperCase()}-${v.storage.replace(/\s/g, '')}-${v.colorName.slice(0, 3).toUpperCase()}`}
                                   value={v.sku} onChange={e => updVariant(v.id, 'sku', e.target.value)} />
                           </td>
+                          {isEdit && (
+                          <td style={{ padding: '8px 6px' }}>
+                            <input type="number" min={0} style={{ ...inputStyle, height: 32, width: 72 }} placeholder="0"
+                                  value={v.stock ?? '0'} onChange={e => updVariant(v.id, 'stock', e.target.value)} />
+                          </td>
+                          )}
                           <td style={{ padding: '8px 6px' }}>
                             <input type="number" min={0} style={{ ...inputStyle, height: 32 }} placeholder="0.00"
                                   value={v.sellingPrice} onChange={e => updVariant(v.id, 'sellingPrice', e.target.value)} />
@@ -1164,7 +1348,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
                   <div style={{ borderRadius: 8, padding: '36px 16px', textAlign: 'center', border: '1px dashed var(--border-subtle)' }}>
                 <Box size={22} style={{ color: 'var(--text-muted)', margin: '0 auto 8px' }} />
                     <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No variants — simple product</p>
-                    <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Enter buy &amp; sell price in Pricing &amp; Stock{hasWholesalePricing ? ', including wholesale if needed' : ''}, or add variants for phones</p>
+                    <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Enter buying price in Pricing &amp; Stock{hasWholesalePricing ? ', including wholesale if needed' : ''}, or add variants for phones</p>
               </div>
             )}
           </div>
@@ -1250,7 +1434,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
 
               {/* 2. Pricing & Stock */}
               <div ref={pricingCardRef} style={card}>
-                <SectionHeader n={2} title="Pricing & Stock" sub="Required before Create Product" />
+                <SectionHeader n={2} title="Pricing & Stock" sub={isEdit ? 'Update prices and stock' : 'Required before Create Product'} />
                 <div className="flex flex-col gap-3.5">
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-3.5">
                   <div>
@@ -1259,8 +1443,8 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
                         value={pricing.purchaseEx} onChange={e => setPurchaseEx(e.target.value)} />
                   </div>
                   <div>
-                      <Lbl req>Retail Price (LKR)</Lbl>
-                    <input type="number" min={0} style={inputStyle} placeholder="0.00"
+                      <Lbl>Retail Price (LKR)</Lbl>
+                    <input type="number" min={0} style={inputStyle} placeholder="Optional"
                         value={pricing.sellingEx} onChange={e => setSellingEx(e.target.value)} />
                   </div>
                   {hasWholesalePricing && (
@@ -1304,9 +1488,15 @@ export function AddProductModal({ onClose, onSaved, copyFrom }: AddProductModalP
               </div>
                   {manageStock === 'Yes' && (
               <div>
-                      <Lbl>Initial Quantity</Lbl>
+                      <Lbl>{isEdit ? 'Stock Quantity' : 'Initial Quantity'}</Lbl>
                       <input type="number" min={0} style={inputStyle} placeholder="0"
-                        value={initialQty} onChange={e => setInitialQty(e.target.value)} />
+                        value={initialQty} onChange={e => setInitialQty(e.target.value)}
+                        disabled={isEdit && variants.length > 0} />
+                      {isEdit && variants.length > 0 && (
+                        <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
+                          Stock is managed per variant below.
+                        </p>
+                      )}
                 </div>
                   )}
                   {variants.length > 0 && (

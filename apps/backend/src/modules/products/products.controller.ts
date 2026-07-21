@@ -69,6 +69,13 @@ export const productsController = {
   async createBrand(req: Request, res: Response, next: NextFunction) {
     try { sendSuccess(res, await productsService.createBrand(req.tenantId!, req.body), 'Brand created', 201) } catch (e) { next(e) }
   },
+  async deleteBrand(req: Request, res: Response, next: NextFunction) {
+    try {
+      const reassignToId = req.query.reassignToId as string | undefined
+      await productsService.deleteBrand(req.tenantId!, req.params.id, reassignToId)
+      sendSuccess(res, null, 'Brand deleted')
+    } catch (e) { next(e) }
+  },
   async getImeiHealth(req: Request, res: Response, next: NextFunction) {
     try { sendSuccess(res, await productsService.getImeiHealth(req.tenantId!)) } catch (e) { next(e) }
   },

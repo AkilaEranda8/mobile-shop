@@ -45,6 +45,17 @@ type TransferPreview = {
   variants?: Array<{ key: string; label: string; stock: number }>
 }
 type TransferImei = { id: string; imei: string; variation: string | null }
+type TransferLineItem = {
+  id: string
+  productId: string
+  productName: string
+  sku: string
+  variationKey?: string
+  variationLabel?: string
+  quantity: number
+  trackImei: boolean
+  imeis?: string[]
+}
 type TransferRow = {
   id: string
   type: string
@@ -84,6 +95,16 @@ function TransferModal({
   const [loadingImeis, setLoadingImeis] = useState(false)
   const [notes, setNotes] = useState('')
   const [preview, setPreview] = useState<TransferPreview | null>(null)
+  const [lines, setLines] = useState<TransferLineItem[]>([])
+
+  const resetDraft = useCallback(() => {
+    setProductId('')
+    setVariationKey('')
+    setSelectedImeis([])
+    setQuantity('1')
+    setSearch('')
+    setPreview(null)
+  }, [])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -100,12 +121,13 @@ function TransferModal({
   useEffect(() => {
     if (!fromBranchId) return
     setLoadingProducts(true)
-    setProductId('')
+    resetDraft()
+    setLines([])
     productsApi.list({ branchId: fromBranchId, limit: '500' })
       .then((r: any) => setProducts((r.data?.data ?? r.data ?? []).filter((p: Product) => hasTransferableStock(p))))
       .catch(() => toast.error('Failed to load products'))
       .finally(() => setLoadingProducts(false))
-  }, [fromBranchId])
+  }, [fromBranchId, resetDraft])
 
   useEffect(() => {
     if (!toBranchId && destBranches[0]) setToBranchId(destBranches[0].id)
@@ -123,6 +145,22 @@ function TransferModal({
     () => products.find(p => p.id === productId),
     [products, productId],
   )
+
+  const reservedQty = useMemo(() => {
+    if (!productId) return 0
+    return lines
+      .filter(l => l.productId === productId && (l.variationKey || '') === (variationKey || ''))
+      .reduce((sum, l) => sum + l.quantity, 0)
+  }, [lines, productId, variationKey])
+
+  const reservedImeis = useMemo(() => {
+    const set = new Set<string>()
+    for (const line of lines) {
+      if (line.productId !== productId) continue
+      for (const imei of line.imeis ?? []) set.add(imei)
+    }
+    return set
+  }, [lines, productId])
 
   const variantOptions = useMemo(() => {
     const rows = preview?.variants?.length
@@ -167,17 +205,23 @@ function TransferModal({
   }
 
   const availableStock = useMemo(() => {
-    if (preview?.availableStock != null) return preview.availableStock
-    if (variationKey && selectedProduct?.storageVariations) {
+    let raw = preview?.availableStock ?? null
+    if (raw == null && variationKey && selectedProduct?.storageVariations) {
       const v = selectedProduct.storageVariations.find(row =>
         row.id === variationKey ||
         `${row.storage}::${row.colorName}` === variationKey ||
         row.sku === variationKey,
       )
-      return v?.stock ?? 0
+      raw = v?.stock ?? 0
     }
-    return selectedProduct?.stock ?? 0
-  }, [preview?.availableStock, variationKey, selectedProduct])
+    if (raw == null) raw = selectedProduct?.stock ?? 0
+    return Math.max(0, raw - reservedQty)
+  }, [preview?.availableStock, variationKey, selectedProduct, reservedQty])
+
+  const availableImeis = useMemo(
+    () => transferableImeis.filter(r => !reservedImeis.has(r.imei)),
+    [transferableImeis, reservedImeis],
+  )
 
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -208,11 +252,8 @@ function TransferModal({
     setQuantity(digits)
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!canTransfer) { toast.error('Only Owner or Manager can transfer stock'); return }
-    if (!fromBranchId || !toBranchId) { toast.error('Select branches'); return }
-    if (!productId) { toast.error('Select a product'); return }
+  const handleAddLine = () => {
+    if (!productId || !selectedProduct) { toast.error('Select a product'); return }
     if (requiresVariant && !variationKey) { toast.error('Select a variant'); return }
     let qty = parseInt(quantity, 10)
     if (isImeiProduct) {
@@ -220,37 +261,89 @@ function TransferModal({
       qty = selectedImeis.length
     }
     if (!qty || qty <= 0) { toast.error('Enter valid quantity'); return }
-    if (!isImeiProduct && qty > availableStock) {
+    if (qty > availableStock) {
       toast.error('Quantity exceeds available stock')
       return
     }
-    if (isImeiProduct && qty > availableStock) {
-      toast.error('Selected IMEIs exceed available stock')
-      return
+
+    const variantLabel = variationKey
+      ? (variantOptions.find(v => v.value === variationKey)?.label.split(' · ').slice(0, 2).join(' · ') ?? variationKey)
+      : undefined
+
+    const existingIdx = lines.findIndex(
+      l => l.productId === productId
+        && (l.variationKey || '') === (variationKey || '')
+        && !l.trackImei
+        && !isImeiProduct,
+    )
+
+    if (existingIdx >= 0) {
+      setLines(prev => prev.map((l, i) => (
+        i === existingIdx ? { ...l, quantity: l.quantity + qty } : l
+      )))
+    } else {
+      setLines(prev => [
+        ...prev,
+        {
+          id: `${productId}-${variationKey || 'base'}-${Date.now()}`,
+          productId,
+          productName: selectedProduct.name,
+          sku: selectedProduct.sku,
+          variationKey: variationKey || undefined,
+          variationLabel: variantLabel,
+          quantity: qty,
+          trackImei: isImeiProduct,
+          imeis: isImeiProduct ? [...selectedImeis] : undefined,
+        },
+      ])
     }
 
+    resetDraft()
+    toast.success('Product added to transfer list')
+  }
+
+  const removeLine = (id: string) => setLines(prev => prev.filter(l => l.id !== id))
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!canTransfer) { toast.error('Only Owner or Manager can transfer stock'); return }
+    if (!fromBranchId || !toBranchId) { toast.error('Select branches'); return }
+    if (lines.length === 0) { toast.error('Add at least one product'); return }
+
     setSaving(true)
+    let ok = 0
+    const errors: string[] = []
     try {
-      await inventoryApi.transfer({
-        productId,
-        fromBranchId,
-        toBranchId,
-        quantity: qty,
-        notes: notes.trim() || undefined,
-        variationKey: variationKey || undefined,
-        imeis: isImeiProduct ? selectedImeis : undefined,
-      })
-      toast.success(
-        preview?.willMerge
-          ? 'Stock merged into destination catalog'
-          : preview?.willRelocate
-            ? 'Stock relocated to destination branch'
-            : 'Stock transferred successfully',
-      )
-      onSaved()
-      onClose()
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Transfer failed')
+      for (const line of lines) {
+        try {
+          await inventoryApi.transfer({
+            productId: line.productId,
+            fromBranchId,
+            toBranchId,
+            quantity: line.quantity,
+            notes: notes.trim() || undefined,
+            variationKey: line.variationKey,
+            imeis: line.trackImei ? line.imeis : undefined,
+          })
+          ok += 1
+        } catch (err: any) {
+          errors.push(`${line.productName}: ${err?.message ?? 'failed'}`)
+        }
+      }
+      if (ok > 0) {
+        toast.success(
+          ok === lines.length
+            ? `${ok} product${ok === 1 ? '' : 's'} transferred successfully`
+            : `${ok} of ${lines.length} products transferred`,
+        )
+        onSaved()
+      }
+      if (errors.length) {
+        toast.error(errors[0])
+        if (ok > 0) onClose()
+      } else {
+        onClose()
+      }
     } finally {
       setSaving(false)
     }
@@ -269,6 +362,10 @@ function TransferModal({
     borderColor: 'var(--sidebar-active-border)',
     color: 'var(--text-primary)',
   } as const
+  const totalUnits = lines.reduce((s, l) => s + l.quantity, 0)
+  const canAddDraft = !!productId
+    && (!requiresVariant || !!variationKey)
+    && (isImeiProduct ? selectedImeis.length > 0 : parseInt(quantity, 10) > 0)
 
   return (
     <div
@@ -295,7 +392,10 @@ function TransferModal({
             >
               <ArrowLeftRight size={14} />
             </div>
-            <h3 className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>New Stock Transfer</h3>
+            <div className="min-w-0">
+              <h3 className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>New Stock Transfer</h3>
+              <p className="text-[11px] truncate" style={hintStyle}>Add multiple products, then transfer once</p>
+            </div>
           </div>
           <button
             type="button"
@@ -314,7 +414,7 @@ function TransferModal({
               <label className={labelCls} style={labelStyle}>From Branch</label>
               <FilterDropdown
                 value={fromBranchId}
-                onChange={v => { setFromBranchId(v); setProductId('') }}
+                onChange={v => { setFromBranchId(v); resetDraft(); setLines([]) }}
                 options={branchOptions}
                 icon={Building2}
                 placeholder="Source branch"
@@ -335,152 +435,213 @@ function TransferModal({
             </div>
           </div>
 
-          <div>
-            <label className={labelCls} style={labelStyle}>Product</label>
-            <ToolbarSearch
-              inputId="transfer-product-search"
-              value={search}
-              onChange={setSearch}
-              placeholder="Search by name or SKU…"
-              className="max-w-none mb-2"
-              autoFocus
-            />
-            <FilterDropdown
-              value={productId}
-              onChange={v => {
-                setProductId(v)
-                setVariationKey('')
-                setSelectedImeis([])
-                const p = products.find(x => x.id === v)
-                const hasVars = Array.isArray(p?.storageVariations) && p.storageVariations.some(row => (row.stock ?? 0) > 0)
-                if (p && !p.trackImei && !hasVars) setQuantity('1')
-                else if (!p?.trackImei) setQuantity('1')
-                else setQuantity('')
-              }}
-              options={productOptions}
-              icon={Package}
-              placeholder={loadingProducts ? 'Loading products…' : 'Select product'}
-              active={!!productId}
-              onClear={() => { setProductId(''); setVariationKey(''); setSelectedImeis([]) }}
-            />
-          </div>
+          <div className="rounded-xl border p-3 space-y-3" style={panelStyle}>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Add product</p>
+              <span className="text-[10px]" style={hintStyle}>Select → configure → Add</span>
+            </div>
 
-          {requiresVariant && productId && (
             <div>
-              <label className={labelCls} style={labelStyle}>Variant</label>
+              <label className={labelCls} style={labelStyle}>Product</label>
+              <ToolbarSearch
+                inputId="transfer-product-search"
+                value={search}
+                onChange={setSearch}
+                placeholder="Search by name or SKU…"
+                className="max-w-none mb-2"
+                autoFocus
+              />
               <FilterDropdown
-                value={variationKey}
+                value={productId}
                 onChange={v => {
-                  setVariationKey(v)
+                  setProductId(v)
+                  setVariationKey('')
                   setSelectedImeis([])
-                  if (!selectedProduct?.trackImei) setQuantity('1')
+                  const p = products.find(x => x.id === v)
+                  const hasVars = Array.isArray(p?.storageVariations) && p.storageVariations.some(row => (row.stock ?? 0) > 0)
+                  if (p && !p.trackImei && !hasVars) setQuantity('1')
+                  else if (!p?.trackImei) setQuantity('1')
                   else setQuantity('')
                 }}
-                options={variantOptions}
-                icon={Layers}
-                placeholder="Select storage / color variant"
-                active={!!variationKey}
-                onClear={() => setVariationKey('')}
+                options={productOptions}
+                icon={Package}
+                placeholder={loadingProducts ? 'Loading products…' : 'Select product'}
+                active={!!productId}
+                onClear={() => { setProductId(''); setVariationKey(''); setSelectedImeis([]) }}
               />
             </div>
-          )}
 
-          {canPickImeis && (
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-medium" style={labelStyle}>Select IMEI units</label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="text-[10px] font-semibold disabled:opacity-40"
-                    style={{ color: 'var(--brand-primary)' }}
-                    onClick={() => setSelectedImeis(transferableImeis.map(r => r.imei))}
-                    disabled={loadingImeis || transferableImeis.length === 0}
-                  >
-                    Select all
-                  </button>
-                  <button
-                    type="button"
-                    className="text-[10px] font-semibold disabled:opacity-40"
-                    style={{ color: 'var(--text-muted)' }}
-                    onClick={() => setSelectedImeis([])}
-                    disabled={selectedImeis.length === 0}
-                  >
-                    Clear
-                  </button>
+            {requiresVariant && productId && (
+              <div>
+                <label className={labelCls} style={labelStyle}>Variant</label>
+                <FilterDropdown
+                  value={variationKey}
+                  onChange={v => {
+                    setVariationKey(v)
+                    setSelectedImeis([])
+                    if (!selectedProduct?.trackImei) setQuantity('1')
+                    else setQuantity('')
+                  }}
+                  options={variantOptions}
+                  icon={Layers}
+                  placeholder="Select storage / color variant"
+                  active={!!variationKey}
+                  onClear={() => setVariationKey('')}
+                />
+              </div>
+            )}
+
+            {canPickImeis && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-medium" style={labelStyle}>Select IMEI units</label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="text-[10px] font-semibold disabled:opacity-40"
+                      style={{ color: 'var(--brand-primary)' }}
+                      onClick={() => setSelectedImeis(availableImeis.map(r => r.imei))}
+                      disabled={loadingImeis || availableImeis.length === 0}
+                    >
+                      Select all
+                    </button>
+                    <button
+                      type="button"
+                      className="text-[10px] font-semibold disabled:opacity-40"
+                      style={{ color: 'var(--text-muted)' }}
+                      onClick={() => setSelectedImeis([])}
+                      disabled={selectedImeis.length === 0}
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+                <div className="rounded-lg border max-h-36 overflow-y-auto" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
+                  {loadingImeis ? (
+                    <p className="text-xs px-3 py-4 flex items-center gap-2" style={hintStyle}>
+                      <Loader2 size={13} className="animate-spin" /> Loading IMEIs…
+                    </p>
+                  ) : availableImeis.length === 0 ? (
+                    <p className="text-xs px-3 py-4" style={hintStyle}>No available IMEIs for this selection</p>
+                  ) : availableImeis.map(row => {
+                    const checked = selectedImeis.includes(row.imei)
+                    return (
+                      <label
+                        key={row.id}
+                        className="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer border-b last:border-0 transition-colors"
+                        style={{
+                          borderColor: 'var(--border-subtle)',
+                          background: checked ? 'var(--brand-glow)' : 'transparent',
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          className="rounded focus:ring-offset-0"
+                          style={{ accentColor: 'var(--brand-primary)' }}
+                          checked={checked}
+                          onChange={() => toggleImei(row.imei)}
+                        />
+                        <Smartphone size={12} style={{ color: 'var(--text-muted)' }} />
+                        <span className="text-xs font-mono" style={{ color: 'var(--text-primary)' }}>{row.imei}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+                <p className="text-[10px] mt-1.5" style={hintStyle}>
+                  {selectedImeis.length} of {availableImeis.length} IMEI{availableImeis.length === 1 ? '' : 's'} selected
+                </p>
+              </div>
+            )}
+
+            {!isImeiProduct && productId && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls} style={labelStyle}>Quantity</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    className="input-field text-sm"
+                    value={quantity}
+                    onChange={e => handleQuantityChange(e.target.value)}
+                    placeholder="Enter quantity"
+                  />
+                </div>
+                <div className="flex items-end pb-2">
+                  {(selectedProduct && (!requiresVariant || variationKey)) && (
+                    <p className="text-xs" style={hintStyle}>
+                      Available:{' '}
+                      <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{availableStock}</span>
+                      {reservedQty > 0 && (
+                        <span className="block text-[10px] mt-0.5">({reservedQty} already in list)</span>
+                      )}
+                    </p>
+                  )}
                 </div>
               </div>
-              <div className="rounded-lg border max-h-44 overflow-y-auto" style={panelStyle}>
-                {loadingImeis ? (
-                  <p className="text-xs px-3 py-4 flex items-center gap-2" style={hintStyle}>
-                    <Loader2 size={13} className="animate-spin" /> Loading IMEIs…
-                  </p>
-                ) : transferableImeis.length === 0 ? (
-                  <p className="text-xs px-3 py-4" style={hintStyle}>No in-stock IMEIs for this selection</p>
-                ) : transferableImeis.map(row => {
-                  const checked = selectedImeis.includes(row.imei)
-                  return (
-                    <label
-                      key={row.id}
-                      className="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer border-b last:border-0 transition-colors"
-                      style={{
-                        borderColor: 'var(--border-subtle)',
-                        background: checked ? 'var(--brand-glow)' : 'transparent',
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        className="rounded focus:ring-offset-0"
-                        style={{ accentColor: 'var(--brand-primary)' }}
-                        checked={checked}
-                        onChange={() => toggleImei(row.imei)}
-                      />
-                      <Smartphone size={12} style={{ color: 'var(--text-muted)' }} />
-                      <span className="text-xs font-mono" style={{ color: 'var(--text-primary)' }}>{row.imei}</span>
-                    </label>
-                  )
-                })}
+            )}
+
+            {isImeiProduct && canPickImeis && (
+              <div className="rounded-lg px-3 py-2 text-xs border" style={brandPanelStyle}>
+                Quantity: <span className="font-semibold">{selectedImeis.length}</span>
+                {' '}unit{selectedImeis.length === 1 ? '' : 's'} (from selected IMEIs)
               </div>
-              <p className="text-[10px] mt-1.5" style={hintStyle}>
-                {selectedImeis.length} of {transferableImeis.length} IMEI{transferableImeis.length === 1 ? '' : 's'} selected
-              </p>
-            </div>
-          )}
+            )}
 
-          {!isImeiProduct && (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls} style={labelStyle}>Quantity</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                className="input-field text-sm"
-                value={quantity}
-                onChange={e => handleQuantityChange(e.target.value)}
-                placeholder="Enter quantity"
-              />
-            </div>
-            <div className="flex items-end pb-2">
-              {(selectedProduct && (!requiresVariant || variationKey)) && (
-                <p className="text-xs" style={hintStyle}>
-                  Available:{' '}
-                  <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{availableStock}</span>
-                  {variationKey && variantOptions.find(v => v.value === variationKey) && (
-                    <span className="block text-[10px] mt-0.5">
-                      {variantOptions.find(v => v.value === variationKey)?.label.split(' · ').slice(0, 2).join(' · ')}
-                    </span>
-                  )}
-                </p>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={handleAddLine}
+              disabled={!canAddDraft || !canTransfer}
+              className="btn-secondary w-full text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              <Plus size={14} />
+              Add to transfer list
+            </button>
           </div>
-          )}
 
-          {isImeiProduct && canPickImeis && (
-            <div className="rounded-lg px-3 py-2 text-xs border" style={brandPanelStyle}>
-              Quantity: <span className="font-semibold">{selectedImeis.length}</span>
-              {' '}unit{selectedImeis.length === 1 ? '' : 's'} (from selected IMEIs)
+          {lines.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  Transfer list · {lines.length} product{lines.length === 1 ? '' : 's'} · {totalUnits} unit{totalUnits === 1 ? '' : 's'}
+                </p>
+                <button
+                  type="button"
+                  className="text-[10px] font-semibold"
+                  style={{ color: 'var(--text-muted)' }}
+                  onClick={() => setLines([])}
+                >
+                  Clear all
+                </button>
+              </div>
+              <div className="rounded-xl border divide-y overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                {lines.map(line => (
+                  <div
+                    key={line.id}
+                    className="flex items-start gap-3 px-3 py-2.5"
+                    style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{line.productName}</p>
+                      <p className="text-[11px] truncate" style={hintStyle}>
+                        {line.sku}
+                        {line.variationLabel ? ` · ${line.variationLabel}` : ''}
+                        {line.trackImei && line.imeis?.length ? ` · ${line.imeis.length} IMEI` : ''}
+                      </p>
+                    </div>
+                    <span className="text-sm font-bold shrink-0" style={{ color: 'var(--brand-primary)' }}>×{line.quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeLine(line.id)}
+                      className="p-1 rounded-lg shrink-0 hover:opacity-80"
+                      style={{ color: 'var(--text-muted)' }}
+                      aria-label={`Remove ${line.productName}`}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -490,17 +651,17 @@ function TransferModal({
               className="input-field text-sm"
               value={notes}
               onChange={e => setNotes(e.target.value)}
-              placeholder="Optional reference or reason"
+              placeholder="Optional reference or reason (applies to all)"
             />
           </div>
 
-          {isImeiProduct && canPickImeis && selectedImeis.length === 0 && (
+          {lines.length === 0 && (
             <div
               className="rounded-lg px-3 py-2 text-xs flex items-center gap-2 border"
               style={{ background: 'color-mix(in srgb, var(--status-warn) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--status-warn) 28%, transparent)', color: 'var(--text-primary)' }}
             >
               <AlertTriangle size={13} className="flex-shrink-0" style={{ color: 'var(--status-warn)' }} />
-              Select one or more IMEI units to transfer
+              Add one or more products to the transfer list
             </div>
           )}
 
@@ -527,14 +688,11 @@ function TransferModal({
             <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
             <button
               type="submit"
-              disabled={
-                saving || !canTransfer || !toBranchId || (requiresVariant && !variationKey)
-                || (isImeiProduct && canPickImeis && selectedImeis.length === 0)
-              }
+              disabled={saving || !canTransfer || !toBranchId || lines.length === 0}
               className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
-              Transfer Stock
+              Transfer {lines.length > 0 ? `${lines.length} Product${lines.length === 1 ? '' : 's'}` : 'Stock'}
             </button>
           </div>
         </form>

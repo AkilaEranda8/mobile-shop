@@ -1,4 +1,5 @@
 import { env } from '../config/env'
+import { tenantShopUrl } from './tenant-app-domain'
 
 export type TenantOnboardShareInput = {
   shopName: string
@@ -12,8 +13,8 @@ export type TenantOnboardShareInput = {
 
 export function tenantLoginUrl(subdomain?: string): string {
   if (subdomain) {
-    const host = subdomain.includes('.') ? subdomain : `${subdomain}.app.hexalyte.com`
-    return `https://${host.replace(/^https?:\/\//, '')}/login`
+    const slug = subdomain.includes('.') ? subdomain.split('.')[0] : subdomain
+    return tenantShopUrl(slug, '/login')
   }
   const base = (env.FRONTEND_URL || 'https://app.hexalyte.com').replace(/\/$/, '')
   return `${base}/login`
@@ -48,10 +49,8 @@ export function buildTenantOnboardShareMessage(input: TenantOnboardShareInput): 
   ]
 
   if (input.subdomain) {
-    const shopHost = input.subdomain.includes('.')
-      ? input.subdomain
-      : `${input.subdomain}.app.hexalyte.com`
-    lines.push('', '🌐 *Shop URL*', `https://${shopHost.replace(/^https?:\/\//, '')}`)
+    const slug = input.subdomain.includes('.') ? input.subdomain.split('.')[0] : input.subdomain
+    lines.push('', '🌐 *Shop URL*', tenantShopUrl(slug))
   }
 
   lines.push(

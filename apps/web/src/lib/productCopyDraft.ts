@@ -63,6 +63,8 @@ export type ProductCopyDraft = {
     wholesalePrice: string
     creditPrice: string
     costPrice: string
+    /** Present when editing an existing product */
+    stock?: string
   }>
 }
 
@@ -249,6 +251,39 @@ export function buildProductCopyDraft(
       wholesalePrice: String(v.wholesalePrice ?? ''),
       creditPrice: String(v.creditPrice ?? ''),
       costPrice: String(v.costPrice ?? ''),
+    })),
+  }
+}
+
+/** Prefill Add Product form for editing — keeps SKU, barcode, stock, and variant ids. */
+export function buildProductEditDraft(
+  product: Product,
+  genId: () => string,
+): ProductCopyDraft {
+  const draft = buildProductCopyDraft(product, genId)
+  const ext = product as Product & { subCategory?: string; deviceModel?: string; barcode?: string }
+
+  return {
+    ...draft,
+    form: {
+      ...draft.form,
+      sku: product.sku ?? '',
+      barcodeValue: ext.barcode?.trim() || product.sku || '',
+      subCategory: ext.subCategory ?? draft.form.subCategory,
+      deviceModel: ext.deviceModel ?? draft.form.deviceModel,
+    },
+    initialQty: String(product.stock ?? 0),
+    variants: (product.storageVariations ?? []).map((v) => ({
+      id: (v as { id?: string }).id ?? genId(),
+      storage: v.storage,
+      colorName: v.colorName,
+      colorHex: v.colorHex,
+      sku: v.sku ?? '',
+      sellingPrice: String(v.sellingPrice ?? ''),
+      wholesalePrice: String(v.wholesalePrice ?? ''),
+      creditPrice: String(v.creditPrice ?? ''),
+      costPrice: String(v.costPrice ?? ''),
+      stock: String(v.stock ?? 0),
     })),
   }
 }
