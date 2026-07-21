@@ -4,8 +4,10 @@
  *
  *   npx tsx src/database/assign-branch-catalog.ts \
  *     --tenantSlug=shenzan-mobile-solutions \
- *     --fromBranch=Shenzan Mobile Solutions \
- *     --toBranch="IM TRENDING (PVT) LTD"
+ *     --fromBranchId=cmrk... --toBranchId=cmrt...
+ *
+ * Or by name (trimmed / case-insensitive contains):
+ *   --fromBranch="Shenzan Mobile Solutions" --toBranch="IM TRENDING (PVT) LTD"
  */
 import { prisma } from '../config/database'
 import { redis } from '../config/redis'
@@ -16,15 +18,37 @@ function arg(name: string, fallback = ''): string {
   return hit ? hit.slice(name.length + 3) : fallback
 }
 
+function matchBranch(
+  branches: { id: string; name: string }[],
+  id: string,
+  name: string,
+  label: string,
+) {
+  if (id) {
+    const hit = branches.find(b => b.id === id)
+    if (!hit) throw new Error(`${label} branch id not found: ${id}`)
+    return hit
+  }
+  const needle = name.trim().toLowerCase()
+  if (!needle) throw new Error(`${label} branch required (--${label}BranchId or --${label}Branch)`)
+  const hit =
+    branches.find(b => b.name.trim().toLowerCase() === needle) ||
+    branches.find(b => b.name.trim().toLowerCase().includes(needle))
+  if (!hit) throw new Error(`${label} branch not found: ${name}`)
+  return hit
+}
+
 async function main() {
   const tenantSlug = arg('tenantSlug')
   const fromBranchName = arg('fromBranch')
   const toBranchName = arg('toBranch')
+  const fromBranchId = arg('fromBranchId')
+  const toBranchId = arg('toBranchId')
   const dryRun = process.argv.includes('--dry-run')
 
-  if (!tenantSlug || !fromBranchName || !toBranchName) {
+  if (!tenantSlug || ((!fromBranchName && !fromBranchId) || (!toBranchName && !toBranchId))) {
     console.error(
-      'Usage: --tenantSlug=... --fromBranch=... --toBranch=... [--dry-run]',
+      'Usage: --tenantSlug=... (--fromBranchId=...|--fromBranch=...) (--toBranchId=...|--toBranch=...) [--dry-run]',
     )
     process.exit(1)
   }
@@ -36,10 +60,8 @@ async function main() {
     where: { tenantId: tenant.id, isActive: true },
     select: { id: true, name: true },
   })
-  const from = branches.find(b => b.name === fromBranchName)
-  const to = branches.find(b => b.name === toBranchName)
-  if (!from) throw new Error(`From branch not found: ${fromBranchName}`)
-  if (!to) throw new Error(`To branch not found: ${toBranchName}`)
+  const from = matchBranch(branches, fromBranchId, fromBranchName, 'from')
+  const to = matchBranch(branches, toBranchId, toBranchName, 'to')
   if (from.id === to.id) throw new Error('From and to branch are the same')
 
   const sources = await prisma.product.findMany({
