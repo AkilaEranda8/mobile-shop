@@ -1858,7 +1858,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       setCustomers(Array.isArray(raw) ? raw : [])
     } catch (e) { console.error('Customer load error:', e); setCustomers([]) }
     finally { setCustLoading(false) }
-  }, [])
+  }, [posBranchId])
 
   useEffect(() => { refetchCustomers() }, [refetchCustomers])
 

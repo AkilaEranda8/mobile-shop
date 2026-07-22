@@ -173,7 +173,12 @@ export interface Customer {
   city?: string
   loyaltyPoints: number
   totalPurchases: number
+  /** Outstanding for the active branch (or tenant-wide when All Branches). */
   totalDue: number
+  /** Optional: due at the active branch only. */
+  branchDue?: number
+  /** Optional: due across all branches. */
+  tenantDue?: number
   totalRepairs: number
   notes?: string
   createdAt: string

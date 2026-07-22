@@ -5,12 +5,64 @@ import { getPagination } from '../../utils/pagination'
 import { generateInvoiceNumber } from '../../utils/counters'
 import { Request } from 'express'
 import { emitOpeningCustomerArAccounting } from '../accounting/integration/accounting-events.service'
+import { effectiveBranchId } from '../../utils/active-branch'
+
+const round2 = (n: number) => Math.round(n * 100) / 100
+
+type CustomerRow = {
+  id: string
+  totalDue: number
+  [key: string]: unknown
+}
+
+/** When a branch is active, expose that branch's open invoice due as totalDue. */
+async function attachBranchDue<T extends CustomerRow>(
+  tenantId: string,
+  customers: T[],
+  branchId?: string,
+): Promise<Array<T & { branchDue: number; tenantDue: number }>> {
+  if (!customers.length) return []
+  if (!branchId) {
+    return customers.map(c => ({
+      ...c,
+      tenantDue: c.totalDue,
+      branchDue: c.totalDue,
+    }))
+  }
+
+  const dues = await prisma.sale.groupBy({
+    by: ['customerId'],
+    where: {
+      tenantId,
+      branchId,
+      customerId: { in: customers.map(c => c.id) },
+      dueAmount: { gt: 0 },
+    },
+    _sum: { dueAmount: true },
+  })
+  const dueMap = new Map(
+    dues
+      .filter(d => d.customerId)
+      .map(d => [d.customerId as string, round2(d._sum.dueAmount ?? 0)]),
+  )
+
+  return customers.map(c => {
+    const branchDue = dueMap.get(c.id) ?? 0
+    return {
+      ...c,
+      tenantDue: c.totalDue,
+      branchDue,
+      totalDue: branchDue,
+    }
+  })
+}
 
 export const customersService = {
   async list(tenantId: string, req: Request) {
     const { skip, limit, page, search } = getPagination(req)
+    const branchId = effectiveBranchId(req)
     const where: any = { tenantId, ...(search && { OR: [{ name: { contains: search, mode: 'insensitive' } }, { phone: { contains: search } }, { email: { contains: search, mode: 'insensitive' } }] }) }
-    const [data, total] = await Promise.all([
+    const [raw, total] = await Promise.all([
       prisma.customer.findMany({
         where,
         skip,
@@ -35,19 +87,29 @@ export const customersService = {
       }),
       prisma.customer.count({ where }),
     ])
+    const data = await attachBranchDue(tenantId, raw, branchId)
     return { data, total, page, limit }
   },
 
-  async getById(tenantId: string, id: string) {
+  async getById(tenantId: string, id: string, req?: Request) {
+    const branchId = req ? effectiveBranchId(req) : undefined
     const c = await prisma.customer.findFirst({
       where: { id, tenantId },
       include: {
-        sales:   { orderBy: { createdAt: 'desc' }, include: { items: true } },
-        repairs: { orderBy: { createdAt: 'desc' } },
+        sales: {
+          where: branchId ? { branchId } : undefined,
+          orderBy: { createdAt: 'desc' },
+          include: { items: true },
+        },
+        repairs: {
+          where: branchId ? { branchId } : undefined,
+          orderBy: { createdAt: 'desc' },
+        },
       },
     })
     if (!c) throw new AppError('Customer not found', 404)
-    return c
+    const [annotated] = await attachBranchDue(tenantId, [c], branchId)
+    return annotated
   },
 
   async create(tenantId: string, body: any, actorEmail?: string) {
@@ -161,8 +223,9 @@ export const customersService = {
     })
   },
 
-  async search(tenantId: string, q: string) {
-    return prisma.customer.findMany({
+  async search(tenantId: string, q: string, req?: Request) {
+    const branchId = req ? effectiveBranchId(req) : undefined
+    const raw = await prisma.customer.findMany({
       where: { tenantId, OR: [{ name: { contains: q, mode: 'insensitive' } }, { phone: { contains: q } }] },
       take: 10,
       select: {
@@ -182,6 +245,7 @@ export const customersService = {
         updatedAt: true,
       },
     })
+    return attachBranchDue(tenantId, raw, branchId)
   },
 
   async creditPayment(tenantId: string, customerId: string, body: {
@@ -204,10 +268,8 @@ export const customersService = {
     if (!branchId) throw new AppError('Branch is required for credit payment', 400)
 
     if (amount <= 0) throw new AppError('Amount must be greater than 0', 400)
-    if (amount > c.totalDue + 0.001) throw new AppError('Payment amount cannot exceed outstanding balance', 400)
 
     const method = paymentMethod as PaymentMethod
-    const round2 = (n: number) => Math.round(n * 100) / 100
     const exclude = new Set((body.excludeSaleIds ?? []).filter(Boolean))
 
     return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -215,11 +277,22 @@ export const customersService = {
         where: {
           tenantId,
           customerId,
+          branchId,
           dueAmount: { gt: 0 },
           ...(exclude.size ? { id: { notIn: [...exclude] } } : {}),
         },
         orderBy: { createdAt: 'asc' },
       })
+
+      const branchDue = round2(openSales.reduce((s, sale) => s + sale.dueAmount, 0))
+      if (amount > branchDue + 0.001) {
+        throw new AppError(
+          branchDue <= 0
+            ? 'No outstanding balance at this branch'
+            : `Payment amount cannot exceed this branch outstanding (${branchDue.toFixed(2)})`,
+          400,
+        )
+      }
 
       let remaining = round2(amount)
       const allocations: { saleId: string; invoiceNumber: string; applied: number; status: string }[] = []
@@ -345,10 +418,13 @@ export const customersService = {
         },
       })
 
+      const remainingBranchDue = round2(Math.max(0, branchDue - amountApplied))
+
       return {
         customerId,
         amountPaid: amountApplied,
-        newOutstanding: newTotalDue,
+        newOutstanding: remainingBranchDue,
+        tenantOutstanding: newTotalDue,
         allocations,
         collectionInvoice,
       }
