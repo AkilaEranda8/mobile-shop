@@ -89,8 +89,19 @@ export function canTransition(
 }
 
 /** Hard rules only — always applied (matches pre-existing repairs.service guard). */
-export function assertRepairStatusUpdateHardRules(from: string, to: string): void {
+export function assertRepairStatusUpdateHardRules(
+  from: string,
+  to: string,
+  context: TransitionContext = {},
+): void {
   if (to === 'DELIVERED') {
+    // Collect Payment is the only allowed path to DELIVERED (with or without workflow flag).
+    if (context.via === 'collect_payment') {
+      if (from === 'CANCELLED') {
+        throw new AppError('Cannot deliver a cancelled repair', 400)
+      }
+      return
+    }
     throw new AppError('Use Collect Payment to complete and deliver this repair', 400)
   }
   if (from === to) return
@@ -98,7 +109,7 @@ export function assertRepairStatusUpdateHardRules(from: string, to: string): voi
 
 /**
  * When WORKFLOW_VALIDATORS is ON: enforce full graph.
- * When OFF: only hard rules (DELIVERED blocked on status update).
+ * When OFF: only hard rules (DELIVERED blocked on status update, allowed via collect_payment).
  */
 export async function assertRepairTransitionIfEnabled(
   tenantId: string,
@@ -107,7 +118,7 @@ export async function assertRepairTransitionIfEnabled(
   context: TransitionContext = {},
 ): Promise<void> {
   if (!(await isWorkflowValidatorsEnabled(tenantId))) {
-    assertRepairStatusUpdateHardRules(from, to)
+    assertRepairStatusUpdateHardRules(from, to, context)
     return
   }
   const decision = canTransition('RepairTicket', from, to, context)
