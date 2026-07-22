@@ -85,24 +85,27 @@ router.get('/lookup/:imei', async (req: Request, res: Response, next: NextFuncti
     const imei = req.params.imei
     const tenantId = req.tenantId!
 
-    const [record, repairs, exchanges] = await Promise.all([
-      prisma.imeiRecord.findFirst({
-        where: { imei, product: { tenantId } },
-        include: {
-          product: {
-            select: {
-              name: true,
-              sku: true,
-              brand: { select: { name: true } },
-              category: { select: { name: true } },
-              warrantyMonths: true,
-              sellingPrice: true,
-            },
+    const record = await prisma.imeiRecord.findFirst({
+      where: { imei, product: { tenantId } },
+      include: {
+        product: {
+          select: {
+            name: true,
+            sku: true,
+            brand: { select: { name: true } },
+            category: { select: { name: true } },
+            warrantyMonths: true,
+            sellingPrice: true,
           },
         },
-      }),
+      },
+    })
+    if (record) assertBranchRecordAccess(req, record.branchId)
+    const branchId = record?.branchId ?? effectiveBranchId(req)
+
+    const [repairs, exchanges] = await Promise.all([
       prisma.repairTicket.findMany({
-        where: { imei, tenantId },
+        where: { imei, tenantId, ...(branchId && { branchId }) },
         orderBy: { createdAt: 'desc' },
         select: {
           id: true, ticketNumber: true, status: true,
@@ -111,11 +114,13 @@ router.get('/lookup/:imei', async (req: Request, res: Response, next: NextFuncti
           createdAt: true, updatedAt: true,
           customerName: true, customerPhone: true,
           deviceBrand: true, deviceModel: true,
+          branchId: true,
         },
       }),
       prisma.deviceExchange.findMany({
         where: {
           tenantId,
+          ...(branchId && { branchId }),
           OR: [{ oldImei: imei }, { newImei: imei }],
         },
         orderBy: { createdAt: 'desc' },
@@ -125,11 +130,16 @@ router.get('/lookup/:imei', async (req: Request, res: Response, next: NextFuncti
           oldBrand: true, oldModel: true, newBrand: true, newModel: true,
           exchangeValue: true, newDevicePrice: true, balanceAmount: true,
           balanceDirection: true, invoiceNumber: true, createdAt: true,
+          branchId: true,
         },
       }),
     ])
 
     if (!record && repairs.length === 0 && exchanges.length === 0) throw new AppError('IMEI not found', 404)
+    if (!record && repairs.length > 0) assertBranchRecordAccess(req, repairs[0].branchId)
+    if (!record && repairs.length === 0 && exchanges.length > 0) {
+      assertBranchRecordAccess(req, exchanges[0].branchId)
+    }
 
     let saleDetails: any = null
     let customerDetails: any = null
@@ -180,6 +190,7 @@ router.patch('/:id/status', authorize('OWNER', 'MANAGER', 'TECHNICIAN'), async (
     const { status } = req.body
     const existing = await prisma.imeiRecord.findFirst({ where: { id: req.params.id, product: { tenantId: req.tenantId! } } })
     if (!existing) throw new AppError('IMEI record not found', 404)
+    assertBranchRecordAccess(req, existing.branchId)
     const record = await prisma.imeiRecord.update({ where: { id: req.params.id }, data: { status } })
     sendSuccess(res, record, 'Status updated')
   } catch (e) { next(e) }

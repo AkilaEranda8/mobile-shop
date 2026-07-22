@@ -3,11 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Landmark, Loader2, Plus, RefreshCw, Scale } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useFeatureFlag } from '@/lib/hooks'
+import { useActiveBranchId, useFeatureFlag } from '@/lib/hooks'
 import { accountingApi } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday } from '@/lib/business-date'
-import { getActiveBranchId } from '@/lib/active-branch'
 import {
   AccountingPageShell,
   AccountingFeatureGate,
@@ -104,7 +103,7 @@ function RegisterCards({
 export default function CashBankPage() {
   const hasAccess = useFeatureFlag('ACCOUNTING')
   const { canEdit } = useModuleAccess()
-  const branchId = getActiveBranchId() ?? ''
+  const branchId = useActiveBranchId() ?? ''
   const [registers, setRegisters] = useState<Register[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -136,7 +135,7 @@ export default function CashBankPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [branchId])
 
   useEffect(() => { if (hasAccess) load() }, [hasAccess, load])
 

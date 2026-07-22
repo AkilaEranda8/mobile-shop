@@ -8,8 +8,7 @@ import {
   DollarSign, Download, Calendar, X, ChevronRight,
   Search, Receipt, Wallet, Truck, Package, ClipboardList,
 } from 'lucide-react'
-import { usePurchaseReport, usePurchaseReportDetail } from '@/lib/hooks'
-import { getActiveBranchId } from '@/lib/active-branch'
+import { useActiveBranchId, usePurchaseReport, usePurchaseReportDetail } from '@/lib/hooks'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { businessToday, businessPeriodFrom } from '@/lib/business-date'
 
@@ -105,7 +104,7 @@ function statusColor(status: string) {
 
 export default function PurchaseReportPage() {
   const [period, setPeriod] = useState('30')
-  const branchId = getActiveBranchId() ?? ''
+  const branchId = useActiveBranchId() ?? ''
   const [selectedId, setSelectedId] = useState('')
   const [search, setSearch] = useState('')
   const [isCustom, setIsCustom] = useState(false)

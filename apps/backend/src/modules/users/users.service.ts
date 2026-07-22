@@ -162,7 +162,11 @@ export const usersService = {
     }
     const user = await prisma.user.findFirst({ where: { id, tenantId } })
     if (!user) throw new AppError('User not found', 404)
-    if (user.role === 'OWNER' && body.role && body.role !== 'OWNER' && actorRole !== 'OWNER' && actorRole !== 'PLATFORM_ADMIN') {
+    const actorIsOwnerOrPlatform = actorRole === 'OWNER' || actorRole === 'PLATFORM_ADMIN'
+    if (user.role === 'OWNER' && !actorIsOwnerOrPlatform) {
+      throw new AppError('Only an Owner can modify an Owner account', 403)
+    }
+    if (user.role === 'OWNER' && body.role && body.role !== 'OWNER' && !actorIsOwnerOrPlatform) {
       throw new AppError('Only an Owner can change another Owner\'s role', 403)
     }
 
@@ -230,9 +234,12 @@ export const usersService = {
     return safe
   },
 
-  async remove(tenantId: string, id: string) {
+  async remove(tenantId: string, id: string, actorRole?: string) {
     const user = await prisma.user.findFirst({ where: { id, tenantId } })
     if (!user) throw new AppError('User not found', 404)
+    if (user.role === 'OWNER' && actorRole !== 'OWNER' && actorRole !== 'PLATFORM_ADMIN') {
+      throw new AppError('Only an Owner can deactivate an Owner account', 403)
+    }
     await prisma.user.update({ where: { id }, data: { isActive: false } })
     // Soft-disable on Keycloak to match DB (do not hard-delete auth identity)
     try {

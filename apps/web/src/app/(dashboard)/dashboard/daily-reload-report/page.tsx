@@ -9,8 +9,7 @@ import {
   PhoneCall, DollarSign, TrendingUp, CheckCircle, Download, Calendar,
   Search, Wallet, CreditCard,
 } from 'lucide-react'
-import { useDailyReloadReport, useFeatureFlag } from '@/lib/hooks'
-import { getActiveBranchId } from '@/lib/active-branch'
+import { useActiveBranchId, useDailyReloadReport, useFeatureFlag } from '@/lib/hooks'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday, businessPeriodFrom, formatBusinessDateLabel } from '@/lib/business-date'
 import { notFound } from 'next/navigation'
@@ -110,7 +109,7 @@ export default function DailyReloadReportPage() {
   const hasDailyReload = useFeatureFlag('DAILY_RELOAD')
 
   const [period, setPeriod] = useState('30')
-  const branchId = getActiveBranchId() ?? ''
+  const branchId = useActiveBranchId() ?? ''
   const [search, setSearch] = useState('')
   const [isCustom, setIsCustom] = useState(false)
   const [customFrom, setCustomFrom] = useState('')

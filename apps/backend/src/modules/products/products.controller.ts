@@ -5,16 +5,20 @@ import { resolveActiveBranch, getUserBranchIds, assertBranchRecordAccess, effect
 import { AppError } from '../../middleware/error.middleware'
 import { prisma } from '../../config/database'
 import { masterCatalogImportService } from '../master-catalog/master-catalog-import.service'
+import { redactProductCost, redactProductCostList } from '../../utils/product-cost-redact'
 
 export const productsController = {
   async list(req: Request, res: Response, next: NextFunction) {
-    try { const r = await productsService.list(req.tenantId!, req); sendPaginated(res, r.data, r.total, r.page, r.limit) } catch (e) { next(e) }
+    try {
+      const r = await productsService.list(req.tenantId!, req)
+      sendPaginated(res, redactProductCostList(req, r.data), r.total, r.page, r.limit)
+    } catch (e) { next(e) }
   },
   async getById(req: Request, res: Response, next: NextFunction) {
     try {
       const data = await productsService.getById(req.tenantId!, req.params.id)
       assertBranchRecordAccess(req, (data as any).branchId)
-      sendSuccess(res, data)
+      sendSuccess(res, redactProductCost(req, data))
     } catch (e) { next(e) }
   },
   async create(req: Request, res: Response, next: NextFunction) {
@@ -98,7 +102,10 @@ export const productsController = {
       if (branchId && (data.product as any)?.branchId && (data.product as any).branchId !== branchId) {
         throw new AppError('Product belongs to another branch', 403)
       }
-      sendSuccess(res, data)
+      sendSuccess(res, {
+        ...data,
+        product: data.product ? redactProductCost(req, data.product) : data.product,
+      })
     } catch (e) { next(e) }
   },
   async importFromMaster(req: Request, res: Response, next: NextFunction) {

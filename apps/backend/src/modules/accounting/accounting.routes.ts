@@ -5,7 +5,7 @@ import { sendSuccess } from '../../utils/response'
 import { requireAccountingFeature } from './accounting.middleware'
 import { getAccountingStatus, listGlAccounts } from './accounting.service'
 import { initializeAccounting } from './accounting-init.service'
-import { effectiveBranchId, resolveMutationBranchId } from '../../utils/active-branch'
+import { effectiveBranchId, resolveMutationBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
 import { resolveQueryDateRange, businessDayRange, normalizeBusinessDate } from '../../utils/date-range'
 import { getPagination } from '../../utils/pagination'
 import { syncOutboxForTenant } from './integration/accounting-outbox.service'
@@ -380,7 +380,9 @@ router.get('/journals/pending-approval', authorize('OWNER'), async (req: Request
 
 router.get('/journals/:id', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    sendSuccess(res, await getJournalEntry(req.tenantId!, req.params.id))
+    const entry = await getJournalEntry(req.tenantId!, req.params.id)
+    assertBranchRecordAccess(req, entry.branchId)
+    sendSuccess(res, entry)
   } catch (e) { next(e) }
 })
 
@@ -407,6 +409,8 @@ router.post('/journals/manual', authorize('OWNER', 'MANAGER'), async (req: Reque
 
 router.post('/journals/:id/reverse', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const original = await getJournalEntry(req.tenantId!, req.params.id)
+    assertBranchRecordAccess(req, original.branchId)
     sendSuccess(
       res,
       await reverseManualJournalEntry(req.tenantId!, req.params.id, req.user?.email, req.body?.memo),

@@ -29,7 +29,7 @@ export const usersController = {
   },
   async remove(req: Request, res: Response, next: NextFunction) {
     try {
-      await usersService.remove(req.tenantId!, req.params.id)
+      await usersService.remove(req.tenantId!, req.params.id, req.user?.role)
       sendSuccess(res, null, 'User deactivated')
     } catch (e) { next(e) }
   },

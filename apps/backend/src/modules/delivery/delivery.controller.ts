@@ -40,21 +40,21 @@ export const deliveryController = {
 
   async assignTracking(req: Request, res: Response, next: NextFunction) {
     try {
-      const data = await deliveryService.assignTracking(req.user!.tenantId, req.params.id, req.body)
+      const data = await deliveryService.assignTracking(req.user!.tenantId, req.params.id, req.body, req)
       sendSuccess(res, data, 'Tracking number assigned and waybill generated')
     } catch (e) { next(e) }
   },
 
   async generateWaybill(req: Request, res: Response, next: NextFunction) {
     try {
-      const data = await deliveryService.generateWaybill(req.user!.tenantId, req.params.id)
+      const data = await deliveryService.generateWaybill(req.user!.tenantId, req.params.id, req)
       sendSuccess(res, data)
     } catch (e) { next(e) }
   },
 
   async getStats(req: Request, res: Response, next: NextFunction) {
     try {
-      const data = await deliveryService.getStats(req.user!.tenantId)
+      const data = await deliveryService.getStats(req.user!.tenantId, effectiveBranchId(req))
       sendSuccess(res, data)
     } catch (e) { next(e) }
   },
@@ -121,21 +121,21 @@ export const deliveryController = {
   // ── Notifications ────────────────────────────────────────────────────────────
   async listNotifications(req: Request, res: Response, next: NextFunction) {
     try {
-      const data = await deliveryService.listNotifications(req.user!.tenantId, req.query.orderId as string)
+      const data = await deliveryService.listNotifications(req.user!.tenantId, req.query.orderId as string, req)
       sendSuccess(res, data)
     } catch (e) { next(e) }
   },
 
   async retryNotification(req: Request, res: Response, next: NextFunction) {
     try {
-      const data = await deliveryService.retryNotification(req.user!.tenantId, req.params.id)
+      const data = await deliveryService.retryNotification(req.user!.tenantId, req.params.id, req)
       sendSuccess(res, data, 'Notification retried')
     } catch (e) { next(e) }
   },
 
   async resendNotification(req: Request, res: Response, next: NextFunction) {
     try {
-      await deliveryService.resendNotification(req.user!.tenantId, req.params.orderId)
+      await deliveryService.resendNotification(req.user!.tenantId, req.params.orderId, req)
       sendSuccess(res, null, 'WhatsApp notification sent')
     } catch (e) { next(e) }
   },

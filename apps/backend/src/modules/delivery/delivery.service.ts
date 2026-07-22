@@ -268,9 +268,10 @@ export const deliveryService = {
     return updated
   },
 
-  async assignTracking(tenantId: string, id: string, input: AssignTrackingInput) {
+  async assignTracking(tenantId: string, id: string, input: AssignTrackingInput, req: Request) {
     const order = await prisma.deliveryOrder.findFirst({ where: { id, tenantId } })
     if (!order) throw new AppError('Delivery order not found', 404)
+    assertBranchRecordAccess(req, order.branchId)
 
     const courier = await prisma.courier.findFirst({ where: { id: input.courierId, tenantId } })
     if (!courier) throw new AppError('Courier not found', 404)
@@ -312,12 +313,13 @@ export const deliveryService = {
     return updated
   },
 
-  async generateWaybill(tenantId: string, id: string) {
+  async generateWaybill(tenantId: string, id: string, req: Request) {
     const order = await prisma.deliveryOrder.findFirst({
       where:   { id, tenantId },
       include: { courier: true, items: true },
     })
     if (!order) throw new AppError('Delivery order not found', 404)
+    assertBranchRecordAccess(req, order.branchId)
 
     const existing = await prisma.waybill.findFirst({
       where:   { deliveryOrderId: id },
@@ -339,13 +341,14 @@ export const deliveryService = {
     return { ...order, waybillNumber }
   },
 
-  async getStats(tenantId: string) {
+  async getStats(tenantId: string, branchId?: string) {
+    const baseWhere = { tenantId, ...(branchId ? { branchId } : {}) }
     const [total, pending, dispatched, delivered, awaiting] = await Promise.all([
-      prisma.deliveryOrder.count({ where: { tenantId } }),
-      prisma.deliveryOrder.count({ where: { tenantId, status: 'PENDING' } }),
-      prisma.deliveryOrder.count({ where: { tenantId, status: 'DISPATCHED' } }),
-      prisma.deliveryOrder.count({ where: { tenantId, status: 'DELIVERED' } }),
-      prisma.deliveryOrder.count({ where: { tenantId, status: 'AWAITING_TRACKING' } }),
+      prisma.deliveryOrder.count({ where: baseWhere }),
+      prisma.deliveryOrder.count({ where: { ...baseWhere, status: 'PENDING' } }),
+      prisma.deliveryOrder.count({ where: { ...baseWhere, status: 'DISPATCHED' } }),
+      prisma.deliveryOrder.count({ where: { ...baseWhere, status: 'DELIVERED' } }),
+      prisma.deliveryOrder.count({ where: { ...baseWhere, status: 'AWAITING_TRACKING' } }),
     ])
     return { total, pending, dispatched, delivered, awaitingTracking: awaiting }
   },
@@ -452,9 +455,11 @@ export const deliveryService = {
 
   // ── Notifications ────────────────────────────────────────────────────────────
 
-  async listNotifications(tenantId: string, orderId?: string) {
+  async listNotifications(tenantId: string, orderId: string | undefined, req: Request) {
+    const branchId = effectiveBranchId(req)
     const where: any = { tenantId }
     if (orderId) where.deliveryOrderId = orderId
+    if (branchId) where.deliveryOrder = { branchId }
     return prisma.deliveryNotification.findMany({
       where,
       include: { deliveryOrder: { select: { orderNumber: true, customerName: true } } },
@@ -463,9 +468,13 @@ export const deliveryService = {
     })
   },
 
-  async retryNotification(tenantId: string, notifId: string) {
-    const notif = await prisma.deliveryNotification.findFirst({ where: { id: notifId, tenantId } })
+  async retryNotification(tenantId: string, notifId: string, req: Request) {
+    const notif = await prisma.deliveryNotification.findFirst({
+      where: { id: notifId, tenantId },
+      include: { deliveryOrder: { select: { branchId: true } } },
+    })
     if (!notif) throw new AppError('Notification not found', 404)
+    assertBranchRecordAccess(req, notif.deliveryOrder.branchId)
     if (notif.status === 'SENT') throw new AppError('Already sent', 400)
 
     await prisma.deliveryNotification.update({
@@ -477,7 +486,13 @@ export const deliveryService = {
     return prisma.deliveryNotification.findUnique({ where: { id: notifId } })
   },
 
-  async resendNotification(tenantId: string, orderId: string) {
+  async resendNotification(tenantId: string, orderId: string, req: Request) {
+    const order = await prisma.deliveryOrder.findFirst({
+      where: { id: orderId, tenantId },
+      select: { branchId: true },
+    })
+    if (!order) throw new AppError('Delivery order not found', 404)
+    assertBranchRecordAccess(req, order.branchId)
     return sendTrackingNotification(tenantId, orderId)
   },
 }

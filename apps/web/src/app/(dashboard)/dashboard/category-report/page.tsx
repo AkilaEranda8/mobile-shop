@@ -8,8 +8,7 @@ import {
   TrendingUp, TrendingDown, DollarSign, Package,
   Download, Calendar, Tag, X, ChevronRight, Info,
 } from 'lucide-react'
-import { useCategorySales, useCategoryProducts, useFeatureFlag } from '@/lib/hooks'
-import { getActiveBranchId } from '@/lib/active-branch'
+import { useActiveBranchId, useCategorySales, useCategoryProducts, useFeatureFlag } from '@/lib/hooks'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday, businessPeriodFrom } from '@/lib/business-date'
 
@@ -80,7 +79,7 @@ const renderPieLabel = ({ name, percent }: any) =>
 export default function CategoryReportPage() {
   const hasServices = useFeatureFlag('SERVICES')
   const [period, setPeriod]         = useState('30')
-  const branchId = getActiveBranchId() ?? ''
+  const branchId = useActiveBranchId() ?? ''
   const [selectedCat, setSelectedCat] = useState('')
   const [isCustom, setIsCustom]     = useState(false)
   const [customFrom, setCustomFrom] = useState('')

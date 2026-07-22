@@ -6,12 +6,11 @@ import {
   FileText, Check,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useFeatureFlag } from '@/lib/hooks'
+import { useActiveBranchId, useFeatureFlag } from '@/lib/hooks'
 import { accountingApi } from '@/lib/api'
 import { downloadCsv } from '@/lib/export-csv'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday } from '@/lib/business-date'
-import { getActiveBranchId } from '@/lib/active-branch'
 import {
   AccountingPageShell,
   AccountingFeatureGate,
@@ -82,7 +81,7 @@ function emptyLine(): DraftLine {
 export default function JournalsPage() {
   const hasAccess = useFeatureFlag('ACCOUNTING')
   const { canEdit } = useModuleAccess()
-  const branchId = getActiveBranchId() ?? ''
+  const branchId = useActiveBranchId() ?? ''
 
   const [journals, setJournals] = useState<JournalRow[]>([])
   const [accounts, setAccounts] = useState<GlAccount[]>([])
@@ -126,7 +125,7 @@ export default function JournalsPage() {
     } finally {
       setLoading(false)
     }
-  }, [sourceFilter, fromDate, toDate, search])
+  }, [sourceFilter, fromDate, toDate, search, branchId])
 
   const loadDetail = useCallback(async (id: string) => {
     setDetailLoading(true)

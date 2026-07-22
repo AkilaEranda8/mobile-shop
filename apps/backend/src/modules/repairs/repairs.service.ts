@@ -384,6 +384,7 @@ export const repairsService = {
       })
       await createWarrantiesFromRepair(tx, {
         tenantId,
+        branchId: r.branchId,
         saleId: sale.id,
         invoiceNumber,
         ticketNumber: r.ticketNumber,

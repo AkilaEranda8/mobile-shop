@@ -7,6 +7,7 @@ import { AppError } from '../../middleware/error.middleware'
 import { getPagination } from '../../utils/pagination'
 import { generateWarrantyCode } from '../../utils/counters'
 import { sendMail, warrantyEmailHtml } from '../../utils/mailer'
+import { effectiveBranchId, assertBranchRecordAccess, resolveMutationBranchId } from '../../utils/active-branch'
 import {
   buildWarrantyQrUrl,
   createClaim,
@@ -33,7 +34,8 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     }).catch(() => {})
     const { skip, limit, page, search } = getPagination(req)
     const status = req.query.status as string | undefined
-    const where: any = { tenantId: req.tenantId!, ...(status && { status }), ...(search && { OR: [{ warrantyCode: { contains: search, mode: 'insensitive' } }, { customerName: { contains: search, mode: 'insensitive' } }, { productName: { contains: search, mode: 'insensitive' } }, { imei: { contains: search } }] }) }
+    const branchId = effectiveBranchId(req)
+    const where: any = { tenantId: req.tenantId!, ...(branchId && { branchId }), ...(status && { status }), ...(search && { OR: [{ warrantyCode: { contains: search, mode: 'insensitive' } }, { customerName: { contains: search, mode: 'insensitive' } }, { productName: { contains: search, mode: 'insensitive' } }, { imei: { contains: search } }] }) }
     const [data, total] = await Promise.all([prisma.warranty.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { claims: true } }), prisma.warranty.count({ where })])
     sendPaginated(res, data, total, page, limit)
   } catch (e) { next(e) }
@@ -43,6 +45,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const w = await prisma.warranty.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! }, include: { claims: true } })
     if (!w) throw new AppError('Warranty not found', 404)
+    assertBranchRecordAccess(req, w.branchId)
     sendSuccess(res, w)
   } catch (e) { next(e) }
 })
@@ -50,10 +53,12 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const warrantyCode = generateWarrantyCode()
+    const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId })
     const w = await prisma.warranty.create({
       data: {
         ...req.body,
         tenantId: req.tenantId!,
+        branchId,
         warrantyCode,
         qrUrl: buildWarrantyQrUrl(warrantyCode),
       },
@@ -67,6 +72,7 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const w = await prisma.warranty.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! } })
     if (!w) throw new AppError('Warranty not found', 404)
+    assertBranchRecordAccess(req, w.branchId)
     const { customerName, customerPhone, productName, brandName, imei, quantity, startDate, endDate, monthsDuration, status } = req.body
     const data: any = {}
     if (customerName   !== undefined) data.customerName   = customerName
@@ -88,6 +94,7 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
   try {
     const w = await prisma.warranty.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! } })
     if (!w) throw new AppError('Warranty not found', 404)
+    assertBranchRecordAccess(req, w.branchId)
     await prisma.warranty.delete({ where: { id: req.params.id } })
     sendSuccess(res, null, 'Warranty deleted')
   } catch (e) { next(e) }
@@ -95,6 +102,12 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
 
 router.post('/:id/claims', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const warranty = await prisma.warranty.findFirst({
+      where: { id: req.params.id, tenantId: req.tenantId! },
+      select: { branchId: true },
+    })
+    if (!warranty) throw new AppError('Warranty not found', 404)
+    assertBranchRecordAccess(req, warranty.branchId)
     const claim = await createClaim(req.tenantId!, req.params.id, {
       issue: req.body.issue,
       claimType: req.body.claimType,
@@ -107,6 +120,12 @@ router.put('/:id/claims/:claimId', async (req: Request, res: Response, next: Nex
   try {
     const w = await prisma.warranty.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! } })
     if (!w) throw new AppError('Warranty not found', 404)
+    assertBranchRecordAccess(req, w.branchId)
+    const claim = await prisma.warrantyClaim.findFirst({
+      where: { id: req.params.claimId, warrantyId: w.id },
+      select: { id: true },
+    })
+    if (!claim) throw new AppError('Warranty claim not found', 404)
     const { status, resolution, assessedBy, repairTicketId } = req.body
     const data: any = {}
     if (status         !== undefined) data.status         = status
@@ -128,6 +147,7 @@ router.post('/:id/email', async (req: Request, res: Response, next: NextFunction
   try {
     const w = await prisma.warranty.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! }, include: { claims: true } })
     if (!w) throw new AppError('Warranty not found', 404)
+    assertBranchRecordAccess(req, w.branchId)
 
     let to: string = req.body.email ?? ''
     if (!to && w.customerId) {

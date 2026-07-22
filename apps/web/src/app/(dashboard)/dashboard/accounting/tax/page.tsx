@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Loader2, Receipt, RefreshCw } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useFeatureFlag } from '@/lib/hooks'
+import { useActiveBranchId, useFeatureFlag } from '@/lib/hooks'
 import { accountingApi } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday } from '@/lib/business-date'
-import { getActiveBranchId } from '@/lib/active-branch'
+import { useModuleAccess } from '@/lib/module-access'
 import {
   AccountingPageShell,
   AccountingFeatureGate,
@@ -28,7 +28,8 @@ const PAYMENT_METHODS = ['CASH', 'BANK_TRANSFER', 'CARD'] as const
 
 export default function TaxPage() {
   const hasAccess = useFeatureFlag('ACCOUNTING')
-  const branchId = getActiveBranchId() ?? ''
+  const { canEdit } = useModuleAccess()
+  const branchId = useActiveBranchId() ?? ''
   const [summary, setSummary] = useState<VatSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [from, setFrom] = useState(() => businessToday().slice(0, 8) + '01')
@@ -53,11 +54,12 @@ export default function TaxPage() {
     } finally {
       setLoading(false)
     }
-  }, [from, to])
+  }, [from, to, branchId])
 
   useEffect(() => { if (hasAccess) load() }, [hasAccess, load])
 
   async function handleVatPayment() {
+    if (!canEdit) return
     const amount = Number(payAmount)
     if (!amount || amount <= 0) { toast.error('Enter a valid amount'); return }
     if (!branchId) { toast.error('Select a branch'); return }
@@ -104,7 +106,7 @@ export default function TaxPage() {
           </div>
 
           <AccountingPanel title="Record VAT Payment">
-            <div className="p-5">
+            <fieldset disabled={!canEdit} className="p-5">
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <label className="block">
                   <span className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Amount (LKR)</span>
@@ -117,12 +119,12 @@ export default function TaxPage() {
                   </select>
                 </label>
                 <div className="flex items-end">
-                  <button type="button" onClick={handleVatPayment} disabled={payLoading} className="btn-primary w-full text-sm">
+                  <button type="button" onClick={handleVatPayment} disabled={payLoading || !canEdit} className="btn-primary w-full text-sm disabled:opacity-60">
                     {payLoading ? 'Posting…' : 'Post VAT Payment'}
                   </button>
                 </div>
               </div>
-            </div>
+            </fieldset>
           </AccountingPanel>
 
           <AccountingPanel title="Tax codes">

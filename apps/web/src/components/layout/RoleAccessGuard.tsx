@@ -67,7 +67,19 @@ export function RoleAccessGuard({ children }: { children: React.ReactNode }) {
   }, [pathname, moduleKey, canView, canEdit, loading, router])
 
   if (loading) {
-    return <ModuleAccessProvider moduleKey={moduleKey}>{children}</ModuleAccessProvider>
+    return (
+      <div className="flex items-center justify-center min-h-[40vh] text-sm" style={{ color: 'var(--text-muted)' }}>
+        Checking access…
+      </div>
+    )
+  }
+
+  if (moduleKey && !canView(moduleKey)) {
+    return (
+      <div className="flex items-center justify-center min-h-[40vh] text-sm" style={{ color: 'var(--text-muted)' }}>
+        Redirecting…
+      </div>
+    )
   }
 
   return <ModuleAccessProvider moduleKey={moduleKey}>{children}</ModuleAccessProvider>

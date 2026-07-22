@@ -30,13 +30,20 @@ async function resolvePoItemProduct(
   let productId = item.productId ?? undefined
   let branchId = poBranchId
 
+  if (productId) {
+    const linked = await tx.product.findFirst({
+      where: { id: productId, tenantId, branchId: poBranchId, isActive: true },
+      select: { id: true },
+    })
+    productId = linked?.id
+  }
+
   if (!productId && item.productName) {
     const found = await tx.product.findFirst({
-      where: { tenantId, name: { equals: item.productName, mode: 'insensitive' }, isActive: true },
+      where: { tenantId, branchId: poBranchId, name: { equals: item.productName, mode: 'insensitive' }, isActive: true },
     })
     if (found) {
       productId = found.id
-      branchId = found.branchId ?? poBranchId
     }
   }
   if (!productId) return null
@@ -99,7 +106,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   } catch (e) { next(e) }
 })
 
-router.post('/', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
     const name = String(req.body.name ?? '').trim()
@@ -198,7 +205,7 @@ router.post('/', authorize('OWNER', 'MANAGER'), async (req: Request, res: Respon
   } catch (e) { next(e) }
 })
 
-router.put('/:id', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+router.put('/:id', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const s = await prisma.supplier.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! } })
     if (!s) throw new AppError('Supplier not found', 404)
@@ -334,7 +341,7 @@ router.get('/purchase-orders', async (req: Request, res: Response, next: NextFun
   } catch (e) { next(e) }
 })
 
-router.post('/purchase-orders', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/purchase-orders', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { supplierId, supplierName, subtotal, tax, total, expectedDelivery, notes, status, items, branchId: bodyBranchId } = req.body
     const poNumber = await generatePONumber(req.tenantId!)
@@ -362,7 +369,7 @@ router.post('/purchase-orders', authorize('OWNER', 'MANAGER'), async (req: Reque
             // Fallback: resolve by name if productId not supplied
             if (!productId && item.productName) {
               const p = await prisma.product.findFirst({
-                where: { tenantId: req.tenantId!, name: { equals: item.productName, mode: 'insensitive' }, isActive: true },
+                where: { tenantId: req.tenantId!, branchId, name: { equals: item.productName, mode: 'insensitive' }, isActive: true },
               })
               if (p) productId = p.id
             }
@@ -444,7 +451,7 @@ router.get('/purchase-orders/:id/labels', authorize('OWNER', 'MANAGER'), async (
       let productId = item.productId as string | null
       if (!productId && item.productName) {
         const found = await prisma.product.findFirst({
-          where: { tenantId, name: { equals: item.productName, mode: 'insensitive' }, isActive: true },
+          where: { tenantId, branchId: po.branchId, name: { equals: item.productName, mode: 'insensitive' }, isActive: true },
         })
         if (found) productId = found.id
       }
@@ -485,7 +492,7 @@ router.get('/purchase-orders/:id/labels', authorize('OWNER', 'MANAGER'), async (
   } catch (e) { next(e) }
 })
 
-router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const po = await prisma.purchaseOrder.findFirst({
       where: { id: req.params.id, tenantId: req.tenantId! },
@@ -605,7 +612,7 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
   } catch (e) { next(e) }
 })
 
-router.post('/purchase-orders/:id/register-imei', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/purchase-orders/:id/register-imei', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
     const po = await prisma.purchaseOrder.findFirst({
@@ -632,18 +639,18 @@ router.post('/purchase-orders/:id/register-imei', authorize('OWNER', 'MANAGER'),
 
     const resolveProduct = async (entry: typeof entries[number]) => {
       if (entry.productId) {
-        const p = await prisma.product.findFirst({ where: { id: entry.productId, tenantId } })
+        const p = await prisma.product.findFirst({ where: { id: entry.productId, tenantId, branchId: po.branchId } })
         if (p) return p
       }
       if (entry.productName) {
         return prisma.product.findFirst({
-          where: { tenantId, name: { equals: entry.productName, mode: 'insensitive' }, isActive: true },
+          where: { tenantId, branchId: po.branchId, name: { equals: entry.productName, mode: 'insensitive' }, isActive: true },
         })
       }
       const poItem = entry.poItemId ? po.items.find(i => i.id === entry.poItemId) : undefined
       if (poItem?.productName) {
         return prisma.product.findFirst({
-          where: { tenantId, name: { equals: poItem.productName, mode: 'insensitive' }, isActive: true },
+          where: { tenantId, branchId: po.branchId, name: { equals: poItem.productName, mode: 'insensitive' }, isActive: true },
         })
       }
       return null
@@ -664,7 +671,8 @@ router.post('/purchase-orders/:id/register-imei', authorize('OWNER', 'MANAGER'),
     }
 
     for (const entry of entries) {
-      const { branchId, imei, variation, poItemId } = entry
+      const { imei, variation, poItemId } = entry
+      const branchId = po.branchId
       const trimmed = (imei ?? '').trim()
       if (!trimmed || !/^\d{15}$/.test(trimmed)) { results.errors.push(`Invalid IMEI: ${imei}`); continue }
       if (!branchId) { results.errors.push(`Missing branch for IMEI ${trimmed}`); continue }
@@ -699,11 +707,11 @@ router.post('/purchase-orders/:id/register-imei', authorize('OWNER', 'MANAGER'),
     const unlinkedNames = po.items.filter(i => !i.productId).map(i => i.productName)
     const [linkedProducts, unlinkedProducts] = await Promise.all([
       linkedIds.length
-        ? prisma.product.findMany({ where: { tenantId, id: { in: linkedIds } }, select: { id: true, trackImei: true, name: true } })
+        ? prisma.product.findMany({ where: { tenantId, branchId: po.branchId, id: { in: linkedIds } }, select: { id: true, trackImei: true, name: true } })
         : Promise.resolve([]),
       unlinkedNames.length
         ? prisma.product.findMany({
-            where: { tenantId, isActive: true, OR: unlinkedNames.map(n => ({ name: { equals: n, mode: 'insensitive' as const } })) },
+            where: { tenantId, branchId: po.branchId, isActive: true, OR: unlinkedNames.map(n => ({ name: { equals: n, mode: 'insensitive' as const } })) },
             select: { id: true, trackImei: true, name: true },
           })
         : Promise.resolve([]),
@@ -729,7 +737,7 @@ router.post('/purchase-orders/:id/register-imei', authorize('OWNER', 'MANAGER'),
   } catch (e) { next(e) }
 })
 
-router.post('/:id/payments', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/:id/payments', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
     const { amount, method, reference, notes, poIds, bankAccountId, paymentDate } = req.body

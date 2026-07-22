@@ -69,6 +69,7 @@ import {
   type PosUiSettings,
 } from '@/lib/posUiSettings'
 import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
+import { useRolePermissions } from '@/lib/hooks'
 
 const tabs = [
   { key: 'shop',          label: 'Shop Info',       icon: Building2  },
@@ -101,6 +102,9 @@ export default function SettingsPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { canEdit } = useModuleAccess()
+  const { canView: canViewRole, canEdit: canEditRole } = useRolePermissions()
+  const canViewStaff = canViewRole('STAFF')
+  const canEditStaff = canEditRole('STAFF')
   const [activeTab, setActiveTab] = useState('shop')
   const currentUser = authStorage.getUser()
   const tenantId = currentUser?.tenantId
@@ -112,8 +116,12 @@ export default function SettingsPage() {
       router.replace('/settings/barcode-labels')
       return
     }
+    if (tab === 'team' && !canViewStaff) {
+      setActiveTab('shop')
+      return
+    }
     if (tab && tabs.some(t => t.key === tab)) setActiveTab(tab)
-  }, [searchParams, router])
+  }, [searchParams, router, canViewStaff])
   const canManageFeatures = currentUser?.role === 'OWNER' || currentUser?.role === 'MANAGER'
 
   /* ── Plans ── */
@@ -381,13 +389,15 @@ export default function SettingsPage() {
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (activeTab !== 'team') return
+    if (activeTab !== 'team' || !canViewStaff) return
     setTeamLoading(true)
     usersApi.list().then((r: any) => setTeamUsers(r?.data?.data ?? r?.data ?? [])).catch(() => {}).finally(() => setTeamLoading(false))
-  }, [activeTab])
+  }, [activeTab, canViewStaff])
 
   const addUser = async (e: React.FormEvent) => {
-    e.preventDefault(); setAddingUser(true)
+    e.preventDefault()
+    if (!canEditStaff) { viewOnlyToast('Staff'); return }
+    setAddingUser(true)
     try {
       const res: any = await usersApi.create({
         ...newUser,
@@ -402,6 +412,7 @@ export default function SettingsPage() {
   }
 
   const removeUser = async (id: string) => {
+    if (!canEditStaff) { viewOnlyToast('Staff'); return }
     if (!confirm('Remove this team member?')) return
     setDeletingUserId(id)
     try {
@@ -495,7 +506,7 @@ export default function SettingsPage() {
         {/* Sidebar */}
         <div className="lg:w-52 flex-shrink-0">
           <nav className="card p-2 space-y-0.5">
-            {tabs.map(tab => (
+            {tabs.filter(tab => tab.key !== 'team' || canViewStaff).map(tab => (
               <button
                 key={tab.key}
                 type="button"
@@ -515,7 +526,7 @@ export default function SettingsPage() {
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <fieldset disabled={!canEdit}>
+          <fieldset disabled={!canEdit && activeTab !== 'team'}>
 
           {/* ── SHOP INFO ── */}
           {activeTab === 'shop' && (
@@ -1744,18 +1755,20 @@ export default function SettingsPage() {
           )}
 
           {/* ── TEAM ── */}
-          {activeTab === 'team' && (
+          {activeTab === 'team' && canViewStaff && (
             <div className="card p-6 space-y-5">
               <div className="flex items-center justify-between border-b border-white/5 pb-3">
                 <h2 className="text-base font-semibold text-gray-900 dark:text-white">Team Members</h2>
-                <button onClick={() => setShowAddUser(v => !v)}
-                  className="btn-primary text-sm flex items-center gap-2">
-                  {showAddUser ? <X size={13} /> : <Plus size={13} />}{showAddUser ? 'Cancel' : 'Add User'}
-                </button>
+                {canEditStaff && (
+                  <button onClick={() => setShowAddUser(v => !v)}
+                    className="btn-primary text-sm flex items-center gap-2">
+                    {showAddUser ? <X size={13} /> : <Plus size={13} />}{showAddUser ? 'Cancel' : 'Add User'}
+                  </button>
+                )}
               </div>
 
               {/* Add user form */}
-              {showAddUser && (
+              {showAddUser && canEditStaff && (
                 <form onSubmit={addUser} className="p-4 bg-white/3 rounded-xl border border-white/5 space-y-3">
                   <p className="text-xs font-semibold text-gray-700 dark:text-slate-300">New Team Member</p>
                   <div className="grid sm:grid-cols-2 gap-3">
@@ -1809,7 +1822,7 @@ export default function SettingsPage() {
                           {u.role}
                         </span>
                         <span className={`w-1.5 h-1.5 rounded-full ${u.isActive !== false ? 'bg-green-400' : 'bg-slate-600'}`} title={u.isActive !== false ? 'Active' : 'Inactive'} />
-                        {u.id !== currentUser?.id && (
+                        {canEditStaff && u.id !== currentUser?.id && (
                           <button onClick={() => removeUser(u.id)} disabled={deletingUserId === u.id}
                             className="p-1.5 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-40">
                             {deletingUserId === u.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}

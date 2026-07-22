@@ -293,7 +293,7 @@ export default function StaffPage() {
           onSaved={refetch}
         />
       )}
-      {editStaff && (
+      {editStaff && !(actorRole === 'MANAGER' && editStaff.role === 'OWNER') && (
         <StaffFormModal
           staff={editStaff}
           branches={branches}
@@ -400,6 +400,7 @@ export default function StaffPage() {
             {users.map((s: any, i: number) => {
               const role = roleConfig[s.role] ?? roleConfig['OWNER']
               const initials = (s.name ?? '').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+              const canManageStaffRow = canEditStaff && !(actorRole === 'MANAGER' && s.role === 'OWNER')
               return (
                 <div key={s.id} className="card p-5 hover:border-violet-500/20 transition-all">
                   <div className="flex items-start gap-3 mb-4">
@@ -412,7 +413,7 @@ export default function StaffPage() {
                     </div>
                     <div className="flex items-center gap-1">
                       <div className={`w-1.5 h-1.5 rounded-full mr-1 ${s.isActive ? 'bg-green-400' : 'bg-slate-500'}`} />
-                      {canEditStaff && (
+                      {canManageStaffRow && (
                         <>
                           <button onClick={() => setEditStaff(s)} className="p-1.5 rounded-lg text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 transition-colors" title="Edit"><Edit2 size={13} /></button>
                           <button onClick={() => setDeleteTarget(s)} className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors" title="Remove"><Trash2 size={13} /></button>

@@ -8,8 +8,7 @@ import {
   TrendingUp, DollarSign, Download, Calendar, Users, X, ChevronRight,
   Search, Receipt, Wallet, UserRound,
 } from 'lucide-react'
-import { useCustomerSales, useCustomerSalesDetail } from '@/lib/hooks'
-import { getActiveBranchId } from '@/lib/active-branch'
+import { useActiveBranchId, useCustomerSales, useCustomerSalesDetail } from '@/lib/hooks'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { businessToday, businessPeriodFrom } from '@/lib/business-date'
 
@@ -99,7 +98,7 @@ const renderPieLabel = ({ name, percent }: any) =>
 
 export default function CustomerReportPage() {
   const [period, setPeriod] = useState('30')
-  const branchId = getActiveBranchId() ?? ''
+  const branchId = useActiveBranchId() ?? ''
   const [selectedKey, setSelectedKey] = useState('')
   const [search, setSearch] = useState('')
   const [isCustom, setIsCustom] = useState(false)

@@ -168,8 +168,6 @@ const navItems: NavGroup[] = [
     label: 'HR & Staff',
     items: [
       { href: '/dashboard/staff', icon: UserCheck, label: 'Staff & Roles', feature: 'STAFF', permission: 'STAFF' },
-      { href: '/dashboard/role-permissions', icon: Shield, label: 'Role Permissions', badge: 'NEW', feature: 'STAFF', permission: 'STAFF', requiresEdit: true },
-      { href: '/dashboard/role-permissions-guide', icon: BookOpen, label: 'Permissions Guide', feature: 'STAFF', permission: 'STAFF' },
     ],
   },
   {

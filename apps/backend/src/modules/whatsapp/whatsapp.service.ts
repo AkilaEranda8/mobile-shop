@@ -67,6 +67,25 @@ function isValidWaPhone(phone: string): boolean {
   return /^\+[1-9]\d{6,14}$/.test(phone)
 }
 
+async function resolveMessageBranchId(tenantId: string, orderId?: string | null): Promise<string | undefined> {
+  if (!orderId) return undefined
+  const [delivery, sale, repair] = await Promise.all([
+    prisma.deliveryOrder.findFirst({
+      where: { tenantId, OR: [{ id: orderId }, { orderNumber: orderId }] },
+      select: { branchId: true },
+    }),
+    prisma.sale.findFirst({
+      where: { tenantId, OR: [{ id: orderId }, { invoiceNumber: orderId }] },
+      select: { branchId: true },
+    }),
+    prisma.repairTicket.findFirst({
+      where: { tenantId, OR: [{ id: orderId }, { ticketNumber: orderId }] },
+      select: { branchId: true },
+    }),
+  ])
+  return delivery?.branchId ?? sale?.branchId ?? repair?.branchId ?? undefined
+}
+
 async function ensureWhatsAppConfig(
   tenantId: string,
   opts: { connectionMode?: 'qr' | 'meta'; enabled?: boolean } = {},
@@ -446,7 +465,7 @@ export const whatsappService = {
     return { success: true, message: 'Test message sent successfully!' }
   },
 
-  async sendInvoice(tenantId: string, input: SendInvoiceInput) {
+  async sendInvoice(tenantId: string, input: SendInvoiceInput, scopedBranchId?: string) {
     const cfg = await prisma.whatsAppConfig.findUnique({ where: { tenantId } })
     if (!cfg) throw new AppError('WhatsApp not configured. Connect WhatsApp in settings first.', 400)
     if (!cfg.enabled) throw new AppError('WhatsApp integration is disabled. Turn it on in WhatsApp settings.', 400)
@@ -455,6 +474,10 @@ export const whatsappService = {
     if (!phone) throw new AppError('Customer phone number is required', 400)
     if (cfg.validatePhones && !isValidWaPhone(phone)) {
       throw new AppError('Invalid customer phone number. Use format 0771234567 or +94771234567.', 400)
+    }
+    const branchId = await resolveMessageBranchId(tenantId, input.orderId)
+    if (scopedBranchId && branchId && scopedBranchId !== branchId) {
+      throw new AppError('Branch access denied', 403)
     }
 
     const isConnected = cfg.connectionMode === 'qr'
@@ -539,10 +562,10 @@ export const whatsappService = {
     }
 
     const preview = `Invoice #${input.orderId}${input.amount ? ` · LKR ${input.amount.toLocaleString()}` : ''}${sendPdf ? ' (PDF)' : ''}`
-
     const msg = await prisma.whatsAppMessage.create({
       data: {
         tenantId,
+        branchId,
         configId:     cfg.id,
         orderId:      input.orderId,
         to:           phone,
@@ -558,7 +581,7 @@ export const whatsappService = {
     return { success: true, messageId: msg.id }
   },
 
-  async sendMessage(tenantId: string, input: SendMessageInput) {
+  async sendMessage(tenantId: string, input: SendMessageInput, scopedBranchId?: string) {
     const cfg = await prisma.whatsAppConfig.findUnique({ where: { tenantId } })
     if (!cfg) throw new AppError('WhatsApp not configured. Connect WhatsApp in settings first.', 400)
     if (!cfg.enabled) throw new AppError('WhatsApp integration is disabled. Turn it on in WhatsApp settings.', 400)
@@ -568,16 +591,20 @@ export const whatsappService = {
     if (cfg.validatePhones && !isValidWaPhone(phone)) {
       throw new AppError('Invalid phone number. Use format 0771234567 or +94771234567.', 400)
     }
+    const branchId = await resolveMessageBranchId(tenantId, input.referenceId)
+    if (scopedBranchId && branchId && scopedBranchId !== branchId) {
+      throw new AppError('Branch access denied', 403)
+    }
 
     await whatsappService.sendTextMessage(tenantId, phone, input.message)
 
     const preview = input.message.length > 80
       ? `${input.message.slice(0, 80)}…`
       : input.message
-
     const msg = await prisma.whatsAppMessage.create({
       data: {
         tenantId,
+        branchId,
         configId:     cfg.id,
         orderId:      input.referenceId,
         to:           phone,
@@ -592,16 +619,17 @@ export const whatsappService = {
     return { success: true, messageId: msg.id }
   },
 
-  async getStats(tenantId: string) {
+  async getStats(tenantId: string, branchId?: string) {
     const cfg = await prisma.whatsAppConfig.findUnique({ where: { tenantId } })
     if (!cfg) return { totalSent: 0, delivered: 0, failed: 0, pending: 0, invoicesSent: 0, deliveryRate: 0, monthlyData: [] }
 
+    const baseWhere = { tenantId, ...(branchId ? { branchId } : {}) }
     const [total, delivered, failed, pending, invoices] = await Promise.all([
-      prisma.whatsAppMessage.count({ where: { tenantId } }),
-      prisma.whatsAppMessage.count({ where: { tenantId, status: 'delivered' } }),
-      prisma.whatsAppMessage.count({ where: { tenantId, status: 'failed' } }),
-      prisma.whatsAppMessage.count({ where: { tenantId, status: 'sent' } }),
-      prisma.whatsAppMessage.count({ where: { tenantId, type: 'invoice' } }),
+      prisma.whatsAppMessage.count({ where: baseWhere }),
+      prisma.whatsAppMessage.count({ where: { ...baseWhere, status: 'delivered' } }),
+      prisma.whatsAppMessage.count({ where: { ...baseWhere, status: 'failed' } }),
+      prisma.whatsAppMessage.count({ where: { ...baseWhere, status: 'sent' } }),
+      prisma.whatsAppMessage.count({ where: { ...baseWhere, type: 'invoice' } }),
     ])
 
     const deliveryRate = total > 0 ? Math.round((delivered / total) * 1000) / 10 : 0
@@ -613,7 +641,7 @@ export const whatsappService = {
     sixMonthsAgo.setHours(0, 0, 0, 0)
 
     const messages = await prisma.whatsAppMessage.findMany({
-      where:  { tenantId, createdAt: { gte: sixMonthsAgo } },
+      where:  { ...baseWhere, createdAt: { gte: sixMonthsAgo } },
       select: { status: true, createdAt: true },
     })
 
@@ -630,12 +658,12 @@ export const whatsappService = {
     return { totalSent: total, delivered, failed, pending, invoicesSent: invoices, deliveryRate, monthlyData }
   },
 
-  async getInvoiceHistory(tenantId: string) {
+  async getInvoiceHistory(tenantId: string, branchId?: string) {
     const cfg = await prisma.whatsAppConfig.findUnique({ where: { tenantId } })
     if (!cfg) return []
 
     const messages = await prisma.whatsAppMessage.findMany({
-      where:   { tenantId, type: 'invoice' },
+      where:   { tenantId, ...(branchId ? { branchId } : {}), type: 'invoice' },
       orderBy: { createdAt: 'desc' },
       take:    50,
     })
@@ -655,12 +683,12 @@ export const whatsappService = {
     }))
   },
 
-  async getRecentMessages(tenantId: string) {
+  async getRecentMessages(tenantId: string, branchId?: string) {
     const cfg = await prisma.whatsAppConfig.findUnique({ where: { tenantId } })
     if (!cfg) return []
 
     const messages = await prisma.whatsAppMessage.findMany({
-      where:   { tenantId },
+      where:   { tenantId, ...(branchId ? { branchId } : {}) },
       orderBy: { createdAt: 'desc' },
       take:    20,
     })

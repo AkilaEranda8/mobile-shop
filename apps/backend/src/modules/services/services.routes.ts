@@ -50,7 +50,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 })
 
 // ── Create service ─────────────────────────────────────────────────────────────
-router.post('/', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = (req as any).user.tenantId
     const { name, description, price, cost, category } = req.body
@@ -70,7 +70,7 @@ router.post('/', authorize('OWNER', 'MANAGER'), async (req: Request, res: Respon
 })
 
 // ── Update service ─────────────────────────────────────────────────────────────
-router.put('/:id', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+router.put('/:id', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = (req as any).user.tenantId
     const existing = await prisma.service.findFirst({ where: { id: req.params.id, tenantId } })
@@ -92,7 +92,7 @@ router.put('/:id', authorize('OWNER', 'MANAGER'), async (req: Request, res: Resp
 })
 
 // ── Delete service ─────────────────────────────────────────────────────────────
-router.delete('/:id', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+router.delete('/:id', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = (req as any).user.tenantId
     const existing = await prisma.service.findFirst({ where: { id: req.params.id, tenantId } })

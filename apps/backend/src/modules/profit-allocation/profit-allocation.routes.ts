@@ -15,7 +15,7 @@ import {
   adjustmentSchema,
 } from './profit-allocation.schema'
 import * as profitAllocationService from './profit-allocation.service'
-import { effectiveBranchId, resolveMutationBranchId } from '../../utils/active-branch'
+import { effectiveBranchId, resolveMutationBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
 
 const router = Router()
 router.use(authenticate)
@@ -126,18 +126,25 @@ router.get('/funds', async (req: Request, res: Response, next: NextFunction) => 
 
 router.post('/funds', authorize('OWNER', 'MANAGER'), validate(createFundSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    sendSuccess(res, await profitAllocationService.createFund(req.tenantId!, req.body), 'Fund created', 201)
+    const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId })
+    sendSuccess(res, await profitAllocationService.createFund(req.tenantId!, { ...req.body, branchId }), 'Fund created', 201)
   } catch (e) { next(e) }
 })
 
 router.put('/funds/:id', authorize('OWNER', 'MANAGER'), validate(updateFundSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const fund = await prisma.profitFund.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! } })
+    if (!fund) throw new AppError('Fund not found', 404)
+    assertBranchRecordAccess(req, fund.branchId)
     sendSuccess(res, await profitAllocationService.updateFund(req.tenantId!, req.params.id, req.body), 'Fund updated')
   } catch (e) { next(e) }
 })
 
 router.delete('/funds/:id', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const fund = await prisma.profitFund.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! } })
+    if (!fund) throw new AppError('Fund not found', 404)
+    assertBranchRecordAccess(req, fund.branchId)
     const result = await profitAllocationService.deleteFund(req.tenantId!, req.params.id)
     const msg = (result as { message?: string }).message ?? 'Fund removed'
     sendSuccess(res, result, msg)
@@ -146,6 +153,9 @@ router.delete('/funds/:id', authorize('OWNER', 'MANAGER'), async (req: Request, 
 
 router.patch('/funds/:id/toggle', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const fund = await prisma.profitFund.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! } })
+    if (!fund) throw new AppError('Fund not found', 404)
+    assertBranchRecordAccess(req, fund.branchId)
     const isActive = Boolean(req.body.isActive)
     sendSuccess(res, await profitAllocationService.toggleFund(req.tenantId!, req.params.id, isActive))
   } catch (e) { next(e) }

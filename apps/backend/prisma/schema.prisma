@@ -268,6 +268,7 @@ model Branch {
   imeiRecords                 ImeiRecord[]
   exchanges                   DeviceExchange[]
   customers                   Customer[]
+  warranties                  Warranty[]
   glAccounts                  GlAccount[]
   journalEntries              JournalEntry[]
   cashAccounts                CashAccount[]
@@ -828,6 +829,7 @@ model DeviceExchange {
 model Warranty {
   id             String         @id @default(cuid())
   tenantId       String
+  branchId       String?
   warrantyCode   String         @unique
   saleId         String?
   invoiceNumber  String?
@@ -848,9 +850,12 @@ model Warranty {
   updatedAt      DateTime       @updatedAt
 
   tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch   Branch?         @relation(fields: [branchId], references: [id], onDelete: SetNull)
   customer Customer?       @relation(fields: [customerId], references: [id])
   product  Product?        @relation(fields: [productId], references: [id])
   claims   WarrantyClaim[]
+
+  @@index([tenantId, branchId])
 }
 
 model WarrantyClaim {
@@ -1041,6 +1046,7 @@ model WhatsAppConfig {
 model WhatsAppMessage {
   id            String   @id @default(cuid())
   tenantId      String
+  branchId      String?
   configId      String
   orderId       String?
   to            String
@@ -1056,6 +1062,7 @@ model WhatsAppMessage {
   config WhatsAppConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
+  @@index([tenantId, branchId])
   @@index([configId])
 }
 

@@ -111,8 +111,13 @@ async function resolveCustomer(
   branchId: string,
 ): Promise<string | undefined> {
   if (input.customerId) {
+    const customer = await tx.customer.findFirst({
+      where: { id: input.customerId, tenantId, branchId },
+      select: { id: true },
+    })
+    if (!customer) throw new AppError('Customer not found in the selected branch', 404)
     await tx.customer.update({
-      where: { id: input.customerId },
+      where: { id: customer.id },
       data: {
         name:    input.customerName,
         phone:   input.customerPhone,
@@ -557,6 +562,14 @@ export const exchangesService = {
 
   async create(tenantId: string, body: any, userId: string, req: Request) {
     body.branchId = await resolveMutationBranchId(req, { preferred: body.branchId })
+
+    if (body.customerId) {
+      const customer = await prisma.customer.findFirst({
+        where: { id: body.customerId, tenantId, branchId: body.branchId },
+        select: { id: true },
+      })
+      if (!customer) throw new AppError('Customer not found in the selected branch', 404)
+    }
 
     if (!body.customerId && body.customerPhone) {
       let customer = await prisma.customer.findFirst({

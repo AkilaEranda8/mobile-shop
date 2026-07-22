@@ -133,10 +133,17 @@ async function main() {
   })
 
   await prisma.customer.upsert({
-    where: { tenantId_phone: { tenantId: tenant.id, phone: '+94 77 123 4567' } },
+    where: {
+      tenantId_branchId_phone: {
+        tenantId: tenant.id,
+        branchId: branch.id,
+        phone: '+94 77 123 4567',
+      },
+    },
     update: {},
     create: {
       tenantId: tenant.id,
+      branchId: branch.id,
       name: 'Kasun Perera',
       phone: '+94 77 123 4567',
       email: 'kasun@example.com',

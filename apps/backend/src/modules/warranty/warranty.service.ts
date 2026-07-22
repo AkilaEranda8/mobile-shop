@@ -74,6 +74,12 @@ export async function createWarrantiesFromSaleItems(
   })
   if (!feat) return []
 
+  const sale = await tx.sale.findFirst({
+    where: { id: opts.saleId, tenantId: opts.tenantId },
+    select: { branchId: true },
+  })
+  if (!sale) throw new AppError('Sale not found for warranty creation', 404)
+
   const eligible: Array<{
     productId: string
     productName: string
@@ -128,6 +134,7 @@ export async function createWarrantiesFromSaleItems(
 
   return createWarrantyRows(tx, {
     tenantId: opts.tenantId,
+    branchId: sale.branchId,
     saleId: opts.saleId,
     invoiceNumber: opts.invoiceNumber,
     customerId: opts.customerId,
@@ -142,6 +149,7 @@ async function createWarrantyRows(
   tx: Prisma.TransactionClient,
   opts: {
     tenantId: string
+    branchId?: string | null
     saleId: string
     invoiceNumber: string
     customerId: string
@@ -174,6 +182,7 @@ async function createWarrantyRows(
     const w = await tx.warranty.create({
       data: {
         tenantId: opts.tenantId,
+        branchId: opts.branchId ?? undefined,
         warrantyCode,
         saleId: opts.saleId,
         invoiceNumber: opts.invoiceNumber,
@@ -203,6 +212,7 @@ export async function createWarrantiesFromRepair(
   tx: Prisma.TransactionClient,
   opts: {
     tenantId: string
+    branchId?: string | null
     saleId: string
     invoiceNumber: string
     ticketNumber: string
@@ -261,6 +271,7 @@ export async function createWarrantiesFromRepair(
 
   return createWarrantyRows(tx, {
     tenantId: opts.tenantId,
+    branchId: opts.branchId,
     saleId: opts.saleId,
     invoiceNumber: opts.invoiceNumber,
     customerId: opts.customerId,

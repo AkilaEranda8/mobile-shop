@@ -202,18 +202,19 @@ export function pathToPermissionModule(pathname: string): RolePermissionModuleKe
     return 'SERVICES'
   }
   if (
+    pathname.startsWith('/dashboard/product-traceability') ||
+    pathname.startsWith('/dashboard/inventory/product-traceability') ||
+    pathname.startsWith('/inventory/product-traceability')
+  ) {
+    return 'PRODUCT_TRACEABILITY'
+  }
+  if (
     pathname === '/inventory' ||
     pathname.startsWith('/inventory/') ||
     pathname.startsWith('/dashboard/inventory') ||
     pathname.startsWith('/dashboard/stock-transfer')
   ) {
     return 'INVENTORY'
-  }
-  if (
-    pathname.startsWith('/dashboard/product-traceability') ||
-    pathname.startsWith('/inventory/product-traceability')
-  ) {
-    return 'PRODUCT_TRACEABILITY'
   }
   if (
     pathname.startsWith('/dashboard/suppliers') ||

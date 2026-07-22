@@ -19,6 +19,7 @@ import {
   type InvoiceSettings,
 } from '@/lib/invoiceSettings'
 import BarcodeLabelCustomizer from '@/components/inventory/BarcodeLabelCustomizer'
+import { useRolePermissions } from '@/lib/hooks'
 
 const settingsNav = [
   { key: 'shop',          label: 'Shop Info',       icon: Building2,  href: '/settings?tab=shop' },
@@ -38,10 +39,8 @@ export default function BarcodeLabelsSettingsPage() {
   const router = useRouter()
   const currentUser = authStorage.getUser()
   const tenantId = currentUser?.tenantId
-  const canSave =
-    currentUser?.role === 'OWNER' ||
-    currentUser?.role === 'MANAGER' ||
-    currentUser?.role === 'PLATFORM_ADMIN'
+  const { canEdit } = useRolePermissions()
+  const canSave = canEdit('SETTINGS')
 
   const [invoiceForm, setInvoiceForm] = useState<InvoiceSettings>({ ...DEFAULT_INVOICE_SETTINGS })
   const [barcodeLabel, setBarcodeLabel] = useState<BarcodeLabelSettings>({ ...DEFAULT_BARCODE_LABEL_SETTINGS })
@@ -178,7 +177,7 @@ export default function BarcodeLabelsSettingsPage() {
           )}
 
           {!canSave && (
-            <p className="text-xs text-slate-500">Only OWNER or MANAGER can save barcode label settings.</p>
+            <p className="text-xs text-slate-500">You have view-only access to barcode label settings.</p>
           )}
 
           <p className="text-[11px] text-slate-500">

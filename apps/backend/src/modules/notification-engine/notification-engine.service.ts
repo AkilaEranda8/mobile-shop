@@ -88,6 +88,7 @@ export async function notifyDeliveryDispatched(opts: {
 export async function notifySaleInvoice(
   tenantId: string,
   input: NonNullable<DispatchNotificationInput['saleInvoice']>,
+  branchId?: string,
 ) {
-  return whatsappService.sendInvoice(tenantId, input)
+  return whatsappService.sendInvoice(tenantId, input, branchId)
 }

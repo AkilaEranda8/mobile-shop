@@ -3,6 +3,7 @@ import { whatsappService } from './whatsapp.service'
 import { notifySaleInvoice } from '../notification-engine/notification-engine.service'
 import { sendSuccess } from '../../utils/response'
 import { prisma } from '../../config/database'
+import { effectiveBranchId } from '../../utils/active-branch'
 
 export const whatsappController = {
 
@@ -57,35 +58,35 @@ export const whatsappController = {
 
   async sendInvoice(req: Request, res: Response, next: NextFunction) {
     try {
-      const data = await notifySaleInvoice(req.user!.tenantId, req.body)
+      const data = await notifySaleInvoice(req.user!.tenantId, req.body, effectiveBranchId(req))
       sendSuccess(res, data, 'Invoice sent via WhatsApp')
     } catch (e) { next(e) }
   },
 
   async sendMessage(req: Request, res: Response, next: NextFunction) {
     try {
-      const data = await whatsappService.sendMessage(req.user!.tenantId, req.body)
+      const data = await whatsappService.sendMessage(req.user!.tenantId, req.body, effectiveBranchId(req))
       sendSuccess(res, data, 'Message sent via WhatsApp')
     } catch (e) { next(e) }
   },
 
   async getStats(req: Request, res: Response, next: NextFunction) {
     try {
-      const data = await whatsappService.getStats(req.user!.tenantId)
+      const data = await whatsappService.getStats(req.user!.tenantId, effectiveBranchId(req))
       sendSuccess(res, data)
     } catch (e) { next(e) }
   },
 
   async getInvoiceHistory(req: Request, res: Response, next: NextFunction) {
     try {
-      const data = await whatsappService.getInvoiceHistory(req.user!.tenantId)
+      const data = await whatsappService.getInvoiceHistory(req.user!.tenantId, effectiveBranchId(req))
       sendSuccess(res, data)
     } catch (e) { next(e) }
   },
 
   async getRecentMessages(req: Request, res: Response, next: NextFunction) {
     try {
-      const data = await whatsappService.getRecentMessages(req.user!.tenantId)
+      const data = await whatsappService.getRecentMessages(req.user!.tenantId, effectiveBranchId(req))
       sendSuccess(res, data)
     } catch (e) { next(e) }
   },

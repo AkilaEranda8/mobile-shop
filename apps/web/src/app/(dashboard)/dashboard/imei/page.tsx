@@ -11,9 +11,8 @@ import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { ToolbarSearch } from '@/components/ui/toolbar-search'
-import { useImeiRecords } from '@/lib/hooks'
+import { useActiveBranchId, useImeiRecords } from '@/lib/hooks'
 import { imeiApi, productsApi, warrantyApi } from '@/lib/api'
-import { getActiveBranchId } from '@/lib/active-branch'
 import toast from 'react-hot-toast'
 import { useModuleAccess, EditOnly, viewOnlyToast } from '@/lib/module-access'
 
@@ -485,7 +484,7 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
 }
 
 function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const activeBranchId = getActiveBranchId()
+  const activeBranchId = useActiveBranchId()
   const [form, setForm] = useState({ imei: '', productId: '' })
   const [loading, setLoading] = useState(false)
   const [imeiError, setImeiError] = useState('')
@@ -596,7 +595,7 @@ export default function IMEIPage() {
       setSelectedImei(imei)
     }
   }, [canEdit, searchParams])
-  const branchId = getActiveBranchId()
+  const branchId = useActiveBranchId()
   const imeiParams: Record<string, string> = { limit: '500' }
   if (branchId) imeiParams.branchId = branchId
   const { data, loading, refetch } = useImeiRecords(imeiParams)

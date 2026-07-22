@@ -11,8 +11,7 @@ import {
   AlertTriangle, Lightbulb, Receipt, PieChart as PieChartIcon,
   CheckCircle, Wallet, BarChart3, Lock, Wrench,
 } from 'lucide-react'
-import { usePlStatement, useCategorySales, useFeatureFlag } from '@/lib/hooks'
-import { getActiveBranchId } from '@/lib/active-branch'
+import { useActiveBranchId, usePlStatement, useCategorySales, useFeatureFlag } from '@/lib/hooks'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday, businessPeriodFrom, formatBusinessDateLabel } from '@/lib/business-date'
 import { PlStatementBody, type PlStatementLine } from '@/components/finance/PlStatementBody'
@@ -96,7 +95,7 @@ export default function ProfitLossPage() {
   const [isCustom, setIsCustom] = useState(false)
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
-  const branchId = getActiveBranchId() ?? ''
+  const branchId = useActiveBranchId() ?? ''
   const todayStr = useMemo(() => businessToday(), [])
 
   const toDate = useMemo(() => {

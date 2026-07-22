@@ -126,13 +126,16 @@ export default function GlobalSearch() {
       const items: Result[] = [...pageHits]
 
       if (byLabel.product?.status === 'fulfilled') {
+        const productHref = canView('INVENTORY')
+          ? `/dashboard/inventory?q=${encodeURIComponent(trimmed)}`
+          : '/dashboard/pos'
         for (const p of unwrapList(byLabel.product.value).slice(0, 5)) {
           items.push({
             id: `product-${p.id}`,
             type: 'product',
             label: p.name,
             sub: p.sku ? `SKU: ${p.sku}` : undefined,
-            href: `/dashboard/inventory?q=${encodeURIComponent(trimmed)}`,
+            href: productHref,
             icon: Package,
           })
         }
