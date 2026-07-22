@@ -3,7 +3,7 @@ import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import { getPagination } from '../../utils/pagination'
 import { Request } from 'express'
-import { createOrGetGroup, ensureKcUser, updateKcUser, isKcConfigured } from '../../utils/keycloakAdmin'
+import { createOrGetGroup, ensureKcUser, updateKcUser, updateKcPassword, isKcConfigured } from '../../utils/keycloakAdmin'
 
 // Roles a tenant admin (OWNER/MANAGER) is permitted to assign. PLATFORM_ADMIN is
 // intentionally excluded so tenant users can never escalate to platform access.
@@ -88,28 +88,64 @@ export const usersService = {
     return safe
   },
 
-  async update(tenantId: string, id: string, body: Partial<{ name: string; role: string; isActive: boolean; branchIds: string[] }>) {
+  async update(
+    tenantId: string,
+    id: string,
+    body: Partial<{ name: string; email: string; role: string; isActive: boolean; branchIds: string[]; password: string }>,
+  ) {
     if (body.role !== undefined && !ASSIGNABLE_ROLES.includes(body.role)) throw new AppError('Invalid role', 400)
     const user = await prisma.user.findFirst({ where: { id, tenantId } })
     if (!user) throw new AppError('User not found', 404)
-    const { branchIds, ...rest } = body
+
+    const { branchIds, password, name, email, role, isActive } = body
+    if (password !== undefined) {
+      if (!password || password.length < 6) throw new AppError('Password must be at least 6 characters', 400)
+    }
+    if (email !== undefined) {
+      const nextEmail = email.trim().toLowerCase()
+      if (!nextEmail) throw new AppError('Email is required', 400)
+      const clash = await prisma.user.findFirst({
+        where: {
+          tenantId,
+          id: { not: id },
+          email: { equals: nextEmail, mode: 'insensitive' },
+        },
+      })
+      if (clash) throw new AppError('Email already in use', 409)
+    }
+
     if (branchIds) {
       await prisma.userBranch.deleteMany({ where: { userId: id } })
-      await prisma.userBranch.createMany({ data: branchIds.map((bid) => ({ userId: id, branchId: bid })) })
+      if (branchIds.length > 0) {
+        await prisma.userBranch.createMany({ data: branchIds.map((bid) => ({ userId: id, branchId: bid })) })
+      }
     }
-    const updated = await prisma.user.update({ where: { id }, data: rest as any, include: { branches: { select: { branchId: true } } } })
+
+    const data: Record<string, unknown> = {}
+    if (name !== undefined) data.name = name.trim()
+    if (email !== undefined) data.email = email.trim().toLowerCase()
+    if (role !== undefined) data.role = role
+    if (isActive !== undefined) data.isActive = isActive
+    if (password) data.password = await bcrypt.hash(password, 12)
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: data as any,
+      include: { branches: { select: { branchId: true } } },
+    })
     // KC sync (non-fatal)
     try {
       if (isKcConfigured()) {
         const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } })
         await updateKcUser(id, {
-          name: rest.name,
-          role: rest.role,
-          isActive: rest.isActive,
+          name: typeof data.name === 'string' ? data.name : undefined,
+          role: typeof data.role === 'string' ? data.role : undefined,
+          isActive: typeof data.isActive === 'boolean' ? data.isActive : undefined,
           tenantId,
           tenantSlug: tenant?.slug,
-          email: updated.email,
+          email: typeof data.email === 'string' ? data.email : updated.email,
         })
+        if (password) await updateKcPassword(id, password)
       }
     } catch (e) { console.warn('[KC] user update sync failed:', (e as Error).message) }
     const { password: _pw, ...safe } = updated as any
