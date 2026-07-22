@@ -171,6 +171,8 @@ export interface Customer {
   email?: string
   address?: string
   city?: string
+  /** Home branch — customer is listed only for this branch (unless All Branches). */
+  branchId?: string
   loyaltyPoints: number
   totalPurchases: number
   /** Outstanding for the active branch (or tenant-wide when All Branches). */

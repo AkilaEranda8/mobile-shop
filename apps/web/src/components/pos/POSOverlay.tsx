@@ -372,7 +372,8 @@ function RegisterCustomerInline({ onBack, onCreated }: { onBack: () => void; onC
         name: form.name,
         phone: form.phone,
         email: form.email || undefined,
-        ...(openingDue > 0 ? { openingDue, branchId: getOperationalBranchId() || undefined } : {}),
+        branchId: getOperationalBranchId() || undefined,
+        ...(openingDue > 0 ? { openingDue } : {}),
       })
       toast.success(openingDue > 0
         ? `Customer registered · prior credit ${formatCurrency(openingDue)}`

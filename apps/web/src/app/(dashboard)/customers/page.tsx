@@ -598,7 +598,8 @@ function CustomerFormModal({ customer, onClose, onSaved }: {
           email: form.email || undefined,
           city: form.city || undefined,
           address: form.address || undefined,
-          ...(openingDue > 0 ? { openingDue, branchId: getActiveBranchId() || undefined } : {}),
+          branchId: getActiveBranchId() || undefined,
+          ...(openingDue > 0 ? { openingDue } : {}),
         })
         toast.success(openingDue > 0
           ? `Customer created with ${formatCurrency(openingDue)} prior credit`

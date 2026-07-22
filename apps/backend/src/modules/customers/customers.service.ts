@@ -61,7 +61,11 @@ export const customersService = {
   async list(tenantId: string, req: Request) {
     const { skip, limit, page, search } = getPagination(req)
     const branchId = effectiveBranchId(req)
-    const where: any = { tenantId, ...(search && { OR: [{ name: { contains: search, mode: 'insensitive' } }, { phone: { contains: search } }, { email: { contains: search, mode: 'insensitive' } }] }) }
+    const where: any = {
+      tenantId,
+      ...(branchId ? { branchId } : {}),
+      ...(search && { OR: [{ name: { contains: search, mode: 'insensitive' } }, { phone: { contains: search } }, { email: { contains: search, mode: 'insensitive' } }] }),
+    }
     const [raw, total] = await Promise.all([
       prisma.customer.findMany({
         where,
@@ -71,6 +75,7 @@ export const customersService = {
         select: {
           id: true,
           tenantId: true,
+          branchId: true,
           name: true,
           phone: true,
           email: true,
@@ -94,7 +99,11 @@ export const customersService = {
   async getById(tenantId: string, id: string, req?: Request) {
     const branchId = req ? effectiveBranchId(req) : undefined
     const c = await prisma.customer.findFirst({
-      where: { id, tenantId },
+      where: {
+        id,
+        tenantId,
+        ...(branchId ? { branchId } : {}),
+      },
       include: {
         sales: {
           where: branchId ? { branchId } : undefined,
@@ -118,6 +127,17 @@ export const customersService = {
     if (!name) throw new AppError('Customer name is required', 400)
     if (!phone) throw new AppError('Phone number is required', 400)
 
+    let branchId = body.branchId ? String(body.branchId) : undefined
+    if (!branchId) {
+      const branch = await prisma.branch.findFirst({
+        where: { tenantId, isActive: true },
+        orderBy: [{ isDefault: 'desc' }, { isHeadquarters: 'desc' }, { createdAt: 'asc' }],
+        select: { id: true },
+      })
+      branchId = branch?.id
+    }
+    if (!branchId) throw new AppError('Branch is required to create a customer', 400)
+
     const existing = await prisma.customer.findFirst({ where: { tenantId, phone } })
     if (existing) throw new AppError('Phone number already registered', 409)
 
@@ -129,23 +149,15 @@ export const customersService = {
 
     if (openingDue <= 0) {
       return prisma.customer.create({
-        data: { tenantId, name, phone, email, address, city, notes, totalDue: 0 },
+        data: { tenantId, branchId, name, phone, email, address, city, notes, totalDue: 0 },
       })
     }
 
-    let branchId = body.branchId ? String(body.branchId) : undefined
-    if (!branchId) {
-      const branch = await prisma.branch.findFirst({ where: { tenantId, isActive: true }, select: { id: true } })
-      branchId = branch?.id
-    }
-    if (!branchId) throw new AppError('Branch is required to record opening customer credit', 400)
-
-    const round2 = (n: number) => Math.round(n * 100) / 100
     const due = round2(openingDue)
 
     const created = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const customer = await tx.customer.create({
-        data: { tenantId, name, phone, email, address, city, notes, totalDue: due },
+        data: { tenantId, branchId, name, phone, email, address, city, notes, totalDue: due },
       })
 
       const invoiceNumber = await generateInvoiceNumber(tenantId)
@@ -226,11 +238,16 @@ export const customersService = {
   async search(tenantId: string, q: string, req?: Request) {
     const branchId = req ? effectiveBranchId(req) : undefined
     const raw = await prisma.customer.findMany({
-      where: { tenantId, OR: [{ name: { contains: q, mode: 'insensitive' } }, { phone: { contains: q } }] },
+      where: {
+        tenantId,
+        ...(branchId ? { branchId } : {}),
+        OR: [{ name: { contains: q, mode: 'insensitive' } }, { phone: { contains: q } }],
+      },
       take: 10,
       select: {
         id: true,
         tenantId: true,
+        branchId: true,
         name: true,
         phone: true,
         email: true,

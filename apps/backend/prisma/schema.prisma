@@ -265,6 +265,7 @@ model Branch {
   profitWithdrawals           ProfitWithdrawal[]
   imeiRecords                 ImeiRecord[]
   exchanges                   DeviceExchange[]
+  customers                   Customer[]
   glAccounts                  GlAccount[]
   journalEntries              JournalEntry[]
   cashAccounts                CashAccount[]
@@ -434,6 +435,8 @@ model StockMovement {
 model Customer {
   id             String   @id @default(cuid())
   tenantId       String
+  /** Home branch — customer only appears when this branch (or All Branches) is selected. */
+  branchId       String?
   name           String
   phone          String
   email          String?
@@ -448,6 +451,7 @@ model Customer {
   updatedAt      DateTime @updatedAt
 
   tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch      Branch?          @relation(fields: [branchId], references: [id], onDelete: SetNull)
   sales       Sale[]
   repairs     RepairTicket[]
   warranties  Warranty[]
@@ -455,6 +459,7 @@ model Customer {
   exchanges   DeviceExchange[]
 
   @@unique([tenantId, phone])
+  @@index([tenantId, branchId])
 }
 
 // ─────────────── POS / Sale ───────────────
