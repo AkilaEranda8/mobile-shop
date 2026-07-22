@@ -429,7 +429,7 @@ function RegisterCustomerInline({ onBack, onCreated }: { onBack: () => void; onC
           <input className={inputCls} style={inputStyle} type="number" min={0} step="0.01" placeholder="0.00"
             value={form.openingDue} onChange={e => setForm(p => ({ ...p, openingDue: e.target.value }))}
             onKeyDown={e => { if (e.key === 'Enter') submit() }} />
-          <p className="text-[10px] text-white/40 mt-1">Old outstanding before joining this system</p>
+          <p className="text-[10px] text-white/40 mt-1">Old outstanding before Hexalyte — not counted as a shop sale</p>
         </div>
       )}
       <button type="button" onClick={submit} disabled={loading}

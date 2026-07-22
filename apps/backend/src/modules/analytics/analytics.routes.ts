@@ -13,6 +13,7 @@ import {
   resolveBusinessReportRange,
   resolveOptionalBusinessReportRange,
 } from '../report-engine/report-engine.service'
+import { saleWhereExcludeNonRevenue } from '../../constants/business-rules.constants'
 
 const router = Router()
 router.use(authenticate)
@@ -87,13 +88,13 @@ router.get('/dashboard', async (req: Request, res: Response, next: NextFunction)
         ORDER  BY stock ASC
         LIMIT  5
       `,
-      prisma.sale.aggregate({ where: { tenantId, ...branchFilter, status: { not: 'RETURNED' } }, _sum: { total: true } }),
+      prisma.sale.aggregate({ where: { tenantId, ...branchFilter, status: { not: 'RETURNED' }, ...saleWhereExcludeNonRevenue() }, _sum: { total: true } }),
       // Other income (repairs, manual entries) — exclude 'Sales' (already in posRevenue)
       // and legacy 'Opening Cash' drawer-float entries (not revenue).
       prisma.transaction.aggregate({ where: { tenantId, ...branchFilter, type: 'INCOME', category: { notIn: ['Sales', 'Opening Cash'] } }, _sum: { amount: true } }),
       prisma.warranty.count({ where: { tenantId, endDate: { lte: in30End }, status: 'ACTIVE' } }),
       prisma.repairTicket.count({ where: { tenantId, ...branchFilter, status: 'READY' } }),
-      prisma.sale.count({ where: { tenantId, ...branchFilter, status: { not: 'RETURNED' } } }),
+      prisma.sale.count({ where: { tenantId, ...branchFilter, status: { not: 'RETURNED' }, ...saleWhereExcludeNonRevenue() } }),
     ])
 
     const totalRevenue = (posRevenue._sum.total ?? 0) + (otherRevenue._sum.amount ?? 0)
@@ -130,7 +131,7 @@ router.get('/top-products', async (req: Request, res: Response, next: NextFuncti
     const items = await prisma.saleItem.findMany({
       where: {
         productId: { not: null },
-        sale: { tenantId, status: { not: 'RETURNED' }, ...(branchId && { branchId }), ...dateFilter },
+        sale: { tenantId, status: { not: 'RETURNED' }, ...(branchId && { branchId }), ...dateFilter, ...saleWhereExcludeNonRevenue() },
       },
       select: { productId: true, productName: true, sku: true, quantity: true, total: true },
     })

@@ -23,9 +23,23 @@ export const SALE_SOURCES_SKIP_AUTO_JOURNAL = [
   BUSINESS_RULE_KEYS.CREDIT_COLLECTION,
 ] as const
 
+/**
+ * Sale.source values that are AR/ledger documents only — not shop sales revenue.
+ * Prior customer credit (opening balance) must not inflate Sales History, POS totals, or day closing.
+ */
+export const SALE_SOURCES_EXCLUDED_FROM_REVENUE = [
+  BUSINESS_RULE_KEYS.OPENING_BALANCE,
+  BUSINESS_RULE_KEYS.CREDIT_COLLECTION,
+] as const
+
 export type SaleSourceSkipAutoJournal =
   (typeof SALE_SOURCES_SKIP_AUTO_JOURNAL)[number]
 
 export function notesContainOpeningBalance(notes: string | null | undefined): boolean {
   return (notes ?? '').includes(OPENING_BALANCE_NOTES_MARKER)
+}
+
+/** Prisma filter fragment: exclude opening-balance style sales from revenue / sales lists. */
+export function saleWhereExcludeNonRevenue(): { source: { notIn: string[] } } {
+  return { source: { notIn: [...SALE_SOURCES_EXCLUDED_FROM_REVENUE] } }
 }

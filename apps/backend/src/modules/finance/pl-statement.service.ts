@@ -199,7 +199,7 @@ async function buildPeriodIncomeBreakdown(
       ...bf,
       status: { not: 'RETURNED' },
       createdAt: { gte: start, lte: end },
-      source: { not: 'REPAIR' },
+      source: { notIn: ['REPAIR', 'OPENING_BALANCE', 'CREDIT_COLLECTION'] },
     },
     include: {
       items: { include: { product: { include: { category: true } } } },

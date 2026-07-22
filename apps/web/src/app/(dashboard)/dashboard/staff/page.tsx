@@ -8,6 +8,7 @@ import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { useUsers, useBranches } from '@/lib/hooks'
 import { usersApi, tenantApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
+import { getOperationalBranchId } from '@/lib/active-branch'
 import toast from 'react-hot-toast'
 import {
   ROLE_PERMISSION_MODULES,
@@ -240,10 +241,21 @@ function PermissionMatrixPanel({ canEdit }: { canEdit: boolean }) {
 }
 
 function StaffFormModal({
-  staff, branches, onClose, onSaved,
-}: { staff?: any; branches: Array<{ id: string; name: string }>; onClose: () => void; onSaved: () => void }) {
+  staff, branches, defaultBranchId, onClose, onSaved,
+}: {
+  staff?: any
+  branches: Array<{ id: string; name: string }>
+  defaultBranchId?: string
+  onClose: () => void
+  onSaved: () => void
+}) {
   const isEdit = !!staff
-  const initialBranchIds = staff?.branches?.map((b: { branchId: string }) => b.branchId) ?? (branches.length === 1 ? [branches[0].id] : [])
+  const initialBranchIds = staff?.branches?.map((b: { branchId: string }) => b.branchId)
+    ?? (branches.length === 1
+      ? [branches[0].id]
+      : defaultBranchId && branches.some(b => b.id === defaultBranchId)
+        ? [defaultBranchId]
+        : [])
   const [form, setForm] = useState({
     name:     staff?.name     ?? '',
     email:    staff?.email    ?? '',
@@ -262,7 +274,13 @@ function StaffFormModal({
     e.preventDefault()
     setLoading(true)
     try {
-      const branchIds = branches.length === 1 ? [branches[0].id] : form.branchIds
+      let branchIds = branches.length === 1 ? [branches[0].id] : form.branchIds
+      if (!branchIds.length && defaultBranchId) branchIds = [defaultBranchId]
+      if (!branchIds.length) {
+        toast.error('Select at least one branch for this staff member')
+        setLoading(false)
+        return
+      }
       if (isEdit) {
         const body: any = { name: form.name, phone: form.phone, role: form.role, isActive: form.isActive, branchIds }
         if (form.password) body.password = form.password
@@ -401,7 +419,7 @@ function DeleteConfirmModal({ name, onConfirm, onClose, loading }: { name: strin
 export default function StaffPage() {
   const searchParams = useSearchParams()
   const [search, setSearch] = useState('')
-  const [branchFilter, setBranchFilter] = useState('')
+  const [branchFilter, setBranchFilter] = useState(() => getOperationalBranchId() ?? '')
   const [tab, setTab] = useState<'staff' | 'permissions'>('staff')
   const [showAdd, setShowAdd] = useState(false)
   const [editStaff, setEditStaff] = useState<any>(null)
@@ -409,6 +427,7 @@ export default function StaffPage() {
   const [deleteLoading, setDeleteLoading] = useState(false)
   const actorRole = authStorage.getUser()?.role
   const canEditMatrix = actorRole === 'OWNER' || actorRole === 'PLATFORM_ADMIN'
+  const defaultBranchId = getOperationalBranchId()
 
   useEffect(() => {
     const action = searchParams.get('action')
@@ -416,12 +435,27 @@ export default function StaffPage() {
     if (searchParams.get('tab') === 'permissions') setTab('permissions')
   }, [searchParams])
 
+  useEffect(() => {
+    const syncBranch = () => {
+      const id = getOperationalBranchId()
+      if (id) setBranchFilter(id)
+    }
+    syncBranch()
+    window.addEventListener('active-branch-changed', syncBranch)
+    return () => window.removeEventListener('active-branch-changed', syncBranch)
+  }, [])
+
   const { data: branchesRaw } = useBranches()
   const branches = ((branchesRaw as any[]) ?? []).map((b: any) => ({ id: b.id, name: b.name }))
   const listParams: Record<string, string> = {}
   if (search) listParams.search = search
-  if (branchFilter) listParams.branchId = branchFilter
-  const { data, loading, refetch } = useUsers(Object.keys(listParams).length ? listParams : undefined)
+  // Scope to branch: assigned staff only. Owner may clear filter to see everyone.
+  if (branchFilter) {
+    listParams.branchId = branchFilter
+  } else if (!canEditMatrix && defaultBranchId) {
+    listParams.branchId = defaultBranchId
+  }
+  const { data, loading, refetch } = useUsers(listParams)
   const users: any[] = (data?.data ?? []) as any[]
   const activeCount = users.filter((u: any) => u.isActive).length
 
@@ -442,8 +476,23 @@ export default function StaffPage() {
 
   return (
     <div className="space-y-6">
-      {showAdd      && <StaffFormModal branches={branches} onClose={() => setShowAdd(false)} onSaved={refetch} />}
-      {editStaff    && <StaffFormModal staff={editStaff} branches={branches} onClose={() => setEditStaff(null)} onSaved={refetch} />}
+      {showAdd      && (
+        <StaffFormModal
+          branches={branches}
+          defaultBranchId={branchFilter || defaultBranchId}
+          onClose={() => setShowAdd(false)}
+          onSaved={refetch}
+        />
+      )}
+      {editStaff    && (
+        <StaffFormModal
+          staff={editStaff}
+          branches={branches}
+          defaultBranchId={branchFilter || defaultBranchId}
+          onClose={() => setEditStaff(null)}
+          onSaved={refetch}
+        />
+      )}
       {deleteTarget && <DeleteConfirmModal name={deleteTarget.name} loading={deleteLoading} onConfirm={handleDelete} onClose={() => setDeleteTarget(null)} />}
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -476,13 +525,16 @@ export default function StaffPage() {
             />
             {branches.length > 1 && (
               <FilterDropdown
-                value={branchFilter}
-                onChange={setBranchFilter}
-                options={[{ value: '', label: 'All Branches' }, ...branches.map(b => ({ value: b.id, label: b.name }))]}
+                value={canEditMatrix ? branchFilter : (branchFilter || defaultBranchId || '')}
+                onChange={(v) => setBranchFilter(v)}
+                options={[
+                  ...(canEditMatrix ? [{ value: '', label: 'All Branches' }] : []),
+                  ...branches.map(b => ({ value: b.id, label: b.name })),
+                ]}
                 icon={Building2}
-                placeholder="All Branches"
-                active={!!branchFilter}
-                onClear={() => setBranchFilter('')}
+                placeholder="Branch"
+                active={canEditMatrix ? branchFilter !== '' : !!(branchFilter || defaultBranchId)}
+                onClear={canEditMatrix ? () => setBranchFilter('') : undefined}
               />
             )}
           </div>

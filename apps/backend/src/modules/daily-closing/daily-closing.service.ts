@@ -13,6 +13,7 @@ import { isReloadSaleItem } from '../finance/reload-item.util'
 import { saleItemCogsSql } from '../../utils/sale-item-cost.util'
 import { isTenantFeatureEnabled } from '../../utils/tenant-feature.util'
 import { revertSavedProfitAllocation } from '../profit-allocation/revert-allocation.util'
+import { saleWhereExcludeNonRevenue } from '../../constants/business-rules.constants'
 
 export interface CashCountInput {
   d5000?: number
@@ -84,6 +85,7 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
     branchId,
     status: { not: 'RETURNED' as const },
     createdAt: { gte: start, lte: end },
+    ...saleWhereExcludeNonRevenue(),
   }
   const txWhere = {
     ...branchFilter,
@@ -363,7 +365,13 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
   const prevKey = previousBusinessDate(dateKey)
   const { start: prevStart, end: prevEnd } = parseDateRange(prevKey)
   const prevSalesAgg = await prisma.sale.aggregate({
-    where: { tenantId, branchId, status: { not: 'RETURNED' }, createdAt: { gte: prevStart, lte: prevEnd } },
+    where: {
+      tenantId,
+      branchId,
+      status: { not: 'RETURNED' },
+      createdAt: { gte: prevStart, lte: prevEnd },
+      ...saleWhereExcludeNonRevenue(),
+    },
     _sum: { total: true },
   })
   const prevSalesTotal = Number(prevSalesAgg._sum.total ?? 0)

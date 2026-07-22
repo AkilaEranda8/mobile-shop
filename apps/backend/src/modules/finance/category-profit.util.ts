@@ -29,7 +29,7 @@ export async function buildCategoryCostMap(tenantId: string, branchId: string, d
         branchId,
         status: { not: 'RETURNED' },
         createdAt: { gte: start, lte: end },
-        source: { not: 'REPAIR' },
+        source: { notIn: ['REPAIR', 'OPENING_BALANCE', 'CREDIT_COLLECTION'] },
       },
       include: {
         items: { include: { product: { select: { buyingPrice: true, storageVariations: true, trackImei: true, category: true } } } },

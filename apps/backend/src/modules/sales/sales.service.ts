@@ -13,13 +13,23 @@ import { resolveSaleItemUnitCost } from '../../utils/sale-item-cost.util'
 import { applySaleStockEffectsIfEnabled } from '../inventory-engine/inventory-engine.service'
 import { applySalePricingIfEnabled } from '../pricing-engine/pricing-engine.service'
 import { buildReportFilterContext } from '../report-engine/report-engine.service'
+import { saleWhereExcludeNonRevenue } from '../../constants/business-rules.constants'
 
 export const salesService = {
   async list(tenantId: string, req: Request) {
     const { skip, limit, page, search, branchId } = buildReportFilterContext(req)
     const status = req.query.status as string | undefined
     const customerId = req.query.customerId as string | undefined
-    const where: any = { tenantId, ...(branchId && { branchId }), ...(status && { status }), ...(customerId && { customerId }), ...(search && { OR: [{ invoiceNumber: { contains: search, mode: 'insensitive' } }, { customerName: { contains: search, mode: 'insensitive' } }, { customerPhone: { contains: search } }] }) }
+    const includeOpening = req.query.includeOpening === '1' || req.query.includeOpening === 'true'
+    const where: any = {
+      tenantId,
+      ...(branchId && { branchId }),
+      ...(status && { status }),
+      ...(customerId && { customerId }),
+      ...(search && { OR: [{ invoiceNumber: { contains: search, mode: 'insensitive' } }, { customerName: { contains: search, mode: 'insensitive' } }, { customerPhone: { contains: search } }] }),
+      // Prior credit / opening AR invoices are not real shop sales
+      ...(!includeOpening && !customerId ? saleWhereExcludeNonRevenue() : {}),
+    }
     const [data, total] = await Promise.all([
       prisma.sale.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { items: true, payments: true, _count: { select: { returns: true } }, returns: { select: { refundAmount: true } } } }),
       prisma.sale.count({ where }),

@@ -695,7 +695,7 @@ function CustomerFormModal({ customer, onClose, onSaved }: {
                 />
               </div>
               <p className="mt-1.5 text-[10px]" style={{ color: 'var(--text-muted)' }}>
-                Old credit balance from before Hexalyte — recorded as opening outstanding
+                Old credit from before Hexalyte — stored as customer outstanding only (not counted as a shop sale)
               </p>
             </div>
           )}
