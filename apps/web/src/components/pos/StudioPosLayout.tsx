@@ -8,6 +8,7 @@ import {
 import { googleFontsHref } from '@/lib/appearance'
 import type { HexaPosLayoutProps, PosNavItem } from './HexaPosLayout'
 import { resolvePosTheme } from './pos-theme'
+import { PosCartResizeHandle, usePosCartResize } from './usePosCartResize'
 
 const NAV_FALLBACK: PosNavItem[] = [
   { id: 'products', label: 'Products', icon: LayoutGrid },
@@ -69,10 +70,10 @@ export function StudioPosLayout(props: HexaPosLayoutProps) {
   const showBottom = layoutPrefs?.showBottomActions !== false
   const cartLeft = layoutPrefs?.cartPosition === 'left'
   const compact = layoutPrefs?.density === 'compact'
-  const cartW =
-    layoutPrefs?.cartWidth === 'narrow' ? 'w-full lg:w-[320px] xl:w-[360px] 2xl:w-[400px]'
-    : layoutPrefs?.cartWidth === 'medium' ? 'w-full lg:w-[420px] xl:w-[460px] 2xl:w-[500px]'
-    : 'w-full lg:w-[480px] xl:w-[540px] 2xl:w-[600px]'
+  const { widthPx, dragging, startResize, resetWidth } = usePosCartResize(
+    layoutPrefs?.cartWidth ?? 'wide',
+    cartLeft,
+  )
 
   const productsCol = (
     <div
@@ -98,7 +99,8 @@ export function StudioPosLayout(props: HexaPosLayoutProps) {
     <div
       className={`flex-col min-h-0 min-w-0 ${
         showCartPane ? 'flex' : 'hidden'
-      } lg:flex ${cartW} shrink-0 p-2 lg:p-2.5`}
+      } lg:flex w-full lg:w-[var(--pos-cart-w)] shrink-0 p-2 lg:p-2.5`}
+      style={{ ['--pos-cart-w' as string]: `${widthPx}px` }}
     >
       <div
         className="flex-1 flex flex-col min-h-0 rounded-2xl overflow-hidden border"
@@ -111,6 +113,16 @@ export function StudioPosLayout(props: HexaPosLayoutProps) {
         {cartPanel}
       </div>
     </div>
+  )
+
+  const resizeHandle = (
+    <PosCartResizeHandle
+      onPointerDown={startResize}
+      onDoubleClick={resetWidth}
+      dragging={dragging}
+      accent={T.purple}
+      border={T.border}
+    />
   )
 
   return (
@@ -311,11 +323,13 @@ export function StudioPosLayout(props: HexaPosLayoutProps) {
         {cartLeft ? (
           <>
             {cartCol}
+            {resizeHandle}
             {productsCol}
           </>
         ) : (
           <>
             {productsCol}
+            {resizeHandle}
             {cartCol}
           </>
         )}
