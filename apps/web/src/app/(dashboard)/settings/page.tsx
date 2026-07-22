@@ -1104,9 +1104,9 @@ export default function SettingsPage() {
                             layout: { ...p.layout, cartWidth: e.target.value as PosUiSettings['layout']['cartWidth'] },
                           }))}
                         >
-                          <option value="narrow">Narrow (~300px)</option>
-                          <option value="medium">Medium (~400px)</option>
-                          <option value="wide">Wide (~480px)</option>
+                          <option value="narrow">Narrow (~340px)</option>
+                          <option value="medium">Medium (~460px)</option>
+                          <option value="wide">Wide (~540px)</option>
                         </select>
                       </div>
                       <div className="min-w-0 space-y-1.5">

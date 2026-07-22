@@ -8,7 +8,7 @@ import {
   SlidersHorizontal, type LucideIcon,
 } from 'lucide-react'
 import { resolvePosTheme, type PosThemeId } from './pos-theme'
-import { cartWidthClass, type PosUiSettings } from '@/lib/posUiSettings'
+import type { PosUiSettings } from '@/lib/posUiSettings'
 
 export function categoryIcon(name: string) {
   const n = name.toLowerCase()
@@ -118,7 +118,11 @@ export function HexaPosLayout({
   const cartLeft = layoutPrefs?.cartPosition === 'left'
   const railW = layoutPrefs?.density === 'compact' ? 'w-[72px]' : 'w-[84px]'
   const isLight = layoutPrefs?.theme === 'hexa-light'
-  const cartW = cartWidthClass(layoutPrefs?.cartWidth ?? 'wide')
+  // Class strings must also appear here so Tailwind always emits them (lib scan can lag).
+  const cartW =
+    layoutPrefs?.cartWidth === 'narrow' ? 'w-full lg:w-[320px] xl:w-[360px] 2xl:w-[400px]'
+    : layoutPrefs?.cartWidth === 'medium' ? 'w-full lg:w-[420px] xl:w-[460px] 2xl:w-[500px]'
+    : 'w-full lg:w-[480px] xl:w-[540px] 2xl:w-[600px]'
 
   const productsCol = (
     <div

@@ -163,15 +163,18 @@ export function gridColsClass(columns: 3 | 4 | 5 | 6): string {
   }
 }
 
-/** Desktop cart column width classes (full width on mobile). */
+/** Desktop cart column width classes (full width on mobile).
+ * Keep class strings complete — Tailwind scans this file via content: src/lib.
+ */
 export function cartWidthClass(width: PosUiSettings['layout']['cartWidth'] = 'wide'): string {
   switch (width) {
     case 'narrow':
-      return 'w-full lg:w-[min(300px,34vw)] xl:w-[340px] 2xl:w-[380px]'
+      return 'w-full lg:w-[320px] xl:w-[360px] 2xl:w-[400px]'
     case 'medium':
-      return 'w-full lg:w-[min(380px,36vw)] xl:w-[420px] 2xl:w-[460px]'
+      return 'w-full lg:w-[420px] xl:w-[460px] 2xl:w-[500px]'
     default:
-      return 'w-full lg:w-[min(440px,40vw)] xl:w-[480px] 2xl:w-[520px]'
+      // wide — default; enough room for names, qty, LKR totals on laptop+
+      return 'w-full lg:w-[480px] xl:w-[540px] 2xl:w-[600px]'
   }
 }
 
