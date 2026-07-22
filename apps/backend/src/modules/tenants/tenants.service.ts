@@ -8,6 +8,7 @@ import {
   listConfigDomains,
   setTenantConfig,
 } from '../configuration-engine/configuration-engine.service'
+import { normalizeRolePermissions } from './role-permissions.util'
 
 const OWNER_ROLES = new Set(['OWNER', 'PLATFORM_ADMIN'])
 
@@ -88,6 +89,23 @@ export const tenantsService = {
 
   async updatePosUiSettings(tenantId: string, body: Record<string, unknown>) {
     return setTenantConfig(tenantId, 'posUi', body)
+  },
+
+  async getRolePermissions(tenantId: string) {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { rolePermissions: true },
+    })
+    return normalizeRolePermissions(tenant?.rolePermissions)
+  },
+
+  async updateRolePermissions(tenantId: string, body: unknown) {
+    const normalized = normalizeRolePermissions(body)
+    await prisma.tenant.update({
+      where: { id: tenantId },
+      data: { rolePermissions: normalized },
+    })
+    return normalized
   },
 
   async getBranches(tenantId: string, userId: string, role: string) {

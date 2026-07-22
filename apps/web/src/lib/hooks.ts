@@ -9,6 +9,15 @@ import {
 import { isFeatureEnabled, clearFeaturesCache, PRICED_FEATURES } from './tenant-features'
 import { normalizeRepairTicket } from './repair.util'
 import { getActiveBranchId } from './active-branch'
+import { authStorage } from './auth'
+import {
+  DEFAULT_ROLE_PERMISSIONS,
+  normalizeRolePermissions,
+  canViewModule,
+  canEditModule,
+  getAccessForRole,
+  type RolePermissionModuleKey,
+} from './role-permissions'
 
 /** Re-renders when the header branch switcher changes. */
 export function useActiveBranchId(): string | undefined {
@@ -96,6 +105,64 @@ export function useTenantFeatures() {
 export function useFeatureFlag(feature: string): boolean {
   const { hasFeature } = useTenantFeatures()
   return hasFeature(feature)
+}
+
+const ROLE_PERMS_CACHE_KEY = 'hx_role_permissions'
+
+export function useRolePermissions() {
+  const [matrix, setMatrix] = useState(() => {
+    try {
+      const raw = localStorage.getItem(ROLE_PERMS_CACHE_KEY)
+      if (raw) return normalizeRolePermissions(JSON.parse(raw))
+    } catch { /* noop */ }
+    return DEFAULT_ROLE_PERMISSIONS
+  })
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(async () => {
+    try {
+      const res: any = await tenantApi.myRolePermissions()
+      const data = normalizeRolePermissions(res?.data ?? res)
+      setMatrix(data)
+      try { localStorage.setItem(ROLE_PERMS_CACHE_KEY, JSON.stringify(data)) } catch { /* noop */ }
+      return data
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    load().catch(() => setLoading(false))
+  }, [load])
+
+  useEffect(() => {
+    const onUpdated = () => { load().catch(() => {}) }
+    window.addEventListener('role-permissions-updated', onUpdated)
+    return () => window.removeEventListener('role-permissions-updated', onUpdated)
+  }, [load])
+
+  const canView = useCallback(
+    (moduleKey: RolePermissionModuleKey) => canViewModule(matrix, authStorage.getUser()?.role, moduleKey),
+    [matrix],
+  )
+  const canEdit = useCallback(
+    (moduleKey: RolePermissionModuleKey) => canEditModule(matrix, authStorage.getUser()?.role, moduleKey),
+    [matrix],
+  )
+  const access = useCallback(
+    (moduleKey: RolePermissionModuleKey) => getAccessForRole(matrix, authStorage.getUser()?.role, moduleKey),
+    [matrix],
+  )
+
+  return { matrix, loading, canView, canEdit, access, refetch: load }
+}
+
+/** Buying price / cost / margin — Owner always sees; staff via Permission Matrix → Product Cost. */
+export function useCanSeeProductCost(): boolean {
+  const role = authStorage.getUser()?.role
+  if (role === 'OWNER' || role === 'PLATFORM_ADMIN') return true
+  const { canView } = useRolePermissions()
+  return canView('PRODUCT_COST')
 }
 
 export function usePlatformStatus(pollMs = 60_000) {

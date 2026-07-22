@@ -2,13 +2,24 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { UserCheck, Plus, Search, CheckCircle, XCircle, X, Loader2, Mail, Clock, Edit2, Trash2, AlertTriangle, Building2 } from 'lucide-react'
+import { UserCheck, Plus, X, Loader2, Mail, Clock, Edit2, Trash2, AlertTriangle, Building2, Eye, EyeOff, Save, CheckCircle } from 'lucide-react'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { useUsers, useBranches } from '@/lib/hooks'
-import { usersApi } from '@/lib/api'
+import { usersApi, tenantApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import toast from 'react-hot-toast'
+import {
+  ROLE_PERMISSION_MODULES,
+  STAFF_ROLES,
+  ACCESS_LEVEL_META,
+  DEFAULT_ROLE_PERMISSIONS,
+  normalizeRolePermissions,
+  type RoleAccessLevel,
+  type RolePermissionMatrix,
+  type StaffRole,
+  type RolePermissionModuleKey,
+} from '@/lib/role-permissions'
 
 const roleConfig: Record<string, { label: string; color: string; bg: string; border: string }> = {
   OWNER: { label: 'Owner', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
@@ -18,19 +29,6 @@ const roleConfig: Record<string, { label: string; color: string; bg: string; bor
 }
 
 const avatarColors = ['from-violet-600/40 to-violet-800/40', 'from-cyan-600/40 to-cyan-800/40', 'from-green-600/40 to-green-800/40', 'from-amber-600/40 to-amber-800/40', 'from-blue-600/40 to-blue-800/40']
-
-const permissionMatrix = [
-  { feature: 'Dashboard', owner: true, manager: true, technician: false, sales: false },
-  { feature: 'Point of Sale', owner: true, manager: true, technician: false, sales: true },
-  { feature: 'Inventory', owner: true, manager: true, technician: false, sales: false },
-  { feature: 'Product Traceability', owner: true, manager: true, technician: false, sales: false },
-  { feature: 'Repair Jobs', owner: true, manager: true, technician: true, sales: false },
-  { feature: 'Customers', owner: true, manager: true, technician: false, sales: true },
-  { feature: 'Finance', owner: true, manager: true, technician: false, sales: false },
-  { feature: 'Reports', owner: true, manager: true, technician: false, sales: false },
-  { feature: 'Staff', owner: true, manager: false, technician: false, sales: false },
-  { feature: 'Settings', owner: true, manager: false, technician: false, sales: false },
-]
 
 const BASE_ROLE_OPTIONS = [
   { value: 'MANAGER',    label: 'Manager'    },
@@ -43,6 +41,202 @@ function roleOptionsFor(actorRole?: string) {
     return [{ value: 'OWNER', label: 'Owner' }, ...BASE_ROLE_OPTIONS]
   }
   return BASE_ROLE_OPTIONS
+}
+
+function cycleAccess(current: RoleAccessLevel): RoleAccessLevel {
+  if (current === 'hide') return 'view'
+  if (current === 'view') return 'edit'
+  return 'hide'
+}
+
+function AccessCell({
+  level,
+  locked,
+  onChange,
+}: {
+  level: RoleAccessLevel
+  locked?: boolean
+  onChange?: (next: RoleAccessLevel) => void
+}) {
+  const meta = ACCESS_LEVEL_META[level]
+  const Icon = level === 'hide' ? EyeOff : level === 'view' ? Eye : CheckCircle
+  if (locked || !onChange) {
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] font-semibold ${meta.className}`}
+        title={meta.label}
+      >
+        <Icon size={12} />
+        {meta.label}
+      </span>
+    )
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(cycleAccess(level))}
+      className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] font-semibold transition hover:brightness-110 ${meta.className}`}
+      title={`Click to cycle: Hide → View → Edit (now ${meta.label})`}
+    >
+      <Icon size={12} />
+      {meta.label}
+    </button>
+  )
+}
+
+function PermissionMatrixPanel({ canEdit }: { canEdit: boolean }) {
+  const [matrix, setMatrix] = useState<RolePermissionMatrix>(DEFAULT_ROLE_PERMISSIONS)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [dirty, setDirty] = useState(false)
+  const tenantId = authStorage.getUser()?.tenantId
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      if (!tenantId) {
+        setLoading(false)
+        return
+      }
+      try {
+        const res: any = await tenantApi.getRolePermissions(tenantId)
+        if (cancelled) return
+        setMatrix(normalizeRolePermissions(res?.data ?? res))
+        setDirty(false)
+      } catch {
+        if (!cancelled) toast.error('Failed to load permission matrix')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [tenantId])
+
+  const setCell = (role: StaffRole, key: RolePermissionModuleKey, level: RoleAccessLevel) => {
+    if (role === 'OWNER') return
+    setMatrix((prev) => ({
+      ...prev,
+      [role]: { ...prev[role], [key]: level },
+    }))
+    setDirty(true)
+  }
+
+  const handleSave = async () => {
+    if (!tenantId || !canEdit) return
+    setSaving(true)
+    try {
+      const res: any = await tenantApi.updateRolePermissions(tenantId, matrix)
+      const next = normalizeRolePermissions(res?.data ?? res)
+      setMatrix(next)
+      setDirty(false)
+      try { localStorage.setItem('hx_role_permissions', JSON.stringify(next)) } catch { /* noop */ }
+      window.dispatchEvent(new Event('role-permissions-updated'))
+      toast.success('Permission matrix saved')
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to save permissions')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleReset = () => {
+    setMatrix(DEFAULT_ROLE_PERMISSIONS)
+    setDirty(true)
+  }
+
+  if (loading) {
+    return (
+      <div className="card p-8 flex items-center justify-center gap-2 text-sm text-slate-500">
+        <Loader2 size={16} className="animate-spin" /> Loading permission matrix…
+      </div>
+    )
+  }
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="p-4 border-b border-white/5 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Role Permission Matrix</h3>
+          <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">
+            {canEdit
+              ? 'You (Owner) can enable or hide any feature for Manager, Cashier, and Technician. Click a cell: Hide → View → Edit, then Save. Owner column stays full access.'
+              : 'Hide removes the feature from staff. View allows read-only. Edit allows full use. Only the owner can change this matrix.'}
+          </p>
+        </div>
+        {canEdit && (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button type="button" onClick={handleReset} className="btn-secondary text-xs px-3 py-1.5">
+              Reset defaults
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!dirty || saving}
+              className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1.5 disabled:opacity-50"
+            >
+              {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+              Save
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="px-4 py-2 border-b border-white/5 flex flex-wrap gap-3 text-[11px] text-slate-500">
+        {(['hide', 'view', 'edit'] as RoleAccessLevel[]).map((lvl) => (
+          <span key={lvl} className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 ${ACCESS_LEVEL_META[lvl].className}`}>
+            {ACCESS_LEVEL_META[lvl].label}
+          </span>
+        ))}
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px]">
+          <thead>
+            <tr className="border-b border-white/5">
+              <th className="table-header text-left">Feature</th>
+              {STAFF_ROLES.map((role) => (
+                <th key={role} className="table-header text-center">
+                  {roleConfig[role]?.label ?? role}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/3">
+            {ROLE_PERMISSION_MODULES.map((mod) => (
+              <tr key={mod.key} className="hover:bg-white/2">
+                <td className="table-cell text-sm font-medium text-gray-700 dark:text-slate-300">
+                  <div>{mod.label}</div>
+                  {mod.key === 'PRODUCT_COST' && (
+                    <p className="text-[10px] font-normal text-slate-500 mt-0.5">
+                      Buying price &amp; margin. Set View/Edit on staff columns to enable for them.
+                    </p>
+                  )}
+                </td>
+                {STAFF_ROLES.map((role) => (
+                  <td key={role} className="table-cell text-center">
+                    <AccessCell
+                      level={matrix[role][mod.key]}
+                      locked={role === 'OWNER' || !canEdit}
+                      onChange={
+                        role === 'OWNER' || !canEdit
+                          ? undefined
+                          : (next) => setCell(role, mod.key, next)
+                      }
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {dirty && canEdit && (
+        <div className="px-4 py-2 border-t border-amber-500/20 bg-amber-500/5 text-xs text-amber-300">
+          Unsaved changes — click Save to apply for all staff.
+        </div>
+      )}
+    </div>
+  )
 }
 
 function StaffFormModal({
@@ -213,10 +407,13 @@ export default function StaffPage() {
   const [editStaff, setEditStaff] = useState<any>(null)
   const [deleteTarget, setDeleteTarget] = useState<any>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const actorRole = authStorage.getUser()?.role
+  const canEditMatrix = actorRole === 'OWNER' || actorRole === 'PLATFORM_ADMIN'
 
   useEffect(() => {
     const action = searchParams.get('action')
     if (action === 'add' || action === 'new' || searchParams.get('new') === '1') setShowAdd(true)
+    if (searchParams.get('tab') === 'permissions') setTab('permissions')
   }, [searchParams])
 
   const { data: branchesRaw } = useBranches()
@@ -358,42 +555,7 @@ export default function StaffPage() {
         </>
       )}
 
-      {tab === 'permissions' && (
-        <div className="card overflow-hidden">
-          <div className="p-4 border-b border-white/5">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Role Permission Matrix</h3>
-            <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">Access control per role</p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-white/5">
-                  <th className="table-header">Feature</th>
-                  <th className="table-header text-center">Owner</th>
-                  <th className="table-header text-center">Manager</th>
-                  <th className="table-header text-center">Technician</th>
-                  <th className="table-header text-center">Sales Staff</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/3">
-                {permissionMatrix.map(p => (
-                  <tr key={p.feature} className="hover:bg-white/2">
-                    <td className="table-cell text-sm font-medium text-gray-700 dark:text-slate-300">{p.feature}</td>
-                    {[p.owner, p.manager, p.technician, p.sales].map((has, i) => (
-                      <td key={i} className="table-cell text-center">
-                        {has
-                          ? <CheckCircle size={16} className="text-green-400 mx-auto" />
-                          : <XCircle size={16} className="text-slate-700 mx-auto" />
-                        }
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {tab === 'permissions' && <PermissionMatrixPanel canEdit={canEditMatrix} />}
     </div>
   )
 }

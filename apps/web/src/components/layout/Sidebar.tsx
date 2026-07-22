@@ -13,12 +13,23 @@ import { cn } from '@/lib/utils'
 import { authStorage } from '@/lib/auth'
 import { authApi, tenantApi } from '@/lib/api'
 import { fetchInvoiceSettings, getInvoiceSettings } from '@/lib/invoiceSettings'
-import { useTenantFeatures } from '@/lib/hooks'
+import { useTenantFeatures, useRolePermissions } from '@/lib/hooks'
 import { usePos } from '@/lib/use-pos'
 import { getActiveBranchId, getBranchLabel, getVisibleBranches } from '@/lib/active-branch'
+import type { RolePermissionModuleKey } from '@/lib/role-permissions'
 import type { LucideIcon } from 'lucide-react'
 
-type NavSubItem = { href: string; icon: LucideIcon; label: string; feature?: string; badge?: string }
+type NavSubItem = {
+  href: string
+  icon: LucideIcon
+  label: string
+  feature?: string
+  badge?: string
+  /** Role permission module key */
+  permission?: string
+  /** Require Edit (hide from View-only roles) */
+  requiresEdit?: boolean
+}
 
 type NavItem = {
   href: string
@@ -28,65 +39,67 @@ type NavItem = {
   feature?: string
   openPos?: boolean
   ownerOnly?: boolean
+  permission?: string
+  requiresEdit?: boolean
   submenu?: NavSubItem[]
 }
 
 type NavGroup = { label: string; items: NavItem[] }
 
 const inventorySubmenu: NavSubItem[] = [
-  { href: '/inventory', icon: Package, label: 'All Products' },
-  { href: '/inventory/add-product', icon: Plus, label: 'Add Product' },
-  { href: '/dashboard/stock-transfer', icon: ArrowLeftRight, label: 'Stock Transfer', badge: 'NEW' },
+  { href: '/inventory', icon: Package, label: 'All Products', permission: 'INVENTORY' },
+  { href: '/inventory/add-product', icon: Plus, label: 'Add Product', permission: 'INVENTORY', requiresEdit: true },
+  { href: '/dashboard/stock-transfer', icon: ArrowLeftRight, label: 'Stock Transfer', badge: 'NEW', permission: 'INVENTORY', requiresEdit: true },
 ]
 
 const suppliersSubmenu: NavSubItem[] = [
-  { href: '/dashboard/suppliers', icon: Truck, label: 'All Suppliers' },
-  { href: '/dashboard/supplier-payments', icon: Wallet, label: 'Supplier Payments', badge: 'NEW' },
+  { href: '/dashboard/suppliers', icon: Truck, label: 'All Suppliers', permission: 'SUPPLIERS' },
+  { href: '/dashboard/supplier-payments', icon: Wallet, label: 'Supplier Payments', badge: 'NEW', permission: 'SUPPLIERS', requiresEdit: true },
 ]
 
 const accountingSubmenu: NavSubItem[] = [
-  { href: '/dashboard/accounting', icon: BookOpen, label: 'Overview' },
-  { href: '/dashboard/accounting/journals', icon: FileText, label: 'GL Journals' },
-  { href: '/dashboard/accounting/reports', icon: BarChart3, label: 'GL Reports' },
-  { href: '/dashboard/accounting/ar-ap', icon: Users, label: 'AR / AP' },
-  { href: '/dashboard/accounting/cash-bank', icon: Landmark, label: 'Cash & Bank' },
-  { href: '/dashboard/accounting/tax', icon: ReceiptText, label: 'VAT / Tax' },
-  { href: '/dashboard/accounting/petty-cash', icon: Wallet, label: 'Petty Cash' },
-  { href: '/dashboard/accounting/payroll', icon: Users, label: 'Payroll' },
-  { href: '/dashboard/accounting/periods', icon: Calendar, label: 'Periods' },
-  { href: '/dashboard/accounting/audit', icon: Shield, label: 'Audit Trail' },
-  { href: '/dashboard/accounting/settings', icon: Settings, label: 'Settings' },
+  { href: '/dashboard/accounting', icon: BookOpen, label: 'Overview', permission: 'ACCOUNTING' },
+  { href: '/dashboard/accounting/journals', icon: FileText, label: 'GL Journals', permission: 'ACCOUNTING', requiresEdit: true },
+  { href: '/dashboard/accounting/reports', icon: BarChart3, label: 'GL Reports', permission: 'ACCOUNTING' },
+  { href: '/dashboard/accounting/ar-ap', icon: Users, label: 'AR / AP', permission: 'ACCOUNTING' },
+  { href: '/dashboard/accounting/cash-bank', icon: Landmark, label: 'Cash & Bank', permission: 'ACCOUNTING' },
+  { href: '/dashboard/accounting/tax', icon: ReceiptText, label: 'VAT / Tax', permission: 'ACCOUNTING' },
+  { href: '/dashboard/accounting/petty-cash', icon: Wallet, label: 'Petty Cash', permission: 'ACCOUNTING', requiresEdit: true },
+  { href: '/dashboard/accounting/payroll', icon: Users, label: 'Payroll', permission: 'ACCOUNTING', requiresEdit: true },
+  { href: '/dashboard/accounting/periods', icon: Calendar, label: 'Periods', permission: 'ACCOUNTING', requiresEdit: true },
+  { href: '/dashboard/accounting/audit', icon: Shield, label: 'Audit Trail', permission: 'ACCOUNTING' },
+  { href: '/dashboard/accounting/settings', icon: Settings, label: 'Settings', permission: 'ACCOUNTING', requiresEdit: true },
 ]
 
 const reportsSubmenu: NavSubItem[] = [
-  { href: '/dashboard/reports/overview', icon: BarChart3, label: 'Overview', feature: 'REPORTS' },
-  { href: '/dashboard/reports/sales', icon: ShoppingCart, label: 'Sales', feature: 'REPORTS' },
-  { href: '/dashboard/reports/pl', icon: DollarSign, label: 'P&L Report', feature: 'REPORTS' },
-  { href: '/dashboard/reports/cashflow', icon: Activity, label: 'Cash Flow', feature: 'REPORTS' },
-  { href: '/dashboard/reports/inventory', icon: Package, label: 'Inventory', feature: 'REPORTS' },
-  { href: '/dashboard/reports/repairs', icon: Wrench, label: 'Repairs', feature: 'REPORTS' },
-  { href: '/dashboard/reports/delivery', icon: Truck, label: 'Delivery', feature: 'REPORTS' },
-  { href: '/dashboard/daily-reload-report', icon: PhoneCall, label: 'Daily Reload Report', badge: 'NEW', feature: 'DAILY_RELOAD' },
-  { href: '/dashboard/category-report', icon: Tag, label: 'Category Report', badge: 'NEW', feature: 'REPORTS' },
-  { href: '/dashboard/customer-report', icon: Users, label: 'Customer Report', badge: 'NEW', feature: 'REPORTS' },
-  { href: '/dashboard/purchase-report', icon: ClipboardList, label: 'Purchase Report', badge: 'NEW', feature: 'REPORTS' },
+  { href: '/dashboard/reports/overview', icon: BarChart3, label: 'Overview', feature: 'REPORTS', permission: 'REPORTS' },
+  { href: '/dashboard/reports/sales', icon: ShoppingCart, label: 'Sales', feature: 'REPORTS', permission: 'REPORTS' },
+  { href: '/dashboard/reports/pl', icon: DollarSign, label: 'P&L Report', feature: 'REPORTS', permission: 'REPORTS' },
+  { href: '/dashboard/reports/cashflow', icon: Activity, label: 'Cash Flow', feature: 'REPORTS', permission: 'REPORTS' },
+  { href: '/dashboard/reports/inventory', icon: Package, label: 'Inventory', feature: 'REPORTS', permission: 'REPORTS' },
+  { href: '/dashboard/reports/repairs', icon: Wrench, label: 'Repairs', feature: 'REPORTS', permission: 'REPORTS' },
+  { href: '/dashboard/reports/delivery', icon: Truck, label: 'Delivery', feature: 'REPORTS', permission: 'REPORTS' },
+  { href: '/dashboard/daily-reload-report', icon: PhoneCall, label: 'Daily Reload Report', badge: 'NEW', feature: 'DAILY_RELOAD', permission: 'DAILY_RELOAD' },
+  { href: '/dashboard/category-report', icon: Tag, label: 'Category Report', badge: 'NEW', feature: 'REPORTS', permission: 'REPORTS' },
+  { href: '/dashboard/customer-report', icon: Users, label: 'Customer Report', badge: 'NEW', feature: 'REPORTS', permission: 'REPORTS' },
+  { href: '/dashboard/purchase-report', icon: ClipboardList, label: 'Purchase Report', badge: 'NEW', feature: 'REPORTS', permission: 'REPORTS' },
 ]
 
 const navItems: NavGroup[] = [
   {
     label: 'Overview',
     items: [
-      { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+      { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', permission: 'DASHBOARD' },
     ],
   },
   {
     label: 'Sales',
     items: [
-      { href: '/dashboard/pos',       icon: ShoppingCart, label: 'Point of Sale',  badge: 'POS', feature: 'POS', openPos: true },
-      { href: '/dashboard/sales',     icon: Receipt,      label: 'Sales History',               feature: 'POS' },
-      { href: '/dashboard/returns',   icon: RotateCcw,    label: 'Returns',                     feature: 'POS' },
-      { href: '/dashboard/customers', icon: Users,        label: 'Customers' },
-      { href: '/dashboard/services',  icon: Layers,       label: 'Services',      badge: 'NEW', feature: 'SERVICES' },
+      { href: '/dashboard/pos',       icon: ShoppingCart, label: 'Point of Sale',  badge: 'POS', feature: 'POS', openPos: true, permission: 'POS' },
+      { href: '/dashboard/sales',     icon: Receipt,      label: 'Sales History',               feature: 'POS', permission: 'POS' },
+      { href: '/dashboard/returns',   icon: RotateCcw,    label: 'Returns',                     feature: 'POS', permission: 'POS' },
+      { href: '/dashboard/customers', icon: Users,        label: 'Customers', permission: 'CUSTOMERS' },
+      { href: '/dashboard/services',  icon: Layers,       label: 'Services',      badge: 'NEW', feature: 'SERVICES', permission: 'SERVICES' },
     ],
   },
   {
@@ -96,6 +109,7 @@ const navItems: NavGroup[] = [
         href: '/inventory',
         icon: Package,
         label: 'Inventory',
+        permission: 'INVENTORY',
         submenu: inventorySubmenu,
       },
       {
@@ -103,34 +117,36 @@ const navItems: NavGroup[] = [
         icon: Truck,
         label: 'Suppliers',
         feature: 'SUPPLIERS',
+        permission: 'SUPPLIERS',
         submenu: suppliersSubmenu,
       },
-      { href: '/dashboard/purchase-orders', icon: ClipboardList, label: 'Purchase Orders', feature: 'SUPPLIERS' },
-      { href: '/dashboard/imei', icon: Smartphone, label: 'IMEI Tracker', badge: 'NEW', feature: 'IMEI' },
+      { href: '/dashboard/purchase-orders', icon: ClipboardList, label: 'Purchase Orders', feature: 'SUPPLIERS', permission: 'SUPPLIERS' },
+      { href: '/dashboard/imei', icon: Smartphone, label: 'IMEI Tracker', badge: 'NEW', feature: 'IMEI', permission: 'IMEI' },
     ],
   },
   {
     label: 'Service',
     items: [
-      { href: '/dashboard/repairs',   icon: Wrench,         label: 'Repair Jobs',                 feature: 'REPAIRS' },
-      { href: '/dashboard/warranty',  icon: Shield,         label: 'Warranty',                    feature: 'WARRANTY' },
-      { href: '/dashboard/exchanges', icon: ArrowLeftRight, label: 'Device Exchange', badge: 'NEW', feature: 'EXCHANGES' },
+      { href: '/dashboard/repairs',   icon: Wrench,         label: 'Repair Jobs',                 feature: 'REPAIRS', permission: 'REPAIRS' },
+      { href: '/dashboard/warranty',  icon: Shield,         label: 'Warranty',                    feature: 'WARRANTY', permission: 'WARRANTY' },
+      { href: '/dashboard/exchanges', icon: ArrowLeftRight, label: 'Device Exchange', badge: 'NEW', feature: 'EXCHANGES', permission: 'EXCHANGES' },
     ],
   },
   {
     label: 'Finance',
     items: [
-      { href: '/dashboard/finance',   icon: CreditCard, label: 'Finance',   feature: 'FINANCE' },
-      { href: '/dashboard/profit-loss', icon: TrendingUp, label: 'Profit & Loss', badge: 'NEW', feature: 'FINANCE' },
-      { href: '/dashboard/expenses',  icon: Receipt,    label: 'Expenses',  badge: 'NEW', feature: 'FINANCE' },
-      { href: '/dashboard/profit-allocation', icon: PieChart, label: 'Profit Allocation', badge: 'NEW', feature: 'PROFIT_ALLOCATION' },
-      { href: '/dashboard/daily-closing', icon: Lock,   label: 'Daily Closing', badge: 'NEW', feature: 'DAILY_CLOSING' },
+      { href: '/dashboard/finance',   icon: CreditCard, label: 'Finance',   feature: 'FINANCE', permission: 'FINANCE' },
+      { href: '/dashboard/profit-loss', icon: TrendingUp, label: 'Profit & Loss', badge: 'NEW', feature: 'FINANCE', permission: 'FINANCE' },
+      { href: '/dashboard/expenses',  icon: Receipt,    label: 'Expenses',  badge: 'NEW', feature: 'FINANCE', permission: 'FINANCE' },
+      { href: '/dashboard/profit-allocation', icon: PieChart, label: 'Profit Allocation', badge: 'NEW', feature: 'PROFIT_ALLOCATION', permission: 'PROFIT_ALLOCATION' },
+      { href: '/dashboard/daily-closing', icon: Lock,   label: 'Daily Closing', badge: 'NEW', feature: 'DAILY_CLOSING', permission: 'DAILY_CLOSING' },
       {
         href: '/dashboard/accounting',
         icon: BookOpen,
         label: 'Accounting',
         badge: 'NEW',
         feature: 'ACCOUNTING',
+        permission: 'ACCOUNTING',
         submenu: accountingSubmenu,
       },
     ],
@@ -143,6 +159,7 @@ const navItems: NavGroup[] = [
         icon: BarChart3,
         label: 'Reports & Analytics',
         feature: 'REPORTS',
+        permission: 'REPORTS',
         submenu: reportsSubmenu,
       },
     ],
@@ -150,25 +167,25 @@ const navItems: NavGroup[] = [
   {
     label: 'HR & Staff',
     items: [
-      { href: '/dashboard/staff', icon: UserCheck, label: 'Staff & Roles', badge: 'NEW', feature: 'STAFF' },
+      { href: '/dashboard/staff', icon: UserCheck, label: 'Staff & Roles', badge: 'NEW', feature: 'STAFF', permission: 'STAFF' },
     ],
   },
   {
     label: 'Delivery',
     items: [
-      { href: '/dashboard/delivery', icon: PackageCheck, label: 'Delivery Orders', badge: 'NEW', feature: 'DELIVERY' },
+      { href: '/dashboard/delivery', icon: PackageCheck, label: 'Delivery Orders', badge: 'NEW', feature: 'DELIVERY', permission: 'DELIVERY' },
     ],
   },
   {
     label: 'Messaging',
     items: [
-      { href: '/dashboard/whatsapp', icon: MessageSquare, label: 'WhatsApp', feature: 'WHATSAPP' },
+      { href: '/dashboard/whatsapp', icon: MessageSquare, label: 'WhatsApp', feature: 'WHATSAPP', permission: 'WHATSAPP' },
     ],
   },
   {
     label: 'Reload',
     items: [
-      { href: '/dashboard/daily-reload', icon: RefreshCw, label: 'Daily Reload', badge: 'NEW', feature: 'DAILY_RELOAD' },
+      { href: '/dashboard/daily-reload', icon: RefreshCw, label: 'Daily Reload', badge: 'NEW', feature: 'DAILY_RELOAD', permission: 'DAILY_RELOAD' },
     ],
   },
   {
@@ -177,8 +194,8 @@ const navItems: NavGroup[] = [
       { href: '/dashboard/user-manual', icon: BookOpen, label: 'User Manual' },
       { href: '/dashboard/release-notes', icon: Sparkles, label: 'Release Notes', badge: 'NEW' },
       { href: '/dashboard/feature-suggestions', icon: MessageSquarePlus, label: 'Feature Suggestions' },
-      { href: '/dashboard/branches', icon: Building2, label: 'Branches', badge: 'NEW', ownerOnly: true },
-      { href: '/dashboard/settings', icon: Settings,  label: 'Settings' },
+      { href: '/dashboard/branches', icon: Building2, label: 'Branches', badge: 'NEW', ownerOnly: true, permission: 'BRANCHES' },
+      { href: '/dashboard/settings', icon: Settings,  label: 'Settings', permission: 'SETTINGS' },
     ],
   },
 ]
@@ -236,8 +253,16 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const [plan, setPlan]         = useState('')
   const [logo, setLogo]         = useState('')
   const { hasFeature }          = useTenantFeatures()
+  const { canView, canEdit }    = useRolePermissions()
   const { openPos, posOpen }    = usePos()
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({})
+
+  const allowsNavAccess = (permission?: string, requiresEdit?: boolean) => {
+    if (!permission) return true
+    const key = permission as RolePermissionModuleKey
+    if (requiresEdit) return canEdit(key)
+    return canView(key)
+  }
 
   const visibleBranches = useMemo(() => getVisibleBranches(user), [user])
   const activeBranchName = useMemo(() => {
@@ -469,6 +494,9 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
         {navItems.map((group) => {
           const visibleItems = group.items.filter(item => {
             if ('ownerOnly' in item && (item as { ownerOnly?: boolean }).ownerOnly && user?.role !== 'OWNER') return false
+            if (!allowsNavAccess(item.permission, item.requiresEdit)) return false
+            // Owner can always open Staff & Roles to manage the permission matrix
+            if (user?.role === 'OWNER' && item.permission === 'STAFF') return true
             return !('feature' in item) || !(item as any).feature || hasFeature((item as any).feature as string)
           })
           if (visibleItems.length === 0) return null
@@ -489,7 +517,8 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                   const menuKey = item.label.toLowerCase().replace(/\s+/g, '-')
                   const open = expandedMenus[menuKey] ?? false
                   const visibleSubmenu = item.submenu.filter(sub =>
-                    !sub.feature || hasFeature(sub.feature),
+                    (!sub.feature || hasFeature(sub.feature)) &&
+                    allowsNavAccess(sub.permission ?? item.permission, sub.requiresEdit),
                   )
                   if (visibleSubmenu.length === 0) return null
                   const submenuActive = visibleSubmenu.some(s => isActive(s.href))

@@ -7,7 +7,7 @@ import {
   MapPin, Upload, SlidersHorizontal, FileText, Pencil, Zap, ClipboardList, History, Hash, Printer, Shield,
 } from 'lucide-react'
 import { formatCurrency, formatDate, getRepairStatusColor } from '@/lib/utils'
-import { useProducts, useFeatureFlag } from '@/lib/hooks'
+import { useProducts, useFeatureFlag, useCanSeeProductCost } from '@/lib/hooks'
 import { repairsApi, uploadApi } from '@/lib/api'
 import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
 import { whatsappApi, formatWhatsAppPhone } from '@/lib/whatsapp-api'
@@ -168,6 +168,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
   const [showAddNote,   setShowAddNote]   = useState(false)
   const [noteText,      setNoteText]      = useState('')
   const [savingNote,    setSavingNote]    = useState(false)
+  const canSeeProductCost = useCanSeeProductCost()
 
   useEffect(() => {
     const user = authStorage.getUser()
@@ -986,7 +987,8 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                             <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{p.name}</p>
                             <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                              {p.sku ? `${p.sku} · ` : ''}Stock: {p.stock} · Sell: {formatCurrency(p.sellingPrice ?? 0)} · Buy: {formatCurrency(p.buyingPrice ?? 0)}
+                              {p.sku ? `${p.sku} · ` : ''}Stock: {p.stock} · Sell: {formatCurrency(p.sellingPrice ?? 0)}
+                              {canSeeProductCost ? ` · Buy: ${formatCurrency(p.buyingPrice ?? 0)}` : ''}
                               {Number(p.warrantyMonths) > 0 ? ` · Warranty: ${formatWarrantyPeriodLabel(Number(p.warrantyMonths))}` : ''}
                             </p>
                           </button>
@@ -1093,11 +1095,13 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
               </div>
             </div>
 
-            <RepairPartsProfitPanel
-              repair={repair}
-              getBuyPrice={getProductBuyPrice}
-              pendingDiscount={!isPaid ? discountAmt : 0}
-            />
+            {canSeeProductCost && (
+              <RepairPartsProfitPanel
+                repair={repair}
+                getBuyPrice={getProductBuyPrice}
+                pendingDiscount={!isPaid ? discountAmt : 0}
+              />
+            )}
 
             {/* Technician Notes */}
             <div>

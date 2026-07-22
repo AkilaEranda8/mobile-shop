@@ -153,6 +153,8 @@ model Tenant {
   productCodeSettings    Json?
   paymentMethodSettings  Json?
   posUiSettings          Json?
+  /// Owner-managed role x module access: hide | view | edit
+  rolePermissions        Json?
   createdAt              DateTime         @default(now())
   updatedAt              DateTime         @updatedAt
 

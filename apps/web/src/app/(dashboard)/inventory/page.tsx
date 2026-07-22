@@ -8,7 +8,7 @@ import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { useProducts, useCategories, useBrands, useFeatureFlag } from '@/lib/hooks'
+import { useProducts, useCategories, useBrands, useFeatureFlag, useCanSeeProductCost } from '@/lib/hooks'
 import { productsApi } from '@/lib/api'
 import type { Product, Category, Brand, ProductVariation } from '@/types'
 import toast from 'react-hot-toast'
@@ -576,6 +576,7 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
   const [loadingDetail, setLoadingDetail] = useState(true)
   const hasWholesalePricing = useFeatureFlag('WHOLESALE_PRICING')
   const hasCreditPricing = useFeatureFlag('CREDIT_PRICING')
+  const canSeeProductCost = useCanSeeProductCost()
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -759,10 +760,12 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
                       <span className="font-medium">{formatCurrency(detail.creditPrice ?? 0)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                    <span className="font-semibold">Stock value</span>
-                    <span className="font-semibold">{formatCurrency(stockValue)}</span>
-                  </div>
+                  {canSeeProductCost && (
+                    <div className="flex justify-between pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                      <span className="font-semibold">Stock value</span>
+                      <span className="font-semibold">{formatCurrency(stockValue)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -827,24 +830,30 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
                   <table className="min-w-[560px] w-full text-[12px]">
                     <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
                       <tr style={{ color: 'var(--text-secondary)' }}>
-                        <th className="px-3 py-2 text-left">Buying</th>
+                        {canSeeProductCost && <th className="px-3 py-2 text-left">Buying</th>}
                         <th className="px-3 py-2 text-left">Selling</th>
                         <th className="px-3 py-2 text-left">MRP</th>
-                        <th className="px-3 py-2 text-right">Profit / unit</th>
-                        <th className="px-3 py-2 text-right">Margin</th>
+                        {canSeeProductCost && <th className="px-3 py-2 text-right">Profit / unit</th>}
+                        {canSeeProductCost && <th className="px-3 py-2 text-right">Margin</th>}
                       </tr>
                     </thead>
                     <tbody>
                       <tr>
-                        <td className="px-3 py-2 font-medium">{formatCurrency(detail.buyingPrice)}</td>
+                        {canSeeProductCost && (
+                          <td className="px-3 py-2 font-medium">{formatCurrency(detail.buyingPrice)}</td>
+                        )}
                         <td className="px-3 py-2 font-semibold text-violet-600 dark:text-violet-300">{formatCurrency(detail.sellingPrice)}</td>
                         <td className="px-3 py-2 font-medium">{formatCurrency(mrp)}</td>
-                        <td className={`px-3 py-2 text-right font-semibold ${margin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                          {formatCurrency(margin)}
-                        </td>
-                        <td className={`px-3 py-2 text-right font-semibold ${margin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                          {marginPct}%
-                        </td>
+                        {canSeeProductCost && (
+                          <td className={`px-3 py-2 text-right font-semibold ${margin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                            {formatCurrency(margin)}
+                          </td>
+                        )}
+                        {canSeeProductCost && (
+                          <td className={`px-3 py-2 text-right font-semibold ${margin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                            {marginPct}%
+                          </td>
+                        )}
                       </tr>
                     </tbody>
                   </table>
@@ -867,7 +876,7 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
                           <th className="px-3 py-2 text-right">Retail</th>
                           {hasWholesalePricing && <th className="px-3 py-2 text-right">Wholesale</th>}
                           {hasCreditPricing && <th className="px-3 py-2 text-right">Credit</th>}
-                          <th className="px-3 py-2 text-right">Cost</th>
+                          {canSeeProductCost && <th className="px-3 py-2 text-right">Cost</th>}
                           <th className="px-3 py-2 text-right">Stock</th>
                         </tr>
                       </thead>
@@ -894,7 +903,9 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
                               {(v.creditPrice ?? 0) > 0 ? formatCurrency(v.creditPrice!) : '—'}
                             </td>
                             )}
-                            <td className="px-3 py-2 text-right whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{formatCurrency(v.costPrice)}</td>
+                            {canSeeProductCost && (
+                              <td className="px-3 py-2 text-right whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{formatCurrency(v.costPrice)}</td>
+                            )}
                             <td className="px-3 py-2 text-right font-medium">{v.stock ?? 0}</td>
                           </tr>
                         ))}
@@ -969,12 +980,14 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
                       <span className="font-semibold">{formatCurrency(detail.creditPrice ?? 0)}</span>
                     </div>
                   )}
-                  <div className="flex items-center justify-between">
-                    <span style={{ color: 'var(--text-muted)' }}>Margin:</span>
-                    <span className={`font-medium ${margin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                      {marginPct}%
-                    </span>
-                  </div>
+                  {canSeeProductCost && (
+                    <div className="flex items-center justify-between">
+                      <span style={{ color: 'var(--text-muted)' }}>Margin:</span>
+                      <span className={`font-medium ${margin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                        {marginPct}%
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1136,6 +1149,7 @@ export default function InventoryPage() {
   const { data: catsData, refetch: refetchCats } = useCategories()
   const hasWholesalePricing = useFeatureFlag('WHOLESALE_PRICING')
   const hasCreditPricing = useFeatureFlag('CREDIT_PRICING')
+  const canSeeProductCost = useCanSeeProductCost()
   const canViewTraceability = useHasPermission(PERMISSIONS.PRODUCT_TRACEABILITY_VIEW)
   const allCategories: Category[] = (catsData ?? []) as Category[]
   const products: Product[] = (productsData?.data ?? []) as Product[]
@@ -1667,7 +1681,9 @@ export default function InventoryPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: 'Total SKUs',   value: flatRows.length,                                                                          icon: Package,       color: 'violet' },
-          { label: 'Stock Value',  value: formatCurrency(filteredProducts.reduce((s, p) => s + p.buyingPrice * p.stock, 0)),         icon: TrendingUp,    color: 'green'  },
+          ...(canSeeProductCost
+            ? [{ label: 'Stock Value',  value: formatCurrency(filteredProducts.reduce((s, p) => s + p.buyingPrice * p.stock, 0)),         icon: TrendingUp,    color: 'green'  }]
+            : []),
           { label: 'Low Stock',   value: lowStockCount,                                                                               icon: AlertTriangle, color: 'yellow' },
           { label: 'Out of Stock', value: filteredProducts.filter(p => p.stock === 0).length,                                         icon: AlertCircle,   color: 'red'    },
         ].map(({ label, value, icon: Icon, color }) => (

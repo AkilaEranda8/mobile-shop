@@ -30,7 +30,7 @@ import {
   POS_WARRANTY_MONTHS_OPTS,
 } from './cart-rules'
 import { useUIStore } from '@/stores/ui-store'
-import { useProducts, useFeatureFlag } from '@/lib/hooks'
+import { useProducts, useFeatureFlag, useCanSeeProductCost } from '@/lib/hooks'
 import { salesApi, customersApi, productsApi, imeiApi, servicesApi, financeApi, tenantApi, dailyClosingApi } from '@/lib/api'
 import { findProductByCode, isImeiCode, normalizeScanCode } from '@/lib/barcode-scan'
 import { authStorage } from '@/lib/auth'
@@ -1390,6 +1390,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const posUser = authStorage.getUser()
   const posRole = posUser?.role ?? 'CASHIER'
   const canCloseDay = posRole === 'OWNER' || posRole === 'MANAGER'
+  const canSeeProductCost = useCanSeeProductCost()
   const businessDateStr = businessToday()
   const dayIsClosed = dayStartStatus?.isClosed || dayEndData?.isClosed
 
@@ -3459,7 +3460,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         <div className="flex items-end justify-between gap-1.5 mt-auto pt-1">
                           <div className="min-w-0">
                             <p className="text-xs sm:text-sm font-extrabold leading-none truncate" style={{ color: POS_THEME.text }}>{price}</p>
-                            {isService ? (
+                            {isService && canSeeProductCost ? (
                               <p className="text-[10px] mt-0.5 truncate" style={{ color: POS_THEME.muted }}>
                                 Cost {formatCurrency(Number(item.cost ?? 0))}
                               </p>
@@ -3718,7 +3719,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                           {item.reloadType === 'RECHARGE_CARD' ? ' · Recharge Card' : ' · Reload'}
                         </p>
                       )}
-                      {item.isService && (
+                      {item.isService && canSeeProductCost && (
                         <p className="text-[9px] mt-0.5" style={{ color: POS_THEME.muted }}>
                           Cost {formatCurrency((item.cost ?? 0) * item.quantity)}
                           {(item.cost ?? 0) > 0 && <span style={{ color: POS_THEME.green }}> · Margin {formatCurrency((item.price - (item.cost ?? 0)) * item.quantity)}</span>}
@@ -3866,7 +3867,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     <span>Subtotal ({cart.length} item{cart.length !== 1 ? 's' : ''})</span>
                     <span style={{ color: POS_THEME.text }}>{formatCurrency(subtotal)}</span>
                   </div>
-                  {hasServiceInCart && (
+                  {hasServiceInCart && canSeeProductCost && (
                     <div className="rounded-lg border px-2.5 py-2 space-y-1 text-[11px]" style={{ borderColor: POS_THEME.border, background: POS_THEME.card }}>
                       <div className="flex justify-between" style={{ color: POS_THEME.muted }}>
                         <span>Service cost</span>

@@ -14,6 +14,7 @@ import { AnnouncementBanners } from '@/components/layout/AnnouncementBanners'
 import { ReleaseNotesPopup } from '@/components/layout/ReleaseNotesPopup'
 import { SessionBranchBootstrap } from '@/components/layout/SessionBranchBootstrap'
 import { OfflineBanner } from '@/components/layout/OfflineBanner'
+import { RoleAccessGuard } from '@/components/layout/RoleAccessGuard'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -70,7 +71,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <ReleaseNotesPopup />
         {maintenance?.enabled && <MaintenanceBanner message={maintenance.message} />}
         <main className="flex-1 overflow-y-auto p-4 lg:p-6" style={{ color: 'var(--text-primary)' }}>
-          <HexTableProvider>{children}</HexTableProvider>
+          <HexTableProvider>
+            <RoleAccessGuard>{children}</RoleAccessGuard>
+          </HexTableProvider>
         </main>
       </div>
 

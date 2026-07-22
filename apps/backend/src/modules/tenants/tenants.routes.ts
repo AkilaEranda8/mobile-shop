@@ -44,6 +44,7 @@ router.patch('/my-features', authorize('OWNER', 'MANAGER'), async (req: Request,
 router.get('/invoice-templates', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'), tenantsController.listInvoiceTemplates)
 router.get('/config-domains', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER'), tenantsController.listConfigDomains)
 router.get('/me/settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'), tenantsController.getMySettings)
+router.get('/me/role-permissions', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), tenantsController.getMyRolePermissions)
 router.get('/', authorize('PLATFORM_ADMIN'), tenantsController.list)
 router.get('/me', tenantsController.getMe)
 router.get('/:id', authorize('PLATFORM_ADMIN', 'OWNER'), tenantsController.getById)
@@ -61,5 +62,7 @@ router.get('/:id/product-code-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'M
 router.patch('/:id/product-code-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER'), tenantsController.updateProductCodeSettings)
 router.get('/:id/pos-ui-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'), tenantsController.getPosUiSettings)
 router.patch('/:id/pos-ui-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER'), tenantsController.updatePosUiSettings)
+router.get('/:id/role-permissions', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), tenantsController.getRolePermissions)
+router.patch('/:id/role-permissions', authorize('PLATFORM_ADMIN', 'OWNER'), tenantsController.updateRolePermissions)
 
 export default router
