@@ -13,7 +13,38 @@ export const usersService = {
   async list(tenantId: string, req: Request) {
     const { skip, limit, page, search } = getPagination(req)
     const role = req.query.role as string | undefined
-    const branchId = req.query.branchId as string | undefined
+    let branchId = req.query.branchId as string | undefined
+
+    // Non-owners may only see staff assigned to their own branches
+    const actor = req.user
+    if (actor && actor.role !== 'OWNER' && actor.role !== 'PLATFORM_ADMIN') {
+      const mine = await prisma.userBranch.findMany({
+        where: { userId: actor.userId },
+        select: { branchId: true },
+      })
+      const allowed = mine.map((b) => b.branchId)
+      if (!allowed.length) {
+        return { data: [], total: 0, page, limit }
+      }
+      if (branchId && !allowed.includes(branchId)) {
+        throw new AppError('You cannot view staff for this branch', 403)
+      }
+      if (!branchId) {
+        // Default to intersection: any of their assigned branches
+        const whereMulti: any = {
+          tenantId,
+          branches: { some: { branchId: { in: allowed } } },
+          ...(role ? { role: role as any } : {}),
+          ...(search ? { OR: [{ name: { contains: search, mode: 'insensitive' as const } }, { email: { contains: search, mode: 'insensitive' as const } }] } : {}),
+        }
+        const [data, total] = await Promise.all([
+          prisma.user.findMany({ where: whereMulti, skip, take: limit, orderBy: { name: 'asc' }, include: { branches: { select: { branchId: true } } } }),
+          prisma.user.count({ where: whereMulti }),
+        ])
+        return { data, total, page, limit }
+      }
+    }
+
     const where: any = {
       tenantId,
       ...(role ? { role: role as any } : {}),

@@ -5,10 +5,11 @@ import { useSearchParams } from 'next/navigation'
 import { UserCheck, Plus, X, Loader2, Mail, Clock, Edit2, Trash2, AlertTriangle, Building2, Eye, EyeOff, Save, CheckCircle } from 'lucide-react'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import { ToolbarSearch } from '@/components/ui/toolbar-search'
-import { useUsers, useBranches } from '@/lib/hooks'
+import { useUsers } from '@/lib/hooks'
 import { usersApi, tenantApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
-import { getOperationalBranchId } from '@/lib/active-branch'
+import { getOperationalBranchId, getActiveBranchId, getVisibleBranches } from '@/lib/active-branch'
+import { useActiveBranchId } from '@/lib/hooks'
 import toast from 'react-hot-toast'
 import {
   ROLE_PERMISSION_MODULES,
@@ -416,15 +417,20 @@ export default function StaffPage() {
   const searchParams = useSearchParams()
   const { canEdit: canEditStaff } = useModuleAccess()
   const [search, setSearch] = useState('')
-  const [branchFilter, setBranchFilter] = useState(() => getOperationalBranchId() ?? '')
+  const actorRole = authStorage.getUser()?.role
+  const canEditMatrix = actorRole === 'OWNER' || actorRole === 'PLATFORM_ADMIN'
+  const headerBranchId = useActiveBranchId()
+  const operationalBranchId = getOperationalBranchId()
+  /** Non-owners are locked to their active branch; owners follow header (empty = all). */
+  const [branchFilter, setBranchFilter] = useState(() => {
+    if (canEditMatrix) return getActiveBranchId() ?? ''
+    return getOperationalBranchId() ?? getActiveBranchId() ?? ''
+  })
   const [tab, setTab] = useState<'staff' | 'permissions'>('staff')
   const [showAdd, setShowAdd] = useState(false)
   const [editStaff, setEditStaff] = useState<any>(null)
   const [deleteTarget, setDeleteTarget] = useState<any>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
-  const actorRole = authStorage.getUser()?.role
-  const canEditMatrix = actorRole === 'OWNER' || actorRole === 'PLATFORM_ADMIN'
-  const defaultBranchId = getOperationalBranchId()
 
   useEffect(() => {
     const action = searchParams.get('action')
@@ -440,27 +446,34 @@ export default function StaffPage() {
 
   useEffect(() => {
     const syncBranch = () => {
-      const id = getOperationalBranchId()
-      if (id) setBranchFilter(id)
+      if (canEditMatrix) {
+        // Owner header "All Branches" → clear filter; otherwise follow selected branch
+        setBranchFilter(getActiveBranchId() ?? '')
+      } else {
+        setBranchFilter(getOperationalBranchId() ?? getActiveBranchId() ?? '')
+      }
     }
     syncBranch()
     window.addEventListener('active-branch-changed', syncBranch)
     return () => window.removeEventListener('active-branch-changed', syncBranch)
-  }, [])
+  }, [canEditMatrix])
 
-  const { data: branchesRaw } = useBranches()
-  const branches = ((branchesRaw as any[]) ?? []).map((b: any) => ({ id: b.id, name: b.name }))
+  const visibleBranches = getVisibleBranches()
+  const branches = visibleBranches.map(b => ({ id: b.id, name: b.name }))
+  const effectiveBranchId = canEditMatrix
+    ? branchFilter
+    : (branchFilter || operationalBranchId || headerBranchId || '')
+
   const listParams: Record<string, string> = {}
   if (search) listParams.search = search
-  // Scope to branch: assigned staff only. Owner may clear filter to see everyone.
-  if (branchFilter) {
-    listParams.branchId = branchFilter
-  } else if (!canEditMatrix && defaultBranchId) {
-    listParams.branchId = defaultBranchId
-  }
+  if (effectiveBranchId) listParams.branchId = effectiveBranchId
   const { data, loading, refetch } = useUsers(listParams)
   const users: any[] = (data?.data ?? []) as any[]
   const activeCount = users.filter((u: any) => u.isActive).length
+  const branchLabel = effectiveBranchId
+    ? (branches.find(b => b.id === effectiveBranchId)?.name ?? 'this branch')
+    : 'all branches'
+  const defaultBranchId = effectiveBranchId || operationalBranchId
 
   const handleDelete = async () => {
     if (!deleteTarget) return
@@ -501,7 +514,10 @@ export default function StaffPage() {
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
           <h1 className="page-title">Staff & Roles</h1>
-          <p className="page-subtitle">{activeCount} active · {users.length} total employees</p>
+          <p className="page-subtitle">
+            {activeCount} active · {users.length} shown
+            {effectiveBranchId ? ` · ${branchLabel}` : ' · All Branches'}
+          </p>
         </div>
         {canEditStaff && (
           <button onClick={() => setShowAdd(true)} className="btn-primary text-sm flex items-center gap-2 sm:ml-auto">
@@ -528,19 +544,28 @@ export default function StaffPage() {
               placeholder="Search staff…"
               className="flex-1 min-w-[200px] max-w-sm"
             />
-            {branches.length > 1 && (
+            {branches.length > 1 && canEditMatrix && (
               <FilterDropdown
-                value={canEditMatrix ? branchFilter : (branchFilter || defaultBranchId || '')}
+                value={branchFilter}
                 onChange={(v) => setBranchFilter(v)}
                 options={[
-                  ...(canEditMatrix ? [{ value: '', label: 'All Branches' }] : []),
+                  { value: '', label: 'All Branches' },
                   ...branches.map(b => ({ value: b.id, label: b.name })),
                 ]}
                 icon={Building2}
                 placeholder="Branch"
-                active={canEditMatrix ? branchFilter !== '' : !!(branchFilter || defaultBranchId)}
-                onClear={canEditMatrix ? () => setBranchFilter('') : undefined}
+                active={branchFilter !== ''}
+                onClear={() => setBranchFilter('')}
               />
+            )}
+            {branches.length > 1 && !canEditMatrix && (
+              <div
+                className="flex items-center gap-1.5 h-8 px-2.5 rounded-xl text-xs font-medium"
+                style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+              >
+                <Building2 size={13} style={{ color: 'var(--text-muted)' }} />
+                <span className="truncate">{branchLabel}</span>
+              </div>
             )}
           </div>
 
