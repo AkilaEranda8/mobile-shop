@@ -435,7 +435,7 @@ model StockMovement {
 model Customer {
   id             String   @id @default(cuid())
   tenantId       String
-  /** Home branch — customer only appears when this branch (or All Branches) is selected. */
+  /// Home branch — listed only for this branch (or All Branches)
   branchId       String?
   name           String
   phone          String
