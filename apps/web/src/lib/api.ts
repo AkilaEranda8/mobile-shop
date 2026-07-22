@@ -275,6 +275,8 @@ export const productTraceabilityApi = {
     api.get(`/product-traceability/${productId}/sales${traceabilityQs(params)}`),
   movements: (productId: string, params?: Record<string, string>) =>
     api.get(`/product-traceability/${productId}/movements${traceabilityQs(params)}`),
+  transfers: (productId: string, params?: Record<string, string>) =>
+    api.get(`/product-traceability/${productId}/transfers${traceabilityQs(params)}`),
   serials: (productId: string, params?: Record<string, string>) =>
     api.get(`/product-traceability/${productId}/serials${traceabilityQs(params)}`),
   timeline: (productId: string, params?: Record<string, string>) =>

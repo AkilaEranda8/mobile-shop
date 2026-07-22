@@ -7,7 +7,7 @@ import {
   Route, Package, ShoppingCart, Truck, History, BarChart3, Hash,
   FileSpreadsheet, FileText, Printer, Loader2, ExternalLink,
   Clock, TrendingUp, Users, Receipt, AlertTriangle, Building2,
-  Tag, Layers, ArrowLeft, X, Calendar, Smartphone,
+  Tag, Layers, ArrowLeft, X, Calendar, Smartphone, ArrowLeftRight,
 } from 'lucide-react'
 import { productTraceabilityApi, productsApi } from '@/lib/api'
 import { useBranches } from '@/lib/hooks'
@@ -139,6 +139,7 @@ const linkClass = 'text-violet-600 dark:text-violet-300 hover:underline inline-f
 const SECTIONS = [
   { id: 'purchases', label: 'Purchases', icon: Truck },
   { id: 'sales', label: 'Customer Sales', icon: ShoppingCart },
+  { id: 'transfers', label: 'Stock Transfers', icon: ArrowLeftRight },
   { id: 'movements', label: 'Movements', icon: Package },
   { id: 'serials', label: 'Serial / IMEI', icon: Hash },
   { id: 'timeline', label: 'Timeline', icon: History },
@@ -209,6 +210,7 @@ export default function ProductTraceabilityPage() {
       const apiMap = {
         purchases: productTraceabilityApi.purchases,
         sales: productTraceabilityApi.sales,
+        transfers: productTraceabilityApi.transfers,
         movements: productTraceabilityApi.movements,
         serials: productTraceabilityApi.serials,
         timeline: productTraceabilityApi.timeline,
@@ -242,9 +244,10 @@ export default function ProductTraceabilityPage() {
         limit: '5000',
         page: '1',
       }
-      const [purchases, sales, movements, serials, timeline] = await Promise.all([
+      const [purchases, sales, transfers, movements, serials, timeline] = await Promise.all([
         productTraceabilityApi.purchases(productId, base),
         productTraceabilityApi.sales(productId, base),
+        productTraceabilityApi.transfers(productId, base),
         productTraceabilityApi.movements(productId, base),
         productTraceabilityApi.serials(productId, base),
         productTraceabilityApi.timeline(productId, base),
@@ -256,6 +259,7 @@ export default function ProductTraceabilityPage() {
         analytics: summary.analytics ?? {},
         purchases: (purchases as any).data ?? [],
         sales: (sales as any).data ?? [],
+        transfers: (transfers as any).data ?? [],
         movements: (movements as any).data ?? [],
         serials: (serials as any).data ?? [],
         timeline: (timeline as any).data ?? [],
@@ -355,6 +359,35 @@ export default function ProductTraceabilityPage() {
     { key: 'runningBalance', label: 'Balance', align: 'right' as const, render: (r: Record<string, unknown>) => safeText(r.runningBalance) },
     { key: 'performedBy', label: 'By' },
     { key: 'remarks', label: 'Remarks' },
+  ]
+
+  const transferColumns = [
+    { key: 'dateTime', label: 'Date & Time', render: (r: Record<string, unknown>) => formatDateTime(r.dateTime as string) },
+    { key: 'reference', label: 'Reference', render: (r: Record<string, unknown>) => <span className="font-mono text-[11px]">{safeText(r.reference)}</span> },
+    { key: 'directionLabel', label: 'Direction', render: (r: Record<string, unknown>) => {
+      const dir = String(r.direction ?? '')
+      const cls = dir === 'IN'
+        ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/25'
+        : dir === 'OUT'
+          ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/25'
+          : 'bg-slate-500/15 text-slate-600 dark:text-slate-300 border-slate-500/25'
+      return (
+        <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${cls}`}>
+          {safeText(r.directionLabel)}
+        </span>
+      )
+    } },
+    { key: 'route', label: 'From → To' },
+    { key: 'quantity', label: 'Qty', align: 'right' as const },
+    { key: 'variant', label: 'Variant' },
+    { key: 'imeis', label: 'IMEI', render: (r: Record<string, unknown>) => (
+      <span className="font-mono text-[10px] max-w-[12rem] inline-block truncate" title={safeText(r.imeis)}>{safeText(r.imeis)}</span>
+    ) },
+    { key: 'notes', label: 'Notes' },
+    { key: 'performedBy', label: 'By' },
+    { key: 'view', label: '', render: () => (
+      <Link href="/dashboard/stock-transfer" className={`${linkClass} text-[11px]`}>Open</Link>
+    ) },
   ]
 
   const serialColumns = [
@@ -637,9 +670,10 @@ export default function ProductTraceabilityPage() {
                   title={
                     activeSection === 'purchases' ? 'Purchase history'
                       : activeSection === 'sales' ? 'Customer purchase history'
-                        : activeSection === 'movements' ? 'Inventory movement'
-                          : activeSection === 'serials' ? 'Serial / IMEI history'
-                            : sectionTitle
+                        : activeSection === 'transfers' ? 'Stock transfer history'
+                          : activeSection === 'movements' ? 'Inventory movement'
+                            : activeSection === 'serials' ? 'Serial / IMEI history'
+                              : sectionTitle
                   }
                   icon={sectionIcon}
                   loading={sectionLoading}
@@ -650,15 +684,17 @@ export default function ProductTraceabilityPage() {
                         columns={
                           activeSection === 'purchases' ? purchaseColumns
                             : activeSection === 'sales' ? salesColumns
-                              : activeSection === 'movements' ? movementColumns
-                                : serialColumns
+                              : activeSection === 'transfers' ? transferColumns
+                                : activeSection === 'movements' ? movementColumns
+                                  : serialColumns
                         }
                         rows={sectionRows}
                         emptyLabel={
                           activeSection === 'purchases' ? 'No purchase records for this product'
                             : activeSection === 'sales' ? 'No customer sales for this product'
-                              : activeSection === 'movements' ? 'No inventory movements recorded'
-                                : 'No serial / IMEI records found'
+                              : activeSection === 'transfers' ? 'No stock transfers for this product'
+                                : activeSection === 'movements' ? 'No inventory movements recorded'
+                                  : 'No serial / IMEI records found'
                         }
                       />
                       <Paginator meta={sectionMeta} page={page} onPage={setPage} pageSize={pageSize} onPageSize={setPageSize} />

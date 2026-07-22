@@ -8,6 +8,18 @@ import {
 } from './api'
 import { isFeatureEnabled, clearFeaturesCache, PRICED_FEATURES } from './tenant-features'
 import { normalizeRepairTicket } from './repair.util'
+import { getActiveBranchId } from './active-branch'
+
+/** Re-renders when the header branch switcher changes. */
+export function useActiveBranchId(): string | undefined {
+  const [branchId, setBranchId] = useState<string | undefined>(() => getActiveBranchId())
+  useEffect(() => {
+    const sync = () => setBranchId(getActiveBranchId())
+    window.addEventListener('active-branch-changed', sync)
+    return () => window.removeEventListener('active-branch-changed', sync)
+  }, [])
+  return branchId
+}
 
 const FEATURES_CACHE_KEY = 'hx_tenant_features'
 const FEATURES_CACHE_TTL = 5 * 1000
@@ -250,10 +262,11 @@ export function useProducts(params?: Record<string, string>) {
 }
 
 export function useCustomers(params?: Record<string, string>) {
+  const branchId = useActiveBranchId()
   const p = { ...ALL, ...params }
   return useApi<{ data: unknown[]; meta: any }>(
     () => wrapPaginated(customersApi.list.bind(null, p)),
-    [JSON.stringify(p)],
+    [JSON.stringify(p), branchId ?? 'all'],
   )
 }
 
@@ -266,6 +279,7 @@ export function useSales(params?: Record<string, string>) {
 }
 
 export function useRepairs(params?: Record<string, string>) {
+  const branchId = useActiveBranchId()
   const p = { ...ALL, ...params }
   return useApi<{ data: unknown[]; meta: any }>(
     () => wrapPaginated(repairsApi.list.bind(null, p)).then((res) => ({
@@ -274,7 +288,7 @@ export function useRepairs(params?: Record<string, string>) {
         data: (res.data.data ?? []).map((row) => normalizeRepairTicket(row)),
       },
     })),
-    [JSON.stringify(p)],
+    [JSON.stringify(p), branchId ?? 'all'],
   )
 }
 
@@ -311,10 +325,11 @@ export function useSupplierPayments(params?: Record<string, string>) {
 }
 
 export function useTransactions(params?: Record<string, string>) {
+  const branchId = useActiveBranchId()
   const p = { ...ALL, ...params }
   return useApi<{ data: unknown[]; meta: any }>(
     () => wrapPaginated(financeApi.transactions.bind(null, p)),
-    [JSON.stringify(p)],
+    [JSON.stringify(p), branchId ?? 'all'],
   )
 }
 
@@ -333,24 +348,28 @@ export function usePlStatement(params?: Record<string, string>) {
 }
 
 export function useAnalyticsDashboard(branchId?: string) {
-  const params = branchId ? { branchId } : undefined
+  const activeBranchId = useActiveBranchId()
+  const resolved = branchId ?? activeBranchId
+  const params = resolved ? { branchId: resolved } : undefined
   return useApi<unknown>(
     () => analyticsApi.dashboard(params) as Promise<{ data: unknown }>,
-    [branchId ?? ''],
+    [resolved ?? 'all'],
   )
 }
 
 export function useRevenue(params?: Record<string, string>) {
+  const branchId = useActiveBranchId()
   return useApi<unknown[]>(
     () => analyticsApi.revenue(params) as Promise<{ data: unknown[] }>,
-    [JSON.stringify(params)],
+    [JSON.stringify(params), branchId ?? 'all'],
   )
 }
 
 export function useTopProducts(params?: Record<string, string>) {
+  const branchId = useActiveBranchId()
   return useApi<unknown[]>(
     () => analyticsApi.topProducts(params) as Promise<{ data: unknown[] }>,
-    [JSON.stringify(params)],
+    [JSON.stringify(params), branchId ?? 'all'],
   )
 }
 

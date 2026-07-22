@@ -3,6 +3,7 @@ import { Prisma, StockMovementType } from '@prisma/client'
 import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import { assertBranchRecordAccess } from '../../utils/active-branch'
+import { catalogBaseSku } from '../../utils/branch-catalog'
 import { hasVariants, sumVariantStock } from '../../utils/product-variants'
 import { evaluateNotesContainOpeningBalance } from '../business-rules-engine/business-rules-engine.service'
 import {
@@ -64,6 +65,46 @@ async function loadProduct(tenantId: string, productId: string, req: Request) {
   if (!product) throw new AppError('Product not found', 404)
   assertBranchRecordAccess(req, product.branchId)
   return product
+}
+
+/** All catalog clones of this SKU across branches (HQ + `-BRxxxxxx` rows). */
+async function relatedCatalogProductIds(tenantId: string, product: { id: string; sku: string }) {
+  const base = catalogBaseSku(product.sku)
+  const rows = await prisma.product.findMany({
+    where: {
+      tenantId,
+      OR: [
+        { id: product.id },
+        { sku: base },
+        { sku: { startsWith: `${base}-BR` } },
+      ],
+    },
+    select: { id: true, sku: true },
+  })
+  return [...new Set(rows.filter(r => catalogBaseSku(r.sku) === base).map(r => r.id))]
+}
+
+/** Parse stock-transfer movementNote: `[notes, variantLabel, IMEI: …].join(' · ')`. */
+function transferNoteFields(note?: string | null) {
+  const raw = (note ?? '').trim()
+  if (!raw) return { notes: '—', variant: '—', imeis: '—' }
+  const parts = raw.split(' · ').map(p => p.trim()).filter(Boolean)
+  const imeiPart = parts.find(p => /^IMEI:/i.test(p))
+  const rest = parts.filter(p => !/^IMEI:/i.test(p))
+  const imeis = imeiPart ? imeiPart.replace(/^IMEI:\s*/i, '').trim() : ''
+  let userNotes = ''
+  let variant = ''
+  if (rest.length === 1) {
+    userNotes = rest[0]
+  } else if (rest.length >= 2) {
+    userNotes = rest[0]
+    variant = rest.slice(1).join(' · ')
+  }
+  return {
+    notes: userNotes || '—',
+    variant: variant || '—',
+    imeis: imeis || '—',
+  }
 }
 
 function poItemSearch(search: string | undefined): Prisma.PurchaseOrderWhereInput | undefined {
@@ -386,26 +427,153 @@ export const productTraceabilityService = {
     ])
 
     let running = priorAgg.reduce((s, m) => s + m.quantity, 0)
+
+    const transferRefs = rows
+      .filter(m => (m.type === 'TRANSFER_IN' || m.type === 'TRANSFER_OUT') && m.reference)
+      .map(m => m.reference as string)
+    const pairRows = transferRefs.length
+      ? await prisma.stockMovement.findMany({
+          where: {
+            reference: { in: [...new Set(transferRefs)] },
+            type: { in: ['TRANSFER_IN', 'TRANSFER_OUT'] },
+          },
+          include: { branch: { select: { id: true, name: true } } },
+        })
+      : []
+    const pairByRef = new Map<string, typeof pairRows>()
+    for (const p of pairRows) {
+      const key = p.reference ?? ''
+      const list = pairByRef.get(key) ?? []
+      list.push(p)
+      pairByRef.set(key, list)
+    }
+
     const data = rows.map(m => {
       running += m.quantity
       const stockIn = m.quantity > 0 ? m.quantity : 0
       const stockOut = m.quantity < 0 ? Math.abs(m.quantity) : 0
+      let remarks = m.note ?? '—'
+      let warehouseName = m.branch.name
+      if ((m.type === 'TRANSFER_IN' || m.type === 'TRANSFER_OUT') && m.reference) {
+        const pair = pairByRef.get(m.reference) ?? []
+        const out = pair.find(p => p.type === 'TRANSFER_OUT')
+        const inn = pair.find(p => p.type === 'TRANSFER_IN')
+        const fromName = out?.branch.name ?? (m.type === 'TRANSFER_OUT' ? m.branch.name : '—')
+        const toName = inn?.branch.name ?? (m.type === 'TRANSFER_IN' ? m.branch.name : '—')
+        warehouseName = `${fromName} → ${toName}`
+        const fields = transferNoteFields(m.note)
+        remarks = [fields.notes !== '—' ? fields.notes : '', fields.variant !== '—' ? fields.variant : '', fields.imeis !== '—' ? `IMEI: ${fields.imeis}` : '']
+          .filter(Boolean)
+          .join(' · ') || '—'
+      }
       return {
         id: m.id,
         dateTime: m.createdAt,
         transactionType: mapMovementLabel(m.type, m.note),
         referenceNumber: m.reference ?? '—',
         warehouseId: m.branchId,
-        warehouseName: m.branch.name,
+        warehouseName,
         stockIn,
         stockOut,
         runningBalance: running,
         performedBy: m.performedBy,
-        remarks: m.note ?? '—',
+        remarks,
         rawType: m.type,
       }
     })
 
+    return { data, total, page, limit }
+  },
+
+  async getTransfers(tenantId: string, productId: string, req: Request) {
+    const product = await loadProduct(tenantId, productId, req)
+    const { skip, limit, page, search, branchId, from, to } = reportFilters(req)
+    const relatedIds = await relatedCatalogProductIds(tenantId, product)
+
+    const where: Prisma.StockMovementWhereInput = {
+      productId: { in: relatedIds },
+      type: { in: ['TRANSFER_IN', 'TRANSFER_OUT'] },
+      ...movementSearch(search),
+      ...dateWhereClause('createdAt', from, to),
+    }
+
+    const rows = await prisma.stockMovement.findMany({
+      where,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      include: {
+        branch: { select: { id: true, name: true } },
+        product: { select: { id: true, sku: true, name: true } },
+      },
+    })
+
+    type Pair = {
+      reference: string
+      dateTime: Date
+      out?: (typeof rows)[0]
+      inn?: (typeof rows)[0]
+    }
+    const byRef = new Map<string, Pair>()
+    for (const m of rows) {
+      const key = m.reference || m.id
+      const pair = byRef.get(key) ?? { reference: key, dateTime: m.createdAt }
+      if (m.type === 'TRANSFER_OUT') pair.out = m
+      if (m.type === 'TRANSFER_IN') pair.inn = m
+      if (m.createdAt > pair.dateTime) pair.dateTime = m.createdAt
+      byRef.set(key, pair)
+    }
+
+    let transfers = [...byRef.values()]
+      .map(pair => {
+        const out = pair.out
+        const inn = pair.inn
+        const sample = out ?? inn
+        if (!sample) return null
+        const fromBranchId = out?.branchId ?? ''
+        const toBranchId = inn?.branchId ?? ''
+        const fromBranchName = out?.branch.name ?? '—'
+        const toBranchName = inn?.branch.name ?? '—'
+        const quantity = Math.abs(out?.quantity ?? inn?.quantity ?? 0)
+        const onThisProduct = sample.productId === productId
+          || out?.productId === productId
+          || inn?.productId === productId
+        let direction: 'OUT' | 'IN' | 'MOVE' = 'MOVE'
+        if (out?.productId === productId && inn?.productId === productId) direction = 'MOVE'
+        else if (out?.productId === productId) direction = 'OUT'
+        else if (inn?.productId === productId) direction = 'IN'
+        else if (onThisProduct) direction = out ? 'OUT' : 'IN'
+
+        const fields = transferNoteFields(sample.note)
+        return {
+          id: sample.id,
+          reference: pair.reference,
+          dateTime: pair.dateTime,
+          fromBranchId,
+          fromBranchName,
+          toBranchId,
+          toBranchName,
+          quantity,
+          direction,
+          directionLabel:
+            direction === 'OUT' ? 'Sent out'
+              : direction === 'IN' ? 'Received'
+                : 'Transferred',
+          route: `${fromBranchName} → ${toBranchName}`,
+          notes: fields.notes,
+          variant: fields.variant,
+          imeis: fields.imeis,
+          performedBy: sample.performedBy,
+          remarks: sample.note ?? '—',
+        }
+      })
+      .filter((t): t is NonNullable<typeof t> => !!t)
+
+    if (branchId) {
+      transfers = transfers.filter(t => t.fromBranchId === branchId || t.toBranchId === branchId)
+    }
+
+    transfers.sort((a, b) => +new Date(b.dateTime) - +new Date(a.dateTime))
+    const total = transfers.length
+    const data = transfers.slice(skip, skip + limit)
     return { data, total, page, limit }
   },
 
@@ -495,14 +663,18 @@ export const productTraceabilityService = {
 
     const poIds = new Set<string>()
     const invoiceNumbers = new Set<string>()
+    const transferRefs = new Set<string>()
     for (const m of rows) {
       if (m.type === 'PURCHASE' && m.reference?.includes(':')) {
         poIds.add(m.reference.split(':')[0])
       }
       if (m.type === 'SALE' && m.reference) invoiceNumbers.add(m.reference)
+      if ((m.type === 'TRANSFER_IN' || m.type === 'TRANSFER_OUT') && m.reference) {
+        transferRefs.add(m.reference)
+      }
     }
 
-    const [pos, sales] = await Promise.all([
+    const [pos, sales, transferPairs] = await Promise.all([
       poIds.size
         ? prisma.purchaseOrder.findMany({
             where: { id: { in: [...poIds] }, tenantId },
@@ -515,9 +687,25 @@ export const productTraceabilityService = {
             select: { invoiceNumber: true, customerName: true },
           })
         : Promise.resolve([]),
+      transferRefs.size
+        ? prisma.stockMovement.findMany({
+            where: {
+              reference: { in: [...transferRefs] },
+              type: { in: ['TRANSFER_IN', 'TRANSFER_OUT'] },
+            },
+            include: { branch: { select: { name: true } } },
+          })
+        : Promise.resolve([]),
     ])
     const poMap = new Map(pos.map(p => [p.id, p]))
     const saleMap = new Map(sales.map(s => [s.invoiceNumber, s]))
+    const transferPairByRef = new Map<string, typeof transferPairs>()
+    for (const p of transferPairs) {
+      const key = p.reference ?? ''
+      const list = transferPairByRef.get(key) ?? []
+      list.push(p)
+      transferPairByRef.set(key, list)
+    }
 
     const data = rows.map(m => {
       let title = mapMovementLabel(m.type, m.note)
@@ -535,7 +723,15 @@ export const productTraceabilityService = {
           subtitle = `Invoice ${m.reference} · ${m.branch.name}`
         }
       } else if (m.type === 'TRANSFER_IN' || m.type === 'TRANSFER_OUT') {
-        title = m.type === 'TRANSFER_IN' ? `Transferred into ${m.branch.name}` : `Transferred out of ${m.branch.name}`
+        const pair = m.reference ? (transferPairByRef.get(m.reference) ?? []) : []
+        const out = pair.find(p => p.type === 'TRANSFER_OUT')
+        const inn = pair.find(p => p.type === 'TRANSFER_IN')
+        const fromName = out?.branch.name ?? (m.type === 'TRANSFER_OUT' ? m.branch.name : '—')
+        const toName = inn?.branch.name ?? (m.type === 'TRANSFER_IN' ? m.branch.name : '—')
+        title = m.type === 'TRANSFER_IN'
+          ? `Stock transfer received at ${m.branch.name}`
+          : `Stock transfer sent from ${m.branch.name}`
+        subtitle = `${fromName} → ${toName}${m.note ? ` · ${m.note}` : ''}`
       } else if (m.type === 'RETURN') {
         title = 'Returned by customer'
       } else if (m.type === 'ADJUSTMENT') {

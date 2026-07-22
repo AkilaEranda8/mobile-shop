@@ -69,7 +69,13 @@ router.get('/dashboard', async (req: Request, res: Response, next: NextFunction)
 
     const [activeRepairs, totalCustomers, lowStockProducts, posRevenue, otherRevenue, expiringWarranties, readyForPickup, totalSalesCount] = await Promise.all([
       prisma.repairTicket.count({ where: { tenantId, ...branchFilter, status: { notIn: ['DELIVERED', 'CANCELLED'] } } }),
-      prisma.customer.count({ where: { tenantId } }),
+      prisma.customer.count({
+        where: {
+          tenantId,
+          isActive: true,
+          ...branchFilter,
+        },
+      }),
       // Low stock: compare stock against each product's own minStock (not a hardcoded value)
       prisma.$queryRaw<Array<{ id: string; name: string; stock: number; minStock: number }>>`
         SELECT id, name, stock, "minStock"

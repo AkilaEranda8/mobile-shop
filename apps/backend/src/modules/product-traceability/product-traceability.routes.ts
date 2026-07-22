@@ -38,6 +38,7 @@ router.get('/:productId/summary', async (req: Request, res: Response, next: Next
 router.get('/:productId/purchases', paginatedRoute(productTraceabilityService.getPurchases))
 router.get('/:productId/sales', paginatedRoute(productTraceabilityService.getSales))
 router.get('/:productId/movements', paginatedRoute(productTraceabilityService.getMovements))
+router.get('/:productId/transfers', paginatedRoute(productTraceabilityService.getTransfers))
 router.get('/:productId/serials', paginatedRoute(productTraceabilityService.getSerials))
 router.get('/:productId/timeline', paginatedRoute(productTraceabilityService.getTimeline))
 

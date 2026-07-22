@@ -7,6 +7,7 @@ type TraceabilityExportPayload = {
   analytics: Record<string, number>
   purchases: Record<string, unknown>[]
   sales: Record<string, unknown>[]
+  transfers?: Record<string, unknown>[]
   movements: Record<string, unknown>[]
   serials: Record<string, unknown>[]
   timeline: Record<string, unknown>[]
@@ -44,6 +45,9 @@ export function exportTraceabilityExcel(payload: TraceabilityExportPayload) {
   }
   if (payload.sales.length) {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(payload.sales), 'Sales')
+  }
+  if (payload.transfers?.length) {
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(payload.transfers), 'Transfers')
   }
   if (payload.movements.length) {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(payload.movements), 'Movements')
@@ -93,7 +97,8 @@ export function exportTraceabilityPdf(payload: TraceabilityExportPayload) {
     <table><tbody>${analyticsHtml}</tbody></table>
     ${section('Purchase History', ['purchaseOrderNo', 'supplierName', 'purchaseDate', 'quantityPurchased', 'unitCost', 'totalCost', 'status'], payload.purchases)}
     ${section('Customer Purchase History', ['invoiceNumber', 'customerName', 'invoiceDate', 'quantityPurchased', 'sellingPrice', 'invoiceTotal', 'paymentStatus'], payload.sales)}
-    ${section('Inventory Movement', ['dateTime', 'transactionType', 'referenceNumber', 'stockIn', 'stockOut', 'runningBalance', 'performedBy'], payload.movements)}
+    ${section('Stock Transfers', ['dateTime', 'reference', 'directionLabel', 'route', 'quantity', 'variant', 'imeis', 'notes', 'performedBy'], payload.transfers ?? [])}
+    ${section('Inventory Movement', ['dateTime', 'transactionType', 'referenceNumber', 'warehouseName', 'stockIn', 'stockOut', 'runningBalance', 'performedBy'], payload.movements)}
     ${section('Serial / IMEI', ['serialImei', 'currentStatus', 'salesInvoiceNo', 'customerName', 'warrantyStatus'], payload.serials)}
     ${section('Timeline', ['dateTime', 'title', 'subtitle', 'transactionType'], payload.timeline)}
     </body></html>`
