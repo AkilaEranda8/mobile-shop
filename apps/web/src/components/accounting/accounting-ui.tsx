@@ -223,8 +223,8 @@ export function CashBankSidebar({
   bank: number
   clearing: number
   counts: { cash: number; bank: number; clearing: number }
-  onAddBank: () => void
-  onReconcile: () => void
+  onAddBank?: () => void
+  onReconcile?: () => void
   onRefresh: () => void
   loading?: boolean
 }) {
@@ -311,12 +311,16 @@ export function CashBankSidebar({
       )}
 
       <div className="p-3 pt-0 space-y-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+        {onAddBank && (
         <button type="button" onClick={onAddBank} className="btn-primary w-full flex items-center justify-center gap-2 text-sm">
           Add bank
         </button>
+        )}
+        {onReconcile && (
         <button type="button" onClick={onReconcile} className="btn-secondary w-full flex items-center justify-center gap-2 text-sm">
           Reconcile
         </button>
+        )}
         <button
           type="button"
           onClick={onRefresh}

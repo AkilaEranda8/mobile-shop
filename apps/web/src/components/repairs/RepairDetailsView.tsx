@@ -21,6 +21,7 @@ import { printRepairIntakeReceipt } from '@/lib/repair-print.util'
 import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
 import InvoiceA4View from '@/components/invoice/InvoiceA4View'
 import RepairPartsProfitPanel from '@/components/repairs/RepairPartsProfitPanel'
+import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 import type { RepairTicket } from '@/types'
 import toast from 'react-hot-toast'
 
@@ -153,6 +154,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
   allRepairs?: RepairTicket[]
   showPageHeader?: boolean
 }) {
+  const { canEdit } = useModuleAccess()
   const quoteRef    = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const customerContactRef = useRef<HTMLDivElement>(null)
@@ -196,6 +198,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
   }, [onBack])
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!canEdit) { viewOnlyToast('repairs'); return }
     const files = Array.from(e.target.files ?? [])
     if (!files.length) return
     setUploading(true)
@@ -214,6 +217,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
   }
 
   const handleDeletePhoto = async (url: string) => {
+    if (!canEdit) { viewOnlyToast('repairs'); return }
     const updated = photos.filter(p => p !== url)
     try {
       await repairsApi.updatePhotos(repair.id, updated)
@@ -222,6 +226,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
   }
 
   const sendQuoteWhatsApp = async () => {
+    if (!canEdit) { viewOnlyToast('repairs'); return }
     const phone = formatWhatsAppPhone(repair.customerPhone ?? '')
     if (!phone) { toast.error('Customer phone required to send quote via WhatsApp'); return }
 
@@ -271,6 +276,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
   }
 
   const sendInvoiceWhatsApp = async () => {
+    if (!canEdit) { viewOnlyToast('repairs'); return }
     const phone = formatWhatsAppPhone(repair.customerPhone ?? '')
     if (!phone) { toast.error('Customer phone required to send invoice via WhatsApp'); return }
 
@@ -408,11 +414,13 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
   }
 
   const openAddNote = () => {
+    if (!canEdit) { viewOnlyToast('repairs'); return }
     setShowAddNote(true)
     setTimeout(() => notesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50)
   }
 
   const handleSaveNote = async () => {
+    if (!canEdit) { viewOnlyToast('repairs'); return }
     const text = noteText.trim()
     if (!text) { toast.error('Enter a note'); return }
     setSavingNote(true)
@@ -447,13 +455,14 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
   const [estimatedCostDraft, setEstimatedCostDraft] = useState(() => String(repair.estimatedCost ?? ''))
   const [savingEstimatedCost, setSavingEstimatedCost] = useState(false)
   const shopDefaultWarranty = repairWarrantyMonths(invSettings)
-  const canEditEstimatedCost = repairTicketEditable(repair.status)
+  const canEditEstimatedCost = canEdit && repairTicketEditable(repair.status)
 
   useEffect(() => {
     setEstimatedCostDraft(String(repair.estimatedCost ?? ''))
   }, [repair.estimatedCost])
 
   const handleWarrantyChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (!canEdit) { viewOnlyToast('repairs'); return }
     const raw = e.target.value
     const months = raw === '' ? null : Number(raw)
     setSavingWarranty(true)
@@ -466,7 +475,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
   }
 
   const handleEstimatedCostSave = async () => {
-    if (!canEditEstimatedCost) return
+    if (!canEditEstimatedCost) { if (!canEdit) viewOnlyToast('repairs'); return }
     const trimmed = estimatedCostDraft.trim()
     const value = trimmed === '' ? 0 : Number(trimmed)
     if (!Number.isFinite(value) || value < 0) {
@@ -546,6 +555,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
     : []
 
   const handleAddPart = async () => {
+    if (!canEdit) { viewOnlyToast('repairs'); return }
     if (!selProduct) return
     setAddingPart(true)
     try {
@@ -564,6 +574,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
   }
 
   const handleRemovePart = async (partId: string) => {
+    if (!canEdit) { viewOnlyToast('repairs'); return }
     setRemovingId(partId)
     try {
       const res: any = await repairsApi.removePart(repair.id, partId)
@@ -580,6 +591,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
   const partsLocked = repairPartsLocked(repair.status)
 
   const handleNext = async () => {
+    if (!canEdit) { viewOnlyToast('repairs'); return }
     if (!nextStatus) return
     setChangingStatus(true)
     await onStatusChange(repair.id, nextStatus)
@@ -587,6 +599,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
   }
 
   const handleCancel = async () => {
+    if (!canEdit) { viewOnlyToast('repairs'); return }
     setChangingStatus(true)
     await onStatusChange(repair.id, 'CANCELLED')
     setChangingStatus(false)
@@ -608,6 +621,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
   const creditAmount = hasCustomerCredit ? Math.max(0, finalAmount - payNow) : 0
 
   const handleCollectPayment = async () => {
+    if (!canEdit) { viewOnlyToast('repairs'); return }
     if (creditAmount > 0 && !repair.customerId) {
       toast.error('Customer is required for credit payment')
       return
@@ -638,14 +652,16 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
 
   const repairHeaderActions = (
     <div className="flex flex-wrap items-center gap-2">
-      <button
-        type="button"
-        onClick={onEdit}
-        disabled={!repairTicketEditable(repair.status)}
-        className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40"
-      >
-        <Pencil size={14} /> Edit
-      </button>
+      {canEdit && (
+        <button
+          type="button"
+          onClick={onEdit}
+          disabled={!repairTicketEditable(repair.status)}
+          className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40"
+        >
+          <Pencil size={14} /> Edit
+        </button>
+      )}
       <button
         type="button"
         onClick={downloadQuote}
@@ -654,23 +670,27 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
       >
         {downloading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />} PDF
       </button>
-      <button
-        type="button"
-        onClick={sendQuoteWhatsApp}
-        disabled={waSending !== null}
-        className="px-4 py-2 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-50 inline-flex items-center gap-2"
-      >
-        {waSending === 'quote' ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />} Quote
-      </button>
-      <button
-        type="button"
-        onClick={sendInvoiceWhatsApp}
-        disabled={waSending !== null}
-        className="px-4 py-2 rounded-xl text-sm font-bold bg-green-700 hover:bg-green-600 text-white transition-colors disabled:opacity-50 inline-flex items-center gap-2"
-      >
-        {waSending === 'invoice' ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />}
-        {waSending === 'invoice' ? 'Sending…' : waSendPdf ? 'Invoice PDF' : 'Invoice'}
-      </button>
+      {canEdit && (
+        <>
+          <button
+            type="button"
+            onClick={sendQuoteWhatsApp}
+            disabled={waSending !== null}
+            className="px-4 py-2 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+          >
+            {waSending === 'quote' ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />} Quote
+          </button>
+          <button
+            type="button"
+            onClick={sendInvoiceWhatsApp}
+            disabled={waSending !== null}
+            className="px-4 py-2 rounded-xl text-sm font-bold bg-green-700 hover:bg-green-600 text-white transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+          >
+            {waSending === 'invoice' ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />}
+            {waSending === 'invoice' ? 'Sending…' : waSendPdf ? 'Invoice PDF' : 'Invoice'}
+          </button>
+        </>
+      )}
     </div>
   )
 
@@ -747,7 +767,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                   className="text-xs font-bold w-full bg-transparent outline-none cursor-pointer disabled:opacity-50"
                   style={{ color: repair.warrantyMonths == null ? 'var(--text-muted)' : 'var(--text-primary)' }}
                   value={repair.warrantyMonths != null ? String(repair.warrantyMonths) : ''}
-                  disabled={savingWarranty || isPaid}
+                  disabled={!canEdit || savingWarranty || isPaid}
                   onChange={handleWarrantyChange}
                 >
                   <option value="">Not set{shopDefaultWarranty > 0 ? ` (shop default: ${formatWarrantyPeriodLabel(shopDefaultWarranty)})` : ''}</option>
@@ -847,7 +867,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
             </div>
 
             {/* Action buttons */}
-            {repair.status !== 'DELIVERED' && repair.status !== 'CANCELLED' && (
+            {canEdit && repair.status !== 'DELIVERED' && repair.status !== 'CANCELLED' && (
               <div className="space-y-3">
                 <div className="flex gap-2">
                   {repair.status === 'READY' ? (
@@ -959,11 +979,13 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                     Items ({(repair.spareParts?.length ?? 0) + (serviceFee > 0 ? 1 : 0)})
                   </p>
                 </div>
-                <button onClick={() => setShowAddPart(v => !v)} disabled={partsLocked}
-                  className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-bold rounded-lg transition-colors disabled:opacity-40"
-                  style={{ background: showAddPart ? 'rgba(239,68,68,0.08)' : 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: showAddPart ? '#ef4444' : 'var(--text-secondary)' }}>
-                  {showAddPart ? <><X size={10} />Cancel</> : <><Plus size={10} />Add Part</>}
-                </button>
+                {canEdit && (
+                  <button onClick={() => setShowAddPart(v => !v)} disabled={partsLocked}
+                    className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-bold rounded-lg transition-colors disabled:opacity-40"
+                    style={{ background: showAddPart ? 'rgba(239,68,68,0.08)' : 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: showAddPart ? '#ef4444' : 'var(--text-secondary)' }}>
+                    {showAddPart ? <><X size={10} />Cancel</> : <><Plus size={10} />Add Part</>}
+                  </button>
+                )}
               </div>
               <p className="text-[11px] mb-3" style={{ color: 'var(--text-muted)' }}>
                 {partsLocked
@@ -1068,7 +1090,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                     <div className="col-span-2 text-right text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>—</div>
                     <div className="col-span-2 text-right flex items-center justify-end gap-2">
                       <span className="text-xs font-bold" style={{ color: 'var(--text-muted)' }}>—</span>
-                      {!partsLocked && (
+                      {canEdit && !partsLocked && (
                       <button onClick={() => handleRemovePart(part.id)} disabled={removingId === part.id}
                         className="w-5 h-5 rounded flex items-center justify-center transition-colors hover:bg-red-500/10 hover:text-red-500 disabled:opacity-40"
                         style={{ color: 'var(--text-muted)' }}>
@@ -1077,7 +1099,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                       )}
                     </div>
                   </div>
-                )) : !showAddPart && serviceFee <= 0 && (
+                )) : canEdit && !showAddPart && serviceFee <= 0 && (
                   <div className="py-8 text-center">
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>No items yet</p>
                     <button onClick={() => setShowAddPart(true)} className="text-xs font-bold text-violet-500 hover:text-violet-400 mt-1">+ Add spare part</button>
@@ -1234,12 +1256,14 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
               <div className="p-3 grid grid-cols-3 gap-2">
                 {[
                   { icon: FileText,      label: 'Download PDF',    action: downloadQuote, disabled: downloading },
-                  { icon: MessageSquare, label: 'Quote WhatsApp',  action: sendQuoteWhatsApp, disabled: waSending !== null },
-                  { icon: Phone,         label: 'Invoice WhatsApp', action: sendInvoiceWhatsApp, disabled: waSending !== null },
+                  ...(canEdit ? [
+                    { icon: MessageSquare, label: 'Quote WhatsApp', action: sendQuoteWhatsApp, disabled: waSending !== null },
+                    { icon: Phone, label: 'Invoice WhatsApp', action: sendInvoiceWhatsApp, disabled: waSending !== null },
+                  ] : []),
                   { icon: Package,       label: 'Print Intake',    action: handlePrintIntake },
                   { icon: Printer,       label: 'Print Ticket',    action: handlePrintTicket },
                   { icon: User,          label: 'Customer Info',   action: focusCustomerInfo },
-                  { icon: ClipboardList, label: 'Add Note',        action: openAddNote },
+                  ...(canEdit ? [{ icon: ClipboardList, label: 'Add Note', action: openAddNote }] : []),
                 ].map(({ icon: Icon, label, action, disabled }) => (
                   <button
                     key={label}
@@ -1260,7 +1284,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                   </button>
                 ))}
               </div>
-              {showAddNote && (
+              {canEdit && showAddNote && (
                 <div ref={notesSectionRef} className="px-3 pb-3 space-y-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
                   <p className="text-[11px] font-bold pt-3" style={{ color: 'var(--text-muted)' }}>Add note (shown on invoice)</p>
                   <textarea
@@ -1303,24 +1327,26 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                 <p className="text-[11px] font-black uppercase tracking-widest flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
                   <Upload size={12} className="text-violet-500" /> Attachments ({photos.length})
                 </p>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold text-indigo-400 border border-indigo-500/20 bg-violet-500/10 hover:bg-violet-500/20 transition-colors disabled:opacity-50"
-                >
-                  {uploading ? <Loader2 size={10} className="animate-spin" /> : <Upload size={10} />}
-                  {uploading ? 'Uploading…' : 'Add Files'}
-                </button>
+                {canEdit && (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold text-indigo-400 border border-indigo-500/20 bg-violet-500/10 hover:bg-violet-500/20 transition-colors disabled:opacity-50"
+                  >
+                    {uploading ? <Loader2 size={10} className="animate-spin" /> : <Upload size={10} />}
+                    {uploading ? 'Uploading…' : 'Add Files'}
+                  </button>
+                )}
               </div>
               <div className="p-4">
-                <input
+                {canEdit && <input
                   ref={fileInputRef}
                   type="file"
                   multiple
                   accept="image/png,image/jpeg,image/jpg,image/webp,application/pdf"
                   className="hidden"
                   onChange={handleFileChange}
-                />
+                />}
                 {photos.length > 0 ? (
                   <div className="grid grid-cols-3 gap-2">
                     {photos.map((url, i) => {
@@ -1340,16 +1366,18 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                               <img src={url} alt={`Attachment ${i + 1}`} className="w-full h-full object-cover" />
                             </button>
                           )}
-                          <button
-                            onClick={() => handleDeletePhoto(url)}
-                            className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow"
-                          >
-                            <X size={10} />
-                          </button>
+                          {canEdit && (
+                            <button
+                              onClick={() => handleDeletePhoto(url)}
+                              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow"
+                            >
+                              <X size={10} />
+                            </button>
+                          )}
                         </div>
                       )
                     })}
-                    <button
+                    {canEdit && <button
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploading}
                       className="aspect-square rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-1 text-[10px] transition-colors hover:border-indigo-500/50 hover:bg-violet-500/5 disabled:opacity-50"
@@ -1357,9 +1385,9 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                     >
                       {uploading ? <Loader2 size={16} className="animate-spin text-indigo-400" /> : <Upload size={16} />}
                       {uploading ? '' : 'Add more'}
-                    </button>
+                    </button>}
                   </div>
-                ) : (
+                ) : canEdit ? (
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
@@ -1372,7 +1400,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                       {!uploading && <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>JPG, PNG, WebP, PDF · Max 10 MB each</p>}
                     </div>
                   </button>
-                )}
+                ) : null}
               </div>
             </div>
 
@@ -1401,9 +1429,11 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                       <Phone size={13} style={{ color: 'var(--text-muted)' }} />
                       <a href={`tel:${repair.customerPhone}`} className="text-sm font-semibold hover:text-violet-500 transition-colors" style={{ color: 'var(--text-primary)' }}>{repair.customerPhone}</a>
                     </div>
-                    <button onClick={sendInvoiceWhatsApp} className="w-7 h-7 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-center">
-                      <MessageSquare size={12} className="text-green-600" />
-                    </button>
+                    {canEdit && (
+                      <button onClick={sendInvoiceWhatsApp} className="w-7 h-7 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-center">
+                        <MessageSquare size={12} className="text-green-600" />
+                      </button>
+                    )}
                   </div>
                 )}
                 <div className="flex items-center gap-2.5">

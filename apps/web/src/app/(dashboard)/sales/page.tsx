@@ -22,6 +22,7 @@ import toast from 'react-hot-toast'
 import { getInvoiceSettings, fetchInvoiceSettings, resolveInvoiceTemplate, type InvoiceSettings } from '@/lib/invoiceSettings'
 import InvoiceA4View from '@/components/invoice/InvoiceA4View'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
+import { useModuleAccess, EditOnly } from '@/lib/module-access'
 
 const statusColors: Record<string, string> = {
   PAID:           'bg-green-500/10  border-green-500/20  text-green-400',
@@ -628,11 +629,12 @@ function EditSaleModal({
 
 /* â”€â”€ Sale Details Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function SaleDetailsModal({
-  sale, onClose, onChanged,
+  sale, onClose, onChanged, canEdit,
 }: {
   sale: any
   onClose: () => void
   onChanged: () => void
+  canEdit: boolean
 }) {
   const invoiceRef  = useRef<HTMLDivElement>(null)
   const [downloading, setDownloading] = useState(false)
@@ -900,7 +902,7 @@ function SaleDetailsModal({
 
           {/* Bottom actions */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-end pt-2">
-            {canManage && !isReturned && (
+            {canEdit && canManage && !isReturned && (
               <>
                 <button
                   type="button"
@@ -1004,6 +1006,7 @@ function SaleDetailsModal({
 
 /* ── Main Sales Page ─────────────────────────────────────────────────────── */
 export default function SalesPage() {
+  const { canEdit } = useModuleAccess()
   const searchParams = useSearchParams()
   const [sales, setSales]           = useState<any[]>([])
   const [meta, setMeta]             = useState<any>(null)
@@ -1145,7 +1148,7 @@ export default function SalesPage() {
       id: 'actions',
       cell: ({ row }) => {
         const s = row.original
-        const canEditDelete = canManage && s.status !== 'RETURNED'
+        const canEditDelete = canEdit && canManage && s.status !== 'RETURNED'
         return (
           <TableActionsRow
             showAction={{ action: () => openDetail(s) }}
@@ -1159,7 +1162,7 @@ export default function SalesPage() {
         )
       },
     },
-  ], [openDetail, canManage])
+  ], [openDetail, canEdit, canManage])
 
   return (
     <div className="space-y-5">
@@ -1169,7 +1172,7 @@ export default function SalesPage() {
           <p className="page-subtitle">View and manage all sales transactions</p>
         </div>
         <div className="flex items-center gap-2 sm:ml-auto">
-          <OpenPosButton label="New Sale" />
+          <EditOnly><OpenPosButton label="New Sale" /></EditOnly>
           <TableDensityToggle value={density} onChange={setDensity} />
         </div>
       </div>
@@ -1245,6 +1248,7 @@ export default function SalesPage() {
           sale={detailSale}
           onClose={() => setDetailSale(null)}
           onChanged={() => { void load() }}
+          canEdit={canEdit}
         />
       )}
       {editAuthSale && (

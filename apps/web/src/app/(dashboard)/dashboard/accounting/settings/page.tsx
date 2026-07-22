@@ -11,6 +11,7 @@ import {
   AccountingPageHeader,
   AccountingPanel,
 } from '@/components/accounting/accounting-ui'
+import { useModuleAccess } from '@/lib/module-access'
 
 const EXPENSE_CATEGORIES = ['Rent', 'Salary', 'Utilities', 'Marketing', 'Inventory', 'Repairs', 'Misc']
 
@@ -57,6 +58,7 @@ type SettingsData = {
 
 export default function AccountingSettingsPage() {
   const hasAccess = useFeatureFlag('ACCOUNTING')
+  const { canEdit } = useModuleAccess()
   const [settings, setSettings] = useState<SettingsData | null>(null)
   const [accounts, setAccounts] = useState<GlAccount[]>([])
   const [loading, setLoading] = useState(true)
@@ -128,6 +130,7 @@ export default function AccountingSettingsPage() {
         <div className="flex justify-center py-16"><Loader2 className="animate-spin text-violet-400" /></div>
       ) : settings && (
         <>
+          <fieldset disabled={!canEdit}>
           <div className="grid xl:grid-cols-2 gap-6 w-full">
             <AccountingPanel title="General">
               <div className="p-5 space-y-4">
@@ -202,10 +205,11 @@ export default function AccountingSettingsPage() {
             </div>
           </AccountingPanel>
 
-          <button type="button" onClick={handleSave} disabled={saving} className="btn-primary flex items-center gap-2 text-sm">
+          </fieldset>
+          {canEdit && <button type="button" onClick={handleSave} disabled={saving} className="btn-primary flex items-center gap-2 text-sm">
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
             Save settings
-          </button>
+          </button>}
         </>
       )}
     </AccountingPageShell>

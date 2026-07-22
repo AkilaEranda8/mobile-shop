@@ -26,6 +26,7 @@ import {
   GREEN_ACCENT,
   VIOLET_ACCENT,
 } from '@/components/accounting/accounting-ui'
+import { useModuleAccess } from '@/lib/module-access'
 
 type AccountingStatus = {
   enabled: boolean
@@ -66,6 +67,7 @@ const QUICK_LINKS = [
 
 export default function AccountingPage() {
   const hasAccess = useFeatureFlag('ACCOUNTING')
+  const { canEdit } = useModuleAccess()
   const [status, setStatus] = useState<AccountingStatus | null>(null)
   const [accounts, setAccounts] = useState<GlAccount[]>([])
   const [loading, setLoading] = useState(true)
@@ -212,7 +214,7 @@ export default function AccountingPage() {
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             Refresh
           </button>
-          {status?.initialized && (
+          {canEdit && status?.initialized && (
             <button
               type="button"
               onClick={handleSyncProcess}
@@ -260,7 +262,7 @@ export default function AccountingPage() {
                     : 'Initialize to seed the mobile-shop chart of accounts and open the current period.'}
                 </p>
               </div>
-              {!status.initialized && (
+              {!status.initialized && canEdit && (
                 <button
                   type="button"
                   onClick={handleInitialize}
@@ -280,7 +282,7 @@ export default function AccountingPage() {
             </div>
           </div>
 
-          {status.outboxPending > 0 && status.initialized && (
+          {canEdit && status.outboxPending > 0 && status.initialized && (
             <div className="card p-4 flex items-center gap-3 border-amber-500/25 bg-amber-500/5">
               <Database className="text-amber-400 shrink-0" size={18} />
               <div className="flex-1 text-sm min-w-0">
@@ -364,9 +366,11 @@ export default function AccountingPage() {
               actions={
                 <div className="flex items-center gap-2">
                   <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{accounts.length} accounts</span>
-                  <button type="button" onClick={() => setShowCreateAccount(true)} className="btn-secondary text-xs flex items-center gap-1 py-1">
-                    <Plus size={12} /> Add
-                  </button>
+                  {canEdit && (
+                    <button type="button" onClick={() => setShowCreateAccount(true)} className="btn-secondary text-xs flex items-center gap-1 py-1">
+                      <Plus size={12} /> Add
+                    </button>
+                  )}
                 </div>
               }
             >
@@ -389,7 +393,7 @@ export default function AccountingPage() {
                         <AccountingTd>{a.type}</AccountingTd>
                         <AccountingTd className="text-xs" style={{ color: 'var(--text-muted)' }}>{a.subtype}</AccountingTd>
                         <AccountingTd>
-                          {!a.isSystem && (
+                          {canEdit && !a.isSystem && (
                             <button
                               type="button"
                               className="text-xs text-violet-400 hover:text-violet-300"

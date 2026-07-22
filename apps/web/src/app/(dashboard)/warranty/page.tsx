@@ -24,6 +24,7 @@ import { parseRepairWarrantyDevice } from '@/lib/repair.util'
 import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
 import { authStorage } from '@/lib/auth'
 import { Printer } from 'lucide-react'
+import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 
 const statusColors: Record<string, string> = {
   ACTIVE:  'bg-green-500/10  border-green-500/20  text-green-400',
@@ -34,6 +35,7 @@ const statusColors: Record<string, string> = {
 
 /* ── Repair service warranty default (shop-wide) ─────────────────────── */
 function RepairWarrantyDefaults() {
+  const { canEdit } = useModuleAccess()
   const [months, setMonths] = useState(3)
   const [saving, setSaving] = useState(false)
 
@@ -44,6 +46,7 @@ function RepairWarrantyDefaults() {
   }, [])
 
   const save = async () => {
+    if (!canEdit) { viewOnlyToast('warranties'); return }
     const user = authStorage.getUser()
     if (!user?.tenantId) return
     setSaving(true)
@@ -69,7 +72,7 @@ function RepairWarrantyDefaults() {
           </p>
         </div>
       </div>
-      <div className="flex items-center gap-2 shrink-0">
+      {canEdit && <div className="flex items-center gap-2 shrink-0">
         <select
           className="input-field h-9 text-sm min-w-[130px]"
           value={months}
@@ -82,13 +85,14 @@ function RepairWarrantyDefaults() {
         <button type="button" onClick={save} disabled={saving} className="btn-primary text-xs h-9 px-4 disabled:opacity-50">
           {saving ? <Loader2 size={13} className="animate-spin" /> : 'Save'}
         </button>
-      </div>
+      </div>}
     </div>
   )
 }
 
 /* ── Add Warranty Modal ───────────────────────────────────────────────── */
 function AddWarrantyModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const { canEdit } = useModuleAccess()
   const [form, setForm] = useState({
     customerName: '', customerPhone: '', customerId: '',
     productName: '', brandName: '', imei: '',
@@ -137,7 +141,9 @@ function AddWarrantyModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     setForm(p => ({ ...p, [k]: e.target.value }))
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setLoading(true)
+    e.preventDefault()
+    if (!canEdit) { viewOnlyToast('warranties'); return }
+    setLoading(true)
     try {
       const start = new Date(form.startDate)
       const end   = new Date(start)
@@ -303,6 +309,7 @@ function AddWarrantyModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
 function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRepair }: {
   warranty: Warranty; onClose: () => void; onEdit: () => void; onDelete: () => void; onCreateRepair?: (claim: any) => void
 }) {
+  const { canEdit } = useModuleAccess()
   const now      = new Date()
   const daysLeft = Math.ceil((new Date(warranty.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
   const expiring = daysLeft <= 30 && daysLeft > 0 && warranty.status === 'ACTIVE'
@@ -339,6 +346,7 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRep
   }
 
   const submitClaim = async () => {
+    if (!canEdit) { viewOnlyToast('warranties'); return }
     if (!claimIssue.trim()) return
     setClaimLoading(true)
     try {
@@ -351,6 +359,7 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRep
   }
 
   const advanceClaim = async (claim: any, newStatus: string) => {
+    if (!canEdit) { viewOnlyToast('warranties'); return }
     setClaimUpdating(claim.id)
     try {
       const res: any = await warrantyApi.updateClaim(warranty.id, claim.id, { status: newStatus })
@@ -362,6 +371,7 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRep
   }
 
   const rejectClaim = async (claim: any) => {
+    if (!canEdit) { viewOnlyToast('warranties'); return }
     setClaimUpdating(claim.id)
     try {
       const res: any = await warrantyApi.updateClaim(warranty.id, claim.id, { status: 'REJECTED' })
@@ -393,6 +403,7 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRep
   }
 
   const sendEmail = async () => {
+    if (!canEdit) { viewOnlyToast('warranties'); return }
     setEmailLoading(true)
     try {
       const res: any = await warrantyApi.sendEmail(warranty.id, emailTo || undefined)
@@ -459,20 +470,20 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRep
                 {daysLabel}
               </span>
             )}
-            <button
+            {canEdit && <button
               type="button"
               onClick={onEdit}
               className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border font-semibold text-violet-700 dark:text-violet-300 border-violet-500/25 bg-violet-500/10 hover:bg-violet-500/20"
             >
               <Edit size={12} /> Edit
-            </button>
-            <button
+            </button>}
+            {canEdit && <button
               type="button"
               onClick={onDelete}
               className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border font-semibold text-rose-700 dark:text-rose-300 border-rose-500/25 bg-rose-500/10 hover:bg-rose-500/20"
             >
               <Trash2 size={12} /> Delete
-            </button>
+            </button>}
             <button
               type="button"
               onClick={onClose}
@@ -630,7 +641,7 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRep
                   <span className="inline-flex items-center gap-1.5">
                     <AlertTriangle size={12} /> Claims ({localClaims.length})
                   </span>
-                  {warranty.status !== 'VOID' && warranty.status !== 'EXPIRED' && (
+                  {canEdit && warranty.status !== 'VOID' && warranty.status !== 'EXPIRED' && (
                     <button
                       type="button"
                       onClick={() => setShowClaimForm(v => !v)}
@@ -737,7 +748,7 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRep
                               </span>
                             </td>
                             <td className="px-3 py-2">
-                              {flow && c.status !== 'RESOLVED' && c.status !== 'REJECTED' ? (
+                              {canEdit && flow && c.status !== 'RESOLVED' && c.status !== 'REJECTED' ? (
                                 <div className="flex flex-wrap gap-1">
                                   <button
                                     type="button"
@@ -856,15 +867,17 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRep
               {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
               Download PDF
             </button>
-            <button
-              type="button"
-              disabled={emailLoading}
-              onClick={() => setShowEmailInput(v => !v)}
-              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-cyan-500/30 bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 font-semibold disabled:opacity-60"
-            >
-              {emailLoading ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
-              Send Email
-            </button>
+            {canEdit && (
+              <button
+                type="button"
+                disabled={emailLoading}
+                onClick={() => setShowEmailInput(v => !v)}
+                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-cyan-500/30 bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 font-semibold disabled:opacity-60"
+              >
+                {emailLoading ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
+                Send Email
+              </button>
+            )}
             <button
               type="button"
               onClick={onClose}
@@ -875,7 +888,7 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRep
             </button>
           </div>
 
-          {showEmailInput && (
+          {canEdit && showEmailInput && (
             <div className="flex flex-col sm:flex-row gap-2 justify-end">
               <input
                 type="email"
@@ -912,6 +925,7 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRep
 function EditWarrantyModal({ warranty, onClose, onSaved }: {
   warranty: Warranty; onClose: () => void; onSaved: () => void
 }) {
+  const { canEdit } = useModuleAccess()
   const [form, setForm] = useState({
     customerName:   warranty.customerName   ?? '',
     customerPhone:  warranty.customerPhone  ?? '',
@@ -929,7 +943,9 @@ function EditWarrantyModal({ warranty, onClose, onSaved }: {
     setForm(p => ({ ...p, [k]: e.target.value }))
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setLoading(true)
+    e.preventDefault()
+    if (!canEdit) { viewOnlyToast('warranties'); return }
+    setLoading(true)
     try {
       await warrantyApi.update(warranty.id, {
         ...form,
@@ -1009,6 +1025,7 @@ function EditWarrantyModal({ warranty, onClose, onSaved }: {
 /* ── Main Page ────────────────────────────────────────────────────────── */
 export default function WarrantyPage() {
   const router = useRouter()
+  const { canEdit } = useModuleAccess()
   const searchParams = useSearchParams()
   const { data: warrantyData, loading, refetch } = useWarranties()
   const [tab, setTab]                     = useState<'all' | 'expiring' | 'claimed'>('all')
@@ -1027,15 +1044,18 @@ export default function WarrantyPage() {
 
   useEffect(() => {
     const action = searchParams.get('action')
-    if (action === 'add' || action === 'new' || searchParams.get('new') === '1') setShowAdd(true)
+    if (canEdit && (action === 'add' || action === 'new' || searchParams.get('new') === '1')) setShowAdd(true)
     const id = searchParams.get('id')
     if (!id || !warranties.length) return
     const found = warranties.find(w => w.id === id)
     if (found) setViewW(found)
-  }, [searchParams, warranties])
+  }, [canEdit, searchParams, warranties])
 
   const openDetail = useCallback((w: Warranty) => setViewW(w), [])
-  const openEdit = useCallback((w: Warranty) => setEditW(w), [])
+  const openEdit = useCallback((w: Warranty) => {
+    if (!canEdit) { viewOnlyToast('warranties'); return }
+    setEditW(w)
+  }, [canEdit])
 
   const now        = new Date()
   const thirtyDays = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
@@ -1058,6 +1078,7 @@ export default function WarrantyPage() {
   }, [warranties, tab, textSearch, thirtyDays])
 
   const handleDelete = async (w: Warranty) => {
+    if (!canEdit) { viewOnlyToast('warranties'); return }
     if (!confirm(`Delete warranty ${w.warrantyCode}? This cannot be undone.`)) return
     setDeletingId(w.id)
     try {
@@ -1078,7 +1099,7 @@ export default function WarrantyPage() {
           type="button"
           className="flex items-center gap-2 hover:opacity-80"
           onClick={() => openDetail(row.original)}
-          onDoubleClick={(e) => { e.preventDefault(); openEdit(row.original) }}
+          onDoubleClick={canEdit ? (e) => { e.preventDefault(); openEdit(row.original) } : undefined}
         >
           <Shield size={13} className="text-violet-400 flex-shrink-0" />
           <span className="text-xs font-mono text-violet-500 hover:underline">{row.original.warrantyCode}</span>
@@ -1141,18 +1162,24 @@ export default function WarrantyPage() {
       cell: ({ row }) => (
         <TableActionsRow
           showAction={{ action: () => openDetail(row.original) }}
-          editAction={{ action: () => openEdit(row.original) }}
-          deleteAction={{ action: () => handleDelete(row.original), disabled: deletingId === row.original.id }}
+          {...(canEdit ? {
+            editAction: { action: () => openEdit(row.original) },
+            deleteAction: { action: () => handleDelete(row.original), disabled: deletingId === row.original.id },
+          } : {})}
         />
       ),
     },
-  ], [deletingId, handleDelete, openDetail, openEdit])
+  ], [canEdit, deletingId, handleDelete, openDetail, openEdit])
 
   return (
     <div className="space-y-6">
       {showAdd  && <AddWarrantyModal onClose={() => setShowAdd(false)} onSaved={() => { refetch(); setShowAdd(false) }} />}
-      {viewW    && <WarrantyDetailsModal warranty={viewW} onClose={() => setViewW(null)} onEdit={() => { setEditW(viewW); setViewW(null) }} onDelete={() => handleDelete(viewW)}
+      {viewW    && <WarrantyDetailsModal warranty={viewW} onClose={() => setViewW(null)} onEdit={() => {
+        if (!canEdit) { viewOnlyToast('warranties'); return }
+        setEditW(viewW); setViewW(null)
+      }} onDelete={() => handleDelete(viewW)}
         onCreateRepair={(claim) => {
+          if (!canEdit) { viewOnlyToast('warranties'); return }
           const w = viewW
           const { deviceBrand, deviceModel } = parseRepairWarrantyDevice(w?.productName, (w as any)?.brandName)
           const params = new URLSearchParams({
@@ -1176,9 +1203,11 @@ export default function WarrantyPage() {
           <h1 className="page-title">Warranty Management</h1>
           <p className="page-subtitle">{warranties.length} warranties · {expiringCount} expiring soon</p>
         </div>
-        <button onClick={() => setShowAdd(true)} className="btn-primary text-sm flex items-center gap-2 sm:ml-auto">
-          <Plus size={14} />Issue Warranty
-        </button>
+        {canEdit && (
+          <button onClick={() => setShowAdd(true)} className="btn-primary text-sm flex items-center gap-2 sm:ml-auto">
+            <Plus size={14} />Issue Warranty
+          </button>
+        )}
       </div>
 
       {/* Stats */}

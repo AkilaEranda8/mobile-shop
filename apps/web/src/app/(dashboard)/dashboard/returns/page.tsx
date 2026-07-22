@@ -17,6 +17,7 @@ import { salesApi } from '@/lib/api'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
+import { useModuleAccess, EditOnly, viewOnlyToast } from '@/lib/module-access'
 
 const RETURN_REASONS = [
   'Defective / Damaged',
@@ -572,6 +573,7 @@ function ReturnDetailModal({ ret, onClose }: { ret: any; onClose: () => void }) 
 
 /* ── Main Returns Page ───────────────────────────────────────────────────── */
 export default function ReturnsPage() {
+  const { canEdit } = useModuleAccess()
   const searchParams = useSearchParams()
   const [returns,    setReturns]    = useState<any[]>([])
   const [meta,       setMeta]       = useState<any>(null)
@@ -584,12 +586,15 @@ export default function ReturnsPage() {
 
   useEffect(() => {
     const action = searchParams.get('action')
-    if (action === 'new' || action === 'add' || searchParams.get('new') === '1') setShowNewReturn(true)
+    if (action === 'new' || action === 'add' || searchParams.get('new') === '1') {
+      if (canEdit) setShowNewReturn(true)
+      else viewOnlyToast('POS')
+    }
     const id = searchParams.get('id')
     if (!id || !returns.length) return
     const found = returns.find(r => r.id === id)
     if (found) setDetailRet(found)
-  }, [searchParams, returns])
+  }, [canEdit, searchParams, returns])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -704,12 +709,12 @@ export default function ReturnsPage() {
           <p className="page-subtitle">Track all product returns and refunds</p>
         </div>
         <div className="flex items-center gap-2">
-          <OpenPosButton label="New Sale" variant="secondary" />
-          <button onClick={() => setShowNewReturn(true)}
+          <EditOnly><OpenPosButton label="New Sale" variant="secondary" /></EditOnly>
+          <EditOnly><button onClick={() => setShowNewReturn(true)}
             className="btn-primary text-sm flex items-center gap-2">
             <RotateCcw size={14} />
             New Return
-          </button>
+          </button></EditOnly>
         </div>
       </div>
 
@@ -751,7 +756,7 @@ export default function ReturnsPage() {
       />
 
       {detailRet     && <ReturnDetailModal ret={detailRet} onClose={() => setDetailRet(null)} />}
-      {showNewReturn && <ProcessReturnModal onClose={() => setShowNewReturn(false)} onDone={load} />}
+      {canEdit && showNewReturn && <ProcessReturnModal onClose={() => setShowNewReturn(false)} onDone={load} />}
     </div>
   )
 }

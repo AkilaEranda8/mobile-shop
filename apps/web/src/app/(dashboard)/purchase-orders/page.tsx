@@ -10,6 +10,7 @@ import { TableActionsRow } from '@/components/table/table-actions-row'
 import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useSuppliers, usePurchaseOrders, useProducts } from '@/lib/hooks'
+import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 import { suppliersApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { isImeiHealthBannerDismissed, dismissImeiHealthBanner } from '@/lib/productImei'
@@ -437,6 +438,7 @@ function PODetailsModal({
 export default function PurchaseOrdersPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { canEdit } = useModuleAccess()
   const [showNewPO, setShowNewPO] = useState(false)
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [markReceiving, setMarkReceiving] = useState<string | null>(null)
@@ -568,7 +570,8 @@ export default function PurchaseOrdersPage() {
 
     const action = searchParams.get('action')
     if (action === 'new-po' || action === 'add-po' || searchParams.get('new') === '1') {
-      setShowNewPO(true)
+      if (canEdit) setShowNewPO(true)
+      else viewOnlyToast('suppliers')
     }
 
     const id = searchParams.get('id')
@@ -576,7 +579,7 @@ export default function PurchaseOrdersPage() {
       const found = purchaseOrders.find(po => po.id === id)
       if (found) setDetailPO(found)
     }
-  }, [searchParams, router, purchaseOrders])
+  }, [searchParams, router, purchaseOrders, canEdit])
 
   const incompletePoCount = useMemo(() =>
     purchaseOrders.filter(po => {
@@ -610,10 +613,18 @@ export default function PurchaseOrdersPage() {
   }, [purchaseOrders, textSearch, poStatusFilter])
 
   const handleMarkReceived = async (po: PurchaseOrder) => {
+    if (!canEdit) {
+      viewOnlyToast('suppliers')
+      return
+    }
     setConfirmPO(po)
   }
 
   const doReceive = async () => {
+    if (!canEdit) {
+      viewOnlyToast('suppliers')
+      return
+    }
     if (!confirmPO) return
     setMarkReceiving(confirmPO.id)
     try {
@@ -697,7 +708,7 @@ export default function PurchaseOrdersPage() {
         if (imeiExpected <= 0) {
           return <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>—</span>
         }
-        if (canRegisterImei) {
+        if (canEdit && canRegisterImei) {
           return (
             <button
               type="button"
@@ -728,7 +739,7 @@ export default function PurchaseOrdersPage() {
           { text: 'View details', function: () => openPoDetail(po), icon: <Eye size={13} /> },
           { text: 'View Invoice', function: () => openPoInvoice(po.id), icon: <FileText size={13} /> },
         ]
-        if (canReceive) {
+        if (canEdit && canReceive) {
           menu.push({
             text: markReceiving === po.id ? 'Receiving…' : 'Receive stock',
             function: () => handleMarkReceived(po),
@@ -766,7 +777,7 @@ export default function PurchaseOrdersPage() {
         )
       },
     },
-  ], [openPoInvoice, openPoDetail, markReceiving, allProducts, handlePrintPoLabels])
+  ], [canEdit, openPoInvoice, openPoDetail, markReceiving, allProducts, handlePrintPoLabels])
 
   return (
     <div className="space-y-6">
@@ -780,10 +791,10 @@ export default function PurchaseOrdersPage() {
             setDetailPO(null)
             openPoInvoice(id)
           }}
-          onReceive={['DRAFT', 'SENT', 'PARTIAL'].includes(detailPO.status)
+          onReceive={canEdit && ['DRAFT', 'SENT', 'PARTIAL'].includes(detailPO.status)
             ? () => { setConfirmPO(detailPO); setDetailPO(null) }
             : undefined}
-          onRegisterImei={poCanRegisterImei(detailPO, allProducts)
+          onRegisterImei={canEdit && poCanRegisterImei(detailPO, allProducts)
             ? () => { setRegisterImeiPO(detailPO); setDetailPO(null) }
             : undefined}
           onPrintBarcodes={(detailPO.status === 'RECEIVED' || detailPO.status === 'CLOSED')
@@ -849,16 +860,20 @@ export default function PurchaseOrdersPage() {
           >
             Suppliers
           </button>
-          <button
-            type="button"
-            onClick={() => setShowBulkImport(true)}
-            className="btn-secondary text-sm flex items-center gap-2"
-          >
-            <Upload size={14} />Bulk Import
-          </button>
-          <button onClick={() => setShowNewPO(true)} className="btn-primary text-sm flex items-center gap-2">
-            <Package size={14} />New PO
-          </button>
+          {canEdit && (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowBulkImport(true)}
+                className="btn-secondary text-sm flex items-center gap-2"
+              >
+                <Upload size={14} />Bulk Import
+              </button>
+              <button onClick={() => setShowNewPO(true)} className="btn-primary text-sm flex items-center gap-2">
+                <Package size={14} />New PO
+              </button>
+            </>
+          )}
         </div>
       </div>
 

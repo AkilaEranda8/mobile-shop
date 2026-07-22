@@ -17,6 +17,7 @@ import { formatDate } from '@/lib/utils'
 import { inventoryApi, productsApi } from '@/lib/api'
 import { getActiveBranchId, getVisibleBranches } from '@/lib/active-branch'
 import { authStorage } from '@/lib/auth'
+import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 
 import type { ProductVariation } from '@/types'
 
@@ -806,10 +807,11 @@ function TransferModal({
 }
 
 export default function StockTransferPage() {
+  const { canEdit } = useModuleAccess()
   const searchParams = useSearchParams()
   const user = authStorage.getUser()
   const activeBranchId = getActiveBranchId() ?? ''
-  const canTransfer = user?.role === 'OWNER' || user?.role === 'MANAGER'
+  const canTransfer = canEdit && (user?.role === 'OWNER' || user?.role === 'MANAGER')
 
   const [branches, setBranches] = useState<Branch[]>([])
   const [products, setProducts] = useState<Product[]>([])
@@ -834,9 +836,10 @@ export default function StockTransferPage() {
   useEffect(() => {
     const action = searchParams.get('action')
     if (action === 'new' || action === 'add' || action === 'transfer' || searchParams.get('new') === '1') {
-      setShowTransfer(true)
+      if (canEdit) setShowTransfer(true)
+      else viewOnlyToast('Inventory')
     }
-  }, [searchParams])
+  }, [canEdit, searchParams])
 
   const loadProducts = useCallback(() => {
     if (!viewBranchId) return

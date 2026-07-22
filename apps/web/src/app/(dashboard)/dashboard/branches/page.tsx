@@ -7,6 +7,7 @@ import { branchesApi, tenantApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import toast from 'react-hot-toast'
 import { Switch } from '@/components/ui/Switch'
+import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 
 /* ── Plan limits ─────────────────────────────────────────────────── */
 const PLAN_BRANCH_LIMIT: Record<string, number> = {
@@ -157,6 +158,7 @@ function BranchModal({
 export default function BranchesPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { canEdit } = useModuleAccess()
   const user = authStorage.getUser()
   const [branches, setBranches] = useState<Branch[]>([])
   const [plan, setPlan]         = useState('STARTER')
@@ -172,8 +174,14 @@ export default function BranchesPage() {
 
   useEffect(() => {
     const action = searchParams.get('action')
-    if (action === 'add' || action === 'new' || searchParams.get('new') === '1') setShowAdd(true)
-  }, [searchParams])
+    if (action === 'add' || action === 'new' || searchParams.get('new') === '1') {
+      if (!canEdit) {
+        viewOnlyToast('Branches')
+        return
+      }
+      setShowAdd(true)
+    }
+  }, [searchParams, canEdit])
 
   if (user && user.role !== 'OWNER') return null
 
@@ -215,12 +223,14 @@ export default function BranchesPage() {
           <span className={`text-[11px] px-3 py-1.5 rounded-lg font-bold border ${PLAN_COLOR[plan] ?? PLAN_COLOR.STARTER}`}>
             {plan} · {limit === Infinity ? 'Unlimited branches' : `${limit} branch${limit !== 1 ? 'es' : ''}`}
           </span>
-          <button
-            onClick={() => { if (atLimit) { toast.error(`Your ${plan} plan allows only ${limit} branch${limit !== 1 ? 'es' : ''}. Upgrade to add more.`); return; } setShowAdd(true) }}
-            className="btn-primary flex items-center gap-2 text-sm"
-            title={atLimit ? `Upgrade plan to add more branches` : 'Add new branch'}>
-            <Plus size={15} />Add Branch
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => { if (atLimit) { toast.error(`Your ${plan} plan allows only ${limit} branch${limit !== 1 ? 'es' : ''}. Upgrade to add more.`); return; } setShowAdd(true) }}
+              className="btn-primary flex items-center gap-2 text-sm"
+              title={atLimit ? `Upgrade plan to add more branches` : 'Add new branch'}>
+              <Plus size={15} />Add Branch
+            </button>
+          )}
         </div>
       </div>
 
@@ -279,11 +289,13 @@ export default function BranchesPage() {
                   <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold border ${branch.isActive ? 'text-green-400 bg-green-500/10 border-green-500/20' : 'text-slate-500 bg-white/5 border-white/10'}`}>
                     {branch.isActive ? 'Active' : 'Inactive'}
                   </span>
-                  <button onClick={() => setEditBranch(branch)}
-                    className="p-1.5 rounded-lg transition-colors hover:bg-violet-500/10"
-                    style={{ color: 'var(--text-muted)' }} title="Edit">
-                    <Edit size={13} />
-                  </button>
+                  {canEdit && (
+                    <button onClick={() => setEditBranch(branch)}
+                      className="p-1.5 rounded-lg transition-colors hover:bg-violet-500/10"
+                      style={{ color: 'var(--text-muted)' }} title="Edit">
+                      <Edit size={13} />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -306,7 +318,7 @@ export default function BranchesPage() {
               </div>
 
               {/* Toggle active */}
-              <div className="pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+              {canEdit && <div className="pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
                 <button
                   onClick={async () => {
                     if (branch.isHeadquarters && branch.isActive) { toast.error("Cannot deactivate HQ branch"); return }
@@ -319,12 +331,12 @@ export default function BranchesPage() {
                   className={`text-xs font-medium transition-colors ${branch.isActive ? 'text-red-400 hover:text-red-300' : 'text-green-400 hover:text-green-300'}`}>
                   {branch.isActive ? 'Deactivate' : 'Reactivate'}
                 </button>
-              </div>
+              </div>}
             </div>
           ))}
 
           {/* Add placeholder */}
-          {!atLimit && (
+          {canEdit && !atLimit && (
             <button onClick={() => setShowAdd(true)}
               className="rounded-2xl p-5 flex flex-col items-center justify-center gap-2 transition-all hover:border-violet-500/40 hover:bg-violet-500/5"
               style={{ background: 'var(--bg-subtle)', border: '2px dashed var(--border-default)', minHeight: 160 }}>
@@ -343,9 +355,11 @@ export default function BranchesPage() {
           <Building2 size={40} className="text-slate-600 mb-4" />
           <p className="text-slate-400 font-medium">No branches yet</p>
           <p className="text-slate-600 text-sm mt-1">Create your first branch to get started</p>
-          <button onClick={() => setShowAdd(true)} className="btn-primary mt-4 flex items-center gap-2">
-            <Plus size={14} />Add First Branch
-          </button>
+          {canEdit && (
+            <button onClick={() => setShowAdd(true)} className="btn-primary mt-4 flex items-center gap-2">
+              <Plus size={14} />Add First Branch
+            </button>
+          )}
         </div>
       )}
 

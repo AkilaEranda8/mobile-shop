@@ -12,6 +12,7 @@ import toast from 'react-hot-toast'
 import { Switch } from '@/components/ui/Switch'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
 import { useFeatureFlag } from '@/lib/hooks'
+import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 
 interface Service {
   id: string
@@ -35,6 +36,7 @@ const getColor = (cat: string) => CATEGORY_COLORS[cat] ?? { color: '#64748b', bg
 
 export default function ServicesPage() {
   const hasServices = useFeatureFlag('SERVICES')
+  const { canEdit } = useModuleAccess()
   const [services, setServices]   = useState<Service[]>([])
   const [categories, setCategories] = useState<string[]>([])
   const [loading, setLoading]     = useState(true)
@@ -63,6 +65,10 @@ export default function ServicesPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!canEdit) {
+      viewOnlyToast('services')
+      return
+    }
     if (!editing) return
     setSaving(true)
     try {
@@ -83,12 +89,20 @@ export default function ServicesPage() {
   }
 
   const handleDelete = async (id: string) => {
+    if (!canEdit) {
+      viewOnlyToast('services')
+      return
+    }
     if (!confirm('Delete this service?')) return
     try { await servicesApi.delete(id); toast.success('Service deleted'); load() }
     catch { toast.error('Failed to delete service') }
   }
 
   const openNew = () => {
+    if (!canEdit) {
+      viewOnlyToast('services')
+      return
+    }
     setEditing({ id: 'new-' + Date.now(), name: '', description: '', cost: 0, price: 0, category: categories[0] || 'General', isActive: true, createdAt: '', updatedAt: '' })
     setShowModal(true)
   }
@@ -150,14 +164,14 @@ export default function ServicesPage() {
       id: 'actions',
       cell: ({ row: { original: s } }) => (
         <TableActionsRow
-          editAction={{ action: () => { setEditing(s); setShowModal(true) } }}
-          deleteAction={{ action: () => handleDelete(s.id) }}
+          editAction={canEdit ? { action: () => { setEditing(s); setShowModal(true) } } : undefined}
+          deleteAction={canEdit ? { action: () => handleDelete(s.id) } : undefined}
         />
       ),
     },
   ]
     return cols
-  }, [categories, handleDelete, hasServices])
+  }, [canEdit, categories, handleDelete, hasServices])
 
   return (
     <div className="space-y-6">
@@ -170,9 +184,11 @@ export default function ServicesPage() {
         </div>
         <div className="flex gap-2 sm:ml-auto">
           <OpenPosButton label="Open POS" variant="secondary" />
-          <button onClick={openNew} className="btn-primary flex items-center gap-2">
-            <Plus size={14} />Add Service
-          </button>
+          {canEdit && (
+            <button onClick={openNew} className="btn-primary flex items-center gap-2">
+              <Plus size={14} />Add Service
+            </button>
+          )}
         </div>
       </div>
 

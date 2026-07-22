@@ -30,6 +30,7 @@ import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
 import InvoiceA4View from '@/components/invoice/InvoiceA4View'
 import EditRepairModal from '@/components/repairs/EditRepairModal'
 import RepairDetailsModal from '@/components/repairs/RepairDetailsModal'
+import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 import type { Customer } from '@/types'
 import toast from 'react-hot-toast'
 import type { RepairTicket } from '@/types'
@@ -963,6 +964,7 @@ const ACTIVE_STATUSES = ['RECEIVED', 'DIAGNOSED', 'IN_REPAIR', 'QC']
 
 export default function RepairsPage() {
   const hasAccess = useFeatureFlag('REPAIRS')
+  const { canEdit } = useModuleAccess()
   const searchParams = useSearchParams()
   const { data: repairsData, loading, refetch } = useRepairs()
   const [showAddModal, setShowAddModal]     = useState(false)
@@ -975,12 +977,16 @@ export default function RepairsPage() {
 
   const openDetail = useCallback((repair: RepairTicket) => setDetailRepair(repair), [])
   const openEdit = useCallback((repair: RepairTicket) => {
+    if (!canEdit) {
+      viewOnlyToast('repairs')
+      return
+    }
     if (!repairTicketEditable(repair.status)) {
       toast.error('Completed or cancelled repairs cannot be edited')
       return
     }
     setEditRepair(repair)
-  }, [])
+  }, [canEdit])
 
   useEffect(() => {
     try {
@@ -1014,12 +1020,12 @@ export default function RepairsPage() {
         imei:            searchParams.get('imei')            || undefined,
         warrantyClaimId: searchParams.get('warrantyClaimId') || undefined,
       })
-      setShowAddModal(true)
+      if (canEdit) setShowAddModal(true)
     } else if (searchParams.get('action') === 'new' || searchParams.get('new') === '1') {
-      setShowAddModal(true)
+      if (canEdit) setShowAddModal(true)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [canEdit])
 
   const allRepairs: RepairTicket[] = useMemo(
     () => ((repairsData?.data ?? []) as unknown[]).map((r) => normalizeRepairTicket(r)),
@@ -1083,7 +1089,7 @@ export default function RepairsPage() {
           className="text-xs font-mono font-semibold hover:underline text-left"
           style={{ color: 'var(--sidebar-active-text)' }}
           onClick={() => openDetail(row.original)}
-          onDoubleClick={(e) => { e.preventDefault(); openEdit(row.original) }}
+          onDoubleClick={canEdit ? (e) => { e.preventDefault(); openEdit(row.original) } : undefined}
         >
           {row.original.ticketNumber}
         </button>
@@ -1098,7 +1104,7 @@ export default function RepairsPage() {
           type="button"
           className="text-left"
           onClick={() => openDetail(row.original)}
-          onDoubleClick={(e) => { e.preventDefault(); openEdit(row.original) }}
+          onDoubleClick={canEdit ? (e) => { e.preventDefault(); openEdit(row.original) } : undefined}
         >
           <p className="text-sm font-medium transition-colors hover:opacity-80" style={{ color: 'var(--text-primary)' }}>{row.original.deviceBrand} {row.original.deviceModel}</p>
         </button>
@@ -1169,12 +1175,12 @@ export default function RepairsPage() {
           </button>
           <TableActionsRow
             showAction={{ action: () => openDetail(row.original) }}
-            editAction={{ action: () => openEdit(row.original) }}
+            {...(canEdit ? { editAction: { action: () => openEdit(row.original) } } : {})}
           />
         </div>
       ),
     },
-  ], [openDetail, openEdit])
+  ], [canEdit, openDetail, openEdit])
 
   if (!hasAccess) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -1196,8 +1202,13 @@ export default function RepairsPage() {
           repair={detailRepair}
           allRepairs={allRepairs}
           onClose={() => setDetailRepair(null)}
-          onEdit={() => { setEditRepair(detailRepair); setDetailRepair(null) }}
+          onEdit={() => {
+            if (!canEdit) { viewOnlyToast('repairs'); return }
+            setEditRepair(detailRepair)
+            setDetailRepair(null)
+          }}
           onStatusChange={async (id, status) => {
+            if (!canEdit) { viewOnlyToast('repairs'); return }
             try {
               await repairsApi.updateStatus(id, status)
               toast.success(`Status → ${statusLabels[status]}`)
@@ -1231,9 +1242,11 @@ export default function RepairsPage() {
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             Refresh
           </button>
-          <button type="button" onClick={() => setShowAddModal(true)} className="btn-primary text-sm flex items-center gap-2">
-            <Plus size={14} />New Ticket
-          </button>
+          {canEdit && (
+            <button type="button" onClick={() => setShowAddModal(true)} className="btn-primary text-sm flex items-center gap-2">
+              <Plus size={14} />New Ticket
+            </button>
+          )}
         </div>
       </div>
 
@@ -1306,7 +1319,7 @@ export default function RepairsPage() {
           title="No repair tickets yet"
           description="Create a ticket when a customer drops off a device. Track diagnosis, parts, status, and payment through to delivery."
           accentColor="violet"
-          actions={[{ label: 'Create First Ticket', onClick: () => setShowAddModal(true), primary: true }]}
+          actions={canEdit ? [{ label: 'Create First Ticket', onClick: () => setShowAddModal(true), primary: true }] : []}
           hints={[
             'Assign a technician and set priority when creating the ticket.',
             'Add spare parts from inventory and collect payment on delivery.',

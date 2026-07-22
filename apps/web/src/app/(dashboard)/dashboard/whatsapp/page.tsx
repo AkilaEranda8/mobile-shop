@@ -17,6 +17,7 @@ import ConnectionTab     from '@/components/whatsapp/ConnectionTab'
 import InvoiceTab        from '@/components/whatsapp/InvoiceTab'
 import StatsTab          from '@/components/whatsapp/StatsTab'
 import HistoryTab        from '@/components/whatsapp/HistoryTab'
+import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 
 type Tab = 'connection' | 'invoice' | 'statistics' | 'history'
 
@@ -36,6 +37,7 @@ const STATUS_BADGE: Record<string, { label: string; color: string; bg: string; b
 }
 
 export default function WhatsAppPage() {
+  const { canEdit } = useModuleAccess()
   const tenantId = getWhatsAppTenantId()
   const [activeTab,   setActiveTab]   = useState<Tab>('connection')
   const [status,      setStatus]      = useState<WAStatusInfo | null>(null)
@@ -125,6 +127,7 @@ export default function WhatsAppPage() {
   }, [silentMetaReconnect])
 
   const handleStatusChange = (s: WAStatusInfo) => {
+    if (!canEdit) return viewOnlyToast('WhatsApp')
     const tid = authStorage.getUser()?.tenantId
     setStatus(s)
     if (!tid) return
@@ -211,6 +214,7 @@ export default function WhatsAppPage() {
               shopName={shopName}
               status={status}
               config={config}
+              canEdit={canEdit}
               onStatusChange={handleStatusChange}
               onConfigChange={c => setConfig(prev => ({ ...prev, ...c }))}
             />
@@ -218,6 +222,7 @@ export default function WhatsAppPage() {
           {activeTab === 'invoice' && (
             <InvoiceTab
               config={config}
+              canEdit={canEdit}
               onConfigChange={c => setConfig(prev => ({ ...prev, ...c }))}
             />
           )}

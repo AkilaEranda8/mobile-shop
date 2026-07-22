@@ -2,6 +2,8 @@
 
 import { useEffect } from 'react'
 import { usePos } from '@/lib/use-pos'
+import { useRolePermissions } from '@/lib/hooks'
+import { viewOnlyToast } from '@/lib/module-access'
 
 /**
  * Global F2 opens POS from the dashboard.
@@ -9,6 +11,7 @@ import { usePos } from '@/lib/use-pos'
  */
 export function PosGlobalShortcuts() {
   const { openPos, posOpen, hasPos } = usePos()
+  const { canEdit } = useRolePermissions()
 
   useEffect(() => {
     if (!hasPos) return
@@ -20,11 +23,12 @@ export function PosGlobalShortcuts() {
       // POS overlay handles F2 while open
       if (posOpen) return
       e.preventDefault()
+      if (!canEdit('POS')) return viewOnlyToast('POS')
       openPos()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [hasPos, openPos, posOpen])
+  }, [canEdit, hasPos, openPos, posOpen])
 
   return null
 }

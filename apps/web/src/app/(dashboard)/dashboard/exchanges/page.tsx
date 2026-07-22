@@ -20,6 +20,7 @@ import { getInvoiceSettings, fetchInvoiceSettings, shopContextFromTenant, type I
 import { buildReceiptFromApiSale, printReceipt, receiptPrintLabel } from '@/lib/printReceipt'
 import { tradeInFromExchange, soldVariantFromExchange } from '@/lib/exchangeBill'
 import { authStorage } from '@/lib/auth'
+import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 import { getActiveBranchId } from '@/lib/active-branch'
 import toast from 'react-hot-toast'
 
@@ -44,6 +45,7 @@ function ExchangeDetailModal({
   onClose: () => void
   onDeleted: () => void
 }) {
+  const { canEdit } = useModuleAccess()
   const [deleting, setDeleting] = useState(false)
   const [printing, setPrinting] = useState(false)
   const cond = CONDITIONS.find(c => c.value === exchange.oldCondition) ?? CONDITIONS[1]
@@ -86,6 +88,7 @@ function ExchangeDetailModal({
   }
 
   const handleDelete = async () => {
+    if (!canEdit) { viewOnlyToast('exchanges'); return }
     if (!confirm('Delete this exchange record?')) return
     setDeleting(true)
     try {
@@ -138,15 +141,17 @@ function ExchangeDetailModal({
                 No Invoice
               </span>
             )}
-            <button
-              type="button"
-              onClick={handleDelete}
-              disabled={deleting}
-              className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10 transition-colors disabled:opacity-50"
-              title="Delete exchange"
-            >
-              {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-            </button>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10 transition-colors disabled:opacity-50"
+                title="Delete exchange"
+              >
+                {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+              </button>
+            )}
             <button
               type="button"
               onClick={onClose}
@@ -394,6 +399,7 @@ function ExchangeDetailModal({
 /* ── Main Page ────────────────────────────────────────────────────────── */
 export default function ExchangesPage() {
   const searchParams = useSearchParams()
+  const { canEdit } = useModuleAccess()
   const [records, setRecords]   = useState<any[]>([])
   const [loading, setLoading]   = useState(true)
   const [showNew, setShowNew]   = useState(false)
@@ -414,12 +420,12 @@ export default function ExchangesPage() {
 
   useEffect(() => {
     const action = searchParams.get('action')
-    if (action === 'new' || action === 'add' || searchParams.get('new') === '1') setShowNew(true)
+    if (canEdit && (action === 'new' || action === 'add' || searchParams.get('new') === '1')) setShowNew(true)
     const id = searchParams.get('id')
     if (!id || !records.length) return
     const found = records.find(r => r.id === id)
     if (found) setSelected(found)
-  }, [searchParams, records])
+  }, [canEdit, searchParams, records])
 
   useEffect(() => {
     const user = authStorage.getUser()
@@ -580,9 +586,11 @@ export default function ExchangesPage() {
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             Refresh
           </button>
-          <button type="button" onClick={() => setShowNew(true)} className="btn-primary text-sm flex items-center gap-2">
-            <Plus size={14} />New Exchange
-          </button>
+          {canEdit && (
+            <button type="button" onClick={() => setShowNew(true)} className="btn-primary text-sm flex items-center gap-2">
+              <Plus size={14} />New Exchange
+            </button>
+          )}
         </div>
       </div>
 
@@ -622,7 +630,7 @@ export default function ExchangesPage() {
           title="No exchange records yet"
           description="Accept customer trade-ins, sell a phone from stock, and generate an exchange invoice in one flow."
           accentColor="amber"
-          actions={[{ label: 'Start First Exchange', onClick: () => setShowNew(true), primary: true }]}
+          actions={canEdit ? [{ label: 'Start First Exchange', onClick: () => setShowNew(true), primary: true }] : []}
           hints={[
             'Trade-in phone is added to inventory with EXCHANGE_IN stock movement.',
             'Sold phone IMEI is marked SOLD and linked to the invoice.',

@@ -19,6 +19,7 @@ import {
   AccountingTd,
   AccountingTh,
 } from '@/components/accounting/accounting-ui'
+import { useModuleAccess } from '@/lib/module-access'
 
 type Run = {
   id: string
@@ -35,6 +36,7 @@ type Employee = { id: string; name: string; email: string; role: string }
 
 export default function PayrollPage() {
   const hasAccess = useFeatureFlag('ACCOUNTING')
+  const { canEdit } = useModuleAccess()
   const branchId = getActiveBranchId() ?? ''
   const [runs, setRuns] = useState<Run[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -132,11 +134,11 @@ export default function PayrollPage() {
         title="Payroll"
         subtitle="Monthly accrual and salary payment journals"
         icon={Users}
-        actions={
-          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary flex items-center gap-2 text-sm">
-            <Plus size={14} /> New Run
-          </button>
-        }
+        actions={canEdit ? (
+            <button type="button" onClick={() => setShowCreate(true)} className="btn-primary flex items-center gap-2 text-sm">
+              <Plus size={14} /> New Run
+            </button>
+          ) : null}
       />
 
       {loading ? (
@@ -168,7 +170,7 @@ export default function PayrollPage() {
                       <AccountingStatusBadge tone={r.status === 'PAID' ? 'success' : 'warning'}>{r.status}</AccountingStatusBadge>
                     </AccountingTd>
                     <AccountingTd align="right">
-                      {r.status === 'ACCRUED' && (
+                      {canEdit && r.status === 'ACCRUED' && (
                         <button type="button" onClick={() => handlePay(r.id)} disabled={submitting}
                           className="text-xs text-violet-400 hover:text-violet-300">Pay</button>
                       )}
@@ -182,7 +184,7 @@ export default function PayrollPage() {
         </AccountingPanel>
       )}
 
-      <AccountingPanel title="EPF / ETF remittance">
+      {canEdit && <AccountingPanel title="EPF / ETF remittance">
         <div className="p-5 flex flex-wrap items-end gap-3">
           <label className="block">
             <span className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Type</span>
@@ -203,7 +205,7 @@ export default function PayrollPage() {
             Post remittance
           </button>
         </div>
-      </AccountingPanel>
+      </AccountingPanel>}
 
       {showCreate && (
         <AccountingModal title="New payroll accrual" icon={Users} onClose={() => setShowCreate(false)} wide>

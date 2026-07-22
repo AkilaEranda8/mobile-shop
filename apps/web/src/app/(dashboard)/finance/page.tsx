@@ -19,6 +19,7 @@ import { Lock } from 'lucide-react'
 import { financeApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import type { Transaction as AppTransaction } from '@/types'
+import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 
 const COLORS = ['var(--brand-primary)', '#06b6d4', '#10b981', 'var(--status-warn)', '#ef4444']
 
@@ -119,6 +120,7 @@ const TOOLTIP_STYLE = {
 
 export default function FinancePage() {
   const searchParams = useSearchParams()
+  const { canEdit } = useModuleAccess()
   const [tab, setTab]     = useState<'overview' | 'transactions'>('overview')
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'INCOME' | 'EXPENSE'>('ALL')
@@ -151,10 +153,14 @@ export default function FinancePage() {
   useEffect(() => {
     const action = searchParams.get('action')
     if (action === 'add-expense' || action === 'add' || searchParams.get('new') === '1') {
+      if (!canEdit) {
+        viewOnlyToast('Finance')
+        return
+      }
       setShowAdd(true)
       setTab('transactions')
     }
-  }, [searchParams])
+  }, [searchParams, canEdit])
 
   const salesRevenue = summary?.salesRevenue  ?? 0
   const otherIncome  = summary?.otherIncome   ?? 0
@@ -218,9 +224,11 @@ export default function FinancePage() {
           </p>
         </div>
         <div className="flex gap-2 sm:ml-auto">
-          <button onClick={() => setShowAdd(true)} className="btn-primary flex items-center gap-2">
-            <Plus size={14} />Add Transaction
-          </button>
+          {canEdit && (
+            <button onClick={() => setShowAdd(true)} className="btn-primary flex items-center gap-2">
+              <Plus size={14} />Add Transaction
+            </button>
+          )}
         </div>
       </div>
 

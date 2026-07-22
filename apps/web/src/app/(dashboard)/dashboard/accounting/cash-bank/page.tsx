@@ -19,6 +19,7 @@ import {
   CashBankSidebar,
   CashBankSection,
 } from '@/components/accounting/accounting-ui'
+import { useModuleAccess } from '@/lib/module-access'
 
 type Register = {
   kind: 'CASH' | 'BANK' | 'CLEARING'
@@ -76,10 +77,12 @@ function RegisterCards({
   registers,
   onFill,
   onSettle,
+  canEdit,
 }: {
   registers: Register[]
   onFill: (r: Register) => void
   onSettle: (r: Register) => void
+  canEdit: boolean
 }) {
   return (
     <>
@@ -90,8 +93,8 @@ function RegisterCards({
           balance={r.balance}
           kind={r.kind}
           subtitle={registerSubtitle(r)}
-          onFill={r.kind === 'CLEARING' ? undefined : () => onFill(r)}
-          onSettle={() => onSettle(r)}
+          onFill={canEdit && r.kind !== 'CLEARING' ? () => onFill(r) : undefined}
+          onSettle={canEdit ? () => onSettle(r) : undefined}
         />
       ))}
     </>
@@ -100,6 +103,7 @@ function RegisterCards({
 
 export default function CashBankPage() {
   const hasAccess = useFeatureFlag('ACCOUNTING')
+  const { canEdit } = useModuleAccess()
   const branchId = getActiveBranchId() ?? ''
   const [registers, setRegisters] = useState<Register[]>([])
   const [loading, setLoading] = useState(true)
@@ -300,12 +304,14 @@ export default function CashBankPage() {
         icon={Landmark}
         actions={
           <div className="flex items-center gap-2 lg:hidden">
-            <button type="button" onClick={() => setShowAddBank(true)} className="btn-primary flex items-center gap-2 text-sm">
-              <Plus size={14} /> Add bank
-            </button>
-            <button type="button" onClick={() => setShowReconcile(true)} className="btn-secondary flex items-center gap-2 text-sm">
-              <Scale size={14} /> Reconcile
-            </button>
+            {canEdit && <>
+              <button type="button" onClick={() => setShowAddBank(true)} className="btn-primary flex items-center gap-2 text-sm">
+                <Plus size={14} /> Add bank
+              </button>
+              <button type="button" onClick={() => setShowReconcile(true)} className="btn-secondary flex items-center gap-2 text-sm">
+                <Scale size={14} /> Reconcile
+              </button>
+            </>}
             <button type="button" onClick={load} className="btn-secondary p-2.5 rounded-lg" aria-label="Refresh">
               <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
             </button>
@@ -337,8 +343,8 @@ export default function CashBankPage() {
                 bank: bankRegisters.length,
                 clearing: clearingRegisters.length,
               }}
-              onAddBank={() => setShowAddBank(true)}
-              onReconcile={() => setShowReconcile(true)}
+              onAddBank={canEdit ? () => setShowAddBank(true) : undefined}
+              onReconcile={canEdit ? () => setShowReconcile(true) : undefined}
               onRefresh={load}
               loading={loading}
             />
@@ -347,17 +353,17 @@ export default function CashBankPage() {
           <div className="space-y-5 min-w-0">
             {cashRegisters.length > 0 && (
               <CashBankSection id="cash-section" title="Cash registers" kind="CASH" count={cashRegisters.length} compact>
-                <RegisterCards registers={cashRegisters} onFill={r => openModal('fill', r)} onSettle={r => openModal('settle', r)} />
+                <RegisterCards registers={cashRegisters} onFill={r => openModal('fill', r)} onSettle={r => openModal('settle', r)} canEdit={canEdit} />
               </CashBankSection>
             )}
             {bankRegisters.length > 0 && (
               <CashBankSection id="bank-section" title="Bank accounts" kind="BANK" count={bankRegisters.length} compact>
-                <RegisterCards registers={bankRegisters} onFill={r => openModal('fill', r)} onSettle={r => openModal('settle', r)} />
+                <RegisterCards registers={bankRegisters} onFill={r => openModal('fill', r)} onSettle={r => openModal('settle', r)} canEdit={canEdit} />
               </CashBankSection>
             )}
             {clearingRegisters.length > 0 && (
               <CashBankSection id="clearing-section" title="Clearing accounts" kind="CLEARING" count={clearingRegisters.length} compact>
-                <RegisterCards registers={clearingRegisters} onFill={r => openModal('fill', r)} onSettle={r => openModal('settle', r)} />
+                <RegisterCards registers={clearingRegisters} onFill={r => openModal('fill', r)} onSettle={r => openModal('settle', r)} canEdit={canEdit} />
               </CashBankSection>
             )}
           </div>

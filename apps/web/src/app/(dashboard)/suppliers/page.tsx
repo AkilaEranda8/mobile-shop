@@ -10,6 +10,7 @@ import { TableActionsRow } from '@/components/table/table-actions-row'
 import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { formatCurrency } from '@/lib/utils'
 import { useSuppliers, usePurchaseOrders } from '@/lib/hooks'
+import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 import type { Supplier } from '@/types'
 import {
   AddSupplierModal,
@@ -21,6 +22,7 @@ import {
 export default function SuppliersPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { canEdit } = useModuleAccess()
   const [showAddSupplier, setShowAddSupplier] = useState(false)
   const [detailSupplier, setDetailSupplier] = useState<Supplier | null>(null)
   const [editSupplier, setEditSupplier] = useState<Supplier | null>(null)
@@ -47,14 +49,15 @@ export default function SuppliersPage() {
       return
     }
     if (action === 'add' || action === 'add-supplier' || searchParams.get('new') === '1') {
-      setShowAddSupplier(true)
+      if (canEdit) setShowAddSupplier(true)
+      else viewOnlyToast('suppliers')
     }
     const id = searchParams.get('id')
     if (id && suppliers.length) {
       const found = suppliers.find(s => s.id === id)
       if (found) setDetailSupplier(found)
     }
-  }, [searchParams, suppliers, router])
+  }, [searchParams, suppliers, router, canEdit])
 
   const filteredSuppliers = useMemo(() => {
     const q = textSearch.trim().toLowerCase()
@@ -126,7 +129,7 @@ export default function SuppliersPage() {
         const s = row.original
         return (
           <div className="flex items-center gap-2">
-            {(s as any).outstandingDues > 0 && (
+            {canEdit && (s as any).outstandingDues > 0 && (
               <button onClick={() => setPaySupplier(s)}
                 className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors shadow-sm">
                 <CreditCard size={10} />Pay
@@ -134,13 +137,13 @@ export default function SuppliersPage() {
             )}
             <TableActionsRow
               showAction={{ action: () => setDetailSupplier(s) }}
-              editAction={{ action: () => setEditSupplier(s) }}
+              editAction={canEdit ? { action: () => setEditSupplier(s) } : undefined}
             />
           </div>
         )
       },
     },
-  ], [openSupplier])
+  ], [canEdit, openSupplier])
 
   return (
     <div className="space-y-6">
@@ -150,7 +153,7 @@ export default function SuppliersPage() {
           supplier={detailSupplier}
           allPOs={purchaseOrders}
           onClose={() => setDetailSupplier(null)}
-          onEdit={() => { setEditSupplier(detailSupplier); setDetailSupplier(null) }}
+          onEdit={canEdit ? () => { setEditSupplier(detailSupplier); setDetailSupplier(null) } : undefined}
         />
       )}
       {editSupplier && (
@@ -182,9 +185,11 @@ export default function SuppliersPage() {
           >
             Purchase Orders
           </button>
-          <button onClick={() => setShowAddSupplier(true)} className="btn-primary text-sm flex items-center gap-2">
-            <Plus size={14} />Add Supplier
-          </button>
+          {canEdit && (
+            <button onClick={() => setShowAddSupplier(true)} className="btn-primary text-sm flex items-center gap-2">
+              <Plus size={14} />Add Supplier
+            </button>
+          )}
         </div>
       </div>
 

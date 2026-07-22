@@ -9,6 +9,7 @@ import { DataTableColumnHeader } from '@/components/table/data-table-column-head
 import { dailyReloadApi } from '@/lib/api'
 import { useFeatureFlag } from '@/lib/hooks'
 import { businessToday } from '@/lib/business-date'
+import { useModuleAccess, EditOnly, viewOnlyToast } from '@/lib/module-access'
 
 /* ── Types ───────────────────────────────────────────────────────────────────── */
 interface Reload {
@@ -71,6 +72,7 @@ function fmtDate(iso: string) {
 /* ══════════════════════════════════════════════════════════════════════════════ */
 export default function DailyReloadPage() {
   const hasAccess = useFeatureFlag('DAILY_RELOAD')
+  const { canEdit } = useModuleAccess()
   const [date, setDate]               = useState(today())
   const [summary, setSummary]         = useState<Summary>({ data: [], total: 0, totalAmount: 0, commission: 0 })
   const [settlementSummary, setSettlementSummary] = useState<{
@@ -148,6 +150,7 @@ export default function DailyReloadPage() {
 
   /* ── Excel Upload ────────────────────────────────────────────────────────── */
   const handleFile = async (file: File) => {
+    if (!canEdit) return viewOnlyToast('Daily Reload')
     if (!file.name.match(/\.(xlsx|xls)$/i)) { toast.error('Please upload an Excel (.xlsx) file'); return }
     setUploading(true)
     try {
@@ -161,6 +164,7 @@ export default function DailyReloadPage() {
 
   /* ── Manual Save ─────────────────────────────────────────────────────────── */
   const handleManualSave = async () => {
+    if (!canEdit) return viewOnlyToast('Daily Reload')
     if (!phone.trim()) { toast.error('Phone number is required'); return }
     if (!amount || isNaN(parseFloat(amount))) { toast.error('Valid amount is required'); return }
     setSaving(true)
@@ -183,6 +187,7 @@ export default function DailyReloadPage() {
   }
 
   const openPayModal = (provider: string) => {
+    if (!canEdit) return viewOnlyToast('Daily Reload')
     const row = settlementSummary.providerBreakdown.find(p => p.provider === provider)
     if (!row || row.remaining <= 0) return
     setPayModal({
@@ -198,6 +203,7 @@ export default function DailyReloadPage() {
   }
 
   const submitProviderPay = async () => {
+    if (!canEdit) return viewOnlyToast('Daily Reload')
     if (!payModal) return
     const amt = parseFloat(payAmount)
     if (!Number.isFinite(amt) || amt <= 0) { toast.error('Enter a valid payment amount'); return }
@@ -229,6 +235,7 @@ export default function DailyReloadPage() {
 
   /* ── Delete ──────────────────────────────────────────────────────────────── */
   const handleDelete = useCallback(async (id: string) => {
+    if (!canEdit) return viewOnlyToast('Daily Reload')
     if (!confirm('Delete this reload record?')) return
     try {
       await dailyReloadApi.remove(id)
@@ -237,7 +244,7 @@ export default function DailyReloadPage() {
       fetchSettlement()
     } catch { toast.error('Delete failed') }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [canEdit, fetch, fetchSettlement])
 
   /* ── Columns ─────────────────────────────────────────────────────────────── */
   const columns = useMemo<ColumnDef<Reload>[]>(() => [
@@ -313,7 +320,7 @@ export default function DailyReloadPage() {
     },
     {
       id: 'actions',
-      cell: ({ row: { original: r } }) => (
+      cell: ({ row: { original: r } }) => canEdit ? (
         <button
           onClick={() => handleDelete(r.id)}
           className="p-1.5 rounded-lg transition-colors hover:bg-red-500/10 hover:text-red-400"
@@ -322,9 +329,9 @@ export default function DailyReloadPage() {
         >
           <Trash2 size={13} />
         </button>
-      ),
+      ) : null,
     },
-  ], [handleDelete])
+  ], [canEdit, handleDelete])
 
   /* ── Export CSV ──────────────────────────────────────────────────────────── */
   const handleExport = () => {
@@ -455,7 +462,7 @@ export default function DailyReloadPage() {
           {/* ── Excel Upload ─────────────────────────────────────────────── */}
           {tab === 'upload' && (
             <div className="space-y-4">
-              <div
+              <EditOnly><div
                 onDragOver={e => { e.preventDefault(); setDragOver(true) }}
                 onDragLeave={() => setDragOver(false)}
                 onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
@@ -478,7 +485,7 @@ export default function DailyReloadPage() {
                     </div>
                   </div>
                 )}
-              </div>
+              </div></EditOnly>
               <div className="flex items-start gap-2 p-3 rounded-xl text-xs" style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)' }}>
                 <AlertCircle size={13} className="mt-0.5 flex-shrink-0" style={{ color: '#3b82f6' }} />
                 <span style={{ color: 'var(--text-muted)' }}>Row 1 is treated as a header and skipped. Amount column accepts "Rs 159" or "159" format. Date should be DD/MM/YYYY.</span>
@@ -487,7 +494,7 @@ export default function DailyReloadPage() {
           )}
 
           {/* ── Manual Entry ─────────────────────────────────────────────── */}
-          {tab === 'manual' && (
+          {canEdit && tab === 'manual' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {[
                 { label: 'Phone / Connection No *', value: phone,  setter: setPhone,  placeholder: '07XX XXX XXX', type: 'text' },
@@ -604,7 +611,7 @@ export default function DailyReloadPage() {
                                 {row.paid > 0.01 && (
                                   <span className="text-[9px] font-medium text-amber-500">Partial paid</span>
                                 )}
-                                <button
+                                <EditOnly><button
                                   type="button"
                                   onClick={() => handlePayProvider(row.provider)}
                                   disabled={payingProvider !== null}
@@ -613,7 +620,7 @@ export default function DailyReloadPage() {
                                 >
                                   {payingProvider === row.provider ? <RefreshCw size={11} className="animate-spin" /> : <Banknote size={11} />}
                                   Pay
-                                </button>
+                                </button></EditOnly>
                               </div>
                             )}
                           </td>
@@ -652,7 +659,7 @@ export default function DailyReloadPage() {
       </div>
 
       {/* ── Provider Pay Modal ─────────────────────────────────────────────── */}
-      {payModal && (
+      {canEdit && payModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" onClick={() => !payingProvider && setPayModal(null)}>
           <div
             className="w-full max-w-md rounded-2xl border shadow-2xl"

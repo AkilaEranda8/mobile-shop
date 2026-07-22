@@ -19,6 +19,7 @@ import { authStorage } from '@/lib/auth'
 import { DailyClosingCharts } from '@/components/daily-closing/DailyClosingCharts'
 import { DailyClosingHistory } from '@/components/daily-closing/DailyClosingHistory'
 import { exportDailyClosingExcel, buildPdfLines } from '@/lib/daily-closing-export'
+import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 
 const STEPS = [
   { id: 1, title: 'Sales',     icon: ShoppingCart },
@@ -94,12 +95,13 @@ function SectionTitle({ title, sub }: { title: string; sub?: string }) {
 
 export default function DailyClosingPage() {
   const searchParams = useSearchParams()
+  const { canEdit } = useModuleAccess()
   const hasAccess = useFeatureFlag('DAILY_CLOSING')
   const hasDailyReload = useFeatureFlag('DAILY_RELOAD')
   const hasProfitAllocation = useFeatureFlag('PROFIT_ALLOCATION')
   const user = authStorage.getUser()
   const role = user?.role ?? 'CASHIER'
-  const canClose = role === 'OWNER' || role === 'MANAGER'
+  const canClose = canEdit && (role === 'OWNER' || role === 'MANAGER')
   const canDraft = canClose
   const cashOnly = role === 'CASHIER'
 
@@ -226,6 +228,7 @@ export default function DailyClosingPage() {
   }, [d, date, branchId, showReload])
 
   const saveOpeningCash = async () => {
+    if (!canEdit) { viewOnlyToast('Daily Closing'); return }
     if (!branchId) return
     if (typeof openingCash !== 'number' || Number.isNaN(openingCash) || openingCash < 0) {
       toast.error('Enter a valid opening cash amount')
@@ -242,6 +245,7 @@ export default function DailyClosingPage() {
   }
 
   const saveCashCount = async () => {
+    if (!canEdit) { viewOnlyToast('Daily Closing'); return }
     if (!branchId) return
     setSaving(true)
     try {
@@ -259,7 +263,7 @@ export default function DailyClosingPage() {
   }
 
   const saveDraft = async () => {
-    if (!canDraft) return
+    if (!canDraft) { if (!canEdit) viewOnlyToast('Daily Closing'); return }
     setSaving(true)
     try {
       await dailyClosingApi.saveDraft({
@@ -277,7 +281,7 @@ export default function DailyClosingPage() {
   }
 
   const closeDay = async () => {
-    if (!canClose) return
+    if (!canClose) { if (!canEdit) viewOnlyToast('Daily Closing'); return }
     if (!confirm('Close business day? New sales will be blocked until reopened.')) return
     setSaving(true)
     try {
@@ -299,7 +303,7 @@ export default function DailyClosingPage() {
   }
 
   const reopenDay = async () => {
-    if (!canClose) return
+    if (!canClose) { if (!canEdit) viewOnlyToast('Daily Closing'); return }
     if (!confirm('Reopen this day? Saved profit allocation will be reversed, daily summary removed, and new transactions allowed again.')) return
     setSaving(true)
     try {
@@ -665,7 +669,7 @@ export default function DailyClosingPage() {
                     <MetricCard label="Cash In Bank" value={formatCurrency(d?.cash?.cashInBank ?? 0)} />
                   </div>
 
-                  {!d?.isClosed && (
+                  {!d?.isClosed && canEdit && (
                     <div className="flex flex-wrap items-end gap-3">
                       <label className="block min-w-[200px]">
                         <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Opening Cash</span>
@@ -693,14 +697,14 @@ export default function DailyClosingPage() {
                           <span className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>{den.label}</span>
                           <input type="number" min="0" className="input-field mt-1" value={(cashCount as any)[den.key]}
                             onChange={e => setCashCount(p => ({ ...p, [den.key]: parseInt(e.target.value) || 0 }))}
-                            disabled={d?.isClosed} />
+                            disabled={d?.isClosed || !canEdit} />
                         </label>
                       ))}
                       <label>
                         <span className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>Coins</span>
                         <input type="number" min="0" step="0.01" className="input-field mt-1" value={cashCount.coins}
                           onChange={e => setCashCount(p => ({ ...p, coins: parseFloat(e.target.value) || 0 }))}
-                          disabled={d?.isClosed} />
+                          disabled={d?.isClosed || !canEdit} />
                       </label>
                     </div>
 
@@ -734,7 +738,7 @@ export default function DailyClosingPage() {
                       </div>
                     )}
 
-                    {!d?.isClosed && (
+                    {!d?.isClosed && canEdit && (
                       <button onClick={saveCashCount} disabled={saving}
                         className="btn-primary mt-4 text-sm flex items-center gap-2">
                         {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}

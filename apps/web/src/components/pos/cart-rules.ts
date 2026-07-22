@@ -1,8 +1,8 @@
 import type { CartItem } from './types'
 
-/** Lines that must stay qty=1 (IMEI, reload, warranty-tracked phones). */
+/** Lines that must stay qty=1 (IMEI units, reload, IMEI+warranty phones). Services allow qty. */
 export function isQtyLockedLine(item: CartItem): boolean {
-  if (item.isReload || item.isService) return true
+  if (item.isReload) return true
   if (item.imei) return true
   if ((item.warrantyMonths ?? 0) > 0 && item.trackImei) return true
   return false

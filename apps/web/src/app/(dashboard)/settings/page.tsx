@@ -68,6 +68,7 @@ import {
   type PosShortcutActionId,
   type PosUiSettings,
 } from '@/lib/posUiSettings'
+import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 
 const tabs = [
   { key: 'shop',          label: 'Shop Info',       icon: Building2  },
@@ -99,6 +100,7 @@ const planColors: Record<string, string> = {
 export default function SettingsPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const { canEdit } = useModuleAccess()
   const [activeTab, setActiveTab] = useState('shop')
   const currentUser = authStorage.getUser()
   const tenantId = currentUser?.tenantId
@@ -148,6 +150,7 @@ export default function SettingsPage() {
   }, [activeTab])
 
   const savePosUi = async () => {
+    if (!canEdit) { viewOnlyToast('Settings'); return }
     setPosUiSaving(true)
     try {
       const saved = await pushPosUiSettings(posUiForm)
@@ -184,6 +187,7 @@ export default function SettingsPage() {
   const availablePayKeys = PAYMENT_METHOD_KEYS.filter(k => !payMethods.some(m => m.key === k))
 
   const savePayMethods = async (methods: TenantPaymentMethod[]) => {
+    if (!canEdit) { viewOnlyToast('Settings'); return }
     if (!tenantId) return
     setPayMethodsSaving(true)
     try {
@@ -239,6 +243,7 @@ export default function SettingsPage() {
   }, [tenantId])
 
   const saveProductCodeSettings = async () => {
+    if (!canEdit) { viewOnlyToast('Settings'); return }
     if (!tenant) return
     setProductCodeSaving(true)
     try {
@@ -257,6 +262,7 @@ export default function SettingsPage() {
   }
 
   const saveShop = async () => {
+    if (!canEdit) { viewOnlyToast('Settings'); return }
     if (!tenant) return
     setShopSaving(true)
     try {
@@ -294,6 +300,7 @@ export default function SettingsPage() {
   const [profileSaving, setProfileSaving] = useState(false)
 
   const saveProfile = async () => {
+    if (!canEdit) { viewOnlyToast('Settings'); return }
     if (!currentUser?.id) return
     setProfileSaving(true)
     try {
@@ -316,6 +323,7 @@ export default function SettingsPage() {
     try { return { ...defaultNotif, ...JSON.parse(localStorage.getItem(NOTIF_KEY) ?? '{}') } } catch { return defaultNotif }
   })
   const saveNotif = () => {
+    if (!canEdit) { viewOnlyToast('Settings'); return }
     localStorage.setItem(NOTIF_KEY, JSON.stringify(notif))
     toast.success('Notification preferences saved')
   }
@@ -420,6 +428,7 @@ export default function SettingsPage() {
   }, [currentUser?.tenantId, tenant?.slug])
 
   const saveInvoice = async () => {
+    if (!canEdit) { viewOnlyToast('Settings'); return }
     if (!currentUser?.tenantId) return
     setInvoiceSaving(true)
     try {
@@ -432,6 +441,7 @@ export default function SettingsPage() {
 
   const [logoUploading, setLogoUploading] = useState(false)
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!canEdit) { viewOnlyToast('Settings'); return }
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > 2 * 1024 * 1024) { toast.error('Logo must be under 2 MB'); return }
@@ -505,6 +515,7 @@ export default function SettingsPage() {
 
         {/* Content */}
         <div className="flex-1 min-w-0">
+          <fieldset disabled={!canEdit}>
 
           {/* ── SHOP INFO ── */}
           {activeTab === 'shop' && (
@@ -1254,7 +1265,7 @@ export default function SettingsPage() {
                       style={{ background: 'var(--bg-subtle-md)', color: 'var(--text-muted)' }}>
                       {m.key}
                     </span>
-                    <button
+                    {canEdit && <button
                       type="button"
                       disabled={m.key === 'CASH'}
                       title={m.key === 'CASH' ? 'Cash cannot be removed' : 'Remove method'}
@@ -1263,12 +1274,12 @@ export default function SettingsPage() {
                       style={{ color: 'var(--text-muted)' }}
                     >
                       <Trash2 size={14} />
-                    </button>
+                    </button>}
                   </div>
                 ))}
               </div>
 
-              {availablePayKeys.length > 0 && (
+              {canEdit && availablePayKeys.length > 0 && (
                 <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: 'var(--border-default)' }}>
                   <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Add payment method</p>
                   <div className="flex flex-col sm:flex-row gap-2">
@@ -1312,7 +1323,7 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              <div className="flex justify-end">
+              {canEdit && <div className="flex justify-end">
                 <button
                   type="button"
                   onClick={() => savePayMethods(payMethods)}
@@ -1322,7 +1333,7 @@ export default function SettingsPage() {
                   {payMethodsSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={13} />}
                   Save Payment Methods
                 </button>
-              </div>
+              </div>}
             </div>
           )}
 
@@ -1812,6 +1823,7 @@ export default function SettingsPage() {
             </div>
           )}
 
+          </fieldset>
         </div>
       </div>
     </div>

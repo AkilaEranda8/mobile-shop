@@ -144,9 +144,40 @@ export const ACCESS_LEVEL_META: Record<
   RoleAccessLevel,
   { label: string; short: string; className: string }
 > = {
-  hide: { label: 'Hide', short: 'H', className: 'bg-slate-500/15 text-slate-400 border-slate-500/25' },
-  view: { label: 'View', short: 'V', className: 'bg-sky-500/15 text-sky-300 border-sky-500/25' },
-  edit: { label: 'Edit', short: 'E', className: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25' },
+  hide: {
+    label: 'Hide',
+    short: 'H',
+    className: 'bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30',
+  },
+  view: {
+    label: 'View',
+    short: 'V',
+    className: 'bg-sky-500/15 text-sky-800 dark:text-sky-300 border-sky-500/30',
+  },
+  edit: {
+    label: 'Edit',
+    short: 'E',
+    className: 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-500/30',
+  },
+}
+
+/** Paths that require Edit access (View-only users are redirected away). */
+export const EDIT_ONLY_PATH_PREFIXES = [
+  '/inventory/add-product',
+  '/dashboard/inventory/add-product',
+  '/dashboard/stock-transfer',
+  '/dashboard/supplier-payments',
+  '/dashboard/accounting/journals',
+  '/dashboard/accounting/petty-cash',
+  '/dashboard/accounting/payroll',
+  '/dashboard/accounting/periods',
+  '/dashboard/accounting/settings',
+] as const
+
+export function pathRequiresEdit(pathname: string): boolean {
+  return EDIT_ONLY_PATH_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  )
 }
 
 /** Map a dashboard path to a permission module (null = always allowed). */
@@ -154,13 +185,22 @@ export function pathToPermissionModule(pathname: string): RolePermissionModuleKe
   if (pathname === '/dashboard' || pathname === '/dashboard/') return 'DASHBOARD'
   if (
     pathname.startsWith('/dashboard/pos') ||
+    pathname === '/pos' ||
     pathname.startsWith('/dashboard/sales') ||
-    pathname.startsWith('/dashboard/returns')
+    pathname === '/sales' ||
+    pathname.startsWith('/sales/') ||
+    pathname.startsWith('/dashboard/returns') ||
+    pathname === '/returns' ||
+    pathname.startsWith('/returns/')
   ) {
     return 'POS'
   }
-  if (pathname.startsWith('/dashboard/customers')) return 'CUSTOMERS'
-  if (pathname.startsWith('/dashboard/services')) return 'SERVICES'
+  if (pathname.startsWith('/dashboard/customers') || pathname === '/customers' || pathname.startsWith('/customers/')) {
+    return 'CUSTOMERS'
+  }
+  if (pathname.startsWith('/dashboard/services') || pathname === '/services' || pathname.startsWith('/services/')) {
+    return 'SERVICES'
+  }
   if (
     pathname === '/inventory' ||
     pathname.startsWith('/inventory/') ||
@@ -169,23 +209,40 @@ export function pathToPermissionModule(pathname: string): RolePermissionModuleKe
   ) {
     return 'INVENTORY'
   }
-  if (pathname.startsWith('/dashboard/product-traceability')) return 'PRODUCT_TRACEABILITY'
+  if (
+    pathname.startsWith('/dashboard/product-traceability') ||
+    pathname.startsWith('/inventory/product-traceability')
+  ) {
+    return 'PRODUCT_TRACEABILITY'
+  }
   if (
     pathname.startsWith('/dashboard/suppliers') ||
+    pathname === '/suppliers' ||
+    pathname.startsWith('/suppliers/') ||
     pathname.startsWith('/dashboard/supplier-payments') ||
-    pathname.startsWith('/dashboard/purchase-orders')
+    pathname.startsWith('/dashboard/purchase-orders') ||
+    pathname === '/purchase-orders' ||
+    pathname.startsWith('/purchase-orders/')
   ) {
     return 'SUPPLIERS'
   }
-  if (pathname.startsWith('/dashboard/imei')) return 'IMEI'
-  if (pathname.startsWith('/dashboard/repairs')) return 'REPAIRS'
-  if (pathname.startsWith('/dashboard/warranty')) return 'WARRANTY'
-  if (pathname.startsWith('/dashboard/exchanges')) return 'EXCHANGES'
+  if (pathname.startsWith('/dashboard/imei') || pathname === '/imei' || pathname.startsWith('/imei/')) return 'IMEI'
+  if (pathname.startsWith('/dashboard/repairs') || pathname === '/repairs' || pathname.startsWith('/repairs/')) {
+    return 'REPAIRS'
+  }
+  if (pathname.startsWith('/dashboard/warranty') || pathname === '/warranty' || pathname.startsWith('/warranty/')) {
+    return 'WARRANTY'
+  }
+  if (pathname.startsWith('/dashboard/exchanges') || pathname === '/exchanges' || pathname.startsWith('/exchanges/')) {
+    return 'EXCHANGES'
+  }
   if (pathname.startsWith('/dashboard/profit-allocation')) return 'PROFIT_ALLOCATION'
   if (pathname.startsWith('/dashboard/daily-closing')) return 'DAILY_CLOSING'
   if (pathname.startsWith('/dashboard/accounting')) return 'ACCOUNTING'
   if (
     pathname.startsWith('/dashboard/finance') ||
+    pathname === '/finance' ||
+    pathname.startsWith('/finance/') ||
     pathname.startsWith('/dashboard/profit-loss') ||
     pathname.startsWith('/dashboard/expenses')
   ) {
@@ -200,11 +257,21 @@ export function pathToPermissionModule(pathname: string): RolePermissionModuleKe
   ) {
     return pathname === '/dashboard/daily-reload-report' ? 'DAILY_RELOAD' : 'REPORTS'
   }
-  if (pathname.startsWith('/dashboard/staff')) return 'STAFF'
-  if (pathname.startsWith('/dashboard/delivery')) return 'DELIVERY'
-  if (pathname.startsWith('/dashboard/whatsapp')) return 'WHATSAPP'
-  if (pathname.startsWith('/dashboard/daily-reload')) return 'DAILY_RELOAD'
-  if (pathname.startsWith('/dashboard/branches')) return 'BRANCHES'
-  if (pathname.startsWith('/dashboard/settings')) return 'SETTINGS'
+  if (pathname.startsWith('/dashboard/staff') || pathname === '/staff' || pathname.startsWith('/staff/')) return 'STAFF'
+  if (pathname.startsWith('/dashboard/delivery') || pathname === '/delivery' || pathname.startsWith('/delivery/')) {
+    return 'DELIVERY'
+  }
+  if (pathname.startsWith('/dashboard/whatsapp') || pathname === '/whatsapp' || pathname.startsWith('/whatsapp/')) {
+    return 'WHATSAPP'
+  }
+  if (pathname.startsWith('/dashboard/daily-reload') || pathname === '/daily-reload' || pathname.startsWith('/daily-reload/')) {
+    return 'DAILY_RELOAD'
+  }
+  if (pathname.startsWith('/dashboard/branches') || pathname === '/branches' || pathname.startsWith('/branches/')) {
+    return 'BRANCHES'
+  }
+  if (pathname.startsWith('/dashboard/settings') || pathname === '/settings' || pathname.startsWith('/settings/')) {
+    return 'SETTINGS'
+  }
   return null
 }

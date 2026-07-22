@@ -13,6 +13,7 @@ import { useCustomers, useFeatureFlag } from '@/lib/hooks'
 import { customersApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
+import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 import toast from 'react-hot-toast'
 import type { Customer } from '@/types'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
@@ -33,6 +34,7 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
   customerId: string; customerName: string; outstanding: number;
   onClose: () => void; onSuccess: () => void;
 }) {
+  const { canEdit } = useModuleAccess()
   const [amount, setAmount] = useState(outstanding > 0 ? String(outstanding) : '')
   const [paymentMethod, setPaymentMethod] = useState('CASH')
   const [loading, setLoading] = useState(false)
@@ -46,6 +48,10 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!canEdit) {
+      viewOnlyToast('customers')
+      return
+    }
     const amt = parseFloat(amount)
     if (!amt || amt <= 0) { setError('Enter a valid amount'); return }
     if (amt > outstanding) { setError('Amount cannot exceed outstanding balance'); return }
@@ -138,6 +144,7 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
 /* ── Customer Detail Modal (Sales Details layout) ────────────────────── */
 function CustomerDetailModal({ customerId, onClose }: { customerId: string; onClose: () => void }) {
   const { openPos } = usePos()
+  const { canEdit } = useModuleAccess()
   const [customer, setCustomer] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
@@ -482,7 +489,7 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                         {formatCurrency(customer.totalDue ?? 0)}
                       </span>
                     </div>
-                    {hasDue && (
+                    {canEdit && hasDue && (
                       <button
                         type="button"
                         onClick={() => setShowPaymentModal(true)}
@@ -514,7 +521,7 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                 <ShoppingBag size={14} />
                 New Sale
               </button>
-              {hasDue && (
+              {canEdit && hasDue && (
                 <button
                   type="button"
                   onClick={() => setShowPaymentModal(true)}
@@ -571,6 +578,7 @@ function CustomerFormModal({ customer, onClose, onSaved }: {
   onClose: () => void
   onSaved: () => void
 }) {
+  const { canEdit } = useModuleAccess()
   const isEditing = Boolean(customer)
   const hasCustomerCredit = useFeatureFlag('CUSTOMER_CREDIT')
   const [form, setForm] = useState({
@@ -586,6 +594,10 @@ function CustomerFormModal({ customer, onClose, onSaved }: {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!canEdit) {
+      viewOnlyToast('customers')
+      return
+    }
     setLoading(true); setError('')
     try {
       if (customer) {
@@ -717,6 +729,7 @@ function CustomerFormModal({ customer, onClose, onSaved }: {
 /* ── Main Page ───────────────────────────────────────────────────────── */
 export default function CustomersPage() {
   const searchParams = useSearchParams()
+  const { canEdit } = useModuleAccess()
   const [showAddModal, setShowAddModal] = useState(false)
   const [editCustomer, setEditCustomer] = useState<Customer | null>(null)
   const [detailId, setDetailId] = useState<string | null>(null)
@@ -738,16 +751,23 @@ export default function CustomersPage() {
 
   useEffect(() => {
     const action = searchParams.get('action')
-    if (action === 'add' || searchParams.get('new') === '1') setShowAddModal(true)
+    if (action === 'add' || searchParams.get('new') === '1') {
+      if (canEdit) setShowAddModal(true)
+      else viewOnlyToast('customers')
+    }
     const id = searchParams.get('customerId') || searchParams.get('id')
     if (id) setDetailId(id)
     const q = searchParams.get('q')
     if (q) setTextSearch(q)
-  }, [searchParams])
+  }, [searchParams, canEdit])
 
   const openDetail = useCallback((id: string) => setDetailId(id), [])
 
   const handleDeactivate = useCallback(async (c: Customer) => {
+    if (!canEdit) {
+      viewOnlyToast('customers')
+      return
+    }
     if (!window.confirm(`Deactivate ${c.name}? They will be hidden from POS search and the main customer list.`)) return
     try {
       await customersApi.setActive(c.id, false)
@@ -756,9 +776,13 @@ export default function CustomersPage() {
     } catch (err: any) {
       toast.error(err?.message || 'Failed to deactivate')
     }
-  }, [refetch])
+  }, [canEdit, refetch])
 
   const handleActivate = useCallback(async (c: Customer) => {
+    if (!canEdit) {
+      viewOnlyToast('customers')
+      return
+    }
     try {
       await customersApi.setActive(c.id, true)
       toast.success('Customer activated')
@@ -766,9 +790,13 @@ export default function CustomersPage() {
     } catch (err: any) {
       toast.error(err?.message || 'Failed to activate')
     }
-  }, [refetch])
+  }, [canEdit, refetch])
 
   const handleDelete = useCallback(async (c: Customer) => {
+    if (!canEdit) {
+      viewOnlyToast('customers')
+      return
+    }
     if (!window.confirm(`Delete ${c.name} permanently? This only works if they have no sales or repair history.`)) return
     try {
       await customersApi.remove(c.id)
@@ -777,7 +805,7 @@ export default function CustomersPage() {
     } catch (err: any) {
       toast.error(err?.message || 'Failed to delete')
     }
-  }, [refetch])
+  }, [canEdit, refetch])
 
   const activeSeg = SEGMENTS.find(s => s.key === segment) ?? SEGMENTS[0]
   const segmentFiltered = useMemo(() => {
@@ -882,7 +910,7 @@ export default function CustomersPage() {
         const inactive = c.isActive === false
         return (
           <div className="flex items-center gap-1 justify-end">
-            {c.totalDue > 0 && !inactive && (
+            {canEdit && c.totalDue > 0 && !inactive && (
               <button
                 type="button"
                 onClick={() => setPayCustomerId(c.id)}
@@ -891,7 +919,7 @@ export default function CustomersPage() {
                 Pay
               </button>
             )}
-            {inactive ? (
+            {canEdit && (inactive ? (
               <button
                 type="button"
                 onClick={() => handleActivate(c)}
@@ -909,17 +937,17 @@ export default function CustomersPage() {
               >
                 Deactivate
               </button>
-            )}
+            ))}
             <TableActionsRow
               showAction={{ action: () => openDetail(c.id) }}
-              editAction={{ action: () => setEditCustomer(c), disabled: inactive }}
-              deleteAction={{ action: () => handleDelete(c) }}
+              editAction={canEdit ? { action: () => setEditCustomer(c), disabled: inactive } : undefined}
+              deleteAction={canEdit ? { action: () => handleDelete(c) } : undefined}
             />
           </div>
         )
       },
     },
-  ], [openDetail, handleActivate, handleDeactivate, handleDelete])
+  ], [canEdit, openDetail, handleActivate, handleDeactivate, handleDelete])
 
   /* close segment dropdown on outside click */
   useEffect(() => {
@@ -992,9 +1020,11 @@ export default function CustomersPage() {
             </div>
           )}
 
-          <button onClick={() => setShowAddModal(true)} className="btn-primary text-sm flex items-center gap-2">
-            <Plus size={14} />Add Customer
-          </button>
+          {canEdit && (
+            <button onClick={() => setShowAddModal(true)} className="btn-primary text-sm flex items-center gap-2">
+              <Plus size={14} />Add Customer
+            </button>
+          )}
         </div>
       </div>
 

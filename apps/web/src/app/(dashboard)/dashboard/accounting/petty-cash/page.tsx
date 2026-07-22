@@ -17,6 +17,7 @@ import {
   AccountingTh,
   AccountingModal,
 } from '@/components/accounting/accounting-ui'
+import { useModuleAccess } from '@/lib/module-access'
 
 type PettyStatus = {
   balance: number
@@ -25,6 +26,7 @@ type PettyStatus = {
 
 export default function PettyCashPage() {
   const hasAccess = useFeatureFlag('ACCOUNTING')
+  const { canEdit } = useModuleAccess()
   const branchId = getActiveBranchId() ?? ''
   const [status, setStatus] = useState<PettyStatus | null>(null)
   const [loading, setLoading] = useState(true)
@@ -97,12 +99,14 @@ export default function PettyCashPage() {
           icon={Wallet}
           actions={
             <div className="flex items-center gap-2 lg:hidden">
-              <button type="button" onClick={() => setShowExpense(true)} className="btn-primary text-sm">
-                Record expense
-              </button>
-              <button type="button" onClick={() => setShowReplenish(true)} className="btn-secondary text-sm">
-                Replenish
-              </button>
+              {canEdit && <>
+                <button type="button" onClick={() => setShowExpense(true)} className="btn-primary text-sm">
+                  Record expense
+                </button>
+                <button type="button" onClick={() => setShowReplenish(true)} className="btn-secondary text-sm">
+                  Replenish
+                </button>
+              </>}
               <button type="button" onClick={load} className="btn-secondary p-2.5 rounded-lg" aria-label="Refresh">
                 <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
               </button>
@@ -131,7 +135,7 @@ export default function PettyCashPage() {
               <p className="text-[11px] dash-text-muted mt-0.5 font-medium">{balanceLabel}</p>
             </div>
 
-            <button
+            {canEdit && <button
               type="button"
               onClick={() => setShowExpense(true)}
               className="dash-card dash-action p-4 flex flex-col items-start text-left dash-fade-2"
@@ -141,9 +145,9 @@ export default function PettyCashPage() {
               </div>
               <p className="text-xs font-bold dash-text-primary mt-2">Record Expense</p>
               <p className="text-[11px] dash-text-secondary mt-0.5">Post petty cash spend</p>
-            </button>
+            </button>}
 
-            <button
+            {canEdit && <button
               type="button"
               onClick={() => setShowReplenish(true)}
               className="dash-card dash-action p-4 flex flex-col items-start text-left dash-fade-3"
@@ -153,7 +157,7 @@ export default function PettyCashPage() {
               </div>
               <p className="text-xs font-bold dash-text-primary mt-2">Replenish Float</p>
               <p className="text-[11px] dash-text-secondary mt-0.5">Restore from main cash</p>
-            </button>
+            </button>}
 
             <div className="dash-card p-4 flex items-start gap-3 dash-fade-4 col-span-2 sm:col-span-1 xl:col-span-3">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(6,182,212,0.10)' }}>

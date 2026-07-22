@@ -15,6 +15,7 @@ import {
   type WAStatus, type WAStatusInfo, type WAConfig, type WAConnectionMode,
 } from '@/lib/whatsapp-api'
 import { Switch } from '@/components/ui/Switch'
+import { viewOnlyToast } from '@/lib/module-access'
 
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string; dot: string; Icon: any }> = {
   connected:     { label: 'Connected',     color: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/20',   dot: 'bg-green-400',  Icon: CheckCircle2   },
@@ -26,13 +27,14 @@ const STATUS_CFG: Record<string, { label: string; color: string; bg: string; dot
 
 interface Props {
   shopName?: string
+  canEdit: boolean
   status: WAStatusInfo | null
   config: Partial<WAConfig>
   onStatusChange: (s: WAStatusInfo) => void
   onConfigChange: (c: Partial<WAConfig>) => void
 }
 
-export default function ConnectionTab({ shopName, status, config, onStatusChange, onConfigChange }: Props) {
+export default function ConnectionTab({ shopName, canEdit, status, config, onStatusChange, onConfigChange }: Props) {
   const tenantId = getWhatsAppTenantId()
   const [mode, setMode] = useState<WAConnectionMode>(config.connectionMode ?? 'qr')
   const [qrImage, setQrImage] = useState<string | null>(null)
@@ -108,6 +110,7 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
   }, [config.connectionMode, config.enabled])
 
   const handleStartQr = useCallback(async () => {
+    if (!canEdit) return viewOnlyToast('WhatsApp')
     if (qrLoading || qrRefreshing) return
     setQrLoading(true)
     try {
@@ -143,6 +146,7 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
   }, [isQrMode, currentStatus, status?.qr, startPolling, renderQr])
 
   const handleRefreshQr = async () => {
+    if (!canEdit) return viewOnlyToast('WhatsApp')
     setQrRefreshing(true)
     try {
       await whatsappApi.updateConfig({ connectionMode: 'qr', enabled: true }).catch(() => {})
@@ -159,6 +163,7 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
   }
 
   const handleSave = async () => {
+    if (!canEdit) return viewOnlyToast('WhatsApp')
     if (!form.accessToken || !form.phoneNumberId || !form.wabaId) {
       toast.error('Access Token, Phone Number ID and WABA ID are required')
       return
@@ -178,6 +183,7 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
   }
 
   const handleTest = async () => {
+    if (!canEdit) return viewOnlyToast('WhatsApp')
     setTesting(true)
     try {
       const res: any = await whatsappApi.testConnection()
@@ -195,6 +201,7 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
   }
 
   const handleSendTest = async () => {
+    if (!canEdit) return viewOnlyToast('WhatsApp')
     const normalized = normalizePhone(testPhone)
     if (!/^\+[1-9]\d{6,14}$/.test(normalized)) { toast.error('Enter a valid phone number (e.g. 0771234567 or +94771234567)'); return }
     setSendingTest(true)
@@ -208,6 +215,7 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
   }
 
   const handleDisconnect = async () => {
+    if (!canEdit) return viewOnlyToast('WhatsApp')
     if (!confirm('Disconnect WhatsApp? You will need to scan the QR code again.')) return
     setDisconnecting(true)
     try {
@@ -225,6 +233,7 @@ export default function ConnectionTab({ shopName, status, config, onStatusChange
   }
 
   const handleToggle = async (val: boolean) => {
+    if (!canEdit) return viewOnlyToast('WhatsApp')
     setEnabled(val)
     try {
       await whatsappApi.updateConfig({ enabled: val })

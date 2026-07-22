@@ -11,6 +11,7 @@ import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { businessToday, businessMonthStart } from '@/lib/business-date'
 import { useSupplierPayments, useSuppliers, usePurchaseOrders } from '@/lib/hooks'
+import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 import { RecordPaymentModal } from '@/components/suppliers/suppliers-shared'
 import type { PurchaseOrder, Supplier } from '@/types'
 
@@ -28,6 +29,7 @@ interface PaymentRow {
 }
 
 export default function SupplierPaymentsPage() {
+  const { canEdit } = useModuleAccess()
   const [search, setSearch] = useState('')
   const [supplierFilter, setSupplierFilter] = useState('all')
   const [paySupplier, setPaySupplier] = useState<Supplier | null>(null)
@@ -65,6 +67,10 @@ export default function SupplierPaymentsPage() {
   const suppliersWithDue = suppliers.filter(s => Number(s.outstandingDues ?? 0) > 0)
 
   const openPayFor = (supplierId?: string | null) => {
+    if (!canEdit) {
+      viewOnlyToast('suppliers')
+      return
+    }
     const s = suppliers.find(x => x.id === supplierId) ?? suppliersWithDue[0] ?? suppliers[0]
     if (s) setPaySupplier(s)
   }
@@ -170,10 +176,10 @@ export default function SupplierPaymentsPage() {
       id: 'actions',
       cell: ({ row }) => {
         const s = suppliers.find(x => x.id === row.original.supplierId)
-        if (!s || Number(s.outstandingDues ?? 0) <= 0) return null
+        if (!canEdit || !s || Number(s.outstandingDues ?? 0) <= 0) return null
         return (
           <button
-            onClick={() => setPaySupplier(s)}
+            onClick={() => openPayFor(s.id)}
             className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors shadow-sm"
           >
             <CreditCard size={10} />Pay
@@ -181,7 +187,7 @@ export default function SupplierPaymentsPage() {
         )
       },
     },
-  ], [suppliers])
+  ], [canEdit, suppliers, openPayFor])
 
   return (
     <div className="space-y-6">
@@ -200,13 +206,15 @@ export default function SupplierPaymentsPage() {
           <h1 className="page-title">Supplier Payments</h1>
           <p className="page-subtitle">{filtered.length} payments this month ({periodFrom} → {periodTo})</p>
         </div>
-        <button
-          onClick={() => openPayFor()}
-          className="btn-primary text-sm flex items-center gap-2 sm:ml-auto"
-          disabled={suppliers.length === 0}
-        >
-          <Plus size={14} />Record Payment
-        </button>
+        {canEdit && (
+          <button
+            onClick={() => openPayFor()}
+            className="btn-primary text-sm flex items-center gap-2 sm:ml-auto"
+            disabled={suppliers.length === 0}
+          >
+            <Plus size={14} />Record Payment
+          </button>
+        )}
       </div>
 
       {/* ── KPI Cards ── */}
@@ -257,7 +265,7 @@ export default function SupplierPaymentsPage() {
       />
 
       {/* ── Quick pay ── */}
-      {suppliersWithDue.length > 0 && (
+      {canEdit && suppliersWithDue.length > 0 && (
         <div className="card p-4">
           <p className="text-xs font-semibold mb-3 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
             Quick pay — open balances
@@ -267,7 +275,7 @@ export default function SupplierPaymentsPage() {
               <button
                 key={s.id}
                 type="button"
-                onClick={() => setPaySupplier(s)}
+                onClick={() => openPayFor(s.id)}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors hover:bg-white/5"
                 style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
               >

@@ -23,6 +23,7 @@ import {
   AccountingTd,
   AccountingTh,
 } from '@/components/accounting/accounting-ui'
+import { useModuleAccess } from '@/lib/module-access'
 
 type GlAccount = { id: string; code: string; name: string; type: string }
 
@@ -80,6 +81,7 @@ function emptyLine(): DraftLine {
 
 export default function JournalsPage() {
   const hasAccess = useFeatureFlag('ACCOUNTING')
+  const { canEdit } = useModuleAccess()
   const branchId = getActiveBranchId() ?? ''
 
   const [journals, setJournals] = useState<JournalRow[]>([])
@@ -285,9 +287,11 @@ export default function JournalsPage() {
             <button type="button" onClick={load} disabled={loading} className="btn-secondary p-2">
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             </button>
-            <button type="button" onClick={() => { setShowCreate(true); resetForm() }} className="btn-primary flex items-center gap-2 text-sm">
-              <Plus size={14} /> Manual Entry
-            </button>
+            {canEdit && (
+              <button type="button" onClick={() => { setShowCreate(true); resetForm() }} className="btn-primary flex items-center gap-2 text-sm">
+                <Plus size={14} /> Manual Entry
+              </button>
+            )}
           </>
         }
       />
@@ -299,10 +303,10 @@ export default function JournalsPage() {
             <div key={p.id} className="flex items-center justify-between text-sm gap-2">
               <span className="font-mono text-violet-400">{p.entryNo}</span>
               <span style={{ color: 'var(--text-muted)' }}>{formatCurrency(p.totalDebit)}</span>
-              <div className="flex gap-2">
+              {canEdit && <div className="flex gap-2">
                 <button type="button" onClick={() => handleApprove(p.id)} className="text-xs text-emerald-400">Approve</button>
                 <button type="button" onClick={() => handleReject(p.id)} className="text-xs text-red-400">Reject</button>
-              </div>
+              </div>}
             </div>
           ))}
         </div>
@@ -366,7 +370,7 @@ export default function JournalsPage() {
                     <p className="text-xs text-amber-400 mt-1">Reversed by {detail.reversedBy.entryNo}</p>
                   )}
                 </div>
-                {detail.sourceModule === 'MANUAL' && !detail.reversedBy && (
+                {canEdit && detail.sourceModule === 'MANUAL' && !detail.reversedBy && (
                   <button type="button" onClick={handleReverse} disabled={reverseLoading}
                     className="btn-secondary flex items-center gap-2 text-xs text-amber-300 border-amber-500/30">
                     {reverseLoading ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}

@@ -16,6 +16,7 @@ import {
   CYAN_ACCENT,
   VIOLET_ACCENT,
 } from '@/components/accounting/accounting-ui'
+import { useModuleAccess } from '@/lib/module-access'
 
 type PeriodRow = {
   id: string
@@ -46,6 +47,7 @@ const STATUS_TONE: Record<string, 'success' | 'warning' | 'danger'> = {
 
 export default function AccountingPeriodsPage() {
   const hasAccess = useFeatureFlag('ACCOUNTING')
+  const { canEdit } = useModuleAccess()
   const [periods, setPeriods] = useState<PeriodRow[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [preview, setPreview] = useState<PeriodPreview | null>(null)
@@ -161,20 +163,20 @@ export default function AccountingPeriodsPage() {
                 )}
 
                 <div className="flex flex-wrap gap-2 pt-2">
-                  {preview.canSoftClose && (
+                  {canEdit && preview.canSoftClose && (
                     <button type="button" disabled={actionLoading} onClick={() => runAction('soft')}
                       className="btn-secondary flex items-center gap-1.5 text-xs">
                       <Lock size={12} /> Soft Close
                     </button>
                   )}
-                  {preview.canHardClose && (
+                  {canEdit && preview.canHardClose && (
                     <button type="button" disabled={actionLoading} onClick={() => runAction('hard')}
                       className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-red-600/80 hover:bg-red-600 text-white">
                       {actionLoading ? <Loader2 size={12} className="animate-spin" /> : <Lock size={12} />}
                       Hard Close
                     </button>
                   )}
-                  {preview.canReopen && (
+                  {canEdit && preview.canReopen && (
                     <button type="button" disabled={actionLoading} onClick={() => runAction('reopen')}
                       className="btn-secondary flex items-center gap-1.5 text-xs text-emerald-400 border-emerald-500/30">
                       <LockOpen size={12} /> Reopen

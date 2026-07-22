@@ -165,6 +165,14 @@ export function useCanSeeProductCost(): boolean {
   return canView('PRODUCT_COST')
 }
 
+/** Change buying/cost prices — requires Product Cost Edit (View is read-only). */
+export function useCanEditProductCost(): boolean {
+  const role = authStorage.getUser()?.role
+  if (role === 'OWNER' || role === 'PLATFORM_ADMIN') return true
+  const { canEdit } = useRolePermissions()
+  return canEdit('PRODUCT_COST')
+}
+
 export function usePlatformStatus(pollMs = 60_000) {
   const [status, setStatus] = useState<PlatformStatus | null>(null)
 

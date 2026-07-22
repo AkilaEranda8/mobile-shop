@@ -95,9 +95,9 @@ const navItems: NavGroup[] = [
   {
     label: 'Sales',
     items: [
-      { href: '/dashboard/pos',       icon: ShoppingCart, label: 'Point of Sale',  badge: 'POS', feature: 'POS', openPos: true, permission: 'POS' },
+      { href: '/dashboard/pos',       icon: ShoppingCart, label: 'Point of Sale',  badge: 'POS', feature: 'POS', openPos: true, permission: 'POS', requiresEdit: true },
       { href: '/dashboard/sales',     icon: Receipt,      label: 'Sales History',               feature: 'POS', permission: 'POS' },
-      { href: '/dashboard/returns',   icon: RotateCcw,    label: 'Returns',                     feature: 'POS', permission: 'POS' },
+      { href: '/dashboard/returns',   icon: RotateCcw,    label: 'Returns',                     feature: 'POS', permission: 'POS', requiresEdit: true },
       { href: '/dashboard/customers', icon: Users,        label: 'Customers', permission: 'CUSTOMERS' },
       { href: '/dashboard/services',  icon: Layers,       label: 'Services',      badge: 'NEW', feature: 'SERVICES', permission: 'SERVICES' },
     ],
@@ -431,19 +431,9 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
         style={{ borderColor: 'var(--border-subtle)' }}
       >
         <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-60"
-          style={{
-            background:
-              'radial-gradient(ellipse 90% 140% at 8% 50%, var(--brand-glow), transparent 62%)',
-          }}
-        />
-
-        <div
           className={cn(
-            'relative flex-shrink-0 w-10 h-10 rounded-2xl overflow-hidden',
-            'ring-1 ring-white/12 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.55)]',
-            'bg-[color-mix(in_srgb,var(--bg-card)_88%,transparent)]',
+            'relative flex-shrink-0 w-10 h-10 rounded-xl overflow-hidden',
+            'border border-[var(--border-default)] bg-[var(--bg-card)]',
           )}
         >
           {logo ? (

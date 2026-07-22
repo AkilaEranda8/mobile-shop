@@ -52,31 +52,31 @@
     --ring: var(--tc-ring);
     --radius: var(--tc-radius);
 
-    --bg-primary:    #ffffff;
-    --bg-surface:    #ffffff;
+    --bg-primary:    #f1f5f9;
+    --bg-surface:    #f8fafc;
     --bg-card:       #ffffff;
-    --bg-card-hover: #f8f8ff;
-    --bg-subtle:     rgba(0,0,0,0.04);
-    --bg-subtle-md:  rgba(0,0,0,0.07);
-    --border-subtle: rgba(0,0,0,0.09);
-    --border-default:rgba(0,0,0,0.13);
+    --bg-card-hover: #f8fafc;
+    --bg-subtle:     #f1f5f9;
+    --bg-subtle-md:  #e2e8f0;
+    --border-subtle: #e2e8f0;
+    --border-default:#cbd5e1;
     --border-active: #2563eb;
     --text-primary:  #0f172a;
     --text-secondary:#334155;
-    --text-muted:    #475569;
-    --text-placeholder:#64748b;
+    --text-muted:    #64748b;
+    --text-placeholder:#94a3b8;
     --brand-primary: #2563eb;
     --brand-light:   #3b82f6;
     --brand-hover:   #1d4ed8;
-    --brand-primary-light: #1d4ed8;
-    --brand-glow:    rgba(37,99,235,0.15);
+    --brand-primary-light: #2563eb;
+    --brand-glow:    rgba(37,99,235,0.12);
     --brand-gradient: linear-gradient(135deg, #2563eb, #1d4ed8);
-    --sidebar-active-bg: rgba(37,99,235,0.14);
+    --sidebar-active-bg: #eff6ff;
     --sidebar-active-text: #1d4ed8;
-    --sidebar-active-border: rgba(37,99,235,0.40);
-    --secondary-hover-bg: #eff6ff;
-    --shadow-card:   0 1px 4px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.05);
-    --shadow-card-hover: 0 2px 8px rgba(0,0,0,0.10), 0 8px 24px rgba(0,0,0,0.07);
+    --sidebar-active-border: #bfdbfe;
+    --secondary-hover-bg: #f8fafc;
+    --shadow-card:   0 1px 2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.06);
+    --shadow-card-hover: 0 2px 4px rgba(15,23,42,0.05), 0 4px 12px rgba(15,23,42,0.06);
     /* Status / warning — never yellow in light mode */
     --status-warn: #0284c7;
     --status-warn-soft: rgba(2,132,199,0.12);
@@ -209,11 +209,12 @@ html[data-animations="false"] *::after {
 }
 
 @layer components {
+  /* Solid surface (legacy alias — no glass) */
   .glass-card {
-    background: var(--bg-subtle);
-    backdrop-filter: blur(8px);
+    background: var(--bg-card);
     border: 1px solid var(--border-default);
-    border-radius: 1rem;
+    border-radius: 0.75rem;
+    box-shadow: var(--shadow-card);
   }
 
   .gradient-text {
@@ -225,45 +226,76 @@ html[data-animations="false"] *::after {
 
   .btn-primary {
     background-color: var(--brand-primary);
-    color: #ffffff;
-    @apply hover:opacity-90 font-medium px-3.5 py-1.5 rounded-lg transition-all duration-200 active:scale-95 text-sm;
+    color: #ffffff !important;
+    border: 1px solid transparent;
+    @apply inline-flex items-center justify-center gap-1.5 font-semibold px-3.5 py-2 rounded-lg transition-all duration-150 active:scale-[0.98] text-sm;
   }
 
   .btn-primary:hover {
     background-color: var(--brand-hover);
   }
 
+  .btn-primary:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+  }
+
   .btn-accent {
     background: var(--brand-gradient);
-    color: #ffffff;
+    color: #ffffff !important;
+    border: 1px solid transparent;
+    @apply inline-flex items-center justify-center gap-1.5 font-semibold px-3.5 py-2 rounded-lg transition-all duration-150 active:scale-[0.98] text-sm;
   }
 
   .btn-secondary {
-    background: var(--bg-subtle);
+    background: var(--bg-card);
     color: var(--text-secondary);
     border: 1px solid var(--border-default);
-    @apply font-medium px-6 py-2.5 rounded-xl transition-all duration-200;
+    @apply inline-flex items-center justify-center gap-1.5 font-semibold px-3.5 py-2 rounded-lg transition-all duration-150 text-sm;
   }
 
   .btn-secondary:hover {
     background: var(--secondary-hover-bg);
-    border-color: color-mix(in srgb, var(--brand-primary) 40%, transparent);
+    border-color: color-mix(in srgb, var(--brand-primary) 35%, var(--border-default));
+    color: var(--text-primary);
   }
 
   .btn-danger {
-    @apply bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 hover:border-red-500 font-medium px-6 py-2.5 rounded-xl transition-all duration-200;
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+    @apply inline-flex items-center justify-center gap-1.5 font-semibold px-3.5 py-2 rounded-lg transition-all duration-150 text-sm;
+  }
+
+  .btn-danger:hover {
+    background: #fee2e2;
+    border-color: #f87171;
+    color: #991b1b;
+  }
+
+  .dark .btn-danger {
+    background: rgba(239, 68, 68, 0.12);
+    color: #fca5a5;
+    border-color: rgba(239, 68, 68, 0.35);
+  }
+
+  .dark .btn-danger:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #fecaca;
   }
 
   .input-field {
-    background: var(--bg-subtle);
+    background: var(--bg-card);
     border: 1px solid var(--border-default);
     color: var(--text-primary);
-    @apply w-full rounded-xl px-4 py-2.5 focus:outline-none transition-all duration-200;
+    @apply w-full rounded-lg px-3.5 py-2.5 focus:outline-none transition-all duration-150 text-sm;
   }
 
   .input-field:focus {
     border-color: var(--border-active);
-    box-shadow: 0 0 0 1px var(--brand-glow);
+    box-shadow: 0 0 0 3px var(--brand-glow);
   }
 
   .input-field::placeholder {
@@ -275,7 +307,7 @@ html[data-animations="false"] *::after {
     border: 1px solid var(--border-subtle);
     box-shadow: var(--shadow-card);
     color: var(--text-primary);
-    @apply rounded-2xl;
+    @apply rounded-xl;
   }
 
   .card-hover {
@@ -367,19 +399,20 @@ html[data-animations="false"] *::after {
   }
 }
 
-/* ── Light mode: polished component overrides ──────────────────────── */
+/* ── Light mode: polished solid surfaces (no glass) ─────────────────── */
 html:not(.dark) .card {
-  border: 1px solid rgba(0,0,0,0.09);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.05);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.05);
 }
 html:not(.dark) .card:hover {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.10), 0 8px 24px rgba(0,0,0,0.07);
+  box-shadow: 0 2px 4px rgba(15,23,42,0.05), 0 4px 12px rgba(15,23,42,0.06);
 }
 html:not(.dark) .input-field {
   background: #ffffff;
-  border: 1.5px solid rgba(0,0,0,0.13);
-  color: #111827 !important;
-  -webkit-text-fill-color: #111827;
+  border: 1px solid #cbd5e1;
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a;
 }
 html:not(.dark) .input-field::placeholder {
   color: #94a3b8 !important;
@@ -390,41 +423,64 @@ html:not(.dark) .input-field:focus {
   box-shadow: 0 0 0 3px var(--brand-glow);
 }
 html:not(.dark) .btn-primary {
-  background-color: var(--brand-primary-light);
-  box-shadow: 0 1px 3px var(--brand-glow);
+  background-color: #2563eb;
+  color: #ffffff !important;
+  border: 1px solid #1d4ed8;
+  box-shadow: 0 1px 2px rgba(37,99,235,0.25);
 }
 html:not(.dark) .btn-primary:hover {
-  background-color: var(--brand-hover);
+  background-color: #1d4ed8;
+  border-color: #1e40af;
+}
+html:not(.dark) .btn-primary *,
+html:not(.dark) .btn-accent * {
+  color: #ffffff !important;
 }
 html:not(.dark) .btn-secondary {
   background: #ffffff;
-  border: 1.5px solid rgba(0,0,0,0.13);
-  color: #334155;
+  border: 1px solid #cbd5e1;
+  color: #334155 !important;
+  box-shadow: 0 1px 1px rgba(15,23,42,0.04);
 }
 html:not(.dark) .btn-secondary:hover {
-  background: var(--secondary-hover-bg);
-  border-color: color-mix(in srgb, var(--brand-primary) 40%, transparent);
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a !important;
+}
+html:not(.dark) .btn-danger {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c !important;
+}
+html:not(.dark) .btn-danger:hover {
+  background: #fee2e2;
+  border-color: #f87171;
+  color: #991b1b !important;
 }
 html:not(.dark) header {
-  box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+  background: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: none;
 }
 html:not(.dark) aside {
-  background: #f8fafc !important;
-  box-shadow: 2px 0 12px rgba(0,0,0,0.06);
+  background: #ffffff !important;
+  border-right: 1px solid #e2e8f0;
+  box-shadow: none;
 }
 html:not(.dark) aside .sidebar-item {
-  color: #334155 !important;
+  color: #475569 !important;
 }
 html:not(.dark) aside .sidebar-item:hover {
   color: #0f172a !important;
-  background: rgba(15, 23, 42, 0.05) !important;
+  background: #f1f5f9 !important;
 }
 html:not(.dark) aside .sidebar-item-active {
-  color: var(--sidebar-active-text) !important;
-  background: var(--sidebar-active-bg) !important;
+  color: #1d4ed8 !important;
+  background: #eff6ff !important;
+  border-color: #bfdbfe !important;
 }
 html:not(.dark) aside .sidebar-item-active .accent-text {
-  color: var(--sidebar-active-text) !important;
+  color: #1d4ed8 !important;
 }
 /* POS sidebar must stay dark even when system is in light mode */
 html:not(.dark) [data-pos="dark"] aside {
@@ -875,14 +931,16 @@ html:not(.dark) [data-pos="dark"] .border-violet-500\/20              { border-c
     background: linear-gradient(135deg, color-mix(in srgb, var(--brand-primary) 70%, #000) 0%, #1e1b4b 50%, #0c4a6e 100%);
   }
   .brand-gradient-card {
-    background: linear-gradient(135deg, var(--brand-glow) 0%, rgba(6,182,212,0.06) 100%);
+    background: var(--sidebar-active-bg);
     border: 1px solid var(--sidebar-active-border);
   }
   .brand-glow-card {
-    box-shadow: 0 0 0 1px var(--brand-glow), 0 4px 24px var(--brand-glow);
+    box-shadow: var(--shadow-card);
+    border: 1px solid var(--border-subtle);
   }
   .brand-glow-card:hover {
-    box-shadow: 0 0 0 1px var(--sidebar-active-border), 0 8px 32px var(--brand-glow);
+    box-shadow: var(--shadow-card-hover);
+    border-color: var(--sidebar-active-border);
   }
 
   /* ── KPI accent bars ── */
@@ -968,36 +1026,26 @@ html:not(.dark) [data-pos="dark"] .border-violet-500\/20              { border-c
 
   /* ── Dashboard Background ── */
   .dash-bg {
-    background-color: #F5F7FB;
-    background-image:
-      radial-gradient(circle at 1px 1px, rgba(15,23,42,0.03) 1px, transparent 0);
-    background-size: 32px 32px;
+    background-color: #f1f5f9;
+    background-image: none;
   }
   .dark .dash-bg {
     background-color: #0B1120;
-    background-image:
-      radial-gradient(circle at 1px 1px, rgba(124,58,237,0.04) 1px, transparent 0);
-    background-size: 32px 32px;
+    background-image: none;
   }
 
-  /* ── Glassmorphism Dashboard Card ── */
+  /* ── Solid dashboard card (professional, no glass) ── */
   .dash-card {
-    background: rgba(255,255,255,0.82);
-    backdrop-filter: blur(16px) saturate(1.8);
-    -webkit-backdrop-filter: blur(16px) saturate(1.8);
-    border: 1px solid rgba(15,23,42,0.07);
-    border-radius: 1rem;
-    box-shadow:
-      0 1px 2px rgba(0,0,0,0.04),
-      0 4px 16px rgba(0,0,0,0.04);
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.75rem;
+    box-shadow: var(--shadow-card);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
   .dark .dash-card {
-    background: rgba(15,23,42,0.72);
-    border: 1px solid rgba(255,255,255,0.06);
-    box-shadow:
-      0 0 0 1px rgba(124,58,237,0.06),
-      0 4px 24px rgba(0,0,0,0.3);
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    box-shadow: none;
   }
 
   /* ── KPI Card ── */
@@ -1010,42 +1058,37 @@ html:not(.dark) [data-pos="dark"] .border-violet-500\/20              { border-c
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 3px;
-    border-radius: 1rem 1rem 0 0;
+    border-radius: 0.75rem 0.75rem 0 0;
     background: var(--kpi-accent, linear-gradient(90deg, #2563eb, #60a5fa));
   }
   .dash-kpi:hover {
-    transform: translateY(-2px);
-    box-shadow:
-      0 4px 12px rgba(0,0,0,0.06),
-      0 12px 36px rgba(0,0,0,0.06);
+    border-color: color-mix(in srgb, var(--brand-primary) 25%, var(--border-subtle));
+    box-shadow: var(--shadow-card-hover);
   }
   .dark .dash-kpi:hover {
-    box-shadow:
-      0 0 0 1px rgba(124,58,237,0.2),
-      0 8px 32px rgba(124,58,237,0.12),
-      0 16px 48px rgba(0,0,0,0.3);
+    border-color: color-mix(in srgb, var(--brand-primary) 35%, var(--border-subtle));
+    box-shadow: none;
   }
 
   /* ── Action Card ── */
   .dash-action {
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: border-color 0.15s ease, background-color 0.15s ease;
   }
   .dash-action:hover {
-    transform: translateY(-3px) scale(1.01);
+    border-color: color-mix(in srgb, var(--brand-primary) 30%, var(--border-subtle));
+    background: var(--bg-card-hover);
   }
   .dash-action:active {
-    transform: translateY(0) scale(0.98);
+    background: var(--bg-subtle);
   }
 
   /* ── Alert Card ── */
   .dash-alert {
-    border-radius: 1rem;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    transition: all 0.2s ease;
+    border-radius: 0.75rem;
+    transition: border-color 0.15s ease;
   }
   .dash-alert:hover {
-    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--status-warn) 40%, var(--border-subtle));
   }
 
   /* ── Live Badge ── */
@@ -1071,18 +1114,16 @@ html:not(.dark) [data-pos="dark"] .border-violet-500\/20              { border-c
 
   /* ── Chart Tooltip ── */
   .dash-tooltip {
-    background: rgba(255,255,255,0.92) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    border: 1px solid rgba(15,23,42,0.08) !important;
-    border-radius: 12px !important;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.1) !important;
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-default) !important;
+    border-radius: 8px !important;
+    box-shadow: var(--shadow-card-hover) !important;
     padding: 12px 16px !important;
   }
   .dark .dash-tooltip {
-    background: rgba(15,23,42,0.92) !important;
-    border: 1px solid rgba(124,58,237,0.2) !important;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-default) !important;
+    box-shadow: none !important;
   }
 
   /* ── Staggered Fade ── */

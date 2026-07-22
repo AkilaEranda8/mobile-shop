@@ -8,7 +8,7 @@ import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { useProducts, useCategories, useBrands, useFeatureFlag, useCanSeeProductCost } from '@/lib/hooks'
+import { useProducts, useCategories, useBrands, useFeatureFlag, useCanSeeProductCost, useRolePermissions } from '@/lib/hooks'
 import { productsApi } from '@/lib/api'
 import type { Product, Category, Brand, ProductVariation } from '@/types'
 import toast from 'react-hot-toast'
@@ -1150,6 +1150,8 @@ export default function InventoryPage() {
   const hasWholesalePricing = useFeatureFlag('WHOLESALE_PRICING')
   const hasCreditPricing = useFeatureFlag('CREDIT_PRICING')
   const canSeeProductCost = useCanSeeProductCost()
+  const { canEdit } = useRolePermissions()
+  const canEditInventory = canEdit('INVENTORY')
   const canViewTraceability = useHasPermission(PERMISSIONS.PRODUCT_TRACEABILITY_VIEW)
   const allCategories: Category[] = (catsData ?? []) as Category[]
   const products: Product[] = (productsData?.data ?? []) as Product[]
@@ -1287,14 +1289,21 @@ export default function InventoryPage() {
 
   useEffect(() => {
     const action = searchParams.get('action')
-    if (action === 'add-product' || action === 'add') setShowAddProduct(true)
+    if (action === 'add-product' || action === 'add') {
+      if (canEditInventory) setShowAddProduct(true)
+      else {
+        toast.error('You have view-only access to inventory')
+        const q = searchParams.get('q')
+        router.replace(q ? `/inventory?q=${encodeURIComponent(q)}` : '/inventory', { scroll: false })
+      }
+    }
     const q = searchParams.get('q')
     if (q) setTextSearch(q)
     const filter = searchParams.get('filter')
     if (filter === 'low-stock' || filter === 'low') setStatusFilter('low')
     else if (filter === 'out-of-stock' || filter === 'out') setStatusFilter('out')
     else if (filter === 'in-stock' || filter === 'in') setStatusFilter('in')
-  }, [searchParams])
+  }, [searchParams, canEditInventory, router])
 
   const closeAddProduct = useCallback(() => {
     setShowAddProduct(false)
@@ -1307,6 +1316,10 @@ export default function InventoryPage() {
   }, [router, searchParams])
 
   const openCopy = useCallback(async (product: Product) => {
+    if (!canEditInventory) {
+      toast.error('You have view-only access to inventory')
+      return
+    }
     setViewProduct(null)
     setEditProduct(null)
     setShowAddProduct(false)
@@ -1316,9 +1329,13 @@ export default function InventoryPage() {
     } catch {
       setCopyProduct(product)
     }
-  }, [])
+  }, [canEditInventory])
 
   const openEdit = useCallback(async (product: Product) => {
+    if (!canEditInventory) {
+      toast.error('You have view-only access to inventory')
+      return
+    }
     setViewProduct(null)
     setCopyProduct(null)
     setShowAddProduct(false)
@@ -1328,7 +1345,7 @@ export default function InventoryPage() {
     } catch {
       setEditProduct(product)
     }
-  }, [])
+  }, [canEditInventory])
 
   useEffect(() => {
     const onSale = () => { refetch() }
@@ -1337,6 +1354,10 @@ export default function InventoryPage() {
   }, [refetch])
 
   const handleDelete = async (id: string, name: string) => {
+    if (!canEditInventory) {
+      toast.error('You have view-only access to inventory')
+      return
+    }
     if (!confirm(`Delete "${name}"?`)) return
     await productsApi.delete(id)
     refetch()
@@ -1389,7 +1410,11 @@ export default function InventoryPage() {
               <button
                 className="text-sm font-medium text-gray-800 dark:text-slate-200 hover:text-violet-600 dark:hover:text-violet-400 text-left transition-colors leading-tight"
                 onClick={() => setViewProduct(product)}
-                onDoubleClick={(e) => { e.preventDefault(); void openEdit(product) }}
+                onDoubleClick={(e) => {
+                  e.preventDefault()
+                  if (canEditInventory) void openEdit(product)
+                  else setViewProduct(product)
+                }}
               >
                 {product.name}
               </button>
@@ -1516,17 +1541,23 @@ export default function InventoryPage() {
         <div className="flex items-center gap-1">
           <TableActionsRow
             showAction={{ action: () => setViewProduct(row.original.product) }}
-            editAction={{ action: () => { void openEdit(row.original.product) } }}
-            deleteAction={{ action: () => handleDelete(row.original.product.id, row.original.product.name) }}
+            {...(canEditInventory
+              ? {
+                  editAction: { action: () => { void openEdit(row.original.product) } },
+                  deleteAction: { action: () => handleDelete(row.original.product.id, row.original.product.name) },
+                }
+              : {})}
           />
-          <button
-            type="button"
-            title="Copy product"
-            onClick={() => openCopy(row.original.product)}
-            className="p-1.5 rounded-lg transition-colors hover:bg-cyan-500/10 text-cyan-400"
-          >
-            <Copy size={14} />
-          </button>
+          {canEditInventory && (
+            <button
+              type="button"
+              title="Copy product"
+              onClick={() => openCopy(row.original.product)}
+              className="p-1.5 rounded-lg transition-colors hover:bg-cyan-500/10 text-cyan-400"
+            >
+              <Copy size={14} />
+            </button>
+          )}
           {canViewTraceability && (
             <button
               type="button"
@@ -1540,7 +1571,7 @@ export default function InventoryPage() {
         </div>
       ),
     },
-  ], [handleDelete, openCopy, openEdit, setViewProduct, hasWholesalePricing, hasCreditPricing, canViewTraceability, router])
+  ], [canEditInventory, handleDelete, openCopy, openEdit, setViewProduct, hasWholesalePricing, hasCreditPricing, canViewTraceability, router])
 
 
   if (showAddProduct || copyProduct || editProduct) {
@@ -1565,8 +1596,8 @@ export default function InventoryPage() {
         <ProductDetailModal
           product={viewProduct}
           onClose={() => setViewProduct(null)}
-          onEdit={() => { void openEdit(viewProduct) }}
-          onCopy={() => openCopy(viewProduct)}
+          onEdit={canEditInventory ? () => { void openEdit(viewProduct) } : undefined}
+          onCopy={canEditInventory ? () => openCopy(viewProduct) : undefined}
         />
       )}
 
@@ -1584,30 +1615,38 @@ export default function InventoryPage() {
         </div>
         <div className="flex flex-wrap gap-2 sm:ml-auto">
           <OpenPosButton label="Sell in POS" variant="secondary" />
-          <button onClick={() => setShowImport(true)} className="btn-secondary text-sm flex items-center gap-2">
-            <Upload size={14} />Import
-          </button>
+          {canEditInventory && (
+            <button onClick={() => setShowImport(true)} className="btn-secondary text-sm flex items-center gap-2">
+              <Upload size={14} />Import
+            </button>
+          )}
           <button onClick={() => exportProductsCSV(filteredProducts)} disabled={filteredProducts.length === 0} className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40">
             <Download size={14} />Export
           </button>
-          <button
-            onClick={() => {
-              setShowAddProduct(true)
-              router.replace('/inventory?action=add-product', { scroll: false })
-            }}
-            className="btn-secondary text-sm flex items-center gap-2"
-          >
-            <Plus size={14} />Add Product
-          </button>
-          <button onClick={() => setShowManageCat(true)} className="btn-secondary text-sm flex items-center gap-2">
-            <Layers size={14} />Manage Categories
-          </button>
-          <button onClick={() => setShowManageBrand(true)} className="btn-secondary text-sm flex items-center gap-2">
-            <Tag size={14} />Manage Brands
-          </button>
-          <button onClick={() => setShowAddCat(true)} className="btn-secondary text-sm flex items-center gap-2">
-            <Tag size={14} />Add Category
-          </button>
+          {canEditInventory && (
+            <button
+              onClick={() => {
+                setShowAddProduct(true)
+                router.replace('/inventory?action=add-product', { scroll: false })
+              }}
+              className="btn-secondary text-sm flex items-center gap-2"
+            >
+              <Plus size={14} />Add Product
+            </button>
+          )}
+          {canEditInventory && (
+            <>
+              <button onClick={() => setShowManageCat(true)} className="btn-secondary text-sm flex items-center gap-2">
+                <Layers size={14} />Manage Categories
+              </button>
+              <button onClick={() => setShowManageBrand(true)} className="btn-secondary text-sm flex items-center gap-2">
+                <Tag size={14} />Manage Brands
+              </button>
+              <button onClick={() => setShowAddCat(true)} className="btn-secondary text-sm flex items-center gap-2">
+                <Tag size={14} />Add Category
+              </button>
+            </>
+          )}
         </div>
       </div>
 

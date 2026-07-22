@@ -15,6 +15,7 @@ import { useImeiRecords } from '@/lib/hooks'
 import { imeiApi, productsApi, warrantyApi } from '@/lib/api'
 import { getActiveBranchId } from '@/lib/active-branch'
 import toast from 'react-hot-toast'
+import { useModuleAccess, EditOnly, viewOnlyToast } from '@/lib/module-access'
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; border: string }> = {
   IN_STOCK:             { label: 'In Stock',     color: 'text-green-400',  bg: 'bg-green-500/10',  border: 'border-green-500/20'  },
@@ -571,6 +572,7 @@ function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
 }
 
 export default function IMEIPage() {
+  const { canEdit } = useModuleAccess()
   const searchParams = useSearchParams()
   const [showAdd,      setShowAdd]      = useState(false)
   const [scanMode,     setScanMode]     = useState(false)
@@ -584,13 +586,16 @@ export default function IMEIPage() {
 
   useEffect(() => {
     const action = searchParams.get('action')
-    if (action === 'add' || action === 'new' || searchParams.get('new') === '1') setShowAdd(true)
+    if (action === 'add' || action === 'new' || searchParams.get('new') === '1') {
+      if (canEdit) setShowAdd(true)
+      else viewOnlyToast('IMEI')
+    }
     const imei = searchParams.get('imei') || searchParams.get('q')
     if (imei) {
       setListSearch(imei)
       setSelectedImei(imei)
     }
-  }, [searchParams])
+  }, [canEdit, searchParams])
   const branchId = getActiveBranchId()
   const imeiParams: Record<string, string> = { limit: '500' }
   if (branchId) imeiParams.branchId = branchId
@@ -702,7 +707,7 @@ export default function IMEIPage() {
 
   return (
     <div className="space-y-6">
-      {showAdd       && <AddIMEIModal onClose={() => setShowAdd(false)} onSaved={refetch} />}
+      {canEdit && showAdd && <AddIMEIModal onClose={() => setShowAdd(false)} onSaved={refetch} />}
       {selectedImei  && <IMEIDetailModal imei={selectedImei} onClose={() => setSelectedImei(null)} onStatusChange={refetch} />}
 
       {/* Header */}
@@ -718,9 +723,9 @@ export default function IMEIPage() {
           >
             <Hash size={14} />{scanMode ? 'Scanner On' : 'Scan IMEI'}
           </button>
-          <button onClick={() => setShowAdd(true)} className="btn-primary text-sm flex items-center gap-2">
+          <EditOnly><button onClick={() => setShowAdd(true)} className="btn-primary text-sm flex items-center gap-2">
             <Plus size={14} />Register Device
-          </button>
+          </button></EditOnly>
         </div>
       </div>
 

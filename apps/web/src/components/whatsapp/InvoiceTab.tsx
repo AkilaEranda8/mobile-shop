@@ -6,6 +6,7 @@ import { Save, Loader2, FileText, CheckSquare, Phone, Info } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { whatsappApi, saveLocalWAConfig, type WAConfig } from '@/lib/whatsapp-api'
 import { Switch } from '@/components/ui/Switch'
+import { viewOnlyToast } from '@/lib/module-access'
 
 const DEFAULT_TEMPLATE = `Hello {{customer_name}},
 
@@ -34,10 +35,11 @@ const VARIABLES = [
 
 interface Props {
   config: Partial<WAConfig>
+  canEdit: boolean
   onConfigChange: (c: Partial<WAConfig>) => void
 }
 
-export default function InvoiceTab({ config, onConfigChange }: Props) {
+export default function InvoiceTab({ config, canEdit, onConfigChange }: Props) {
   const [sendPdfInvoice, setSendPdfInvoice] = useState(config.sendPdfInvoice ?? false)
   const [validatePhones, setValidatePhones] = useState(config.validatePhones ?? true)
   const [invoiceTemplate, setInvoiceTemplate] = useState(config.invoiceTemplate ?? DEFAULT_TEMPLATE)
@@ -55,6 +57,7 @@ export default function InvoiceTab({ config, onConfigChange }: Props) {
   }, [config.sendPdfInvoice, config.validatePhones, config.invoiceTemplate])
 
   async function handleToggle(key: 'sendPdfInvoice' | 'validatePhones', val: boolean) {
+    if (!canEdit) return viewOnlyToast('WhatsApp')
     const prev = { sendPdfInvoice, validatePhones }
     if (key === 'sendPdfInvoice') setSendPdfInvoice(val)
     if (key === 'validatePhones') setValidatePhones(val)
@@ -98,6 +101,7 @@ export default function InvoiceTab({ config, onConfigChange }: Props) {
   }
 
   const handleSave = async () => {
+    if (!canEdit) return viewOnlyToast('WhatsApp')
     if (invoiceTemplate.trim().length < 10) { toast.error('Template is too short'); return }
     setSaving(true)
     try {

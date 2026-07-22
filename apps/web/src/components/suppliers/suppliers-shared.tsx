@@ -886,7 +886,7 @@ export const poStatusColors: Record<string, string> = {
 }
 
 /* ── Supplier Details Modal (Sales Details layout) ───────────────────── */
-export function SupplierDetailsModal({ supplier, allPOs, onClose, onEdit }: { supplier: Supplier; allPOs: PurchaseOrder[]; onClose: () => void; onEdit: () => void }) {
+export function SupplierDetailsModal({ supplier, allPOs, onClose, onEdit }: { supplier: Supplier; allPOs: PurchaseOrder[]; onClose: () => void; onEdit?: () => void }) {
   const supplierPOs = allPOs
     .filter(p => p.supplierId === supplier.id)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -944,6 +944,7 @@ export function SupplierDetailsModal({ supplier, allPOs, onClose, onEdit }: { su
             }`}>
               {hasDue ? 'Outstanding' : 'Clear'}
             </span>
+            {onEdit && (
             <button
               type="button"
               onClick={onEdit}
@@ -951,6 +952,7 @@ export function SupplierDetailsModal({ supplier, allPOs, onClose, onEdit }: { su
             >
               <Edit size={12} /> Edit
             </button>
+            )}
             <button
               type="button"
               onClick={onClose}
@@ -1150,6 +1152,7 @@ export function SupplierDetailsModal({ supplier, allPOs, onClose, onEdit }: { su
 
           {/* Bottom actions */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-end pt-2 flex-wrap">
+            {onEdit && (
             <button
               type="button"
               onClick={onEdit}
@@ -1157,6 +1160,7 @@ export function SupplierDetailsModal({ supplier, allPOs, onClose, onEdit }: { su
             >
               <Edit size={14} /> Edit supplier
             </button>
+            )}
             <button
               type="button"
               onClick={onClose}

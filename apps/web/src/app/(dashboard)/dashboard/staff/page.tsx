@@ -21,6 +21,7 @@ import {
   type StaffRole,
   type RolePermissionModuleKey,
 } from '@/lib/role-permissions'
+import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 
 const roleConfig: Record<string, { label: string; color: string; bg: string; border: string }> = {
   OWNER: { label: 'Owner', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
@@ -418,6 +419,7 @@ function DeleteConfirmModal({ name, onConfirm, onClose, loading }: { name: strin
 
 export default function StaffPage() {
   const searchParams = useSearchParams()
+  const { canEdit: canEditStaff } = useModuleAccess()
   const [search, setSearch] = useState('')
   const [branchFilter, setBranchFilter] = useState(() => getOperationalBranchId() ?? '')
   const [tab, setTab] = useState<'staff' | 'permissions'>('staff')
@@ -431,9 +433,15 @@ export default function StaffPage() {
 
   useEffect(() => {
     const action = searchParams.get('action')
-    if (action === 'add' || action === 'new' || searchParams.get('new') === '1') setShowAdd(true)
+    if (action === 'add' || action === 'new' || searchParams.get('new') === '1') {
+      if (!canEditStaff) {
+        viewOnlyToast('Staff')
+        return
+      }
+      setShowAdd(true)
+    }
     if (searchParams.get('tab') === 'permissions') setTab('permissions')
-  }, [searchParams])
+  }, [searchParams, canEditStaff])
 
   useEffect(() => {
     const syncBranch = () => {
@@ -500,9 +508,11 @@ export default function StaffPage() {
           <h1 className="page-title">Staff & Roles</h1>
           <p className="page-subtitle">{activeCount} active · {users.length} total employees</p>
         </div>
-        <button onClick={() => setShowAdd(true)} className="btn-primary text-sm flex items-center gap-2 sm:ml-auto">
-          <Plus size={14} />Add Staff
-        </button>
+        {canEditStaff && (
+          <button onClick={() => setShowAdd(true)} className="btn-primary text-sm flex items-center gap-2 sm:ml-auto">
+            <Plus size={14} />Add Staff
+          </button>
+        )}
       </div>
 
       <div className="flex gap-1 bg-white/3 border border-white/5 rounded-xl p-1 w-fit">
@@ -557,8 +567,12 @@ export default function StaffPage() {
                     </div>
                     <div className="flex items-center gap-1">
                       <div className={`w-1.5 h-1.5 rounded-full mr-1 ${s.isActive ? 'bg-green-400' : 'bg-slate-500'}`} />
-                      <button onClick={() => setEditStaff(s)} className="p-1.5 rounded-lg text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 transition-colors" title="Edit"><Edit2 size={13} /></button>
-                      <button onClick={() => setDeleteTarget(s)} className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors" title="Remove"><Trash2 size={13} /></button>
+                      {canEditStaff && (
+                        <>
+                          <button onClick={() => setEditStaff(s)} className="p-1.5 rounded-lg text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 transition-colors" title="Edit"><Edit2 size={13} /></button>
+                          <button onClick={() => setDeleteTarget(s)} className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors" title="Remove"><Trash2 size={13} /></button>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="space-y-1.5">

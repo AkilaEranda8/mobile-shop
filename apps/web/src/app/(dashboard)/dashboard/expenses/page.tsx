@@ -11,6 +11,7 @@ import { useTransactions, useFinanceSummary } from '@/lib/hooks'
 import { financeApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
+import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 
 const categories = ['All', 'Rent', 'Salary', 'Electricity', 'Transport', 'Marketing', 'Other Expenses']
 
@@ -140,6 +141,7 @@ function AddExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
 
 export default function ExpensesPage() {
   const searchParams = useSearchParams()
+  const { canEdit } = useModuleAccess()
   const [search, setSearch]   = useState('')
   const [category, setCategory] = useState('All')
   const [showAdd, setShowAdd] = useState(false)
@@ -150,8 +152,14 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     const action = searchParams.get('action')
-    if (action === 'add' || action === 'add-expense' || searchParams.get('new') === '1') setShowAdd(true)
-  }, [searchParams])
+    if (action === 'add' || action === 'add-expense' || searchParams.get('new') === '1') {
+      if (!canEdit) {
+        viewOnlyToast('Finance')
+        return
+      }
+      setShowAdd(true)
+    }
+  }, [searchParams, canEdit])
 
   // Fetch all EXPENSE rows; Supplier Payment is filtered out client-side (separate module).
   const txParams: Record<string, string> = { type: 'EXPENSE', ...periodParams }
@@ -204,9 +212,11 @@ export default function ExpensesPage() {
           <h1 className="page-title">Expenses</h1>
           <p className="page-subtitle">Operating expenses this month ({periodFrom} → {periodTo})</p>
         </div>
-        <button onClick={() => setShowAdd(true)} className="btn-primary flex items-center gap-2 sm:ml-auto">
-          <Plus size={14} />Add Expense
-        </button>
+        {canEdit && (
+          <button onClick={() => setShowAdd(true)} className="btn-primary flex items-center gap-2 sm:ml-auto">
+            <Plus size={14} />Add Expense
+          </button>
+        )}
       </div>
 
       {/* ── KPI Cards ── */}

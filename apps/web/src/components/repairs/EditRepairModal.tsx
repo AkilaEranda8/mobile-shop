@@ -6,12 +6,14 @@ import { repairsApi } from '@/lib/api'
 import { repairTicketEditable } from '@/lib/repair.util'
 import { REPAIR_WARRANTY_OPTIONS } from '@/lib/repair-invoice.util'
 import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
+import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 import type { RepairTicket } from '@/types'
 import toast from 'react-hot-toast'
 /* Edit Repair Modal */
 export default function EditRepairModal({ repair, onClose, onSaved }: {
   repair: RepairTicket; onClose: () => void; onSaved: () => void
 }) {
+  const { canEdit } = useModuleAccess()
   const locked = !repairTicketEditable(repair.status)
   const [form, setForm] = useState({
     customerName:        repair.customerName    ?? '',
@@ -40,7 +42,9 @@ export default function EditRepairModal({ repair, onClose, onSaved }: {
     setForm(p => ({ ...p, [k]: e.target.value }))
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setLoading(true)
+    e.preventDefault()
+    if (!canEdit) { viewOnlyToast('repairs'); return }
+    setLoading(true)
     try {
       await repairsApi.update(repair.id, {
         ...form,

@@ -23,6 +23,7 @@ import WaybillPreview from '@/components/delivery/WaybillPreview'
 import CourierSettingsModal from '@/components/delivery/CourierSettingsModal'
 import TrackingPoolModal from '@/components/delivery/TrackingPoolModal'
 import OrderDetailModal from '@/components/delivery/OrderDetailModal'
+import { useModuleAccess, EditOnly, viewOnlyToast } from '@/lib/module-access'
 
 const TABS = ['Orders', 'Tracking Pool', 'Couriers', 'Notifications'] as const
 type Tab = typeof TABS[number]
@@ -33,6 +34,7 @@ const statusLabels: Record<string, string> = {
 }
 
 export default function DeliveryPage() {
+  const { canEdit } = useModuleAccess()
   const [tab, setTab]           = useState<Tab>('Orders')
   const [orders, setOrders]     = useState<DeliveryOrder[]>([])
   const [stats, setStats]       = useState<DeliveryStats | null>(null)
@@ -79,6 +81,7 @@ export default function DeliveryPage() {
   useEffect(() => { if (tab === 'Notifications') loadNotifs() }, [tab, loadNotifs])
 
   const handleGenerateWaybill = async (order: DeliveryOrder) => {
+    if (!canEdit) return viewOnlyToast('Delivery')
     try {
       const res: any = await deliveryApi.generateWaybill(order.id)
       setShowWaybill({ ...order, ...(res?.data ?? res) })
@@ -86,11 +89,13 @@ export default function DeliveryPage() {
   }
 
   const handleResendWhatsApp = async (id: string) => {
+    if (!canEdit) return viewOnlyToast('Delivery')
     try { await deliveryApi.resendWhatsApp(id); toast.success('WhatsApp notification sent') }
     catch (e: any) { toast.error(e?.message ?? 'Failed') }
   }
 
   const handleMarkDelivered = async (order: DeliveryOrder) => {
+    if (!canEdit) return viewOnlyToast('Delivery')
     if (!confirm(`Mark "${order.orderNumber}" as Delivered?`)) return
     try {
       await deliveryApi.updateOrder(order.id, { status: 'DELIVERED' })
@@ -100,11 +105,13 @@ export default function DeliveryPage() {
   }
 
   const handleRetryNotif = async (id: string) => {
+    if (!canEdit) return viewOnlyToast('Delivery')
     try { await deliveryApi.retryNotification(id); toast.success('Retried'); loadNotifs() }
     catch (e: any) { toast.error(e?.message ?? 'Failed') }
   }
 
   const handleSeedCouriers = async () => {
+    if (!canEdit) return viewOnlyToast('Delivery')
     try { await deliveryApi.seedCouriers(); loadCouriers(); toast.success('Default couriers added') }
     catch (e: any) { toast.error(e?.message ?? 'Failed') }
   }
@@ -202,26 +209,26 @@ export default function DeliveryPage() {
           <TableActionsRow
             showAction={{ action: () => setShowDetail(row.original) }}
           />
-          <button title="Generate Waybill" onClick={() => handleGenerateWaybill(row.original)}
+          {canEdit && <button title="Generate Waybill" onClick={() => handleGenerateWaybill(row.original)}
             className="p-1.5 rounded-lg transition-colors hover:bg-white/5"
             style={{ color: 'var(--text-muted)' }}>
             <Printer size={13} />
-          </button>
-          {!row.original.trackingNumber && (
+          </button>}
+          {canEdit && !row.original.trackingNumber && (
             <button title="Assign Tracking" onClick={() => setShowTracking(row.original)}
               className="p-1.5 rounded-lg transition-colors"
               style={{ color: 'var(--brand-light)' }}>
               <Hash size={13} />
             </button>
           )}
-          {row.original.trackingNumber && (
+          {canEdit && row.original.trackingNumber && (
             <button title="Resend WhatsApp" onClick={() => handleResendWhatsApp(row.original.id)}
               className="p-1.5 rounded-lg transition-colors"
               style={{ color: '#4ade80' }}>
               <MessageSquare size={13} />
             </button>
           )}
-          {['DISPATCHED', 'IN_TRANSIT', 'PACKED'].includes(row.original.status) && (
+          {canEdit && ['DISPATCHED', 'IN_TRANSIT', 'PACKED'].includes(row.original.status) && (
             <button title="Mark as Delivered" onClick={() => handleMarkDelivered(row.original)}
               className="p-1.5 rounded-lg transition-colors"
               style={{ color: '#34d399' }}>
@@ -231,7 +238,7 @@ export default function DeliveryPage() {
         </div>
       ),
     },
-  ], [])
+  ], [canEdit])
 
   /* ── Tracking Pool Columns ───────────────────────────────────── */
   const trackingColumns = useMemo<ColumnDef<TrackingNumber>[]>(() => [
@@ -312,7 +319,7 @@ export default function DeliveryPage() {
     },
     {
       id: 'actions',
-      cell: ({ row }) => row.original.status !== 'SENT' ? (
+      cell: ({ row }) => canEdit && row.original.status !== 'SENT' ? (
         <button onClick={() => handleRetryNotif(row.original.id)}
           className="text-xs px-2.5 py-1 rounded-lg font-medium text-white"
           style={{ background: 'var(--brand-gradient)' }}>
@@ -320,23 +327,23 @@ export default function DeliveryPage() {
         </button>
       ) : null,
     },
-  ], [])
+  ], [canEdit])
 
   return (
     <div className="space-y-6">
       {/* Modals */}
-      {showCreate && (
+      {canEdit && showCreate && (
         <CreateOrderModal couriers={couriers} onClose={() => setShowCreate(false)}
           onCreated={() => { setShowCreate(false); loadOrders(); loadStats() }} />
       )}
-      {showTracking && (
+      {canEdit && showTracking && (
         <AssignTrackingModal order={showTracking} couriers={couriers}
           onClose={() => setShowTracking(null)}
           onAssigned={() => { setShowTracking(null); loadOrders(); loadStats() }} />
       )}
       {showWaybill  && <WaybillPreview order={showWaybill} onClose={() => setShowWaybill(null)} />}
-      {showCouriers && <CourierSettingsModal couriers={couriers} onClose={() => setShowCouriers(false)} onRefresh={loadCouriers} />}
-      {showPool     && <TrackingPoolModal couriers={couriers} onClose={() => setShowPool(false)} onRefresh={loadTracking} />}
+      {canEdit && showCouriers && <CourierSettingsModal couriers={couriers} onClose={() => setShowCouriers(false)} onRefresh={loadCouriers} />}
+      {canEdit && showPool     && <TrackingPoolModal couriers={couriers} onClose={() => setShowPool(false)} onRefresh={loadTracking} />}
       {showDetail   && (
         <OrderDetailModal order={showDetail} onClose={() => setShowDetail(null)}
           onAssignTracking={(o) => { setShowDetail(null); setShowTracking(o) }}
@@ -350,6 +357,7 @@ export default function DeliveryPage() {
           <h1 className="page-title">Delivery Orders</h1>
           <p className="page-subtitle">Courier dispatch · Waybills · Tracking · WhatsApp notifications</p>
         </div>
+        <EditOnly>
         <div className="flex gap-2 sm:ml-auto">
           <button onClick={() => setShowPool(true)} className="btn-secondary text-sm flex items-center gap-2">
             <Hash size={13} /> Tracking Pool
@@ -361,6 +369,7 @@ export default function DeliveryPage() {
             <Plus size={14} /> New Order
           </button>
         </div>
+        </EditOnly>
       </div>
 
       {/* Stats */}
@@ -408,10 +417,10 @@ export default function DeliveryPage() {
             title="No delivery orders yet"
             description="Create delivery orders to dispatch products via courier. Assign tracking numbers, generate waybills, and send WhatsApp notifications automatically."
             accentColor="violet"
-            actions={[
+            actions={canEdit ? [
               { label: 'Create First Order', onClick: () => setShowCreate(true), primary: true },
               { label: 'Setup Couriers', onClick: () => setShowCouriers(true) },
-            ]}
+            ] : []}
             hints={[
               'Add couriers (Koombiyo, Domex, etc.) under the Couriers tab first.',
               'Upload tracking numbers in bulk via Tracking Pool.',
@@ -443,11 +452,11 @@ export default function DeliveryPage() {
       {/* Tracking Pool Tab */}
       {tab === 'Tracking Pool' && (
         <div className="space-y-4">
-          <div className="flex justify-end">
+          <EditOnly><div className="flex justify-end">
             <button onClick={() => setShowPool(true)} className="btn-primary text-sm flex items-center gap-2">
               <Upload size={13} /> Bulk Add
             </button>
-          </div>
+          </div></EditOnly>
           <ClientSideTable
             data={tracking}
             columns={trackingColumns}
@@ -469,14 +478,14 @@ export default function DeliveryPage() {
       {/* Couriers Tab */}
       {tab === 'Couriers' && (
         <div className="space-y-4">
-          <div className="flex justify-end gap-2">
+          <EditOnly><div className="flex justify-end gap-2">
             <button onClick={handleSeedCouriers} className="btn-secondary text-sm flex items-center gap-2">
               <RefreshCw size={13} /> Add Defaults
             </button>
             <button onClick={() => setShowCouriers(true)} className="btn-primary text-sm flex items-center gap-2">
               <Plus size={14} /> Add Courier
             </button>
-          </div>
+          </div></EditOnly>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {couriers.length === 0 ? (
               <div className="col-span-3">
@@ -485,10 +494,10 @@ export default function DeliveryPage() {
                   title="No couriers configured"
                   description="Add courier partners to start dispatching orders. Click 'Add Defaults' to instantly add Koombiyo, Domex, Pronto, and CityPak."
                   accentColor="blue"
-                  actions={[
+                  actions={canEdit ? [
                     { label: 'Add Default Couriers', onClick: handleSeedCouriers, primary: true },
                     { label: 'Add Custom Courier', onClick: () => setShowCouriers(true) },
-                  ]}
+                  ] : []}
                 />
               </div>
             ) : couriers.map(c => (

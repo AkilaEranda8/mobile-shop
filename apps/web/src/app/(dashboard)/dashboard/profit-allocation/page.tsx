@@ -18,6 +18,7 @@ import {
   exportAllocationCsv, exportAllocationExcel, exportAllocationPdf,
   type AllocationLine,
 } from '@/lib/profit-allocation-export'
+import { useModuleAccess } from '@/lib/module-access'
 
 type FundLine = AllocationLine & {
   fundId: string
@@ -196,12 +197,13 @@ function MovementModal({
 
 export default function ProfitAllocationPage() {
   const hasAccess = useFeatureFlag('PROFIT_ALLOCATION')
+  const { canEdit } = useModuleAccess()
   const hasDailyReload = useFeatureFlag('DAILY_RELOAD')
   const role = authStorage.getUser()?.role ?? ''
   const isOwner = role === 'OWNER' || role === 'PLATFORM_ADMIN'
-  const canSave = isOwner || role === 'MANAGER'
+  const canSave = canEdit && (isOwner || role === 'MANAGER')
   const canWithdraw = canSave
-  const canManageFunds = isOwner || role === 'MANAGER'
+  const canManageFunds = canEdit && (isOwner || role === 'MANAGER')
 
   const branchId = getActiveBranchId() ?? ''
   const todayStr = useMemo(() => businessToday(), [])
@@ -575,10 +577,12 @@ export default function ProfitAllocationPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-          <button onClick={handleRefreshFromSystem} disabled={calcLoading || !branchId} className="btn-secondary flex items-center gap-2 text-sm">
-            {calcLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-            Refresh Today
-          </button>
+          {canEdit && (
+            <button onClick={handleRefreshFromSystem} disabled={calcLoading || !branchId} className="btn-secondary flex items-center gap-2 text-sm">
+              {calcLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+              Refresh Today
+            </button>
+          )}
           {canManageFunds && (
             <button onClick={handleRecalculate} disabled={calcLoading || todayDashboard?.saved} className="btn-secondary flex items-center gap-2 text-sm">
               {calcLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}

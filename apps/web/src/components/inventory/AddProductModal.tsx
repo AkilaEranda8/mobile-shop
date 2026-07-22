@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2, Upload, Loader2, ChevronDown, Info, GripVertical, Box, Eye, ArrowLeft, Download, RefreshCw, Building2, ArrowLeftRight } from 'lucide-react'
 import { productsApi, suppliersApi, uploadApi, deviceCatalogApi, tenantApi } from '@/lib/api'
-import { useCategories, useBrands, useSuppliers, useProductVariantSettings, useFeatureFlag } from '@/lib/hooks'
+import { useCategories, useBrands, useSuppliers, useProductVariantSettings, useFeatureFlag, useCanSeeProductCost, useCanEditProductCost } from '@/lib/hooks'
 import { DEFAULT_PRODUCT_VARIANT_SETTINGS, pushProductVariantSettings } from '@/lib/productVariantSettings'
 import { authStorage } from '@/lib/auth'
 import { getVisibleBranches, hasMultipleBranches } from '@/lib/active-branch'
@@ -414,6 +414,11 @@ export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: Add
   const { data: variantSettings, refetch: refetchVariantSettings } = useProductVariantSettings()
   const hasWholesalePricing = useFeatureFlag('WHOLESALE_PRICING')
   const hasCreditPricing = useFeatureFlag('CREDIT_PRICING')
+  const canSeeProductCost = useCanSeeProductCost()
+  const canEditProductCost = useCanEditProductCost()
+  const costInputStyle = canEditProductCost
+    ? inputStyle
+    : { ...inputStyle, color: 'var(--text-muted)', cursor: 'not-allowed', opacity: 0.85 }
 
   const variantCfg = variantSettings ?? DEFAULT_PRODUCT_VARIANT_SETTINGS
   const storageOpts = variantCfg.storageOptions
@@ -780,10 +785,28 @@ export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: Add
       ? Math.max(0, Number(resolvedVariants[0]?.creditPrice) || defaultCredit)
       : defaultCredit
 
-    if (!buyingPrice)  { failSubmit('Buying price required — enter it in Pricing & Stock', true); return }
-    if (variants.length > 0) {
-      const bad = resolvedVariants.some(v => !Number(v.costPrice))
-      if (bad) { failSubmit('Each variant needs a buy/cost price (or set Buying Price in Pricing & Stock)', true); return }
+    let finalBuying = buyingPrice
+    let finalVariants = resolvedVariants
+    if (!canEditProductCost) {
+      if (editProduct) {
+        finalBuying = Number(editProduct.buyingPrice) || 0
+        const variantCosts = (editProduct as any).variants as Array<{ costPrice?: number }> | undefined
+        if (finalVariants.length > 0) {
+          finalVariants = finalVariants.map((v, i) => ({
+            ...v,
+            costPrice: String(variantCosts?.[i]?.costPrice ?? editProduct.buyingPrice ?? 0),
+          }))
+        }
+      } else if (!finalBuying) {
+        failSubmit('Product Cost Edit permission is required to set buying price', true)
+        return
+      }
+    } else {
+      if (!finalBuying) { failSubmit('Buying price required — enter it in Pricing & Stock', true); return }
+      if (finalVariants.length > 0) {
+        const bad = finalVariants.some(v => !Number(v.costPrice))
+        if (bad) { failSubmit('Each variant needs a buy/cost price (or set Buying Price in Pricing & Stock)', true); return }
+      }
     }
 
     setLoading(true)
@@ -791,11 +814,11 @@ export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: Add
       const payload = buildPayload({
         name: form.name, sku: form.sku, barcode: form.barcodeValue.trim() || undefined,
         brandName: form.brandName, categoryName: form.categoryName,
-        buyingPrice, sellingPrice, wholesalePrice, creditPrice, trackImei,
+        buyingPrice: finalBuying, sellingPrice, wholesalePrice, creditPrice, trackImei,
         subCategory: form.subCategory, deviceModel: form.deviceModel,
         description: form.description, imageUrl: form.imageUrl,
         condition,
-        variantRows: resolvedVariants,
+        variantRows: finalVariants,
       })
 
       if (editProduct) {
@@ -1258,7 +1281,8 @@ export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: Add
                               'Retail (LKR)',
                               ...(hasWholesalePricing ? ['Wholesale (LKR)'] : []),
                               ...(hasCreditPricing ? ['Credit (LKR)'] : []),
-                              'Cost Price (LKR)', 'Action',
+                              ...(canSeeProductCost ? ['Cost Price (LKR)'] : []),
+                              'Action',
                             ] as string[]).map((h, i) => (
                           <th key={i} style={{ padding: '9px 10px', textAlign: 'left', fontSize: 11, fontWeight: 600,
                             color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)', whiteSpace: 'nowrap',
@@ -1325,10 +1349,14 @@ export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: Add
                                   value={v.creditPrice} onChange={e => updVariant(v.id, 'creditPrice', e.target.value)} />
                           </td>
                           )}
+                          {canSeeProductCost && (
                           <td style={{ padding: '8px 6px' }}>
-                            <input type="number" min={0} style={{ ...inputStyle, height: 32 }} placeholder="0.00"
-                                  value={v.costPrice} onChange={e => updVariant(v.id, 'costPrice', e.target.value)} />
+                            <input type="number" min={0} style={{ ...costInputStyle, height: 32 }} placeholder="0.00"
+                                  value={v.costPrice}
+                                  readOnly={!canEditProductCost}
+                                  onChange={e => canEditProductCost && updVariant(v.id, 'costPrice', e.target.value)} />
                           </td>
+                          )}
                           <td style={{ padding: '8px 10px' }}>
                             <button type="button" onClick={() => delVariant(v.id)}
                               style={{ padding: 6, borderRadius: 6, background: 'rgba(239,68,68,0.1)', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'flex' }}>
@@ -1348,7 +1376,11 @@ export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: Add
                   <div style={{ borderRadius: 8, padding: '36px 16px', textAlign: 'center', border: '1px dashed var(--border-subtle)' }}>
                 <Box size={22} style={{ color: 'var(--text-muted)', margin: '0 auto 8px' }} />
                     <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No variants — simple product</p>
-                    <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Enter buying price in Pricing &amp; Stock{hasWholesalePricing ? ', including wholesale if needed' : ''}, or add variants for phones</p>
+                    <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                      {canSeeProductCost
+                        ? `Enter buying price in Pricing & Stock${hasWholesalePricing ? ', including wholesale if needed' : ''}, or add variants for phones`
+                        : 'Add variants for phones, or set retail price in Pricing & Stock'}
+                    </p>
               </div>
             )}
           </div>
@@ -1385,7 +1417,9 @@ export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: Add
                     <PreviewRow label="Brand" value={form.brandName} />
                     <PreviewRow label="Category" value={form.categoryName} />
                     <PreviewRow label="Condition" value={PRODUCT_CONDITION_OPTS.find(o => o.value === condition)?.label} />
-                    <PreviewRow label="Buying Price" value={pricing.purchaseEx ? `LKR ${pricing.purchaseEx}` : undefined} />
+                    {canSeeProductCost && (
+                      <PreviewRow label="Buying Price" value={pricing.purchaseEx ? `LKR ${pricing.purchaseEx}` : undefined} />
+                    )}
                     <PreviewRow label="Retail Price" value={pricing.sellingEx ? `LKR ${pricing.sellingEx}` : undefined} />
                     {hasWholesalePricing && (
                       <PreviewRow label="Wholesale Price" value={pricing.wholesaleEx ? `LKR ${pricing.wholesaleEx}` : undefined} />
@@ -1437,11 +1471,18 @@ export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: Add
                 <SectionHeader n={2} title="Pricing & Stock" sub={isEdit ? 'Update prices and stock' : 'Required before Create Product'} />
                 <div className="flex flex-col gap-3.5">
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-3.5">
+                  {canSeeProductCost && (
                   <div>
-                      <Lbl req>Buying Price (LKR)</Lbl>
-                    <input type="number" min={0} style={inputStyle} placeholder="0.00"
-                        value={pricing.purchaseEx} onChange={e => setPurchaseEx(e.target.value)} />
+                      <Lbl req={canEditProductCost}>Buying Price (LKR)</Lbl>
+                    <input type="number" min={0} style={costInputStyle} placeholder="0.00"
+                        value={pricing.purchaseEx}
+                        readOnly={!canEditProductCost}
+                        onChange={e => canEditProductCost && setPurchaseEx(e.target.value)} />
+                    {!canEditProductCost && (
+                      <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>View only — Product Cost Edit required to change</p>
+                    )}
                   </div>
+                  )}
                   <div>
                       <Lbl>Retail Price (LKR)</Lbl>
                     <input type="number" min={0} style={inputStyle} placeholder="Optional"
@@ -1462,6 +1503,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: Add
                   </div>
                   )}
                 </div>
+                  {canSeeProductCost && (
                   <div>
                     <Lbl>Profit Margin (%)</Lbl>
                     <div style={{ position: 'relative' }}>
@@ -1470,6 +1512,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: Add
                       <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'var(--text-muted)' }}>%</span>
                     </div>
                   </div>
+                  )}
                   <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12 }}>
                     <Checkbox checked={lowStock} onChange={setLowStock} label="Low Stock Alert"
                       desc="Get notified when stock goes below minimum" />
@@ -1501,21 +1544,27 @@ export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: Add
                   )}
                   {variants.length > 0 && (
                     <>
+                      {canSeeProductCost && (
                       <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12 }}>
                         <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 }}>Default prices for variants</p>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>Ex. Tax (buy)</p>
-                            <input type="number" min={0} style={{ ...inputStyle, height: 32 }} placeholder="0.00"
-                              value={pricing.purchaseEx} onChange={e => setPurchaseEx(e.target.value)} />
+                            <input type="number" min={0} style={{ ...costInputStyle, height: 32 }} placeholder="0.00"
+                              value={pricing.purchaseEx}
+                              readOnly={!canEditProductCost}
+                              onChange={e => canEditProductCost && setPurchaseEx(e.target.value)} />
               </div>
                           <div>
                             <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>Inc. Tax (buy)</p>
-                            <input type="number" min={0} style={{ ...inputStyle, height: 32 }} placeholder="0.00"
-                              value={pricing.purchaseInc} onChange={e => setPurchaseInc(e.target.value)} />
+                            <input type="number" min={0} style={{ ...costInputStyle, height: 32 }} placeholder="0.00"
+                              value={pricing.purchaseInc}
+                              readOnly={!canEditProductCost}
+                              onChange={e => canEditProductCost && setPurchaseInc(e.target.value)} />
             </div>
           </div>
         </div>
+                      )}
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <Lbl>Applicable Tax</Lbl>
