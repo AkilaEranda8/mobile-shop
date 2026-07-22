@@ -467,7 +467,7 @@ export default function StaffPage() {
   const listParams: Record<string, string> = {}
   if (search) listParams.search = search
   if (effectiveBranchId) listParams.branchId = effectiveBranchId
-  const { data, loading, refetch } = useUsers(listParams)
+  const { data, loading, error, refetch } = useUsers(listParams)
   const users: any[] = (data?.data ?? []) as any[]
   const activeCount = users.filter((u: any) => u.isActive).length
   const branchLabel = effectiveBranchId
@@ -570,6 +570,9 @@ export default function StaffPage() {
           </div>
 
           {loading && <p className="text-sm text-slate-500">Loading staff...</p>}
+          {!loading && error && (
+            <p className="text-sm text-red-500">Failed to load staff: {error}</p>
+          )}
 
           <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {users.map((s: any, i: number) => {
