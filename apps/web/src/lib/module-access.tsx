@@ -6,6 +6,9 @@ import toast from 'react-hot-toast'
 import { useRolePermissions } from '@/lib/hooks'
 import type { RolePermissionModuleKey } from '@/lib/role-permissions'
 
+/** Browse/analytics modules — no add/edit/delete UI, so the banner is noise. */
+const NO_VIEW_ONLY_BANNER = new Set<RolePermissionModuleKey>(['DASHBOARD', 'REPORTS'])
+
 export type ModuleAccessValue = {
   moduleKey: RolePermissionModuleKey | null
   canView: boolean
@@ -27,7 +30,7 @@ export function ModuleAccessProvider({
   moduleKey: RolePermissionModuleKey | null
   children: ReactNode
 }) {
-  const { canView, canEdit } = useRolePermissions()
+  const { canView, canEdit, loading } = useRolePermissions()
 
   const value = useMemo<ModuleAccessValue>(() => {
     if (!moduleKey) {
@@ -35,13 +38,15 @@ export function ModuleAccessProvider({
     }
     const view = canView(moduleKey)
     const edit = canEdit(moduleKey)
+    const isViewOnly =
+      !loading && view && !edit && !NO_VIEW_ONLY_BANNER.has(moduleKey)
     return {
       moduleKey,
       canView: view,
       canEdit: edit,
-      isViewOnly: view && !edit,
+      isViewOnly,
     }
-  }, [moduleKey, canView, canEdit])
+  }, [moduleKey, canView, canEdit, loading])
 
   return (
     <ModuleAccessContext.Provider value={value}>

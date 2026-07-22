@@ -64,7 +64,7 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMatrix = {
   },
   CASHIER: {
     ...fill('hide'),
-    DASHBOARD: 'view',
+    DASHBOARD: 'edit',
     POS: 'edit',
     CUSTOMERS: 'edit',
     SERVICES: 'view',
@@ -73,7 +73,7 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMatrix = {
   },
   TECHNICIAN: {
     ...fill('hide'),
-    DASHBOARD: 'view',
+    DASHBOARD: 'edit',
     REPAIRS: 'edit',
     WARRANTY: 'edit',
     CUSTOMERS: 'view',
