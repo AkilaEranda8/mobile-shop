@@ -34,6 +34,19 @@ type Product = {
 function hasTransferableStock(p: Product) {
   return p.stock > 0 || (p.trackImei && (p.imeiInStock ?? 0) > 0)
 }
+
+function productStockQty(p: Product) {
+  return p.trackImei ? (p.imeiInStock ?? p.stock) : p.stock
+}
+
+function sortProductsForTransfer(list: Product[]) {
+  return [...list].sort((a, b) => {
+    const sa = productStockQty(a)
+    const sb = productStockQty(b)
+    if ((sa > 0) !== (sb > 0)) return sa > 0 ? -1 : 1
+    return a.name.localeCompare(b.name)
+  })
+}
 type TransferPreview = {
   catalogReady: boolean
   willMerge: boolean
@@ -117,17 +130,75 @@ function TransferModal({
   const destBranches = branches.filter(b => b.id !== fromBranchId)
   const branchOptions = branches.map(b => ({ value: b.id, label: b.name }))
   const destOptions = destBranches.map(b => ({ value: b.id, label: b.name }))
+  const branchNameById = useMemo(
+    () => Object.fromEntries(branches.map(b => [b.id, b.name])),
+    [branches],
+  )
 
+  // Load products from every branch so stocked inventory always appears in the picker.
   useEffect(() => {
-    if (!fromBranchId) return
-    setLoadingProducts(true)
-    resetDraft()
-    setLines([])
-    productsApi.list({ branchId: fromBranchId, limit: '500' })
-      .then((r: any) => setProducts((r.data?.data ?? r.data ?? []).filter((p: Product) => hasTransferableStock(p))))
-      .catch(() => toast.error('Failed to load products'))
-      .finally(() => setLoadingProducts(false))
-  }, [fromBranchId, resetDraft])
+    if (!fromBranchId || branches.length === 0) return
+    const q = search.trim()
+    let cancelled = false
+    const t = window.setTimeout(async () => {
+      setLoadingProducts(true)
+      try {
+        const results = await Promise.all(
+          branches.map(async (b) => {
+            const params: Record<string, string> = { branchId: b.id, limit: '5000' }
+            if (q) params.search = q
+            const res: any = await productsApi.list(params)
+            const rows = (res?.data?.data ?? res?.data ?? []) as Product[]
+            return Array.isArray(rows) ? rows : []
+          }),
+        )
+        if (cancelled) return
+        const byId = new Map<string, Product>()
+        for (const rows of results) {
+          for (const p of rows) {
+            if (!p?.id) continue
+            const existing = byId.get(p.id)
+            if (!existing || p.branchId === fromBranchId) byId.set(p.id, p)
+          }
+        }
+        const merged = Array.from(byId.values())
+        merged.sort((a, b) => {
+          const aFrom = a.branchId === fromBranchId ? 1 : 0
+          const bFrom = b.branchId === fromBranchId ? 1 : 0
+          if (aFrom !== bFrom) return bFrom - aFrom
+          const aStock = hasTransferableStock(a) ? 1 : 0
+          const bStock = hasTransferableStock(b) ? 1 : 0
+          if (aStock !== bStock) return bStock - aStock
+          return a.name.localeCompare(b.name)
+        })
+        setProducts(merged)
+      } catch {
+        if (!cancelled) toast.error('Failed to load products')
+      } finally {
+        if (!cancelled) setLoadingProducts(false)
+      }
+    }, q ? 250 : 0)
+    return () => {
+      cancelled = true
+      window.clearTimeout(t)
+    }
+  }, [search, fromBranchId, branches])
+
+  const selectProduct = (p: Product) => {
+    if (p.branchId && p.branchId !== fromBranchId) {
+      const name = branchNameById[p.branchId] || 'product branch'
+      setFromBranchId(p.branchId)
+      setToBranchId(prev => (prev === p.branchId
+        ? (branches.find(b => b.id !== p.branchId)?.id ?? '')
+        : prev))
+      toast(`From branch → ${name}`, { icon: 'ℹ️' })
+    }
+    setProductId(p.id)
+    setVariationKey('')
+    setSelectedImeis([])
+    if (!p.trackImei) setQuantity('1')
+    else setQuantity('')
+  }
 
   useEffect(() => {
     if (!toBranchId && destBranches[0]) setToBranchId(destBranches[0].id)
@@ -227,17 +298,10 @@ function TransferModal({
     const q = search.trim().toLowerCase()
     if (!q) return products
     return products.filter(p =>
-      p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q),
+      p.name.toLowerCase().includes(q)
+      || (p.sku || '').toLowerCase().includes(q),
     )
   }, [products, search])
-
-  const productOptions = filteredProducts.map(p => {
-    const qty = p.trackImei ? (p.imeiInStock ?? p.stock) : p.stock
-    return {
-      value: p.id,
-      label: `${p.name} · ${qty} in stock${p.trackImei ? ' · IMEI' : ''}`,
-    }
-  })
 
   const handleQuantityChange = (raw: string) => {
     if (raw === '') { setQuantity(''); return }
@@ -254,6 +318,10 @@ function TransferModal({
 
   const handleAddLine = () => {
     if (!productId || !selectedProduct) { toast.error('Select a product'); return }
+    if (!hasTransferableStock(selectedProduct) && availableStock <= 0) {
+      toast.error('This product has no stock at the source branch')
+      return
+    }
     if (requiresVariant && !variationKey) { toast.error('Select a variant'); return }
     let qty = parseInt(quantity, 10)
     if (isImeiProduct) {
@@ -374,7 +442,7 @@ function TransferModal({
       role="presentation"
     >
       <div
-        className="w-full max-w-2xl rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto border"
+        className="w-full max-w-2xl rounded-2xl shadow-2xl max-h-[90vh] flex flex-col border"
         style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
         onClick={e => e.stopPropagation()}
         role="dialog"
@@ -382,7 +450,7 @@ function TransferModal({
         aria-label="New Stock Transfer"
       >
         <div
-          className="flex items-center justify-between px-5 py-4 sticky top-0 z-10 border-b"
+          className="flex items-center justify-between px-5 py-4 shrink-0 border-b"
           style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
         >
           <div className="flex items-center gap-2.5 min-w-0">
@@ -408,13 +476,17 @@ function TransferModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto flex-1 min-h-0">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelCls} style={labelStyle}>From Branch</label>
               <FilterDropdown
                 value={fromBranchId}
-                onChange={v => { setFromBranchId(v); resetDraft(); setLines([]) }}
+                onChange={v => {
+                  setFromBranchId(v)
+                  resetDraft()
+                  setLines([])
+                }}
                 options={branchOptions}
                 icon={Building2}
                 placeholder="Source branch"
@@ -451,24 +523,56 @@ function TransferModal({
                 className="max-w-none mb-2"
                 autoFocus
               />
-              <FilterDropdown
-                value={productId}
-                onChange={v => {
-                  setProductId(v)
-                  setVariationKey('')
-                  setSelectedImeis([])
-                  const p = products.find(x => x.id === v)
-                  const hasVars = Array.isArray(p?.storageVariations) && p.storageVariations.some(row => (row.stock ?? 0) > 0)
-                  if (p && !p.trackImei && !hasVars) setQuantity('1')
-                  else if (!p?.trackImei) setQuantity('1')
-                  else setQuantity('')
-                }}
-                options={productOptions}
-                icon={Package}
-                placeholder={loadingProducts ? 'Loading products…' : 'Select product'}
-                active={!!productId}
-                onClear={() => { setProductId(''); setVariationKey(''); setSelectedImeis([]) }}
-              />
+              <div
+                className="rounded-xl border max-h-52 overflow-y-auto"
+                style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
+              >
+                {loadingProducts ? (
+                  <p className="text-xs px-3 py-4 flex items-center gap-2" style={hintStyle}>
+                    <Loader2 size={13} className="animate-spin" /> Loading products…
+                  </p>
+                ) : filteredProducts.length === 0 ? (
+                  <p className="text-xs px-3 py-4" style={hintStyle}>
+                    No products found. Try another search or From branch.
+                  </p>
+                ) : filteredProducts.map(p => {
+                  const qty = productStockQty(p)
+                  const selected = productId === p.id
+                  const branchLabel = branchNameById[p.branchId] || ''
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => selectProduct(p)}
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left border-b last:border-0 transition-colors"
+                      style={{
+                        borderColor: 'var(--border-subtle)',
+                        background: selected ? 'var(--brand-glow)' : 'transparent',
+                      }}
+                    >
+                      <Package size={14} className="shrink-0" style={{ color: selected ? 'var(--brand-primary)' : 'var(--text-muted)' }} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{p.name}</p>
+                        <p className="text-[10px] truncate" style={hintStyle}>
+                          {p.sku || '—'}
+                          {branchLabel ? ` · ${branchLabel}` : ''}
+                          {p.trackImei ? ' · IMEI' : ''}
+                        </p>
+                      </div>
+                      <span
+                        className="text-[11px] font-bold shrink-0 tabular-nums"
+                        style={{ color: qty > 0 ? 'var(--brand-primary)' : 'var(--text-muted)' }}
+                      >
+                        {qty}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-[10px] mt-1.5" style={hintStyle}>
+                {loadingProducts ? 'Loading…' : `${filteredProducts.length} product${filteredProducts.length === 1 ? '' : 's'}`}
+                {selectedProduct ? ` · selected: ${selectedProduct.name}` : ''}
+              </p>
             </div>
 
             {requiresVariant && productId && (
@@ -737,8 +841,8 @@ export default function StockTransferPage() {
   const loadProducts = useCallback(() => {
     if (!viewBranchId) return
     setLoadingProducts(true)
-    productsApi.list({ branchId: viewBranchId, limit: '500' })
-      .then((r: any) => setProducts((r.data?.data ?? r.data ?? []).filter((p: Product) => hasTransferableStock(p))))
+    productsApi.list({ branchId: viewBranchId, limit: '5000' })
+      .then((r: any) => setProducts(sortProductsForTransfer(r.data?.data ?? r.data ?? [])))
       .catch(() => {})
       .finally(() => setLoadingProducts(false))
   }, [viewBranchId])
@@ -759,6 +863,7 @@ export default function StockTransferPage() {
   const transferIn = transfers.filter(t => t.type === 'TRANSFER_IN').length
   const transferOut = transfers.filter(t => t.type === 'TRANSFER_OUT').length
   const totalQty = transfers.reduce((s, t) => s + Math.abs(t.quantity), 0)
+  const productsReady = products.filter(hasTransferableStock).length
 
   const filteredTransfers = useMemo(() => {
     const q = transferSearch.trim().toLowerCase()
@@ -910,7 +1015,7 @@ export default function StockTransferPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: 'Products Ready', value: loadingProducts ? '…' : String(products.length), icon: <Package size={15} />, color: 'var(--brand-primary)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)' },
+          { label: 'Products Ready', value: loadingProducts ? '…' : String(productsReady), icon: <Package size={15} />, color: 'var(--brand-primary)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)' },
           { label: 'Transfers In', value: String(transferIn), icon: <ArrowDownRight size={15} />, color: '#15803d', bg: 'rgba(21,128,61,0.08)', border: 'rgba(21,128,61,0.22)' },
           { label: 'Transfers Out', value: String(transferOut), icon: <ArrowUpRight size={15} />, color: '#b45309', bg: 'rgba(180,83,9,0.08)', border: 'rgba(180,83,9,0.22)' },
           { label: 'Units Moved', value: String(totalQty), icon: <ArrowLeftRight size={15} />, color: '#1d4ed8', bg: 'rgba(29,78,216,0.08)', border: 'rgba(29,78,216,0.22)' },

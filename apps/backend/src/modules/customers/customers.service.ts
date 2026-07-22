@@ -57,13 +57,36 @@ async function attachBranchDue<T extends CustomerRow>(
   })
 }
 
+const CUSTOMER_LIST_SELECT = {
+  id: true,
+  tenantId: true,
+  branchId: true,
+  name: true,
+  phone: true,
+  email: true,
+  address: true,
+  city: true,
+  loyaltyPoints: true,
+  totalPurchases: true,
+  totalDue: true,
+  totalRepairs: true,
+  notes: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true,
+} as const
+
 export const customersService = {
   async list(tenantId: string, req: Request) {
     const { skip, limit, page, search } = getPagination(req)
     const branchId = effectiveBranchId(req)
+    const status = String(req.query.status || 'active').toLowerCase()
     const where: any = {
       tenantId,
       ...(branchId ? { branchId } : {}),
+      ...(status === 'inactive' ? { isActive: false }
+        : status === 'all' ? {}
+        : { isActive: true }),
       ...(search && { OR: [{ name: { contains: search, mode: 'insensitive' } }, { phone: { contains: search } }, { email: { contains: search, mode: 'insensitive' } }] }),
     }
     const [raw, total] = await Promise.all([
@@ -72,23 +95,7 @@ export const customersService = {
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          tenantId: true,
-          branchId: true,
-          name: true,
-          phone: true,
-          email: true,
-          address: true,
-          city: true,
-          loyaltyPoints: true,
-          totalPurchases: true,
-          totalDue: true,
-          totalRepairs: true,
-          notes: true,
-          createdAt: true,
-          updatedAt: true,
-        },
+        select: CUSTOMER_LIST_SELECT,
       }),
       prisma.customer.count({ where }),
     ])
@@ -240,29 +247,64 @@ export const customersService = {
     const raw = await prisma.customer.findMany({
       where: {
         tenantId,
+        isActive: true,
         ...(branchId ? { branchId } : {}),
         OR: [{ name: { contains: q, mode: 'insensitive' } }, { phone: { contains: q } }],
       },
       take: 10,
-      select: {
-        id: true,
-        tenantId: true,
-        branchId: true,
-        name: true,
-        phone: true,
-        email: true,
-        address: true,
-        city: true,
-        loyaltyPoints: true,
-        totalPurchases: true,
-        totalDue: true,
-        totalRepairs: true,
-        notes: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: CUSTOMER_LIST_SELECT,
     })
     return attachBranchDue(tenantId, raw, branchId)
+  },
+
+  async setActive(tenantId: string, id: string, isActive: boolean) {
+    const existing = await prisma.customer.findFirst({ where: { id, tenantId }, select: { id: true, isActive: true, name: true } })
+    if (!existing) throw new AppError('Customer not found', 404)
+    if (existing.isActive === isActive) {
+      return prisma.customer.findFirst({ where: { id, tenantId }, select: CUSTOMER_LIST_SELECT })
+    }
+    return prisma.customer.update({
+      where: { id },
+      data: { isActive },
+      select: CUSTOMER_LIST_SELECT,
+    })
+  },
+
+  async remove(tenantId: string, id: string) {
+    const existing = await prisma.customer.findFirst({
+      where: { id, tenantId },
+      select: {
+        id: true,
+        name: true,
+        _count: {
+          select: {
+            sales: true,
+            repairs: true,
+            warranties: true,
+            exchanges: true,
+            imeiRecords: true,
+          },
+        },
+      },
+    })
+    if (!existing) throw new AppError('Customer not found', 404)
+
+    const linked =
+      existing._count.sales
+      + existing._count.repairs
+      + existing._count.warranties
+      + existing._count.exchanges
+      + existing._count.imeiRecords
+
+    if (linked > 0) {
+      throw new AppError(
+        'Cannot delete this customer because they have sales, repairs, or other history. Deactivate them instead.',
+        409,
+      )
+    }
+
+    await prisma.customer.delete({ where: { id } })
+    return { id, deleted: true }
   },
 
   async creditPayment(tenantId: string, customerId: string, body: {

@@ -10,6 +10,8 @@ router.get('/', customersController.list)
 router.post('/', customersController.create)
 router.get('/:id', customersController.getById)
 router.put('/:id', customersController.update)
+router.patch('/:id/active', customersController.setActive)
+router.delete('/:id', customersController.remove)
 router.post('/:id/credit-payment', customersController.creditPayment)
 
 export default router

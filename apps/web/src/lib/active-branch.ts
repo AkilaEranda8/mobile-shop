@@ -140,6 +140,11 @@ export function setActiveBranchId(branchId: string, scope: BranchScope = 'assign
   if (scope !== 'all' && branchId) {
     localStorage.setItem(lastBranchKey(user.id), branchId)
   }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('active-branch-changed', {
+      detail: { branchId: scope === 'all' ? null : branchId, scope },
+    }))
+  }
 }
 
 export function initializeSessionBranch(loginUser: AuthUser) {

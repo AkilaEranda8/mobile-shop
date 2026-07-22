@@ -183,6 +183,7 @@ export interface Customer {
   tenantDue?: number
   totalRepairs: number
   notes?: string
+  isActive?: boolean
   createdAt: string
 }
 

@@ -25,6 +25,21 @@ export const customersController = {
   async search(req: Request, res: Response, next: NextFunction) {
     try { sendSuccess(res, await customersService.search(req.tenantId!, req.query.q as string, req)) } catch (e) { next(e) }
   },
+  async setActive(req: Request, res: Response, next: NextFunction) {
+    try {
+      const isActive = req.body?.isActive !== false
+      sendSuccess(
+        res,
+        await customersService.setActive(req.tenantId!, req.params.id, isActive),
+        isActive ? 'Customer activated' : 'Customer deactivated',
+      )
+    } catch (e) { next(e) }
+  },
+  async remove(req: Request, res: Response, next: NextFunction) {
+    try {
+      sendSuccess(res, await customersService.remove(req.tenantId!, req.params.id), 'Customer deleted')
+    } catch (e) { next(e) }
+  },
   async creditPayment(req: Request, res: Response, next: NextFunction) {
     try { sendSuccess(res, await customersService.creditPayment(req.tenantId!, req.params.id, req.body)) } catch (e) { next(e) }
   },

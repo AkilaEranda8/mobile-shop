@@ -412,6 +412,20 @@ html:not(.dark) aside {
   background: #f8fafc !important;
   box-shadow: 2px 0 12px rgba(0,0,0,0.06);
 }
+html:not(.dark) aside .sidebar-item {
+  color: #334155 !important;
+}
+html:not(.dark) aside .sidebar-item:hover {
+  color: #0f172a !important;
+  background: rgba(15, 23, 42, 0.05) !important;
+}
+html:not(.dark) aside .sidebar-item-active {
+  color: var(--sidebar-active-text) !important;
+  background: var(--sidebar-active-bg) !important;
+}
+html:not(.dark) aside .sidebar-item-active .accent-text {
+  color: var(--sidebar-active-text) !important;
+}
 /* POS sidebar must stay dark even when system is in light mode */
 html:not(.dark) [data-pos="dark"] aside {
   background: #161B22 !important;

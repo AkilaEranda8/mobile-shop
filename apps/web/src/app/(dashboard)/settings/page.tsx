@@ -1114,8 +1114,8 @@ export default function SettingsPage() {
 
                   {/* Visibility toggles */}
                   <section className="space-y-3">
-                    <p className="text-[11px] font-bold uppercase tracking-widest text-violet-400">Visibility</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-violet-500 dark:text-violet-400">Visibility</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {([
                         ['showSidebar', 'Show left sidebar', posUiForm.layout.showSidebar, (v: boolean) => setPosUiForm(p => ({ ...p, layout: { ...p.layout, showSidebar: v } }))],
                         ['showBottom', 'Show bottom action bar', posUiForm.layout.showBottomActions, (v: boolean) => setPosUiForm(p => ({ ...p, layout: { ...p.layout, showBottomActions: v } }))],
@@ -1129,10 +1129,9 @@ export default function SettingsPage() {
                       ] as Array<[string, string, boolean, (v: boolean) => void]>).map(([key, label, checked, onChange]) => (
                         <label
                           key={key}
-                          className="flex h-11 items-center justify-between gap-3 rounded-xl border px-3.5 cursor-pointer"
-                          style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}
+                          className="flex h-11 items-center justify-between gap-3 rounded-xl px-3.5 cursor-pointer transition-colors bg-slate-100/80 hover:bg-slate-100 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
                         >
-                          <span className="text-sm text-gray-900 dark:text-white truncate">{label}</span>
+                          <span className="text-sm text-slate-800 dark:text-slate-100 truncate">{label}</span>
                           <Switch checked={checked} onChange={onChange} />
                         </label>
                       ))}
@@ -1142,7 +1141,7 @@ export default function SettingsPage() {
                   {/* Bottom actions */}
                   <section className="space-y-3">
                     <div>
-                      <p className="text-[11px] font-bold uppercase tracking-widest text-violet-400">Bottom actions</p>
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-violet-500 dark:text-violet-400">Bottom actions</p>
                       <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
                         Tap to show or hide. New Sale stays on.
                       </p>
@@ -1155,10 +1154,10 @@ export default function SettingsPage() {
                             key={id}
                             type="button"
                             onClick={() => toggleBottomAction(id)}
-                            className={`h-10 rounded-xl text-xs font-semibold border transition-colors ${
+                            className={`h-10 rounded-xl text-xs font-semibold transition-colors ${
                               on
-                                ? 'bg-violet-500/20 border-violet-500/45 text-violet-200'
-                                : 'border-white/10 text-slate-400 hover:border-white/20'
+                                ? 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-200'
+                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200/80 dark:bg-white/[0.04] dark:text-slate-400 dark:hover:bg-white/[0.08]'
                             }`}
                           >
                             {POS_BOTTOM_ACTION_LABELS[id]}
@@ -1171,19 +1170,18 @@ export default function SettingsPage() {
                   {/* Keyboard shortcuts */}
                   <section className="space-y-3">
                     <div>
-                      <p className="text-[11px] font-bold uppercase tracking-widest text-violet-400">Keyboard shortcuts</p>
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-violet-500 dark:text-violet-400">Keyboard shortcuts</p>
                       <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
                         Remap F1–F12 actions used inside POS.
                       </p>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
                       {POS_SHORTCUT_KEYS.map(key => (
                         <div
                           key={key}
-                          className="grid grid-cols-[3rem_minmax(0,1fr)] items-center gap-2.5 min-w-0 rounded-xl border px-2.5 py-2"
-                          style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}
+                          className="grid grid-cols-[3rem_minmax(0,1fr)] items-center gap-2.5 min-w-0 rounded-xl px-2.5 py-2 bg-slate-100/80 dark:bg-white/[0.04]"
                         >
-                          <span className="text-center text-xs font-mono font-bold text-violet-300 tabular-nums">{key}</span>
+                          <span className="text-center text-xs font-mono font-bold text-violet-600 dark:text-violet-300 tabular-nums">{key}</span>
                           <select
                             className="input-field h-9 w-full min-w-0 text-xs"
                             value={posUiForm.shortcuts[key] ?? ''}

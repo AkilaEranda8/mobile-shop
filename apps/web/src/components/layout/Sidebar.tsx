@@ -8,13 +8,14 @@ import {
   CreditCard, Smartphone,   FileText, Building2,
   UserCheck, ChevronLeft, ChevronRight, ChevronDown, Receipt, MessageSquare, MessageSquarePlus, PackageCheck, RotateCcw, ArrowLeftRight, Layers, RefreshCw, Lock, PieChart, Sparkles, BookOpen, TrendingUp, Landmark, Wallet, Calendar, ReceiptText, Plus, ClipboardList, DollarSign, Activity, PhoneCall, Tag,
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { authStorage } from '@/lib/auth'
 import { authApi, tenantApi } from '@/lib/api'
 import { fetchInvoiceSettings, getInvoiceSettings } from '@/lib/invoiceSettings'
 import { useTenantFeatures } from '@/lib/hooks'
 import { usePos } from '@/lib/use-pos'
+import { getActiveBranchId, getBranchLabel, getVisibleBranches } from '@/lib/active-branch'
 import type { LucideIcon } from 'lucide-react'
 
 type NavSubItem = { href: string; icon: LucideIcon; label: string; feature?: string; badge?: string }
@@ -189,28 +190,28 @@ interface SidebarProps {
 
 const PLAN_STYLE: Record<string, { text: string; bg: string; border: string; dot: string }> = {
   TRIAL: {
-    text: 'text-amber-300',
-    bg: 'bg-amber-500/10',
-    border: 'border-amber-500/25',
-    dot: 'bg-amber-400',
+    text: 'text-amber-700 dark:text-amber-300',
+    bg: 'bg-amber-500/15 dark:bg-amber-500/10',
+    border: 'border-amber-500/35 dark:border-amber-500/25',
+    dot: 'bg-amber-500 dark:bg-amber-400',
   },
   STARTER: {
-    text: 'text-slate-300',
-    bg: 'bg-white/5',
-    border: 'border-white/10',
-    dot: 'bg-slate-400',
+    text: 'text-slate-600 dark:text-slate-300',
+    bg: 'bg-slate-200/80 dark:bg-white/5',
+    border: 'border-slate-300 dark:border-white/10',
+    dot: 'bg-slate-500 dark:bg-slate-400',
   },
   PRO: {
-    text: 'text-sky-300',
-    bg: 'bg-sky-500/10',
-    border: 'border-sky-500/25',
-    dot: 'bg-sky-400',
+    text: 'text-sky-700 dark:text-sky-300',
+    bg: 'bg-sky-500/15 dark:bg-sky-500/10',
+    border: 'border-sky-500/40 dark:border-sky-500/25',
+    dot: 'bg-sky-600 dark:bg-sky-400',
   },
   ENTERPRISE: {
-    text: 'text-indigo-300',
-    bg: 'bg-indigo-500/10',
-    border: 'border-indigo-500/25',
-    dot: 'bg-indigo-400',
+    text: 'text-indigo-700 dark:text-indigo-300',
+    bg: 'bg-indigo-500/15 dark:bg-indigo-500/10',
+    border: 'border-indigo-500/40 dark:border-indigo-500/25',
+    dot: 'bg-indigo-600 dark:bg-indigo-400',
   },
 }
 
@@ -228,7 +229,8 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const navAction = searchParams.get('action')
-  const user = authStorage.getUser()
+  const [branchTick, setBranchTick] = useState(0)
+  const user = useMemo(() => authStorage.getUser(), [branchTick])
   const tenantId = user?.tenantId
   const [shopName, setShopName] = useState('')
   const [plan, setPlan]         = useState('')
@@ -236,6 +238,23 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const { hasFeature }          = useTenantFeatures()
   const { openPos, posOpen }    = usePos()
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({})
+
+  const visibleBranches = useMemo(() => getVisibleBranches(user), [user])
+  const activeBranchName = useMemo(() => {
+    if (!user) return ''
+    if (user.branchScope === 'all') return 'All Branches'
+    const branches = getVisibleBranches(user)
+    if (!branches.length) return ''
+    return getBranchLabel(branches, getActiveBranchId() ?? branches[0]?.id)
+  }, [user])
+
+  /** Multi-branch: show active branch. Single branch: keep shop name (branch as fallback). */
+  const displayName = visibleBranches.length > 1
+    ? (activeBranchName || shopName || 'My Shop')
+    : (shopName || activeBranchName || 'My Shop')
+  const displaySubtitle = visibleBranches.length > 1 && shopName && shopName !== displayName
+    ? shopName
+    : null
 
   useEffect(() => {
     if (pathname.startsWith('/dashboard/accounting')) {
@@ -316,12 +335,20 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
     window.addEventListener('shop-settings-updated', handleBrandUpdate)
     window.addEventListener('invoice-settings-updated', handleBrandUpdate)
     window.addEventListener('storage', handleStorage)
+    const handleBranchChange = () => setBranchTick(t => t + 1)
+    window.addEventListener('active-branch-changed', handleBranchChange)
+    const handleUserStorage = (event: StorageEvent) => {
+      if (event.key === 'hx_user') handleBranchChange()
+    }
+    window.addEventListener('storage', handleUserStorage)
 
     return () => {
       cancelled = true
       window.removeEventListener('shop-settings-updated', handleBrandUpdate)
       window.removeEventListener('invoice-settings-updated', handleBrandUpdate)
       window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('active-branch-changed', handleBranchChange)
+      window.removeEventListener('storage', handleUserStorage)
     }
   }, [tenantId])
 
@@ -395,11 +422,11 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           )}
         >
           {logo ? (
-            <img src={logo} alt={shopName || 'Shop'} className="w-full h-full object-contain p-0.5" />
+            <img src={logo} alt={displayName} className="w-full h-full object-contain p-0.5" />
           ) : (
             <div className="w-full h-full accent-gradient-br flex items-center justify-center">
               <span className="text-white font-black text-sm tracking-tight">
-                {(shopName || 'H').charAt(0).toUpperCase()}
+                {(displayName || 'H').charAt(0).toUpperCase()}
               </span>
             </div>
           )}
@@ -410,10 +437,15 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
             <p
               className="font-semibold text-[15px] leading-snug tracking-tight break-words line-clamp-2"
               style={{ color: 'var(--text-primary)' }}
-              title={shopName || 'My Shop'}
+              title={displayName}
             >
-              {shopName || 'My Shop'}
+              {displayName}
             </p>
+            {displaySubtitle && (
+              <p className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--text-muted)' }} title={displaySubtitle}>
+                {displaySubtitle}
+              </p>
+            )}
             {plan && (
               <span
                 className={cn(
@@ -443,11 +475,14 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           return (
           <div key={group.label}>
             {!collapsed && (
-              <p className="text-[9px] font-bold uppercase tracking-widest px-3 mb-1 mt-1" style={{ color: 'var(--text-secondary)', opacity: 0.72 }}>
+              <p
+                className="text-[10px] font-bold uppercase tracking-widest px-3 mb-1.5 mt-1"
+                style={{ color: 'var(--text-muted)' }}
+              >
                 {group.label}
               </p>
             )}
-            {collapsed && <div className="my-1 h-px bg-white/5 mx-2" />}
+            {collapsed && <div className="my-1 h-px mx-2" style={{ background: 'var(--border-subtle)' }} />}
             <div className="space-y-0.5">
               {visibleItems.map((item) => {
                 if (item.submenu?.length) {
@@ -493,23 +528,24 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                         onClick={() => toggleMenu(menuKey)}
                         className="sidebar-item group w-full text-left"
                       >
-                        <item.icon size={17} className={cn('flex-shrink-0 transition-colors', open || sectionActive ? 'accent-text' : 'text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300')} />
-                        <span className="text-sm font-medium flex-1 truncate text-left">{item.label}</span>
+                        <item.icon size={17} className={cn('flex-shrink-0 transition-colors', open || sectionActive ? 'accent-text' : '')} style={open || sectionActive ? undefined : { color: 'var(--text-muted)' }} />
+                        <span className="text-sm font-semibold flex-1 truncate text-left" style={{ color: 'inherit' }}>{item.label}</span>
                         {shouldShowBadge(item.badge) && (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 bg-cyan-500/15 text-cyan-400 border border-cyan-500/20">
+                          <span className="text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border border-cyan-500/25">
                             {item.badge}
                           </span>
                         )}
                         <ChevronDown
                           size={14}
                           className={cn(
-                            'flex-shrink-0 text-slate-500 transition-transform duration-200',
+                            'flex-shrink-0 transition-transform duration-200',
                             open && 'rotate-180',
                           )}
+                          style={{ color: 'var(--text-muted)' }}
                         />
                       </button>
                       {open && (
-                        <div className="ml-3 pl-3 border-l border-white/10 space-y-0.5 my-0.5">
+                        <div className="ml-3 pl-3 space-y-0.5 my-0.5 border-l" style={{ borderColor: 'var(--border-subtle)' }}>
                           {visibleSubmenu.map(sub => {
                             const subActive = isActive(sub.href)
                             return (
@@ -521,10 +557,10 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                                   subActive && 'sidebar-item-active',
                                 )}
                               >
-                                <sub.icon size={15} className={cn('flex-shrink-0', subActive ? 'accent-text' : 'text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300')} />
+                                <sub.icon size={15} className={cn('flex-shrink-0', subActive ? 'accent-text' : '')} style={subActive ? undefined : { color: 'var(--text-muted)' }} />
                                 <span className="text-sm font-medium flex-1 truncate">{sub.label}</span>
                                 {shouldShowBadge(sub.badge) && (
-                                  <span className="text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 bg-cyan-500/15 text-cyan-400 border border-cyan-500/20">
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border border-cyan-500/25">
                                     {sub.badge}
                                   </span>
                                 )}
@@ -540,15 +576,15 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                 const active = ('openPos' in item && item.openPos) ? posOpen : isActive(item.href)
                 const inner = (
                   <>
-                    <item.icon size={17} className={cn('flex-shrink-0 transition-colors', active ? 'accent-text' : 'text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300')} />
+                    <item.icon size={17} className={cn('flex-shrink-0 transition-colors', active ? 'accent-text' : '')} style={active ? undefined : { color: 'var(--text-muted)' }} />
                     {!collapsed && (
                       <>
-                        <span className="text-sm font-medium flex-1 truncate">{item.label}</span>
+                        <span className="text-sm font-semibold flex-1 truncate">{item.label}</span>
                         {'badge' in item && shouldShowBadge(item.badge) && (
                           <span className={cn(
                             'text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0',
                             item.badge === 'NEW'
-                              ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/20'
+                              ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border border-cyan-500/25'
                               : 'accent-badge'
                           )}>
                             {item.badge}

@@ -552,12 +552,14 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
 
 /* ── Segment Dropdown ────────────────────────────────────────────────── */
 const SEGMENTS = [
-  { key: 'all',         label: 'All Customers',     filter: (_: Customer) => true },
-  { key: 'vip',         label: 'VIP (500+ pts)',     filter: (c: Customer) => c.loyaltyPoints >= 500 },
-  { key: 'active',      label: 'Active Buyers',      filter: (c: Customer) => c.totalPurchases >= 3 },
-  { key: 'repair_only', label: 'Repair Customers',   filter: (c: Customer) => c.totalRepairs > 0 && c.totalPurchases === 0 },
-  { key: 'outstanding', label: 'Has Outstanding',    filter: (c: Customer) => c.totalDue > 0 },
+  { key: 'all',         label: 'All Customers',     filter: (c: Customer) => c.isActive !== false },
+  { key: 'vip',         label: 'VIP (500+ pts)',     filter: (c: Customer) => c.isActive !== false && c.loyaltyPoints >= 500 },
+  { key: 'active',      label: 'Active Buyers',      filter: (c: Customer) => c.isActive !== false && c.totalPurchases >= 3 },
+  { key: 'repair_only', label: 'Repair Customers',   filter: (c: Customer) => c.isActive !== false && c.totalRepairs > 0 && c.totalPurchases === 0 },
+  { key: 'outstanding', label: 'Has Outstanding',    filter: (c: Customer) => c.isActive !== false && c.totalDue > 0 },
+  { key: 'inactive',    label: 'Deactivated',        filter: (c: Customer) => c.isActive === false },
   { key: 'new',         label: 'New (≤30 days)',      filter: (c: Customer) => {
+    if (c.isActive === false) return false
     const d = new Date(c.createdAt)
     return (Date.now() - d.getTime()) / 86400000 <= 30
   }},
@@ -725,7 +727,7 @@ export default function CustomersPage() {
   const segmentRef = useRef<HTMLDivElement>(null)
 
   const hasCustomerCredit = useFeatureFlag('CUSTOMER_CREDIT')
-  const { data: customersData, loading, refetch } = useCustomers()
+  const { data: customersData, loading, refetch } = useCustomers({ status: 'all' })
   const customers: Customer[] = (customersData?.data ?? []) as Customer[]
 
   useEffect(() => {
@@ -745,6 +747,38 @@ export default function CustomersPage() {
 
   const openDetail = useCallback((id: string) => setDetailId(id), [])
 
+  const handleDeactivate = useCallback(async (c: Customer) => {
+    if (!window.confirm(`Deactivate ${c.name}? They will be hidden from POS search and the main customer list.`)) return
+    try {
+      await customersApi.setActive(c.id, false)
+      toast.success('Customer deactivated')
+      refetch()
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to deactivate')
+    }
+  }, [refetch])
+
+  const handleActivate = useCallback(async (c: Customer) => {
+    try {
+      await customersApi.setActive(c.id, true)
+      toast.success('Customer activated')
+      refetch()
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to activate')
+    }
+  }, [refetch])
+
+  const handleDelete = useCallback(async (c: Customer) => {
+    if (!window.confirm(`Delete ${c.name} permanently? This only works if they have no sales or repair history.`)) return
+    try {
+      await customersApi.remove(c.id)
+      toast.success('Customer deleted')
+      refetch()
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete')
+    }
+  }, [refetch])
+
   const activeSeg = SEGMENTS.find(s => s.key === segment) ?? SEGMENTS[0]
   const segmentFiltered = useMemo(() => {
     let rows = customers.filter(activeSeg.filter)
@@ -758,8 +792,9 @@ export default function CustomersPage() {
     )
   }, [customers, activeSeg, textSearch])
 
-  const totalDue       = customers.reduce((s, c) => s + c.totalDue, 0)
-  const totalPurchases = customers.reduce((s, c) => s + c.totalPurchases, 0)
+  const totalDue       = customers.filter(c => c.isActive !== false).reduce((s, c) => s + c.totalDue, 0)
+  const totalPurchases = customers.filter(c => c.isActive !== false).reduce((s, c) => s + c.totalPurchases, 0)
+  const activeCount    = customers.filter(c => c.isActive !== false).length
 
   const columns = useMemo<ColumnDef<Customer>[]>(() => [
     {
@@ -827,26 +862,64 @@ export default function CustomersPage() {
       cell: ({ row }) => <span className="text-xs font-medium text-gray-500 dark:text-slate-500">{formatDate(row.original.createdAt)}</span>,
     },
     {
-      id: 'actions',
+      id: 'status',
+      accessorFn: (row) => (row.isActive === false ? 'Inactive' : 'Active'),
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
       cell: ({ row }) => (
-        <div className="flex items-center gap-1 justify-end">
-          {row.original.totalDue > 0 && (
-            <button
-              type="button"
-              onClick={() => setPayCustomerId(row.original.id)}
-              className="px-2 py-1 rounded-lg text-[10px] font-semibold bg-green-600/20 text-green-400 border border-green-500/30 hover:bg-green-600/30"
-            >
-              Pay
-            </button>
-          )}
-          <TableActionsRow
-            showAction={{ action: () => openDetail(row.original.id) }}
-            editAction={{ action: () => setEditCustomer(row.original) }}
-          />
-        </div>
+        <span className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold ${
+          row.original.isActive === false
+            ? 'bg-slate-500/10 border-slate-500/25 text-slate-500'
+            : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-500'
+        }`}>
+          {row.original.isActive === false ? 'Inactive' : 'Active'}
+        </span>
       ),
     },
-  ], [openDetail])
+    {
+      id: 'actions',
+      cell: ({ row }) => {
+        const c = row.original
+        const inactive = c.isActive === false
+        return (
+          <div className="flex items-center gap-1 justify-end">
+            {c.totalDue > 0 && !inactive && (
+              <button
+                type="button"
+                onClick={() => setPayCustomerId(c.id)}
+                className="px-2 py-1 rounded-lg text-[10px] font-semibold bg-green-600/20 text-green-400 border border-green-500/30 hover:bg-green-600/30"
+              >
+                Pay
+              </button>
+            )}
+            {inactive ? (
+              <button
+                type="button"
+                onClick={() => handleActivate(c)}
+                className="px-2 py-1 rounded-lg text-[10px] font-semibold bg-emerald-600/15 text-emerald-500 border border-emerald-500/25 hover:bg-emerald-600/25"
+                title="Activate customer"
+              >
+                Activate
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleDeactivate(c)}
+                className="px-2 py-1 rounded-lg text-[10px] font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25 hover:bg-amber-500/25"
+                title="Deactivate customer"
+              >
+                Deactivate
+              </button>
+            )}
+            <TableActionsRow
+              showAction={{ action: () => openDetail(c.id) }}
+              editAction={{ action: () => setEditCustomer(c), disabled: inactive }}
+              deleteAction={{ action: () => handleDelete(c) }}
+            />
+          </div>
+        )
+      },
+    },
+  ], [openDetail, handleActivate, handleDeactivate, handleDelete])
 
   /* close segment dropdown on outside click */
   useEffect(() => {
@@ -888,7 +961,7 @@ export default function CustomersPage() {
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
           <h1 className="page-title">Customers</h1>
-          <p className="page-subtitle">{customers.length} registered · <span className="text-violet-400">{activeSeg.label}</span></p>
+          <p className="page-subtitle">{activeCount} active · {customers.length} total · <span className="text-violet-400">{activeSeg.label}</span></p>
         </div>
         <div className="flex gap-2 sm:ml-auto items-center relative" ref={segmentRef}>
           <OpenPosButton label="POS Terminal" variant="secondary" />
@@ -928,7 +1001,7 @@ export default function CustomersPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total Customers',   value: customers.length.toString(),                                     icon: Users,       color: 'violet' },
+          { label: 'Total Customers',   value: activeCount.toString(),                                     icon: Users,       color: 'violet' },
           ...(hasCustomerCredit ? [{ label: 'Total Outstanding', value: formatCurrency(totalDue), icon: CreditCard, color: 'red' as const }] : []),
           { label: 'Total Purchases',   value: totalPurchases.toString(),                                       icon: ShoppingBag, color: 'blue'   },
           { label: 'VIP Members',       value: customers.filter(c => c.loyaltyPoints >= 500).length.toString(), icon: Star,        color: 'yellow' },
