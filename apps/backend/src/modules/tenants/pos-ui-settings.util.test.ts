@@ -39,4 +39,8 @@ assert(empty.behavior.alwaysNewLineItem === false, 'alwaysNewLineItem default of
 const newLineOn = normalizePosUiSettings({ behavior: { alwaysNewLineItem: true } })
 assert(newLineOn.behavior.alwaysNewLineItem === true, 'alwaysNewLineItem can enable')
 
+assert(empty.layout.cartWidth === 'wide', 'default cart wide')
+const cartNarrow = normalizePosUiSettings({ layout: { cartWidth: 'narrow' } })
+assert(cartNarrow.layout.cartWidth === 'narrow', 'cartWidth narrow')
+
 console.log('pos-ui-settings.util.test.ts: all checks passed')

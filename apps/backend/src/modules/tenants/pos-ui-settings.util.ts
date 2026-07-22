@@ -57,6 +57,7 @@ export type PosUiSettings = {
     showSidebar: boolean
     showBottomActions: boolean
     cartPosition: 'right' | 'left'
+    cartWidth: 'narrow' | 'medium' | 'wide'
   }
   bottomActions: {
     visible: PosBottomActionId[]
@@ -86,6 +87,7 @@ export const DEFAULT_POS_UI_SETTINGS: PosUiSettings = {
     showSidebar: true,
     showBottomActions: true,
     cartPosition: 'right',
+    cartWidth: 'wide',
   },
   bottomActions: {
     visible: [...POS_BOTTOM_ACTION_IDS],
@@ -174,6 +176,10 @@ export function normalizePosUiSettings(raw: unknown): PosUiSettings {
     : 'hexa-dark'
   const density = src.density === 'compact' ? 'compact' : 'comfortable'
   const cartPosition = layout.cartPosition === 'left' ? 'left' : 'right'
+  const cartWidth =
+    layout.cartWidth === 'narrow' || layout.cartWidth === 'medium' || layout.cartWidth === 'wide'
+      ? layout.cartWidth
+      : DEFAULT_POS_UI_SETTINGS.layout.cartWidth
   const priceMode =
     behavior.defaultPriceMode === 'wholesale' || behavior.defaultPriceMode === 'credit'
       ? behavior.defaultPriceMode
@@ -194,6 +200,7 @@ export function normalizePosUiSettings(raw: unknown): PosUiSettings {
       showSidebar: layout.showSidebar !== false,
       showBottomActions: layout.showBottomActions !== false,
       cartPosition,
+      cartWidth,
     },
     bottomActions: {
       visible: normalizeVisibleActions(bottom.visible),

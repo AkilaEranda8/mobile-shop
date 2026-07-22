@@ -55,6 +55,8 @@ export type PosUiSettings = {
     showSidebar: boolean
     showBottomActions: boolean
     cartPosition: 'right' | 'left'
+    /** Desktop cart panel width. Default wide — room for names, qty, LKR prices. */
+    cartWidth: 'narrow' | 'medium' | 'wide'
   }
   bottomActions: {
     visible: PosBottomActionId[]
@@ -84,6 +86,7 @@ export const DEFAULT_POS_UI_SETTINGS: PosUiSettings = {
     showSidebar: true,
     showBottomActions: true,
     cartPosition: 'right',
+    cartWidth: 'wide',
   },
   bottomActions: {
     visible: [...POS_BOTTOM_ACTION_IDS],
@@ -160,6 +163,18 @@ export function gridColsClass(columns: 3 | 4 | 5 | 6): string {
   }
 }
 
+/** Desktop cart column width classes (full width on mobile). */
+export function cartWidthClass(width: PosUiSettings['layout']['cartWidth'] = 'wide'): string {
+  switch (width) {
+    case 'narrow':
+      return 'w-full lg:w-[min(300px,34vw)] xl:w-[340px] 2xl:w-[380px]'
+    case 'medium':
+      return 'w-full lg:w-[min(380px,36vw)] xl:w-[420px] 2xl:w-[460px]'
+    default:
+      return 'w-full lg:w-[min(440px,40vw)] xl:w-[480px] 2xl:w-[520px]'
+  }
+}
+
 function coerce(raw: unknown): PosUiSettings {
   if (!raw || typeof raw !== 'object') return { ...DEFAULT_POS_UI_SETTINGS, productGrid: { ...DEFAULT_POS_UI_SETTINGS.productGrid }, layout: { ...DEFAULT_POS_UI_SETTINGS.layout }, bottomActions: { visible: [...DEFAULT_POS_UI_SETTINGS.bottomActions.visible] }, shortcuts: { ...DEFAULT_POS_UI_SETTINGS.shortcuts }, behavior: { ...DEFAULT_POS_UI_SETTINGS.behavior } }
   const s = raw as Partial<PosUiSettings>
@@ -172,7 +187,14 @@ function coerce(raw: unknown): PosUiSettings {
     ...s,
     theme,
     productGrid: { ...DEFAULT_POS_UI_SETTINGS.productGrid, ...(s.productGrid ?? {}) },
-    layout: { ...DEFAULT_POS_UI_SETTINGS.layout, ...(s.layout ?? {}) },
+    layout: {
+      ...DEFAULT_POS_UI_SETTINGS.layout,
+      ...(s.layout ?? {}),
+      cartWidth:
+        s.layout?.cartWidth === 'narrow' || s.layout?.cartWidth === 'medium' || s.layout?.cartWidth === 'wide'
+          ? s.layout.cartWidth
+          : DEFAULT_POS_UI_SETTINGS.layout.cartWidth,
+    },
     bottomActions: {
       visible: Array.isArray(s.bottomActions?.visible)
         ? (s.bottomActions!.visible as PosBottomActionId[])

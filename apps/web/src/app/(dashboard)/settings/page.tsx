@@ -1095,6 +1095,21 @@ export default function SettingsPage() {
                         </select>
                       </div>
                       <div className="min-w-0 space-y-1.5">
+                        <label className="block text-xs" style={{ color: 'var(--text-muted)' }}>Cart width</label>
+                        <select
+                          className="input-field h-10 w-full"
+                          value={posUiForm.layout.cartWidth}
+                          onChange={e => setPosUiForm(p => ({
+                            ...p,
+                            layout: { ...p.layout, cartWidth: e.target.value as PosUiSettings['layout']['cartWidth'] },
+                          }))}
+                        >
+                          <option value="narrow">Narrow (~300px)</option>
+                          <option value="medium">Medium (~400px)</option>
+                          <option value="wide">Wide (~480px)</option>
+                        </select>
+                      </div>
+                      <div className="min-w-0 space-y-1.5">
                         <label className="block text-xs" style={{ color: 'var(--text-muted)' }}>Default price mode</label>
                         <select
                           className="input-field h-10 w-full"

@@ -3248,6 +3248,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           showSidebar: posUi.layout.showSidebar,
           showBottomActions: posUi.layout.showBottomActions,
           cartPosition: posUi.layout.cartPosition,
+          cartWidth: posUi.layout.cartWidth,
         }}
         onFiltersClick={() => setShowFilters(v => !v)}
         filtersActive={showFilters || hideOutOfStock || showFavoritesOnly}

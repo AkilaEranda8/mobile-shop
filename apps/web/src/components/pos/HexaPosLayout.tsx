@@ -8,6 +8,7 @@ import {
   SlidersHorizontal, type LucideIcon,
 } from 'lucide-react'
 import { resolvePosTheme, type PosThemeId } from './pos-theme'
+import { cartWidthClass, type PosUiSettings } from '@/lib/posUiSettings'
 
 export function categoryIcon(name: string) {
   const n = name.toLowerCase()
@@ -68,6 +69,7 @@ export interface HexaPosLayoutProps {
     showSidebar?: boolean
     showBottomActions?: boolean
     cartPosition?: 'right' | 'left'
+    cartWidth?: PosUiSettings['layout']['cartWidth']
   }
 }
 
@@ -116,6 +118,7 @@ export function HexaPosLayout({
   const cartLeft = layoutPrefs?.cartPosition === 'left'
   const railW = layoutPrefs?.density === 'compact' ? 'w-[72px]' : 'w-[84px]'
   const isLight = layoutPrefs?.theme === 'hexa-light'
+  const cartW = cartWidthClass(layoutPrefs?.cartWidth ?? 'wide')
 
   const productsCol = (
     <div
@@ -133,7 +136,7 @@ export function HexaPosLayout({
     <div
       className={`flex-col min-h-0 min-w-0 ${
         showCartPane ? 'flex' : 'hidden'
-      } lg:flex w-full lg:w-[min(300px,34vw)] xl:w-[340px] 2xl:w-[380px] shrink-0 ${cartLeft ? 'border-r' : 'border-l'}`}
+      } lg:flex ${cartW} shrink-0 ${cartLeft ? 'border-r' : 'border-l'}`}
       style={{ borderColor: T.border, background: T.card }}
     >
       {cartPanel}
