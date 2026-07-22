@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { prisma } from '../../config/database'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
+import { enforceModuleAccess } from '../../middleware/module-access.middleware'
 import { validate } from '../../middleware/validate.middleware'
 import { sendSuccess, sendPaginated } from '../../utils/response'
 import { getPagination } from '../../utils/pagination'
@@ -14,10 +15,11 @@ import {
   adjustmentSchema,
 } from './profit-allocation.schema'
 import * as profitAllocationService from './profit-allocation.service'
-import { effectiveBranchId } from '../../utils/active-branch'
+import { effectiveBranchId, resolveMutationBranchId } from '../../utils/active-branch'
 
 const router = Router()
 router.use(authenticate)
+router.use(enforceModuleAccess('PROFIT_ALLOCATION'))
 
 async function requireProfitAllocationFeature(req: Request, _res: Response, next: NextFunction) {
   try {
@@ -42,8 +44,9 @@ router.get('/dashboard', async (req: Request, res: Response, next: NextFunction)
 
 router.post('/calculate', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { branchId, date, normalizePercentages } = req.body
-    if (!branchId || !date) throw new AppError('branchId and date are required', 400)
+    const { date, normalizePercentages } = req.body
+    if (!date) throw new AppError('date is required', 400)
+    const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId })
     if (normalizePercentages) {
       await profitAllocationService.normalizeFundPercentages(req.tenantId!, branchId)
     }
@@ -58,7 +61,8 @@ router.post('/calculate', authorize('OWNER', 'MANAGER'), async (req: Request, re
 
 router.post('/save', authorize('OWNER', 'MANAGER'), validate(saveAllocationSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { branchId, date, notes } = req.body
+    const { date, notes } = req.body
+    const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId })
     sendSuccess(
       res,
       await profitAllocationService.saveAllocation(
@@ -86,7 +90,8 @@ router.delete('/allocations/:date', authorize('OWNER'), async (req: Request, res
 
 router.post('/resave', authorize('OWNER', 'MANAGER'), validate(saveAllocationSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { branchId, date, notes } = req.body
+    const { date, notes } = req.body
+    const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId })
     sendSuccess(
       res,
       await profitAllocationService.resaveAllocation(
@@ -148,8 +153,7 @@ router.patch('/funds/:id/toggle', authorize('OWNER', 'MANAGER'), async (req: Req
 
 router.post('/funds/normalize-percentages', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const branchId = (req.body?.branchId as string | undefined)?.trim() || effectiveBranchId(req)
-    if (!branchId) throw new AppError('branchId is required', 400)
+    const branchId = await resolveMutationBranchId(req, { preferred: req.body?.branchId })
     sendSuccess(
       res,
       await profitAllocationService.normalizeFundPercentages(req.tenantId!, branchId),
@@ -179,7 +183,8 @@ router.get('/transactions', async (req: Request, res: Response, next: NextFuncti
 
 router.post('/withdraw', authorize('OWNER', 'MANAGER'), validate(fundMovementSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { branchId, fundId, amount, notes, date } = req.body
+    const { fundId, amount, notes, date } = req.body
+    const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId })
     sendSuccess(
       res,
       await profitAllocationService.withdrawFromFund(
@@ -193,7 +198,8 @@ router.post('/withdraw', authorize('OWNER', 'MANAGER'), validate(fundMovementSch
 
 router.post('/deposit', authorize('OWNER', 'MANAGER'), validate(fundMovementSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { branchId, fundId, amount, notes, date } = req.body
+    const { fundId, amount, notes, date } = req.body
+    const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId })
     sendSuccess(
       res,
       await profitAllocationService.depositToFund(
@@ -207,7 +213,8 @@ router.post('/deposit', authorize('OWNER', 'MANAGER'), validate(fundMovementSche
 
 router.post('/adjustment', authorize('OWNER', 'MANAGER'), validate(adjustmentSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { branchId, fundId, amount, notes, date } = req.body
+    const { fundId, amount, notes, date } = req.body
+    const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId })
     sendSuccess(
       res,
       await profitAllocationService.adjustFund(

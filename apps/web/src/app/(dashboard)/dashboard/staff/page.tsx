@@ -1,28 +1,19 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { UserCheck, Plus, X, Loader2, Mail, Clock, Edit2, Trash2, AlertTriangle, Building2, Eye, EyeOff, Save, CheckCircle } from 'lucide-react'
+import { UserCheck, Plus, X, Loader2, Mail, Clock, Edit2, Trash2, AlertTriangle, Building2, Shield, BookOpen } from 'lucide-react'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { useUsers } from '@/lib/hooks'
-import { usersApi, tenantApi } from '@/lib/api'
+import { usersApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { getOperationalBranchId, getActiveBranchId, getVisibleBranches } from '@/lib/active-branch'
 import { useActiveBranchId } from '@/lib/hooks'
 import toast from 'react-hot-toast'
-import {
-  ROLE_PERMISSION_MODULES,
-  STAFF_ROLES,
-  ACCESS_LEVEL_META,
-  DEFAULT_ROLE_PERMISSIONS,
-  normalizeRolePermissions,
-  type RoleAccessLevel,
-  type RolePermissionMatrix,
-  type StaffRole,
-  type RolePermissionModuleKey,
-} from '@/lib/role-permissions'
 import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
+import { PermissionMatrixPanel } from '@/components/staff/PermissionMatrixPanel'
 
 const roleConfig: Record<string, { label: string; color: string; bg: string; border: string }> = {
   OWNER: { label: 'Owner', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
@@ -44,202 +35,6 @@ function roleOptionsFor(actorRole?: string) {
     return [{ value: 'OWNER', label: 'Owner' }, ...BASE_ROLE_OPTIONS]
   }
   return BASE_ROLE_OPTIONS
-}
-
-function cycleAccess(current: RoleAccessLevel): RoleAccessLevel {
-  if (current === 'hide') return 'view'
-  if (current === 'view') return 'edit'
-  return 'hide'
-}
-
-function AccessCell({
-  level,
-  locked,
-  onChange,
-}: {
-  level: RoleAccessLevel
-  locked?: boolean
-  onChange?: (next: RoleAccessLevel) => void
-}) {
-  const meta = ACCESS_LEVEL_META[level]
-  const Icon = level === 'hide' ? EyeOff : level === 'view' ? Eye : CheckCircle
-  if (locked || !onChange) {
-    return (
-      <span
-        className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] font-semibold ${meta.className}`}
-        title={meta.label}
-      >
-        <Icon size={12} />
-        {meta.label}
-      </span>
-    )
-  }
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(cycleAccess(level))}
-      className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] font-semibold transition hover:brightness-110 ${meta.className}`}
-      title={`Click to cycle: Hide → View → Edit (now ${meta.label})`}
-    >
-      <Icon size={12} />
-      {meta.label}
-    </button>
-  )
-}
-
-function PermissionMatrixPanel({ canEdit }: { canEdit: boolean }) {
-  const [matrix, setMatrix] = useState<RolePermissionMatrix>(DEFAULT_ROLE_PERMISSIONS)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [dirty, setDirty] = useState(false)
-  const tenantId = authStorage.getUser()?.tenantId
-
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      if (!tenantId) {
-        setLoading(false)
-        return
-      }
-      try {
-        const res: any = await tenantApi.getRolePermissions(tenantId)
-        if (cancelled) return
-        setMatrix(normalizeRolePermissions(res?.data ?? res))
-        setDirty(false)
-      } catch {
-        if (!cancelled) toast.error('Failed to load permission matrix')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-    return () => { cancelled = true }
-  }, [tenantId])
-
-  const setCell = (role: StaffRole, key: RolePermissionModuleKey, level: RoleAccessLevel) => {
-    if (role === 'OWNER') return
-    setMatrix((prev) => ({
-      ...prev,
-      [role]: { ...prev[role], [key]: level },
-    }))
-    setDirty(true)
-  }
-
-  const handleSave = async () => {
-    if (!tenantId || !canEdit) return
-    setSaving(true)
-    try {
-      const res: any = await tenantApi.updateRolePermissions(tenantId, matrix)
-      const next = normalizeRolePermissions(res?.data ?? res)
-      setMatrix(next)
-      setDirty(false)
-      try { localStorage.setItem('hx_role_permissions', JSON.stringify(next)) } catch { /* noop */ }
-      window.dispatchEvent(new Event('role-permissions-updated'))
-      toast.success('Permission matrix saved')
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Failed to save permissions')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleReset = () => {
-    setMatrix(DEFAULT_ROLE_PERMISSIONS)
-    setDirty(true)
-  }
-
-  if (loading) {
-    return (
-      <div className="card p-8 flex items-center justify-center gap-2 text-sm text-slate-500">
-        <Loader2 size={16} className="animate-spin" /> Loading permission matrix…
-      </div>
-    )
-  }
-
-  return (
-    <div className="card overflow-hidden">
-      <div className="p-4 border-b border-white/5 flex flex-col sm:flex-row sm:items-center gap-3">
-        <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Role Permission Matrix</h3>
-          <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">
-            {canEdit
-              ? 'You (Owner) can enable or hide any feature for Manager, Cashier, and Technician. Click a cell: Hide → View → Edit, then Save. Owner column stays full access.'
-              : 'Hide removes the feature from staff. View allows read-only. Edit allows full use. Only the owner can change this matrix.'}
-          </p>
-        </div>
-        {canEdit && (
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <button type="button" onClick={handleReset} className="btn-secondary text-xs px-3 py-1.5">
-              Reset defaults
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={!dirty || saving}
-              className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1.5 disabled:opacity-50"
-            >
-              {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-              Save
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div className="px-4 py-2 border-b border-white/5 flex flex-wrap gap-3 text-[11px] text-slate-500">
-        {(['hide', 'view', 'edit'] as RoleAccessLevel[]).map((lvl) => (
-          <span key={lvl} className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 ${ACCESS_LEVEL_META[lvl].className}`}>
-            {ACCESS_LEVEL_META[lvl].label}
-          </span>
-        ))}
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px]">
-          <thead>
-            <tr className="border-b border-white/5">
-              <th className="table-header text-left">Feature</th>
-              {STAFF_ROLES.map((role) => (
-                <th key={role} className="table-header text-center">
-                  {roleConfig[role]?.label ?? role}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/3">
-            {ROLE_PERMISSION_MODULES.map((mod) => (
-              <tr key={mod.key} className="hover:bg-white/2">
-                <td className="table-cell text-sm font-medium text-gray-700 dark:text-slate-300">
-                  <div>{mod.label}</div>
-                  {mod.key === 'PRODUCT_COST' && (
-                    <p className="text-[10px] font-normal text-slate-500 mt-0.5">
-                      Buying price &amp; margin. Set View/Edit on staff columns to enable for them.
-                    </p>
-                  )}
-                </td>
-                {STAFF_ROLES.map((role) => (
-                  <td key={role} className="table-cell text-center">
-                    <AccessCell
-                      level={matrix[role][mod.key]}
-                      locked={role === 'OWNER' || !canEdit}
-                      onChange={
-                        role === 'OWNER' || !canEdit
-                          ? undefined
-                          : (next) => setCell(role, mod.key, next)
-                      }
-                    />
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {dirty && canEdit && (
-        <div className="px-4 py-2 border-t border-amber-500/20 bg-amber-500/5 text-xs text-amber-300">
-          Unsaved changes — click Save to apply for all staff.
-        </div>
-      )}
-    </div>
-  )
 }
 
 function StaffFormModal({
@@ -421,7 +216,6 @@ export default function StaffPage() {
   const canEditMatrix = actorRole === 'OWNER' || actorRole === 'PLATFORM_ADMIN'
   const headerBranchId = useActiveBranchId()
   const operationalBranchId = getOperationalBranchId()
-  /** Non-owners are locked to their active branch; owners follow header (empty = all). */
   const [branchFilter, setBranchFilter] = useState(() => {
     if (canEditMatrix) return getActiveBranchId() ?? ''
     return getOperationalBranchId() ?? getActiveBranchId() ?? ''
@@ -433,6 +227,7 @@ export default function StaffPage() {
   const [deleteLoading, setDeleteLoading] = useState(false)
 
   useEffect(() => {
+    if (searchParams.get('tab') === 'permissions') setTab('permissions')
     const action = searchParams.get('action')
     if (action === 'add' || action === 'new' || searchParams.get('new') === '1') {
       if (!canEditStaff) {
@@ -441,13 +236,11 @@ export default function StaffPage() {
       }
       setShowAdd(true)
     }
-    if (searchParams.get('tab') === 'permissions') setTab('permissions')
   }, [searchParams, canEditStaff])
 
   useEffect(() => {
     const syncBranch = () => {
       if (canEditMatrix) {
-        // Owner header "All Branches" → clear filter; otherwise follow selected branch
         setBranchFilter(getActiveBranchId() ?? '')
       } else {
         setBranchFilter(getOperationalBranchId() ?? getActiveBranchId() ?? '')
@@ -492,7 +285,7 @@ export default function StaffPage() {
 
   return (
     <div className="space-y-6">
-      {showAdd      && (
+      {showAdd && (
         <StaffFormModal
           branches={branches}
           defaultBranchId={branchFilter || defaultBranchId}
@@ -500,7 +293,7 @@ export default function StaffPage() {
           onSaved={refetch}
         />
       )}
-      {editStaff    && (
+      {editStaff && (
         <StaffFormModal
           staff={editStaff}
           branches={branches}
@@ -512,24 +305,53 @@ export default function StaffPage() {
       {deleteTarget && <DeleteConfirmModal name={deleteTarget.name} loading={deleteLoading} onConfirm={handleDelete} onClose={() => setDeleteTarget(null)} />}
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <div>
-          <h1 className="page-title">Staff & Roles</h1>
+        <div className="flex-1 min-w-0">
+          <h1 className="page-title">Staff &amp; Roles</h1>
           <p className="page-subtitle">
-            {activeCount} active · {users.length} shown
-            {effectiveBranchId ? ` · ${branchLabel}` : ' · All Branches'}
+            {tab === 'staff'
+              ? `${activeCount} active · ${users.length} shown${effectiveBranchId ? ` · ${branchLabel}` : ' · All Branches'}`
+              : 'Set Hide / View / Edit access per role for every module'}
           </p>
         </div>
-        {canEditStaff && (
-          <button onClick={() => setShowAdd(true)} className="btn-primary text-sm flex items-center gap-2 sm:ml-auto">
-            <Plus size={14} />Add Staff
-          </button>
-        )}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {tab === 'permissions' && (
+            <>
+              <Link
+                href="/dashboard/role-permissions-guide"
+                className="btn-secondary text-sm flex items-center gap-2"
+              >
+                <BookOpen size={14} />
+                Guide
+              </Link>
+              <Link
+                href="/dashboard/role-permissions"
+                className="btn-secondary text-sm flex items-center gap-2"
+              >
+                <Shield size={14} />
+                Open full page
+              </Link>
+            </>
+          )}
+          {tab === 'staff' && canEditStaff && (
+            <button onClick={() => setShowAdd(true)} className="btn-primary text-sm flex items-center gap-2">
+              <Plus size={14} />Add Staff
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-1 bg-white/3 border border-white/5 rounded-xl p-1 w-fit">
         {(['staff', 'permissions'] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium capitalize transition-colors ${tab === t ? 'bg-violet-600/20 text-violet-300 border border-violet-500/20' : 'text-gray-500 dark:text-slate-500 hover:text-gray-700 dark:hover:text-slate-300'}`}>
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium capitalize transition-colors ${
+              tab === t
+                ? 'bg-violet-600/20 text-violet-300 border border-violet-500/20'
+                : 'text-gray-500 dark:text-slate-500 hover:text-gray-700 dark:hover:text-slate-300'
+            }`}
+          >
             {t === 'permissions' ? 'Permission Matrix' : 'Staff List'}
           </button>
         ))}

@@ -56,6 +56,15 @@ export const authStorage = {
     localStorage.removeItem(ACCESS_TOKEN_KEY)
     localStorage.removeItem(REFRESH_TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
+    // Clear any scoped role-permission caches for this browser
+    try {
+      const keys: string[] = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i)
+        if (k && k.startsWith('hx_role_permissions')) keys.push(k)
+      }
+      for (const k of keys) localStorage.removeItem(k)
+    } catch { /* noop */ }
   },
 
   isLoggedIn: (): boolean =>

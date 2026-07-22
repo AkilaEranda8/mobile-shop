@@ -1,32 +1,26 @@
+'use client'
+
+import { useRolePermissions } from '@/lib/hooks'
+
+/**
+ * Product Traceability — driven by Staff Permission Matrix (PRODUCT_TRACEABILITY),
+ * not a separate hardcoded role list.
+ */
+export function useHasPermission(_permission?: string): boolean {
+  const { canView } = useRolePermissions()
+  return canView('PRODUCT_TRACEABILITY')
+}
+
 export const PERMISSIONS = {
   PRODUCT_TRACEABILITY_VIEW: 'PRODUCT_TRACEABILITY_VIEW',
 } as const
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]
 
-const ALL_PERMISSIONS = Object.values(PERMISSIONS)
-
-export const ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
-  PLATFORM_ADMIN: ALL_PERMISSIONS,
-  OWNER: ALL_PERMISSIONS,
-  MANAGER: ALL_PERMISSIONS,
-  CASHIER: [],
-  TECHNICIAN: [],
-}
-
-export function roleHasPermission(role: string | undefined, permission: PermissionKey): boolean {
+/** @deprecated Prefer useHasPermission / matrix canView('PRODUCT_TRACEABILITY') */
+export function roleHasPermission(role: string | undefined, _permission?: PermissionKey): boolean {
   if (!role) return false
-  return (ROLE_PERMISSIONS[role] ?? []).includes(permission)
-}
-
-export function useHasPermission(permission: PermissionKey): boolean {
-  if (typeof window === 'undefined') return false
-  try {
-    const raw = localStorage.getItem('hx_user')
-    if (!raw) return false
-    const user = JSON.parse(raw) as { role?: string }
-    return roleHasPermission(user.role, permission)
-  } catch {
-    return false
-  }
+  if (role === 'PLATFORM_ADMIN' || role === 'OWNER') return true
+  // Non-hook callers (rare): default deny — use the matrix-backed hook in UI.
+  return false
 }

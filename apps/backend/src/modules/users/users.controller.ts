@@ -11,7 +11,7 @@ export const usersController = {
   },
   async create(req: Request, res: Response, next: NextFunction) {
     try {
-      const user = await usersService.create(req.tenantId!, req.body)
+      const user = await usersService.create(req.tenantId!, req.body, req.user?.role)
       sendSuccess(res, user, 'User created', 201)
     } catch (e) { next(e) }
   },
@@ -23,7 +23,7 @@ export const usersController = {
   },
   async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const user = await usersService.update(req.tenantId!, req.params.id, req.body)
+      const user = await usersService.update(req.tenantId!, req.params.id, req.body, req.user?.role)
       sendSuccess(res, user)
     } catch (e) { next(e) }
   },

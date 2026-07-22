@@ -632,22 +632,35 @@ export const productsService = {
     await prisma.brand.delete({ where: { id } })
   },
 
-  async getImeiHealth(tenantId: string) {
+  async getImeiHealth(tenantId: string, branchId?: string) {
     const [trackProducts, poOrders, poImeiCounts] = await Promise.all([
       prisma.product.findMany({
-        where: { tenantId, isActive: true, trackImei: true, stock: { gt: 0 } },
+        where: {
+          tenantId,
+          isActive: true,
+          trackImei: true,
+          stock: { gt: 0 },
+          ...(branchId ? { branchId } : {}),
+        },
         include: { category: { select: { name: true } } },
         orderBy: { name: 'asc' },
       }),
       prisma.purchaseOrder.findMany({
-        where: { tenantId, status: { in: ['RECEIVED', 'CLOSED'] } },
+        where: {
+          tenantId,
+          status: { in: ['RECEIVED', 'CLOSED'] },
+          ...(branchId ? { branchId } : {}),
+        },
         include: { items: true },
         orderBy: { receivedAt: 'desc' },
         take: 100,
       }),
       prisma.imeiRecord.groupBy({
         by: ['purchaseOrderId'],
-        where: { purchaseOrderId: { not: null }, product: { tenantId } },
+        where: {
+          purchaseOrderId: { not: null },
+          product: { tenantId, ...(branchId ? { branchId } : {}) },
+        },
         _count: { _all: true },
       }),
     ])

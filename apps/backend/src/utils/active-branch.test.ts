@@ -21,5 +21,6 @@ assert(pickDefaultBranchId(branches, ['b1', 'b2']) === 'b1', 'default outside as
 const noDefault = branches.map(b => ({ ...b, isDefault: false }))
 assert(pickDefaultBranchId(noDefault, ['b1', 'b2']) === 'b1', 'first assigned branch')
 assert(pickDefaultBranchId(branches, ['b1', 'b2', 'b3'], 'b1') === 'b1', 'preferred id')
+assert(pickDefaultBranchId(branches, []) === undefined, 'empty assignment = no access')
 
 console.log('active-branch.test.ts: all checks passed')

@@ -2,6 +2,8 @@ import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import { generateInvoiceNumber } from '../../utils/counters'
 import { notifyDeliveryDispatched } from '../notification-engine/notification-engine.service'
+import { effectiveBranchId, assertBranchRecordAccess, resolveMutationBranchId } from '../../utils/active-branch'
+import type { Request } from 'express'
 import type {
   CreateDeliveryOrderInput,
   UpdateDeliveryOrderInput,
@@ -25,10 +27,10 @@ async function createDeliverySale(tenantId: string, orderId: string) {
 
   const invoiceNumber = await generateInvoiceNumber(tenantId)
 
-  // Find first branch for the tenant (delivery orders may not have a branch)
-  const branchId = order.branchId ?? (
-    (await prisma.branch.findFirst({ where: { tenantId }, select: { id: true } }))?.id ?? null
-  )
+  if (!order.branchId) {
+    throw new AppError('Delivery order has no branch — cannot create sale', 400)
+  }
+  const branchId = order.branchId
 
   // Find cashier: prefer the createdBy user, else first owner/manager
   let cashierId: string | null = order.createdById ?? null
@@ -157,12 +159,12 @@ async function sendTrackingNotification(tenantId: string, orderId: string) {
 export const deliveryService = {
 
   async listOrders(tenantId: string, filters: {
-    status?: string; search?: string; page?: number; limit?: number
+    status?: string; search?: string; page?: number; limit?: number; branchId?: string
   }) {
-    const { status, search, page = 1, limit = 20 } = filters
+    const { status, search, page = 1, limit = 20, branchId } = filters
     const skip = (page - 1) * limit
 
-    const where: any = { tenantId }
+    const where: any = { tenantId, ...(branchId ? { branchId } : {}) }
     if (status && status !== 'ALL') where.status = status
     if (search) {
       where.OR = [
@@ -187,7 +189,7 @@ export const deliveryService = {
     return { orders, total, page, limit, pages: Math.ceil(total / limit) }
   },
 
-  async getOrder(tenantId: string, id: string) {
+  async getOrder(tenantId: string, id: string, req?: Request) {
     const order = await prisma.deliveryOrder.findFirst({
       where:   { id, tenantId },
       include: {
@@ -198,12 +200,17 @@ export const deliveryService = {
       },
     })
     if (!order) throw new AppError('Delivery order not found', 404)
+    if (req) assertBranchRecordAccess(req, order.branchId)
     return order
   },
 
-  async createOrder(tenantId: string, input: CreateDeliveryOrderInput) {
+  async createOrder(tenantId: string, input: CreateDeliveryOrderInput, req?: Request) {
     const orderNumber = await nextOrderNumber(tenantId)
     const total = input.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0)
+    const branchId = req
+      ? await resolveMutationBranchId(req, { preferred: input.branchId })
+      : input.branchId
+    if (!branchId) throw new AppError('Select a branch before creating a delivery order', 400)
 
     const order = await prisma.deliveryOrder.create({
       data: {
@@ -223,7 +230,7 @@ export const deliveryService = {
         isCOD:          input.isCOD,
         codAmount:      input.codAmount,
         notes:          input.notes,
-        branchId:       input.branchId,
+        branchId,
         status:         'PENDING',
         items: {
           create: input.items.map(i => ({
@@ -239,11 +246,13 @@ export const deliveryService = {
     return order
   },
 
-  async updateOrder(tenantId: string, id: string, input: UpdateDeliveryOrderInput) {
+  async updateOrder(tenantId: string, id: string, input: UpdateDeliveryOrderInput, req?: Request) {
     const existing = await prisma.deliveryOrder.findFirst({ where: { id, tenantId } })
     if (!existing) throw new AppError('Delivery order not found', 404)
+    if (req) assertBranchRecordAccess(req, existing.branchId)
 
     const data: any = { ...input }
+    delete data.branchId
     if (input.status === 'DISPATCHED' && !existing.dispatchedAt) data.dispatchedAt = new Date()
     if (input.status === 'DELIVERED'  && !existing.deliveredAt)  data.deliveredAt  = new Date()
 

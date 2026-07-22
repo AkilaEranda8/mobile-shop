@@ -4,11 +4,14 @@ import { salesService } from './sales.service'
 import { processSaleReturn, updateSaleInvoice, voidSaleInvoice } from './sale-mutation.service'
 import { sendSuccess, sendPaginated } from '../../utils/response'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
+import { enforceModuleAccess } from '../../middleware/module-access.middleware'
 import { prisma } from '../../config/database'
 import { getPagination } from '../../utils/pagination'
+import { effectiveBranchId } from '../../utils/active-branch'
 
 const router = Router()
 router.use(authenticate)
+router.use(enforceModuleAccess('POS'))
 
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try { const r = await salesService.list(req.tenantId!, req); sendPaginated(res, r.data, r.total, r.page, r.limit) } catch (e) { next(e) }
@@ -17,14 +20,19 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 router.get('/returns', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { skip, limit, page } = getPagination(req)
+    const branchId = effectiveBranchId(req)
+    const where: any = {
+      tenantId: req.tenantId!,
+      ...(branchId ? { sale: { branchId } } : {}),
+    }
     const [data, total] = await Promise.all([
       prisma.saleReturn.findMany({
-        where: { tenantId: req.tenantId! },
+        where,
         skip, take: limit,
         orderBy: { createdAt: 'desc' },
-        include: { items: true, sale: { select: { invoiceNumber: true, customerName: true } } },
+        include: { items: true, sale: { select: { invoiceNumber: true, customerName: true, branchId: true } } },
       }),
-      prisma.saleReturn.count({ where: { tenantId: req.tenantId! } }),
+      prisma.saleReturn.count({ where }),
     ])
     sendPaginated(res, data, total, page, limit)
   } catch (e) { next(e) }
@@ -38,7 +46,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const u = await prisma.user.findUnique({ where: { id: req.user!.userId }, select: { name: true } })
     const cashierName = u?.name || req.user!.email
-    sendSuccess(res, await salesService.create(req.tenantId!, req.user!.userId, cashierName, req.body), 'Sale created', 201)
+    sendSuccess(res, await salesService.create(req.tenantId!, req.user!.userId, cashierName, req.body, req), 'Sale created', 201)
   } catch (e) { next(e) }
 })
 

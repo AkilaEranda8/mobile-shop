@@ -5,7 +5,7 @@ import { getPagination } from '../../utils/pagination'
 import { generateInvoiceNumber } from '../../utils/counters'
 import { Request } from 'express'
 import { emitOpeningCustomerArAccounting } from '../accounting/integration/accounting-events.service'
-import { effectiveBranchId } from '../../utils/active-branch'
+import { effectiveBranchId, resolveMutationBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
 
 const round2 = (n: number) => Math.round(n * 100) / 100
 
@@ -128,25 +128,30 @@ export const customersService = {
     return annotated
   },
 
-  async create(tenantId: string, body: any, actorEmail?: string) {
+  async create(tenantId: string, body: any, actorEmail?: string, req?: Request) {
     const name = String(body.name ?? '').trim()
     const phone = String(body.phone ?? '').trim()
     if (!name) throw new AppError('Customer name is required', 400)
     if (!phone) throw new AppError('Phone number is required', 400)
 
-    let branchId = body.branchId ? String(body.branchId) : undefined
-    if (!branchId) {
-      const branch = await prisma.branch.findFirst({
-        where: { tenantId, isActive: true },
-        orderBy: [{ isDefault: 'desc' }, { isHeadquarters: 'desc' }, { createdAt: 'asc' }],
-        select: { id: true },
-      })
-      branchId = branch?.id
+    let branchId: string
+    if (req) {
+      branchId = await resolveMutationBranchId(req, { preferred: body.branchId })
+    } else {
+      branchId = body.branchId ? String(body.branchId) : ''
+      if (!branchId) {
+        const branch = await prisma.branch.findFirst({
+          where: { tenantId, isActive: true },
+          orderBy: [{ isDefault: 'desc' }, { isHeadquarters: 'desc' }, { createdAt: 'asc' }],
+          select: { id: true },
+        })
+        branchId = branch?.id ?? ''
+      }
+      if (!branchId) throw new AppError('Branch is required to create a customer', 400)
     }
-    if (!branchId) throw new AppError('Branch is required to create a customer', 400)
 
-    const existing = await prisma.customer.findFirst({ where: { tenantId, phone } })
-    if (existing) throw new AppError('Phone number already registered', 409)
+    const existing = await prisma.customer.findFirst({ where: { tenantId, phone, branchId } })
+    if (existing) throw new AppError('Phone number already registered at this branch', 409)
 
     const openingDue = Math.max(0, Number(body.openingDue ?? body.totalDue) || 0)
     const email = body.email != null ? String(body.email).trim() || null : null
@@ -212,9 +217,10 @@ export const customersService = {
     return { ...created.customer, accounting }
   },
 
-  async update(tenantId: string, id: string, body: any) {
+  async update(tenantId: string, id: string, body: any, req?: Request) {
     const c = await prisma.customer.findFirst({ where: { id, tenantId } })
     if (!c) throw new AppError('Customer not found', 404)
+    if (req) assertBranchRecordAccess(req, c.branchId)
 
     const name = typeof body.name === 'string' ? body.name.trim() : c.name
     const phone = typeof body.phone === 'string' ? body.phone.trim() : c.phone
@@ -223,10 +229,15 @@ export const customersService = {
 
     if (phone !== c.phone) {
       const duplicate = await prisma.customer.findFirst({
-        where: { tenantId, phone, id: { not: id } },
+        where: {
+          tenantId,
+          phone,
+          id: { not: id },
+          ...(c.branchId ? { branchId: c.branchId } : { branchId: null }),
+        },
         select: { id: true },
       })
-      if (duplicate) throw new AppError('Phone number already registered', 409)
+      if (duplicate) throw new AppError('Phone number already registered at this branch', 409)
     }
 
     return prisma.customer.update({
@@ -257,9 +268,13 @@ export const customersService = {
     return attachBranchDue(tenantId, raw, branchId)
   },
 
-  async setActive(tenantId: string, id: string, isActive: boolean) {
-    const existing = await prisma.customer.findFirst({ where: { id, tenantId }, select: { id: true, isActive: true, name: true } })
+  async setActive(tenantId: string, id: string, isActive: boolean, req?: Request) {
+    const existing = await prisma.customer.findFirst({
+      where: { id, tenantId },
+      select: { id: true, isActive: true, name: true, branchId: true },
+    })
     if (!existing) throw new AppError('Customer not found', 404)
+    if (req) assertBranchRecordAccess(req, existing.branchId)
     if (existing.isActive === isActive) {
       return prisma.customer.findFirst({ where: { id, tenantId }, select: CUSTOMER_LIST_SELECT })
     }
@@ -270,12 +285,13 @@ export const customersService = {
     })
   },
 
-  async remove(tenantId: string, id: string) {
+  async remove(tenantId: string, id: string, req?: Request) {
     const existing = await prisma.customer.findFirst({
       where: { id, tenantId },
       select: {
         id: true,
         name: true,
+        branchId: true,
         _count: {
           select: {
             sales: true,
@@ -288,6 +304,7 @@ export const customersService = {
       },
     })
     if (!existing) throw new AppError('Customer not found', 404)
+    if (req) assertBranchRecordAccess(req, existing.branchId)
 
     const linked =
       existing._count.sales
@@ -314,17 +331,30 @@ export const customersService = {
     performedBy: string
     /** Skip these sales when allocating (e.g. new POS invoice created in the same checkout). */
     excludeSaleIds?: string[]
-  }) {
+  }, req?: Request) {
     const c = await prisma.customer.findFirst({ where: { id: customerId, tenantId } })
     if (!c) throw new AppError('Customer not found', 404)
 
     const { amount, paymentMethod, performedBy } = body
     let branchId = body.branchId
+    if (!branchId && req) {
+      branchId = effectiveBranchId(req) || c.branchId || undefined
+    }
     if (!branchId) {
-      const branch = await prisma.branch.findFirst({ where: { tenantId }, select: { id: true } })
+      branchId = c.branchId || undefined
+    }
+    if (!branchId) {
+      const branch = await prisma.branch.findFirst({
+        where: { tenantId, isActive: true },
+        orderBy: [{ isDefault: 'desc' }, { isHeadquarters: 'desc' }, { createdAt: 'asc' }],
+        select: { id: true },
+      })
       branchId = branch?.id
     }
     if (!branchId) throw new AppError('Branch is required for credit payment', 400)
+    if (req) {
+      await resolveMutationBranchId(req, { preferred: branchId })
+    }
 
     if (amount <= 0) throw new AppError('Amount must be greater than 0', 400)
 

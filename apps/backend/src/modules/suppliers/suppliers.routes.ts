@@ -3,11 +3,12 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '../../config/database'
 import { sendSuccess, sendPaginated } from '../../utils/response'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
+import { enforceModuleAccess } from '../../middleware/module-access.middleware'
 import { AppError } from '../../middleware/error.middleware'
 import { getPagination } from '../../utils/pagination'
 import { generatePONumber } from '../../utils/counters'
 import { buildLabelsFromPoItems, ensureProductBarcode } from '../../utils/po-labels.util'
-import { effectiveBranchId } from '../../utils/active-branch'
+import { effectiveBranchId, resolveMutationBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
 import { emitPurchaseAccounting, emitOpeningSupplierApAccounting } from '../accounting/integration/accounting-events.service'
 import { applyPurchaseOrderReceive } from '../../utils/po-receive.util'
 import { applyPurchaseOrderReceiveEffectsIfEnabled } from '../inventory-engine/inventory-engine.service'
@@ -18,6 +19,7 @@ import { assertPurchaseOrderTransitionIfEnabled } from '../workflow-validators/w
 
 const router = Router()
 router.use(authenticate)
+router.use(enforceModuleAccess('SUPPLIERS'))
 
 async function resolvePoItemProduct(
   tx: Prisma.TransactionClient,
@@ -132,20 +134,7 @@ router.post('/', authorize('OWNER', 'MANAGER'), async (req: Request, res: Respon
       return
     }
 
-    let branchId: string | undefined = req.body.branchId ? String(req.body.branchId) : undefined
-    if (branchId) {
-      const valid = await prisma.branch.findFirst({ where: { id: branchId, tenantId } })
-      if (!valid) branchId = undefined
-    }
-    if (!branchId) {
-      const userBranch = await prisma.userBranch.findFirst({ where: { userId: req.user!.userId } })
-      branchId = userBranch?.branchId
-    }
-    if (!branchId) {
-      const firstBranch = await prisma.branch.findFirst({ where: { tenantId, isActive: true } })
-      branchId = firstBranch?.id
-    }
-    if (!branchId) throw new AppError('No branch found for this tenant — contact admin', 400)
+    const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId })
 
     const created = await prisma.$transaction(async (tx) => {
       const supplier = await tx.supplier.create({
@@ -349,20 +338,7 @@ router.post('/purchase-orders', authorize('OWNER', 'MANAGER'), async (req: Reque
   try {
     const { supplierId, supplierName, subtotal, tax, total, expectedDelivery, notes, status, items, branchId: bodyBranchId } = req.body
     const poNumber = await generatePONumber(req.tenantId!)
-    let branchId: string | undefined = bodyBranchId
-    if (branchId) {
-      const valid = await prisma.branch.findFirst({ where: { id: branchId, tenantId: req.tenantId! } })
-      if (!valid) branchId = undefined
-    }
-    if (!branchId) {
-      const userBranch = await prisma.userBranch.findFirst({ where: { userId: req.user!.userId } })
-      branchId = userBranch?.branchId
-    }
-    if (!branchId) {
-      const firstBranch = await prisma.branch.findFirst({ where: { tenantId: req.tenantId! } })
-      branchId = firstBranch?.id
-    }
-    if (!branchId) throw new AppError('No branch found for this tenant — contact admin', 400)
+    const branchId = await resolveMutationBranchId(req, { preferred: bodyBranchId })
     const po = await prisma.purchaseOrder.create({
       data: {
         tenantId: req.tenantId!,
@@ -455,6 +431,7 @@ router.get('/purchase-orders/:id/labels', authorize('OWNER', 'MANAGER'), async (
       include: { items: true },
     })
     if (!po) throw new AppError('Purchase order not found', 404)
+    assertBranchRecordAccess(req, po.branchId)
     if (!['RECEIVED', 'CLOSED'].includes(po.status)) {
       throw new AppError('Receive this PO first, then print barcodes', 400)
     }
@@ -515,6 +492,8 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER'), async (req: Re
       include: { items: true },
     })
     if (!po) throw new AppError('Purchase order not found', 404)
+
+    assertBranchRecordAccess(req, po.branchId)
 
     const newStatus = req.body.status as string | undefined
     const isReceiving = newStatus === 'RECEIVED' && po.status !== 'RECEIVED'
@@ -634,6 +613,7 @@ router.post('/purchase-orders/:id/register-imei', authorize('OWNER', 'MANAGER'),
       include: { items: true },
     })
     if (!po) throw new AppError('Purchase order not found', 404)
+    assertBranchRecordAccess(req, po.branchId)
     if (po.status !== 'RECEIVED' && po.status !== 'CLOSED') {
       throw new AppError('PO must be received before registering IMEIs', 400)
     }

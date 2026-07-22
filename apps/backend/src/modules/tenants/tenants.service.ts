@@ -9,6 +9,8 @@ import {
   setTenantConfig,
 } from '../configuration-engine/configuration-engine.service'
 import { normalizeRolePermissions } from './role-permissions.util'
+import { ensureBranchCashAccounts } from '../accounting/accounting-init.service'
+import { invalidateRolePermissionCache } from '../../middleware/module-access.middleware'
 
 const OWNER_ROLES = new Set(['OWNER', 'PLATFORM_ADMIN'])
 
@@ -105,6 +107,7 @@ export const tenantsService = {
       where: { id: tenantId },
       data: { rolePermissions: normalized },
     })
+    invalidateRolePermissionCache(tenantId)
     return normalized
   },
 
@@ -122,7 +125,7 @@ export const tenantsService = {
   },
 
   async createBranch(tenantId: string, body: { name: string; address: string; city: string; state: string; phone: string; email?: string; isHeadquarters?: boolean; isDefault?: boolean }) {
-    return prisma.$transaction(async (tx) => {
+    const branch = await prisma.$transaction(async (tx) => {
       if (body.isHeadquarters) {
         await tx.branch.updateMany({ where: { tenantId, isHeadquarters: true }, data: { isHeadquarters: false } })
       }
@@ -131,6 +134,12 @@ export const tenantsService = {
       }
       return tx.branch.create({ data: { tenantId, ...body } })
     })
+    try {
+      await ensureBranchCashAccounts(tenantId, branch.id, branch.name)
+    } catch (e) {
+      console.error('[createBranch] accounting seed failed:', (e as Error).message)
+    }
+    return branch
   },
 
   async updateBranch(

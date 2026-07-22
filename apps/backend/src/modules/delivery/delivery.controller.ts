@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { deliveryService } from './delivery.service'
 import { sendSuccess } from '../../utils/response'
+import { effectiveBranchId } from '../../utils/active-branch'
 
 export const deliveryController = {
 
@@ -10,6 +11,7 @@ export const deliveryController = {
       const { status, search, page, limit } = req.query as any
       const data = await deliveryService.listOrders(req.user!.tenantId, {
         status, search, page: page ? +page : 1, limit: limit ? +limit : 20,
+        branchId: effectiveBranchId(req),
       })
       sendSuccess(res, data)
     } catch (e) { next(e) }
@@ -17,21 +19,21 @@ export const deliveryController = {
 
   async getOrder(req: Request, res: Response, next: NextFunction) {
     try {
-      const data = await deliveryService.getOrder(req.user!.tenantId, req.params.id)
+      const data = await deliveryService.getOrder(req.user!.tenantId, req.params.id, req)
       sendSuccess(res, data)
     } catch (e) { next(e) }
   },
 
   async createOrder(req: Request, res: Response, next: NextFunction) {
     try {
-      const data = await deliveryService.createOrder(req.user!.tenantId, req.body)
+      const data = await deliveryService.createOrder(req.user!.tenantId, req.body, req)
       sendSuccess(res, data, 'Delivery order created', 201)
     } catch (e) { next(e) }
   },
 
   async updateOrder(req: Request, res: Response, next: NextFunction) {
     try {
-      const data = await deliveryService.updateOrder(req.user!.tenantId, req.params.id, req.body)
+      const data = await deliveryService.updateOrder(req.user!.tenantId, req.params.id, req.body, req)
       sendSuccess(res, data, 'Order updated')
     } catch (e) { next(e) }
   },

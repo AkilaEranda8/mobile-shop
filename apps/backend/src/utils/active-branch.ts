@@ -25,6 +25,10 @@ declare global {
 
 const OWNER_ROLES = new Set(['OWNER', 'PLATFORM_ADMIN'])
 
+export function isOwnerRole(role: string | undefined): boolean {
+  return !!role && OWNER_ROLES.has(role)
+}
+
 export async function getUserBranchIds(userId: string, tenantId: string, role: string): Promise<string[]> {
   if (OWNER_ROLES.has(role)) {
     const branches = await prisma.branch.findMany({
@@ -49,14 +53,18 @@ export async function getTenantBranches(tenantId: string): Promise<BranchSummary
   })
 }
 
+/**
+ * Pick a default within the assigned pool only.
+ * Empty assignedIds ⇒ no access (do not fall open to all tenant branches).
+ */
 export function pickDefaultBranchId(
   branches: BranchSummary[],
   assignedIds: string[],
   preferredId?: string | null,
 ): string | undefined {
-  const allowed = assignedIds.length
-    ? branches.filter(b => assignedIds.includes(b.id))
-    : branches
+  if (!assignedIds.length) return undefined
+
+  const allowed = branches.filter(b => assignedIds.includes(b.id))
   if (!allowed.length) return undefined
 
   if (preferredId && allowed.some(b => b.id === preferredId)) return preferredId
@@ -93,6 +101,10 @@ export async function resolveActiveBranch(
   const assignedIds = await getUserBranchIds(user.userId, tenantId, user.role)
   req.assignedBranchIds = assignedIds
   const tenantBranches = await getTenantBranches(tenantId)
+
+  if (!OWNER_ROLES.has(user.role) && assignedIds.length === 0) {
+    throw new AppError('No branch assigned to your account. Ask an owner to assign a branch.', 403)
+  }
 
   if (scopeHeader === 'all' && OWNER_ROLES.has(user.role)) {
     req.branchScope = 'all'
@@ -139,12 +151,73 @@ export function effectiveBranchId(req: Request): string | undefined {
   return q || req.activeBranchId
 }
 
+/**
+ * Record access: under a concrete active branch, only that branch's records.
+ * Owner "All Branches" may access any tenant record. Without an active branch,
+ * fall back to assignment membership.
+ */
 export function assertBranchRecordAccess(req: Request, recordBranchId?: string | null) {
-  if (!recordBranchId || req.branchScope === 'all') return
-  if (req.assignedBranchIds?.includes(recordBranchId)) return
+  if (req.branchScope === 'all') return
+  // Null branch records are only visible under All Branches (legacy / unscoped rows)
+  if (!recordBranchId) {
+    throw new AppError('Branch access denied', 403)
+  }
   const active = effectiveBranchId(req)
-  if (active && recordBranchId === active) return
+  if (active) {
+    if (recordBranchId === active) return
+    throw new AppError('Branch access denied', 403)
+  }
+  if (req.assignedBranchIds?.includes(recordBranchId)) return
   throw new AppError('Branch access denied', 403)
+}
+
+/**
+ * Resolve a concrete branch for creates/mutations.
+ * Prefers body preferred → active branch header → assigned default.
+ * Under Owner "All Branches", preferred (body) is required unless a default can be picked.
+ * Always validates against the caller's assigned branches.
+ */
+export async function resolveMutationBranchId(
+  req: Request,
+  opts?: { preferred?: string | null },
+): Promise<string> {
+  const user = req.user
+  const tenantId = req.tenantId
+  if (!user || !tenantId) throw new AppError('Unauthorized', 401)
+
+  const assignedIds =
+    req.assignedBranchIds ?? (await getUserBranchIds(user.userId, tenantId, user.role))
+
+  if (!OWNER_ROLES.has(user.role) && assignedIds.length === 0) {
+    throw new AppError('No branch assigned to your account', 403)
+  }
+
+  const preferred = opts?.preferred ? String(opts.preferred).trim() : undefined
+  const active = effectiveBranchId(req)
+  const candidate = preferred || active
+
+  if (candidate) {
+    if (!assignedIds.includes(candidate)) {
+      throw new AppError('Branch access denied', 403)
+    }
+    const branch = await prisma.branch.findFirst({
+      where: { id: candidate, tenantId, isActive: true },
+      select: { id: true },
+    })
+    if (!branch) throw new AppError('Branch not found', 404)
+    return branch.id
+  }
+
+  if (req.branchScope === 'all') {
+    throw new AppError('Select a branch before continuing', 400)
+  }
+
+  const tenantBranches = await getTenantBranches(tenantId)
+  const fallback = pickDefaultBranchId(tenantBranches, assignedIds)
+  if (!fallback) {
+    throw new AppError('Select a branch before continuing', 400)
+  }
+  return fallback
 }
 
 export async function resolveOperationalBranchId(

@@ -2,12 +2,14 @@ import { Router, Request, Response, NextFunction } from 'express'
 import { prisma } from '../../config/database'
 import { sendSuccess, sendPaginated } from '../../utils/response'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
+import { enforceModuleAccess } from '../../middleware/module-access.middleware'
 import { getPagination } from '../../utils/pagination'
 import { AppError } from '../../middleware/error.middleware'
-import { effectiveBranchId } from '../../utils/active-branch'
+import { effectiveBranchId, assertBranchRecordAccess, resolveMutationBranchId } from '../../utils/active-branch'
 
 const router = Router()
 router.use(authenticate)
+router.use(enforceModuleAccess('IMEI'))
 
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -47,6 +49,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
       const repairImeis = await prisma.repairTicket.findMany({
         where: {
           tenantId,
+          ...(branchId ? { branchId } : {}),
           imei: { not: null, ...(search ? { contains: search, mode: 'insensitive' } : {}) },
         },
         select: { imei: true, deviceBrand: true, deviceModel: true, createdAt: true, status: true },
@@ -153,14 +156,19 @@ router.get('/lookup/:imei', async (req: Request, res: Response, next: NextFuncti
 
 router.post('/', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { imei, productId, branchId, variation } = req.body
-    if (!imei || !productId || !branchId) throw new AppError('imei, productId and branchId are required', 400)
+    const { imei, productId, variation } = req.body
+    const resolvedBranchId = await resolveMutationBranchId(req, { preferred: req.body.branchId })
+    if (!imei || !productId) throw new AppError('imei and productId are required', 400)
     const existing = await prisma.imeiRecord.findUnique({ where: { imei } })
     if (existing) throw new AppError('IMEI already registered', 409)
     const product = await prisma.product.findFirst({ where: { id: productId, tenantId: req.tenantId! } })
     if (!product) throw new AppError('Product not found', 404)
+    assertBranchRecordAccess(req, product.branchId)
+    if (product.branchId && product.branchId !== resolvedBranchId) {
+      throw new AppError('Product belongs to a different branch', 400)
+    }
     const record = await prisma.imeiRecord.create({
-      data: { imei, productId, branchId, variation, status: 'IN_STOCK' },
+      data: { imei, productId, branchId: resolvedBranchId, variation, status: 'IN_STOCK' },
       include: { product: { select: { name: true, brand: { select: { name: true } } } } },
     })
     sendSuccess(res, record, 'IMEI registered', 201)

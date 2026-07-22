@@ -7,6 +7,8 @@ import {
   LayoutDashboard, Settings, BarChart3, BriefcaseBusiness,
 } from 'lucide-react'
 import { productsApi, customersApi, repairsApi, salesApi } from '@/lib/api'
+import { useRolePermissions } from '@/lib/hooks'
+import type { RolePermissionModuleKey } from '@/lib/role-permissions'
 
 type Result = {
   id: string
@@ -15,17 +17,18 @@ type Result = {
   sub?: string
   href: string
   icon: typeof Package
+  permission?: RolePermissionModuleKey
 }
 
 const QUICK_PAGES: Result[] = [
-  { id: 'dashboard', type: 'page', label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { id: 'inventory', type: 'page', label: 'Inventory', href: '/dashboard/inventory', icon: Package },
-  { id: 'sales', type: 'page', label: 'Sales History', href: '/dashboard/sales', icon: Receipt },
-  { id: 'customers', type: 'page', label: 'Customers', href: '/dashboard/customers', icon: Users },
-  { id: 'repairs', type: 'page', label: 'Repair Jobs', href: '/dashboard/repairs', icon: Wrench },
-  { id: 'analytics', type: 'page', label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
-  { id: 'business-services', type: 'page', label: 'Business Services', href: '/business-services', icon: BriefcaseBusiness },
-  { id: 'settings', type: 'page', label: 'Settings', href: '/dashboard/settings', icon: Settings },
+  { id: 'dashboard', type: 'page', label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, permission: 'DASHBOARD' },
+  { id: 'inventory', type: 'page', label: 'Inventory', href: '/dashboard/inventory', icon: Package, permission: 'INVENTORY' },
+  { id: 'sales', type: 'page', label: 'Sales History', href: '/dashboard/sales', icon: Receipt, permission: 'POS' },
+  { id: 'customers', type: 'page', label: 'Customers', href: '/dashboard/customers', icon: Users, permission: 'CUSTOMERS' },
+  { id: 'repairs', type: 'page', label: 'Repair Jobs', href: '/dashboard/repairs', icon: Wrench, permission: 'REPAIRS' },
+  { id: 'analytics', type: 'page', label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, permission: 'REPORTS' },
+  { id: 'business-services', type: 'page', label: 'Business Services', href: '/business-services', icon: BriefcaseBusiness, permission: 'SETTINGS' },
+  { id: 'settings', type: 'page', label: 'Settings', href: '/dashboard/settings', icon: Settings, permission: 'SETTINGS' },
 ]
 
 function unwrapList(res: unknown): any[] {
@@ -41,6 +44,8 @@ export default function GlobalSearch() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
+  const { canView, canEdit } = useRolePermissions()
+  const allowedPages = QUICK_PAGES.filter((p) => !p.permission || canView(p.permission))
   const [results, setResults] = useState<Result[]>(QUICK_PAGES)
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -48,9 +53,9 @@ export default function GlobalSearch() {
 
   const openSearch = useCallback(() => {
     setQuery('')
-    setResults(QUICK_PAGES)
+    setResults(allowedPages)
     setOpen(true)
-  }, [])
+  }, [allowedPages])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -85,28 +90,43 @@ export default function GlobalSearch() {
   const runSearch = useCallback(async (q: string) => {
     const trimmed = q.trim()
     if (trimmed.length < 2) {
-      setResults(QUICK_PAGES)
+      setResults(allowedPages)
       return
     }
 
     const qLower = trimmed.toLowerCase()
-    const pageHits = QUICK_PAGES.filter(p =>
+    const pageHits = allowedPages.filter(p =>
       p.label.toLowerCase().includes(qLower) || p.href.toLowerCase().includes(qLower),
     )
 
     setLoading(true)
     try {
-      const [productsRes, customersRes, repairsRes, salesRes] = await Promise.allSettled([
-        productsApi.list({ search: trimmed, limit: '5' }),
-        customersApi.search(trimmed),
-        repairsApi.list({ search: trimmed, limit: '5' }),
-        salesApi.list({ search: trimmed, limit: '5' }),
-      ])
+      const tasks: Promise<unknown>[] = []
+      const labels: Array<'product' | 'customer' | 'repair' | 'sale'> = []
+      if (canView('INVENTORY') || canEdit('POS')) {
+        tasks.push(productsApi.list({ search: trimmed, limit: '5' }))
+        labels.push('product')
+      }
+      if (canView('CUSTOMERS')) {
+        tasks.push(customersApi.search(trimmed))
+        labels.push('customer')
+      }
+      if (canView('REPAIRS')) {
+        tasks.push(repairsApi.list({ search: trimmed, limit: '5' }))
+        labels.push('repair')
+      }
+      if (canView('POS')) {
+        tasks.push(salesApi.list({ search: trimmed, limit: '5' }))
+        labels.push('sale')
+      }
+
+      const settled = await Promise.allSettled(tasks)
+      const byLabel = Object.fromEntries(labels.map((l, i) => [l, settled[i]])) as Record<string, PromiseSettledResult<unknown>>
 
       const items: Result[] = [...pageHits]
 
-      if (productsRes.status === 'fulfilled') {
-        for (const p of unwrapList(productsRes.value).slice(0, 5)) {
+      if (byLabel.product?.status === 'fulfilled') {
+        for (const p of unwrapList(byLabel.product.value).slice(0, 5)) {
           items.push({
             id: `product-${p.id}`,
             type: 'product',
@@ -118,40 +138,40 @@ export default function GlobalSearch() {
         }
       }
 
-      if (customersRes.status === 'fulfilled') {
-        for (const c of unwrapList(customersRes.value).slice(0, 5)) {
+      if (byLabel.customer?.status === 'fulfilled') {
+        for (const c of unwrapList(byLabel.customer.value).slice(0, 5)) {
           items.push({
             id: `customer-${c.id}`,
             type: 'customer',
             label: c.name,
-            sub: c.phone || c.email,
-            href: `/dashboard/customers?customerId=${c.id}`,
+            sub: c.phone,
+            href: `/dashboard/customers?q=${encodeURIComponent(trimmed)}`,
             icon: Users,
           })
         }
       }
 
-      if (repairsRes.status === 'fulfilled') {
-        for (const r of unwrapList(repairsRes.value).slice(0, 5)) {
+      if (byLabel.repair?.status === 'fulfilled') {
+        for (const r of unwrapList(byLabel.repair.value).slice(0, 5)) {
           items.push({
             id: `repair-${r.id}`,
             type: 'repair',
-            label: r.ticketNumber || 'Repair ticket',
-            sub: [r.customerName, r.deviceBrand, r.deviceModel].filter(Boolean).join(' · '),
-            href: `/dashboard/repairs?id=${r.id}`,
+            label: r.ticketNumber || r.customerName || 'Repair',
+            sub: r.deviceModel || r.status,
+            href: `/dashboard/repairs?q=${encodeURIComponent(trimmed)}`,
             icon: Wrench,
           })
         }
       }
 
-      if (salesRes.status === 'fulfilled') {
-        for (const s of unwrapList(salesRes.value).slice(0, 5)) {
+      if (byLabel.sale?.status === 'fulfilled') {
+        for (const s of unwrapList(byLabel.sale.value).slice(0, 5)) {
           items.push({
             id: `sale-${s.id}`,
             type: 'sale',
             label: s.invoiceNumber || 'Sale',
-            sub: [s.customerName, s.customerPhone].filter(Boolean).join(' · '),
-            href: `/dashboard/sales?id=${s.id}`,
+            sub: s.customerName,
+            href: `/dashboard/sales?q=${encodeURIComponent(trimmed)}`,
             icon: Receipt,
           })
         }
@@ -161,7 +181,7 @@ export default function GlobalSearch() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [allowedPages, canView, canEdit])
 
   useEffect(() => {
     if (!open) return

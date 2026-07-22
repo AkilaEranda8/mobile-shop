@@ -3,6 +3,7 @@ import { prisma } from '../../config/database'
 import { Prisma } from '@prisma/client'
 import { sendSuccess } from '../../utils/response'
 import { authenticate } from '../../middleware/auth.middleware'
+import { enforceModuleAccess } from '../../middleware/module-access.middleware'
 import { businessDayRange, businessDateFromInstant, resolveQueryDateRange } from '../../utils/date-range'
 import { getDailyRevenueBreakdown, getPeriodFinancials } from '../finance/business-financials.service'
 import { effectiveBranchId } from '../../utils/active-branch'
@@ -17,6 +18,7 @@ import { saleWhereExcludeNonRevenue } from '../../constants/business-rules.const
 
 const router = Router()
 router.use(authenticate)
+router.use(enforceModuleAccess('REPORTS'))
 
 async function tenantHasServices(tenantId: string): Promise<boolean> {
   const row = await prisma.tenantFeature.findFirst({

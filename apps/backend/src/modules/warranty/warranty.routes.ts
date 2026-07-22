@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express'
 import { prisma } from '../../config/database'
 import { sendSuccess, sendPaginated } from '../../utils/response'
 import { authenticate } from '../../middleware/auth.middleware'
+import { enforceModuleAccess } from '../../middleware/module-access.middleware'
 import { AppError } from '../../middleware/error.middleware'
 import { getPagination } from '../../utils/pagination'
 import { generateWarrantyCode } from '../../utils/counters'
@@ -22,6 +23,7 @@ router.get('/verify/:code', async (req: Request, res: Response, next: NextFuncti
 })
 
 router.use(authenticate)
+router.use(enforceModuleAccess('WARRANTY'))
 
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {

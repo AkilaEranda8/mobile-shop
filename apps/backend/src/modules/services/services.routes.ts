@@ -1,11 +1,13 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { prisma } from '../../config/database'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
+import { enforceModuleAccess } from '../../middleware/module-access.middleware'
 import { sendSuccess, sendError } from '../../utils/response'
 import { AppError } from '../../middleware/error.middleware'
 
 const router = Router()
 router.use(authenticate)
+router.use(enforceModuleAccess('SERVICES'))
 
 // ── List all services for this tenant ─────────────────────────────────────────
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {

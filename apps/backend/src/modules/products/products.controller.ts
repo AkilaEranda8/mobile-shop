@@ -48,7 +48,11 @@ export const productsController = {
     } catch (e) { next(e) }
   },
   async remove(req: Request, res: Response, next: NextFunction) {
-    try { sendSuccess(res, await productsService.remove(req.tenantId!, req.params.id)) } catch (e) { next(e) }
+    try {
+      const existing = await productsService.getById(req.tenantId!, req.params.id) as { branchId?: string }
+      assertBranchRecordAccess(req, existing.branchId)
+      sendSuccess(res, await productsService.remove(req.tenantId!, req.params.id))
+    } catch (e) { next(e) }
   },
   async getCategories(req: Request, res: Response, next: NextFunction) {
     try { sendSuccess(res, await productsService.getCategories(req.tenantId!)) } catch (e) { next(e) }
@@ -77,7 +81,7 @@ export const productsController = {
     } catch (e) { next(e) }
   },
   async getImeiHealth(req: Request, res: Response, next: NextFunction) {
-    try { sendSuccess(res, await productsService.getImeiHealth(req.tenantId!)) } catch (e) { next(e) }
+    try { sendSuccess(res, await productsService.getImeiHealth(req.tenantId!, effectiveBranchId(req))) } catch (e) { next(e) }
   },
   async bulkInferTrackImei(req: Request, res: Response, next: NextFunction) {
     try { sendSuccess(res, await productsService.bulkInferTrackImei(req.tenantId!), 'IMEI flags updated') } catch (e) { next(e) }

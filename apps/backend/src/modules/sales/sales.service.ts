@@ -4,7 +4,7 @@ import { AppError } from '../../middleware/error.middleware'
 import { generateInvoiceNumber } from '../../utils/counters'
 import { Request } from 'express'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
-import { assertBranchRecordAccess } from '../../utils/active-branch'
+import { assertBranchRecordAccess, resolveMutationBranchId } from '../../utils/active-branch'
 import { createDailyReloadsFromSaleItems } from '../daily-reload/pos-reload.util'
 import { createWarrantiesFromSaleItems } from '../warranty/warranty.service'
 import { emitSaleAccounting } from '../accounting/integration/accounting-events.service'
@@ -49,32 +49,13 @@ export const salesService = {
     return { ...s, warranties }
   },
 
-  async create(tenantId: string, cashierId: string, cashierName: string, body: any) {
+  async create(tenantId: string, cashierId: string, cashierName: string, body: any, req: Request) {
     const dueAmount = Number(body.dueAmount ?? 0)
     if (dueAmount > 0 && !body.customerId) {
       throw new AppError('Customer is required when recording credit / partial payment', 400)
     }
-    let branchId: string | undefined = body.branchId
-    if (!branchId) {
-      const userBranch = await prisma.userBranch.findFirst({
-        where: { userId: cashierId },
-        select: { branchId: true },
-      })
-      branchId = userBranch?.branchId
-    }
-    if (!branchId) {
-      const branch = await prisma.branch.findFirst({
-        where: { tenantId },
-        orderBy: [{ isHeadquarters: 'desc' }, { createdAt: 'asc' }],
-        select: { id: true },
-      })
-      branchId = branch?.id
-    }
-    if (!branchId) {
-      throw new AppError('No branch configured for this shop. Add a branch in settings.', 400)
-    }
-    if (body.branchId) await assertBusinessDayOpenIfEnabled(tenantId, body.branchId)
-    else await assertBusinessDayOpenIfEnabled(tenantId, branchId)
+    const branchId = await resolveMutationBranchId(req, { preferred: body.branchId })
+    await assertBusinessDayOpenIfEnabled(tenantId, branchId)
     const invoiceNumber = await generateInvoiceNumber(tenantId)
     let items: any[] = Array.isArray(body.items) ? body.items : []
 

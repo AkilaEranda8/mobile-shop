@@ -3,11 +3,14 @@ import { prisma } from '../../config/database'
 import { exchangesService } from './exchanges.service'
 import { sendSuccess, sendPaginated } from '../../utils/response'
 import { authenticate } from '../../middleware/auth.middleware'
+import { enforceModuleAccess } from '../../middleware/module-access.middleware'
 import { validate } from '../../middleware/validate.middleware'
 import { completeExchangeSchema } from './exchanges.schema'
+import { effectiveBranchId, resolveMutationBranchId } from '../../utils/active-branch'
 
 const router = Router()
 router.use(authenticate)
+router.use(enforceModuleAccess('EXCHANGES'))
 
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -18,15 +21,9 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 
 router.get('/available-stock', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userBranch = await prisma.userBranch.findFirst({
-      where: { userId: req.user!.userId },
-      select: { branchId: true },
-    })
-    const branch = userBranch?.branchId ?? (await prisma.branch.findFirst({
-      where: { tenantId: req.tenantId! },
-      orderBy: [{ isHeadquarters: 'desc' }, { createdAt: 'asc' }],
-      select: { id: true },
-    }))?.id
+    const branch =
+      effectiveBranchId(req)
+      ?? await resolveMutationBranchId(req, { preferred: req.query.branchId as string | undefined })
 
     const data = await exchangesService.listAvailableStock(req.tenantId!, {
       search:      req.query.search as string | undefined,
@@ -46,6 +43,7 @@ router.post('/complete', validate(completeExchangeSchema), async (req: Request, 
       req.user!.userId,
       cashierName,
       req.body,
+      req,
     )
     sendSuccess(res, data, 'Exchange completed', 201)
   } catch (e) { next(e) }
@@ -53,7 +51,7 @@ router.post('/complete', validate(completeExchangeSchema), async (req: Request, 
 
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    sendSuccess(res, await exchangesService.create(req.tenantId!, req.body, req.user?.userId ?? 'system'), 'Exchange recorded', 201)
+    sendSuccess(res, await exchangesService.create(req.tenantId!, req.body, req.user?.userId ?? 'system', req), 'Exchange recorded', 201)
   } catch (e) { next(e) }
 })
 
@@ -65,13 +63,13 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 
 router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    sendSuccess(res, await exchangesService.update(req.tenantId!, req.params.id, req.body))
+    sendSuccess(res, await exchangesService.update(req.tenantId!, req.params.id, req.body, req))
   } catch (e) { next(e) }
 })
 
 router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    sendSuccess(res, await exchangesService.remove(req.tenantId!, req.params.id))
+    sendSuccess(res, await exchangesService.remove(req.tenantId!, req.params.id, req))
   } catch (e) { next(e) }
 })
 

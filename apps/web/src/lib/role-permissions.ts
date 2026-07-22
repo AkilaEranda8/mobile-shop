@@ -258,6 +258,7 @@ export function pathToPermissionModule(pathname: string): RolePermissionModuleKe
     return pathname === '/dashboard/daily-reload-report' ? 'DAILY_RELOAD' : 'REPORTS'
   }
   if (pathname.startsWith('/dashboard/staff') || pathname === '/staff' || pathname.startsWith('/staff/')) return 'STAFF'
+  if (pathname.startsWith('/dashboard/role-permissions')) return 'STAFF'
   if (pathname.startsWith('/dashboard/delivery') || pathname === '/delivery' || pathname.startsWith('/delivery/')) {
     return 'DELIVERY'
   }
@@ -272,6 +273,25 @@ export function pathToPermissionModule(pathname: string): RolePermissionModuleKe
   }
   if (pathname.startsWith('/dashboard/settings') || pathname === '/settings' || pathname.startsWith('/settings/')) {
     return 'SETTINGS'
+  }
+  if (
+    pathname.startsWith('/dashboard/analytics') ||
+    pathname === '/analytics' ||
+    pathname.startsWith('/analytics/')
+  ) {
+    return 'REPORTS'
+  }
+  if (
+    pathname.startsWith('/business-services') ||
+    pathname.startsWith('/dashboard/business-services')
+  ) {
+    return 'SETTINGS'
+  }
+  if (
+    pathname.startsWith('/purchase-invoice') ||
+    pathname.startsWith('/dashboard/purchase-invoice')
+  ) {
+    return 'SUPPLIERS'
   }
   return null
 }

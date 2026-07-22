@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { prisma } from '../../config/database'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
+import { enforceModuleAccess } from '../../middleware/module-access.middleware'
 import { validate } from '../../middleware/validate.middleware'
 import { sendSuccess } from '../../utils/response'
 import { stockTransferSchema } from './stock-transfer.schema'
@@ -10,6 +11,7 @@ import { AppError } from '../../middleware/error.middleware'
 
 const router = Router()
 router.use(authenticate)
+router.use(enforceModuleAccess('INVENTORY'))
 
 router.get('/transfers', async (req: Request, res: Response, next: NextFunction) => {
   try {

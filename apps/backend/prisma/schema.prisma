@@ -461,7 +461,7 @@ model Customer {
   imeiRecords ImeiRecord[]
   exchanges   DeviceExchange[]
 
-  @@unique([tenantId, phone])
+  @@unique([tenantId, branchId, phone])
   @@index([tenantId, branchId])
   @@index([tenantId, isActive])
 }

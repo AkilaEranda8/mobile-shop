@@ -1,13 +1,13 @@
 import { Router, Request, Response, NextFunction } from 'express'
-import { authenticate, requirePermission } from '../../middleware/auth.middleware'
+import { authenticate } from '../../middleware/auth.middleware'
+import { enforceModuleAccess } from '../../middleware/module-access.middleware'
 import { sendPaginated, sendSuccess } from '../../utils/response'
-import { PERMISSIONS } from '../../utils/permissions'
 import { productTraceabilityService } from './product-traceability.service'
 
 const router = Router({ mergeParams: true })
 
 router.use(authenticate)
-router.use(requirePermission(PERMISSIONS.PRODUCT_TRACEABILITY_VIEW))
+router.use(enforceModuleAccess('PRODUCT_TRACEABILITY'))
 
 type PaginatedHandler = (
   tenantId: string,

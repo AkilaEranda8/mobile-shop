@@ -7,7 +7,7 @@ import { Request } from 'express'
 import { createWarrantiesFromSaleItems } from '../warranty/warranty.service'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 import type { CompleteExchangeInput } from './exchanges.schema'
-import { effectiveBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
+import { effectiveBranchId, assertBranchRecordAccess, resolveMutationBranchId } from '../../utils/active-branch'
 import {
   executeExchangeSoldStockEffects,
   executeExchangeTradeInStockEffects,
@@ -104,25 +104,11 @@ function resolveSellPrice(product: { sellingPrice: number; storageVariations?: u
   return resolveCatalogPrice(product, 'retail')
 }
 
-async function resolveBranchId(tenantId: string, branchId?: string, userId?: string): Promise<string> {
-  if (branchId) return branchId
-  if (userId) {
-    const ub = await prisma.userBranch.findFirst({ where: { userId }, select: { branchId: true } })
-    if (ub?.branchId) return ub.branchId
-  }
-  const branch = await prisma.branch.findFirst({
-    where: { tenantId },
-    orderBy: [{ isHeadquarters: 'desc' }, { createdAt: 'asc' }],
-    select: { id: true },
-  })
-  if (!branch) throw new AppError('No branch configured for this shop', 400)
-  return branch.id
-}
-
 async function resolveCustomer(
   tx: Prisma.TransactionClient,
   tenantId: string,
   input: CompleteExchangeInput,
+  branchId: string,
 ): Promise<string | undefined> {
   if (input.customerId) {
     await tx.customer.update({
@@ -135,11 +121,14 @@ async function resolveCustomer(
     }).catch(() => {})
     return input.customerId
   }
-  let customer = await tx.customer.findFirst({ where: { tenantId, phone: input.customerPhone } })
+  let customer = await tx.customer.findFirst({
+    where: { tenantId, phone: input.customerPhone, branchId },
+  })
   if (!customer) {
     customer = await tx.customer.create({
       data: {
         tenantId,
+        branchId,
         name:    input.customerName,
         phone:   input.customerPhone,
         address: input.customerAddress,
@@ -333,8 +322,9 @@ export const exchangesService = {
     userId: string,
     cashierName: string,
     input: CompleteExchangeInput,
+    req: Request,
   ) {
-    const branchId = await resolveBranchId(tenantId, input.branchId, userId)
+    const branchId = await resolveMutationBranchId(req, { preferred: input.branchId })
     await assertBusinessDayOpenIfEnabled(tenantId, branchId)
     const buyPrice  = input.buyPrice
     const exchangeNumber = await generateExchangeNumber(tenantId)
@@ -380,7 +370,7 @@ export const exchangesService = {
     const tradeInVariation = variationLabel(input.oldStorage, input.oldColor)
 
     const result = await prisma.$transaction(async (tx) => {
-      const customerId = await resolveCustomer(tx, tenantId, input)
+      const customerId = await resolveCustomer(tx, tenantId, input, branchId)
 
       const tradeInProduct = await ensureTradeInProduct(tx, tenantId, branchId, input)
 
@@ -565,18 +555,21 @@ export const exchangesService = {
     return result
   },
 
-  async create(tenantId: string, body: any, userId: string) {
-    if (!body.branchId) {
-      const branch = await prisma.branch.findFirst({ where: { tenantId } })
-      if (!branch) throw new AppError('No branch found', 400)
-      body.branchId = branch.id
-    }
+  async create(tenantId: string, body: any, userId: string, req: Request) {
+    body.branchId = await resolveMutationBranchId(req, { preferred: body.branchId })
 
     if (!body.customerId && body.customerPhone) {
-      let customer = await prisma.customer.findFirst({ where: { tenantId, phone: body.customerPhone } })
+      let customer = await prisma.customer.findFirst({
+        where: { tenantId, phone: body.customerPhone, branchId: body.branchId },
+      })
       if (!customer) {
         customer = await prisma.customer.create({
-          data: { tenantId, name: body.customerName || 'Unknown', phone: body.customerPhone },
+          data: {
+            tenantId,
+            branchId: body.branchId,
+            name: body.customerName || 'Unknown',
+            phone: body.customerPhone,
+          },
         })
       }
       body.customerId = customer.id
@@ -609,15 +602,29 @@ export const exchangesService = {
     return exchange
   },
 
-  async update(tenantId: string, id: string, body: any) {
+  async update(tenantId: string, id: string, body: any, req?: Request) {
     const e = await prisma.deviceExchange.findFirst({ where: { id, tenantId } })
     if (!e) throw new AppError('Exchange record not found', 404)
-    return prisma.deviceExchange.update({ where: { id }, data: body })
+    if (req) assertBranchRecordAccess(req, e.branchId)
+    const {
+      notes, status, oldCondition, exchangeValue, newBrand, newModel, newImei, newDevicePrice,
+    } = body
+    const data: Record<string, unknown> = {}
+    if (notes !== undefined) data.notes = notes
+    if (status !== undefined) data.status = status
+    if (oldCondition !== undefined) data.oldCondition = oldCondition
+    if (exchangeValue !== undefined) data.exchangeValue = Number(exchangeValue)
+    if (newBrand !== undefined) data.newBrand = newBrand
+    if (newModel !== undefined) data.newModel = newModel
+    if (newImei !== undefined) data.newImei = newImei
+    if (newDevicePrice !== undefined) data.newDevicePrice = Number(newDevicePrice)
+    return prisma.deviceExchange.update({ where: { id }, data })
   },
 
-  async remove(tenantId: string, id: string) {
+  async remove(tenantId: string, id: string, req?: Request) {
     const e = await prisma.deviceExchange.findFirst({ where: { id, tenantId } })
     if (!e) throw new AppError('Exchange record not found', 404)
+    if (req) assertBranchRecordAccess(req, e.branchId)
     if (e.saleId || e.tradeInImeiRecordId) {
       throw new AppError('Completed exchanges cannot be deleted — use sales return or stock adjustment instead', 400)
     }

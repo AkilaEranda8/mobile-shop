@@ -13,14 +13,14 @@ export const customersController = {
     try {
       sendSuccess(
         res,
-        await customersService.create(req.tenantId!, req.body, req.user?.email),
+        await customersService.create(req.tenantId!, req.body, req.user?.email, req),
         'Customer created',
         201,
       )
     } catch (e) { next(e) }
   },
   async update(req: Request, res: Response, next: NextFunction) {
-    try { sendSuccess(res, await customersService.update(req.tenantId!, req.params.id, req.body)) } catch (e) { next(e) }
+    try { sendSuccess(res, await customersService.update(req.tenantId!, req.params.id, req.body, req)) } catch (e) { next(e) }
   },
   async search(req: Request, res: Response, next: NextFunction) {
     try { sendSuccess(res, await customersService.search(req.tenantId!, req.query.q as string, req)) } catch (e) { next(e) }
@@ -30,17 +30,17 @@ export const customersController = {
       const isActive = req.body?.isActive !== false
       sendSuccess(
         res,
-        await customersService.setActive(req.tenantId!, req.params.id, isActive),
+        await customersService.setActive(req.tenantId!, req.params.id, isActive, req),
         isActive ? 'Customer activated' : 'Customer deactivated',
       )
     } catch (e) { next(e) }
   },
   async remove(req: Request, res: Response, next: NextFunction) {
     try {
-      sendSuccess(res, await customersService.remove(req.tenantId!, req.params.id), 'Customer deleted')
+      sendSuccess(res, await customersService.remove(req.tenantId!, req.params.id, req), 'Customer deleted')
     } catch (e) { next(e) }
   },
   async creditPayment(req: Request, res: Response, next: NextFunction) {
-    try { sendSuccess(res, await customersService.creditPayment(req.tenantId!, req.params.id, req.body)) } catch (e) { next(e) }
+    try { sendSuccess(res, await customersService.creditPayment(req.tenantId!, req.params.id, req.body, req)) } catch (e) { next(e) }
   },
 }

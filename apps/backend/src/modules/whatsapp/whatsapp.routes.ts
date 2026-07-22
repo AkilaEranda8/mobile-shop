@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { whatsappController } from './whatsapp.controller'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
+import { enforceModuleAccess } from '../../middleware/module-access.middleware'
 import { validate } from '../../middleware/validate.middleware'
 import {
   connectSchema,
@@ -18,6 +19,7 @@ router.post('/webhook', whatsappController.webhookEvent)
 
 // ── Authenticated routes ─────────────────────────────────────────────────────
 router.use(authenticate)
+router.use(enforceModuleAccess('WHATSAPP'))
 
 router.get('/status',              whatsappController.getStatus)
 router.get('/config',              whatsappController.getConfig)

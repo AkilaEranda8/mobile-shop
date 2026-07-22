@@ -3,6 +3,7 @@ import multer from 'multer'
 import { prisma } from '../../config/database'
 import { sendSuccess } from '../../utils/response'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
+import { enforceModuleAccess } from '../../middleware/module-access.middleware'
 import { AppError } from '../../middleware/error.middleware'
 import { businessDayRange, businessDateKeyFromInstant, businessDateFromInstant, resolveQueryDateRange, businessDateDb, normalizeBusinessDate } from '../../utils/date-range'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
@@ -15,10 +16,11 @@ import {
 } from './reload-settings.util'
 import { buildProviderBreakdown, computeProviderPriorBalances, summarizeProviderBreakdown } from './reload-provider.util'
 import { findBranchReloads } from './reload-branch.util'
-import { effectiveBranchId } from '../../utils/active-branch'
+import { effectiveBranchId, resolveMutationBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
 
 const router = Router()
 router.use(authenticate)
+router.use(enforceModuleAccess('DAILY_RELOAD'))
 
 async function requireDailyReloadFeature(req: Request, _res: Response, next: NextFunction) {
   try {
@@ -76,23 +78,8 @@ function round2(n: number) {
   return Math.round(n * 100) / 100
 }
 
-async function resolveBranchId(tenantId: string, userId: string, branchId?: string) {
-  if (branchId) {
-    const b = await prisma.branch.findFirst({ where: { id: branchId, tenantId, isActive: true } })
-    if (!b) throw new AppError('Invalid branch', 400)
-    return b.id
-  }
-  const link = await prisma.userBranch.findFirst({
-    where: { userId },
-    include: { branch: true },
-  })
-  if (link?.branch?.isActive) return link.branchId
-  const fallback = await prisma.branch.findFirst({
-    where: { tenantId, isActive: true },
-    orderBy: [{ isDefault: 'desc' }, { isHeadquarters: 'desc' }, { createdAt: 'asc' }],
-  })
-  if (!fallback) throw new AppError('No active branch found', 400)
-  return fallback.id
+async function resolveBranchId(req: Request, preferred?: string) {
+  return resolveMutationBranchId(req, { preferred })
 }
 
 // ── List reloads ──────────────────────────────────────────────────────────────
@@ -103,7 +90,8 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     const pageNum  = Math.max(1, parseInt(page, 10) || 1)
     const limitNum = Math.min(500, Math.max(1, parseInt(limit, 10) || 200))
     const skip = (pageNum - 1) * limitNum
-    const where = { tenantId, ...buildDateFilter(date) }
+    const listBranchId = effectiveBranchId(req)
+    const where = { tenantId, ...buildDateFilter(date), ...(listBranchId ? { branchId: listBranchId } : {}) }
 
     res.setHeader('Cache-Control', 'no-store')
     const settings = await fetchTenantReloadSettings(tenantId)
@@ -121,7 +109,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     let providerBreakdown: ReturnType<typeof buildProviderBreakdown> = []
     let settlement = { reloadTotal: 0, commission: 0, netPayable: 0, paid: 0, remaining: 0 }
     if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      const branchId = await resolveBranchId(tenantId, req.user!.userId, req.query.branchId as string | undefined)
+      const branchId = await resolveBranchId(req, req.query.branchId as string | undefined)
       const { start, end } = businessDayRange(date)
       const branchReloads = await findBranchReloads(tenantId, branchId, start, end)
       const branchSuccessReloads = branchReloads.filter(r => r.status === 'Success')
@@ -160,7 +148,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     const { connectionNo, provider, transactionId, executedBy, reloadDate, status, amount, reloadType, branchId: bodyBranchId } = req.body
     if (!connectionNo || amount === undefined) throw new AppError('connectionNo and amount are required', 400)
 
-    const branchId = await resolveBranchId(tenantId, user.userId, bodyBranchId)
+    const branchId = await resolveBranchId(req, bodyBranchId)
     const resolvedProvider = resolveReloadProvider(String(connectionNo), provider ? String(provider) : null)
     const svc = parseReloadTypeInput(reloadType)
     const reload = await prisma.dailyReload.create({
@@ -189,7 +177,7 @@ router.post('/bulk', async (req: Request, res: Response, next: NextFunction) => 
     const { rows, branchId: bodyBranchId } = req.body
     if (!Array.isArray(rows) || rows.length === 0) throw new AppError('rows array is required', 400)
 
-    const branchId = await resolveBranchId(tenantId, user.userId, bodyBranchId)
+    const branchId = await resolveBranchId(req, bodyBranchId)
     const data = rows
       .map((r: any) => {
         const connectionNo = String(r.connectionNo || '').trim()
@@ -223,7 +211,7 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     const user = req.user!
     if (!req.file) throw new AppError('No file uploaded', 400)
 
-    const branchId = await resolveBranchId(tenantId, user.userId, req.body?.branchId)
+    const branchId = await resolveBranchId(req, req.body?.branchId)
 
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const XLSX = require('xlsx') as typeof import('xlsx')
@@ -372,7 +360,7 @@ router.post('/pay-provider', authorize('OWNER', 'MANAGER', 'CASHIER'), async (re
     }
     if (!date || !provider) throw new AppError('date and provider are required', 400)
     const dateKey = normalizeBusinessDate(date)
-    const branchId = await resolveBranchId(tenantId, user.userId, bodyBranchId)
+    const branchId = await resolveBranchId(req, bodyBranchId)
     await assertBusinessDayOpenIfEnabled(tenantId, branchId)
 
     const settings = await fetchTenantReloadSettings(tenantId)
@@ -475,6 +463,7 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
     const tenantId = req.tenantId!
     const existing = await prisma.dailyReload.findFirst({ where: { id: req.params.id, tenantId } })
     if (!existing) throw new AppError('Record not found', 404)
+    assertBranchRecordAccess(req, existing.branchId)
     await prisma.dailyReload.delete({ where: { id: req.params.id } })
     sendSuccess(res, null, 'Deleted')
   } catch (e) { next(e) }

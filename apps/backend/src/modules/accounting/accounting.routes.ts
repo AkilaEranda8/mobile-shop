@@ -1,10 +1,11 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
+import { enforceModuleAccess } from '../../middleware/module-access.middleware'
 import { sendSuccess } from '../../utils/response'
 import { requireAccountingFeature } from './accounting.middleware'
 import { getAccountingStatus, listGlAccounts } from './accounting.service'
 import { initializeAccounting } from './accounting-init.service'
-import { effectiveBranchId } from '../../utils/active-branch'
+import { effectiveBranchId, resolveMutationBranchId } from '../../utils/active-branch'
 import { resolveQueryDateRange, businessDayRange, normalizeBusinessDate } from '../../utils/date-range'
 import { getPagination } from '../../utils/pagination'
 import { syncOutboxForTenant } from './integration/accounting-outbox.service'
@@ -86,6 +87,7 @@ import { listAuditEvents } from './audit/audit.service'
 
 const router = Router()
 router.use(authenticate)
+router.use(enforceModuleAccess('ACCOUNTING'))
 
 /** Public to tenant users — shows whether module is enabled (no 403 if disabled) */
 router.get('/status', async (req: Request, res: Response, next: NextFunction) => {
@@ -137,7 +139,7 @@ router.patch('/coa/accounts/:id', authorize('OWNER'), async (req: Request, res: 
 
 router.post('/coa/accounts', authorize('OWNER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const branchId = (req.body.branchId as string) || effectiveBranchId(req)
+    const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId as string | undefined })
     sendSuccess(
       res,
       await createGlAccount(req.tenantId!, { ...req.body, branchId: branchId ?? undefined }),
@@ -191,7 +193,7 @@ router.post('/cash-bank/accounts', authorize('OWNER'), async (req: Request, res:
 router.post('/cash-bank/transfers', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     assertCashTransfersAllowed(req.tenantId!)
-    const branchId = (req.body.branchId as string) || effectiveBranchId(req)
+    const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId as string | undefined })
     if (!branchId) throw new AppError('branchId is required', 400)
     sendSuccess(
       res,
@@ -204,7 +206,7 @@ router.post('/cash-bank/transfers', authorize('OWNER', 'MANAGER'), async (req: R
 
 router.post('/cash-bank/settle-clearing', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const branchId = (req.body.branchId as string) || effectiveBranchId(req)
+    const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId as string | undefined })
     if (!branchId) throw new AppError('branchId is required', 400)
     sendSuccess(
       res,
@@ -217,7 +219,7 @@ router.post('/cash-bank/settle-clearing', authorize('OWNER', 'MANAGER'), async (
 
 router.post('/cash-bank/reconcile', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const branchId = (req.body.branchId as string) || effectiveBranchId(req)
+    const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId as string | undefined })
     if (!branchId) throw new AppError('branchId is required', 400)
     sendSuccess(res, await reconcileBankAccount(req.tenantId!, { ...req.body, branchId }, req.user?.email))
   } catch (e) { next(e) }
@@ -246,7 +248,7 @@ router.get('/tax/vat-summary', authorize('OWNER', 'MANAGER'), async (req: Reques
 
 router.post('/tax/vat-payment', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const branchId = (req.body.branchId as string) || effectiveBranchId(req)
+    const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId as string | undefined })
     if (!branchId) throw new AppError('branchId is required', 400)
     sendSuccess(
       res,
@@ -268,7 +270,7 @@ router.get('/petty-cash', authorize('OWNER', 'MANAGER'), async (req: Request, re
 router.post('/petty-cash/expenses', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     assertCashTransfersAllowed(req.tenantId!)
-    const branchId = (req.body.branchId as string) || effectiveBranchId(req)
+    const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId as string | undefined })
     if (!branchId) throw new AppError('branchId is required', 400)
     sendSuccess(
       res,
@@ -282,7 +284,7 @@ router.post('/petty-cash/expenses', authorize('OWNER', 'MANAGER'), async (req: R
 router.post('/petty-cash/replenish', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     assertCashTransfersAllowed(req.tenantId!)
-    const branchId = (req.body.branchId as string) || effectiveBranchId(req)
+    const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId as string | undefined })
     if (!branchId) throw new AppError('branchId is required', 400)
     sendSuccess(
       res,
@@ -307,7 +309,7 @@ router.get('/payroll/employees', authorize('OWNER', 'MANAGER'), async (req: Requ
 
 router.post('/payroll/runs', authorize('OWNER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const branchId = (req.body.branchId as string) || effectiveBranchId(req)
+    const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId as string | undefined })
     sendSuccess(
       res,
       await createPayrollAccrual(req.tenantId!, { ...req.body, branchId: branchId ?? undefined }, req.user?.email),
@@ -319,7 +321,7 @@ router.post('/payroll/runs', authorize('OWNER'), async (req: Request, res: Respo
 
 router.post('/payroll/runs/:runId/pay', authorize('OWNER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const branchId = (req.body.branchId as string) || effectiveBranchId(req)
+    const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId as string | undefined })
     if (!branchId) throw new AppError('branchId is required', 400)
     sendSuccess(
       res,
@@ -332,7 +334,7 @@ router.post('/payroll/runs/:runId/pay', authorize('OWNER'), async (req: Request,
 
 router.post('/payroll/statutory-remittance', authorize('OWNER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const branchId = (req.body.branchId as string) || effectiveBranchId(req)
+    const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId as string | undefined })
     if (!branchId) throw new AppError('branchId is required', 400)
     sendSuccess(
       res,
@@ -384,7 +386,7 @@ router.get('/journals/:id', authorize('OWNER', 'MANAGER'), async (req: Request, 
 
 router.post('/journals/manual', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const branchId = (req.body.branchId as string) || effectiveBranchId(req)
+    const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId as string | undefined })
     sendSuccess(
       res,
       await createManualJournalEntry(
@@ -567,7 +569,7 @@ router.get('/ap/suppliers/:supplierId', authorize('OWNER', 'MANAGER'), async (re
 
 router.post('/ar/payments', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const branchId = (req.body.branchId as string) || effectiveBranchId(req)
+    const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId as string | undefined })
     if (!branchId) throw new AppError('branchId is required', 400)
     sendSuccess(
       res,
@@ -588,7 +590,7 @@ router.post('/ar/payments', authorize('OWNER', 'MANAGER'), async (req: Request, 
 
 router.post('/ap/payments', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const branchId = (req.body.branchId as string) || effectiveBranchId(req)
+    const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId as string | undefined })
     if (!branchId) throw new AppError('branchId is required', 400)
 
     let occurredAt: Date | undefined

@@ -17,7 +17,21 @@ const FALLBACK_HREFS: Record<string, string> = {
   REPAIRS: '/dashboard/repairs',
   CUSTOMERS: '/dashboard/customers',
   INVENTORY: '/inventory',
+  SERVICES: '/dashboard/services',
+  SUPPLIERS: '/dashboard/suppliers',
+  IMEI: '/dashboard/imei',
+  WARRANTY: '/dashboard/warranty',
+  EXCHANGES: '/dashboard/exchanges',
+  FINANCE: '/dashboard/finance',
+  ACCOUNTING: '/dashboard/accounting',
+  REPORTS: '/dashboard/reports',
+  STAFF: '/dashboard/staff',
+  DELIVERY: '/dashboard/delivery',
+  WHATSAPP: '/dashboard/whatsapp',
+  DAILY_RELOAD: '/dashboard/daily-reload',
+  DAILY_CLOSING: '/dashboard/daily-closing',
   SETTINGS: '/dashboard/settings',
+  BRANCHES: '/dashboard/branches',
 }
 
 /** Redirects away from modules the current role cannot view; wraps ModuleAccess for View vs Edit. */
@@ -40,6 +54,8 @@ export function RoleAccessGuard({ children }: { children: React.ReactNode }) {
           return
         }
       }
+      // No allowed module with a known href — send to dashboard root (may still be blocked)
+      if (pathname !== '/dashboard') router.replace('/dashboard')
       return
     }
 
@@ -49,6 +65,10 @@ export function RoleAccessGuard({ children }: { children: React.ReactNode }) {
       if (fallback !== pathname) router.replace(fallback)
     }
   }, [pathname, moduleKey, canView, canEdit, loading, router])
+
+  if (loading) {
+    return <ModuleAccessProvider moduleKey={moduleKey}>{children}</ModuleAccessProvider>
+  }
 
   return <ModuleAccessProvider moduleKey={moduleKey}>{children}</ModuleAccessProvider>
 }

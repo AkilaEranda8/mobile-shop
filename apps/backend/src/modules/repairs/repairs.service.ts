@@ -5,11 +5,20 @@ import { generateTicketNumber } from '../../utils/counters'
 import { linkRepairToClaim, createWarrantiesFromRepair } from '../warranty/warranty.service'
 import { Request } from 'express'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
-import { effectiveBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
+import { effectiveBranchId, assertBranchRecordAccess, resolveMutationBranchId } from '../../utils/active-branch'
 import { emitRepairAccounting } from '../accounting/integration/accounting-events.service'
 import { formatRepairServiceItemName } from '../../utils/repair-item-label'
 import { applyRepairSparePartsStockEffectsIfEnabled } from '../inventory-engine/inventory-engine.service'
 import { assertRepairTransitionIfEnabled } from '../workflow-validators/workflow-validators.service'
+
+
+async function loadRepairForAccess(tenantId: string, id: string, req?: Request) {
+  const r = await prisma.repairTicket.findFirst({ where: { id, tenantId }, include: { notes: true, spareParts: true, history: true } })
+  if (!r) throw new AppError('Repair ticket not found', 404)
+  if (req) assertBranchRecordAccess(req, r.branchId)
+  return r
+}
+
 
 function normalizeFaultName(input: unknown) {
   const s = String(input ?? '')
@@ -87,16 +96,23 @@ export const repairsService = {
     return serializeRepair(r)
   },
 
-  async create(tenantId: string, body: any) {
-    if (!body.branchId) {
-      const branch = await prisma.branch.findFirst({ where: { tenantId } })
-      if (!branch) throw new AppError('No branch found for tenant', 400)
-      body.branchId = branch.id
-    }
+  async create(tenantId: string, body: any, req: Request) {
+    body.branchId = await resolveMutationBranchId(req, { preferred: body.branchId })
 
     if (!body.customerId && body.customerPhone) {
-      let customer = await prisma.customer.findFirst({ where: { tenantId, phone: body.customerPhone } })
-      if (!customer) customer = await prisma.customer.create({ data: { tenantId, name: body.customerName || 'Unknown', phone: body.customerPhone } })
+      let customer = await prisma.customer.findFirst({
+        where: { tenantId, phone: body.customerPhone, branchId: body.branchId },
+      })
+      if (!customer) {
+        customer = await prisma.customer.create({
+          data: {
+            tenantId,
+            branchId: body.branchId,
+            name: body.customerName || 'Unknown',
+            phone: body.customerPhone,
+          },
+        })
+      }
       body.customerId = customer.id
     }
     if (!body.customerId) throw new AppError('Customer phone is required', 400)
@@ -140,9 +156,10 @@ export const repairsService = {
     return serializeRepair(repair)
   },
 
-  async update(tenantId: string, id: string, body: any) {
+  async update(tenantId: string, id: string, body: any, req?: Request) {
     const r = await prisma.repairTicket.findFirst({ where: { id, tenantId }, include: { spareParts: true } })
     if (!r) throw new AppError('Repair ticket not found', 404)
+    if (req) assertBranchRecordAccess(req, r.branchId)
     if (r.status === 'DELIVERED' || r.status === 'CANCELLED') {
       const locked = ['estimatedCost', 'actualCost', 'paidAmount', 'dueAmount', 'warrantyMonths', 'imei', 'deviceBrand', 'deviceModel', 'deviceColor'] as const
       for (const key of locked) {
@@ -188,9 +205,10 @@ export const repairsService = {
     return serializeRepair(updated)
   },
 
-  async updateStatus(tenantId: string, id: string, status: string, changedBy: string, note?: string) {
+  async updateStatus(tenantId: string, id: string, status: string, changedBy: string, note?: string, req?: Request) {
     const r = await prisma.repairTicket.findFirst({ where: { id, tenantId } })
     if (!r) throw new AppError('Repair ticket not found', 404)
+    if (req) assertBranchRecordAccess(req, r.branchId)
     await assertRepairTransitionIfEnabled(tenantId, r.status, status)
     await prisma.$transaction([
       prisma.repairTicket.update({ where: { id }, data: { status: status as any } }),
@@ -203,7 +221,12 @@ export const repairsService = {
     return serializeRepair(ticket!)
   },
 
-  async addNote(tenantId: string, id: string, text: string, authorName: string, isPublic: boolean) {
+  async addNote(tenantId: string, id: string, text: string, authorName: string, isPublic: boolean, req?: Request) {
+    if (req) {
+      const existing = await prisma.repairTicket.findFirst({ where: { id, tenantId }, select: { branchId: true } })
+      if (!existing) throw new AppError('Repair ticket not found', 404)
+      assertBranchRecordAccess(req, existing.branchId)
+    }
     const r = await prisma.repairTicket.findFirst({ where: { id, tenantId } })
     if (!r) throw new AppError('Repair ticket not found', 404)
     await prisma.repairNote.create({ data: { repairId: id, text, authorName, isPublic } })
@@ -214,7 +237,12 @@ export const repairsService = {
     return serializeRepair(ticket!)
   },
 
-  async addSparePart(tenantId: string, repairId: string, body: any) {
+  async addSparePart(tenantId: string, repairId: string, body: any, req?: Request) {
+    if (req) {
+      const existing = await prisma.repairTicket.findFirst({ where: { id: repairId, tenantId }, select: { branchId: true } })
+      if (!existing) throw new AppError('Repair ticket not found', 404)
+      assertBranchRecordAccess(req, existing.branchId)
+    }
     const r = await prisma.repairTicket.findFirst({ where: { id: repairId, tenantId } })
     if (!r) throw new AppError('Repair ticket not found', 404)
     if (r.status === 'DELIVERED' || r.status === 'CANCELLED') {
@@ -244,7 +272,12 @@ export const repairsService = {
     return serializeRepair(ticket!)
   },
 
-  async removeSparePart(tenantId: string, repairId: string, partId: string) {
+  async removeSparePart(tenantId: string, repairId: string, partId: string, req?: Request) {
+    if (req) {
+      const existing = await prisma.repairTicket.findFirst({ where: { id: repairId, tenantId }, select: { branchId: true } })
+      if (!existing) throw new AppError('Repair ticket not found', 404)
+      assertBranchRecordAccess(req, existing.branchId)
+    }
     const r = await prisma.repairTicket.findFirst({ where: { id: repairId, tenantId } })
     if (!r) throw new AppError('Repair ticket not found', 404)
     if (r.status === 'DELIVERED' || r.status === 'CANCELLED') {
@@ -262,7 +295,12 @@ export const repairsService = {
     return serializeRepair(updated)
   },
 
-  async collectPayment(tenantId: string, id: string, body: { discount?: number; paymentMethod: string; cashierName?: string; paidAmount?: number }) {
+  async collectPayment(tenantId: string, id: string, body: { discount?: number; paymentMethod: string; cashierName?: string; paidAmount?: number }, req?: Request) {
+    if (req) {
+      const existing = await prisma.repairTicket.findFirst({ where: { id, tenantId }, select: { branchId: true } })
+      if (!existing) throw new AppError('Repair ticket not found', 404)
+      assertBranchRecordAccess(req, existing.branchId)
+    }
     const r = await prisma.repairTicket.findFirst({ where: { id, tenantId }, include: { spareParts: true, notes: true } })
     if (!r) throw new AppError('Repair ticket not found', 404)
     if (r.status === 'DELIVERED') throw new AppError('Payment has already been collected for this ticket', 400)

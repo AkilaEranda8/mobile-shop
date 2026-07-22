@@ -167,7 +167,9 @@ const navItems: NavGroup[] = [
   {
     label: 'HR & Staff',
     items: [
-      { href: '/dashboard/staff', icon: UserCheck, label: 'Staff & Roles', badge: 'NEW', feature: 'STAFF', permission: 'STAFF' },
+      { href: '/dashboard/staff', icon: UserCheck, label: 'Staff & Roles', feature: 'STAFF', permission: 'STAFF' },
+      { href: '/dashboard/role-permissions', icon: Shield, label: 'Role Permissions', badge: 'NEW', feature: 'STAFF', permission: 'STAFF', requiresEdit: true },
+      { href: '/dashboard/role-permissions-guide', icon: BookOpen, label: 'Permissions Guide', feature: 'STAFF', permission: 'STAFF' },
     ],
   },
   {
@@ -194,7 +196,7 @@ const navItems: NavGroup[] = [
       { href: '/dashboard/user-manual', icon: BookOpen, label: 'User Manual' },
       { href: '/dashboard/release-notes', icon: Sparkles, label: 'Release Notes', badge: 'NEW' },
       { href: '/dashboard/feature-suggestions', icon: MessageSquarePlus, label: 'Feature Suggestions' },
-      { href: '/dashboard/branches', icon: Building2, label: 'Branches', badge: 'NEW', ownerOnly: true, permission: 'BRANCHES' },
+      { href: '/dashboard/branches', icon: Building2, label: 'Branches', badge: 'NEW', permission: 'BRANCHES' },
       { href: '/dashboard/settings', icon: Settings,  label: 'Settings', permission: 'SETTINGS' },
     ],
   },

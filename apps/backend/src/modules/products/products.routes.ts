@@ -1,11 +1,13 @@
 import { Router } from 'express'
 import { productsController } from './products.controller'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
+import { enforceModuleAccessReadAny } from '../../middleware/module-access.middleware'
 import { validate } from '../../middleware/validate.middleware'
 import { importFromMasterSchema } from '../master-catalog/master-catalog.schema'
 
 const router = Router()
 router.use(authenticate)
+router.use(enforceModuleAccessReadAny(['INVENTORY', 'POS', 'REPAIRS', 'IMEI'], 'INVENTORY'))
 
 router.get('/categories', productsController.getCategories)
 router.post('/categories', authorize('OWNER', 'MANAGER'), productsController.createCategory)

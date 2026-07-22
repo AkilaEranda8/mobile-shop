@@ -107,13 +107,22 @@ export function useFeatureFlag(feature: string): boolean {
   return hasFeature(feature)
 }
 
-const ROLE_PERMS_CACHE_KEY = 'hx_role_permissions'
+const ROLE_PERMS_CACHE_PREFIX = 'hx_role_permissions'
+
+function rolePermsCacheKey(): string | null {
+  const user = authStorage.getUser()
+  if (!user?.id || !user?.tenantId) return null
+  return `${ROLE_PERMS_CACHE_PREFIX}:${user.tenantId}:${user.id}`
+}
 
 export function useRolePermissions() {
   const [matrix, setMatrix] = useState(() => {
     try {
-      const raw = localStorage.getItem(ROLE_PERMS_CACHE_KEY)
-      if (raw) return normalizeRolePermissions(JSON.parse(raw))
+      const key = rolePermsCacheKey()
+      if (key) {
+        const raw = localStorage.getItem(key)
+        if (raw) return normalizeRolePermissions(JSON.parse(raw))
+      }
     } catch { /* noop */ }
     return DEFAULT_ROLE_PERMISSIONS
   })
@@ -124,7 +133,10 @@ export function useRolePermissions() {
       const res: any = await tenantApi.myRolePermissions()
       const data = normalizeRolePermissions(res?.data ?? res)
       setMatrix(data)
-      try { localStorage.setItem(ROLE_PERMS_CACHE_KEY, JSON.stringify(data)) } catch { /* noop */ }
+      try {
+        const key = rolePermsCacheKey()
+        if (key) localStorage.setItem(key, JSON.stringify(data))
+      } catch { /* noop */ }
       return data
     } finally {
       setLoading(false)
@@ -329,10 +341,11 @@ const wrapPaginated = <T>(apiFn: () => Promise<any>): Promise<{ data: { data: T[
 const ALL: Record<string, string> = { limit: '5000' }
 
 export function useProducts(params?: Record<string, string>) {
+  const branchId = useActiveBranchId()
   const p = { ...ALL, ...params }
   return useApi<{ data: unknown[]; meta: any }>(
     () => wrapPaginated(productsApi.list.bind(null, p)),
-    [JSON.stringify(p)],
+    [JSON.stringify(p), branchId ?? 'all'],
   )
 }
 
@@ -346,10 +359,11 @@ export function useCustomers(params?: Record<string, string>) {
 }
 
 export function useSales(params?: Record<string, string>) {
+  const branchId = useActiveBranchId()
   const p = { ...ALL, ...params }
   return useApi<{ data: unknown[]; meta: any }>(
     () => wrapPaginated(salesApi.list.bind(null, p)),
-    [JSON.stringify(p)],
+    [JSON.stringify(p), branchId ?? 'all'],
   )
 }
 
@@ -368,10 +382,11 @@ export function useRepairs(params?: Record<string, string>) {
 }
 
 export function useWarranties(params?: Record<string, string>) {
+  const branchId = useActiveBranchId()
   const p = { ...ALL, ...params }
   return useApi<{ data: unknown[]; meta: any }>(
     () => wrapPaginated(warrantyApi.list.bind(null, p)),
-    [JSON.stringify(p)],
+    [JSON.stringify(p), branchId ?? 'all'],
   )
 }
 
@@ -384,10 +399,11 @@ export function useSuppliers(params?: Record<string, string>) {
 }
 
 export function usePurchaseOrders(params?: Record<string, string>) {
+  const branchId = useActiveBranchId()
   const p = { ...ALL, ...params }
   return useApi<{ data: unknown[]; meta: any }>(
     () => wrapPaginated(suppliersApi.purchaseOrders.bind(null, p)),
-    [JSON.stringify(p)],
+    [JSON.stringify(p), branchId ?? 'all'],
   )
 }
 
@@ -409,9 +425,10 @@ export function useTransactions(params?: Record<string, string>) {
 }
 
 export function useFinanceSummary(params?: Record<string, string>) {
+  const branchId = useActiveBranchId()
   return useApi<unknown>(
     () => financeApi.summary(params) as Promise<{ data: unknown }>,
-    [JSON.stringify(params)],
+    [JSON.stringify(params), branchId ?? 'all'],
   )
 }
 
@@ -449,16 +466,18 @@ export function useTopProducts(params?: Record<string, string>) {
 }
 
 export function useRepairsByStatus(params?: Record<string, string>) {
+  const branchId = useActiveBranchId()
   return useApi<unknown[]>(
     () => analyticsApi.repairsByStatus(params) as Promise<{ data: unknown[] }>,
-    [JSON.stringify(params ?? {})],
+    [JSON.stringify(params ?? {}), branchId ?? 'all'],
   )
 }
 
 export function useInventorySummary(params?: Record<string, string>) {
+  const branchId = useActiveBranchId()
   return useApi<unknown>(
     () => analyticsApi.inventorySummary(params) as Promise<{ data: unknown }>,
-    [JSON.stringify(params ?? {})],
+    [JSON.stringify(params ?? {}), branchId ?? 'all'],
   )
 }
 

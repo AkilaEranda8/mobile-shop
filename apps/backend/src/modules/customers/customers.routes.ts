@@ -1,9 +1,11 @@
 import { Router } from 'express'
 import { customersController } from './customers.controller'
 import { authenticate } from '../../middleware/auth.middleware'
+import { enforceModuleAccess } from '../../middleware/module-access.middleware'
 
 const router = Router()
 router.use(authenticate)
+router.use(enforceModuleAccess('CUSTOMERS'))
 
 router.get('/search', customersController.search)
 router.get('/', customersController.list)

@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { deliveryController } from './delivery.controller'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
+import { enforceModuleAccess } from '../../middleware/module-access.middleware'
 import { validate } from '../../middleware/validate.middleware'
 import {
   createDeliveryOrderSchema,
@@ -13,6 +14,7 @@ import {
 const router = Router()
 
 router.use(authenticate)
+router.use(enforceModuleAccess('DELIVERY'))
 
 // ── Stats ────────────────────────────────────────────────────────────────────
 router.get('/stats', deliveryController.getStats)

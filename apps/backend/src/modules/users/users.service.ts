@@ -4,6 +4,7 @@ import { AppError } from '../../middleware/error.middleware'
 import { getPagination } from '../../utils/pagination'
 import { Request } from 'express'
 import { createOrGetGroup, ensureKcUser, updateKcUser, updateKcPassword, isKcConfigured } from '../../utils/keycloakAdmin'
+import { effectiveBranchId } from '../../utils/active-branch'
 
 // Roles a tenant admin (OWNER/MANAGER) is permitted to assign. PLATFORM_ADMIN is
 // intentionally excluded so tenant users can never escalate to platform access.
@@ -13,7 +14,7 @@ export const usersService = {
   async list(tenantId: string, req: Request) {
     const { skip, limit, page, search } = getPagination(req)
     const role = req.query.role as string | undefined
-    let branchId = (req.query.branchId as string | undefined) || undefined
+    let branchId = (req.query.branchId as string | undefined) || effectiveBranchId(req) || undefined
 
     const actor = req.user
     let allowedBranchIds: string[] | null = null
@@ -74,10 +75,24 @@ export const usersService = {
     return { data, total, page, limit }
   },
 
-  async create(tenantId: string, body: { email: string; name: string; role: string; password: string; branchIds?: string[] }) {
+  async create(tenantId: string, body: { email: string; name: string; role: string; password: string; branchIds?: string[] }, actorRole?: string) {
     if (!ASSIGNABLE_ROLES.includes(body.role)) throw new AppError('Invalid role', 400)
+    if (body.role === 'OWNER' && actorRole !== 'OWNER' && actorRole !== 'PLATFORM_ADMIN') {
+      throw new AppError('Only an Owner can create another Owner account', 403)
+    }
     const email = body.email.trim().toLowerCase()
     if (!body.password || body.password.length < 6) throw new AppError('Password must be at least 6 characters', 400)
+    const branchIds = Array.isArray(body.branchIds) ? [...new Set(body.branchIds.filter(Boolean))] : []
+    if (!branchIds.length) {
+      throw new AppError('Assign at least one branch to this staff member', 400)
+    }
+    const validBranches = await prisma.branch.findMany({
+      where: { tenantId, id: { in: branchIds }, isActive: true },
+      select: { id: true },
+    })
+    if (validBranches.length !== branchIds.length) {
+      throw new AppError('One or more selected branches are invalid', 400)
+    }
     const existing = await prisma.user.findFirst({
       where: { tenantId, email: { equals: email, mode: 'insensitive' } },
     })
@@ -93,7 +108,7 @@ export const usersService = {
         name: body.name.trim(),
         role: body.role as any,
         password,
-        branches: body.branchIds ? { create: body.branchIds.map((id) => ({ branchId: id })) } : undefined,
+        branches: { create: branchIds.map((id) => ({ branchId: id })) },
       },
       include: { branches: { select: { branchId: true } } },
     })
@@ -139,10 +154,17 @@ export const usersService = {
     tenantId: string,
     id: string,
     body: Partial<{ name: string; email: string; role: string; isActive: boolean; branchIds: string[]; password: string }>,
+    actorRole?: string,
   ) {
     if (body.role !== undefined && !ASSIGNABLE_ROLES.includes(body.role)) throw new AppError('Invalid role', 400)
+    if (body.role === 'OWNER' && actorRole !== 'OWNER' && actorRole !== 'PLATFORM_ADMIN') {
+      throw new AppError('Only an Owner can assign the Owner role', 403)
+    }
     const user = await prisma.user.findFirst({ where: { id, tenantId } })
     if (!user) throw new AppError('User not found', 404)
+    if (user.role === 'OWNER' && body.role && body.role !== 'OWNER' && actorRole !== 'OWNER' && actorRole !== 'PLATFORM_ADMIN') {
+      throw new AppError('Only an Owner can change another Owner\'s role', 403)
+    }
 
     const { branchIds, password, name, email, role, isActive } = body
     if (password !== undefined) {
@@ -161,11 +183,20 @@ export const usersService = {
       if (clash) throw new AppError('Email already in use', 409)
     }
 
-    if (branchIds) {
-      await prisma.userBranch.deleteMany({ where: { userId: id } })
-      if (branchIds.length > 0) {
-        await prisma.userBranch.createMany({ data: branchIds.map((bid) => ({ userId: id, branchId: bid })) })
+    if (branchIds !== undefined) {
+      const nextIds = [...new Set(branchIds.filter(Boolean))]
+      if (!nextIds.length) {
+        throw new AppError('Assign at least one branch to this staff member', 400)
       }
+      const validBranches = await prisma.branch.findMany({
+        where: { tenantId, id: { in: nextIds }, isActive: true },
+        select: { id: true },
+      })
+      if (validBranches.length !== nextIds.length) {
+        throw new AppError('One or more selected branches are invalid', 400)
+      }
+      await prisma.userBranch.deleteMany({ where: { userId: id } })
+      await prisma.userBranch.createMany({ data: nextIds.map((bid) => ({ userId: id, branchId: bid })) })
     }
 
     const data: Record<string, unknown> = {}

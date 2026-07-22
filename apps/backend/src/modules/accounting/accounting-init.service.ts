@@ -179,6 +179,61 @@ export async function initializeAccounting(tenantId: string, actorEmail = 'syste
   return { alreadyInitialized: false, settings }
 }
 
+/** Idempotent — ensure Cash GL + Main Cash (+ Petty Cash) exist for one branch. */
+export async function ensureBranchCashAccounts(tenantId: string, branchId: string, branchName?: string) {
+  const settings = await prisma.accountingSettings.findUnique({ where: { tenantId } })
+  if (!settings?.initializedAt) return
+
+  const branch =
+    branchName != null
+      ? { id: branchId, name: branchName }
+      : await prisma.branch.findFirst({
+          where: { id: branchId, tenantId },
+          select: { id: true, name: true },
+        })
+  if (!branch) return
+
+  const branchCode = `1000-${branch.id.slice(-4)}`
+  const cashGl = await prisma.glAccount.upsert({
+    where: { tenantId_code: { tenantId, code: branchCode } },
+    create: {
+      tenantId,
+      branchId: branch.id,
+      code: branchCode,
+      name: `Cash on Hand — ${branch.name}`,
+      type: 'ASSET',
+      subtype: 'CASH',
+      isSystem: true,
+      isActive: true,
+    },
+    update: {
+      name: `Cash on Hand — ${branch.name}`,
+      branchId: branch.id,
+      isActive: true,
+    },
+  })
+
+  await prisma.cashAccount.upsert({
+    where: { tenantId_branchId_name: { tenantId, branchId: branch.id, name: 'Main Cash' } },
+    create: {
+      tenantId,
+      branchId: branch.id,
+      name: 'Main Cash',
+      glAccountId: cashGl.id,
+    },
+    update: { glAccountId: cashGl.id },
+  })
+
+  const map = (settings.defaultAccounts ?? {}) as Record<string, string>
+  if (map.pettyCash) {
+    await prisma.cashAccount.upsert({
+      where: { tenantId_branchId_name: { tenantId, branchId: branch.id, name: 'Petty Cash' } },
+      create: { tenantId, branchId: branch.id, name: 'Petty Cash', glAccountId: map.pettyCash },
+      update: { glAccountId: map.pettyCash },
+    })
+  }
+}
+
 /** Idempotent — backfill bank, petty cash, VAT input for tenants initialized before these were added */
 export async function ensureAccountingRegisters(tenantId: string) {
   const settings = await prisma.accountingSettings.findUnique({ where: { tenantId } })
@@ -187,8 +242,12 @@ export async function ensureAccountingRegisters(tenantId: string) {
   const map = (settings.defaultAccounts ?? {}) as Record<string, string>
   const branches = await prisma.branch.findMany({
     where: { tenantId, isActive: true },
-    select: { id: true },
+    select: { id: true, name: true },
   })
+
+  for (const branch of branches) {
+    await ensureBranchCashAccounts(tenantId, branch.id, branch.name)
+  }
 
   if (map.pettyCash) {
     for (const branch of branches) {

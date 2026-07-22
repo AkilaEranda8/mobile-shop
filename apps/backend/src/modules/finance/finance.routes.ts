@@ -2,12 +2,13 @@ import { Router, Request, Response, NextFunction } from 'express'
 import { prisma } from '../../config/database'
 import { sendSuccess, sendPaginated } from '../../utils/response'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
+import { enforceModuleAccess } from '../../middleware/module-access.middleware'
 import { AppError } from '../../middleware/error.middleware'
 import { validate } from '../../middleware/validate.middleware'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 import { businessDayRange } from '../../utils/date-range'
 import { getPeriodFinancials, toFinanceSummaryResponse } from './business-financials.service'
-import { effectiveBranchId } from '../../utils/active-branch'
+import { effectiveBranchId, resolveMutationBranchId } from '../../utils/active-branch'
 import { createTransactionSchema } from './finance.schema'
 import { buildPlStatement } from './pl-statement.service'
 import { emitExpenseAccounting } from '../accounting/integration/accounting-events.service'
@@ -18,6 +19,7 @@ import {
 
 const router = Router()
 router.use(authenticate)
+router.use(enforceModuleAccess('FINANCE'))
 
 router.get('/transactions', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -64,8 +66,7 @@ router.get('/transactions', async (req: Request, res: Response, next: NextFuncti
 router.post('/transactions', authorize('OWNER', 'MANAGER', 'CASHIER'), validate(createTransactionSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const body = req.body as ReturnType<typeof createTransactionSchema.parse>
-    const branchId = body.branchId ?? effectiveBranchId(req)
-    if (!branchId) throw new AppError('branchId is required — select an active branch', 400)
+    const branchId = await resolveMutationBranchId(req, { preferred: body.branchId })
 
     await assertBusinessDayOpenIfEnabled(req.tenantId!, branchId)
     if (body.type === 'EXPENSE' && body.category === 'Supplier Payment') {
