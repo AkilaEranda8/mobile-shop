@@ -33,10 +33,16 @@ export function BranchControl() {
 
   if (!showDropdown) {
     return (
-      <div className="flex items-center gap-1.5 h-8 px-2.5 rounded-xl text-xs font-medium max-w-[min(170px,42vw)] text-white"
-        style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-        <Building2 size={13} className="flex-shrink-0 text-white/80" />
-        <span className="truncate text-white">{label}</span>
+      <div
+        className="flex items-center gap-1.5 h-8 px-2.5 rounded-xl text-xs font-medium max-w-[min(170px,42vw)]"
+        style={{
+          background: 'var(--bg-subtle)',
+          border: '1px solid var(--border-subtle)',
+          color: 'var(--text-primary)',
+        }}
+      >
+        <Building2 size={13} className="flex-shrink-0" style={{ color: 'var(--text-muted)' }} />
+        <span className="truncate">{label}</span>
       </div>
     )
   }
@@ -49,7 +55,7 @@ export function BranchControl() {
       icon={Building2}
       placeholder="Active branch"
       active={false}
-      tone="dark"
+      tone="default"
       className="min-w-[min(190px,46vw)] max-w-[190px]"
     />
   )
