@@ -467,7 +467,7 @@ export const repairsService = {
             amount:      paidAmount,
             description: `Repair - ${r.ticketNumber} (${r.deviceBrand} ${r.deviceModel})${r.customerName ? ' — ' + r.customerName : ''}${dueAmount > 0 ? ` (Credit: LKR ${dueAmount})` : ''}`,
             paymentMethod: body.paymentMethod as any,
-            reference:   r.ticketNumber,
+            reference:   [r.ticketNumber, body.reference?.trim()].filter(Boolean).join(' | ') || r.ticketNumber,
             performedBy: cashierName,
           },
         })
