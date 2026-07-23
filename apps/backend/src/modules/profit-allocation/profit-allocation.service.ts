@@ -555,7 +555,17 @@ export async function getDashboard(tenantId: string, branchId: string, dateStr: 
     },
   })
 
-  if (existing) {
+  // Ignore empty stub rows (0 sales / 0 allocated) unless the business day was actually closed
+  let useSaved = !!existing
+  if (existing && existing.todaySales === 0 && existing.todayProfit === 0 && existing.totalAllocated === 0) {
+    const closed = await prisma.dailyClosing.findUnique({
+      where: { tenantId_branchId_date: { tenantId, branchId, date } },
+      select: { id: true },
+    })
+    useSaved = !!closed
+  }
+
+  if (existing && useSaved) {
     const categoryCostMap = await buildCategoryCostMap(tenantId, branchId, dateStr)
     const lines = await Promise.all(existing.lines.map(async l => {
       const categoryCost = l.fund.type === 'PERCENTAGE'

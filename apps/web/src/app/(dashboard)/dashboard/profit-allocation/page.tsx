@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { businessToday } from '@/lib/business-date'
+import { businessToday, businessPeriodFrom } from '@/lib/business-date'
 import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { profitAllocationApi } from '@/lib/api'
@@ -98,6 +98,22 @@ const TYPE_FILTER_OPTIONS = [
   { id: 'MANUAL', label: 'Manual' },
 ] as const
 
+const PERIOD_PRESETS = [
+  { id: 'today', label: 'Today' },
+  { id: '7', label: '7 Days' },
+  { id: '30', label: '30 Days' },
+  { id: 'month', label: 'This Month' },
+] as const
+
+function computePresetRange(preset: string, today: string): { from: string; to: string } {
+  if (preset === 'today') return { from: today, to: today }
+  if (preset === 'month') {
+    const [y, m] = today.split('-')
+    return { from: `${y}-${m}-01`, to: today }
+  }
+  const days = parseInt(preset, 10)
+  return { from: businessPeriodFrom(days, today), to: today }
+}
 function SectionTitle({ title, sub }: { title: string; sub?: string }) {
   return (
     <div className="flex items-center gap-2 mb-4">
@@ -209,9 +225,12 @@ export default function ProfitAllocationPage() {
 
   const branchId = getActiveBranchId() ?? ''
   const todayStr = useMemo(() => businessToday(), [])
-  const dateFrom = todayStr
-  const dateTo = todayStr
-  const viewDate = todayStr
+  // History (tx + period summary) defaults to 30 days so prior allocations stay visible
+  const [periodPreset, setPeriodPreset] = useState<string>('30')
+  const [dateFrom, setDateFrom] = useState(() => businessPeriodFrom(30, todayStr))
+  const [dateTo, setDateTo] = useState(todayStr)
+  // Daily allocation table — pick any business day (defaults to today)
+  const [viewDate, setViewDate] = useState(todayStr)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('ALL')
   const [fundTab, setFundTab] = useState('ALL')
@@ -234,6 +253,14 @@ export default function ProfitAllocationPage() {
     name: '', type: 'MANUAL', fixedAmount: '0', percentage: '0', sortOrder: '0', description: '', isActive: true,
   })
   const [fundSaving, setFundSaving] = useState(false)
+
+  const applyPeriodPreset = (preset: string) => {
+    setPeriodPreset(preset)
+    const { from, to } = computePresetRange(preset, todayStr)
+    setDateFrom(from)
+    setDateTo(to)
+    if (preset === 'today') setViewDate(todayStr)
+  }
 
   useEffect(() => {
     setDashboardOverride(null)
@@ -502,7 +529,7 @@ export default function ProfitAllocationPage() {
           <h1 className="page-title">Profit Allocation & Fund Management</h1>
           <p className="page-subtitle flex items-center gap-1.5 flex-wrap">
             <Calendar size={12} />
-            Today · {formatDate(viewDate)}
+            Day view · {formatDate(viewDate)}
             {activeDashboard?.dataSource && !tableLoading && (
               <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
                 style={{ background: 'var(--brand-glow)', color: 'var(--brand-primary-light)', border: '1px solid var(--sidebar-active-border)' }}>
@@ -510,24 +537,61 @@ export default function ProfitAllocationPage() {
                 {activeDashboard.salesCount != null ? ` · ${activeDashboard.salesCount} sales` : ''}
               </span>
             )}
-            {todayDashboard?.saved && (
+            {todayDashboard?.saved && viewDate === todayStr && (
               <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25">
                 Today saved
+              </span>
+            )}
+            {todayDashboard?.saved && viewDate !== todayStr && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25">
+                Saved day
               </span>
             )}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+          <input
+            type="date"
+            className="input-field text-sm py-1.5 w-auto"
+            value={viewDate}
+            max={todayStr}
+            onChange={e => {
+              const next = e.target.value || todayStr
+              setViewDate(next)
+              setDashboardOverride(null)
+            }}
+            title="View allocation for a specific day"
+          />
+          <div className="flex flex-wrap gap-1">
+            {PERIOD_PRESETS.map(p => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => applyPeriodPreset(p.id)}
+                className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${
+                  periodPreset === p.id
+                    ? 'font-semibold'
+                    : ''
+                }`}
+                style={periodPreset === p.id
+                  ? { background: 'var(--brand-glow)', color: 'var(--brand-primary-light)', borderColor: 'var(--sidebar-active-border)' }
+                  : { background: 'var(--bg-subtle)', color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}
+                title="History range for transactions & fund summary"
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
           {canEdit && (
-            <button onClick={handleRefreshFromSystem} disabled={calcLoading || !branchId} className="btn-secondary flex items-center gap-2 text-sm">
+            <button onClick={handleRefreshFromSystem} disabled={calcLoading || !branchId || viewDate !== todayStr} className="btn-secondary flex items-center gap-2 text-sm">
               {calcLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
               Refresh
             </button>
           )}
           {/* Manual save removed — allocation auto-runs on Daily Closing.
               Owner may force re-allocate if day already closed / saved. */}
-          {canSave && isOwner && todayDashboard?.saved && (
+          {canSave && isOwner && todayDashboard?.saved && viewDate === todayStr && (
             <button
               onClick={handleResave}
               disabled={saveLoading}
@@ -903,7 +967,12 @@ export default function ProfitAllocationPage() {
 
         {/* Recent transactions */}
         <div className="card p-5">
-          <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Recent Transactions</h3>
+          <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+            Recent Transactions
+            <span className="block text-[11px] font-normal mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              {formatDate(dateFrom)} → {formatDate(dateTo)}
+            </span>
+          </h3>
           {txLoading ? (
             <div className="flex justify-center py-8"><Loader2 className="animate-spin text-violet-400" size={22} /></div>
           ) : transactions.length === 0 ? (
@@ -950,13 +1019,13 @@ export default function ProfitAllocationPage() {
         </div>
       </div>
 
-      {/* Today's Fund Summary */}
+      {/* Fund Summary for selected history range */}
       <div className="card p-5">
         <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
           <div>
-            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Today&apos;s Fund Summary</h3>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Fund Summary</h3>
             <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              Opening, allocated, withdrawn & closing for today
+              {formatDate(dateFrom)} → {formatDate(dateTo)} · Opening, allocated, withdrawn & closing
             </p>
           </div>
         </div>
