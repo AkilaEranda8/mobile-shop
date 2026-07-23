@@ -263,6 +263,10 @@ export const salesService = {
     // ── Auto-create income transaction in Finance (non-blocking) ──
     try {
       const paymentMethod = (body.payments?.[0]?.method ?? 'CASH') as any
+      const chequeRefs = (body.payments ?? [])
+        .map((p: { method?: string; reference?: string | null }) => String(p.reference ?? '').trim())
+        .filter((r: string) => /cheque\s*#/i.test(r))
+      const chequeRef = chequeRefs[0] || ''
       // Resolve branchId: use provided or fall back to tenant's first branch
       const incomeAmount = Number(body.paidAmount ?? body.total ?? 0)
       if (incomeAmount > 0) {
@@ -273,9 +277,9 @@ export const salesService = {
             type:        'INCOME',
             category:    'Sales',
             amount:      incomeAmount,
-            description: `Sale - ${invoiceNumber}${body.customerName && body.customerName !== 'Walk-in Customer' ? ` (${body.customerName})` : ''}`,
+            description: `Sale - ${invoiceNumber}${body.customerName && body.customerName !== 'Walk-in Customer' ? ` (${body.customerName})` : ''}${chequeRef ? ` — ${chequeRef}` : ''}`,
             paymentMethod,
-            reference:   invoiceNumber,
+            reference:   [invoiceNumber, chequeRef].filter(Boolean).join(' | '),
             performedBy: cashierName,
           },
         })

@@ -17,7 +17,7 @@ import { productSearchHaystack } from '@/lib/barcode-scan'
 import type { Supplier, PurchaseOrder, POItem } from '@/types'
 import { isImeiHealthBannerDismissed, dismissImeiHealthBanner } from '@/lib/productImei'
 import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
-import { ChequeDetailsFields, formatChequeReference, todayChequeDate } from '@/components/payments/ChequeDetailsFields'
+import { ChequeDetailsFields, ChequePaymentMeta, formatChequeReference, todayChequeDate } from '@/components/payments/ChequeDetailsFields'
 
 export type PoProduct = { id: string; trackImei?: boolean; name?: string }
 
@@ -976,12 +976,33 @@ export function SupplierDetailsModal({ supplier, allPOs, onClose, onEdit }: { su
   const poValue = supplierPOs.reduce((s, p) => s + (Number(p.total) || 0), 0)
   const hasDue = totalDue > 0
   const safeText = (v: any) => (v === null || v === undefined || v === '' ? '—' : String(v))
+  const [payments, setPayments] = useState<any[]>([])
+  const [paymentsLoading, setPaymentsLoading] = useState(true)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  useEffect(() => {
+    let alive = true
+    setPaymentsLoading(true)
+    suppliersApi.payments({
+      supplierId: supplier.id,
+      limit: '50',
+      from: '2020-01-01',
+      to: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' }),
+    })
+      .then((res: any) => {
+        if (!alive) return
+        const rows = res?.data?.data ?? res?.data ?? res ?? []
+        setPayments(Array.isArray(rows) ? rows : [])
+      })
+      .catch(() => { if (alive) setPayments([]) })
+      .finally(() => { if (alive) setPaymentsLoading(false) })
+    return () => { alive = false }
+  }, [supplier.id])
 
   return (
     <div
@@ -1170,6 +1191,55 @@ export function SupplierDetailsModal({ supplier, allPOs, onClose, onEdit }: { su
                     </tbody>
                   </table>
                 </div>
+              </div>
+
+              <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                <div className="bg-violet-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide flex items-center gap-1.5">
+                  <Banknote size={12} /> Payment history
+                </div>
+                {paymentsLoading ? (
+                  <div className="px-4 py-6 flex items-center justify-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+                    <Loader2 size={14} className="animate-spin" /> Loading payments…
+                  </div>
+                ) : payments.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-[640px] w-full text-[12px]">
+                      <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                        <tr style={{ color: 'var(--text-secondary)' }}>
+                          <th className="px-3 py-2 text-left">Date</th>
+                          <th className="px-3 py-2 text-left">Method / Cheque</th>
+                          <th className="px-3 py-2 text-left">POs</th>
+                          <th className="px-3 py-2 text-right">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {payments.map((p: any) => (
+                          <tr key={p.id} className="border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
+                            <td className="px-3 py-2 whitespace-nowrap">{safeText(formatDate(p.paymentDate || p.occurredAt || p.createdAt))}</td>
+                            <td className="px-3 py-2">
+                              <ChequePaymentMeta
+                                method={p.paymentMethod || p.method}
+                                reference={p.reference}
+                              />
+                            </td>
+                            <td className="px-3 py-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                              {p.purchaseInvoice
+                                || (Array.isArray(p.allocations) && p.allocations.map((a: any) => a.purchaseInvoice || a.purchaseOrder?.poNumber).filter(Boolean).join(', '))
+                                || '—'}
+                            </td>
+                            <td className="px-3 py-2 text-right font-semibold tabular-nums">
+                              {formatCurrency(p.amountPaid ?? p.amount ?? 0)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="px-4 py-6 text-center text-xs" style={{ color: 'var(--text-muted)' }}>
+                    No payments recorded yet
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

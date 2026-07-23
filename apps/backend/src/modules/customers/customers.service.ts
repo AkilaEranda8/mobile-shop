@@ -558,9 +558,12 @@ export const customersService = {
       const descParts = [
         `Credit payment from ${c.name} (${c.phone})`,
         invoiceRefs.length ? invoiceRefs.join(', ') : null,
+        paymentReference || null,
         discountApplied > 0 ? `Discount ${discountApplied.toFixed(2)}` : null,
         note || null,
       ].filter(Boolean)
+
+      const txReference = [invoiceRefs.join(', '), paymentReference].filter(Boolean).join(' | ') || undefined
 
       if (cashApplied > 0.001) {
         await tx.transaction.create({
@@ -572,7 +575,7 @@ export const customersService = {
             amount: cashApplied,
             description: descParts.join(' — '),
             paymentMethod: method,
-            reference: invoiceRefs.join(', ') || undefined,
+            reference: txReference,
             performedBy,
           },
         })

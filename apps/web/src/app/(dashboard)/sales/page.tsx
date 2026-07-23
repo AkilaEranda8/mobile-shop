@@ -23,6 +23,7 @@ import { getInvoiceSettings, fetchInvoiceSettings, resolveInvoiceTemplate, type 
 import InvoiceA4View from '@/components/invoice/InvoiceA4View'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
 import { useModuleAccess, EditOnly } from '@/lib/module-access'
+import { ChequePaymentMeta } from '@/components/payments/ChequeDetailsFields'
 
 const statusColors: Record<string, string> = {
   PAID:           'bg-green-500/10  border-green-500/20  text-green-400',
@@ -866,6 +867,27 @@ function SaleDetailsModal({
                 </div>
             </div>
           </div>
+
+          {/* Payments */}
+          {Array.isArray(liveSale.payments) && liveSale.payments.length > 0 && (
+            <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                Payments
+              </div>
+              <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                {liveSale.payments.map((p: any) => (
+                  <div key={p.id ?? `${p.method}-${p.amount}`} className="px-3 py-2.5">
+                    <ChequePaymentMeta
+                      method={p.method}
+                      reference={p.reference}
+                      amount={p.amount}
+                      formatAmount={formatCurrency}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Items preview */}
           {Array.isArray(liveSale.items) && liveSale.items.length > 0 && (

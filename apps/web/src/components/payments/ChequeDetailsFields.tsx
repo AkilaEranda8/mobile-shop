@@ -17,6 +17,31 @@ export function formatChequeReference(chequeNumber: string, chequeDate: string):
   return parts.join(' · ')
 }
 
+export type ParsedChequeReference = {
+  chequeNumber: string | null
+  chequeDate: string | null
+  /** Remaining free-text after removing the cheque fragment (notes, invoice list, etc.). */
+  other: string | null
+}
+
+/** Parse `Cheque #123 · 2026-07-23` from a free-text payment reference. */
+export function parseChequeReference(raw: string | null | undefined): ParsedChequeReference | null {
+  const text = String(raw ?? '').trim()
+  if (!text) return null
+  const match = text.match(/Cheque\s*#\s*([^|·\n]+?)(?:\s*[·|]\s*(\d{4}-\d{2}-\d{2}))?/i)
+  if (!match) return null
+  const chequeNumber = match[1]?.trim() || null
+  const chequeDate = match[2]?.trim() || null
+  const other = text
+    .replace(match[0], '')
+    .replace(/\|\s*\|/g, '|')
+    .replace(/^[|\s·]+|[|\s·]+$/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim() || null
+  if (!chequeNumber && !chequeDate) return null
+  return { chequeNumber, chequeDate, other }
+}
+
 type Props = {
   chequeNumber: string
   chequeDate: string
@@ -86,6 +111,61 @@ export function ChequeDetailsFields({
           style={defaultInput}
         />
       </div>
+    </div>
+  )
+}
+
+type MetaProps = {
+  method?: string | null
+  reference?: string | null
+  amount?: number | null
+  formatAmount?: (n: number) => string
+  className?: string
+}
+
+/** Read-only payment line for details modals — highlights cheque # / date when present. */
+export function ChequePaymentMeta({ method, reference, amount, formatAmount, className }: MetaProps) {
+  const cheque = parseChequeReference(reference)
+  const isCheque = String(method ?? '').toUpperCase() === 'CHEQUE' || !!cheque
+  const methodLabel = method ? String(method).replace(/_/g, ' ') : null
+
+  return (
+    <div className={className} style={{ color: 'var(--text-secondary)' }}>
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        {methodLabel && (
+          <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{methodLabel}</span>
+        )}
+        {amount != null && Number.isFinite(Number(amount)) && formatAmount && (
+          <span className="tabular-nums font-medium">{formatAmount(Number(amount))}</span>
+        )}
+      </div>
+      {isCheque && (cheque?.chequeNumber || cheque?.chequeDate) ? (
+        <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+          {cheque.chequeNumber && (
+            <span>
+              Cheque #{' '}
+              <span className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>
+                {cheque.chequeNumber}
+              </span>
+            </span>
+          )}
+          {cheque.chequeDate && (
+            <span>
+              Date{' '}
+              <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                {cheque.chequeDate}
+              </span>
+            </span>
+          )}
+          {cheque.other && !/outstanding (settlement|discount)/i.test(cheque.other) && (
+            <span className="truncate max-w-[220px]">{cheque.other}</span>
+          )}
+        </div>
+      ) : reference ? (
+        <div className="mt-0.5 text-[10px] truncate max-w-[280px]" style={{ color: 'var(--text-muted)' }}>
+          Ref: {reference}
+        </div>
+      ) : null}
     </div>
   )
 }

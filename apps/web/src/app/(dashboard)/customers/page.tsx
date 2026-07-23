@@ -19,7 +19,7 @@ import type { Customer } from '@/types'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
 import { usePos } from '@/lib/use-pos'
 import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
-import { ChequeDetailsFields, formatChequeReference, todayChequeDate } from '@/components/payments/ChequeDetailsFields'
+import { ChequeDetailsFields, ChequePaymentMeta, formatChequeReference, todayChequeDate } from '@/components/payments/ChequeDetailsFields'
 
 const repairStatusColors: Record<string, string> = {
   RECEIVED:      'text-blue-400   bg-blue-500/10   border-blue-500/20',
@@ -446,14 +446,23 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                                 </div>
                               )}
                               {settlementPayments.length > 0 && (
-                                <div className="mt-1 space-y-0.5">
-                                  {settlementPayments.map((p: any) => (
-                                    <div key={p.id} className="text-[10px] truncate max-w-[260px]" style={{ color: 'var(--text-secondary)' }}>
-                                      {String(p.reference || '').toLowerCase().includes('discount') ? 'Discount' : 'Payment'}{' '}
-                                      {formatCurrency(p.amount)}
-                                      {p.reference ? ` · ${p.reference}` : ''}
-                                    </div>
-                                  ))}
+                                <div className="mt-1 space-y-1">
+                                  {settlementPayments.map((p: any) => {
+                                    const isDiscount = String(p.reference || '').toLowerCase().includes('discount')
+                                    return (
+                                      <div key={p.id} className="text-[10px] max-w-[280px]">
+                                        <span style={{ color: 'var(--text-muted)' }}>
+                                          {isDiscount ? 'Discount' : 'Settlement'}{' '}
+                                        </span>
+                                        <ChequePaymentMeta
+                                          method={isDiscount ? undefined : p.method}
+                                          reference={p.reference}
+                                          amount={p.amount}
+                                          formatAmount={formatCurrency}
+                                        />
+                                      </div>
+                                    )
+                                  })}
                                 </div>
                               )}
                             </td>

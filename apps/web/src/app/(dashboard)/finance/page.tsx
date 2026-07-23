@@ -20,6 +20,7 @@ import { financeApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import type { Transaction as AppTransaction } from '@/types'
 import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
+import { ChequePaymentMeta } from '@/components/payments/ChequeDetailsFields'
 
 const COLORS = ['var(--brand-primary)', '#06b6d4', '#10b981', 'var(--status-warn)', '#ef4444']
 
@@ -471,10 +472,11 @@ export default function FinancePage() {
                           <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(tx.createdAt)}</span>
                         </td>
                         <td className="table-cell text-center">
-                          <span className="text-xs px-2 py-0.5 rounded font-medium"
-                            style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>
-                            {tx.paymentMethod.replace('_', ' ')}
-                          </span>
+                          <ChequePaymentMeta
+                            method={tx.paymentMethod}
+                            reference={tx.reference}
+                            className="text-xs inline-flex flex-col items-center"
+                          />
                         </td>
                         <td className="table-cell text-right">
                           <span className="text-sm font-bold"

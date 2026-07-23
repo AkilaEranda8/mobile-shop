@@ -13,6 +13,7 @@ import { businessToday, businessMonthStart } from '@/lib/business-date'
 import { useSupplierPayments, useSuppliers, usePurchaseOrders } from '@/lib/hooks'
 import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 import { RecordPaymentModal } from '@/components/suppliers/suppliers-shared'
+import { ChequePaymentMeta } from '@/components/payments/ChequeDetailsFields'
 import type { PurchaseOrder, Supplier } from '@/types'
 
 interface PaymentRow {
@@ -89,7 +90,13 @@ export default function SupplierPaymentsPage() {
               {row.original.supplierName || '—'}
             </p>
             {row.original.reference && (
-              <p className="text-xs text-gray-500 dark:text-slate-500 truncate">Ref: {row.original.reference}</p>
+              <div className="mt-0.5">
+                <ChequePaymentMeta
+                  method={row.original.paymentMethod}
+                  reference={row.original.reference}
+                  className="text-xs"
+                />
+              </div>
             )}
           </div>
         </div>
