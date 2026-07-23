@@ -49,13 +49,11 @@ import { ImageIcon, Trash2 as TrashIcon } from 'lucide-react'
 import toast from 'react-hot-toast'
 import UserManualPanel from '@/components/settings/UserManualPanel'
 import {
-  PAYMENT_METHOD_KEYS,
-  DEFAULT_PAYMENT_METHOD_LABELS,
   DEFAULT_PAYMENT_METHODS,
   makePaymentMethodId,
+  inferPaymentMethodKey,
   notifyPaymentMethodsChanged,
   sanitize as sanitizePaymentMethods,
-  type PaymentMethodKey,
   type TenantPaymentMethod,
 } from '@/lib/payment-methods'
 import {
@@ -137,7 +135,6 @@ export default function SettingsPage() {
   /* ── Payment Methods ── */
   const [payMethods, setPayMethods] = useState<TenantPaymentMethod[]>(DEFAULT_PAYMENT_METHODS)
   const [payMethodsSaving, setPayMethodsSaving] = useState(false)
-  const [newPayKey, setNewPayKey] = useState<PaymentMethodKey | ''>('')
   const [newPayLabel, setNewPayLabel] = useState('')
 
   /* ── POS Display ── */
@@ -195,7 +192,6 @@ export default function SettingsPage() {
       .catch(() => {})
   }, [tenantId])
 
-  const availablePayKeys = PAYMENT_METHOD_KEYS
   const canAddPayMethod = canEdit
 
   const savePayMethods = async (methods: TenantPaymentMethod[]) => {
@@ -1299,36 +1295,33 @@ export default function SettingsPage() {
                 <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: 'var(--border-default)' }}>
                   <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Add payment method</p>
                   <div className="flex flex-col sm:flex-row gap-2">
-                    <select
-                      className="input-field h-10 sm:w-48"
-                      value={newPayKey}
-                      onChange={e => {
-                        const k = e.target.value as PaymentMethodKey | ''
-                        setNewPayKey(k)
-                        if (k) setNewPayLabel(DEFAULT_PAYMENT_METHOD_LABELS[k])
-                      }}
-                    >
-                      <option value="">Select type…</option>
-                      {availablePayKeys.map(k => (
-                        <option key={k} value={k}>{DEFAULT_PAYMENT_METHOD_LABELS[k]}</option>
-                      ))}
-                    </select>
                     <input
                       className="input-field h-10 flex-1"
-                      placeholder="Display name (e.g. Genie / eZ Cash / Cheque)"
+                      placeholder="Name (e.g. Genie / eZ Cash / Cheque)"
                       value={newPayLabel}
                       maxLength={40}
                       onChange={e => setNewPayLabel(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key !== 'Enter') return
+                        e.preventDefault()
+                        const label = newPayLabel.trim()
+                        if (!label) return
+                        const key = inferPaymentMethodKey(label)
+                        const id = makePaymentMethodId(key, label, payMethods)
+                        setPayMethods(prev => [...prev, { id, key, label }])
+                        setNewPayLabel('')
+                      }}
                     />
                     <button
                       type="button"
-                      disabled={!newPayKey || !newPayLabel.trim()}
+                      disabled={!newPayLabel.trim()}
                       onClick={() => {
-                        if (!newPayKey || !newPayLabel.trim()) return
                         const label = newPayLabel.trim()
-                        const id = makePaymentMethodId(newPayKey, label, payMethods)
-                        setPayMethods(prev => [...prev, { id, key: newPayKey, label }])
-                        setNewPayKey(''); setNewPayLabel('')
+                        if (!label) return
+                        const key = inferPaymentMethodKey(label)
+                        const id = makePaymentMethodId(key, label, payMethods)
+                        setPayMethods(prev => [...prev, { id, key, label }])
+                        setNewPayLabel('')
                       }}
                       className="btn-primary text-sm flex items-center justify-center gap-1.5 h-10 px-4 disabled:opacity-50"
                     >

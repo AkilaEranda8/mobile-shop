@@ -47,6 +47,19 @@ function slugifyLabel(label: string): string {
     .slice(0, 24) || 'method'
 }
 
+/** Infer accounting key from a free-form display name. */
+export function inferPaymentMethodKey(label: string): PaymentMethodKey {
+  const normalized = label.trim().toLowerCase().replace(/\s+/g, ' ')
+  for (const k of PAYMENT_METHOD_KEYS) {
+    if (DEFAULT_PAYMENT_METHOD_LABELS[k].toLowerCase() === normalized) return k
+  }
+  if (/cheque|check|bank\s*transfer|bank/.test(normalized)) return 'BANK_TRANSFER'
+  if (/\bcard\b|visa|master|debit|credit\s*card/.test(normalized)) return 'CARD'
+  if (/\bcash\b|මුදල්/.test(normalized)) return 'CASH'
+  if (/\bupi\b|\bqr\b/.test(normalized)) return 'UPI'
+  return 'WALLET'
+}
+
 /** Build a unique id for a new custom method. */
 export function makePaymentMethodId(key: PaymentMethodKey, label: string, existing: TenantPaymentMethod[]): string {
   const base = `${key}_${slugifyLabel(label)}`
