@@ -149,6 +149,78 @@ export default function PaymentMethodsReportPage() {
     return map
   }, [tenantMethods])
 
+  const cashflowByKey = useMemo(() => {
+    const map = new Map<PaymentMethodKey, MethodRow>()
+    for (const m of report?.methods ?? []) map.set(m.method, m)
+    return map
+  }, [report])
+
+  /** One row per Settings method (Genie / eZ Cash etc.), amounts rolled up by accounting key. */
+  const displayRows = useMemo(() => {
+    const seenKey = new Set<PaymentMethodKey>()
+    const rows: Array<{
+      id: string
+      key: PaymentMethodKey
+      label: string
+      isPrimaryForKey: boolean
+      data: MethodRow | null
+    }> = []
+
+    for (const m of tenantMethods) {
+      const isPrimaryForKey = !seenKey.has(m.key)
+      seenKey.add(m.key)
+      rows.push({
+        id: m.id,
+        key: m.key,
+        label: m.label,
+        isPrimaryForKey,
+        data: cashflowByKey.get(m.key) ?? null,
+      })
+    }
+
+    // Include activity on keys not configured in Settings
+    for (const m of report?.methods ?? []) {
+      if (seenKey.has(m.method)) continue
+      if (m.in <= 0 && m.out <= 0) continue
+      seenKey.add(m.method)
+      rows.push({
+        id: m.method,
+        key: m.method,
+        label: m.label || DEFAULT_PAYMENT_METHOD_LABELS[m.method],
+        isPrimaryForKey: true,
+        data: m,
+      })
+    }
+    return rows
+  }, [tenantMethods, cashflowByKey, report])
+
+  /** Chart / CSV: one entry per accounting key, labeled with Settings names. */
+  const keyedRows = useMemo(() => {
+    const keys: PaymentMethodKey[] = []
+    for (const r of displayRows) {
+      if (!keys.includes(r.key)) keys.push(r.key)
+    }
+    return keys.map(key => {
+      const data = cashflowByKey.get(key)
+      const labels = labelsByKey[key]
+      const label = labels?.length
+        ? labels.join(' · ')
+        : (data?.label || DEFAULT_PAYMENT_METHOD_LABELS[key] || key)
+      return {
+        method: key,
+        label,
+        in: data?.in ?? 0,
+        out: data?.out ?? 0,
+        net: data?.net ?? 0,
+        inBreakdown: data?.inBreakdown ?? { sales: 0, repairs: 0, customerCredit: 0, other: 0 },
+        outBreakdown: data?.outBreakdown ?? {
+          supplierPayments: 0, expenses: 0, refunds: 0, reloadProvider: 0,
+          bankDeposits: 0, creditDiscounts: 0, other: 0,
+        },
+      }
+    })
+  }, [displayRows, cashflowByKey, labelsByKey])
+
   const todayStr = useMemo(() => businessToday(), [])
   const toDate = useMemo(() => {
     if (isCustom && customTo) return customTo
@@ -182,25 +254,25 @@ export default function PaymentMethodsReportPage() {
     if (hasAccess) load()
   }, [hasAccess, load])
 
-  const methods = report?.methods ?? []
+  const methods = keyedRows
   const activeMethods = methods.filter(m => m.in > 0 || m.out > 0)
 
   const barData = methods.map(m => ({
-    method: (m.label || DEFAULT_PAYMENT_METHOD_LABELS[m.method] || m.method).slice(0, 12),
-    fullName: m.label || DEFAULT_PAYMENT_METHOD_LABELS[m.method] || m.method,
+    method: m.label.slice(0, 14),
+    fullName: m.label,
     In: m.in,
     Out: m.out,
     Net: m.net,
   }))
 
   const pieData = activeMethods.map((m, i) => ({
-    name: m.label || DEFAULT_PAYMENT_METHOD_LABELS[m.method] || m.method,
+    name: m.label,
     value: m.in,
     fill: COLORS[i % COLORS.length],
   }))
 
   const exportRows = methods.map(m => [
-    m.label || DEFAULT_PAYMENT_METHOD_LABELS[m.method] || m.method,
+    m.label,
     m.in.toFixed(2),
     m.out.toFixed(2),
     m.net.toFixed(2),
@@ -347,7 +419,9 @@ export default function PaymentMethodsReportPage() {
           <div className="card overflow-hidden">
             <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
               <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>By Method</h3>
-              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Click a row for breakdown</p>
+              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                Methods from Settings · click a row for breakdown
+              </p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -360,54 +434,62 @@ export default function PaymentMethodsReportPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {methods.map(m => {
-                    const open = expanded === m.method
-                    const label = m.label || DEFAULT_PAYMENT_METHOD_LABELS[m.method] || m.method
-                    const configured = labelsByKey[m.method] ?? []
-                    const configuredNote = configured.length > 1
-                      ? configured.join(' · ')
-                      : configured.length === 1 && configured[0] !== label
-                        ? configured[0]
-                        : null
+                  {displayRows.map(row => {
+                    const open = expanded === row.id
+                    const data = row.data
+                    const inn = data?.in ?? 0
+                    const out = data?.out ?? 0
+                    const net = data?.net ?? 0
+                    const siblings = labelsByKey[row.key] ?? []
                     return (
-                      <Fragment key={m.method}>
+                      <Fragment key={row.id}>
                         <tr
-                          onClick={() => setExpanded(open ? null : m.method)}
+                          onClick={() => setExpanded(open ? null : row.id)}
                           className="border-t cursor-pointer transition-colors hover:bg-[var(--bg-subtle)]"
                           style={{ borderColor: 'var(--border-subtle)' }}
                         >
                           <td className="px-4 py-3" style={{ color: 'var(--text-primary)' }}>
-                            <span className="font-semibold">{label}</span>
-                            {configuredNote && (
+                            <span className="font-semibold">{row.label}</span>
+                            {siblings.length > 1 && (
                               <span className="block text-[10px] font-normal mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                                {configuredNote}
+                                {siblings.filter(l => l !== row.label).join(' · ') || DEFAULT_PAYMENT_METHOD_LABELS[row.key]}
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{formatCurrency(m.in)}</td>
-                          <td className="px-4 py-3 text-right tabular-nums text-red-500">{formatCurrency(m.out)}</td>
-                          <td className="px-4 py-3 text-right tabular-nums font-semibold" style={{ color: m.net >= 0 ? '#16a34a' : '#dc2626' }}>{formatCurrency(m.net)}</td>
+                          {row.isPrimaryForKey ? (
+                            <>
+                              <td className="px-4 py-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{formatCurrency(inn)}</td>
+                              <td className="px-4 py-3 text-right tabular-nums text-red-500">{formatCurrency(out)}</td>
+                              <td className="px-4 py-3 text-right tabular-nums font-semibold" style={{ color: net >= 0 ? '#16a34a' : '#dc2626' }}>{formatCurrency(net)}</td>
+                            </>
+                          ) : (
+                            <>
+                              <td colSpan={3} className="px-4 py-3 text-right text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                                Included in {siblings[0] || DEFAULT_PAYMENT_METHOD_LABELS[row.key]} totals
+                              </td>
+                            </>
+                          )}
                         </tr>
-                        {open && (
+                        {open && row.isPrimaryForKey && data && (
                           <tr style={{ background: 'var(--bg-subtle)' }}>
                             <td colSpan={4} className="px-4 py-3">
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-[12px]">
                                 <div className="space-y-1.5">
                                   <p className="font-semibold text-emerald-600 dark:text-emerald-400 mb-1">Money in</p>
-                                  <BreakdownLine label="POS sales" value={m.inBreakdown.sales} />
-                                  <BreakdownLine label="Repairs" value={m.inBreakdown.repairs} />
-                                  <BreakdownLine label="Customer outstanding" value={m.inBreakdown.customerCredit} />
-                                  <BreakdownLine label="Other income" value={m.inBreakdown.other} />
+                                  <BreakdownLine label="POS sales" value={data.inBreakdown.sales} />
+                                  <BreakdownLine label="Repairs" value={data.inBreakdown.repairs} />
+                                  <BreakdownLine label="Customer outstanding" value={data.inBreakdown.customerCredit} />
+                                  <BreakdownLine label="Other income" value={data.inBreakdown.other} />
                                 </div>
                                 <div className="space-y-1.5">
                                   <p className="font-semibold text-red-500 mb-1">Money out</p>
-                                  <BreakdownLine label="Supplier payments" value={m.outBreakdown.supplierPayments} />
-                                  <BreakdownLine label="Expenses" value={m.outBreakdown.expenses} />
-                                  <BreakdownLine label="Refunds" value={m.outBreakdown.refunds} />
-                                  <BreakdownLine label="Reload provider" value={m.outBreakdown.reloadProvider} />
-                                  <BreakdownLine label="Bank deposits" value={m.outBreakdown.bankDeposits} />
-                                  <BreakdownLine label="Credit discounts" value={m.outBreakdown.creditDiscounts ?? 0} />
-                                  <BreakdownLine label="Other" value={m.outBreakdown.other} />
+                                  <BreakdownLine label="Supplier payments" value={data.outBreakdown.supplierPayments} />
+                                  <BreakdownLine label="Expenses" value={data.outBreakdown.expenses} />
+                                  <BreakdownLine label="Refunds" value={data.outBreakdown.refunds} />
+                                  <BreakdownLine label="Reload provider" value={data.outBreakdown.reloadProvider} />
+                                  <BreakdownLine label="Bank deposits" value={data.outBreakdown.bankDeposits} />
+                                  <BreakdownLine label="Credit discounts" value={data.outBreakdown.creditDiscounts ?? 0} />
+                                  <BreakdownLine label="Other" value={data.outBreakdown.other} />
                                 </div>
                               </div>
                             </td>
