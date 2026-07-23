@@ -739,6 +739,8 @@ export const analyticsApi = {
     api.get(`/analytics/purchase-report${params ? '?' + new URLSearchParams(params) : ''}`),
   purchaseReportDetail: (params?: Record<string, string>) =>
     api.get(`/analytics/purchase-report-detail${params ? '?' + new URLSearchParams(params) : ''}`),
+  paymentMethodCashflow: (params?: Record<string, string>) =>
+    api.get(`/analytics/payment-method-cashflow${params ? '?' + new URLSearchParams(params) : ''}`),
 }
 
 export type PlatformAnnouncement = {

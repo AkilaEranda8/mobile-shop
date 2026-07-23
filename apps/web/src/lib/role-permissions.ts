@@ -245,8 +245,7 @@ export function pathToPermissionModule(pathname: string): RolePermissionModuleKe
     pathname === '/finance' ||
     pathname.startsWith('/finance/') ||
     pathname.startsWith('/dashboard/profit-loss') ||
-    pathname.startsWith('/dashboard/expenses') ||
-    pathname.startsWith('/dashboard/payment-methods')
+    pathname.startsWith('/dashboard/expenses')
   ) {
     return 'FINANCE'
   }
@@ -255,6 +254,7 @@ export function pathToPermissionModule(pathname: string): RolePermissionModuleKe
     pathname === '/dashboard/category-report' ||
     pathname === '/dashboard/customer-report' ||
     pathname === '/dashboard/purchase-report' ||
+    pathname === '/dashboard/payment-methods' ||
     pathname === '/dashboard/daily-reload-report'
   ) {
     return pathname === '/dashboard/daily-reload-report' ? 'DAILY_RELOAD' : 'REPORTS'

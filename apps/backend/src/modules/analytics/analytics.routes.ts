@@ -17,6 +17,7 @@ import {
   resolveBusinessReportRange,
   resolveOptionalBusinessReportRange,
 } from '../report-engine/report-engine.service'
+import { buildPaymentMethodCashflow } from '../finance/payment-method-cashflow.service'
 import { saleWhereExcludeNonRevenue } from '../../constants/business-rules.constants'
 import { hasVariants, sumVariantStock } from '../../utils/product-variants'
 
@@ -784,6 +785,15 @@ router.get('/purchase-report-detail', reportsOnly, async (req: Request, res: Res
       unitsOrdered: o.items.reduce((n, i) => n + i.quantity, 0),
       unitsReceived: o.items.reduce((n, i) => n + i.receivedQuantity, 0),
     })))
+  } catch (e) { next(e) }
+})
+
+router.get('/payment-method-cashflow', reportsOnly, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { tenantId, branchId, fromKey, toKey } = resolveBusinessReportRange(req, {
+      defaultFrom: 'month_start',
+    })
+    sendSuccess(res, await buildPaymentMethodCashflow(tenantId, fromKey, toKey, branchId))
   } catch (e) { next(e) }
 })
 

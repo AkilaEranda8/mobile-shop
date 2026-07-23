@@ -82,6 +82,7 @@ const reportsSubmenu: NavSubItem[] = [
   { href: '/dashboard/daily-reload-report', icon: PhoneCall, label: 'Daily Reload Report', badge: 'NEW', feature: 'DAILY_RELOAD', permission: 'DAILY_RELOAD' },
   { href: '/dashboard/category-report', icon: Tag, label: 'Category Report', badge: 'NEW', feature: 'REPORTS', permission: 'REPORTS' },
   { href: '/dashboard/customer-report', icon: Users, label: 'Customer Report', badge: 'NEW', feature: 'REPORTS', permission: 'REPORTS' },
+  { href: '/dashboard/payment-methods', icon: Wallet, label: 'Payment Methods', badge: 'NEW', feature: 'REPORTS', permission: 'REPORTS' },
   { href: '/dashboard/purchase-report', icon: ClipboardList, label: 'Purchase Report', badge: 'NEW', feature: 'REPORTS', permission: 'REPORTS' },
 ]
 
@@ -138,7 +139,6 @@ const navItems: NavGroup[] = [
       { href: '/dashboard/finance',   icon: CreditCard, label: 'Finance',   feature: 'FINANCE', permission: 'FINANCE' },
       { href: '/dashboard/profit-loss', icon: TrendingUp, label: 'Profit & Loss', badge: 'NEW', feature: 'FINANCE', permission: 'FINANCE' },
       { href: '/dashboard/expenses',  icon: Receipt,    label: 'Expenses',  badge: 'NEW', feature: 'FINANCE', permission: 'FINANCE' },
-      { href: '/dashboard/payment-methods', icon: Wallet, label: 'Payment Methods', badge: 'NEW', feature: 'FINANCE', permission: 'FINANCE' },
       { href: '/dashboard/profit-allocation', icon: PieChart, label: 'Profit Allocation', badge: 'NEW', feature: 'PROFIT_ALLOCATION', permission: 'PROFIT_ALLOCATION' },
       { href: '/dashboard/daily-closing', icon: Lock,   label: 'Daily Closing', badge: 'NEW', feature: 'DAILY_CLOSING', permission: 'DAILY_CLOSING' },
       {
