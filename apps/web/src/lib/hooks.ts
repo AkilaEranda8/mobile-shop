@@ -442,10 +442,11 @@ export function usePlStatement(params?: Record<string, string>) {
 export function useAnalyticsDashboard(branchId?: string) {
   const activeBranchId = useActiveBranchId()
   const resolved = branchId ?? activeBranchId
-  const params = resolved ? { branchId: resolved } : undefined
+  const scoped = resolved && resolved !== 'all' ? resolved : undefined
+  const params = scoped ? { branchId: scoped } : undefined
   return useApi<unknown>(
     () => analyticsApi.dashboard(params) as Promise<{ data: unknown }>,
-    [resolved ?? 'all'],
+    [scoped ?? 'all'],
   )
 }
 

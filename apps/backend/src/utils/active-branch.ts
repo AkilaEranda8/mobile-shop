@@ -141,14 +141,19 @@ export async function resolveActiveBranch(
   return branchId
 }
 
+/** Normalize query/header branch id; treat missing/"all" as unscoped. */
+export function normalizeBranchId(id?: string | null): string | undefined {
+  const trimmed = id?.trim()
+  if (!trimmed || trimmed === 'all') return undefined
+  return trimmed
+}
+
 /** Branch id for list/report queries: respects owner "all branches" scope. */
 export function effectiveBranchId(req: Request): string | undefined {
   if (req.branchScope === 'all') {
-    const q = (req.query.branchId as string | undefined)?.trim()
-    return q || undefined
+    return normalizeBranchId(req.query.branchId as string | undefined)
   }
-  const q = (req.query.branchId as string | undefined)?.trim()
-  return q || req.activeBranchId
+  return normalizeBranchId(req.query.branchId as string | undefined) || req.activeBranchId
 }
 
 /**

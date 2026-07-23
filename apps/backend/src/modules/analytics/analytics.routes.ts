@@ -18,6 +18,11 @@ import {
   resolveOptionalBusinessReportRange,
 } from '../report-engine/report-engine.service'
 import { saleWhereExcludeNonRevenue } from '../../constants/business-rules.constants'
+import { hasVariants, sumVariantStock } from '../../utils/product-variants'
+
+function effectiveProductStock(p: { stock: number; storageVariations?: unknown }): number {
+  return hasVariants(p.storageVariations) ? sumVariantStock(p.storageVariations) : p.stock
+}
 
 const router = Router()
 router.use(authenticate)
@@ -76,7 +81,7 @@ router.get('/dashboard', requireModuleAccess('DASHBOARD', 'view'), async (req: R
 
     const todayFin = await getPeriodFinancials(tenantId, todayKey, todayKey, branchId)
 
-    const [activeRepairs, totalCustomers, lowStockProducts, posRevenue, otherRevenue, expiringWarranties, readyForPickup, totalSalesCount] = await Promise.all([
+    const [activeRepairs, totalCustomers, productStockRows, posRevenue, otherRevenue, expiringWarranties, readyForPickup, totalSalesCount] = await Promise.all([
       prisma.repairTicket.count({ where: { tenantId, ...branchFilter, status: { notIn: ['DELIVERED', 'CANCELLED'] } } }),
       prisma.customer.count({
         where: {
@@ -85,17 +90,11 @@ router.get('/dashboard', requireModuleAccess('DASHBOARD', 'view'), async (req: R
           ...branchFilter,
         },
       }),
-      // Low stock: compare stock against each product's own minStock (not a hardcoded value)
-      prisma.$queryRaw<Array<{ id: string; name: string; stock: number; minStock: number }>>`
-        SELECT id, name, stock, "minStock"
-        FROM   "Product"
-        WHERE  "tenantId" = ${tenantId}
-          AND  "isActive" = true
-          ${branchId ? Prisma.sql`AND "branchId" = ${branchId}` : Prisma.empty}
-          AND  stock < "minStock"
-        ORDER  BY stock ASC
-        LIMIT  5
-      `,
+      // Low stock uses effective stock (variant sum) — same as inventory list
+      prisma.product.findMany({
+        where: { tenantId, isActive: true, ...branchFilter },
+        select: { id: true, name: true, stock: true, minStock: true, storageVariations: true },
+      }),
       prisma.sale.aggregate({ where: { tenantId, ...branchFilter, status: { not: 'RETURNED' }, ...saleWhereExcludeNonRevenue() }, _sum: { total: true } }),
       // Other income (repairs, manual entries) — exclude 'Sales' (already in posRevenue)
       // and legacy 'Opening Cash' drawer-float entries (not revenue).
@@ -105,6 +104,17 @@ router.get('/dashboard', requireModuleAccess('DASHBOARD', 'view'), async (req: R
       prisma.sale.count({ where: { tenantId, ...branchFilter, status: { not: 'RETURNED' }, ...saleWhereExcludeNonRevenue() } }),
     ])
 
+    const lowStockAll = productStockRows
+      .map(p => ({
+        id: p.id,
+        name: p.name,
+        stock: effectiveProductStock(p),
+        minStock: p.minStock,
+      }))
+      .filter(p => p.stock < p.minStock)
+      .sort((a, b) => a.stock - b.stock)
+    const lowStockProducts = lowStockAll.slice(0, 5)
+
     const totalRevenue = (posRevenue._sum.total ?? 0) + (otherRevenue._sum.amount ?? 0)
     sendSuccess(res, {
       todayRevenue:    todayFin.grossSales + todayFin.reloadCommission,
@@ -112,7 +122,7 @@ router.get('/dashboard', requireModuleAccess('DASHBOARD', 'view'), async (req: R
       totalSalesCount,
       activeRepairs,
       totalCustomers,
-      lowStockCount:    (lowStockProducts as any[]).length,
+      lowStockCount:    lowStockAll.length,
       lowStockProducts,
       totalRevenue,
       expiringWarranties,
@@ -175,7 +185,10 @@ router.get('/inventory-summary', reportsOnly, async (req: Request, res: Response
     const branchId = effectiveBranchId(req)
     const products = await prisma.product.findMany({
       where: { tenantId, isActive: true, ...(branchId && { branchId }) },
-      select: { id: true, stock: true, minStock: true, buyingPrice: true, sellingPrice: true, category: { select: { name: true } } },
+      select: {
+        id: true, stock: true, minStock: true, buyingPrice: true, sellingPrice: true,
+        storageVariations: true, category: { select: { name: true } },
+      },
     })
 
     const catMap: Record<string, { name: string; products: number; totalStock: number; stockValue: number; lowStock: number; outOfStock: number }> = {}
@@ -184,10 +197,11 @@ router.get('/inventory-summary', reportsOnly, async (req: Request, res: Response
     products.forEach(p => {
       const cat = (p as any).category?.name ?? 'Uncategorised'
       if (!catMap[cat]) catMap[cat] = { name: cat, products: 0, totalStock: 0, stockValue: 0, lowStock: 0, outOfStock: 0 }
-      const val = p.stock * p.buyingPrice
-      catMap[cat].products++; catMap[cat].totalStock += p.stock; catMap[cat].stockValue += val
-      if (p.stock === 0) { catMap[cat].outOfStock++; totalOut++ }
-      else if (p.stock < p.minStock) { catMap[cat].lowStock++; totalLow++ }
+      const stock = effectiveProductStock(p)
+      const val = stock * p.buyingPrice
+      catMap[cat].products++; catMap[cat].totalStock += stock; catMap[cat].stockValue += val
+      if (stock === 0) { catMap[cat].outOfStock++; totalOut++ }
+      else if (stock < p.minStock) { catMap[cat].lowStock++; totalLow++ }
       totalStockValue += val; totalProducts++
     })
 
