@@ -25,6 +25,12 @@ import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
 import { authStorage } from '@/lib/auth'
 import { Printer } from 'lucide-react'
 import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
+import {
+  getActiveBranchId,
+  getVisibleBranches,
+  hasMultipleBranches,
+  isAllBranchesScope,
+} from '@/lib/active-branch'
 
 const statusColors: Record<string, string> = {
   ACTIVE:  'bg-green-500/10  border-green-500/20  text-green-400',
@@ -93,12 +99,15 @@ function RepairWarrantyDefaults() {
 /* ── Add Warranty Modal ───────────────────────────────────────────────── */
 function AddWarrantyModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const { canEdit } = useModuleAccess()
+  const branches = useMemo(() => getVisibleBranches(), [])
+  const showBranchPicker = hasMultipleBranches()
   const [form, setForm] = useState({
     customerName: '', customerPhone: '', customerId: '',
     productName: '', brandName: '', imei: '',
     quantity: '1',
     monthsDuration: '12', startDate: new Date().toISOString().slice(0, 10),
     invoiceNumber: '', saleId: '', productId: '',
+    branchId: getActiveBranchId() ?? branches[0]?.id ?? '',
   })
   const [loading,      setLoading]      = useState(false)
   const [custSearch,   setCustSearch]   = useState('')
@@ -148,8 +157,15 @@ function AddWarrantyModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
       const start = new Date(form.startDate)
       const end   = new Date(start)
       end.setMonth(end.getMonth() + Number(form.monthsDuration))
+      const branchId = form.branchId || getActiveBranchId() || undefined
+      if (showBranchPicker && !branchId) {
+        toast.error('Select a branch')
+        setLoading(false)
+        return
+      }
       await warrantyApi.create({
         ...form,
+        ...(branchId ? { branchId } : {}),
         monthsDuration: Number(form.monthsDuration),
         quantity: Math.max(1, Number(form.quantity) || 1),
         startDate: start,
@@ -168,6 +184,25 @@ function AddWarrantyModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
           <button onClick={onClose} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><X size={16} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
+
+          {showBranchPicker && (
+            <div>
+              <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Branch *</label>
+              <select
+                className="input-field"
+                value={form.branchId}
+                onChange={e => setForm(p => ({ ...p, branchId: e.target.value }))}
+                required
+              >
+                {branches.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+              <p className="mt-1.5 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                This warranty stays on the selected branch only
+              </p>
+            </div>
+          )}
 
           {/* ── Customer Selector ── */}
           <div>
@@ -926,6 +961,8 @@ function EditWarrantyModal({ warranty, onClose, onSaved }: {
   warranty: Warranty; onClose: () => void; onSaved: () => void
 }) {
   const { canEdit } = useModuleAccess()
+  const branches = useMemo(() => getVisibleBranches(), [])
+  const showBranchPicker = hasMultipleBranches()
   const [form, setForm] = useState({
     customerName:   warranty.customerName   ?? '',
     customerPhone:  warranty.customerPhone  ?? '',
@@ -937,6 +974,7 @@ function EditWarrantyModal({ warranty, onClose, onSaved }: {
     startDate:      warranty.startDate?.slice(0, 10) ?? '',
     endDate:        warranty.endDate?.slice(0, 10)   ?? '',
     status:         warranty.status ?? 'ACTIVE',
+    branchId:       warranty.branchId ?? getActiveBranchId() ?? branches[0]?.id ?? '',
   })
   const [loading, setLoading] = useState(false)
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -947,10 +985,16 @@ function EditWarrantyModal({ warranty, onClose, onSaved }: {
     if (!canEdit) { viewOnlyToast('warranties'); return }
     setLoading(true)
     try {
+      if (showBranchPicker && !form.branchId) {
+        toast.error('Select a branch')
+        setLoading(false)
+        return
+      }
       await warrantyApi.update(warranty.id, {
         ...form,
         monthsDuration: Number(form.monthsDuration),
         quantity: Math.max(1, Number(form.quantity) || 1),
+        ...(form.branchId ? { branchId: form.branchId } : {}),
       })
       toast.success('Warranty updated'); onSaved(); onClose()
     } catch (err: any) { toast.error(err?.message ?? 'Update failed') }
@@ -968,6 +1012,24 @@ function EditWarrantyModal({ warranty, onClose, onSaved }: {
           <button onClick={onClose} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><X size={16} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          {showBranchPicker && (
+            <div>
+              <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Branch *</label>
+              <select
+                className="input-field"
+                value={form.branchId}
+                onChange={e => setForm(p => ({ ...p, branchId: e.target.value }))}
+                required
+              >
+                {branches.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+              <p className="mt-1.5 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                Move this warranty to another branch if needed
+              </p>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             {[
               { k: 'customerName',  label: 'Customer Name *', req: true  },
@@ -1090,7 +1152,9 @@ export default function WarrantyPage() {
     finally { setDeletingId(null) }
   }
 
-  const columns = useMemo<ColumnDef<Warranty>[]>(() => [
+  const columns = useMemo<ColumnDef<Warranty>[]>(() => {
+    const showBranchCol = hasMultipleBranches() || isAllBranchesScope()
+    const cols: ColumnDef<Warranty>[] = [
     {
       accessorKey: 'warrantyCode',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Code" />,
@@ -1133,6 +1197,20 @@ export default function WarrantyPage() {
         </div>
       ),
     },
+    ]
+    if (showBranchCol) {
+      cols.push({
+        id: 'branch',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Branch" />,
+        accessorFn: (row) => row.branch?.name ?? '',
+        cell: ({ row }) => (
+          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+            {row.original.branch?.name ?? '—'}
+          </span>
+        ),
+      })
+    }
+    cols.push(
     {
       accessorKey: 'endDate',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Expires" />,
@@ -1169,7 +1247,9 @@ export default function WarrantyPage() {
         />
       ),
     },
-  ], [canEdit, deletingId, handleDelete, openDetail, openEdit])
+    )
+    return cols
+  }, [canEdit, deletingId, handleDelete, openDetail, openEdit])
 
   return (
     <div className="space-y-6">

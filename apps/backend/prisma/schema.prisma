@@ -275,6 +275,7 @@ model Branch {
   exchanges                   DeviceExchange[]
   customers                   Customer[]
   warranties                  Warranty[]
+  suppliers                   Supplier[]
   glAccounts                  GlAccount[]
   journalEntries              JournalEntry[]
   cashAccounts                CashAccount[]
@@ -884,6 +885,7 @@ model WarrantyClaim {
 model Supplier {
   id                 String   @id @default(cuid())
   tenantId           String
+  branchId           String?
   name               String
   contactName        String
   phone              String
@@ -899,8 +901,11 @@ model Supplier {
   updatedAt          DateTime @updatedAt
 
   tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch         Branch?         @relation(fields: [branchId], references: [id], onDelete: SetNull)
   purchaseOrders PurchaseOrder[]
   transactions   Transaction[]
+
+  @@index([tenantId, branchId])
 }
 
 model PurchaseOrder {

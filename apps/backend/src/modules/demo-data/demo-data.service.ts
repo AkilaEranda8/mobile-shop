@@ -170,12 +170,13 @@ export async function installDemoDataForTenant(tenantId: string, branchId: strin
   const supplier = await prisma.supplier.create({
     data: {
       tenantId,
+      branchId,
       name: DEMO_SUPPLIER.name,
       contactName: DEMO_SUPPLIER.contactName,
       phone: DEMO_SUPPLIER.phone,
       email: DEMO_SUPPLIER.email,
       city: DEMO_SUPPLIER.city,
-    },
+    } as Prisma.SupplierUncheckedCreateInput,
   })
   manifest.supplierIds.push(supplier.id)
 

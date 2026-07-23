@@ -391,10 +391,11 @@ export function useWarranties(params?: Record<string, string>) {
 }
 
 export function useSuppliers(params?: Record<string, string>) {
+  const branchId = useActiveBranchId()
   const p = { ...ALL, ...params }
   return useApi<{ data: unknown[]; meta: any }>(
     () => wrapPaginated(suppliersApi.list.bind(null, p)),
-    [JSON.stringify(p)],
+    [JSON.stringify(p), branchId ?? 'all'],
   )
 }
 
@@ -408,10 +409,11 @@ export function usePurchaseOrders(params?: Record<string, string>) {
 }
 
 export function useSupplierPayments(params?: Record<string, string>) {
+  const branchId = useActiveBranchId()
   const p = { ...ALL, ...params }
   return useApi<{ data: unknown[]; meta: any }>(
     () => wrapPaginated(suppliersApi.payments.bind(null, p)),
-    [JSON.stringify(p)],
+    [JSON.stringify(p), branchId ?? 'all'],
   )
 }
 

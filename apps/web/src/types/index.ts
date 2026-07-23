@@ -295,6 +295,7 @@ export interface RepairStatusHistory {
 
 export interface Warranty {
   id: string
+  branchId?: string | null
   warrantyCode: string
   saleId: string
   invoiceNumber: string
@@ -313,6 +314,7 @@ export interface Warranty {
   claims: WarrantyClaim[]
   qrUrl: string
   createdAt: string
+  branch?: { id: string; name: string } | null
 }
 
 export interface WarrantyClaim {
@@ -337,6 +339,7 @@ export interface Supplier {
   address?: string
   city?: string
   gstin?: string
+  branchId?: string | null
   totalOrders: number
   totalPurchaseValue: number
   outstandingDues: number

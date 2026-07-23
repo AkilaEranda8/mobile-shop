@@ -11,7 +11,7 @@ import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useSuppliers, usePurchaseOrders, useProducts } from '@/lib/hooks'
 import { suppliersApi, imeiApi, productsApi } from '@/lib/api'
-import { getActiveBranchId } from '@/lib/active-branch'
+import { getActiveBranchId, getVisibleBranches, hasMultipleBranches } from '@/lib/active-branch'
 import toast from 'react-hot-toast'
 import { productSearchHaystack } from '@/lib/barcode-scan'
 import type { Supplier, PurchaseOrder, POItem } from '@/types'
@@ -471,7 +471,6 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
   const totalDue = selectedList.reduce((s, p) => s + Number(p.dueAmount ?? 0), 0)
   const totalPoValue = selectedList.reduce((s, p) => s + Number(p.total ?? 0), 0)
   const [amount, setAmount] = useState(() => (totalDue > 0 ? totalDue.toFixed(2) : ''))
-  const supplierListedDue = Number((supplier as any).outstandingDues ?? 0)
 
   useEffect(() => {
     if (totalDue > 0) setAmount(totalDue.toFixed(2))
@@ -680,7 +679,6 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
                     <tr style={{ color: 'var(--text-secondary)' }}>
                       <th className="px-3 py-2 text-left w-10" />
                       <th className="px-3 py-2 text-left">PO Number</th>
-                      <th className="px-3 py-2 text-left">Branch</th>
                       <th className="px-3 py-2 text-left">Date</th>
                       <th className="px-3 py-2 text-right">Total</th>
                       <th className="px-3 py-2 text-right">Due</th>
@@ -689,7 +687,6 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
                   <tbody>
                     {unpaidPOs.map(po => {
                       const selected = selectedPOs.has(po.id)
-                      const branchName = (po as any).branch?.name as string | undefined
                       return (
                         <tr
                           key={po.id}
@@ -713,9 +710,6 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
                             <span className="font-mono font-semibold accent-text">{po.poNumber}</span>
                           </td>
                           <td className="px-3 py-2.5" style={{ color: 'var(--text-muted)' }}>
-                            {branchName || '—'}
-                          </td>
-                          <td className="px-3 py-2.5" style={{ color: 'var(--text-muted)' }}>
                             {po.createdAt ? formatDate(po.createdAt) : '—'}
                           </td>
                           <td className="px-3 py-2.5 text-right whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
@@ -732,20 +726,9 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
               </div>
             ) : (
               <div className="flex items-start gap-2 px-4 py-5">
-                <CheckCircle size={14} className={`shrink-0 mt-0.5 ${supplierListedDue > 0.001 ? 'text-amber-500' : 'text-emerald-500'}`} />
+                <CheckCircle size={14} className="shrink-0 mt-0.5 text-emerald-500" />
                 <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                  {supplierListedDue > 0.001 ? (
-                    <>
-                      <p className="font-medium text-amber-600 dark:text-amber-400">
-                        Listed outstanding is {formatCurrency(supplierListedDue)}, but no unpaid PO is reachable here.
-                      </p>
-                      <p className="mt-1">
-                        Switch to the branch where the PO was created, or use Owner → All Branches.
-                      </p>
-                    </>
-                  ) : (
-                    <p>No outstanding purchase orders. There is no supplier balance available to settle.</p>
-                  )}
+                  <p>No outstanding purchase orders for this branch. There is no balance to settle.</p>
                 </div>
               </div>
             )}
@@ -1327,8 +1310,10 @@ export function SupplierDetailsModal({ supplier, allPOs, onClose, onEdit }: { su
   )
 }
 
-/* â”€â”€ Edit Supplier Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Edit Supplier Modal ─────────────────────────────────────────────── */
 export function EditSupplierModal({ supplier, onClose, onSaved }: { supplier: Supplier; onClose: () => void; onSaved: () => void }) {
+  const branches = useMemo(() => getVisibleBranches(), [])
+  const showBranchPicker = hasMultipleBranches()
   const [form, setForm]   = useState({
     name:        supplier.name        ?? '',
     contactName: supplier.contactName ?? '',
@@ -1337,6 +1322,7 @@ export function EditSupplierModal({ supplier, onClose, onSaved }: { supplier: Su
     city:        supplier.city        ?? '',
     address:     supplier.address     ?? '',
     gstin:       supplier.gstin       ?? '',
+    branchId:    supplier.branchId    ?? getActiveBranchId() ?? branches[0]?.id ?? '',
   })
   const [loading, setLoading] = useState(false)
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(p => ({ ...p, [k]: e.target.value }))
@@ -1344,7 +1330,16 @@ export function EditSupplierModal({ supplier, onClose, onSaved }: { supplier: Su
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setLoading(true)
     try {
-      await suppliersApi.update(supplier.id, form)
+      await suppliersApi.update(supplier.id, {
+        name: form.name,
+        contactName: form.contactName,
+        phone: form.phone,
+        email: form.email || undefined,
+        city: form.city || undefined,
+        address: form.address || undefined,
+        gstin: form.gstin || undefined,
+        ...(form.branchId ? { branchId: form.branchId } : {}),
+      })
       toast.success('Supplier updated')
       onSaved(); onClose()
     } catch (err: any) { toast.error(err?.message ?? 'Update failed') }
@@ -1379,6 +1374,24 @@ export function EditSupplierModal({ supplier, onClose, onSaved }: { supplier: Su
                 />
               </div>
             ))}
+            {showBranchPicker && (
+              <div className="col-span-2">
+                <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Branch *</label>
+                <select
+                  className="input-field"
+                  value={form.branchId}
+                  onChange={e => setForm(p => ({ ...p, branchId: e.target.value }))}
+                  required
+                >
+                  {branches.map(b => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+                <p className="mt-1.5 text-[10px] text-gray-500 dark:text-slate-500">
+                  Move this supplier to another branch — it will only appear there
+                </p>
+              </div>
+            )}
           </div>
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
@@ -1392,10 +1405,13 @@ export function EditSupplierModal({ supplier, onClose, onSaved }: { supplier: Su
   )
 }
 
-/* â”€â”€ Add Supplier Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Add Supplier Modal ──────────────────────────────────────────────── */
 export function AddSupplierModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const branches = useMemo(() => getVisibleBranches(), [])
+  const showBranchPicker = hasMultipleBranches()
   const [form, setForm] = useState({
     name: '', contactName: '', phone: '', email: '', city: '', address: '', gstin: '', openingDue: '',
+    branchId: getActiveBranchId() ?? branches[0]?.id ?? '',
   })
   const [loading, setLoading] = useState(false)
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(p => ({ ...p, [k]: e.target.value }))
@@ -1404,6 +1420,7 @@ export function AddSupplierModal({ onClose, onSaved }: { onClose: () => void; on
     e.preventDefault(); setLoading(true)
     try {
       const openingDue = Math.max(0, Number(form.openingDue) || 0)
+      const branchId = form.branchId || getActiveBranchId() || undefined
       await suppliersApi.create({
         name: form.name,
         contactName: form.contactName || undefined,
@@ -1412,7 +1429,8 @@ export function AddSupplierModal({ onClose, onSaved }: { onClose: () => void; on
         city: form.city || undefined,
         address: form.address || undefined,
         gstin: form.gstin || undefined,
-        ...(openingDue > 0 ? { openingDue, branchId: getActiveBranchId() || undefined } : {}),
+        ...(branchId ? { branchId } : {}),
+        ...(openingDue > 0 ? { openingDue } : {}),
       })
       toast.success(openingDue > 0
         ? `Supplier added with ${formatCurrency(openingDue)} prior outstanding`
@@ -1459,6 +1477,24 @@ export function AddSupplierModal({ onClose, onSaved }: { onClose: () => void; on
               <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">VAT Number</label>
               <input className="input-field" placeholder="123456789-7000" value={form.gstin} onChange={f('gstin')} />
             </div>
+            {showBranchPicker && (
+              <div className="col-span-2">
+                <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Branch *</label>
+                <select
+                  className="input-field"
+                  value={form.branchId}
+                  onChange={e => setForm(p => ({ ...p, branchId: e.target.value }))}
+                  required
+                >
+                  {branches.map(b => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+                <p className="mt-1.5 text-[10px] text-gray-500 dark:text-slate-500">
+                  Assign this supplier to a branch — other branches will not see it
+                </p>
+              </div>
+            )}
             <div className="col-span-2">
               <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">
                 Prior outstanding (LKR)
@@ -1490,7 +1526,7 @@ export function AddSupplierModal({ onClose, onSaved }: { onClose: () => void; on
   )
 }
 
-/* â”€â”€ New PO Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── New PO Modal ────────────────────────────────────────────────────── */
 export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; onClose: () => void; onSaved: () => void }) {
   const [supplierId, setSupplierId]   = useState(suppliers[0]?.id ?? '')
   const [expectedDelivery, setExpDel] = useState('')

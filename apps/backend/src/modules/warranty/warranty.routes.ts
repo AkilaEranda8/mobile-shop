@@ -28,22 +28,57 @@ router.use(enforceModuleAccess('WARRANTY'))
 
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const branchId = effectiveBranchId(req)
     await prisma.warranty.updateMany({
-      where: { tenantId: req.tenantId!, status: 'ACTIVE', endDate: { lt: new Date() } },
+      where: {
+        tenantId: req.tenantId!,
+        status: 'ACTIVE',
+        endDate: { lt: new Date() },
+        ...(branchId ? { branchId } : {}),
+      },
       data:  { status: 'EXPIRED' },
     }).catch(() => {})
     const { skip, limit, page, search } = getPagination(req)
     const status = req.query.status as string | undefined
-    const branchId = effectiveBranchId(req)
-    const where: any = { tenantId: req.tenantId!, ...(branchId && { branchId }), ...(status && { status }), ...(search && { OR: [{ warrantyCode: { contains: search, mode: 'insensitive' } }, { customerName: { contains: search, mode: 'insensitive' } }, { productName: { contains: search, mode: 'insensitive' } }, { imei: { contains: search } }] }) }
-    const [data, total] = await Promise.all([prisma.warranty.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { claims: true } }), prisma.warranty.count({ where })])
+    const where: any = {
+      tenantId: req.tenantId!,
+      ...(branchId && { branchId }),
+      ...(status && { status }),
+      ...(search && {
+        OR: [
+          { warrantyCode: { contains: search, mode: 'insensitive' } },
+          { customerName: { contains: search, mode: 'insensitive' } },
+          { productName: { contains: search, mode: 'insensitive' } },
+          { imei: { contains: search } },
+        ],
+      }),
+    }
+    const [data, total] = await Promise.all([
+      prisma.warranty.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          claims: true,
+          branch: { select: { id: true, name: true } },
+        },
+      }),
+      prisma.warranty.count({ where }),
+    ])
     sendPaginated(res, data, total, page, limit)
   } catch (e) { next(e) }
 })
 
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const w = await prisma.warranty.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! }, include: { claims: true } })
+    const w = await prisma.warranty.findFirst({
+      where: { id: req.params.id, tenantId: req.tenantId! },
+      include: {
+        claims: true,
+        branch: { select: { id: true, name: true } },
+      },
+    })
     if (!w) throw new AppError('Warranty not found', 404)
     assertBranchRecordAccess(req, w.branchId)
     sendSuccess(res, w)
@@ -54,15 +89,61 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const warrantyCode = generateWarrantyCode()
     const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId })
+    const {
+      customerName,
+      customerPhone,
+      customerId,
+      productName,
+      brandName,
+      imei,
+      quantity,
+      monthsDuration,
+      startDate,
+      endDate,
+      invoiceNumber,
+      saleId,
+      productId,
+      status,
+    } = req.body
+
+    if (!String(customerName ?? '').trim()) throw new AppError('Customer name is required', 400)
+    if (!String(productName ?? '').trim()) throw new AppError('Product name is required', 400)
+    if (!startDate || !endDate) throw new AppError('Start and end dates are required', 400)
+
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      throw new AppError('Invalid start or end date', 400)
+    }
+
+    const allowedStatus = new Set(['ACTIVE', 'EXPIRED', 'CLAIMED', 'VOID'])
+    const nextStatus = status && allowedStatus.has(String(status)) ? String(status) : 'ACTIVE'
+
     const w = await prisma.warranty.create({
       data: {
-        ...req.body,
         tenantId: req.tenantId!,
         branchId,
         warrantyCode,
         qrUrl: buildWarrantyQrUrl(warrantyCode),
+        customerName: String(customerName).trim(),
+        customerPhone: String(customerPhone ?? '').trim(),
+        customerId: customerId || undefined,
+        productName: String(productName).trim(),
+        brandName: String(brandName ?? '').trim(),
+        imei: imei ? String(imei).trim() : undefined,
+        quantity: Math.max(1, Number(quantity) || 1),
+        monthsDuration: Math.max(0, Number(monthsDuration) || 0),
+        startDate: start,
+        endDate: end,
+        invoiceNumber: invoiceNumber || undefined,
+        saleId: saleId || undefined,
+        productId: productId || undefined,
+        status: nextStatus as 'ACTIVE' | 'EXPIRED' | 'CLAIMED' | 'VOID',
       },
-      include: { claims: true },
+      include: {
+        claims: true,
+        branch: { select: { id: true, name: true } },
+      },
     })
     sendSuccess(res, w, 'Warranty created', 201)
   } catch (e) { next(e) }
@@ -73,7 +154,10 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
     const w = await prisma.warranty.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! } })
     if (!w) throw new AppError('Warranty not found', 404)
     assertBranchRecordAccess(req, w.branchId)
-    const { customerName, customerPhone, productName, brandName, imei, quantity, startDate, endDate, monthsDuration, status } = req.body
+    const {
+      customerName, customerPhone, productName, brandName, imei, quantity,
+      startDate, endDate, monthsDuration, status, branchId: nextBranchRaw,
+    } = req.body
     const data: any = {}
     if (customerName   !== undefined) data.customerName   = customerName
     if (customerPhone  !== undefined) data.customerPhone  = customerPhone
@@ -81,11 +165,34 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
     if (brandName      !== undefined) data.brandName      = brandName
     if (imei           !== undefined) data.imei           = imei
     if (quantity       !== undefined) data.quantity       = Math.max(1, Number(quantity) || 1)
-    if (startDate      !== undefined) data.startDate      = new Date(startDate)
-    if (endDate        !== undefined) data.endDate        = new Date(endDate)
+    if (startDate      !== undefined) {
+      const d = new Date(startDate)
+      if (Number.isNaN(d.getTime())) throw new AppError('Invalid start date', 400)
+      data.startDate = d
+    }
+    if (endDate        !== undefined) {
+      const d = new Date(endDate)
+      if (Number.isNaN(d.getTime())) throw new AppError('Invalid end date', 400)
+      data.endDate = d
+    }
     if (monthsDuration !== undefined) data.monthsDuration = Number(monthsDuration)
-    if (status         !== undefined) data.status         = status
-    const updated = await prisma.warranty.update({ where: { id: req.params.id }, data, include: { claims: true } })
+    if (status !== undefined) {
+      const allowedStatus = new Set(['ACTIVE', 'EXPIRED', 'CLAIMED', 'VOID'])
+      if (!allowedStatus.has(String(status))) throw new AppError('Invalid warranty status', 400)
+      data.status = status
+    }
+    if (nextBranchRaw != null && String(nextBranchRaw).trim()) {
+      // Destination must be assignable (any assigned branch), not only the active one
+      data.branchId = await resolveMutationBranchId(req, { preferred: nextBranchRaw })
+    }
+    const updated = await prisma.warranty.update({
+      where: { id: req.params.id },
+      data,
+      include: {
+        claims: true,
+        branch: { select: { id: true, name: true } },
+      },
+    })
     sendSuccess(res, updated, 'Warranty updated')
   } catch (e) { next(e) }
 })
