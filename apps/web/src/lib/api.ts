@@ -439,6 +439,7 @@ export const suppliersApi = {
   }[]) =>
     api.post(`/suppliers/purchase-orders/${poId}/register-imei`, { items }),
   recordPayment: (supplierId: string, body: unknown) => api.post(`/suppliers/${supplierId}/payments`, body),
+  unpaidPurchaseOrders: (supplierId: string) => api.get(`/suppliers/${supplierId}/unpaid-purchase-orders`),
   payments: (params?: Record<string, string>) =>
     api.get(`/suppliers/payments${params ? '?' + new URLSearchParams(params) : ''}`),
 }

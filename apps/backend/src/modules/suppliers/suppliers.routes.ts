@@ -205,6 +205,63 @@ router.post('/', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), async (
   } catch (e) { next(e) }
 })
 
+/** Unpaid POs for Record Payment — across accessible branches (not only active branch). */
+router.get('/:id/unpaid-purchase-orders', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenantId = req.tenantId!
+    const supplier = await prisma.supplier.findFirst({
+      where: { id: req.params.id, tenantId, isActive: true },
+      select: { id: true, name: true, outstandingDues: true },
+    })
+    if (!supplier) throw new AppError('Supplier not found', 404)
+
+    const branchWhere =
+      req.branchScope === 'all'
+        ? {}
+        : {
+            branchId: {
+              in: (req.assignedBranchIds?.length ? req.assignedBranchIds : [req.activeBranchId].filter(Boolean)) as string[],
+            },
+          }
+
+    const purchaseOrders = await prisma.purchaseOrder.findMany({
+      where: {
+        tenantId,
+        supplierId: supplier.id,
+        dueAmount: { gt: 0 },
+        status: { in: ['RECEIVED', 'PARTIAL', 'CLOSED'] },
+        ...branchWhere,
+      },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        branch: { select: { id: true, name: true } },
+      },
+    })
+
+    // Keep supplier.outstandingDues in sync with PO dues when opened for payment
+    const dueSum = Math.round(purchaseOrders.reduce((s, p) => s + Number(p.dueAmount), 0) * 100) / 100
+    // Also recompute from ALL branches for the badge (tenant-wide)
+    const allDueAgg = await prisma.purchaseOrder.aggregate({
+      where: { tenantId, supplierId: supplier.id },
+      _sum: { dueAmount: true },
+    })
+    const tenantDue = Math.round(Number(allDueAgg._sum.dueAmount ?? 0) * 100) / 100
+    if (Math.abs(Number(supplier.outstandingDues) - tenantDue) > 0.001) {
+      await prisma.supplier.update({
+        where: { id: supplier.id },
+        data: { outstandingDues: tenantDue },
+      })
+      supplier.outstandingDues = tenantDue
+    }
+
+    sendSuccess(res, {
+      supplierOutstanding: supplier.outstandingDues,
+      accessibleOutstanding: dueSum,
+      purchaseOrders,
+    })
+  } catch (e) { next(e) }
+})
+
 router.put('/:id', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const s = await prisma.supplier.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! } })

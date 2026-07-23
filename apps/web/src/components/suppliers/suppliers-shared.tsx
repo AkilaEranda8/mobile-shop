@@ -417,15 +417,22 @@ export function IMEIRegisterModal({ po, products, onClose, onSaved }: {
 /* ── Record Payment Modal ─────────────────────────────────────────── */
 export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
   supplier: Supplier
-  allPOs: PurchaseOrder[]
+  allPOs?: PurchaseOrder[]
   onClose: () => void
   onSaved: () => void
 }) {
-  const unpaidPOs = useMemo(
-    () => allPOs.filter(po => po.supplierId === supplier.id && po.status === 'RECEIVED' && po.dueAmount > 0),
+  const fallbackUnpaid = useMemo(
+    () => (allPOs ?? []).filter(po =>
+      po.supplierId === supplier.id
+      && Number(po.dueAmount) > 0
+      && ['RECEIVED', 'PARTIAL', 'CLOSED'].includes(String(po.status)),
+    ),
     [allPOs, supplier.id],
   )
-  const [selectedPOs, setSelectedPOs] = useState<Set<string>>(() => new Set(unpaidPOs.map(p => p.id)))
+  const [unpaidPOs, setUnpaidPOs] = useState<PurchaseOrder[]>(fallbackUnpaid)
+  const [loadingPos, setLoadingPos] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [selectedPOs, setSelectedPOs] = useState<Set<string>>(() => new Set(fallbackUnpaid.map(p => p.id)))
   const [methodId, setMethodId] = useState('CASH')
   const payMethods = usePaymentMethods()
   const method: PaymentMethodKey = payMethods.find(m => m.id === methodId)?.key
@@ -440,10 +447,31 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
   const [paymentDate, setPaymentDate] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' }))
   const [loading, setLoading] = useState(false)
 
+  useEffect(() => {
+    let alive = true
+    setLoadingPos(true)
+    setLoadError('')
+    suppliersApi.unpaidPurchaseOrders(supplier.id)
+      .then((res: any) => {
+        if (!alive) return
+        const rows = (res?.data?.purchaseOrders ?? res?.purchaseOrders ?? []) as PurchaseOrder[]
+        setUnpaidPOs(rows)
+        setSelectedPOs(new Set(rows.map(p => p.id)))
+      })
+      .catch((err: any) => {
+        if (!alive) return
+        setLoadError(err?.message || 'Failed to load unpaid purchase orders')
+        // Keep any fallback list already shown
+      })
+      .finally(() => { if (alive) setLoadingPos(false) })
+    return () => { alive = false }
+  }, [supplier.id])
+
   const selectedList = unpaidPOs.filter(p => selectedPOs.has(p.id))
-  const totalDue = selectedList.reduce((s, p) => s + p.dueAmount, 0)
-  const totalPoValue = selectedList.reduce((s, p) => s + (p.total ?? 0), 0)
+  const totalDue = selectedList.reduce((s, p) => s + Number(p.dueAmount ?? 0), 0)
+  const totalPoValue = selectedList.reduce((s, p) => s + Number(p.total ?? 0), 0)
   const [amount, setAmount] = useState(() => (totalDue > 0 ? totalDue.toFixed(2) : ''))
+  const supplierListedDue = Number((supplier as any).outstandingDues ?? 0)
 
   useEffect(() => {
     if (totalDue > 0) setAmount(totalDue.toFixed(2))
@@ -547,12 +575,14 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
           <div className="flex items-center gap-2 shrink-0">
             <span
               className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${
-                totalDue > 0
+                loadingPos
+                  ? 'bg-slate-500/15 text-slate-500 border-slate-500/25'
+                  : totalDue > 0
                   ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/25'
                   : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
               }`}
             >
-              {totalDue > 0 ? `${formatCurrency(totalDue)} due` : 'Settled'}
+              {loadingPos ? 'Loading…' : totalDue > 0 ? `${formatCurrency(totalDue)} due` : 'Settled'}
             </span>
             <button
               type="button"
@@ -637,13 +667,20 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
               )}
             </div>
 
-            {unpaidPOs.length > 0 ? (
+            {loadingPos ? (
+              <div className="flex items-center justify-center gap-2 px-4 py-8 text-sm" style={{ color: 'var(--text-muted)' }}>
+                <Loader2 size={16} className="animate-spin" /> Loading unpaid orders…
+              </div>
+            ) : loadError ? (
+              <div className="px-4 py-6 text-sm text-red-500">{loadError}</div>
+            ) : unpaidPOs.length > 0 ? (
               <div className="max-h-52 overflow-y-auto">
                 <table className="w-full text-[12px]">
                   <thead className="sticky top-0 border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
                     <tr style={{ color: 'var(--text-secondary)' }}>
                       <th className="px-3 py-2 text-left w-10" />
                       <th className="px-3 py-2 text-left">PO Number</th>
+                      <th className="px-3 py-2 text-left">Branch</th>
                       <th className="px-3 py-2 text-left">Date</th>
                       <th className="px-3 py-2 text-right">Total</th>
                       <th className="px-3 py-2 text-right">Due</th>
@@ -652,6 +689,7 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
                   <tbody>
                     {unpaidPOs.map(po => {
                       const selected = selectedPOs.has(po.id)
+                      const branchName = (po as any).branch?.name as string | undefined
                       return (
                         <tr
                           key={po.id}
@@ -675,6 +713,9 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
                             <span className="font-mono font-semibold accent-text">{po.poNumber}</span>
                           </td>
                           <td className="px-3 py-2.5" style={{ color: 'var(--text-muted)' }}>
+                            {branchName || '—'}
+                          </td>
+                          <td className="px-3 py-2.5" style={{ color: 'var(--text-muted)' }}>
                             {po.createdAt ? formatDate(po.createdAt) : '—'}
                           </td>
                           <td className="px-3 py-2.5 text-right whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
@@ -690,11 +731,22 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
                 </table>
               </div>
             ) : (
-              <div className="flex items-center gap-2 px-4 py-5">
-                <CheckCircle size={14} className="text-emerald-500 shrink-0" />
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                  No outstanding purchase orders. There is no supplier balance available to settle.
-                </p>
+              <div className="flex items-start gap-2 px-4 py-5">
+                <CheckCircle size={14} className={`shrink-0 mt-0.5 ${supplierListedDue > 0.001 ? 'text-amber-500' : 'text-emerald-500'}`} />
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  {supplierListedDue > 0.001 ? (
+                    <>
+                      <p className="font-medium text-amber-600 dark:text-amber-400">
+                        Listed outstanding is {formatCurrency(supplierListedDue)}, but no unpaid PO is reachable here.
+                      </p>
+                      <p className="mt-1">
+                        Switch to the branch where the PO was created, or use Owner → All Branches.
+                      </p>
+                    </>
+                  ) : (
+                    <p>No outstanding purchase orders. There is no supplier balance available to settle.</p>
+                  )}
+                </div>
               </div>
             )}
           </div>

@@ -74,13 +74,27 @@ export async function recordSupplierPayment(input: RecordSupplierPaymentInput) {
   // against the default accounting bank mapping (Main Bank). An explicit
   // bankAccountId is still honoured when a caller provides one.
   let resolvedBankAccountId: string | undefined
+
+  const selectedIds = normalized.map(a => a.purchaseOrderId)
+  const previewPos = await prisma.purchaseOrder.findMany({
+    where: {
+      id: { in: selectedIds },
+      tenantId: input.tenantId,
+      supplierId: input.supplierId,
+      dueAmount: { gt: 0 },
+    },
+    select: { branchId: true },
+  })
+  const previewBranches = [...new Set(previewPos.map(p => p.branchId))]
+  const lockBranchId = previewBranches.length === 1 ? previewBranches[0] : input.branchId
+
   if (input.bankAccountId && paymentMethod !== 'CASH') {
     const bank = await prisma.bankAccount.findFirst({
       where: {
         id: input.bankAccountId,
         tenantId: input.tenantId,
         isActive: true,
-        OR: [{ branchId: null }, { branchId: input.branchId }],
+        OR: [{ branchId: null }, { branchId: lockBranchId }],
       },
       select: { id: true },
     })
@@ -88,24 +102,28 @@ export async function recordSupplierPayment(input: RecordSupplierPaymentInput) {
     resolvedBankAccountId = bank.id
   }
 
-  await assertBusinessDayOpenIfEnabled(input.tenantId, input.branchId, input.occurredAt ?? new Date())
+  await assertBusinessDayOpenIfEnabled(input.tenantId, lockBranchId, input.occurredAt ?? new Date())
 
   const runTransaction = () => prisma.$transaction(async tx => {
-    const selectedIds = normalized.map(a => a.purchaseOrderId)
     const purchaseOrders = await tx.purchaseOrder.findMany({
       where: {
         id: { in: selectedIds },
         tenantId: input.tenantId,
         supplierId: input.supplierId,
-        branchId: input.branchId,
-        status: 'RECEIVED',
         dueAmount: { gt: 0 },
+        status: { in: ['RECEIVED', 'PARTIAL', 'CLOSED'] },
       },
       orderBy: { createdAt: 'asc' },
     })
     if (purchaseOrders.length !== selectedIds.length) {
       throw new AppError('One or more selected purchase orders are invalid or already paid', 400)
     }
+
+    const poBranchIds = [...new Set(purchaseOrders.map(p => p.branchId))]
+    if (poBranchIds.length !== 1) {
+      throw new AppError('Select purchase orders from one branch at a time', 400)
+    }
+    const branchId = poBranchIds[0]
 
     const selectedDue = round2(purchaseOrders.reduce((sum, po) => sum + Number(po.dueAmount), 0))
     if (payAmount > selectedDue) {
@@ -155,7 +173,7 @@ export async function recordSupplierPayment(input: RecordSupplierPaymentInput) {
     const transaction = await tx.transaction.create({
       data: {
         tenantId: input.tenantId,
-        branchId: input.branchId,
+        branchId,
         type: 'EXPENSE',
         category: 'Supplier Payment',
         amount: payAmount,
@@ -192,7 +210,7 @@ export async function recordSupplierPayment(input: RecordSupplierPaymentInput) {
       },
     })
 
-    return { transaction, updates }
+    return { transaction, updates, branchId }
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
 
   let result: Awaited<ReturnType<typeof runTransaction>> | undefined
@@ -209,9 +227,10 @@ export async function recordSupplierPayment(input: RecordSupplierPaymentInput) {
   const accounting = await emitApPaymentAccounting(
     input.tenantId,
     result.transaction.id,
-    input.branchId,
+    result.branchId,
     input.actorEmail,
     { allocations: result.updates.map(u => ({ purchaseOrderId: u.id, amount: u.amount })) },
   )
+
   return { ...result, accounting }
 }
