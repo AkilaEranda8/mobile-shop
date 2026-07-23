@@ -102,7 +102,11 @@ export const tenantsService = {
   },
 
   async updateRolePermissions(tenantId: string, body: unknown) {
-    const normalized = normalizeRolePermissions(body)
+    const raw =
+      body && typeof body === 'object' && 'rolePermissions' in (body as object)
+        ? (body as { rolePermissions: unknown }).rolePermissions
+        : body
+    const normalized = normalizeRolePermissions(raw)
     await prisma.tenant.update({
       where: { id: tenantId },
       data: { rolePermissions: normalized },

@@ -14,8 +14,9 @@ import {
 } from 'recharts'
 import {
   useRevenue, useRepairs, useTransactions,
-  useAnalyticsDashboard, useTopProducts, useFeatureFlag
+  useAnalyticsDashboard, useTopProducts, useFeatureFlag, useRolePermissions
 } from '@/lib/hooks'
+import type { RolePermissionModuleKey } from '@/lib/role-permissions'
 import type { RepairTicket, Transaction as AppTransaction } from '@/types'
 import { formatCurrency, formatRelativeTime } from '@/lib/utils'
 import { businessToday, businessPeriodFrom, formatBusinessDateLabel } from '@/lib/business-date'
@@ -58,6 +59,7 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
    ═════════════════════════════════════════════════════════════════════ */
 export default function DashboardPage() {
   const { openPos } = usePos()
+  const { canView, canEdit } = useRolePermissions()
 
   /* ── Data ── */
   const dashTo = businessToday()
@@ -210,10 +212,15 @@ export default function DashboardPage() {
       items.push({ label: 'Warranties', detail: `${s.expiringWarranties} expiring soon`, href: '/dashboard/warranty', tone: 'warn' })
     }
     if (items.length === 0) {
-      items.push({ label: 'All clear', detail: 'No urgent actions right now', href: '/dashboard/reports/overview', tone: 'ok' })
+      items.push({
+        label: 'All clear',
+        detail: 'No urgent actions right now',
+        href: canView('REPORTS') ? '/dashboard/reports/overview' : '/dashboard',
+        tone: 'ok',
+      })
     }
     return items.slice(0, 4)
-  }, [s, repairStats.ready, repairStats.inProg])
+  }, [s, repairStats.ready, repairStats.inProg, canView])
 
   const CARD = 'bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700'
 
@@ -342,7 +349,9 @@ export default function DashboardPage() {
         <div className={`${CARD} lg:col-span-4 p-5 flex flex-col h-full min-h-[420px]`}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-gray-900 dark:text-white">Recent Activity</h3>
-            <Link href="/dashboard/reports/overview" className="text-xs font-medium text-violet-600 hover:text-violet-700 transition-colors">View All</Link>
+            {canView('REPORTS') && (
+              <Link href="/dashboard/reports/overview" className="text-xs font-medium text-violet-600 hover:text-violet-700 transition-colors">View All</Link>
+            )}
           </div>
           <div className="space-y-3.5 flex-1 min-h-0 overflow-y-auto pr-0.5">
             {activityFeed.length > 0 ? activityFeed.map((item: any, i: number) => (
@@ -514,15 +523,15 @@ export default function DashboardPage() {
 
       {/* ── Quick Actions bar ── */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-        {[
-          { href: '/dashboard/pos',       icon: ShoppingCart, label: 'New Sale',     sub: 'Create Invoice', iconBg: '#ede9fe', iconColor: 'var(--brand-primary)', openPos: true },
-          { href: '/dashboard/customers?action=add', icon: Users,        label: 'Add Customer', sub: 'Register New',   iconBg: '#dbeafe', iconColor: '#2563eb' },
-          { href: '/dashboard/inventory?action=add-product', icon: Package,      label: 'Add Product',  sub: 'New Item',       iconBg: '#dcfce7', iconColor: '#16a34a' },
-          { href: '/dashboard/repairs?action=new',   icon: Wrench,       label: 'New Repair',   sub: 'Create Ticket',  iconBg: '#ffedd5', iconColor: '#ea580c' },
-          { href: '/dashboard/finance?action=add-expense',   icon: DollarSign,   label: 'Expenses',     sub: 'Add Expense',    iconBg: '#ffe4e6', iconColor: '#e11d48' },
-          { href: '/dashboard/reports/overview',   icon: BarChart2,    label: 'Reports',      sub: 'View Reports',   iconBg: '#cffafe', iconColor: '#0891b2' },
-          ...(hasDailyClosing ? [{ href: '/dashboard/daily-closing', icon: Lock, label: 'Daily Closing', sub: 'Close Day', iconBg: '#f3e8ff', iconColor: 'var(--brand-primary)' }] : []),
-        ].map(a => {
+        {([
+          { href: '/dashboard/pos', icon: ShoppingCart, label: 'New Sale', sub: 'Create Invoice', iconBg: '#ede9fe', iconColor: 'var(--brand-primary)', openPos: true, permission: 'POS' as RolePermissionModuleKey, needsEdit: true },
+          { href: '/dashboard/customers?action=add', icon: Users, label: 'Add Customer', sub: 'Register New', iconBg: '#dbeafe', iconColor: '#2563eb', permission: 'CUSTOMERS' as RolePermissionModuleKey, needsEdit: true },
+          { href: '/dashboard/inventory?action=add-product', icon: Package, label: 'Add Product', sub: 'New Item', iconBg: '#dcfce7', iconColor: '#16a34a', permission: 'INVENTORY' as RolePermissionModuleKey, needsEdit: true },
+          { href: '/dashboard/repairs?action=new', icon: Wrench, label: 'New Repair', sub: 'Create Ticket', iconBg: '#ffedd5', iconColor: '#ea580c', permission: 'REPAIRS' as RolePermissionModuleKey, needsEdit: true },
+          { href: '/dashboard/finance?action=add-expense', icon: DollarSign, label: 'Expenses', sub: 'Add Expense', iconBg: '#ffe4e6', iconColor: '#e11d48', permission: 'FINANCE' as RolePermissionModuleKey, needsEdit: true },
+          { href: '/dashboard/reports/overview', icon: BarChart2, label: 'Reports', sub: 'View Reports', iconBg: '#cffafe', iconColor: '#0891b2', permission: 'REPORTS' as RolePermissionModuleKey, needsEdit: false },
+          ...(hasDailyClosing ? [{ href: '/dashboard/daily-closing', icon: Lock, label: 'Daily Closing', sub: 'Close Day', iconBg: '#f3e8ff', iconColor: 'var(--brand-primary)', permission: 'DAILY_CLOSING' as RolePermissionModuleKey, needsEdit: true }] : []),
+        ] as const).filter((a) => (a.needsEdit ? canEdit(a.permission) : canView(a.permission))).map(a => {
           const cardClass = `${CARD} p-4 flex flex-col items-center gap-2 text-center hover:shadow-md hover:border-violet-200 dark:hover:border-violet-500/30 transition-all active:scale-95`
           const cardInner = (
             <>

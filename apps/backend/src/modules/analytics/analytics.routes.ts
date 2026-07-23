@@ -3,7 +3,10 @@ import { prisma } from '../../config/database'
 import { Prisma } from '@prisma/client'
 import { sendSuccess } from '../../utils/response'
 import { authenticate } from '../../middleware/auth.middleware'
-import { enforceModuleAccess } from '../../middleware/module-access.middleware'
+import {
+  enforceModuleAccessReadAny,
+  requireModuleAccess,
+} from '../../middleware/module-access.middleware'
 import { businessDayRange, businessDateFromInstant, resolveQueryDateRange } from '../../utils/date-range'
 import { getDailyRevenueBreakdown, getPeriodFinancials } from '../finance/business-financials.service'
 import { effectiveBranchId } from '../../utils/active-branch'
@@ -18,7 +21,10 @@ import { saleWhereExcludeNonRevenue } from '../../constants/business-rules.const
 
 const router = Router()
 router.use(authenticate)
-router.use(enforceModuleAccess('REPORTS'))
+
+/** Home dashboard widgets may load with DASHBOARD view; full reports still need REPORTS. */
+const dashOrReports = enforceModuleAccessReadAny(['DASHBOARD', 'REPORTS'], 'REPORTS')
+const reportsOnly = requireModuleAccess('REPORTS', 'view')
 
 async function tenantHasServices(tenantId: string): Promise<boolean> {
   const row = await prisma.tenantFeature.findFirst({
@@ -60,7 +66,7 @@ function serviceSaleItemClause(includeServices: boolean) {
     : Prisma.sql`AND si."productId" IS NOT NULL`
 }
 
-router.get('/dashboard', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/dashboard', requireModuleAccess('DASHBOARD', 'view'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
     const branchId = effectiveBranchId(req)
@@ -115,7 +121,7 @@ router.get('/dashboard', async (req: Request, res: Response, next: NextFunction)
   } catch (e) { next(e) }
 })
 
-router.get('/revenue', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/revenue', dashOrReports, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { fromKey, toKey, branchId, tenantId } = resolveBusinessReportRange(req)
     const result = await getDailyRevenueBreakdown(tenantId, fromKey, toKey, branchId)
@@ -123,7 +129,7 @@ router.get('/revenue', async (req: Request, res: Response, next: NextFunction) =
   } catch (e) { next(e) }
 })
 
-router.get('/top-products', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/top-products', dashOrReports, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
     const limit = parseInt(req.query.limit as string) || 10
@@ -151,7 +157,7 @@ router.get('/top-products', async (req: Request, res: Response, next: NextFuncti
   } catch (e) { next(e) }
 })
 
-router.get('/repairs-by-status', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/repairs-by-status', dashOrReports, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const branchId = effectiveBranchId(req)
     const counts = await prisma.repairTicket.groupBy({
@@ -163,7 +169,7 @@ router.get('/repairs-by-status', async (req: Request, res: Response, next: NextF
   } catch (e) { next(e) }
 })
 
-router.get('/inventory-summary', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/inventory-summary', reportsOnly, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
     const branchId = effectiveBranchId(req)
@@ -192,7 +198,7 @@ router.get('/inventory-summary', async (req: Request, res: Response, next: NextF
   } catch (e) { next(e) }
 })
 
-router.get('/delivery-summary', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/delivery-summary', reportsOnly, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
     const branchId = effectiveBranchId(req)
@@ -227,7 +233,7 @@ router.get('/delivery-summary', async (req: Request, res: Response, next: NextFu
   } catch (e) { next(e) }
 })
 
-router.get('/category-products', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/category-products', reportsOnly, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
     const category = (req.query.category as string) ?? ''
@@ -318,7 +324,7 @@ router.get('/category-products', async (req: Request, res: Response, next: NextF
   } catch (e) { next(e) }
 })
 
-router.get('/category-sales', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/category-sales', reportsOnly, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
     const branchId = effectiveBranchId(req)
@@ -412,7 +418,7 @@ router.get('/category-sales', async (req: Request, res: Response, next: NextFunc
 })
 
 /** Customer sales report — revenue / paid / due / profit by customer for a period */
-router.get('/customer-sales', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/customer-sales', reportsOnly, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
     const branchId = effectiveBranchId(req)
@@ -539,7 +545,7 @@ router.get('/customer-sales', async (req: Request, res: Response, next: NextFunc
 })
 
 /** Invoices for one customer (or walk-in) in a date range */
-router.get('/customer-sales-detail', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/customer-sales-detail', reportsOnly, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
     const branchId = effectiveBranchId(req)
@@ -591,7 +597,7 @@ router.get('/customer-sales-detail', async (req: Request, res: Response, next: N
 })
 
 /** Purchase report — PO value / paid / due by supplier for a period */
-router.get('/purchase-report', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/purchase-report', reportsOnly, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
     const branchId = effectiveBranchId(req)
@@ -715,7 +721,7 @@ router.get('/purchase-report', async (req: Request, res: Response, next: NextFun
 })
 
 /** PO list for one supplier in a date range */
-router.get('/purchase-report-detail', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/purchase-report-detail', reportsOnly, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
     const branchId = effectiveBranchId(req)

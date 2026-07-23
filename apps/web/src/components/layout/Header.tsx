@@ -8,11 +8,12 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { authStorage } from '@/lib/auth'
 import { authApi } from '@/lib/api'
-import { useAnalyticsDashboard } from '@/lib/hooks'
+import { useAnalyticsDashboard, useRolePermissions } from '@/lib/hooks'
 import { formatCurrency } from '@/lib/utils'
 import { applyAccentToDocument, getStoredAppearance } from '@/lib/appearance'
 import GlobalSearch from '@/components/layout/GlobalSearch'
 import { BranchControl } from '@/components/layout/BranchControl'
+import { viewOnlyToast } from '@/lib/module-access'
 
 interface HeaderProps {
   onMenuToggle: () => void
@@ -34,7 +35,9 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
 
   const router = useRouter()
   const { openPos, hasPos } = usePos()
+  const { canEdit } = useRolePermissions()
   const user = authStorage.getUser()
+  const canOpenPos = hasPos && canEdit('POS')
 
   const { data: dashData } = useAnalyticsDashboard()
   const dash = dashData as any
@@ -111,10 +114,13 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
           <span className="hidden sm:inline">Business Services</span>
         </Link>
 
-        {/* POS Terminal */}
-        {hasPos && (
+        {/* POS Terminal — requires POS Edit (feature flag alone is not enough) */}
+        {canOpenPos && (
           <button
-            onClick={() => openPos()}
+            onClick={() => {
+              if (!canEdit('POS')) { viewOnlyToast('POS'); return }
+              openPos()
+            }}
             title="Open POS (F2)"
             className="btn-accent flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90 shadow-sm"
           >
