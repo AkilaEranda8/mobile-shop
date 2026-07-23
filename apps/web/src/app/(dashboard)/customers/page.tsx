@@ -36,6 +36,8 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
 }) {
   const { canEdit } = useModuleAccess()
   const [amount, setAmount] = useState(outstanding > 0 ? String(outstanding) : '')
+  const [discount, setDiscount] = useState('')
+  const [note, setNote] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('CASH')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -45,6 +47,10 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
   }, [outstanding])
 
   const branchId = getActiveBranchId() ?? ''
+  const cashAmt = parseFloat(amount) || 0
+  const discountAmt = parseFloat(discount) || 0
+  const settleTotal = Math.round((cashAmt + discountAmt) * 100) / 100
+  const remainingAfter = Math.max(0, Math.round((outstanding - settleTotal) * 100) / 100)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -52,13 +58,15 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
       viewOnlyToast('customers')
       return
     }
-    const amt = parseFloat(amount)
-    if (!amt || amt <= 0) { setError('Enter a valid amount'); return }
-    if (amt > outstanding) { setError('Amount cannot exceed outstanding balance'); return }
+    if (cashAmt < 0 || discountAmt < 0) { setError('Amount and discount cannot be negative'); return }
+    if (cashAmt <= 0 && discountAmt <= 0) { setError('Enter a payment amount and/or discount'); return }
+    if (settleTotal > outstanding + 0.001) { setError('Payment + discount cannot exceed outstanding balance'); return }
     setLoading(true); setError('')
     try {
       const res: any = await customersApi.creditPayment(customerId, {
-        amount: amt,
+        amount: cashAmt,
+        discount: discountAmt > 0 ? discountAmt : undefined,
+        note: note.trim() || undefined,
         paymentMethod,
         branchId,
         performedBy: authStorage.getUser()?.name || 'Staff',
@@ -68,11 +76,12 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
         ...(data?.allocations?.map((a: { invoiceNumber: string }) => a.invoiceNumber) ?? []),
         ...(data?.collectionInvoice ? [data.collectionInvoice] : []),
       ]
-      toast.success(
-        refs.length
-          ? `Payment recorded — updated: ${refs.join(', ')}`
-          : 'Payment recorded',
-      )
+      const parts = [
+        refs.length ? `updated: ${refs.join(', ')}` : null,
+        data?.discount > 0 ? `discount ${formatCurrency(data.discount)}` : null,
+        data?.note ? `note saved` : null,
+      ].filter(Boolean)
+      toast.success(parts.length ? `Payment recorded — ${parts.join(' · ')}` : 'Payment recorded')
       onSuccess(); onClose()
     } catch (err: any) { setError(err.message || 'Payment failed') }
     finally { setLoading(false) }
@@ -80,7 +89,7 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="rounded-2xl w-full max-w-md shadow-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+      <div className="rounded-2xl w-full max-w-md shadow-2xl max-h-[92vh] overflow-y-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
         <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-green-500/20 border border-green-500/30 flex items-center justify-center">
@@ -103,11 +112,43 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
             <input
               type="number" step="0.01" min="0" max={outstanding}
               value={amount} onChange={e => setAmount(e.target.value)}
-              placeholder="Enter amount"
+              placeholder="Cash / transfer collected"
               className="w-full px-3 py-2.5 rounded-lg text-sm border outline-none focus:border-violet-500 transition-colors"
               style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
             />
           </div>
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wide mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Discount (optional)</label>
+            <input
+              type="number" step="0.01" min="0" max={outstanding}
+              value={discount} onChange={e => setDiscount(e.target.value)}
+              placeholder="Write-off / discount"
+              className="w-full px-3 py-2.5 rounded-lg text-sm border outline-none focus:border-violet-500 transition-colors"
+              style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+            />
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wide mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Note (optional)</label>
+            <textarea
+              value={note} onChange={e => setNote(e.target.value)}
+              rows={2}
+              placeholder="e.g. Partial settlement, promised next week"
+              className="w-full px-3 py-2.5 rounded-lg text-sm border outline-none focus:border-violet-500 transition-colors resize-none"
+              style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+            />
+          </div>
+          {(cashAmt > 0 || discountAmt > 0) && (
+            <div className="rounded-lg border px-3 py-2 text-[11px] space-y-1" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+              <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>Settling</span><span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(settleTotal)}</span></div>
+              {discountAmt > 0 && (
+                <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>of which discount</span><span style={{ color: 'var(--text-primary)' }}>{formatCurrency(discountAmt)}</span></div>
+              )}
+              <div className="flex justify-between pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Remaining after</span>
+                <span className="font-semibold" style={{ color: remainingAfter > 0 ? '#ef4444' : '#15803d' }}>{formatCurrency(remainingAfter)}</span>
+              </div>
+            </div>
+          )}
           <div>
             <label className="text-[11px] font-semibold uppercase tracking-wide mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Payment Method</label>
             <div className="grid grid-cols-2 gap-2">
@@ -344,7 +385,15 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                         </tr>
                       </thead>
                       <tbody>
-                        {sales.map((sale: any, idx: number) => (
+                        {sales.map((sale: any, idx: number) => {
+                          const settlementPayments = (sale.payments ?? []).filter((p: any) =>
+                            typeof p.reference === 'string' && (
+                              p.reference.includes('Outstanding settlement')
+                              || p.reference.includes('Outstanding discount')
+                              || p.reference.includes('Credit settlement')
+                            ),
+                          )
+                          return (
                           <tr key={sale.id ?? idx} className="border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
                             <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{idx + 1}</td>
                             <td className="px-3 py-2 font-mono" style={{ color: 'var(--text-primary)' }}>{safeText(sale.invoiceNumber)}</td>
@@ -359,6 +408,22 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                                   {sale.items.length > 2 ? ` +${sale.items.length - 2}` : ''}
                                 </div>
                               )}
+                              {sale.notes && (
+                                <div className="text-[10px] mt-0.5 truncate max-w-[240px]" style={{ color: 'var(--text-muted)' }}>
+                                  Note: {sale.notes}
+                                </div>
+                              )}
+                              {settlementPayments.length > 0 && (
+                                <div className="mt-1 space-y-0.5">
+                                  {settlementPayments.map((p: any) => (
+                                    <div key={p.id} className="text-[10px] truncate max-w-[260px]" style={{ color: 'var(--text-secondary)' }}>
+                                      {String(p.reference || '').toLowerCase().includes('discount') ? 'Discount' : 'Payment'}{' '}
+                                      {formatCurrency(p.amount)}
+                                      {p.reference ? ` · ${p.reference}` : ''}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </td>
                             <td className="px-3 py-2">
                               <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${
@@ -368,10 +433,16 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                               }`}>
                                 {safeText(sale.status)}
                               </span>
+                              {(sale.discount ?? 0) > 0 && (
+                                <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                                  Disc. {formatCurrency(sale.discount)}
+                                </div>
+                              )}
                             </td>
                             <td className="px-3 py-2 text-right whitespace-nowrap font-semibold">{formatCurrency(sale.total ?? 0)}</td>
                           </tr>
-                        ))}
+                          )
+                        })}
                         {sales.length === 0 && (
                           <tr>
                             <td colSpan={6} className="px-3 py-6 text-center" style={{ color: 'var(--text-muted)' }}>No sales yet</td>

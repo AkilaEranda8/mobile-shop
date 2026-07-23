@@ -115,7 +115,10 @@ export const customersService = {
         sales: {
           where: branchId ? { branchId } : undefined,
           orderBy: { createdAt: 'desc' },
-          include: { items: true },
+          include: {
+            items: true,
+            payments: { orderBy: { id: 'asc' } },
+          },
         },
         repairs: {
           where: branchId ? { branchId } : undefined,
@@ -329,13 +332,22 @@ export const customersService = {
     paymentMethod: string
     branchId?: string
     performedBy: string
+    /** Optional write-off that also reduces outstanding (no cash). */
+    discount?: number
+    /** Free-text note saved on finance + payment references. */
+    note?: string
+    notes?: string
     /** Skip these sales when allocating (e.g. new POS invoice created in the same checkout). */
     excludeSaleIds?: string[]
   }, req?: Request) {
     const c = await prisma.customer.findFirst({ where: { id: customerId, tenantId } })
     if (!c) throw new AppError('Customer not found', 404)
 
-    const { amount, paymentMethod, performedBy } = body
+    const cashAmount = round2(Number(body.amount) || 0)
+    const discountAmount = round2(Math.max(0, Number(body.discount) || 0))
+    const note = String(body.note ?? body.notes ?? '').trim()
+    const performedBy = body.performedBy
+    const paymentMethod = body.paymentMethod
     let branchId = body.branchId
     if (!branchId && req) {
       branchId = effectiveBranchId(req) || c.branchId || undefined
@@ -356,10 +368,26 @@ export const customersService = {
       await resolveMutationBranchId(req, { preferred: branchId })
     }
 
-    if (amount <= 0) throw new AppError('Amount must be greater than 0', 400)
+    if (cashAmount < 0 || discountAmount < 0) {
+      throw new AppError('Amount and discount cannot be negative', 400)
+    }
+    if (cashAmount <= 0 && discountAmount <= 0) {
+      throw new AppError('Enter a payment amount and/or discount', 400)
+    }
 
+    const settleTotal = round2(cashAmount + discountAmount)
     const method = paymentMethod as PaymentMethod
     const exclude = new Set((body.excludeSaleIds ?? []).filter(Boolean))
+
+    const paymentRef = (kind: 'cash' | 'discount') => {
+      const parts =
+        kind === 'discount'
+          ? ['Outstanding discount']
+          : ['Outstanding settlement']
+      if (discountAmount > 0 && kind === 'cash') parts.push(`Discount ${discountAmount.toFixed(2)}`)
+      if (note) parts.push(note)
+      return parts.join(' | ')
+    }
 
     return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const openSales = await tx.sale.findMany({
@@ -374,24 +402,44 @@ export const customersService = {
       })
 
       const branchDue = round2(openSales.reduce((s, sale) => s + sale.dueAmount, 0))
-      if (amount > branchDue + 0.001) {
+      if (settleTotal > branchDue + 0.001) {
         throw new AppError(
           branchDue <= 0
             ? 'No outstanding balance at this branch'
-            : `Payment amount cannot exceed this branch outstanding (${branchDue.toFixed(2)})`,
+            : `Payment + discount cannot exceed this branch outstanding (${branchDue.toFixed(2)})`,
           400,
         )
       }
 
-      let remaining = round2(amount)
-      const allocations: { saleId: string; invoiceNumber: string; applied: number; status: string }[] = []
+      let remainingSettle = settleTotal
+      let remainingCash = cashAmount
+      let remainingDiscount = discountAmount
+      const allocations: {
+        saleId: string
+        invoiceNumber: string
+        applied: number
+        cashApplied: number
+        discountApplied: number
+        status: string
+      }[] = []
 
       for (const sale of openSales) {
-        if (remaining <= 0) break
-        const apply = round2(Math.min(remaining, sale.dueAmount))
+        if (remainingSettle <= 0) break
+        const apply = round2(Math.min(remainingSettle, sale.dueAmount))
+        const cashApply = round2(Math.min(remainingCash, apply))
+        const discountApply = round2(apply - cashApply)
         const newDue = round2(sale.dueAmount - apply)
         const newPaid = round2(sale.paidAmount + apply)
         const newStatus = newDue <= 0 ? 'PAID' : 'PARTIAL'
+
+        const paymentCreates: { method: PaymentMethod; amount: number; reference: string }[] = []
+        if (cashApply > 0.001) {
+          paymentCreates.push({ method, amount: cashApply, reference: paymentRef('cash') })
+        }
+        if (discountApply > 0.001) {
+          // Write-off line — not cash; keep method as settlement method for reporting consistency
+          paymentCreates.push({ method, amount: discountApply, reference: paymentRef('discount') })
+        }
 
         await tx.sale.update({
           where: { id: sale.id },
@@ -399,18 +447,11 @@ export const customersService = {
             paidAmount: newPaid,
             dueAmount: newDue,
             status: newStatus,
-            payments: {
-              create: {
-                method,
-                amount: apply,
-                reference: 'Outstanding settlement',
-              },
-            },
+            payments: { create: paymentCreates },
           },
         })
 
         // Shrink or remove CREDIT payment rows so they always equal remaining due.
-        // Leaving stale CREDIT rows after settlement double-counts AR / payment totals.
         let creditToReduce = apply
         const creditRows = await tx.salePayment.findMany({
           where: { saleId: sale.id, method: 'CREDIT' },
@@ -428,21 +469,32 @@ export const customersService = {
           creditToReduce = round2(creditToReduce - reduceBy)
         }
 
-        remaining = round2(remaining - apply)
+        remainingSettle = round2(remainingSettle - apply)
+        remainingCash = round2(remainingCash - cashApply)
+        remainingDiscount = round2(remainingDiscount - discountApply)
         allocations.push({
           saleId: sale.id,
           invoiceNumber: sale.invoiceNumber,
           applied: apply,
+          cashApplied: cashApply,
+          discountApplied: discountApply,
           status: newStatus,
         })
       }
 
       let collectionInvoice: string | undefined
-      // When excluding the new POS invoice, never create a leftover "collection"
-      // sale — that would steal from the intentional credit left on the new bill.
-      if (remaining > 0 && exclude.size === 0) {
+      if (remainingSettle > 0 && exclude.size === 0) {
         const invoiceNumber = await generateInvoiceNumber(tenantId)
         collectionInvoice = invoiceNumber
+        const leftoverCash = remainingCash
+        const leftoverDiscount = remainingDiscount
+        const paymentCreates: { method: PaymentMethod; amount: number; reference: string }[] = []
+        if (leftoverCash > 0.001) {
+          paymentCreates.push({ method, amount: leftoverCash, reference: paymentRef('cash') })
+        }
+        if (leftoverDiscount > 0.001) {
+          paymentCreates.push({ method, amount: leftoverDiscount, reference: paymentRef('discount') })
+        }
         await tx.sale.create({
           data: {
             tenantId,
@@ -451,39 +503,45 @@ export const customersService = {
             customerId,
             customerName: c.name,
             customerPhone: c.phone,
-            subtotal: remaining,
-            discount: 0,
+            subtotal: remainingSettle,
+            discount: leftoverDiscount,
             tax: 0,
-            total: remaining,
-            paidAmount: remaining,
+            total: remainingSettle,
+            paidAmount: remainingSettle,
             dueAmount: 0,
             status: 'PAID',
             cashierName: performedBy,
             source: 'CREDIT_COLLECTION',
-            notes: 'Outstanding balance settlement',
+            notes: [
+              'Outstanding balance settlement',
+              leftoverDiscount > 0 ? `Discount ${leftoverDiscount.toFixed(2)}` : null,
+              note || null,
+            ].filter(Boolean).join(' | '),
             items: {
               create: [{
-                productName: 'Outstanding balance payment',
+                productName: leftoverDiscount > 0 && leftoverCash <= 0.001
+                  ? 'Outstanding balance discount'
+                  : 'Outstanding balance payment',
                 quantity: 1,
-                unitPrice: remaining,
-                total: remaining,
+                unitPrice: remainingSettle,
+                total: remainingSettle,
               }],
             },
-            payments: {
-              create: [{ method, amount: remaining, reference: 'Credit settlement' }],
-            },
+            payments: { create: paymentCreates },
           },
         })
-        remaining = 0
+        remainingSettle = 0
+        remainingCash = 0
+        remainingDiscount = 0
       }
 
-      const amountApplied = round2(amount - remaining)
+      const amountApplied = round2(settleTotal - remainingSettle)
+      const cashApplied = round2(cashAmount - remainingCash)
+      const discountApplied = round2(discountAmount - remainingDiscount)
       if (amountApplied <= 0.001) {
         throw new AppError('No open invoices available to apply this outstanding payment', 400)
       }
 
-      // Re-read balance inside the transaction — a concurrent POS sale may have
-      // just increased totalDue (new credit). Only reduce by what we actually applied.
       const fresh = await tx.customer.findUnique({ where: { id: customerId }, select: { totalDue: true } })
       const newTotalDue = round2(Math.max(0, (fresh?.totalDue ?? c.totalDue) - amountApplied))
       await tx.customer.update({ where: { id: customerId }, data: { totalDue: newTotalDue } })
@@ -493,25 +551,58 @@ export const customersService = {
         ...(collectionInvoice ? [collectionInvoice] : []),
       ]
 
-      await tx.transaction.create({
-        data: {
-          tenantId,
-          branchId,
-          type: 'INCOME',
-          category: 'Customer Credit Payment',
-          amount: amountApplied,
-          description: `Credit payment from ${c.name} (${c.phone})${invoiceRefs.length ? ` — ${invoiceRefs.join(', ')}` : ''}`,
-          paymentMethod: method,
-          reference: invoiceRefs.join(', ') || undefined,
-          performedBy,
-        },
-      })
+      const descParts = [
+        `Credit payment from ${c.name} (${c.phone})`,
+        invoiceRefs.length ? invoiceRefs.join(', ') : null,
+        discountApplied > 0 ? `Discount ${discountApplied.toFixed(2)}` : null,
+        note || null,
+      ].filter(Boolean)
+
+      if (cashApplied > 0.001) {
+        await tx.transaction.create({
+          data: {
+            tenantId,
+            branchId,
+            type: 'INCOME',
+            category: 'Customer Credit Payment',
+            amount: cashApplied,
+            description: descParts.join(' — '),
+            paymentMethod: method,
+            reference: invoiceRefs.join(', ') || undefined,
+            performedBy,
+          },
+        })
+      }
+
+      // Record discount write-off in the ledger when cash was zero or partial
+      if (discountApplied > 0.001) {
+        await tx.transaction.create({
+          data: {
+            tenantId,
+            branchId,
+            type: 'EXPENSE',
+            category: 'Customer Credit Discount',
+            amount: discountApplied,
+            description: [
+              `Credit discount for ${c.name} (${c.phone})`,
+              invoiceRefs.length ? invoiceRefs.join(', ') : null,
+              note || null,
+            ].filter(Boolean).join(' — '),
+            paymentMethod: method,
+            reference: invoiceRefs.join(', ') || undefined,
+            performedBy,
+          },
+        })
+      }
 
       const remainingBranchDue = round2(Math.max(0, branchDue - amountApplied))
 
       return {
         customerId,
-        amountPaid: amountApplied,
+        amountPaid: cashApplied,
+        discount: discountApplied,
+        note: note || null,
+        settledTotal: amountApplied,
         newOutstanding: remainingBranchDue,
         tenantOutstanding: newTotalDue,
         allocations,
