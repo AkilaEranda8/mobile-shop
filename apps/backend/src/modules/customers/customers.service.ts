@@ -337,6 +337,8 @@ export const customersService = {
     /** Free-text note saved on finance + payment references. */
     note?: string
     notes?: string
+    /** Cheque / bank ref stored on SalePayment + finance reference. */
+    reference?: string
     /** Skip these sales when allocating (e.g. new POS invoice created in the same checkout). */
     excludeSaleIds?: string[]
   }, req?: Request) {
@@ -346,6 +348,7 @@ export const customersService = {
     const cashAmount = round2(Number(body.amount) || 0)
     const discountAmount = round2(Math.max(0, Number(body.discount) || 0))
     const note = String(body.note ?? body.notes ?? '').trim()
+    const paymentReference = String(body.reference ?? '').trim()
     const performedBy = body.performedBy
     const paymentMethod = body.paymentMethod
     let branchId = body.branchId
@@ -385,6 +388,7 @@ export const customersService = {
           ? ['Outstanding discount']
           : ['Outstanding settlement']
       if (discountAmount > 0 && kind === 'cash') parts.push(`Discount ${discountAmount.toFixed(2)}`)
+      if (paymentReference && kind === 'cash') parts.push(paymentReference)
       if (note) parts.push(note)
       return parts.join(' | ')
     }

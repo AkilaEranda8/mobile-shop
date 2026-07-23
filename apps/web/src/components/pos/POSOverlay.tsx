@@ -40,6 +40,7 @@ import { businessToday } from '@/lib/business-date'
 import toast from 'react-hot-toast'
 import { getInvoiceSettings, fetchInvoiceSettings, shopContextFromTenant, resolveInvoiceTemplate, HEXALYTE_SOFTWARE_FOOTER, type InvoiceSettings, type ShopContext } from '@/lib/invoiceSettings'
 import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
+import { ChequeDetailsFields, formatChequeReference, todayChequeDate } from '@/components/payments/ChequeDetailsFields'
 import {
   usePosUiSettings,
   gridColsClass,
@@ -1173,6 +1174,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [priceMode, setPriceMode]               = useState<PriceMode>('retail')
   const [search, setSearch]                     = useState('')
   const [paymentMethodId, setPaymentMethodId]   = useState('CASH')
+  const [chequeNumber, setChequeNumber]         = useState('')
+  const [chequeDate, setChequeDate]             = useState(todayChequeDate)
   const payMethods = usePaymentMethods()
   const paymentMethod: PaymentMethodKey = payMethods.find(m => m.id === paymentMethodId)?.key
     ?? payMethods.find(m => m.key === paymentMethodId)?.key
@@ -2473,6 +2476,13 @@ function POSContent({ onClose }: { onClose: () => void }) {
         return
       }
     }
+    if (paymentMethod === 'CHEQUE' && !chequeNumber.trim()) {
+      setCheckoutError('Enter cheque number')
+      return
+    }
+    const chequeRef = paymentMethod === 'CHEQUE'
+      ? formatChequeReference(chequeNumber, chequeDate)
+      : ''
     const offlineNow = !isBrowserOnline()
     if (offlineNow) {
       if (settleOldOutstanding && outstandingPaying > 0) {
@@ -2509,6 +2519,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           await customersApi.creditPayment(selectedCustomer.id, {
             amount: settledOutstanding,
             paymentMethod,
+            reference: chequeRef || undefined,
             branchId: getBranchId() || '',
             performedBy: user?.name || 'system',
           })
@@ -2522,8 +2533,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
         return
       }
 
-      const payments: { method: string; amount: number }[] = []
-      if (payNowForSale > 0) payments.push({ method: paymentMethod, amount: payNowForSale })
+      const payments: { method: string; amount: number; reference?: string }[] = []
+      if (payNowForSale > 0) {
+        payments.push({
+          method: paymentMethod,
+          amount: payNowForSale,
+          ...(chequeRef ? { reference: chequeRef } : {}),
+        })
+      }
       if (saleDueAmount > 0) payments.push({ method: 'CREDIT', amount: saleDueAmount })
 
       const salePayload = {
@@ -2624,6 +2641,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
             const settleRes: any = await customersApi.creditPayment(selectedCustomer.id, {
               amount: settleAmt,
               paymentMethod,
+              reference: chequeRef || undefined,
               branchId: getBranchId() || '',
               performedBy: user?.name || 'system',
               excludeSaleIds: newSaleId ? [newSaleId] : [],
@@ -4074,6 +4092,15 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       )
                     })}
                   </div>
+                  {paymentMethod === 'CHEQUE' && (
+                    <ChequeDetailsFields
+                      variant="pos"
+                      chequeNumber={chequeNumber}
+                      chequeDate={chequeDate}
+                      onNumberChange={setChequeNumber}
+                      onDateChange={setChequeDate}
+                    />
+                  )}
                   {!selectedCustomer && paymentMethod === 'CASH' && (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">

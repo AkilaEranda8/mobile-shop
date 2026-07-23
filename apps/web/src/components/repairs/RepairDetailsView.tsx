@@ -10,6 +10,7 @@ import { formatCurrency, formatDate, getRepairStatusColor } from '@/lib/utils'
 import { useProducts, useFeatureFlag, useCanSeeProductCost } from '@/lib/hooks'
 import { repairsApi, uploadApi } from '@/lib/api'
 import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
+import { ChequeDetailsFields, formatChequeReference, todayChequeDate } from '@/components/payments/ChequeDetailsFields'
 import { whatsappApi, formatWhatsAppPhone } from '@/lib/whatsapp-api'
 import { captureElementAsPdfBase64 } from '@/lib/invoice-pdf'
 import { authStorage } from '@/lib/auth'
@@ -529,6 +530,8 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
   const [showPayment, setShowPayment] = useState(false)
   const [discount,    setDiscount]    = useState('')
   const [payMethodId, setPayMethodId] = useState('CASH')
+  const [chequeNumber, setChequeNumber] = useState('')
+  const [chequeDate, setChequeDate] = useState(todayChequeDate)
   const payMethodOptions = usePaymentMethods()
   const payMethod: PaymentMethodKey = payMethodOptions.find(m => m.id === payMethodId)?.key
     ?? payMethodOptions.find(m => m.key === payMethodId)?.key
@@ -631,12 +634,20 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
       toast.error('Customer is required for credit payment')
       return
     }
+    if (payMethod === 'CHEQUE' && !chequeNumber.trim()) {
+      toast.error('Enter cheque number')
+      return
+    }
     setCollecting(true)
     try {
+      const chequeRef = payMethod === 'CHEQUE'
+        ? formatChequeReference(chequeNumber, chequeDate)
+        : ''
       await repairsApi.collectPayment(repair.id, {
         discount: discountAmt,
         paymentMethod: payMethod,
         paidAmount: payNow,
+        reference: chequeRef || undefined,
       })
       const hasWarranty = (repair.warrantyMonths ?? 0) > 0
         || (repair.spareParts ?? []).some(p => (p.warrantyMonths ?? 0) > 0)
@@ -952,6 +963,14 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                           ))}
                         </div>
                       </div>
+                      {payMethod === 'CHEQUE' && (
+                        <ChequeDetailsFields
+                          chequeNumber={chequeNumber}
+                          chequeDate={chequeDate}
+                          onNumberChange={setChequeNumber}
+                          onDateChange={setChequeDate}
+                        />
+                      )}
                       <button onClick={handleCollectPayment} disabled={collecting}
                         className="w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60"
                         style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)', color: '#ffffff' }}>

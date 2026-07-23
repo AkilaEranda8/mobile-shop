@@ -17,6 +17,7 @@ import { productSearchHaystack } from '@/lib/barcode-scan'
 import type { Supplier, PurchaseOrder, POItem } from '@/types'
 import { isImeiHealthBannerDismissed, dismissImeiHealthBanner } from '@/lib/productImei'
 import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
+import { ChequeDetailsFields, formatChequeReference, todayChequeDate } from '@/components/payments/ChequeDetailsFields'
 
 export type PoProduct = { id: string; trackImei?: boolean; name?: string }
 
@@ -434,6 +435,8 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
     ?? payMethods.find(m => m.key === methodId)?.label
     ?? method.replace(/_/g, ' ')
   const [reference, setReference] = useState('')
+  const [chequeNumber, setChequeNumber] = useState('')
+  const [chequeDate, setChequeDate] = useState(todayChequeDate)
   const [paymentDate, setPaymentDate] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' }))
   const [loading, setLoading] = useState(false)
 
@@ -484,12 +487,17 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
       toast.error(`Payment cannot exceed ${formatCurrency(totalDue)}`)
       return
     }
+    if (method === 'CHEQUE' && !chequeNumber.trim()) {
+      toast.error('Enter cheque number')
+      return
+    }
     setLoading(true)
     try {
+      const chequeRef = method === 'CHEQUE' ? formatChequeReference(chequeNumber, chequeDate) : ''
       await suppliersApi.recordPayment(supplier.id, {
         amount: Number(amount),
         method,
-        reference: reference || undefined,
+        reference: chequeRef || reference || undefined,
         paymentDate: paymentDate || undefined,
         poIds: [...selectedPOs],
       })
@@ -735,17 +743,19 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
               />
             </div>
 
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-                Reference / Note <span style={{ color: 'var(--text-muted)' }}>(optional)</span>
-              </label>
-              <input
-                className="input-field"
-                placeholder="Cheque no., bank ref…"
-                value={reference}
-                onChange={e => setReference(e.target.value)}
-              />
-            </div>
+            {method !== 'CHEQUE' && (
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                  Reference / Note <span style={{ color: 'var(--text-muted)' }}>(optional)</span>
+                </label>
+                <input
+                  className="input-field"
+                  placeholder="Bank ref…"
+                  value={reference}
+                  onChange={e => setReference(e.target.value)}
+                />
+              </div>
+            )}
           </div>
 
           <div>
@@ -779,6 +789,15 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
               })}
             </div>
           </div>
+
+          {method === 'CHEQUE' && (
+            <ChequeDetailsFields
+              chequeNumber={chequeNumber}
+              chequeDate={chequeDate}
+              onNumberChange={setChequeNumber}
+              onDateChange={setChequeDate}
+            />
+          )}
 
           {/* Footer */}
           <div

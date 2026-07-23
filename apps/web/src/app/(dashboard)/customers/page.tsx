@@ -19,6 +19,7 @@ import type { Customer } from '@/types'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
 import { usePos } from '@/lib/use-pos'
 import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
+import { ChequeDetailsFields, formatChequeReference, todayChequeDate } from '@/components/payments/ChequeDetailsFields'
 
 const repairStatusColors: Record<string, string> = {
   RECEIVED:      'text-blue-400   bg-blue-500/10   border-blue-500/20',
@@ -40,6 +41,8 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
   const [discount, setDiscount] = useState('')
   const [note, setNote] = useState('')
   const [paymentMethodId, setPaymentMethodId] = useState('CASH')
+  const [chequeNumber, setChequeNumber] = useState('')
+  const [chequeDate, setChequeDate] = useState(todayChequeDate)
   const payMethods = usePaymentMethods()
   const paymentMethod: PaymentMethodKey = payMethods.find(m => m.id === paymentMethodId)?.key
     ?? payMethods.find(m => m.key === paymentMethodId)?.key
@@ -73,13 +76,21 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
     if (settleTarget <= 0) { setError('Enter a payment amount'); return }
     if (discountAmt > settleTarget + 0.001) { setError('Discount cannot exceed payment amount'); return }
     if (settleTarget > outstanding + 0.001) { setError('Payment cannot exceed outstanding balance'); return }
+    if (paymentMethod === 'CHEQUE' && !chequeNumber.trim()) {
+      setError('Enter cheque number')
+      return
+    }
     setLoading(true); setError('')
     try {
+      const chequeRef = paymentMethod === 'CHEQUE'
+        ? formatChequeReference(chequeNumber, chequeDate)
+        : ''
       const res: any = await customersApi.creditPayment(customerId, {
         amount: cashAmt,
         discount: discountAmt > 0 ? discountAmt : undefined,
         note: note.trim() || undefined,
         paymentMethod,
+        reference: chequeRef || undefined,
         branchId,
         performedBy: authStorage.getUser()?.name || 'Staff',
       })
@@ -182,6 +193,14 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
               ))}
             </div>
           </div>
+          {paymentMethod === 'CHEQUE' && (
+            <ChequeDetailsFields
+              chequeNumber={chequeNumber}
+              chequeDate={chequeDate}
+              onNumberChange={setChequeNumber}
+              onDateChange={setChequeDate}
+            />
+          )}
           {error && <p className="text-[11px] text-red-500">{error}</p>}
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={onClose} className="flex-1 px-4 py-2 rounded-lg text-xs font-medium transition-colors" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>Cancel</button>

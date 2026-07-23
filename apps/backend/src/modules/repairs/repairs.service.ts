@@ -295,7 +295,7 @@ export const repairsService = {
     return serializeRepair(updated)
   },
 
-  async collectPayment(tenantId: string, id: string, body: { discount?: number; paymentMethod: string; cashierName?: string; paidAmount?: number }, req?: Request) {
+  async collectPayment(tenantId: string, id: string, body: { discount?: number; paymentMethod: string; cashierName?: string; paidAmount?: number; reference?: string }, req?: Request) {
     if (req) {
       const existing = await prisma.repairTicket.findFirst({ where: { id, tenantId }, select: { branchId: true } })
       if (!existing) throw new AppError('Repair ticket not found', 404)
@@ -378,7 +378,11 @@ export const repairsService = {
           notes: `Repair ticket: ${r.ticketNumber}${r.reportedIssue?.trim() ? ` | Fault: ${r.reportedIssue.trim()}` : ''}${notesSummary}${partsSummary}`,
           items:    { create: saleItems },
           payments: paidAmount > 0
-            ? { create: [{ method: body.paymentMethod as any, amount: paidAmount }] }
+            ? { create: [{
+                method: body.paymentMethod as any,
+                amount: paidAmount,
+                reference: body.reference?.trim() || null,
+              }] }
             : undefined,
         },
       })
