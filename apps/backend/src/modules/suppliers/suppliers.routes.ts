@@ -82,8 +82,16 @@ function mapPoItemsForReceive(items: Array<{
 }
 
 async function recalcSupplierStats(supplierId: string, tenantId: string) {
+  const supplier = await prisma.supplier.findFirst({
+    where: { id: supplierId, tenantId },
+    select: { branchId: true },
+  })
   const agg = await prisma.purchaseOrder.aggregate({
-    where: { supplierId, tenantId },
+    where: {
+      supplierId,
+      tenantId,
+      ...(supplier?.branchId ? { branchId: supplier.branchId } : {}),
+    },
     _count: { id: true },
     _sum:   { total: true, dueAmount: true },
   })
@@ -97,11 +105,44 @@ async function recalcSupplierStats(supplierId: string, tenantId: string) {
   })
 }
 
+/** Legacy suppliers may have null branchId — never 403 those solely for null. */
+function assertSupplierBranchAccess(req: Request, supplierBranchId?: string | null) {
+  if (!supplierBranchId) return
+  assertBranchRecordAccess(req, supplierBranchId)
+}
+
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { skip, limit, page, search } = getPagination(req)
-    const where: any = { tenantId: req.tenantId!, ...(search && { OR: [{ name: { contains: search, mode: 'insensitive' } }, { contactName: { contains: search, mode: 'insensitive' } }] }) }
-    const [data, total] = await Promise.all([prisma.supplier.findMany({ where, skip, take: limit, orderBy: { name: 'asc' } }), prisma.supplier.count({ where })])
+    const branchId = effectiveBranchId(req)
+    const where: any = {
+      tenantId: req.tenantId!,
+      // Include unscoped (legacy) suppliers so outstanding pay still works after branch scoping.
+      ...(branchId && { OR: [{ branchId }, { branchId: null }] }),
+      ...(search && {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { contactName: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
+    }
+    // When both branch filter and search OR are present, nest correctly
+    if (branchId && search) {
+      where.AND = [
+        { OR: [{ branchId }, { branchId: null }] },
+        {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { contactName: { contains: search, mode: 'insensitive' } },
+          ],
+        },
+      ]
+      delete where.OR
+    }
+    const [data, total] = await Promise.all([
+      prisma.supplier.findMany({ where, skip, take: limit, orderBy: { name: 'asc' } }),
+      prisma.supplier.count({ where }),
+    ])
     sendPaginated(res, data, total, page, limit)
   } catch (e) { next(e) }
 })
@@ -122,11 +163,13 @@ router.post('/', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), async (
     const openingDue = Math.max(0, Number(req.body.openingDue ?? req.body.outstandingDues) || 0)
     const round2 = (n: number) => Math.round(n * 100) / 100
     const due = round2(openingDue)
+    const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId })
 
     if (due <= 0) {
       const created = await prisma.supplier.create({
         data: {
           tenantId,
+          branchId,
           name,
           contactName,
           phone,
@@ -141,12 +184,11 @@ router.post('/', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), async (
       return
     }
 
-    const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId })
-
     const created = await prisma.$transaction(async (tx) => {
       const supplier = await tx.supplier.create({
         data: {
           tenantId,
+          branchId,
           name,
           contactName,
           phone,
@@ -205,22 +247,26 @@ router.post('/', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), async (
   } catch (e) { next(e) }
 })
 
-/** Unpaid POs for Record Payment — across accessible branches (not only active branch). */
+/** Unpaid POs for Record Payment — supplier branch when set, else accessible branches. */
 router.get('/:id/unpaid-purchase-orders', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
     const supplier = await prisma.supplier.findFirst({
       where: { id: req.params.id, tenantId, isActive: true },
-      select: { id: true, name: true, outstandingDues: true },
+      select: { id: true, name: true, outstandingDues: true, branchId: true },
     })
     if (!supplier) throw new AppError('Supplier not found', 404)
+    assertSupplierBranchAccess(req, supplier.branchId)
 
-    const branchWhere =
-      req.branchScope === 'all'
+    const branchWhere = supplier.branchId
+      ? { branchId: supplier.branchId }
+      : req.branchScope === 'all'
         ? {}
         : {
             branchId: {
-              in: (req.assignedBranchIds?.length ? req.assignedBranchIds : [req.activeBranchId].filter(Boolean)) as string[],
+              in: (req.assignedBranchIds?.length
+                ? req.assignedBranchIds
+                : [req.activeBranchId].filter(Boolean)) as string[],
             },
           }
 
@@ -238,24 +284,35 @@ router.get('/:id/unpaid-purchase-orders', authorize('OWNER', 'MANAGER', 'CASHIER
       },
     })
 
-    // Keep supplier.outstandingDues in sync with PO dues when opened for payment
-    const dueSum = Math.round(purchaseOrders.reduce((s, p) => s + Number(p.dueAmount), 0) * 100) / 100
-    // Also recompute from ALL branches for the badge (tenant-wide)
-    const allDueAgg = await prisma.purchaseOrder.aggregate({
-      where: { tenantId, supplierId: supplier.id },
-      _sum: { dueAmount: true },
-    })
-    const tenantDue = Math.round(Number(allDueAgg._sum.dueAmount ?? 0) * 100) / 100
-    if (Math.abs(Number(supplier.outstandingDues) - tenantDue) > 0.001) {
+    // Backfill legacy supplier.branchId from a single unpaid PO so later payments stay scoped
+    if (!supplier.branchId && purchaseOrders.length === 1) {
       await prisma.supplier.update({
         where: { id: supplier.id },
-        data: { outstandingDues: tenantDue },
+        data: { branchId: purchaseOrders[0].branchId },
       })
-      supplier.outstandingDues = tenantDue
+      supplier.branchId = purchaseOrders[0].branchId
+    }
+
+    const dueSum = Math.round(purchaseOrders.reduce((s, p) => s + Number(p.dueAmount), 0) * 100) / 100
+    const allDueAgg = await prisma.purchaseOrder.aggregate({
+      where: {
+        tenantId,
+        supplierId: supplier.id,
+        ...(supplier.branchId ? { branchId: supplier.branchId } : {}),
+      },
+      _sum: { dueAmount: true },
+    })
+    const scopedDue = Math.round(Number(allDueAgg._sum.dueAmount ?? 0) * 100) / 100
+    if (Math.abs(Number(supplier.outstandingDues) - scopedDue) > 0.001) {
+      await prisma.supplier.update({
+        where: { id: supplier.id },
+        data: { outstandingDues: scopedDue },
+      })
+      supplier.outstandingDues = scopedDue
     }
 
     sendSuccess(res, {
-      supplierOutstanding: supplier.outstandingDues,
+      supplierOutstanding: scopedDue,
       accessibleOutstanding: dueSum,
       purchaseOrders,
     })
@@ -266,7 +323,18 @@ router.put('/:id', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), async
   try {
     const s = await prisma.supplier.findFirst({ where: { id: req.params.id, tenantId: req.tenantId! } })
     if (!s) throw new AppError('Supplier not found', 404)
-    sendSuccess(res, await prisma.supplier.update({ where: { id: req.params.id }, data: req.body }))
+    assertSupplierBranchAccess(req, s.branchId)
+    const { tenantId: _ignoreTenant, id: _ignoreId, ...rest } = req.body ?? {}
+    const nextBranchId = rest.branchId != null && String(rest.branchId).trim()
+      ? String(rest.branchId).trim()
+      : undefined
+    if (nextBranchId) {
+      // Destination must be assignable (any assigned branch), not only the active one
+      rest.branchId = await resolveMutationBranchId(req, { preferred: nextBranchId })
+    } else {
+      delete rest.branchId
+    }
+    sendSuccess(res, await prisma.supplier.update({ where: { id: req.params.id }, data: rest }))
   } catch (e) { next(e) }
 })
 
@@ -403,6 +471,17 @@ router.post('/purchase-orders', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNI
     const { supplierId, supplierName, subtotal, tax, total, expectedDelivery, notes, status, items, branchId: bodyBranchId } = req.body
     const poNumber = await generatePONumber(req.tenantId!)
     const branchId = await resolveMutationBranchId(req, { preferred: bodyBranchId })
+    if (supplierId) {
+      const supplier = await prisma.supplier.findFirst({
+        where: { id: supplierId, tenantId: req.tenantId!, isActive: true },
+        select: { id: true, branchId: true },
+      })
+      if (!supplier) throw new AppError('Supplier not found', 404)
+      assertSupplierBranchAccess(req, supplier.branchId)
+      if (supplier.branchId && supplier.branchId !== branchId) {
+        throw new AppError('Supplier belongs to a different branch', 400)
+      }
+    }
     const po = await prisma.purchaseOrder.create({
       data: {
         tenantId: req.tenantId!,
@@ -803,7 +882,17 @@ router.post('/:id/payments', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIA
       : []
 
     const userBranch = await prisma.userBranch.findFirst({ where: { userId: req.user!.userId } })
-    const branchId = effectiveBranchId(req) ?? userBranch?.branchId
+    const activeBranchId = effectiveBranchId(req) ?? userBranch?.branchId
+
+    const supplierRow = await prisma.supplier.findFirst({
+      where: { id: req.params.id, tenantId, isActive: true },
+      select: { id: true, branchId: true },
+    })
+    if (!supplierRow) throw new AppError('Supplier not found', 404)
+    assertSupplierBranchAccess(req, supplierRow.branchId)
+
+    // Prefer supplier home branch, else active UI branch — PO branch still wins inside the service.
+    const branchId = supplierRow.branchId || activeBranchId
     if (!branchId) throw new AppError('No branch assigned to this user', 400)
 
     let occurredAt: Date | undefined

@@ -82,9 +82,13 @@ export async function recordSupplierPayment(input: RecordSupplierPaymentInput) {
       tenantId: input.tenantId,
       supplierId: input.supplierId,
       dueAmount: { gt: 0 },
+      ...(supplier.branchId ? { branchId: supplier.branchId } : {}),
     },
     select: { branchId: true },
   })
+  if (previewPos.length !== selectedIds.length) {
+    throw new AppError('One or more selected purchase orders are invalid or already paid', 400)
+  }
   const previewBranches = [...new Set(previewPos.map(p => p.branchId))]
   const lockBranchId = previewBranches.length === 1 ? previewBranches[0] : input.branchId
 
@@ -197,7 +201,11 @@ export async function recordSupplierPayment(input: RecordSupplierPaymentInput) {
     })
 
     const agg = await tx.purchaseOrder.aggregate({
-      where: { supplierId: supplier.id, tenantId: input.tenantId },
+      where: {
+        supplierId: supplier.id,
+        tenantId: input.tenantId,
+        ...(supplier.branchId ? { branchId: supplier.branchId } : {}),
+      },
       _count: { id: true },
       _sum: { total: true, dueAmount: true },
     })

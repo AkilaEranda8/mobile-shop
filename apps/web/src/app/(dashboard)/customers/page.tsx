@@ -446,21 +446,18 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                                 </div>
                               )}
                               {settlementPayments.length > 0 && (
-                                <div className="mt-1 space-y-1">
+                                <div className="mt-1 space-y-1.5">
                                   {settlementPayments.map((p: any) => {
                                     const isDiscount = String(p.reference || '').toLowerCase().includes('discount')
                                     return (
-                                      <div key={p.id} className="text-[10px] max-w-[280px]">
-                                        <span style={{ color: 'var(--text-muted)' }}>
-                                          {isDiscount ? 'Discount' : 'Settlement'}{' '}
-                                        </span>
-                                        <ChequePaymentMeta
-                                          method={isDiscount ? undefined : p.method}
-                                          reference={p.reference}
-                                          amount={p.amount}
-                                          formatAmount={formatCurrency}
-                                        />
-                                      </div>
+                                      <ChequePaymentMeta
+                                        key={p.id}
+                                        method={isDiscount ? 'Discount' : (p.method || 'Payment')}
+                                        reference={p.reference}
+                                        amount={p.amount}
+                                        formatAmount={formatCurrency}
+                                        className="text-[10px] max-w-[280px]"
+                                      />
                                     )
                                   })}
                                 </div>
