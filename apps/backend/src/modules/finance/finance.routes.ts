@@ -11,6 +11,7 @@ import { getPeriodFinancials, toFinanceSummaryResponse } from './business-financ
 import { effectiveBranchId, resolveMutationBranchId } from '../../utils/active-branch'
 import { createTransactionSchema } from './finance.schema'
 import { buildPlStatement } from './pl-statement.service'
+import { buildPaymentMethodCashflow } from './payment-method-cashflow.service'
 import { emitExpenseAccounting } from '../accounting/integration/accounting-events.service'
 import {
   buildReportFilterContext,
@@ -112,6 +113,15 @@ router.get('/pl-statement', async (req: Request, res: Response, next: NextFuncti
       defaultFrom: 'month_start',
     })
     sendSuccess(res, await buildPlStatement(tenantId, fromKey, toKey, branchId))
+  } catch (e) { next(e) }
+})
+
+router.get('/payment-method-cashflow', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { fromKey, toKey, branchId, tenantId } = resolveBusinessReportRange(req, {
+      defaultFrom: 'month_start',
+    })
+    sendSuccess(res, await buildPaymentMethodCashflow(tenantId, fromKey, toKey, branchId))
   } catch (e) { next(e) }
 })
 

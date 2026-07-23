@@ -1172,8 +1172,11 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [cart, setCart]                         = useState<CartItem[]>([])
   const [priceMode, setPriceMode]               = useState<PriceMode>('retail')
   const [search, setSearch]                     = useState('')
-  const [paymentMethod, setPaymentMethod]       = useState<PaymentMethodKey>('CASH')
+  const [paymentMethodId, setPaymentMethodId]   = useState('CASH')
   const payMethods = usePaymentMethods()
+  const paymentMethod: PaymentMethodKey = payMethods.find(m => m.id === paymentMethodId)?.key
+    ?? payMethods.find(m => m.key === paymentMethodId)?.key
+    ?? 'CASH'
   const posUi = usePosUiSettings()
   useMemo(() => syncPosThemeRuntime(posUi.theme, posUi.accent), [posUi.theme, posUi.accent])
   const PosShell = posUi.theme === 'studio' ? StudioPosLayout : HexaPosLayout
@@ -1181,7 +1184,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     payMethodsRef.current = payMethods
     // Reset to cash if the selected method was removed from settings
-    setPaymentMethod(prev => payMethods.some(m => m.key === prev) ? prev : 'CASH')
+    setPaymentMethodId(prev => payMethods.some(m => m.id === prev || m.key === prev) ? (payMethods.find(m => m.id === prev)?.id ?? payMethods.find(m => m.key === prev)?.id ?? 'CASH') : 'CASH')
   }, [payMethods])
 
   useEffect(() => {
@@ -2747,7 +2750,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
     }
     const focusCustomerPaid = () => {
       const ck = checkoutKeyboardRef.current
-      setPaymentMethod('CASH')
+      setPaymentMethodId('CASH')
       if (!ck.hasSelectedCustomer) {
         const amt = ck.collectAtCheckout > 0 ? ck.collectAtCheckout.toFixed(2) : ''
         setCustomerPaid(amt)
@@ -2863,7 +2866,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         const methodIdx = ['1', '2', '3', '4', '5'].indexOf(e.key)
         if (methodIdx >= 0 && payMethodsRef.current[methodIdx]) {
           e.preventDefault()
-          setPaymentMethod(payMethodsRef.current[methodIdx].key)
+          setPaymentMethodId(payMethodsRef.current[methodIdx].id)
         }
         if (e.key === 'Enter') {
           e.preventDefault()
@@ -2931,7 +2934,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
     setMobileView('products')
     setManualTotalMode(false); setManualTotal('')
     setCustomerOutstanding(0); setIncludeOutstanding(false); setOutstandingPayAmount('')
-    setAmountPaying(''); setCustomerPaid(''); setPaymentMethod('CASH')
+    setAmountPaying(''); setCustomerPaid(''); setPaymentMethodId('CASH')
     prevSaleTotalRef.current = 0
     setShowCustDrop(false); setShowCartCustDrop(false)
     setShowRecentInvoices(false); setShowHeldCarts(false); setShowMoreMenu(false)
@@ -4047,7 +4050,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     </div>
                   )}
                   <div className={`grid gap-1.5 ${payMethods.length <= 3 ? 'grid-cols-3' : payMethods.length === 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
-                    {payMethods.map(({ key: method, label }, idx) => {
+                    {payMethods.map(({ id, key: method, label }, idx) => {
                       const MI = method === 'CASH' ? Banknote : method === 'CARD' ? CreditCard : method === 'WALLET' ? Wallet : method === 'UPI' ? Smartphone : Banknote
                       const active = method === 'CASH'
                         ? { background: `${POS_THEME.green}26`, borderColor: `${POS_THEME.green}59`, color: POS_THEME.green }
@@ -4055,15 +4058,15 @@ function POSContent({ onClose }: { onClose: () => void }) {
                           ? { background: `${POS_THEME.blue}26`, borderColor: `${POS_THEME.blue}59`, color: POS_THEME.blue }
                           : { background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text }
                       return (
-                        <button key={method} type="button" onClick={() => {
-                          setPaymentMethod(method)
+                        <button key={id} type="button" onClick={() => {
+                          setPaymentMethodId(id)
                           if (method === 'CASH') {
                             setCustomerPaid(collectAtCheckout > 0 ? collectAtCheckout.toFixed(2) : '')
                           }
                         }}
                           className="flex flex-col items-center gap-1 py-2 rounded-xl text-[11px] font-semibold border transition-all"
                           title={idx < 5 ? `Key: ${idx + 1}` : label}
-                          style={paymentMethod === method
+                          style={paymentMethodId === id
                             ? { ...active, border: `1px solid ${active.borderColor}` }
                             : { background: POS_THEME.card, border: `1px solid ${POS_THEME.border}`, color: POS_THEME.muted }}>
                           <MI size={14} /><span className="truncate max-w-full px-0.5">{label}</span>

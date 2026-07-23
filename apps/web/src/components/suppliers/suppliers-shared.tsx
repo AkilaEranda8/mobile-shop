@@ -16,6 +16,7 @@ import toast from 'react-hot-toast'
 import { productSearchHaystack } from '@/lib/barcode-scan'
 import type { Supplier, PurchaseOrder, POItem } from '@/types'
 import { isImeiHealthBannerDismissed, dismissImeiHealthBanner } from '@/lib/productImei'
+import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
 
 export type PoProduct = { id: string; trackImei?: boolean; name?: string }
 
@@ -413,8 +414,6 @@ export function IMEIRegisterModal({ po, products, onClose, onSaved }: {
 
 
 /* ── Record Payment Modal ─────────────────────────────────────────── */
-const PAYMENT_METHODS = ['CASH', 'BANK_TRANSFER', 'CHEQUE', 'UPI', 'CARD'] as const
-
 export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
   supplier: Supplier
   allPOs: PurchaseOrder[]
@@ -426,7 +425,14 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
     [allPOs, supplier.id],
   )
   const [selectedPOs, setSelectedPOs] = useState<Set<string>>(() => new Set(unpaidPOs.map(p => p.id)))
-  const [method, setMethod] = useState<string>('CASH')
+  const [methodId, setMethodId] = useState('CASH')
+  const payMethods = usePaymentMethods()
+  const method: PaymentMethodKey = payMethods.find(m => m.id === methodId)?.key
+    ?? payMethods.find(m => m.key === methodId)?.key
+    ?? 'CASH'
+  const methodLabel = payMethods.find(m => m.id === methodId)?.label
+    ?? payMethods.find(m => m.key === methodId)?.label
+    ?? method.replace(/_/g, ' ')
   const [reference, setReference] = useState('')
   const [paymentDate, setPaymentDate] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' }))
   const [loading, setLoading] = useState(false)
@@ -439,6 +445,12 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
   useEffect(() => {
     if (totalDue > 0) setAmount(totalDue.toFixed(2))
   }, [totalDue])
+
+  useEffect(() => {
+    setMethodId(prev => payMethods.some(m => m.id === prev || m.key === prev)
+      ? (payMethods.find(m => m.id === prev)?.id ?? payMethods.find(m => m.key === prev)?.id ?? 'CASH')
+      : 'CASH')
+  }, [payMethods])
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -490,8 +502,6 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
       setLoading(false)
     }
   }
-
-  const methodLabel = (m: string) => m.replace(/_/g, ' ')
 
   return (
     <div
@@ -576,7 +586,7 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
                 <CreditCard size={13} style={{ color: 'var(--text-muted)' }} />
                 <span style={{ color: 'var(--text-muted)' }}>Method:</span>
                 <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                  {methodLabel(method)}
+                  {methodLabel}
                 </span>
               </div>
             </div>
@@ -742,14 +752,14 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
             <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
               Payment Method
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
-              {PAYMENT_METHODS.map(m => {
-                const active = method === m
+            <div className={`grid gap-1.5 ${payMethods.length <= 3 ? 'grid-cols-3' : payMethods.length === 4 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'}`}>
+              {payMethods.map(({ id, label }) => {
+                const active = methodId === id
                 return (
                   <button
-                    key={m}
+                    key={id}
                     type="button"
-                    onClick={() => setMethod(m)}
+                    onClick={() => setMethodId(id)}
                     className="py-2 px-2 text-[10px] font-semibold rounded-lg border transition-colors"
                     style={active
                       ? {
@@ -763,7 +773,7 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
                           color: 'var(--text-muted)',
                         }}
                   >
-                    {methodLabel(m)}
+                    {label}
                   </button>
                 )
               })}

@@ -528,10 +528,15 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
   /* collect payment state */
   const [showPayment, setShowPayment] = useState(false)
   const [discount,    setDiscount]    = useState('')
-  const [payMethod,   setPayMethod]   = useState<PaymentMethodKey>('CASH')
+  const [payMethodId, setPayMethodId] = useState('CASH')
   const payMethodOptions = usePaymentMethods()
+  const payMethod: PaymentMethodKey = payMethodOptions.find(m => m.id === payMethodId)?.key
+    ?? payMethodOptions.find(m => m.key === payMethodId)?.key
+    ?? 'CASH'
   useEffect(() => {
-    setPayMethod(prev => payMethodOptions.some(m => m.key === prev) ? prev : 'CASH')
+    setPayMethodId(prev => payMethodOptions.some(m => m.id === prev || m.key === prev)
+      ? (payMethodOptions.find(m => m.id === prev)?.id ?? payMethodOptions.find(m => m.key === prev)?.id ?? 'CASH')
+      : 'CASH')
   }, [payMethodOptions])
   const [amountPaying, setAmountPaying] = useState('')
   const [collecting,  setCollecting]  = useState(false)
@@ -938,11 +943,11 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                       <div>
                         <p className="text-xs font-bold mb-2" style={{ color: 'var(--text-muted)' }}>Payment Method</p>
                         <div className="grid grid-cols-2 gap-2">
-                          {payMethodOptions.map(({ key: m, label }) => (
-                            <button key={m} type="button" onClick={() => setPayMethod(m)}
+                          {payMethodOptions.map(({ id, label }) => (
+                            <button key={id} type="button" onClick={() => setPayMethodId(id)}
                               className="py-1.5 px-2.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5"
-                              style={payMethod === m ? { background: 'var(--brand-primary)', border: '2px solid var(--brand-primary)', color: '#fff' } : { background: 'var(--bg-subtle)', border: '2px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
-                              {label}{payMethod === m && <CheckCircle size={11} className="ml-auto" />}
+                              style={payMethodId === id ? { background: 'var(--brand-primary)', border: '2px solid var(--brand-primary)', color: '#fff' } : { background: 'var(--bg-subtle)', border: '2px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                              {label}{payMethodId === id && <CheckCircle size={11} className="ml-auto" />}
                             </button>
                           ))}
                         </div>

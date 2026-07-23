@@ -245,7 +245,8 @@ export function pathToPermissionModule(pathname: string): RolePermissionModuleKe
     pathname === '/finance' ||
     pathname.startsWith('/finance/') ||
     pathname.startsWith('/dashboard/profit-loss') ||
-    pathname.startsWith('/dashboard/expenses')
+    pathname.startsWith('/dashboard/expenses') ||
+    pathname.startsWith('/dashboard/payment-methods')
   ) {
     return 'FINANCE'
   }

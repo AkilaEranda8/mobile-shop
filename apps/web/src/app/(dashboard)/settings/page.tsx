@@ -52,6 +52,9 @@ import {
   PAYMENT_METHOD_KEYS,
   DEFAULT_PAYMENT_METHOD_LABELS,
   DEFAULT_PAYMENT_METHODS,
+  makePaymentMethodId,
+  notifyPaymentMethodsChanged,
+  sanitize as sanitizePaymentMethods,
   type PaymentMethodKey,
   type TenantPaymentMethod,
 } from '@/lib/payment-methods'
@@ -187,12 +190,13 @@ export default function SettingsPage() {
     tenantApi.getPaymentMethodSettings(tenantId)
       .then((r: any) => {
         const methods = (r?.data ?? r)?.methods
-        if (Array.isArray(methods) && methods.length) setPayMethods(methods)
+        if (Array.isArray(methods) && methods.length) setPayMethods(sanitizePaymentMethods(methods))
       })
       .catch(() => {})
   }, [tenantId])
 
-  const availablePayKeys = PAYMENT_METHOD_KEYS.filter(k => !payMethods.some(m => m.key === k))
+  const availablePayKeys = PAYMENT_METHOD_KEYS
+  const canAddPayMethod = canEdit
 
   const savePayMethods = async (methods: TenantPaymentMethod[]) => {
     if (!canEdit) { viewOnlyToast('Settings'); return }
@@ -201,7 +205,8 @@ export default function SettingsPage() {
     try {
       const res: any = await tenantApi.updatePaymentMethodSettings(tenantId, { methods })
       const saved = (res?.data ?? res)?.methods
-      if (Array.isArray(saved) && saved.length) setPayMethods(saved)
+      if (Array.isArray(saved) && saved.length) setPayMethods(sanitizePaymentMethods(saved))
+      notifyPaymentMethodsChanged()
       toast.success('Payment methods saved')
     } catch (e: any) {
       toast.error(e?.message || 'Failed to save payment methods')
@@ -1256,7 +1261,7 @@ export default function SettingsPage() {
               <div className="space-y-2">
                 {payMethods.map(m => (
                   <div
-                    key={m.key}
+                    key={m.id}
                     className="flex items-center gap-3 rounded-xl border px-4 py-3"
                     style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}
                   >
@@ -1269,7 +1274,7 @@ export default function SettingsPage() {
                         className="input-field h-9 text-sm"
                         value={m.label}
                         maxLength={40}
-                        onChange={e => setPayMethods(prev => prev.map(x => x.key === m.key ? { ...x, label: e.target.value } : x))}
+                        onChange={e => setPayMethods(prev => prev.map(x => x.id === m.id ? { ...x, label: e.target.value } : x))}
                       />
                     </div>
                     <span className="text-[10px] font-mono px-2 py-1 rounded-md flex-shrink-0"
@@ -1278,9 +1283,9 @@ export default function SettingsPage() {
                     </span>
                     {canEdit && <button
                       type="button"
-                      disabled={m.key === 'CASH'}
-                      title={m.key === 'CASH' ? 'Cash cannot be removed' : 'Remove method'}
-                      onClick={() => setPayMethods(prev => prev.filter(x => x.key !== m.key))}
+                      disabled={m.key === 'CASH' && payMethods.filter(x => x.key === 'CASH').length <= 1}
+                      title={m.key === 'CASH' && payMethods.filter(x => x.key === 'CASH').length <= 1 ? 'Cash cannot be removed' : 'Remove method'}
+                      onClick={() => setPayMethods(prev => prev.filter(x => x.id !== m.id))}
                       className="p-2 rounded-lg transition-colors hover:bg-red-500/10 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
                       style={{ color: 'var(--text-muted)' }}
                     >
@@ -1290,7 +1295,7 @@ export default function SettingsPage() {
                 ))}
               </div>
 
-              {canEdit && availablePayKeys.length > 0 && (
+              {canAddPayMethod && (
                 <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: 'var(--border-default)' }}>
                   <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Add payment method</p>
                   <div className="flex flex-col sm:flex-row gap-2">
@@ -1310,17 +1315,19 @@ export default function SettingsPage() {
                     </select>
                     <input
                       className="input-field h-10 flex-1"
-                      placeholder="Display name (e.g. Genie / eZ Cash)"
+                      placeholder="Display name (e.g. Genie / eZ Cash / Cheque)"
                       value={newPayLabel}
                       maxLength={40}
                       onChange={e => setNewPayLabel(e.target.value)}
                     />
                     <button
                       type="button"
-                      disabled={!newPayKey}
+                      disabled={!newPayKey || !newPayLabel.trim()}
                       onClick={() => {
-                        if (!newPayKey) return
-                        setPayMethods(prev => [...prev, { key: newPayKey, label: newPayLabel.trim() || DEFAULT_PAYMENT_METHOD_LABELS[newPayKey] }])
+                        if (!newPayKey || !newPayLabel.trim()) return
+                        const label = newPayLabel.trim()
+                        const id = makePaymentMethodId(newPayKey, label, payMethods)
+                        setPayMethods(prev => [...prev, { id, key: newPayKey, label }])
                         setNewPayKey(''); setNewPayLabel('')
                       }}
                       className="btn-primary text-sm flex items-center justify-center gap-1.5 h-10 px-4 disabled:opacity-50"
@@ -1329,7 +1336,8 @@ export default function SettingsPage() {
                     </button>
                   </div>
                   <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                    The type controls how payments are recorded in reports and accounting; the display name is what staff see.
+                    Pick an accounting type (Cash / Card / UPI / Bank / Wallet), then set any display name.
+                    You can add multiple methods of the same type (e.g. Wallet → eZ Cash and Genie).
                   </p>
                 </div>
               )}

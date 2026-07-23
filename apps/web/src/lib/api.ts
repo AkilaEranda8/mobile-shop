@@ -449,6 +449,8 @@ export const financeApi = {
     api.get(`/finance/summary${params ? '?' + new URLSearchParams(params) : ''}`),
   plStatement: (params?: Record<string, string>) =>
     api.get(`/finance/pl-statement${params ? '?' + new URLSearchParams(params) : ''}`),
+  paymentMethodCashflow: (params?: Record<string, string>) =>
+    api.get(`/finance/payment-method-cashflow${params ? '?' + new URLSearchParams(params) : ''}`),
   dailySummaries: (params?: Record<string, string>) =>
     api.get(`/finance/daily-summaries${params ? '?' + new URLSearchParams(params) : ''}`),
 }

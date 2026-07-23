@@ -18,6 +18,7 @@ import toast from 'react-hot-toast'
 import type { Customer } from '@/types'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
 import { usePos } from '@/lib/use-pos'
+import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
 
 const repairStatusColors: Record<string, string> = {
   RECEIVED:      'text-blue-400   bg-blue-500/10   border-blue-500/20',
@@ -38,7 +39,11 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
   const [amount, setAmount] = useState(outstanding > 0 ? String(outstanding) : '')
   const [discount, setDiscount] = useState('')
   const [note, setNote] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState('CASH')
+  const [paymentMethodId, setPaymentMethodId] = useState('CASH')
+  const payMethods = usePaymentMethods()
+  const paymentMethod: PaymentMethodKey = payMethods.find(m => m.id === paymentMethodId)?.key
+    ?? payMethods.find(m => m.key === paymentMethodId)?.key
+    ?? 'CASH'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -46,11 +51,17 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
     if (outstanding > 0) setAmount(String(outstanding))
   }, [outstanding])
 
+  useEffect(() => {
+    setPaymentMethodId(prev => payMethods.some(m => m.id === prev || m.key === prev)
+      ? (payMethods.find(m => m.id === prev)?.id ?? payMethods.find(m => m.key === prev)?.id ?? 'CASH')
+      : 'CASH')
+  }, [payMethods])
+
   const branchId = getActiveBranchId() ?? ''
-  const cashAmt = parseFloat(amount) || 0
+  const settleTarget = parseFloat(amount) || 0
   const discountAmt = parseFloat(discount) || 0
-  const settleTotal = Math.round((cashAmt + discountAmt) * 100) / 100
-  const remainingAfter = Math.max(0, Math.round((outstanding - settleTotal) * 100) / 100)
+  const cashAmt = Math.max(0, Math.round((settleTarget - discountAmt) * 100) / 100)
+  const remainingAfter = Math.max(0, Math.round((outstanding - settleTarget) * 100) / 100)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -58,9 +69,10 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
       viewOnlyToast('customers')
       return
     }
-    if (cashAmt < 0 || discountAmt < 0) { setError('Amount and discount cannot be negative'); return }
-    if (cashAmt <= 0 && discountAmt <= 0) { setError('Enter a payment amount and/or discount'); return }
-    if (settleTotal > outstanding + 0.001) { setError('Payment + discount cannot exceed outstanding balance'); return }
+    if (settleTarget < 0 || discountAmt < 0) { setError('Amount and discount cannot be negative'); return }
+    if (settleTarget <= 0) { setError('Enter a payment amount'); return }
+    if (discountAmt > settleTarget + 0.001) { setError('Discount cannot exceed payment amount'); return }
+    if (settleTarget > outstanding + 0.001) { setError('Payment cannot exceed outstanding balance'); return }
     setLoading(true); setError('')
     try {
       const res: any = await customersApi.creditPayment(customerId, {
@@ -89,7 +101,7 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="rounded-2xl w-full max-w-md shadow-2xl max-h-[92vh] overflow-y-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+      <div className="rounded-2xl w-full max-w-xl shadow-2xl max-h-[92vh] overflow-y-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
         <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-green-500/20 border border-green-500/30 flex items-center justify-center">
@@ -112,7 +124,7 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
             <input
               type="number" step="0.01" min="0" max={outstanding}
               value={amount} onChange={e => setAmount(e.target.value)}
-              placeholder="Cash / transfer collected"
+              placeholder="Amount to clear from outstanding"
               className="w-full px-3 py-2.5 rounded-lg text-sm border outline-none focus:border-violet-500 transition-colors"
               style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
             />
@@ -122,7 +134,7 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
             <input
               type="number" step="0.01" min="0" max={outstanding}
               value={discount} onChange={e => setDiscount(e.target.value)}
-              placeholder="Write-off / discount"
+              placeholder="Reduces cash to collect"
               className="w-full px-3 py-2.5 rounded-lg text-sm border outline-none focus:border-violet-500 transition-colors"
               style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
             />
@@ -137,12 +149,13 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
               style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
             />
           </div>
-          {(cashAmt > 0 || discountAmt > 0) && (
+          {settleTarget > 0 && (
             <div className="rounded-lg border px-3 py-2 text-[11px] space-y-1" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-              <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>Settling</span><span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(settleTotal)}</span></div>
+              <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>Clearing</span><span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(settleTarget)}</span></div>
               {discountAmt > 0 && (
-                <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>of which discount</span><span style={{ color: 'var(--text-primary)' }}>{formatCurrency(discountAmt)}</span></div>
+                <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>Discount</span><span style={{ color: '#16a34a' }}>−{formatCurrency(discountAmt)}</span></div>
               )}
+              <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>Cash to collect</span><span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(cashAmt)}</span></div>
               <div className="flex justify-between pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Remaining after</span>
                 <span className="font-semibold" style={{ color: remainingAfter > 0 ? '#ef4444' : '#15803d' }}>{formatCurrency(remainingAfter)}</span>
@@ -152,19 +165,19 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
           <div>
             <label className="text-[11px] font-semibold uppercase tracking-wide mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Payment Method</label>
             <div className="grid grid-cols-2 gap-2">
-              {['CASH', 'CARD', 'BANK_TRANSFER', 'WALLET'].map(m => (
+              {payMethods.map(({ id, label }) => (
                 <button
-                  key={m}
+                  key={id}
                   type="button"
-                  onClick={() => setPaymentMethod(m)}
+                  onClick={() => setPaymentMethodId(id)}
                   className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all ${
-                    paymentMethod === m
+                    paymentMethodId === id
                       ? 'bg-violet-500/20 border-violet-500/50 text-violet-300'
                       : 'hover:bg-violet-500/5'
                   }`}
-                  style={paymentMethod !== m ? { borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' } : {}}
+                  style={paymentMethodId !== id ? { borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' } : {}}
                 >
-                  {m.replace(/_/g, ' ')}
+                  {label}
                 </button>
               ))}
             </div>
