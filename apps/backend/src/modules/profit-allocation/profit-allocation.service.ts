@@ -3,7 +3,7 @@ import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import { buildDailyClosingPreview } from '../daily-closing/daily-closing.service'
 import { revertSavedProfitAllocation } from './revert-allocation.util'
-import { getFundBalanceAtInstant, getFundBalanceBeforeDay } from './fund-balance.util'
+import { getFundBalanceAtInstant, getFundBalanceBeforeDay, getDayMovementTotals, computeRunningBalances } from './fund-balance.util'
 import { financialsFromPreview } from '../finance/business-financials.service'
 import { buildCategoryCostMap, buildCategoryProfitTable } from '../finance/category-profit.util'
 import {
@@ -343,16 +343,12 @@ export async function normalizeFundPercentages(tenantId: string, branchId: strin
 }
 
 async function getYesterdayBalance(fundId: string, dateStr: string) {
+  // Ledger source of truth = previous Remaining Balance carried forward
   return getFundBalanceBeforeDay(fundId, dateStr, allocationDbDate)
 }
 
-async function getDayWithdrawn(fundId: string, dateStr: string) {
-  const date = allocationDbDate(dateStr)
-  const agg = await prisma.profitTransaction.aggregate({
-    where: { fundId, type: 'WITHDRAW', date },
-    _sum: { amount: true },
-  })
-  return round2(Math.abs(agg._sum.amount ?? 0))
+async function getDayMovements(fundId: string, dateStr: string) {
+  return getDayMovementTotals(fundId, dateStr, allocationDbDate)
 }
 
 function normalizePercentageWeights(
@@ -409,6 +405,8 @@ export async function calculateAllocationLines(
     yesterdayBalance: number
     totalBalance: number
     withdrawn: number
+    deposits: number
+    adjustments: number
     remainingBalance: number
     sortOrder: number
     isActive: boolean
@@ -427,11 +425,16 @@ export async function calculateAllocationLines(
 
   for (const fund of fixedFunds) {
     const yesterdayBalance = await getYesterdayBalance(fund.id, dateStr)
-    const withdrawn = await getDayWithdrawn(fund.id, dateStr)
+    const movements = await getDayMovements(fund.id, dateStr)
     const todayAllocation = round2(Math.min(fund.fixedAmount, remainingProfit))
     remainingProfit = round2(remainingProfit - todayAllocation)
-    const totalBalance = round2(yesterdayBalance + todayAllocation)
-    const remainingBalance = round2(totalBalance - withdrawn)
+    const balances = computeRunningBalances({
+      yesterdayBalance,
+      todayAllocation,
+      withdrawn: movements.withdrawn,
+      deposits: movements.deposits,
+      adjustments: movements.adjustments,
+    })
     lines.push({
       fundId: fund.id,
       fundName: fund.name,
@@ -439,11 +442,13 @@ export async function calculateAllocationLines(
       value: fund.fixedAmount,
       categoryCost: 0,
       pctAllocation: todayAllocation,
-      todayAllocation,
-      yesterdayBalance,
-      totalBalance,
-      withdrawn,
-      remainingBalance,
+      todayAllocation: balances.todayAllocation,
+      yesterdayBalance: balances.yesterdayBalance,
+      totalBalance: balances.totalBalance,
+      withdrawn: balances.withdrawn,
+      deposits: balances.deposits,
+      adjustments: balances.adjustments,
+      remainingBalance: balances.remainingBalance,
       sortOrder: fund.sortOrder,
       isActive: fund.isActive,
       description: fund.description,
@@ -452,13 +457,18 @@ export async function calculateAllocationLines(
 
   for (const fund of manualFunds) {
     const yesterdayBalance = await getYesterdayBalance(fund.id, dateStr)
-    const withdrawn = await getDayWithdrawn(fund.id, dateStr)
+    const movements = await getDayMovements(fund.id, dateStr)
     const todayAllocation = round2(manualIncomeMap[fund.name] ?? 0)
     if (!MANUAL_POOL_EXEMPT.has(fund.name)) {
       remainingProfit = round2(remainingProfit - todayAllocation)
     }
-    const totalBalance = round2(yesterdayBalance + todayAllocation)
-    const remainingBalance = round2(totalBalance - withdrawn)
+    const balances = computeRunningBalances({
+      yesterdayBalance,
+      todayAllocation,
+      withdrawn: movements.withdrawn,
+      deposits: movements.deposits,
+      adjustments: movements.adjustments,
+    })
     lines.push({
       fundId: fund.id,
       fundName: fund.name,
@@ -466,11 +476,13 @@ export async function calculateAllocationLines(
       value: todayAllocation,
       categoryCost: 0,
       pctAllocation: 0,
-      todayAllocation,
-      yesterdayBalance,
-      totalBalance,
-      withdrawn,
-      remainingBalance,
+      todayAllocation: balances.todayAllocation,
+      yesterdayBalance: balances.yesterdayBalance,
+      totalBalance: balances.totalBalance,
+      withdrawn: balances.withdrawn,
+      deposits: balances.deposits,
+      adjustments: balances.adjustments,
+      remainingBalance: balances.remainingBalance,
       sortOrder: fund.sortOrder,
       isActive: fund.isActive,
       description: fund.description,
@@ -480,12 +492,17 @@ export async function calculateAllocationLines(
   const poolAfterFixed = round2(Math.max(0, remainingProfit))
   for (const fund of pctFunds) {
     const yesterdayBalance = await getYesterdayBalance(fund.id, dateStr)
-    const withdrawn = await getDayWithdrawn(fund.id, dateStr)
+    const movements = await getDayMovements(fund.id, dateStr)
     const categoryCost = fundCategoryCost(fund.name, categoryCostMap)
     const pctAllocation = round2(poolAfterFixed * (fund.percentage / 100))
     const todayAllocation = round2(categoryCost + pctAllocation)
-    const totalBalance = round2(yesterdayBalance + todayAllocation)
-    const remainingBalance = round2(totalBalance - withdrawn)
+    const balances = computeRunningBalances({
+      yesterdayBalance,
+      todayAllocation,
+      withdrawn: movements.withdrawn,
+      deposits: movements.deposits,
+      adjustments: movements.adjustments,
+    })
     lines.push({
       fundId: fund.id,
       fundName: fund.name,
@@ -493,11 +510,13 @@ export async function calculateAllocationLines(
       value: fund.percentage,
       categoryCost,
       pctAllocation,
-      todayAllocation,
-      yesterdayBalance,
-      totalBalance,
-      withdrawn,
-      remainingBalance,
+      todayAllocation: balances.todayAllocation,
+      yesterdayBalance: balances.yesterdayBalance,
+      totalBalance: balances.totalBalance,
+      withdrawn: balances.withdrawn,
+      deposits: balances.deposits,
+      adjustments: balances.adjustments,
+      remainingBalance: balances.remainingBalance,
       sortOrder: fund.sortOrder,
       isActive: fund.isActive,
       description: fund.description,
@@ -545,10 +564,15 @@ export async function getDashboard(tenantId: string, branchId: string, dateStr: 
       const pctAllocation = l.fund.type === 'PERCENTAGE'
         ? round2(l.todayAllocation - categoryCost)
         : 0
-      // Keep withdrawn/remaining live after save so withdrawals update the table
-      const withdrawn = await getDayWithdrawn(l.fundId, dateStr)
-      const totalBalance = round2(l.yesterdayBalance + l.todayAllocation)
-      const remainingBalance = round2(totalBalance - withdrawn)
+      // Keep withdrawn / deposits / adjustments / remaining live from ledger after save
+      const movements = await getDayMovements(l.fundId, dateStr)
+      const balances = computeRunningBalances({
+        yesterdayBalance: l.yesterdayBalance,
+        todayAllocation: l.todayAllocation,
+        withdrawn: movements.withdrawn,
+        deposits: movements.deposits,
+        adjustments: movements.adjustments,
+      })
       return {
         fundId: l.fundId,
         fundName: l.fund.name,
@@ -556,11 +580,13 @@ export async function getDashboard(tenantId: string, branchId: string, dateStr: 
         value: l.fund.type === 'FIXED_AMOUNT' ? l.fund.fixedAmount : l.fund.type === 'PERCENTAGE' ? l.fund.percentage : 0,
         categoryCost,
         pctAllocation,
-        todayAllocation: l.todayAllocation,
-        yesterdayBalance: l.yesterdayBalance,
-        totalBalance,
-        withdrawn,
-        remainingBalance,
+        todayAllocation: balances.todayAllocation,
+        yesterdayBalance: balances.yesterdayBalance,
+        totalBalance: balances.totalBalance,
+        withdrawn: balances.withdrawn,
+        deposits: balances.deposits,
+        adjustments: balances.adjustments,
+        remainingBalance: balances.remainingBalance,
         sortOrder: l.fund.sortOrder,
         isActive: l.fund.isActive,
         description: l.fund.description,
@@ -602,13 +628,37 @@ export async function resaveAllocation(
   userId: string,
   userName: string,
   notes?: string,
+  opts?: { normalizePercentages?: boolean },
 ) {
   const date = allocationDbDate(dateStr)
   const existing = await prisma.profitAllocation.findUnique({
     where: { tenantId_branchId_date: { tenantId, branchId, date } },
   })
   if (existing) await deleteAllocation(tenantId, branchId, dateStr)
-  return saveAllocation(tenantId, branchId, dateStr, userId, userName, notes)
+  return saveAllocation(tenantId, branchId, dateStr, userId, userName, notes, opts)
+}
+
+/**
+ * Fully automatic allocate-on-close: Fixed → Manual → Percentage,
+ * normalize % to 100%, write ledger ALLOCATION rows, carry running balances.
+ * Always replaces any prior same-day allocation so final net profit is used.
+ */
+export async function autoAllocateOnDayClose(
+  tenantId: string,
+  branchId: string,
+  dateStr: string,
+  userId: string,
+  userName: string,
+) {
+  return resaveAllocation(
+    tenantId,
+    branchId,
+    dateStr,
+    userId,
+    userName,
+    'Auto-saved on day close',
+    { normalizePercentages: true },
+  )
 }
 
 export async function saveAllocation(

@@ -15,7 +15,7 @@ import {
 } from './daily-closing.service'
 import { normalizeBusinessDate, businessDateDb } from '../../utils/date-range'
 import { isTenantFeatureEnabled } from '../../utils/tenant-feature.util'
-import { saveAllocation } from '../profit-allocation/profit-allocation.service'
+import { autoAllocateOnDayClose } from '../profit-allocation/profit-allocation.service'
 import { effectiveBranchId, resolveMutationBranchId } from '../../utils/active-branch'
 import { emitDailyClosingAccounting } from '../accounting/integration/accounting-events.service'
 
@@ -144,36 +144,35 @@ router.post('/close', authorize('OWNER', 'MANAGER'), async (req: Request, res: R
     const dateKey = resolveBusinessDate(date)
     const preview = await closeBusinessDay(req.tenantId!, branchId, dateKey, user.userId, user.email, { openingCash, cashCount, notes })
 
+    const profitFeat = await isTenantFeatureEnabled(req.tenantId!, 'PROFIT_ALLOCATION')
+    if (profitFeat) {
+      try {
+        await autoAllocateOnDayClose(
+          req.tenantId!,
+          branchId,
+          dateKey,
+          user.userId,
+          user.email,
+        )
+      } catch (e: any) {
+        // Keep close + allocation atomic from the operator's perspective
+        await reopenBusinessDay(req.tenantId!, branchId, dateKey).catch(() => {})
+        throw new AppError(
+          `Day close aborted: automatic profit allocation failed — ${e?.message ?? 'unknown error'}`,
+          400,
+        )
+      }
+    }
+
     const closing = await prisma.dailyClosing.findUnique({
       where: { tenantId_branchId_date: { tenantId: req.tenantId!, branchId, date: businessDateDb(dateKey) } },
     })
     if (closing) void emitDailyClosingAccounting(req.tenantId!, closing.id, branchId, user.email)
 
-    let allocationWarning: string | undefined
-    const profitFeat = await isTenantFeatureEnabled(req.tenantId!, 'PROFIT_ALLOCATION')
-    if (profitFeat) {
-      try {
-        const allocDate = businessDateDb(dateKey)
-        const existingAlloc = await prisma.profitAllocation.findUnique({
-          where: { tenantId_branchId_date: { tenantId: req.tenantId!, branchId, date: allocDate } },
-        })
-        if (!existingAlloc) {
-          await saveAllocation(
-            req.tenantId!,
-            branchId,
-            dateKey,
-            user.userId,
-            user.email,
-            'Auto-saved on day close',
-            { normalizePercentages: true },
-          )
-        }
-      } catch (e: any) {
-        allocationWarning = e?.message ?? 'Profit allocation could not be saved'
-      }
-    }
-
-    sendSuccess(res, { ...preview, allocationWarning }, allocationWarning ? 'Business day closed (allocation not saved)' : 'Business day closed')
+    sendSuccess(res, {
+      ...preview,
+      profitAllocationAutoSaved: profitFeat,
+    }, profitFeat ? 'Business day closed · profit allocated automatically' : 'Business day closed')
   } catch (e) { next(e) }
 })
 

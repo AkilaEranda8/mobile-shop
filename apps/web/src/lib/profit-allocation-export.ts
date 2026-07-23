@@ -10,31 +10,47 @@ export type AllocationLine = {
   yesterdayBalance: number
   totalBalance: number
   withdrawn: number
+  deposits?: number
+  adjustments?: number
   remainingBalance: number
+}
+
+const TABLE_HEADERS = [
+  'Fund Name',
+  'Fund Type',
+  'Configured Value',
+  "Today's Allocation",
+  'Yesterday Balance',
+  'Total Balance',
+  'Withdrawn',
+  'Remaining Balance',
+]
+
+function lineRow(l: AllocationLine) {
+  return [
+    l.fundName,
+    l.fundType,
+    l.value,
+    l.todayAllocation,
+    l.yesterdayBalance,
+    l.totalBalance,
+    l.withdrawn,
+    l.remainingBalance,
+  ]
 }
 
 export function exportAllocationCsv(
   lines: AllocationLine[],
   meta: { date: string; todaySales: number; todayProfit: number },
 ) {
-  const header = ['Fund Name', 'Type', 'Value', 'Cost', 'Today', 'Yesterday', 'Total', 'Withdrawn', 'Remaining']
-  const rows = lines.map(l => [
-    l.fundName,
-    l.fundType,
-    l.value,
-    l.categoryCost ?? 0,
-    l.todayAllocation,
-    l.yesterdayBalance,
-    l.totalBalance,
-    l.withdrawn,
-    l.remainingBalance,
-  ])
+  const rows = lines.map(lineRow)
   const csv = [
   `Profit Allocation — ${meta.date}`,
   `Today's Sales: ${meta.todaySales}`,
   `Today's Profit: ${meta.todayProfit}`,
+  'Formula: Yesterday + Allocation = Total; Total − Withdrawn + Deposits ± Adjustments = Remaining',
   '',
-  header.join(','),
+  TABLE_HEADERS.join(','),
   ...rows.map(r => r.join(',')),
   ].join('\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -56,12 +72,10 @@ export function exportAllocationExcel(
     ['Today Profit', meta.todayProfit],
     ['Total Allocated', meta.totalAllocated],
     ['Remaining Profit', meta.remainingProfit],
+    ['Running Balance', 'Yesterday + Allocation = Total; Total − Withdrawn + Deposits ± Adjustments = Remaining'],
     [],
-    ['Fund Name', 'Type', 'Value', 'Cost', 'Today', 'Yesterday', 'Total', 'Withdrawn', 'Remaining'],
-    ...lines.map(l => [
-      l.fundName, l.fundType, l.value, l.categoryCost ?? 0, l.todayAllocation,
-      l.yesterdayBalance, l.totalBalance, l.withdrawn, l.remainingBalance,
-    ]),
+    TABLE_HEADERS,
+    ...lines.map(lineRow),
   ])
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Allocation')
@@ -80,31 +94,35 @@ export function exportAllocationPdf(
       .meta { font-size: 12px; color: #555; margin-bottom: 16px; }
       table { width: 100%; border-collapse: collapse; font-size: 11px; }
       th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
-      th { background: #6366f1; color: white; }
-      tr:nth-child(even) { background: #f8f9fa; }
+      th { background: #f5f5f5; }
+      td.num { text-align: right; }
     </style></head><body>
-    <h1>Profit Allocation & Fund Management</h1>
-    <div class="meta">
-      Date: ${meta.date} · Sales: Rs. ${meta.todaySales.toLocaleString()} · Profit: Rs. ${meta.todayProfit.toLocaleString()} ·
-      Allocated: Rs. ${meta.totalAllocated.toLocaleString()} · Remaining: Rs. ${meta.remainingProfit.toLocaleString()}
-    </div>
-    <table>
-      <thead><tr>
-        <th>Fund</th><th>Type</th><th>Value</th><th>Cost</th><th>Today</th><th>Yesterday</th>
-        <th>Total</th><th>Withdrawn</th><th>Remaining</th>
-      </tr></thead>
-      <tbody>
-        ${lines.map(l => `<tr>
-          <td>${l.fundName}</td><td>${l.fundType}</td><td>${l.value}</td><td>${l.categoryCost ?? 0}</td>
-          <td>${l.todayAllocation}</td><td>${l.yesterdayBalance}</td>
-          <td>${l.totalBalance}</td><td>${l.withdrawn}</td><td>${l.remainingBalance}</td>
-        </tr>`).join('')}
-      </tbody>
-    </table>
+      <h1>Profit Allocation — ${meta.date}</h1>
+      <div class="meta">
+        Sales: Rs. ${meta.todaySales.toLocaleString()} · Profit: Rs. ${meta.todayProfit.toLocaleString()} ·
+        Allocated: Rs. ${meta.totalAllocated.toLocaleString()} · Remaining: Rs. ${meta.remainingProfit.toLocaleString()}
+      </div>
+      <p class="meta">Yesterday + Allocation = Total · Total − Withdrawn + Deposits ± Adjustments = Remaining</p>
+      <table>
+        <thead><tr>
+          <th>Fund Name</th><th>Fund Type</th><th>Configured Value</th><th>Today's Allocation</th>
+          <th>Yesterday Balance</th><th>Total Balance</th><th>Withdrawn</th><th>Remaining Balance</th>
+        </tr></thead>
+        <tbody>
+          ${lines.map(l => `
+          <tr>
+            <td>${l.fundName}</td><td>${l.fundType}</td><td class="num">${l.value}</td>
+            <td class="num">${l.todayAllocation}</td><td class="num">${l.yesterdayBalance}</td>
+            <td class="num">${l.totalBalance}</td><td class="num">${l.withdrawn}</td>
+            <td class="num">${l.remainingBalance}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
     </body></html>`
   const w = window.open('', '_blank')
   if (!w) return
   w.document.write(html)
   w.document.close()
+  w.focus()
   w.print()
 }

@@ -101,6 +101,7 @@ router.post('/resave', authorize('OWNER', 'MANAGER'), validate(saveAllocationSch
         req.user!.userId,
         req.user!.email,
         notes,
+        { normalizePercentages: true },
       ),
       'Allocation recalculated and saved',
     )

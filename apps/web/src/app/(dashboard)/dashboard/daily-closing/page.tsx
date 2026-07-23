@@ -292,10 +292,11 @@ export default function DailyClosingPage() {
         notes,
       })
       const payload = res.data ?? res
-      toast.success('Business day closed')
-      if (payload?.allocationWarning) {
-        toast.error(`Profit allocation not saved: ${payload.allocationWarning}`)
-      }
+      toast.success(
+        payload?.profitAllocationAutoSaved
+          ? 'Business day closed · profit allocated automatically'
+          : 'Business day closed',
+      )
       refetch()
     } catch (e: any) {
       toast.error(e?.message ?? 'Close failed')
@@ -800,7 +801,7 @@ export default function DailyClosingPage() {
 
                   {showProfitAllocation && allocation && (
                     <>
-                      <SectionTitle title="Profit Allocation" sub={allocation.saved ? 'Saved allocation' : 'Live preview · saved on day close'} />
+                      <SectionTitle title="Profit Allocation" sub={allocation.saved ? 'Auto-saved on day close' : 'Live preview · auto-saved when you close the day'} />
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
                         <MetricCard label="Total Allocated" value={formatCurrency(allocation.totalAllocated ?? 0)} />
                         <MetricCard label="Remaining Profit" value={formatCurrency(allocation.remainingProfit ?? 0)}
@@ -827,7 +828,7 @@ export default function DailyClosingPage() {
               {/* Step 5: Close */}
               {step === 5 && canClose && (
                 <>
-                  <SectionTitle title="Close Business Day" sub="Snapshot saved to Daily Summary · new transactions locked until reopened" />
+                  <SectionTitle title="Close Business Day" sub="Locks the day · auto-allocates net profit to funds · creates ledger &amp; running balances" />
                   {d?.isClosed ? (
                     <div className="flex items-center gap-3 p-4 rounded-xl border"
                       style={{ background: 'rgba(16,185,129,0.06)', borderColor: 'rgba(16,185,129,0.25)' }}>
@@ -837,9 +838,11 @@ export default function DailyClosingPage() {
                         <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                           By {d.closedByName} · {d.closedAt ? new Date(d.closedAt).toLocaleString('en-LK') : ''}
                         </p>
-                        {showProfitAllocation && allocation?.saved && (
+                        {showProfitAllocation && (
                           <p className="text-xs mt-1 text-emerald-600 dark:text-emerald-400">
-                            Profit allocation saved automatically
+                            {allocation?.saved
+                              ? 'Profit allocation saved automatically (funds + ledger updated)'
+                              : 'Profit allocation runs automatically on close'}
                           </p>
                         )}
                       </div>
@@ -847,7 +850,10 @@ export default function DailyClosingPage() {
                   ) : (
                     <div className="space-y-4">
                       <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                        Review all steps complete? Closing will lock POS sales, finance entries and repair payments for this date.
+                        Closing locks POS / finance / repairs for this date
+                        {showProfitAllocation
+                          ? ' and automatically allocates today\'s net profit into your funds (Fixed → Manual → Percentage).'
+                          : '.'}
                       </p>
                       <textarea className="input-field min-h-[88px]" placeholder="Closing notes (optional)"
                         value={notes} onChange={e => setNotes(e.target.value)} />

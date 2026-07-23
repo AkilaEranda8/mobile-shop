@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import {
-  PieChart as PieChartIcon, TrendingUp, Wallet, Banknote, RefreshCw, Save, Plus, Search,
+  PieChart as PieChartIcon, TrendingUp, Wallet, Banknote, RefreshCw, Plus, Search,
   Download, FileSpreadsheet, FileText, X, Loader2, Edit2, Trash2, ArrowDownRight,
   ArrowUpRight, SlidersHorizontal, Calendar, Layers,
 } from 'lucide-react'
@@ -28,6 +28,8 @@ type FundLine = AllocationLine & {
   description: string | null
   categoryCost?: number
   pctAllocation?: number
+  deposits?: number
+  adjustments?: number
 }
 
 type DashboardData = {
@@ -331,21 +333,6 @@ export default function ProfitAllocationPage() {
     }
   }
 
-  const handleRecalculate = async () => {
-    if (!branchId) return
-    setCalcLoading(true)
-    try {
-      const res = await profitAllocationApi.calculate({ branchId, date: viewDate }) as { data: DashboardData }
-      setDashboardOverride(res.data)
-      await loadPeriod()
-      toast.success('Today recalculated')
-    } catch (e: unknown) {
-      toast.error((e as { message?: string })?.message ?? 'Recalculate failed')
-    } finally {
-      setCalcLoading(false)
-    }
-  }
-
   const handleNormalizePercentages = async () => {
     if (!branchId) return
     setCalcLoading(true)
@@ -363,39 +350,13 @@ export default function ProfitAllocationPage() {
     }
   }
 
-  const handleSave = async () => {
-    if (!branchId || !todayDashboard) return
-    if (!todayDashboard.percentageValid) {
-      toast.error(`Percentage funds must total 100%. Current: ${todayDashboard.percentageTotal}%`)
-      return
-    }
-    setSaveLoading(true)
-    try {
-      await profitAllocationApi.save({ branchId, date: viewDate })
-      toast.success('Today\'s allocation saved')
-      setDashboardOverride(null)
-      refetch()
-      refetchFunds()
-      loadPeriod()
-      loadTransactions()
-    } catch (e: unknown) {
-      toast.error((e as { message?: string })?.message ?? 'Save failed')
-    } finally {
-      setSaveLoading(false)
-    }
-  }
-
   const handleResave = async () => {
     if (!branchId || !todayDashboard) return
-    if (!todayDashboard.percentageValid) {
-      toast.error(`Percentage funds must total 100%. Current: ${todayDashboard.percentageTotal}%`)
-      return
-    }
-    if (!confirm('Recalculate and replace today\'s saved allocation?')) return
+    if (!confirm('Force re-allocate today? This replaces the auto-saved allocation (withdrawals/deposits stay).')) return
     setSaveLoading(true)
     try {
       await profitAllocationApi.resave({ branchId, date: viewDate })
-      toast.success('Today recalculated and saved')
+      toast.success('Today re-allocated')
       setDashboardOverride(null)
       refetch()
       refetchFunds()
@@ -403,25 +364,6 @@ export default function ProfitAllocationPage() {
       loadTransactions()
     } catch (e: unknown) {
       toast.error((e as { message?: string })?.message ?? 'Resave failed')
-    } finally {
-      setSaveLoading(false)
-    }
-  }
-
-  const handleDeleteAllocation = async () => {
-    if (!branchId) return
-    if (!confirm('Delete saved allocation for this date? Fund balances will be reversed.')) return
-    setSaveLoading(true)
-    try {
-      await profitAllocationApi.deleteAllocation(viewDate, branchId)
-      toast.success('Allocation deleted')
-      setDashboardOverride(null)
-      refetch()
-      refetchFunds()
-      loadPeriod()
-      loadTransactions()
-    } catch (e: unknown) {
-      toast.error((e as { message?: string })?.message ?? 'Delete failed')
     } finally {
       setSaveLoading(false)
     }
@@ -580,35 +522,32 @@ export default function ProfitAllocationPage() {
           {canEdit && (
             <button onClick={handleRefreshFromSystem} disabled={calcLoading || !branchId} className="btn-secondary flex items-center gap-2 text-sm">
               {calcLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-              Refresh Today
+              Refresh
             </button>
           )}
-          {canManageFunds && (
-            <button onClick={handleRecalculate} disabled={calcLoading || todayDashboard?.saved} className="btn-secondary flex items-center gap-2 text-sm">
-              {calcLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-              Recalculate
+          {/* Manual save removed — allocation auto-runs on Daily Closing.
+              Owner may force re-allocate if day already closed / saved. */}
+          {canSave && isOwner && todayDashboard?.saved && (
+            <button
+              onClick={handleResave}
+              disabled={saveLoading}
+              className="btn-secondary flex items-center gap-2 text-sm"
+              title="Emergency only — normally auto-saved when Daily Closing completes"
+            >
+              {saveLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+              Force re-allocate
             </button>
-          )}
-          {canSave && !todayDashboard?.saved && (
-            <button onClick={handleSave} disabled={saveLoading || !todayDashboard} className="btn-primary flex items-center gap-2 text-sm">
-              {saveLoading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-              Save Today
-            </button>
-          )}
-          {canSave && todayDashboard?.saved && (
-            <>
-              <button onClick={handleResave} disabled={saveLoading} className="btn-primary flex items-center gap-2 text-sm">
-                {saveLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                Recalculate &amp; Save Today
-              </button>
-              {isOwner && (
-                <button onClick={handleDeleteAllocation} disabled={saveLoading} className="btn-secondary flex items-center gap-2 text-sm text-red-600">
-                  <Trash2 size={14} /> Delete Today
-                </button>
-              )}
-            </>
           )}
         </div>
+      </div>
+
+      <div
+        className="rounded-xl px-4 py-3 text-sm border"
+        style={{ borderColor: 'rgba(16,185,129,0.25)', background: 'rgba(16,185,129,0.08)', color: 'var(--text-primary)' }}
+      >
+        <strong>Fully automatic:</strong> Close the business day → net profit allocates Fixed → Manual → Percentage →
+        fund balances + ledger update → Remaining Balance carries to tomorrow. No manual Save needed.
+        Withdraw / Deposit / Adjust still work anytime after allocation.
       </div>
 
       {dashError && (
@@ -617,10 +556,11 @@ export default function ProfitAllocationPage() {
         </div>
       )}
 
-      {todayDashboard && !todayDashboard.percentageValid && (
+      {todayDashboard && !todayDashboard.percentageValid && !todayDashboard.saved && (
         <div className="rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 border border-amber-500/25 bg-amber-500/10">
           <p className="text-sm flex-1" style={{ color: 'var(--text-primary)' }}>
-            Percentage funds total <strong>{todayDashboard.percentageTotal}%</strong> (must be 100% to save today).
+            Percentage funds currently total <strong>{todayDashboard.percentageTotal}%</strong>.
+            On day close they are auto-normalized to 100%.
           </p>
           {canSave && (
             <button
@@ -630,7 +570,7 @@ export default function ProfitAllocationPage() {
               className="btn-secondary text-sm flex items-center gap-2"
             >
               {calcLoading ? <Loader2 size={14} className="animate-spin" /> : <SlidersHorizontal size={14} />}
-              Normalize to 100%
+              Normalize now
             </button>
           )}
         </div>
@@ -705,7 +645,7 @@ export default function ProfitAllocationPage() {
         <div className="p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
           <SectionTitle
             title="Allocation Details"
-            sub="Today = from profit today · Yesterday = carried from before · Total = yesterday + today"
+            sub="Yesterday + Today's Allocation = Total · Total − Withdrawn + Deposits ± Adjustments = Remaining (carries to next day)"
           />
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1 max-w-xs">
@@ -744,13 +684,22 @@ export default function ProfitAllocationPage() {
             <table className="w-full">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  {['Fund', 'Type', 'Value', 'Cost', 'Today', 'Yesterday', 'Total', 'Withdrawn', 'Remaining', 'Actions'].map((h, i) => (
-                    <th key={h} className={`table-header whitespace-nowrap${i >= 4 && i <= 8 ? ' text-right' : ''}${i === 9 ? ' text-center' : ''}`}
-                      title={h === 'Today' ? "Amount taken from today's profit into this fund"
-                        : h === 'Yesterday' ? 'Balance carried into today (all prior days minus withdrawals)'
-                        : h === 'Total' ? 'Running total = Yesterday + Today'
-                        : undefined}
-                    >{h}</th>
+                  {[
+                    { h: 'Fund Name', tip: undefined as string | undefined },
+                    { h: 'Fund Type', tip: undefined },
+                    { h: 'Configured Value', tip: 'Fixed amount, percentage, or manual amount for this fund' },
+                    { h: "Today's Allocation", tip: "Amount allocated from today's net profit" },
+                    { h: 'Yesterday Balance', tip: "Previous day's Remaining Balance (from ledger — never reset)" },
+                    { h: 'Total Balance', tip: 'Yesterday Balance + Today\'s Allocation' },
+                    { h: 'Withdrawn', tip: "Today's withdrawals from this fund" },
+                    { h: 'Remaining Balance', tip: 'Total − Withdrawn + Deposits ± Adjustments → next day\'s Yesterday Balance' },
+                    { h: 'Actions', tip: undefined },
+                  ].map((col, i) => (
+                    <th
+                      key={col.h}
+                      className={`table-header whitespace-nowrap${i >= 3 && i <= 7 ? ' text-right' : ''}${i === 8 ? ' text-center' : ''}`}
+                      title={col.tip}
+                    >{col.h}</th>
                   ))}
                 </tr>
               </thead>
@@ -761,9 +710,6 @@ export default function ProfitAllocationPage() {
                   const valueLabel = line.fundType === 'FIXED_AMOUNT'
                     ? formatCurrency(line.value)
                     : line.fundType === 'PERCENTAGE' ? `${line.value}%` : '—'
-                  const costLabel = line.fundType === 'PERCENTAGE'
-                    ? formatCurrency(line.categoryCost ?? 0)
-                    : '—'
                   const todaySub = line.fundType === 'PERCENTAGE' && (line.categoryCost ?? 0) > 0
                     ? `Cost ${formatCurrency(line.categoryCost ?? 0)} + ${formatCurrency(line.pctAllocation ?? line.todayAllocation)}`
                     : null
@@ -781,11 +727,6 @@ export default function ProfitAllocationPage() {
                       <td className="table-cell"><FundTypeBadge type={line.fundType} /></td>
                       <td className="table-cell"><span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{valueLabel}</span></td>
                       <td className="table-cell text-right">
-                        <span className="text-sm font-medium" style={{ color: line.fundType === 'PERCENTAGE' ? '#b45309' : 'var(--text-muted)' }}>
-                          {costLabel}
-                        </span>
-                      </td>
-                      <td className="table-cell text-right">
                         <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(line.todayAllocation)}</span>
                         {todaySub && (
                           <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{todaySub}</p>
@@ -794,7 +735,17 @@ export default function ProfitAllocationPage() {
                       <td className="table-cell text-right"><span className="text-sm" style={{ color: 'var(--text-muted)' }}>{formatCurrency(line.yesterdayBalance)}</span></td>
                       <td className="table-cell text-right"><span className="text-sm font-semibold tabular-nums" style={{ color: 'var(--brand-primary-light)' }}>{formatCurrency(line.totalBalance)}</span></td>
                       <td className="table-cell text-right"><span className="text-sm font-semibold" style={{ color: '#b91c1c' }}>{formatCurrency(line.withdrawn)}</span></td>
-                      <td className="table-cell text-right"><span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(line.remainingBalance)}</span></td>
+                      <td className="table-cell text-right">
+                        <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(line.remainingBalance)}</span>
+                        {(Number(line.deposits ?? 0) > 0 || Number(line.adjustments ?? 0) !== 0) && (
+                          <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                            {[
+                              Number(line.deposits ?? 0) > 0 ? `+Dep ${formatCurrency(Number(line.deposits))}` : null,
+                              Number(line.adjustments ?? 0) !== 0 ? `Adj ${formatCurrency(Number(line.adjustments))}` : null,
+                            ].filter(Boolean).join(' · ')}
+                          </p>
+                        )}
+                      </td>
                       <td className="table-cell text-center">
                         {canWithdraw && fund && (
                           <div className="flex items-center justify-center gap-1">
@@ -828,7 +779,7 @@ export default function ProfitAllocationPage() {
             </span>
             {todayDashboard.saved
               ? <span className="font-semibold" style={{ color: '#15803d' }}>✓ Today ({formatDate(viewDate)}) saved into fund balances</span>
-              : <span style={{ color: 'var(--text-muted)' }}>Save Today to lock today&apos;s profit into fund balances</span>}
+              : <span style={{ color: 'var(--text-muted)' }}>Preview only — Close Business Day to auto-allocate into fund balances</span>}
           </div>
         )}
       </div>
