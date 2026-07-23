@@ -22,6 +22,7 @@ import { createSessionExchangeCode, consumeSessionExchangeCode } from '../../uti
 import { ensureBillingWhatsAppTenant } from '../../utils/billing-whatsapp-tenant'
 import { sendTenantOnboardWhatsApp } from '../../utils/send-tenant-onboard-whatsapp'
 import { tenantShopHost, tenantShopUrl } from '../../utils/tenant-app-domain'
+import { installDemoDataForTenant } from '../demo-data/demo-data.service'
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
@@ -265,6 +266,13 @@ export const authService = {
         branches: { create: { branchId: branch.id } },
       },
     })
+
+    // Install demo catalog from templates (IDs stored in manifest — removable later)
+    try {
+      await installDemoDataForTenant(tenant.id, branch.id)
+    } catch (e) {
+      console.warn('[register] demo data install failed (non-fatal):', (e as Error).message)
+    }
 
     let accessToken: string
     let refreshToken: string

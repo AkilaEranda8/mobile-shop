@@ -231,6 +231,8 @@ export const tenantApi = {
   myFeatures: () => api.get<{ data: { features: Record<string, boolean>; prices: Record<string, number | null> } }>('/tenants/my-features'),
   updateMyFeatures: (features: Record<string, boolean>) =>
     api.patch<{ data: { features: Record<string, boolean>; prices: Record<string, number | null> } }>('/tenants/my-features', { features }),
+  demoDataStatus: () => api.get('/tenants/me/demo-data'),
+  clearDemoData: () => api.delete('/tenants/me/demo-data'),
 }
 
 export const servicesApi = {

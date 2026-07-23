@@ -8,6 +8,8 @@ import { prisma } from '../../config/database'
 import { sendSuccess } from '../../utils/response'
 import { OPT_IN_FEATURES, buildFeatureMap, buildPriceMap } from './tenant-features'
 import { handleAccountingFeatureBatch } from '../accounting/accounting-feature.util'
+import { getDemoDataStatus, clearDemoDataForTenant, installDemoDataForTenant } from '../demo-data/demo-data.service'
+import { resolveMutationBranchId } from '../../utils/active-branch'
 
 const router = Router()
 router.use(authenticate)
@@ -46,6 +48,22 @@ router.get('/invoice-templates', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER',
 router.get('/config-domains', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER'), requireModuleAccess('SETTINGS', 'view'), tenantsController.listConfigDomains)
 router.get('/me/settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'), tenantsController.getMySettings)
 router.get('/me/role-permissions', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), tenantsController.getMyRolePermissions)
+router.get('/me/demo-data', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    sendSuccess(res, await getDemoDataStatus(req.tenantId!))
+  } catch (e) { next(e) }
+})
+router.post('/me/demo-data', authorize('PLATFORM_ADMIN', 'OWNER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const branchId = await resolveMutationBranchId(req, {})
+    sendSuccess(res, await installDemoDataForTenant(req.tenantId!, branchId), 'Demo data installed')
+  } catch (e) { next(e) }
+})
+router.delete('/me/demo-data', authorize('PLATFORM_ADMIN', 'OWNER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    sendSuccess(res, await clearDemoDataForTenant(req.tenantId!), 'Demo data removed')
+  } catch (e) { next(e) }
+})
 router.get('/', authorize('PLATFORM_ADMIN'), tenantsController.list)
 router.get('/me', tenantsController.getMe)
 router.get('/:id', authorize('PLATFORM_ADMIN', 'OWNER'), tenantsController.getById)

@@ -21,6 +21,7 @@ import type { RepairTicket, Transaction as AppTransaction } from '@/types'
 import { formatCurrency, formatRelativeTime } from '@/lib/utils'
 import { businessToday, businessPeriodFrom, formatBusinessDateLabel } from '@/lib/business-date'
 import { BusinessHealthCard } from '@/components/dashboard/BusinessHealthCard'
+import { DemoDataBanner } from '@/components/dashboard/DemoDataBanner'
 
 /* ─────────────────────────────────────────────────────────────────────
    SVG SPARKLINE
@@ -232,6 +233,8 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-black text-gray-900 dark:text-white">Dashboard</h1>
         <p className="text-sm text-gray-500 mt-0.5">Welcome back! Here&apos;s what&apos;s happening with your business today.</p>
       </div>
+
+      <DemoDataBanner />
 
       {/* ── KPI Strip ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
