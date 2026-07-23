@@ -1335,10 +1335,6 @@ export default function SettingsPage() {
                       <Plus size={14} />Add
                     </button>
                   </div>
-                  <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                    Pick an accounting type (Cash / Card / UPI / Bank / Wallet), then set any display name.
-                    You can add multiple methods of the same type (e.g. Wallet → eZ Cash and Genie).
-                  </p>
                 </div>
               )}
 
