@@ -77,7 +77,7 @@ export async function postSaleJournal(tenantId: string, saleId: string, actorEma
     if (p.method === 'CASH') accountId = await resolveBranchCashGlAccountId(tenantId, sale.branchId)
     else if (p.method === 'CARD') accountId = await resolveAccountIdByKey(tenantId, 'cardClearing')
     else if (p.method === 'UPI' || p.method === 'WALLET') accountId = await resolveAccountIdByKey(tenantId, 'upiClearing')
-    else if (p.method === 'BANK_TRANSFER') accountId = await resolveAccountIdByKey(tenantId, 'bank')
+    else if (p.method === 'BANK_TRANSFER' || p.method === 'CHEQUE') accountId = await resolveAccountIdByKey(tenantId, 'bank')
     else accountId = await resolveBranchCashGlAccountId(tenantId, sale.branchId)
     lines.push({
       accountId,
@@ -740,7 +740,7 @@ export async function postSaleReturnJournal(tenantId: string, returnId: string, 
   if (method === 'CASH') creditAccountId = await resolveBranchCashGlAccountId(tenantId, branchId)
   else if (method === 'CARD') creditAccountId = await resolveAccountIdByKey(tenantId, 'cardClearing')
   else if (method === 'UPI' || method === 'WALLET') creditAccountId = await resolveAccountIdByKey(tenantId, 'upiClearing')
-  else if (method === 'BANK_TRANSFER') creditAccountId = await resolveAccountIdByKey(tenantId, 'bank')
+  else if (method === 'BANK_TRANSFER' || method === 'CHEQUE') creditAccountId = await resolveAccountIdByKey(tenantId, 'bank')
   else if (method === 'CREDIT') creditAccountId = await resolveAccountIdByKey(tenantId, 'ar')
   else creditAccountId = await resolveBranchCashGlAccountId(tenantId, branchId)
 

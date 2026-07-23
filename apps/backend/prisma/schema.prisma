@@ -82,6 +82,7 @@ enum PaymentMethod {
   UPI
   BANK_TRANSFER
   WALLET
+  CHEQUE
   CREDIT
 }
 

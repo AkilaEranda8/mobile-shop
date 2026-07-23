@@ -3,7 +3,7 @@ import { tenantApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 
 /** Accounting types stored on SalePayment / Transaction (Prisma PaymentMethod enum, excl. CREDIT). */
-export const PAYMENT_METHOD_KEYS = ['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET'] as const
+export const PAYMENT_METHOD_KEYS = ['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CHEQUE'] as const
 export type PaymentMethodKey = (typeof PAYMENT_METHOD_KEYS)[number]
 
 /**
@@ -28,6 +28,7 @@ export const DEFAULT_PAYMENT_METHOD_LABELS: Record<PaymentMethodKey, string> = {
   UPI: 'UPI',
   BANK_TRANSFER: 'Bank Transfer',
   WALLET: 'Wallet',
+  CHEQUE: 'Cheque',
 }
 
 export const DEFAULT_PAYMENT_METHODS: TenantPaymentMethod[] = [
@@ -53,7 +54,8 @@ export function inferPaymentMethodKey(label: string): PaymentMethodKey {
   for (const k of PAYMENT_METHOD_KEYS) {
     if (DEFAULT_PAYMENT_METHOD_LABELS[k].toLowerCase() === normalized) return k
   }
-  if (/cheque|check|bank\s*transfer|bank/.test(normalized)) return 'BANK_TRANSFER'
+  if (/cheque|check/.test(normalized)) return 'CHEQUE'
+  if (/bank\s*transfer|bank/.test(normalized)) return 'BANK_TRANSFER'
   if (/\bcard\b|visa|master|debit|credit\s*card/.test(normalized)) return 'CARD'
   if (/\bcash\b|මුදල්/.test(normalized)) return 'CASH'
   if (/\bupi\b|\bqr\b/.test(normalized)) return 'UPI'
@@ -69,6 +71,13 @@ export function makePaymentMethodId(key: PaymentMethodKey, label: string, existi
   return `${base}_${n}`
 }
 
+function resolveKey(rawKey: string, label: string): PaymentMethodKey | null {
+  if (!(PAYMENT_METHOD_KEYS as readonly string[]).includes(rawKey)) return null
+  let k = rawKey as PaymentMethodKey
+  if (k === 'BANK_TRANSFER' && /cheque|check/i.test(label)) k = 'CHEQUE'
+  return k
+}
+
 export function sanitize(methods: unknown): TenantPaymentMethod[] {
   if (!Array.isArray(methods)) return DEFAULT_PAYMENT_METHODS
   const seenIds = new Set<string>()
@@ -76,14 +85,17 @@ export function sanitize(methods: unknown): TenantPaymentMethod[] {
   for (const raw of methods) {
     if (!raw || typeof raw !== 'object') continue
     const m = raw as Record<string, unknown>
-    const key = m.key
-    if (typeof key !== 'string' || !PAYMENT_METHOD_KEYS.includes(key as PaymentMethodKey)) continue
-    const k = key as PaymentMethodKey
-    const label = typeof m.label === 'string' && m.label.trim()
-      ? m.label.trim().slice(0, 40)
-      : DEFAULT_PAYMENT_METHOD_LABELS[k]
+    const labelRaw = typeof m.label === 'string' ? m.label.trim().slice(0, 40) : ''
+    const keyRaw = typeof m.key === 'string' ? m.key : ''
+    const k = resolveKey(keyRaw, labelRaw || DEFAULT_PAYMENT_METHOD_LABELS[keyRaw as PaymentMethodKey] || '')
+    if (!k) continue
+    const label = labelRaw || DEFAULT_PAYMENT_METHOD_LABELS[k]
     let id = typeof m.id === 'string' && m.id.trim() ? m.id.trim().slice(0, 64) : k
-    // Legacy rows used key-only uniqueness — keep first, rename later duplicates
+    if (k === 'CHEQUE' && (id === 'BANK_TRANSFER' || /^BANK_TRANSFER_/.test(id))) {
+      id = !seenIds.has('CHEQUE') && label === DEFAULT_PAYMENT_METHOD_LABELS.CHEQUE
+        ? 'CHEQUE'
+        : makePaymentMethodId(k, label, out)
+    }
     if (seenIds.has(id)) {
       id = makePaymentMethodId(k, label, out)
     }

@@ -176,7 +176,7 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
       if (p.method === 'CASH') cashSales += amt
       else if (p.method === 'CARD') cardPayments += amt
       else if (p.method === 'UPI' || p.method === 'WALLET') qrPayments += amt
-      else if (p.method === 'BANK_TRANSFER') bankFromSales += amt
+      else if (p.method === 'BANK_TRANSFER' || p.method === 'CHEQUE') bankFromSales += amt
     }
     for (const item of sale.items) {
       const total = Number(item.total)
@@ -225,7 +225,7 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
         if (tx.paymentMethod === 'CASH') cashSales += amt
         else if (tx.paymentMethod === 'CARD') cardPayments += amt
         else if (tx.paymentMethod === 'UPI' || tx.paymentMethod === 'WALLET') qrPayments += amt
-        else if (tx.paymentMethod === 'BANK_TRANSFER') bankFromSales += amt
+        else if (tx.paymentMethod === 'BANK_TRANSFER' || tx.paymentMethod === 'CHEQUE') bankFromSales += amt
       }
       else if (/bill\s*pay/i.test(cat)) {
         billPaymentIncome += amt

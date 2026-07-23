@@ -19,7 +19,7 @@ export type WarrantyClaimStatus = 'OPEN' | 'ASSESSED' | 'IN_REPAIR' | 'RESOLVED'
 
 export type PurchaseOrderStatus = 'DRAFT' | 'SENT' | 'PARTIAL' | 'RECEIVED' | 'CLOSED'
 
-export type PaymentMethod = 'CASH' | 'CARD' | 'UPI' | 'BANK_TRANSFER' | 'WALLET' | 'CREDIT'
+export type PaymentMethod = 'CASH' | 'CARD' | 'UPI' | 'BANK_TRANSFER' | 'WALLET' | 'CHEQUE' | 'CREDIT'
 
 export type SubscriptionPlan = 'STARTER' | 'PRO' | 'ENTERPRISE'
 

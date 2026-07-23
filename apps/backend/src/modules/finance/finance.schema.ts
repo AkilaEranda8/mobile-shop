@@ -6,7 +6,7 @@ export const createTransactionSchema = z.object({
   category: z.string().min(1, 'Category is required'),
   amount: z.number().positive('Amount must be greater than zero'),
   description: z.string().min(1, 'Description is required'),
-  paymentMethod: z.enum(['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CREDIT']),
+  paymentMethod: z.enum(['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CHEQUE', 'CREDIT']),
   reference: z.string().optional(),
 })
 

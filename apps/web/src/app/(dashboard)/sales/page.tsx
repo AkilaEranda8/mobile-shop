@@ -565,7 +565,7 @@ function EditSaleModal({
                           setPayments(next)
                         }}
                       >
-                        {['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CREDIT'].map(m => (
+                        {['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CHEQUE', 'CREDIT'].map(m => (
                           <option key={m} value={m}>{m}</option>
                         ))}
                       </select>

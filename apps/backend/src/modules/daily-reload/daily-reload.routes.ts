@@ -405,8 +405,8 @@ router.post('/pay-provider', authorize('OWNER', 'MANAGER', 'CASHIER'), async (re
     }
     const amountPaid = round2(Math.min(requested, remaining))
 
-    const method = ['CASH', 'CARD', 'UPI', 'WALLET', 'BANK_TRANSFER'].includes(paymentMethod)
-      ? paymentMethod as 'CASH' | 'CARD' | 'UPI' | 'WALLET' | 'BANK_TRANSFER'
+    const method = ['CASH', 'CARD', 'UPI', 'WALLET', 'BANK_TRANSFER', 'CHEQUE'].includes(paymentMethod)
+      ? paymentMethod as 'CASH' | 'CARD' | 'UPI' | 'WALLET' | 'BANK_TRANSFER' | 'CHEQUE'
       : 'CASH'
 
     const balanceAfter = round2(remaining - amountPaid)

@@ -22,7 +22,7 @@ import {
   VIOLET_ACCENT,
 } from '@/components/accounting/accounting-ui'
 
-const PAYMENT_METHODS = ['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET'] as const
+const PAYMENT_METHODS = ['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CHEQUE'] as const
 
 type Aging = { current: number; days31_60: number; days61_90: number; over90: number }
 

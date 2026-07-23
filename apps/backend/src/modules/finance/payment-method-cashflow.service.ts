@@ -2,7 +2,7 @@ import { prisma } from '../../config/database'
 import { businessDayRange } from '../../utils/date-range'
 import { saleWhereExcludeNonRevenue } from '../../constants/business-rules.constants'
 
-const METHODS = ['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET'] as const
+const METHODS = ['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CHEQUE'] as const
 export type CashflowMethod = (typeof METHODS)[number]
 
 const METHOD_LABELS: Record<CashflowMethod, string> = {
@@ -11,6 +11,7 @@ const METHOD_LABELS: Record<CashflowMethod, string> = {
   UPI: 'UPI',
   BANK_TRANSFER: 'Bank Transfer',
   WALLET: 'Wallet',
+  CHEQUE: 'Cheque',
 }
 
 type Bucket = {

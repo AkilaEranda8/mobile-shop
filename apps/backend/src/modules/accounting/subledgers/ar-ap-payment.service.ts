@@ -45,7 +45,7 @@ export async function resolvePaymentGlAccountId(
   if (method === 'CASH') return resolveBranchCashGlAccountId(tenantId, branchId)
   if (method === 'CARD') return resolveAccountIdByKey(tenantId, 'cardClearing')
   if (method === 'UPI' || method === 'WALLET') return resolveAccountIdByKey(tenantId, 'upiClearing')
-  if (method === 'BANK_TRANSFER') return resolveAccountIdByKey(tenantId, 'bank')
+  if (method === 'BANK_TRANSFER' || method === 'CHEQUE') return resolveAccountIdByKey(tenantId, 'bank')
   return resolveBranchCashGlAccountId(tenantId, branchId)
 }
 

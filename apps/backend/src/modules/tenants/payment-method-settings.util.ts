@@ -3,7 +3,7 @@
  * `key` must be a Prisma PaymentMethod enum value (excl. CREDIT).
  * Multiple rows may share the same key with different display labels.
  */
-export const PAYMENT_METHOD_KEYS = ['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET'] as const
+export const PAYMENT_METHOD_KEYS = ['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CHEQUE'] as const
 export type PaymentMethodKey = (typeof PAYMENT_METHOD_KEYS)[number]
 
 export interface TenantPaymentMethod {
@@ -30,6 +30,7 @@ const DEFAULT_LABELS: Record<PaymentMethodKey, string> = {
   UPI: 'UPI',
   BANK_TRANSFER: 'Bank Transfer',
   WALLET: 'Wallet',
+  CHEQUE: 'Cheque',
 }
 
 function makeId(key: PaymentMethodKey, label: string, used: Set<string>): string {
@@ -50,6 +51,14 @@ function makeId(key: PaymentMethodKey, label: string, used: Set<string>): string
   return `${id}_${n}`
 }
 
+/** Upgrade legacy "Cheque" rows that were stored as BANK_TRANSFER. */
+function resolveKey(rawKey: string, label: string): PaymentMethodKey | null {
+  if (!(PAYMENT_METHOD_KEYS as readonly string[]).includes(rawKey)) return null
+  let k = rawKey as PaymentMethodKey
+  if (k === 'BANK_TRANSFER' && /cheque|check/i.test(label)) k = 'CHEQUE'
+  return k
+}
+
 export function normalizePaymentMethodSettings(raw: unknown): PaymentMethodSettings {
   const src = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
   if (!Array.isArray(src.methods)) return DEFAULT_PAYMENT_METHOD_SETTINGS
@@ -59,19 +68,24 @@ export function normalizePaymentMethodSettings(raw: unknown): PaymentMethodSetti
   for (const item of src.methods) {
     if (!item || typeof item !== 'object') continue
     const row = item as Record<string, unknown>
-    const key = row.key
-    if (typeof key !== 'string' || !PAYMENT_METHOD_KEYS.includes(key as PaymentMethodKey)) continue
-    const k = key as PaymentMethodKey
     const rawLabel = row.label
     const label = typeof rawLabel === 'string' && rawLabel.trim()
       ? rawLabel.trim().slice(0, 40)
-      : DEFAULT_LABELS[k]
+      : ''
+    const keyRaw = typeof row.key === 'string' ? row.key : ''
+    const k = resolveKey(keyRaw, label || DEFAULT_LABELS[(keyRaw as PaymentMethodKey)] || '')
+    if (!k) continue
+    const finalLabel = label || DEFAULT_LABELS[k]
     let id = typeof row.id === 'string' && row.id.trim() ? row.id.trim().slice(0, 64) : ''
+    // Remap legacy BANK_TRANSFER_cheque ids when upgrading to CHEQUE
+    if (k === 'CHEQUE' && (id === 'BANK_TRANSFER' || /^BANK_TRANSFER_/.test(id))) {
+      id = !usedIds.has('CHEQUE') && finalLabel === DEFAULT_LABELS.CHEQUE ? 'CHEQUE' : ''
+    }
     if (!id || usedIds.has(id)) {
-      id = !usedIds.has(k) && label === DEFAULT_LABELS[k] ? k : makeId(k, label, usedIds)
+      id = !usedIds.has(k) && finalLabel === DEFAULT_LABELS[k] ? k : makeId(k, finalLabel, usedIds)
     }
     usedIds.add(id)
-    methods.push({ id, key: k, label })
+    methods.push({ id, key: k, label: finalLabel })
   }
 
   // Cash must always be available — POS cash flow and daily closing depend on it

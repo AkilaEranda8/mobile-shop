@@ -27,8 +27,8 @@ export type RecordSupplierPaymentInput = {
 }
 
 function normalizeMethod(raw: string): PaymentMethod {
-  const method = raw.toUpperCase() === 'CHEQUE' ? 'BANK_TRANSFER' : raw.toUpperCase()
-  if (!['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET'].includes(method)) {
+  const method = raw.toUpperCase()
+  if (!['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CHEQUE'].includes(method)) {
     throw new AppError('Invalid payment method', 400)
   }
   return method as PaymentMethod

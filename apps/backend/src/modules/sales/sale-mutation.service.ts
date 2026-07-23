@@ -137,7 +137,7 @@ export async function processSaleReturn(input: ProcessSaleReturnInput) {
   }
 
   const method = String(input.refundMethod || 'CASH').toUpperCase()
-  if (!['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CREDIT'].includes(method)) {
+  if (!['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CHEQUE', 'CREDIT'].includes(method)) {
     throw new AppError('Invalid refund method', 400)
   }
 
@@ -437,7 +437,7 @@ export async function updateSaleInvoice(input: UpdateSaleInput) {
   if (input.payments) {
     payments = input.payments.map(p => {
       const method = String(p.method || 'CASH').toUpperCase()
-      if (!['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CREDIT'].includes(method)) {
+      if (!['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CHEQUE', 'CREDIT'].includes(method)) {
         throw new AppError(`Invalid payment method: ${p.method}`, 400)
       }
       const amount = round2(Number(p.amount))

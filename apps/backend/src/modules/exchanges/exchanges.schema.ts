@@ -22,7 +22,7 @@ export const completeExchangeSchema = z.object({
   soldVariation:    z.string().optional(),
   soldSellPrice:    z.coerce.number().positive().optional(),
 
-  paymentMethod:    z.enum(['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CREDIT']).optional().default('CASH'),
+  paymentMethod:    z.enum(['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CHEQUE', 'CREDIT']).optional().default('CASH'),
   paidAmount:       z.coerce.number().optional(),
   notes:            z.string().optional(),
 })

@@ -92,6 +92,7 @@ function AddTransactionModal({ onClose, onSaved }: { onClose: () => void; onSave
               <select className="input-field" value={form.paymentMethod} onChange={f('paymentMethod')}>
                 <option value="CASH">Cash</option>
                 <option value="BANK_TRANSFER">Bank Transfer</option>
+                <option value="CHEQUE">Cheque</option>
                 <option value="CARD">Card</option>
                 <option value="UPI">UPI</option>
                 <option value="WALLET">Wallet</option>
