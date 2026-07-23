@@ -5,6 +5,14 @@ export function businessDayRange(dateStr: string) {
   return { start, end }
 }
 
+/** Noon Colombo on a calendar day — used when backdating a sale into that business day. */
+export function businessDayNoon(dateStr: string): Date {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    throw new Error(`Invalid business date: ${dateStr}`)
+  }
+  return new Date(`${dateStr}T12:00:00+05:30`)
+}
+
 export function businessDateFromInstant(at: Date = new Date()): string {
   return at.toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' })
 }

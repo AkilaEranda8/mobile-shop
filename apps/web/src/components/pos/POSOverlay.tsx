@@ -1233,6 +1233,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [showOpeningCash, setShowOpeningCash]     = useState(false)
   const [openingCashAmount, setOpeningCashAmount] = useState('')
   const [openingCashDate, setOpeningCashDate]     = useState(() => businessToday())
+  const [billDate, setBillDate]                   = useState(() => businessToday())
   const [modalDayStatus, setModalDayStatus]       = useState<{
     suggestedOpeningCash: number
     openingCash: number
@@ -1288,6 +1289,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
   }, [hasWhatsApp])
   const hasServices = useFeatureFlag('SERVICES')
   const hasDailyClosing = useFeatureFlag('DAILY_CLOSING')
+  const hasPosBillDate = useFeatureFlag('POS_BILL_DATE')
   const hasWarranty = useFeatureFlag('WARRANTY')
   const hasWholesalePricing = useFeatureFlag('WHOLESALE_PRICING')
   const effectivePriceMode: PriceMode =
@@ -2556,6 +2558,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         paidAmount:    payNowForSale,
         dueAmount:     saleDueAmount,
         status:        saleDueAmount > 0 ? (payNowForSale > 0 ? 'PARTIAL' : 'DUE') : 'PAID',
+        ...(hasPosBillDate && billDate ? { businessDate: billDate } : {}),
         items: cart.map(i => ({
           productId:   i.isService ? undefined : i.productId,
           productName: i.name,
@@ -2578,9 +2581,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
       const finishOfflineSale = async (invoiceNumber: string, localId: string) => {
         toast.success('Sale saved offline — will sync when connected', { icon: '📴' })
         setMobileView('cart')
+        const receiptCreatedAt = hasPosBillDate && billDate && billDate !== businessToday()
+          ? new Date(`${billDate}T12:00:00+05:30`).toISOString()
+          : new Date().toISOString()
         const receiptData: PosReceiptSale = {
           invoiceNumber,
-          createdAt: new Date().toISOString(),
+          createdAt: receiptCreatedAt,
           customerName: selectedCustomer?.name || 'Walk-in Customer',
           customerPhone: selectedCustomer?.phone || '',
           customerAddress: receiptCustomerCity(selectedCustomer),
@@ -2607,6 +2613,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         setDiscountFlat(0)
         setCustomerPaid('')
         setCheckoutError('')
+        setBillDate(businessToday())
         setCartView('items')
       }
 
@@ -2948,6 +2955,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
   const handleNewSale = () => {
     setCart([]); setCompletedSale(null); setSearch('')
+    setBillDate(businessToday())
     setDiscountPct(0); setDiscountFlat(0); setSelectedCustomer(null); setCheckoutError('')
     setMobileView('products')
     setManualTotalMode(false); setManualTotal('')
@@ -4036,6 +4044,38 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     <div className="flex justify-between text-xs">
                       <span style={{ color: POS_THEME.muted }}>Total collecting</span>
                       <span className="font-bold" style={{ color: POS_THEME.text }}>{formatCurrency(collectAtCheckout)}</span>
+                    </div>
+                  )}
+                  {hasPosBillDate && cart.length > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold" style={{ color: POS_THEME.text }}>Bill date</span>
+                        {billDate !== businessDateStr && (
+                          <button
+                            type="button"
+                            onClick={() => setBillDate(businessDateStr)}
+                            className="text-[10px] font-semibold underline"
+                            style={{ color: POS_THEME.muted }}
+                          >
+                            Use today
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="date"
+                        max={businessDateStr}
+                        value={billDate}
+                        onChange={e => setBillDate(e.target.value || businessDateStr)}
+                        className="w-full px-3 py-2 rounded-xl text-sm font-semibold border outline-none focus:border-violet-500/50"
+                        style={{ background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text, colorScheme: 'dark' }}
+                      />
+                      {billDate !== businessDateStr && (
+                        <p className="text-[10px]" style={{ color: POS_THEME.amber }}>
+                          {hasDailyClosing
+                            ? `Sale will count on Daily Closing for ${billDate}`
+                            : `Bill date set to ${billDate}`}
+                        </p>
+                      )}
                     </div>
                   )}
                   {!includeOutstanding && creditMode && collectAtCheckout !== saleTotal && (

@@ -14,6 +14,37 @@ import { applySaleStockEffectsIfEnabled } from '../inventory-engine/inventory-en
 import { applySalePricingIfEnabled } from '../pricing-engine/pricing-engine.service'
 import { buildReportFilterContext } from '../report-engine/report-engine.service'
 import { saleWhereExcludeNonRevenue } from '../../constants/business-rules.constants'
+import { isTenantFeatureEnabled } from '../../utils/tenant-feature.util'
+import {
+  businessDateFromInstant,
+  businessDayNoon,
+  normalizeBusinessDate,
+} from '../../utils/date-range'
+
+/** Resolve sale timestamp: today keeps wall-clock; past days use Colombo noon. */
+async function resolveSaleInstant(
+  tenantId: string,
+  rawBusinessDate: unknown,
+): Promise<{ saleAt: Date; businessDate: string | null }> {
+  const raw = typeof rawBusinessDate === 'string' ? rawBusinessDate.trim() : ''
+  if (!raw) return { saleAt: new Date(), businessDate: null }
+
+  if (!(await isTenantFeatureEnabled(tenantId, 'POS_BILL_DATE'))) {
+    throw new AppError('POS bill date is not enabled for this shop', 403)
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    throw new AppError('Invalid bill date', 400)
+  }
+
+  const businessDate = normalizeBusinessDate(raw)
+  const today = businessDateFromInstant()
+  if (businessDate > today) {
+    throw new AppError('Bill date cannot be in the future', 400)
+  }
+
+  const saleAt = businessDate === today ? new Date() : businessDayNoon(businessDate)
+  return { saleAt, businessDate }
+}
 
 export const salesService = {
   async list(tenantId: string, req: Request) {
@@ -55,7 +86,8 @@ export const salesService = {
       throw new AppError('Customer is required when recording credit / partial payment', 400)
     }
     const branchId = await resolveMutationBranchId(req, { preferred: body.branchId })
-    await assertBusinessDayOpenIfEnabled(tenantId, branchId)
+    const { saleAt } = await resolveSaleInstant(tenantId, body.businessDate)
+    await assertBusinessDayOpenIfEnabled(tenantId, branchId, saleAt)
     const invoiceNumber = await generateInvoiceNumber(tenantId)
     let items: any[] = Array.isArray(body.items) ? body.items : []
 
@@ -157,6 +189,7 @@ export const salesService = {
           cashierId,
           cashierName,
           notes: body.notes,
+          createdAt: saleAt,
           items: { create: itemCreates },
           payments: { create: body.payments },
         },
@@ -281,6 +314,8 @@ export const salesService = {
             paymentMethod,
             reference:   [invoiceNumber, chequeRef].filter(Boolean).join(' | '),
             performedBy: cashierName,
+            occurredAt:  saleAt,
+            createdAt:   saleAt,
           },
         })
       }
