@@ -7,6 +7,7 @@ import {
   DollarSign, ShoppingCart, ChevronDown, AlertTriangle, CheckCircle2,
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { useRolePermissions } from '@/lib/hooks'
 
 export type BusinessHealthInput = {
   totalRevenue: number
@@ -109,7 +110,7 @@ function buildFactors(d: BusinessHealthInput): Factor[] {
       max: 16,
       ok: d.lowStockCount === 0,
       warn: d.lowStockCount > 0,
-      href: '/inventory?filter=low-stock',
+      href: '/dashboard/inventory?filter=low-stock',
       icon: Package,
     },
     {
@@ -180,7 +181,18 @@ function trendLabel(spark?: number[]) {
 
 export function BusinessHealthCard({ data }: { data: BusinessHealthInput }) {
   const [showHow, setShowHow] = useState(false)
-  const factors = useMemo(() => buildFactors(data), [data])
+  const { canView } = useRolePermissions()
+  const factors = useMemo(() => {
+    return buildFactors(data).map(f => {
+      if ((f.id === 'gross' || f.id === 'net') && !canView('FINANCE') && !canView('REPORTS')) {
+        return { ...f, href: '/dashboard' }
+      }
+      if (f.id === 'stock' && !canView('INVENTORY')) {
+        return { ...f, href: '/dashboard' }
+      }
+      return f
+    })
+  }, [data, canView])
   const score = useMemo(
     () => clamp(factors.reduce((s, f) => s + f.score, 0)),
     [factors],
@@ -327,17 +339,19 @@ export function BusinessHealthCard({ data }: { data: BusinessHealthInput }) {
         </div>
       </div>
 
-      <Link
-        href="/dashboard/reports/overview"
-        className="mt-4 flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl text-sm font-semibold transition-colors border"
-        style={{
-          color: color,
-          background: `${color}14`,
-          borderColor: `${color}33`,
-        }}
-      >
-        Go to Reports <ArrowRight size={14} />
-      </Link>
+      {canView('REPORTS') && (
+        <Link
+          href="/dashboard/reports/overview"
+          className="mt-4 flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl text-sm font-semibold transition-colors border"
+          style={{
+            color: color,
+            background: `${color}14`,
+            borderColor: `${color}33`,
+          }}
+        >
+          Go to Reports <ArrowRight size={14} />
+        </Link>
+      )}
     </div>
   )
 }
