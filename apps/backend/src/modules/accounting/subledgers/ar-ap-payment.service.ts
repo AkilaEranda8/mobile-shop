@@ -373,6 +373,7 @@ export async function recordArPayment(
     paymentMethod: PaymentMethod
     reference?: string
     notes?: string
+    bankAccountId?: string
     allocations?: Array<{ saleId: string; amount: number }>
   },
   actorEmail?: string,
@@ -389,6 +390,7 @@ export async function recordArPayment(
     sourceRefId: paymentId,
     sourceEvent: 'AR_PAYMENT_RECEIVED',
     actorEmail,
+    bankAccountId: body.bankAccountId,
     allocations: body.allocations,
   })
 

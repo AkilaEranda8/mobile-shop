@@ -9,6 +9,8 @@ import { authStorage } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday } from '@/lib/business-date'
 import { getActiveBranchId } from '@/lib/active-branch'
+import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
+import { ChequeDetailsFields, formatChequeReference, todayChequeDate } from '@/components/payments/ChequeDetailsFields'
 import {
   AccountingPageShell,
   AccountingFeatureGate,
@@ -21,8 +23,6 @@ import {
   AccountingTh,
   VIOLET_ACCENT,
 } from '@/components/accounting/accounting-ui'
-
-const PAYMENT_METHODS = ['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CHEQUE'] as const
 
 type Aging = { current: number; days31_60: number; days61_90: number; over90: number }
 
@@ -64,6 +64,7 @@ type DetailLine = {
 
 export default function ArApPage() {
   const hasAccess = useFeatureFlag('ACCOUNTING')
+  const payMethods = usePaymentMethods()
   const [tab, setTab] = useState<'ar' | 'ap'>('ar')
   const [summary, setSummary] = useState<Summary | null>(null)
   const [detailId, setDetailId] = useState<string | null>(null)
@@ -76,8 +77,10 @@ export default function ArApPage() {
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [payAmount, setPayAmount] = useState('')
-  const [payMethod, setPayMethod] = useState<string>('CASH')
+  const [payMethodId, setPayMethodId] = useState('CASH')
   const [payRef, setPayRef] = useState('')
+  const [chequeNumber, setChequeNumber] = useState('')
+  const [chequeDate, setChequeDate] = useState(todayChequeDate)
   const [payLoading, setPayLoading] = useState(false)
   const [allocations, setAllocations] = useState<Record<string, string>>({})
   const [bankAccounts, setBankAccounts] = useState<Array<{ id: string; name: string; bankName?: string | null }>>([])
@@ -85,8 +88,19 @@ export default function ArApPage() {
   const role = authStorage.getUser()?.role ?? ''
   const canRecordPayment = role === 'OWNER' || role === 'MANAGER'
 
+  const payMethod: PaymentMethodKey = payMethods.find(m => m.id === payMethodId)?.key
+    ?? payMethods.find(m => m.key === payMethodId)?.key
+    ?? 'CASH'
+  const needsBankAccount = payMethod === 'BANK_TRANSFER' || payMethod === 'CHEQUE'
+
   const asOf = businessToday()
   const branchId = getActiveBranchId() ?? ''
+
+  useEffect(() => {
+    setPayMethodId(prev => payMethods.some(m => m.id === prev || m.key === prev)
+      ? (payMethods.find(m => m.id === prev)?.id ?? payMethods.find(m => m.key === prev)?.id ?? 'CASH')
+      : (payMethods[0]?.id ?? 'CASH'))
+  }, [payMethods])
 
   useEffect(() => {
     if (!hasAccess) return
@@ -155,6 +169,10 @@ export default function ArApPage() {
       toast.error('Enter a valid amount')
       return
     }
+    if (payMethod === 'CHEQUE' && !chequeNumber.trim()) {
+      toast.error('Enter cheque number')
+      return
+    }
     let allocEntries = Object.entries(allocations)
       .filter(([, v]) => Number(v) > 0)
       .map(([id, v]) => ({ amount: Number(v), ...(tab === 'ar' ? { saleId: id } : { purchaseOrderId: id }) }))
@@ -183,12 +201,13 @@ export default function ArApPage() {
 
     setPayLoading(true)
     try {
+      const chequeRef = payMethod === 'CHEQUE' ? formatChequeReference(chequeNumber, chequeDate) : ''
       const body = {
         amount,
         paymentMethod: payMethod,
-        reference: payRef || undefined,
+        reference: chequeRef || payRef || undefined,
         ...(branchId ? { branchId } : {}),
-        ...(tab === 'ar' && payMethod === 'BANK_TRANSFER' && bankAccountId ? { bankAccountId } : {}),
+        ...(needsBankAccount && bankAccountId ? { bankAccountId } : {}),
       }
       if (tab === 'ar') {
         await accountingApi.recordArPayment({
@@ -206,6 +225,8 @@ export default function ArApPage() {
       toast.success('Payment posted to GL')
       setPayAmount('')
       setPayRef('')
+      setChequeNumber('')
+      setChequeDate(todayChequeDate())
       await loadSummary()
       await loadDetail(detailId)
     } catch (e) {
@@ -313,23 +334,33 @@ export default function ArApPage() {
                     <div className="flex flex-wrap gap-2">
                       <input type="number" min="0" step="0.01" placeholder="Amount" value={payAmount}
                         onChange={e => setPayAmount(e.target.value)} className="input-field flex-1 min-w-[100px] text-sm" />
-                      <select value={payMethod} onChange={e => setPayMethod(e.target.value)} className="input-field text-sm">
-                        {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                      <select value={payMethodId} onChange={e => setPayMethodId(e.target.value)} className="input-field text-sm min-w-[140px]">
+                        {payMethods.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
                       </select>
-                      {tab === 'ar' && payMethod === 'BANK_TRANSFER' && bankAccounts.length > 0 && (
+                      {needsBankAccount && bankAccounts.length > 0 && (
                         <select value={bankAccountId} onChange={e => setBankAccountId(e.target.value)} className="input-field text-sm min-w-[140px]">
                           {bankAccounts.map(b => (
                             <option key={b.id} value={b.id}>{b.name}{b.bankName ? ` · ${b.bankName}` : ''}</option>
                           ))}
                         </select>
                       )}
-                      <input type="text" placeholder="Reference" value={payRef}
-                        onChange={e => setPayRef(e.target.value)} className="input-field flex-1 min-w-[80px] text-sm" />
+                      {payMethod !== 'CHEQUE' && (
+                        <input type="text" placeholder="Reference" value={payRef}
+                          onChange={e => setPayRef(e.target.value)} className="input-field flex-1 min-w-[80px] text-sm" />
+                      )}
                       <button type="button" disabled={payLoading} onClick={handleRecordPayment}
                         className="btn-primary px-3 py-1.5 text-xs disabled:opacity-50">
                         {payLoading ? <Loader2 size={14} className="animate-spin" /> : 'Post'}
                       </button>
                     </div>
+                    {payMethod === 'CHEQUE' && (
+                      <ChequeDetailsFields
+                        chequeNumber={chequeNumber}
+                        chequeDate={chequeDate}
+                        onNumberChange={setChequeNumber}
+                        onDateChange={setChequeDate}
+                      />
+                    )}
                     {(detail.openInvoices?.length ?? 0) > 0 && tab === 'ar' && (
                       <div className="space-y-1 pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
                         <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Allocate to invoices (optional)</p>
