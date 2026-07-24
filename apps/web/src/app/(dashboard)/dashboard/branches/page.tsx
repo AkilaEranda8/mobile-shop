@@ -8,6 +8,7 @@ import { authStorage } from '@/lib/auth'
 import toast from 'react-hot-toast'
 import { Switch } from '@/components/ui/Switch'
 import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
+import { useFeatureFlag } from '@/lib/hooks'
 
 /* ── Plan limits ─────────────────────────────────────────────────── */
 const PLAN_BRANCH_LIMIT: Record<string, number> = {
@@ -34,19 +35,28 @@ interface Branch {
   isHeadquarters: boolean
   isDefault: boolean
   isActive: boolean
+  dailyClosingEnabled?: boolean
   createdAt: string
 }
 
-const emptyForm = { name: '', address: '', city: '', state: '', phone: '', email: '', isHeadquarters: false, isDefault: false }
+const emptyForm = {
+  name: '', address: '', city: '', state: '', phone: '', email: '',
+  isHeadquarters: false, isDefault: false, dailyClosingEnabled: true,
+}
 
 /* ── Add / Edit Modal ────────────────────────────────────────────── */
 function BranchModal({
-  branch, onClose, onSaved,
-}: { branch?: Branch; onClose: () => void; onSaved: () => void }) {
+  branch, onClose, onSaved, showDailyClosingToggle,
+}: { branch?: Branch; onClose: () => void; onSaved: () => void; showDailyClosingToggle?: boolean }) {
   const isEdit = !!branch
   const [form, setForm] = useState(
     isEdit
-      ? { name: branch.name, address: branch.address, city: branch.city, state: branch.state, phone: branch.phone, email: branch.email ?? '', isHeadquarters: branch.isHeadquarters, isDefault: branch.isDefault ?? false }
+      ? {
+          name: branch.name, address: branch.address, city: branch.city, state: branch.state,
+          phone: branch.phone, email: branch.email ?? '',
+          isHeadquarters: branch.isHeadquarters, isDefault: branch.isDefault ?? false,
+          dailyClosingEnabled: branch.dailyClosingEnabled !== false,
+        }
       : { ...emptyForm }
   )
   const [loading, setLoading] = useState(false)
@@ -58,7 +68,17 @@ function BranchModal({
     e.preventDefault()
     setLoading(true)
     try {
-      const body = { ...form, email: form.email || undefined }
+      const body = {
+        name: form.name,
+        address: form.address,
+        city: form.city,
+        state: form.state,
+        phone: form.phone,
+        email: form.email || undefined,
+        isHeadquarters: form.isHeadquarters,
+        isDefault: form.isDefault,
+        ...(showDailyClosingToggle ? { dailyClosingEnabled: form.dailyClosingEnabled } : {}),
+      }
       if (isEdit) {
         await branchesApi.update(branch.id, body)
         toast.success('Branch updated')
@@ -134,6 +154,22 @@ function BranchModal({
                 <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Default branch (opening stock &amp; auto-assign)</span>
               </label>
             </div>
+            {showDailyClosingToggle && (
+              <div className="col-span-2">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <Switch
+                    checked={form.dailyClosingEnabled}
+                    onChange={v => setForm(p => ({ ...p, dailyClosingEnabled: v }))}
+                  />
+                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    Daily Closing for this branch
+                  </span>
+                </label>
+                <p className="text-[11px] mt-1.5 ml-11" style={{ color: 'var(--text-muted)' }}>
+                  Off = no day lock / Day Start-End on POS for this branch only
+                </p>
+              </div>
+            )}
           </div>
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose}
@@ -159,6 +195,7 @@ export default function BranchesPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { canEdit } = useModuleAccess()
+  const hasDailyClosing = useFeatureFlag('DAILY_CLOSING')
   const user = authStorage.getUser()
   const [branches, setBranches] = useState<Branch[]>([])
   const [plan, setPlan]         = useState('STARTER')
@@ -196,6 +233,18 @@ export default function BranchesPage() {
         user?.tenantId ? tenantApi.get(user.tenantId) : Promise.resolve(null),
       ])
       setBranches((brRes.data ?? brRes) as Branch[])
+      const list = (brRes.data ?? brRes) as Branch[]
+      const u = authStorage.getUser()
+      if (u?.branches?.length) {
+        authStorage.updateUser({
+          branches: u.branches.map(b => {
+            const fresh = list.find(x => x.id === b.id)
+            return fresh
+              ? { ...b, dailyClosingEnabled: fresh.dailyClosingEnabled !== false }
+              : b
+          }),
+        })
+      }
       const t = tenantRes?.data ?? tenantRes
       if (t?.plan) setPlan(t.plan)
     } catch { toast.error('Failed to load branches') }
@@ -206,8 +255,8 @@ export default function BranchesPage() {
 
   return (
     <div className="space-y-6">
-      {(showAdd) && <BranchModal onClose={() => setShowAdd(false)} onSaved={fetchData} />}
-      {editBranch  && <BranchModal branch={editBranch} onClose={() => setEditBranch(null)} onSaved={fetchData} />}
+      {(showAdd) && <BranchModal showDailyClosingToggle={hasDailyClosing} onClose={() => setShowAdd(false)} onSaved={fetchData} />}
+      {editBranch  && <BranchModal showDailyClosingToggle={hasDailyClosing} branch={editBranch} onClose={() => setEditBranch(null)} onSaved={fetchData} />}
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -280,6 +329,11 @@ export default function BranchesPage() {
                       {branch.isDefault && (
                         <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-blue-500/15 text-blue-400 border border-blue-500/25">
                           DEFAULT
+                        </span>
+                      )}
+                      {hasDailyClosing && branch.dailyClosingEnabled === false && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/25">
+                          DC OFF
                         </span>
                       )}
                     </div>

@@ -252,6 +252,8 @@ model Branch {
   isHeadquarters Boolean  @default(false)
   isDefault      Boolean  @default(false)
   isActive       Boolean  @default(true)
+  /// When tenant has DAILY_CLOSING, this branch can opt out of day lock / day close UI
+  dailyClosingEnabled Boolean @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

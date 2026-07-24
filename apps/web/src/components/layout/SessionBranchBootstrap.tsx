@@ -14,14 +14,17 @@ export function SessionBranchBootstrap() {
     const assigned = user.branchIds ?? []
     const hasUnassignedBranches = user.role !== 'OWNER'
       && (user.branches?.some(b => !assigned.includes(b.id)) ?? false)
+    const missingDcFlag = user.branches?.some(b => b.dailyClosingEnabled === undefined) ?? false
     const needsHydrate = !user.branches?.length || hasUnassignedBranches
       || (!user.activeBranchId && user.branchScope !== 'all')
+      || missingDcFlag
     if (!needsHydrate) return
 
     branchesApi.list()
       .then((res: any) => {
         const list = (res?.data ?? res ?? []) as Array<{
           id: string; name: string; city: string; isHeadquarters: boolean; isDefault?: boolean; isActive: boolean
+          dailyClosingEnabled?: boolean
         }>
         const assigned = user.branchIds?.length
           ? user.branchIds
@@ -35,6 +38,7 @@ export function SessionBranchBootstrap() {
           isHeadquarters: b.isHeadquarters,
           isDefault: b.isDefault ?? false,
           isActive: b.isActive,
+          dailyClosingEnabled: b.dailyClosingEnabled !== false,
         }))
         const assignedIds = assigned.length ? assigned : branches.map(b => b.id)
         const activeBranchId = user.activeBranchId

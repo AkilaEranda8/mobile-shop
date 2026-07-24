@@ -128,7 +128,7 @@ export const tenantsService = {
     })
   },
 
-  async createBranch(tenantId: string, body: { name: string; address: string; city: string; state: string; phone: string; email?: string; isHeadquarters?: boolean; isDefault?: boolean }) {
+  async createBranch(tenantId: string, body: { name: string; address: string; city: string; state: string; phone: string; email?: string; isHeadquarters?: boolean; isDefault?: boolean; dailyClosingEnabled?: boolean }) {
     const branch = await prisma.$transaction(async (tx) => {
       if (body.isHeadquarters) {
         await tx.branch.updateMany({ where: { tenantId, isHeadquarters: true }, data: { isHeadquarters: false } })
@@ -149,7 +149,7 @@ export const tenantsService = {
   async updateBranch(
     tenantId: string,
     id: string,
-    body: Partial<{ name: string; address: string; city: string; state: string; phone: string; email: string; isActive: boolean; isHeadquarters: boolean; isDefault: boolean }>,
+    body: Partial<{ name: string; address: string; city: string; state: string; phone: string; email: string; isActive: boolean; isHeadquarters: boolean; isDefault: boolean; dailyClosingEnabled: boolean }>,
     userId?: string,
     role?: string,
   ) {

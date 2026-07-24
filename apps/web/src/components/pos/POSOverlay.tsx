@@ -1288,7 +1288,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       .catch(() => {})
   }, [hasWhatsApp])
   const hasServices = useFeatureFlag('SERVICES')
-  const hasDailyClosing = useFeatureFlag('DAILY_CLOSING')
+  const hasDailyClosingTenant = useFeatureFlag('DAILY_CLOSING')
   const hasPosBillDate = useFeatureFlag('POS_BILL_DATE')
   const hasWarranty = useFeatureFlag('WARRANTY')
   const hasWholesalePricing = useFeatureFlag('WHOLESALE_PRICING')
@@ -1391,6 +1391,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
   }, [])
 
   const getBranchId = () => posBranchId || getOperationalBranchId() || ''
+  const activeBranchDcMeta = authStorage.getUser()?.branches?.find(b => b.id === getBranchId())
+  const hasDailyClosing = hasDailyClosingTenant && activeBranchDcMeta?.dailyClosingEnabled !== false
   const productQueryParams = useMemo(
     (): Record<string, string> | undefined => (posBranchId ? { branchId: posBranchId } : undefined),
     [posBranchId],

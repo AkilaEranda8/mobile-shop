@@ -106,6 +106,8 @@ export default function DailyClosingPage() {
   const cashOnly = role === 'CASHIER'
 
   const branchId = getActiveBranchId() ?? ''
+  const branchDcEnabled = user?.branches?.find(b => b.id === branchId)?.dailyClosingEnabled !== false
+  const hasBranchAccess = hasAccess && branchDcEnabled
   const [date, setDate] = useState(() => searchParams.get('date') || businessToday())
   const [step, setStep] = useState(() => {
     const fromUrl = searchParams.get('step')
@@ -121,7 +123,7 @@ export default function DailyClosingPage() {
   const [saving, setSaving] = useState(false)
   const printRef = useRef<HTMLDivElement>(null)
 
-  const { data: raw, loading, refetch, error } = useDailyClosingPreview(branchId, date, hasAccess && !!branchId)
+  const { data: raw, loading, refetch, error } = useDailyClosingPreview(branchId, date, hasBranchAccess && !!branchId)
   const { data: allocRaw } = useProfitAllocationDashboard(branchId, date, hasProfitAllocation && !!branchId)
   const allocation = allocRaw as any
   const d = raw as any
@@ -326,6 +328,22 @@ export default function DailyClosingPage() {
           <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Daily Closing</h2>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>This feature is not enabled for your account.</p>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Enable it in Settings → Shop Features → Daily Closing.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!branchDcEnabled) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(245,158,11,0.12)' }}>
+          <Lock size={26} className="text-amber-400" />
+        </div>
+        <div className="text-center max-w-md px-4">
+          <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Daily Closing off for this branch</h2>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+            Switch to a branch that has Daily Closing enabled, or turn it on under Branches → Edit branch.
+          </p>
         </div>
       </div>
     )

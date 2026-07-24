@@ -14,13 +14,19 @@ import {
   saveOpeningCash,
 } from './daily-closing.service'
 import { normalizeBusinessDate, businessDateDb } from '../../utils/date-range'
-import { isTenantFeatureEnabled } from '../../utils/tenant-feature.util'
+import { isDailyClosingEnabledForBranch, isTenantFeatureEnabled } from '../../utils/tenant-feature.util'
 import { autoAllocateOnDayClose } from '../profit-allocation/profit-allocation.service'
 import { effectiveBranchId, resolveMutationBranchId } from '../../utils/active-branch'
 import { emitDailyClosingAccounting } from '../accounting/integration/accounting-events.service'
 
 function resolveBusinessDate(input?: string): string {
   return normalizeBusinessDate(input)
+}
+
+async function assertBranchDailyClosing(tenantId: string, branchId: string) {
+  if (!(await isDailyClosingEnabledForBranch(tenantId, branchId))) {
+    throw new AppError('Daily Closing is disabled for this branch', 403)
+  }
 }
 
 const router = Router()
@@ -44,6 +50,7 @@ router.get('/preview', async (req: Request, res: Response, next: NextFunction) =
     const branchId = effectiveBranchId(req)
     const date = resolveBusinessDate(req.query.date as string | undefined)
     if (!branchId) throw new AppError('branchId is required', 400)
+    await assertBranchDailyClosing(tenantId, branchId)
     sendSuccess(res, await buildDailyClosingPreview(tenantId, branchId, date))
   } catch (e) { next(e) }
 })
@@ -75,6 +82,7 @@ router.get('/day-start', async (req: Request, res: Response, next: NextFunction)
     const branchId = effectiveBranchId(req)
     const date = resolveBusinessDate(req.query.date as string | undefined)
     if (!branchId) throw new AppError('branchId is required', 400)
+    await assertBranchDailyClosing(req.tenantId!, branchId)
     sendSuccess(res, await getDayStartStatus(req.tenantId!, branchId, date))
   } catch (e) { next(e) }
 })
@@ -85,6 +93,7 @@ router.post('/opening-cash', authorize('OWNER', 'MANAGER', 'CASHIER'), async (re
     if (!date) throw new AppError('date is required', 400)
     if (openingCash == null || Number.isNaN(Number(openingCash))) throw new AppError('openingCash is required', 400)
     const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId })
+    await assertBranchDailyClosing(req.tenantId!, branchId)
     sendSuccess(
       res,
       await saveOpeningCash(req.tenantId!, branchId, resolveBusinessDate(date), Number(openingCash)),
@@ -99,6 +108,7 @@ router.post('/day-start', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req: 
     if (!date) throw new AppError('date is required', 400)
     if (openingCash == null || Number.isNaN(Number(openingCash))) throw new AppError('openingCash is required', 400)
     const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId })
+    await assertBranchDailyClosing(req.tenantId!, branchId)
     const user = req.user!
     sendSuccess(
       res,
@@ -120,6 +130,7 @@ router.post('/draft', authorize('OWNER', 'MANAGER'), async (req: Request, res: R
     const { date, openingCash, cashCount, notes } = req.body
     if (!date) throw new AppError('date is required', 400)
     const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId })
+    await assertBranchDailyClosing(req.tenantId!, branchId)
     const dateKey = resolveBusinessDate(date)
     sendSuccess(res, await saveDailyClosingDraft(req.tenantId!, branchId, dateKey, { openingCash, cashCount, notes }), 'Draft saved')
   } catch (e) { next(e) }
@@ -130,6 +141,7 @@ router.post('/cash-count', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req:
     const { date, cashCount, openingCash, notes } = req.body
     if (!date || !cashCount) throw new AppError('date and cashCount are required', 400)
     const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId })
+    await assertBranchDailyClosing(req.tenantId!, branchId)
     const dateKey = resolveBusinessDate(date)
     sendSuccess(res, await saveDailyClosingDraft(req.tenantId!, branchId, dateKey, { openingCash, cashCount, notes }), 'Cash count saved')
   } catch (e) { next(e) }
@@ -140,6 +152,7 @@ router.post('/close', authorize('OWNER', 'MANAGER'), async (req: Request, res: R
     const { date, openingCash, cashCount, notes } = req.body
     if (!date || !cashCount) throw new AppError('date and cashCount are required', 400)
     const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId })
+    await assertBranchDailyClosing(req.tenantId!, branchId)
     const user = req.user!
     const dateKey = resolveBusinessDate(date)
     const preview = await closeBusinessDay(req.tenantId!, branchId, dateKey, user.userId, user.email, { openingCash, cashCount, notes })
@@ -181,6 +194,7 @@ router.post('/reopen', authorize('OWNER', 'MANAGER'), async (req: Request, res: 
     const { date } = req.body
     if (!date) throw new AppError('date is required', 400)
     const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId })
+    await assertBranchDailyClosing(req.tenantId!, branchId)
     const result = await reopenBusinessDay(req.tenantId!, branchId, resolveBusinessDate(date))
     const parts = ['Day reopened']
     if (result.allocationRemoved) parts.push('profit allocation reversed')

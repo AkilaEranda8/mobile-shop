@@ -9,6 +9,8 @@ export type BranchSummary = {
   isHeadquarters: boolean
   isDefault: boolean
   isActive: boolean
+  /** When false, Daily Closing UI/day-lock is off for this branch (tenant feature may still be on). */
+  dailyClosingEnabled?: boolean
 }
 
 export type BranchScope = 'single' | 'assigned' | 'all'
