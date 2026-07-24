@@ -323,7 +323,8 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
     }
   }
   const cogs = totalCogsAll
-  const grossSales = productSales + repairIncome + billPaymentIncome + otherIncome + creditPayments
+  // Credit payments settle AR (including opening dues) — cash in only, not new revenue/profit.
+  const grossSales = productSales + repairIncome + billPaymentIncome + otherIncome
   const grossProfit = productSales - cogs - refundsTotal
   // OpEx only — supplier / reload-provider settlements are cash out, not P&L expense.
   const netProfit = grossSales + reloadCommission - cogs - repairPartsCogs - totalExpenses - refundsTotal

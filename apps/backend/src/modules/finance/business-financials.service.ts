@@ -97,7 +97,7 @@ function mapPreviewToSummary(
   const s = preview.sales
   const p = preview.profit
   const otherIncome = round2(
-    s.repairIncome + s.billPaymentIncome + s.otherIncome + s.creditPayments,
+    s.repairIncome + s.billPaymentIncome + s.otherIncome,
   )
   const repairPartsCogs = round2(p.repairPartsCogs ?? 0)
   return {

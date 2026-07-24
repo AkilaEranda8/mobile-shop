@@ -112,9 +112,6 @@ function buildStatementLines(
   if (summary.billPaymentIncome > 0) {
     lines.push({ section: 'income', label: 'Bill Payment Income', amount: summary.billPaymentIncome, indent: 1 })
   }
-  if (summary.creditPayments > 0) {
-    lines.push({ section: 'income', label: 'Customer Credit Payments', amount: summary.creditPayments, indent: 1 })
-  }
   if (summary.reloadCommission > 0) {
     lines.push({ section: 'income', label: 'Reload Commission', amount: summary.reloadCommission, indent: 1 })
   }
@@ -156,6 +153,15 @@ function buildStatementLines(
     highlight: true,
     separator: true,
   })
+
+  if (summary.creditPayments > 0) {
+    lines.push({
+      section: 'note',
+      label: 'Customer credit collections (AR settle — not revenue)',
+      amount: summary.creditPayments,
+      indent: 1,
+    })
+  }
 
   if (repairAccrual.jobs > 0) {
     lines.push({ section: 'note', label: `Repair jobs completed (accrual): ${repairAccrual.jobs}`, indent: 1 })

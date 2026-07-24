@@ -99,7 +99,15 @@ router.get('/dashboard', requireModuleAccess('DASHBOARD', 'view'), async (req: R
       prisma.sale.aggregate({ where: { tenantId, ...branchFilter, status: { not: 'RETURNED' }, ...saleWhereExcludeNonRevenue() }, _sum: { total: true } }),
       // Other income (repairs, manual entries) — exclude 'Sales' (already in posRevenue)
       // and legacy 'Opening Cash' drawer-float entries (not revenue).
-      prisma.transaction.aggregate({ where: { tenantId, ...branchFilter, type: 'INCOME', category: { notIn: ['Sales', 'Opening Cash'] } }, _sum: { amount: true } }),
+      prisma.transaction.aggregate({
+        where: {
+          tenantId,
+          ...branchFilter,
+          type: 'INCOME',
+          category: { notIn: ['Sales', 'Opening Cash', 'Customer Credit Payment'] },
+        },
+        _sum: { amount: true },
+      }),
       prisma.warranty.count({ where: { tenantId, endDate: { lte: in30End }, status: 'ACTIVE' } }),
       prisma.repairTicket.count({ where: { tenantId, ...branchFilter, status: 'READY' } }),
       prisma.sale.count({ where: { tenantId, ...branchFilter, status: { not: 'RETURNED' }, ...saleWhereExcludeNonRevenue() } }),
