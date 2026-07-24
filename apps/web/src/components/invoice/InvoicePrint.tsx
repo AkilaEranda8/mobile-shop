@@ -117,6 +117,15 @@ function InvoicePrint({ data = SAMPLE_INVOICE, hideControls = false }, outerRef)
       useCORS: true,
       logging: false,
       backgroundColor: '#ffffff',
+      onclone: (doc, el) => {
+        doc.documentElement.classList.remove('dark')
+        doc.documentElement.style.colorScheme = 'light'
+        doc.body.style.background = '#ffffff'
+        doc.body.style.color = '#111827'
+        el.style.background = '#ffffff'
+        el.style.color = '#111827'
+        el.style.colorScheme = 'light'
+      },
     })
 
     const imgData  = canvas.toDataURL('image/png')

@@ -2930,6 +2930,15 @@ function POSContent({ onClose }: { onClose: () => void }) {
       const A4_W_MM = 210, A4_H_MM = 297
       const canvas = await html2canvas(a4Ref.current, {
         scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false,
+        onclone: (doc, el) => {
+          doc.documentElement.classList.remove('dark')
+          doc.documentElement.style.colorScheme = 'light'
+          doc.body.style.background = '#ffffff'
+          doc.body.style.color = '#111827'
+          el.style.background = '#ffffff'
+          el.style.color = '#111827'
+          el.style.colorScheme = 'light'
+        },
       })
       const imgData = canvas.toDataURL('image/jpeg', 0.95)
       const imgH_MM = (canvas.height / canvas.width) * A4_W_MM

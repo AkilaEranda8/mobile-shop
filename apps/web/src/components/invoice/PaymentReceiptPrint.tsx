@@ -126,7 +126,7 @@ function MetaCell({ label, value }: { label: string; value: string }) {
 
 function TotalLine({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, color: C.text }}>
       <span style={{
         fontSize: 11, fontWeight: highlight ? 800 : 600,
         background: highlight ? C.headerBg : 'transparent',
@@ -136,6 +136,7 @@ function TotalLine({ label, value, highlight }: { label: string; value: string; 
       }}>{label}</span>
       <span style={{
         fontSize: 11, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+        color: C.text,
         background: highlight ? C.valueBg : 'transparent',
         padding: highlight ? '5px 10px' : 0,
         minWidth: highlight ? 72 : undefined,
@@ -173,7 +174,21 @@ const PaymentReceiptPrint = forwardRef<
     if (!invoiceRef.current) return
     const { default: html2canvas } = await import('html2canvas')
     const { default: jsPDF } = await import('jspdf')
-    const canvas = await html2canvas(invoiceRef.current, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' })
+    const canvas = await html2canvas(invoiceRef.current, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+      onclone: (doc, el) => {
+        doc.documentElement.classList.remove('dark')
+        doc.documentElement.style.colorScheme = 'light'
+        doc.body.style.background = '#ffffff'
+        doc.body.style.color = '#111827'
+        el.style.background = '#ffffff'
+        el.style.color = '#111827'
+        el.style.colorScheme = 'light'
+      },
+    })
     const imgData = canvas.toDataURL('image/png')
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
     const pdfW = pdf.internal.pageSize.getWidth()
@@ -214,35 +229,38 @@ const PaymentReceiptPrint = forwardRef<
         background: '#fff', color: C.text, fontFamily: FONT,
         padding: '32px 40px 24px', boxSizing: 'border-box',
         display: 'flex', flexDirection: 'column',
+        colorScheme: 'light',
+        WebkitPrintColorAdjust: 'exact',
+        printColorAdjust: 'exact',
       }}
     >
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 24, paddingBottom: 14, borderBottom: `1.5px solid ${C.text}` }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 24, paddingBottom: 14, borderBottom: `1.5px solid ${C.text}`, color: C.text }}>
+        <div style={{ flex: 1, minWidth: 0, color: C.text }}>
           {logo ? (
             <img src={logo} alt={brandName} style={{ maxHeight: 56, maxWidth: 200, objectFit: 'contain', marginBottom: 6 }} crossOrigin="anonymous" />
           ) : (
-            <p style={{ margin: '0 0 2px', fontSize: 28, fontWeight: 900, letterSpacing: 0.5, lineHeight: 1.1 }}>{brandName}</p>
+            <p style={{ margin: '0 0 2px', fontSize: 28, fontWeight: 900, letterSpacing: 0.5, lineHeight: 1.1, color: C.text }}>{brandName}</p>
           )}
           {settings.slogan && <p style={{ margin: '4px 0 0', fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: C.muted }}>{settings.slogan}</p>}
           {website && <p style={{ margin: '6px 0 0', fontSize: 10, color: C.muted }}>{website}</p>}
         </div>
-        <div style={{ textAlign: 'right', flexShrink: 0, maxWidth: 280 }}>
-          <p style={{ margin: 0, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.3 }}>{legalName}</p>
+        <div style={{ textAlign: 'right', flexShrink: 0, maxWidth: 280, color: C.text }}>
+          <p style={{ margin: 0, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.3, color: C.text }}>{legalName}</p>
           {settings.phone && <p style={{ margin: '6px 0 0', fontSize: 10, color: C.text }}>{settings.phone}</p>}
           {settings.email && <p style={{ margin: '2px 0 0', fontSize: 10, color: C.text }}>{settings.email}</p>}
         </div>
       </div>
 
       {/* Title */}
-      <h1 style={{ margin: '22px 0 16px', textAlign: 'center', fontSize: 22, fontWeight: 900, letterSpacing: 1.5, textTransform: 'uppercase' }}>
+      <h1 style={{ margin: '22px 0 16px', textAlign: 'center', fontSize: 22, fontWeight: 900, letterSpacing: 1.5, textTransform: 'uppercase', color: C.text }}>
         Payment Receipt
       </h1>
 
       {/* Client + meta */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 24, marginBottom: 14 }}>
-        <p style={{ margin: 0, fontSize: 12, fontWeight: 600 }}>
-          <span style={{ fontWeight: 800 }}>Client :</span> {data.clientName}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 24, marginBottom: 14, color: C.text }}>
+        <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: C.text }}>
+          <span style={{ fontWeight: 800, color: C.text }}>Client :</span> {data.clientName}
         </p>
         <div style={{ width: 260, flexShrink: 0 }}>
           <MetaCell label="Receipt Date" value={data.receiptDate} />
@@ -290,18 +308,18 @@ const PaymentReceiptPrint = forwardRef<
       </table>
 
       {/* Payment info + totals */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 28, marginTop: 18, flex: 1 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 800, textTransform: 'uppercase' }}>Payment Information</p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 28, marginTop: 18, flex: 1, color: C.text }}>
+        <div style={{ flex: 1, minWidth: 0, color: C.text }}>
+          <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 800, textTransform: 'uppercase', color: C.text }}>Payment Information</p>
           <pre style={{ margin: 0, fontSize: 10, lineHeight: 1.55, whiteSpace: 'pre-wrap', fontFamily: FONT, color: C.text }}>{paymentInfo}</pre>
           {remarks && (
             <div style={{ marginTop: 14 }}>
-              <p style={{ margin: '0 0 4px', fontSize: 11, fontWeight: 800 }}>Remarks:</p>
+              <p style={{ margin: '0 0 4px', fontSize: 11, fontWeight: 800, color: C.text }}>Remarks:</p>
               <p style={{ margin: 0, fontSize: 10, lineHeight: 1.5, color: C.muted }}>{remarks}</p>
             </div>
           )}
         </div>
-        <div style={{ width: 250, flexShrink: 0 }}>
+        <div style={{ width: 250, flexShrink: 0, color: C.text }}>
           <TotalLine label="Sub Total" value={fmt(data.subtotal)} />
           <TotalLine label="Discount" value={fmt(data.discount)} />
           <TotalLine label="Sub Total less Discount" value={fmt(subLessDisc)} />
@@ -312,7 +330,7 @@ const PaymentReceiptPrint = forwardRef<
           <div style={{ marginTop: 28, textAlign: 'right' }}>
             <p style={{ margin: 0, fontSize: 10, color: C.muted }}>Authorised Sign</p>
             <div style={{ marginTop: 28, borderBottom: `1px dotted ${C.muted}`, width: 160, marginLeft: 'auto' }} />
-            {settings.signatoryName && <p style={{ margin: '6px 0 0', fontSize: 10, fontWeight: 600 }}>{settings.signatoryName}</p>}
+            {settings.signatoryName && <p style={{ margin: '6px 0 0', fontSize: 10, fontWeight: 600, color: C.text }}>{settings.signatoryName}</p>}
           </div>
         </div>
       </div>

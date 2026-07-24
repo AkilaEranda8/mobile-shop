@@ -681,13 +681,31 @@ function SaleDetailsModal({
       const { jsPDF }               = await import('jspdf')
       const A4_W_PX = 794, A4_W_MM = 210, A4_H_MM = 297
       const wrapper = document.createElement('div')
-      wrapper.style.cssText = `position:fixed;top:-9999px;left:-9999px;width:${A4_W_PX}px;overflow:visible;`
+      wrapper.style.cssText = `position:fixed;top:-9999px;left:-9999px;width:${A4_W_PX}px;overflow:visible;background:#ffffff;color:#111827;color-scheme:light;`
       const el = invoiceRef.current!
       const clone = el.cloneNode(true) as HTMLElement
-      clone.style.cssText = `width:${A4_W_PX}px;max-width:${A4_W_PX}px;border-radius:0;`
+      // Preserve print-safe colors — overwriting styles without color lets dark-mode
+      // inherited text (near-white) render onto the white PDF canvas.
+      clone.style.cssText = `width:${A4_W_PX}px;max-width:${A4_W_PX}px;border-radius:0;background:#ffffff;color:#111827;color-scheme:light;-webkit-print-color-adjust:exact;print-color-adjust:exact;`
       wrapper.appendChild(clone)
       document.body.appendChild(wrapper)
-      const canvas = await html2canvas(clone, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false, width: A4_W_PX, windowWidth: A4_W_PX })
+      const canvas = await html2canvas(clone, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        width: A4_W_PX,
+        windowWidth: A4_W_PX,
+        onclone: (doc, cloned) => {
+          doc.documentElement.classList.remove('dark')
+          doc.documentElement.style.colorScheme = 'light'
+          doc.body.style.background = '#ffffff'
+          doc.body.style.color = '#111827'
+          cloned.style.background = '#ffffff'
+          cloned.style.color = '#111827'
+          cloned.style.colorScheme = 'light'
+        },
+      })
       document.body.removeChild(wrapper)
       const imgData = canvas.toDataURL('image/jpeg', 0.95)
       const imgH_MM = (canvas.height / canvas.width) * A4_W_MM

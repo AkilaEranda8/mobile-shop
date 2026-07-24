@@ -187,7 +187,21 @@ const KasthuriInvoicePrint = forwardRef<
     if (!invoiceRef.current) return
     const { default: html2canvas } = await import('html2canvas')
     const { default: jsPDF } = await import('jspdf')
-    const canvas = await html2canvas(invoiceRef.current, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' })
+    const canvas = await html2canvas(invoiceRef.current, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+      onclone: (doc, el) => {
+        doc.documentElement.classList.remove('dark')
+        doc.documentElement.style.colorScheme = 'light'
+        doc.body.style.background = '#ffffff'
+        doc.body.style.color = '#111827'
+        el.style.background = '#ffffff'
+        el.style.color = '#111827'
+        el.style.colorScheme = 'light'
+      },
+    })
     const imgData = canvas.toDataURL('image/png')
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
     const pdfW = pdf.internal.pageSize.getWidth()

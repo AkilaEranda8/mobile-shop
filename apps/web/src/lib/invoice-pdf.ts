@@ -16,6 +16,15 @@ export async function captureElementAsPdfBase64(
     useCORS: true,
     backgroundColor: '#ffffff',
     logging: false,
+    onclone: (doc, el) => {
+      doc.documentElement.classList.remove('dark')
+      doc.documentElement.style.colorScheme = 'light'
+      doc.body.style.background = '#ffffff'
+      doc.body.style.color = '#111827'
+      el.style.background = '#ffffff'
+      el.style.color = '#111827'
+      el.style.colorScheme = 'light'
+    },
   })
 
   const imgData = canvas.toDataURL('image/jpeg', 0.92)
