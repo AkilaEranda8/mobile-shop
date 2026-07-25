@@ -441,14 +441,15 @@ export async function fetchInvoiceSettings(tenantId: string, branchId?: string):
   }
 }
 
-/** Raw invoice customize values (Invoice tab) without shop/branch overlay */
+/** Raw invoice customize values (Invoice tab). Pass branchId for per-branch bill details. */
 export async function fetchInvoiceCustomizeSettings(
   tenantId: string,
   tenantSlug?: string,
+  branchId?: string,
 ): Promise<InvoiceSettings> {
   try {
     const { tenantApi } = await import('./api')
-    const res: any = await tenantApi.getInvoiceSettings(tenantId)
+    const res: any = await tenantApi.getInvoiceSettings(tenantId, branchId)
     const data = res?.data ?? res
     return applyKasthuriPreset({
       ...DEFAULT_INVOICE_SETTINGS,
@@ -461,12 +462,18 @@ export async function fetchInvoiceCustomizeSettings(
   }
 }
 
-export async function pushInvoiceSettings(tenantId: string, s: InvoiceSettings, tenantSlug?: string): Promise<InvoiceSettings> {
-  const payload: InvoiceSettings = {
+export async function pushInvoiceSettings(
+  tenantId: string,
+  s: InvoiceSettings,
+  tenantSlug?: string,
+  branchId?: string,
+): Promise<InvoiceSettings> {
+  const payload: InvoiceSettings & { branchId?: string } = {
     ...DEFAULT_INVOICE_SETTINGS,
     ...s,
     barcodeLabel: resolveBarcodeLabelSettings(s),
     invoiceTemplate: s.invoiceTemplate ?? resolveInvoiceTemplate(s, tenantSlug),
+    ...(branchId ? { branchId } : {}),
   }
   saveInvoiceSettings(payload)
   const { tenantApi } = await import('./api')

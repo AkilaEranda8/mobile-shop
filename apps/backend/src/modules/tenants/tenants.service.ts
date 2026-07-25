@@ -1,7 +1,7 @@
 import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import { getUserBranchIds } from '../../utils/active-branch'
-import { INVOICE_TEMPLATE_OPTIONS } from './invoice-settings.util'
+import { INVOICE_TEMPLATE_OPTIONS, normalizeInvoiceSettings } from './invoice-settings.util'
 import {
   getAllTenantConfigs,
   getTenantConfig,
@@ -45,12 +45,105 @@ export const tenantsService = {
     return getAllTenantConfigs(tenantId)
   },
 
-  async getInvoiceSettings(tenantId: string, _branchId?: string) {
-    return getTenantConfig(tenantId, 'invoice')
+  async getInvoiceSettings(tenantId: string, branchId?: string) {
+    const base = await getTenantConfig(tenantId, 'invoice') as Record<string, unknown>
+    if (!branchId) return base
+
+    const branch = await prisma.branch.findFirst({
+      where: { id: branchId, tenantId },
+      select: { invoiceSettings: true, name: true, phone: true, email: true, address: true, city: true, state: true },
+    })
+    if (!branch) throw new AppError('Branch not found', 404)
+
+    const override =
+      branch.invoiceSettings && typeof branch.invoiceSettings === 'object'
+        ? (branch.invoiceSettings as Record<string, unknown>)
+        : null
+
+    if (override) {
+      const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { slug: true } })
+      return normalizeInvoiceSettings(
+        {
+          ...base,
+          ...override,
+          ...(override.barcodeLabel && typeof override.barcodeLabel === 'object'
+            ? {
+                barcodeLabel: {
+                  ...(base.barcodeLabel && typeof base.barcodeLabel === 'object'
+                    ? (base.barcodeLabel as Record<string, unknown>)
+                    : {}),
+                  ...(override.barcodeLabel as Record<string, unknown>),
+                },
+              }
+            : {}),
+        },
+        tenant?.slug,
+      )
+    }
+
+    // No branch override yet — fill empty identity from Branch profile
+    const branchLine = [branch.address, branch.city, branch.state].filter(Boolean).join(', ')
+    return {
+      ...base,
+      shopName: String(base.shopName ?? '').trim() || branch.name || '',
+      phone: String(base.phone ?? '').trim() || branch.phone || '',
+      email: String(base.email ?? '').trim() || branch.email || '',
+      address: String(base.address ?? '').trim() || branchLine || '',
+    }
   },
 
   async updateInvoiceSettings(tenantId: string, patch: Record<string, unknown>) {
-    return setTenantConfig(tenantId, 'invoice', patch)
+    const branchId = typeof patch.branchId === 'string' && patch.branchId.trim()
+      ? patch.branchId.trim()
+      : undefined
+    const { branchId: _omit, ...settingsPatch } = patch
+
+    if (!branchId) {
+      return setTenantConfig(tenantId, 'invoice', settingsPatch)
+    }
+
+    const branch = await prisma.branch.findFirst({
+      where: { id: branchId, tenantId },
+      select: { id: true, invoiceSettings: true },
+    })
+    if (!branch) throw new AppError('Branch not found', 404)
+
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { slug: true, invoiceSettings: true } })
+    if (!tenant) throw new AppError('Tenant not found', 404)
+
+    const tenantBase = normalizeInvoiceSettings(tenant.invoiceSettings, tenant.slug) as unknown as Record<string, unknown>
+    const prevBranch =
+      branch.invoiceSettings && typeof branch.invoiceSettings === 'object'
+        ? (branch.invoiceSettings as Record<string, unknown>)
+        : {}
+
+    // Start from effective settings (tenant + existing branch), then apply patch
+    const mergedRaw = {
+      ...tenantBase,
+      ...prevBranch,
+      ...settingsPatch,
+      ...(settingsPatch.barcodeLabel && typeof settingsPatch.barcodeLabel === 'object'
+        ? {
+            barcodeLabel: {
+              ...(tenantBase.barcodeLabel && typeof tenantBase.barcodeLabel === 'object'
+                ? (tenantBase.barcodeLabel as Record<string, unknown>)
+                : {}),
+              ...(prevBranch.barcodeLabel && typeof prevBranch.barcodeLabel === 'object'
+                ? (prevBranch.barcodeLabel as Record<string, unknown>)
+                : {}),
+              ...(settingsPatch.barcodeLabel as Record<string, unknown>),
+            },
+          }
+        : {}),
+    }
+    const normalized = normalizeInvoiceSettings(mergedRaw, tenant.slug)
+
+    await prisma.branch.update({
+      where: { id: branch.id },
+      data: { invoiceSettings: normalized as any },
+    })
+
+    return normalized
   },
 
   async getReloadSettings(tenantId: string) {

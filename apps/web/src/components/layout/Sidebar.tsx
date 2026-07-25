@@ -340,7 +340,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       }
 
       try {
-        const s = await fetchInvoiceSettings(tenantId)
+        const s = await fetchInvoiceSettings(tenantId, getActiveBranchId() || undefined)
         if (cancelled) return
         setShopName(s.shopName || '')
         setLogo(s.logo || '')

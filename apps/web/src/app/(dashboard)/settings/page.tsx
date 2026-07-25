@@ -211,6 +211,13 @@ export default function SettingsPage() {
     }
   }
 
+  /* ── Invoice Settings (declared early — Shop Info can sync bill details per branch) ── */
+  const [invoiceForm, setInvoiceForm]   = useState<InvoiceSettings>(() => getInvoiceSettings())
+  const [invoiceLoading, setInvoiceLoading] = useState(false)
+  const [invoiceSaving, setInvoiceSaving]   = useState(false)
+  const [invoiceBranchId, setInvoiceBranchId] = useState('')
+  const setInv = (patch: Partial<InvoiceSettings>) => setInvoiceForm(p => ({ ...p, ...patch }))
+
   /* ── Shop Info ── */
   const [tenant, setTenant]       = useState<any>(null)
   const [showFullTenantId, setShowFullTenantId] = useState(false)
@@ -231,7 +238,10 @@ export default function SettingsPage() {
         (userBranchId ? t.branches?.find((b: any) => b.id === userBranchId) : undefined)
         ?? t.branches?.find((b: any) => b.isHeadquarters)
         ?? t.branches?.[0]
-      if (branch?.id) setShopBranchId(branch.id)
+      if (branch?.id) {
+        setShopBranchId(branch.id)
+        setInvoiceBranchId(prev => prev || branch.id)
+      }
       setShopForm({
         name: t.name ?? '',
         ownerName: t.ownerName ?? '',
@@ -287,19 +297,42 @@ export default function SettingsPage() {
           city: shopForm.city,
         })
       }
-      const nextInvoiceSettings = {
-        ...getInvoiceSettings(),
-        shopName: shopForm.name,
-        phone: shopForm.phone,
-        address: [shopForm.address, shopForm.city].filter(Boolean).join(', '),
+      const branchCount = tenant.branches?.length ?? 0
+      if (branchCount > 1 && shopBranchId) {
+        // Multi-branch: keep bill details on Invoice Customize per branch — do not overwrite shared tenant settings
+        const nextInvoiceSettings = {
+          ...(await fetchInvoiceCustomizeSettings(tenant.id, tenant?.slug, shopBranchId).catch(() => getInvoiceSettings())),
+          shopName: shopForm.name,
+          phone: shopForm.phone,
+          address: [shopForm.address, shopForm.city].filter(Boolean).join(', '),
+        }
+        const syncedInvoiceSettings = await pushInvoiceSettings(
+          tenant.id,
+          nextInvoiceSettings,
+          tenant?.slug,
+          shopBranchId,
+        ).catch(() => nextInvoiceSettings)
+        if (invoiceBranchId === shopBranchId) setInvoiceForm(syncedInvoiceSettings)
+        saveInvoiceSettings(syncedInvoiceSettings)
+      } else {
+        const nextInvoiceSettings = {
+          ...getInvoiceSettings(),
+          shopName: shopForm.name,
+          phone: shopForm.phone,
+          address: [shopForm.address, shopForm.city].filter(Boolean).join(', '),
+        }
+        saveInvoiceSettings(nextInvoiceSettings)
+        const syncedInvoiceSettings = await pushInvoiceSettings(tenant.id, nextInvoiceSettings, tenant?.slug).catch(() => nextInvoiceSettings)
+        setInvoiceForm(syncedInvoiceSettings)
       }
-      saveInvoiceSettings(nextInvoiceSettings)
-      const syncedInvoiceSettings = await pushInvoiceSettings(tenant.id, nextInvoiceSettings, tenant?.slug).catch(() => nextInvoiceSettings)
-      setInvoiceForm(syncedInvoiceSettings)
       setTenant((prev: any) => prev ? { ...prev, name: shopForm.name, ownerName: shopForm.ownerName, ownerEmail: shopForm.ownerEmail } : prev)
       window.dispatchEvent(new CustomEvent('shop-settings-updated'))
       window.dispatchEvent(new CustomEvent('invoice-settings-updated'))
-      toast.success('Shop info saved — thermal receipts will use these details')
+      toast.success(
+        branchCount > 1
+          ? 'Shop info saved — bill details updated for this branch'
+          : 'Shop info saved — thermal receipts will use these details',
+      )
     } catch { toast.error('Save failed') }
     finally { setShopSaving(false) }
   }
@@ -424,29 +457,41 @@ export default function SettingsPage() {
     finally { setDeletingUserId(null) }
   }
 
-  /* ── Invoice Settings ── */
-  const [invoiceForm, setInvoiceForm]   = useState<InvoiceSettings>(() => getInvoiceSettings())
-  const [invoiceLoading, setInvoiceLoading] = useState(false)
-  const [invoiceSaving, setInvoiceSaving]   = useState(false)
-  const setInv = (patch: Partial<InvoiceSettings>) => setInvoiceForm(p => ({ ...p, ...patch }))
-
+  /* ── Invoice Settings load / save ── */
   useEffect(() => {
     if (!currentUser?.tenantId) return
+    const branches: any[] = tenant?.branches ?? []
+    const multi = branches.length > 1
+    const bid = multi
+      ? (invoiceBranchId || userBranchId || branches[0]?.id || '')
+      : undefined
+    if (multi && !bid) return
     setInvoiceLoading(true)
-    fetchInvoiceCustomizeSettings(currentUser.tenantId, tenant?.slug)
+    fetchInvoiceCustomizeSettings(currentUser.tenantId, tenant?.slug, bid)
       .then(s => setInvoiceForm(s))
       .catch(() => {})
       .finally(() => setInvoiceLoading(false))
-  }, [currentUser?.tenantId, tenant?.slug])
+  }, [currentUser?.tenantId, tenant?.slug, tenant?.branches, invoiceBranchId, userBranchId])
 
   const saveInvoice = async () => {
     if (!canEdit) { viewOnlyToast('Settings'); return }
     if (!currentUser?.tenantId) return
+    const branches: any[] = tenant?.branches ?? []
+    const multi = branches.length > 1
+    const bid = multi ? (invoiceBranchId || undefined) : undefined
+    if (multi && !bid) {
+      toast.error('Select a branch to save bill details')
+      return
+    }
     setInvoiceSaving(true)
     try {
-      await pushInvoiceSettings(currentUser.tenantId, invoiceForm, tenant?.slug).then(saved => setInvoiceForm(saved))
+      await pushInvoiceSettings(currentUser.tenantId, invoiceForm, tenant?.slug, bid).then(saved => setInvoiceForm(saved))
       window.dispatchEvent(new CustomEvent('invoice-settings-updated'))
-      toast.success('Invoice settings saved — receipts will use these details')
+      toast.success(
+        multi
+          ? 'Invoice settings saved for this branch'
+          : 'Invoice settings saved — receipts will use these details',
+      )
     } catch { toast.error('Save failed') }
     finally { setInvoiceSaving(false) }
   }
@@ -541,6 +586,35 @@ export default function SettingsPage() {
                   {shopSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}Save
                 </button>
               </div>
+              {(tenant?.branches?.length ?? 0) > 1 && (
+                <div className="flex flex-wrap gap-2">
+                  {(tenant.branches as any[]).filter((b: any) => b.isActive !== false).map((b: any) => {
+                    const active = shopBranchId === b.id
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => {
+                          setShopBranchId(b.id)
+                          setShopForm(p => ({
+                            ...p,
+                            phone: b.phone ?? '',
+                            address: b.address ?? '',
+                            city: b.city ?? '',
+                          }))
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                          active
+                            ? 'bg-violet-500/15 border-violet-500/40 text-violet-300'
+                            : 'border-white/10 text-gray-600 dark:text-slate-400 hover:bg-white/5'
+                        }`}
+                      >
+                        {b.name}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Shop / Business Name</label>
@@ -712,15 +786,48 @@ export default function SettingsPage() {
           {/* ── INVOICE CUSTOMIZE ── */}
           {activeTab === 'invoice' && (
             <div className="space-y-5">
-              <div className="card p-5 flex items-center justify-between">
+              <div className="card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h2 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2"><FileText size={15} className="text-violet-400" /> Invoice Customize</h2>
-                  <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">Company details, thermal layout, and live receipt preview</p>
+                  <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">
+                    {(tenant?.branches?.length ?? 0) > 1
+                      ? 'Bill details are per branch — pick a branch, edit, then Save'
+                      : 'Company details, thermal layout, and live receipt preview'}
+                  </p>
                 </div>
-                <button onClick={saveInvoice} disabled={invoiceSaving || invoiceLoading} className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
+                <button onClick={saveInvoice} disabled={invoiceSaving || invoiceLoading} className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60 shrink-0">
                   {invoiceSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Save All
                 </button>
               </div>
+
+              {(tenant?.branches?.length ?? 0) > 1 && (
+                <div className="card p-4 space-y-2">
+                  <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Branch bill details</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(tenant.branches as any[]).filter((b: any) => b.isActive !== false).map((b: any) => {
+                      const active = invoiceBranchId === b.id
+                      return (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => setInvoiceBranchId(b.id)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                            active
+                              ? 'bg-violet-500/15 border-violet-500/40 text-violet-300'
+                              : 'border-white/10 text-gray-600 dark:text-slate-400 hover:bg-white/5'
+                          }`}
+                        >
+                          {b.name}
+                          {b.isHeadquarters ? ' · HQ' : ''}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <p className="text-[11px] text-gray-500 dark:text-slate-500">
+                    Changes save only for the selected branch. POS / Sales receipts use that branch&apos;s bill header.
+                  </p>
+                </div>
+              )}
 
               {invoiceLoading && (
                 <div className="flex items-center justify-center py-10">

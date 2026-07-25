@@ -656,14 +656,15 @@ function SaleDetailsModal({
   useEffect(() => {
     const user = authStorage.getUser()
     if (!user?.tenantId) return
-    fetchInvoiceSettings(user.tenantId, getActiveBranchId()).then(setInvSettings).catch(() => {})
+    const branchId = liveSale?.branchId || getActiveBranchId() || undefined
+    fetchInvoiceSettings(user.tenantId, branchId).then(setInvSettings).catch(() => {})
     import('@/lib/api').then(({ tenantApi }) => {
       tenantApi.get(user.tenantId).then((res: any) => {
         const tenant = res?.data ?? res
         setTenantSlug(tenant?.slug)
       }).catch(() => {})
     })
-  }, [])
+  }, [liveSale?.branchId])
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {

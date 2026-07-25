@@ -4,6 +4,8 @@ import { INVOICE_TEMPLATE_IDS } from './invoice-settings.util'
 const invoiceTemplateSchema = z.enum(INVOICE_TEMPLATE_IDS)
 
 export const updateInvoiceSettingsSchema = z.object({
+  /** When set, save bill details to this branch instead of tenant-wide defaults */
+  branchId: z.string().min(1).max(64).optional(),
   invoiceTemplate: invoiceTemplateSchema.optional(),
   shopName: z.string().max(200).optional(),
   companyLegalName: z.string().max(200).optional(),
