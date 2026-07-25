@@ -341,6 +341,7 @@ export const customersApi = {
   create: (body: unknown) => api.post('/customers', body),
   update: (id: string, body: unknown) => api.put(`/customers/${id}`, body),
   search: (q: string) => api.get(`/customers/search?q=${encodeURIComponent(q)}`),
+  unpaidInvoices: (id: string) => api.get(`/customers/${id}/unpaid-invoices`),
   creditPayment: (id: string, body: unknown) => api.post(`/customers/${id}/credit-payment`, body),
   setActive: (id: string, isActive: boolean) => api.patch(`/customers/${id}/active`, { isActive }),
   remove: (id: string) => api.delete(`/customers/${id}`),

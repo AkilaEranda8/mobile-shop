@@ -431,6 +431,7 @@ async function syncArOperationalPayment(
   if (!c) return
 
   const payAmount = round2(amount)
+  const paidAt = occurredAt ?? new Date()
 
   await prisma.$transaction(async tx => {
     if (allocations?.length) {
@@ -450,7 +451,7 @@ async function syncArOperationalPayment(
             paidAmount: newPaid,
             dueAmount: newDue,
             status: newDue <= 0 ? 'PAID' : 'PARTIAL',
-            payments: { create: { method: paymentMethod, amount: applied, reference: reference ?? 'Allocated AR payment' } },
+            payments: { create: { method: paymentMethod, amount: applied, reference: reference ?? 'Allocated AR payment', paidAt } },
           },
         })
         remaining = round2(remaining - applied)
@@ -478,6 +479,7 @@ async function syncArOperationalPayment(
                 method: paymentMethod,
                 amount: apply,
                 reference: reference ?? 'GL AR payment',
+                paidAt,
               },
             },
           },

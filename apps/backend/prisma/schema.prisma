@@ -538,6 +538,8 @@ model SalePayment {
   method    PaymentMethod
   amount    Float
   reference String?
+  /// When the money actually changed hands. Null for legacy rows — fall back to the sale date.
+  paidAt    DateTime?
 
   sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
 }

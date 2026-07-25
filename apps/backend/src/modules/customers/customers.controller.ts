@@ -40,6 +40,9 @@ export const customersController = {
       sendSuccess(res, await customersService.remove(req.tenantId!, req.params.id, req), 'Customer deleted')
     } catch (e) { next(e) }
   },
+  async unpaidInvoices(req: Request, res: Response, next: NextFunction) {
+    try { sendSuccess(res, await customersService.unpaidInvoices(req.tenantId!, req.params.id, req)) } catch (e) { next(e) }
+  },
   async creditPayment(req: Request, res: Response, next: NextFunction) {
     try { sendSuccess(res, await customersService.creditPayment(req.tenantId!, req.params.id, req.body, req)) } catch (e) { next(e) }
   },

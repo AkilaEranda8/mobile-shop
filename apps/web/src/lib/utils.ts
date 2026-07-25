@@ -14,7 +14,7 @@ export function formatCurrency(amount: number, currency = 'LKR'): string {
   }).format(amount)
 }
 
-export function formatDate(dateStr: string, format = 'short'): string {
+export function formatDate(dateStr: string | number | Date, format = 'short'): string {
   const date = new Date(dateStr)
   if (Number.isNaN(date.getTime())) return ''
   const tz = 'Asia/Colombo'

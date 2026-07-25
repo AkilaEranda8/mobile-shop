@@ -1,6 +1,7 @@
 'use client'
 
 import type { CSSProperties } from 'react'
+import { formatDate } from '@/lib/utils'
 
 /** Asia/Colombo calendar date as YYYY-MM-DD (for `<input type="date">`). */
 export function todayChequeDate(): string {
@@ -124,15 +125,18 @@ type MetaProps = {
   method?: string | null
   reference?: string | null
   amount?: number | null
+  /** Timestamp the money was collected — shown next to the amount. */
+  paidAt?: string | Date | null
   formatAmount?: (n: number) => string
   className?: string
 }
 
 /** Read-only payment line for details modals — highlights cheque # / date when present. */
-export function ChequePaymentMeta({ method, reference, amount, formatAmount, className }: MetaProps) {
+export function ChequePaymentMeta({ method, reference, amount, paidAt, formatAmount, className }: MetaProps) {
   const cheque = parseChequeReference(reference)
   const isCheque = String(method ?? '').toUpperCase() === 'CHEQUE' || !!cheque
   const methodLabel = method ? String(method).replace(/_/g, ' ') : null
+  const paidLabel = paidAt ? formatDate(paidAt, 'long') : null
 
   return (
     <div className={className} style={{ color: 'var(--text-secondary)' }}>
@@ -142,6 +146,9 @@ export function ChequePaymentMeta({ method, reference, amount, formatAmount, cla
         )}
         {amount != null && Number.isFinite(Number(amount)) && formatAmount && (
           <span className="tabular-nums font-medium">{formatAmount(Number(amount))}</span>
+        )}
+        {paidLabel && (
+          <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>· {paidLabel}</span>
         )}
       </div>
       {isCheque && (cheque?.chequeNumber || cheque?.chequeDate) ? (
