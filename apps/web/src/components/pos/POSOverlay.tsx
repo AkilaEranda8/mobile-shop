@@ -509,6 +509,7 @@ function VariationPickerModal({
     imei?: string,
     price?: number,
     warranty?: { months: number; note?: string },
+    quantity?: number,
   ) => void
 }) {
   const storageOptions = [...new Set(variations.map(v => v.storage))]
@@ -532,9 +533,11 @@ function VariationPickerModal({
   const [imeiScanError, setImeiScanError] = useState('')
   const imeiScanRef = useRef<HTMLInputElement>(null)
   const priceInputRef = useRef<HTMLInputElement>(null)
+  const qtyInputRef = useRef<HTMLInputElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const [warrantyMonths, setWarrantyMonths] = useState(() => String(Number(product.warrantyMonths ?? 0) || 0))
   const [warrantyNote, setWarrantyNote] = useState(() => String(product.warrantyNote ?? '').trim())
+  const [qtyVal, setQtyVal] = useState('1')
 
   const selected = variations.find(v => v.storage === selStorage && v.colorName === selColor)
   const catalogPrice = selected ? resolveCatalogPrice(selected, priceMode) : 0
@@ -544,6 +547,9 @@ function VariationPickerModal({
   const showColor = colorOptions.length > 1 || storageOptions.some(st => variations.filter(v => v.storage === st).length > 1)
   const showImei = !!product.trackImei
   const showPriceBlock = allowPriceEdit || showWholesale || showCredit
+  const qtyLocked = showImei && !!selImei
+  const parsedQty = Math.floor(Number(qtyVal))
+  const qtyValid = qtyLocked || (Number.isFinite(parsedQty) && parsedQty >= 1)
 
   useEffect(() => {
     const next = selected ? resolveCatalogPrice(selected, priceMode) : 0
@@ -622,16 +628,19 @@ function VariationPickerModal({
     && !(selected.stock != null && (selected.stock ?? 0) === 0)
     && !(product.trackImei && !selImei)
     && priceValid
+    && qtyValid
 
   const confirmAdd = () => {
     if (!selected || !canAdd) return
     const months = showWarranty ? Math.max(0, parseInt(warrantyMonths, 10) || 0) : Number(product.warrantyMonths ?? 0)
     const note = showWarranty ? (warrantyNote.trim() || undefined) : (product.warrantyNote?.trim() || undefined)
+    const qty = qtyLocked ? 1 : Math.max(1, parsedQty)
     onAdd(
       selected,
       selImei || undefined,
       allowPriceEdit ? parsedSalePrice : undefined,
       showWarranty ? { months, note } : undefined,
+      qty,
     )
   }
 
@@ -710,9 +719,11 @@ function VariationPickerModal({
   } as const)
 
   const stockOut = selected?.stock != null && (selected.stock ?? 0) === 0
-  const displayPrice = allowPriceEdit
+  const unitPrice = allowPriceEdit
     ? (Number.isFinite(parsedSalePrice) ? parsedSalePrice : catalogPrice)
     : catalogPrice
+  const addQty = qtyLocked ? 1 : (qtyValid ? parsedQty : 1)
+  const displayPrice = unitPrice * addQty
 
   return (
     <div
@@ -949,37 +960,73 @@ function VariationPickerModal({
                   />
                 </div>
               )}
-              {allowPriceEdit ? (
+              <div className="grid grid-cols-[1fr_5.5rem] gap-2">
+                {allowPriceEdit ? (
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] mb-1.5" style={{ color: POS_THEME.muted }}>Sale price (LKR)</p>
+                    <input
+                      ref={priceInputRef}
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      inputMode="decimal"
+                      className="w-full h-11 px-3 rounded-xl text-lg font-extrabold outline-none border"
+                      style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
+                      value={salePrice}
+                      onChange={e => setSalePrice(e.target.value)}
+                    />
+                  </div>
+                ) : (
+                  <div className="rounded-xl border px-3 py-2.5 flex items-center justify-between h-11" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
+                    <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: POS_THEME.muted }}>Price</span>
+                    <span className="text-lg font-extrabold" style={{ color: POS_THEME.text }}>{formatCurrency(catalogPrice)}</span>
+                  </div>
+                )}
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] mb-1.5" style={{ color: POS_THEME.muted }}>Sale price (LKR)</p>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] mb-1.5" style={{ color: POS_THEME.muted }}>Qty</p>
                   <input
-                    ref={priceInputRef}
+                    ref={qtyInputRef}
                     type="number"
-                    min={0}
-                    step="0.01"
-                    inputMode="decimal"
-                    className="w-full h-11 px-3 rounded-xl text-lg font-extrabold outline-none border"
+                    min={1}
+                    step={1}
+                    inputMode="numeric"
+                    disabled={qtyLocked}
+                    className="w-full h-11 px-2 rounded-xl text-lg font-extrabold outline-none border text-center disabled:opacity-60"
                     style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
-                    value={salePrice}
-                    onChange={e => setSalePrice(e.target.value)}
+                    value={qtyLocked ? '1' : qtyVal}
+                    onChange={e => setQtyVal(e.target.value.replace(/[^\d]/g, ''))}
                   />
-                  <p className="text-[10px] mt-1.5" style={{ color: POS_THEME.muted }}>
-                    Catalog {formatCurrency(catalogPrice)}{selected.sku ? ` · ${selected.sku}` : ''}
-                  </p>
                 </div>
-              ) : (
-                <div className="rounded-xl border px-3 py-2.5 flex items-center justify-between" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
-                  <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: POS_THEME.muted }}>Price</span>
-                  <span className="text-lg font-extrabold" style={{ color: POS_THEME.text }}>{formatCurrency(catalogPrice)}</span>
-                </div>
-              )}
+              </div>
+              <p className="text-[10px]" style={{ color: POS_THEME.muted }}>
+                Catalog {formatCurrency(catalogPrice)}
+                {selected.sku ? ` · ${selected.sku}` : ''}
+                {addQty > 1 ? ` · Line ${formatCurrency(displayPrice)}` : ''}
+                {qtyLocked ? ' · IMEI qty fixed at 1' : ''}
+              </p>
             </section>
           )}
 
           {!showPriceBlock && selected && (
-            <div className="rounded-xl border px-3 py-2.5 flex items-center justify-between" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
-              <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: POS_THEME.muted }}>Price</span>
-              <span className="text-lg font-extrabold" style={{ color: POS_THEME.text }}>{formatCurrency(catalogPrice)}</span>
+            <div className="grid grid-cols-[1fr_5.5rem] gap-2">
+              <div className="rounded-xl border px-3 py-2.5 flex items-center justify-between" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
+                <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: POS_THEME.muted }}>Price</span>
+                <span className="text-lg font-extrabold" style={{ color: POS_THEME.text }}>{formatCurrency(catalogPrice)}</span>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.1em] mb-1.5" style={{ color: POS_THEME.muted }}>Qty</p>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  inputMode="numeric"
+                  disabled={qtyLocked}
+                  className="w-full h-11 px-2 rounded-xl text-lg font-extrabold outline-none border text-center disabled:opacity-60"
+                  style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
+                  value={qtyLocked ? '1' : qtyVal}
+                  onChange={e => setQtyVal(e.target.value.replace(/[^\d]/g, ''))}
+                />
+              </div>
             </div>
           )}
         </div>
@@ -993,6 +1040,7 @@ function VariationPickerModal({
             <span className="truncate" style={{ color: POS_THEME.muted }}>
               {selected ? `${selected.storage} · ${selected.colorName}` : 'Select variant'}
               {selImei ? ` · …${selImei.slice(-4)}` : ''}
+              {addQty > 1 ? ` · ×${addQty}` : ''}
             </span>
             <span className="font-extrabold shrink-0 text-sm" style={{ color: POS_THEME.text }}>
               {formatCurrency(displayPrice)}
@@ -1030,6 +1078,9 @@ function PricePromptModal({
   catalogPrice,
   value,
   onChange,
+  qty,
+  onQtyChange,
+  qtyLocked = false,
   onConfirm,
   onClose,
   priceMode = 'retail',
@@ -1042,6 +1093,10 @@ function PricePromptModal({
   catalogPrice: number
   value: string
   onChange: (v: string) => void
+  qty: string
+  onQtyChange: (v: string) => void
+  /** IMEI / unique-unit lines stay at qty 1 */
+  qtyLocked?: boolean
   onConfirm: () => void
   onClose: () => void
   priceMode?: PriceMode
@@ -1050,6 +1105,7 @@ function PricePromptModal({
   onPriceModeChange?: (mode: PriceMode) => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const qtyRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
     const t = window.setTimeout(() => {
       inputRef.current?.focus()
@@ -1059,7 +1115,11 @@ function PricePromptModal({
   }, [])
 
   const parsed = parseFloat(value)
-  const valid = Number.isFinite(parsed) && parsed >= 0
+  const parsedQty = Math.floor(Number(qty))
+  const priceValid = Number.isFinite(parsed) && parsed >= 0
+  const qtyValid = qtyLocked || (Number.isFinite(parsedQty) && parsedQty >= 1)
+  const valid = priceValid && qtyValid
+  const lineTotal = priceValid && qtyValid ? parsed * (qtyLocked ? 1 : parsedQty) : null
 
   return (
     <div
@@ -1113,27 +1173,58 @@ function PricePromptModal({
               />
             </div>
           )}
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.1em] mb-1.5" style={{ color: POS_THEME.muted }}>Sale price (LKR)</p>
-            <input
-              ref={inputRef}
-              type="number"
-              min={0}
-              step="0.01"
-              inputMode="decimal"
-              className="w-full h-11 px-3 rounded-xl text-lg font-extrabold outline-none border"
-              style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
-              value={value}
-              onChange={e => onChange(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') { e.preventDefault(); if (valid) onConfirm() }
-                if (e.key === 'Escape') { e.preventDefault(); onClose() }
-              }}
-            />
-            <p className="text-[11px] mt-1.5" style={{ color: POS_THEME.muted }}>
-              Catalog {formatCurrency(catalogPrice)}
-            </p>
+          <div className="grid grid-cols-[1fr_5.5rem] gap-2.5">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.1em] mb-1.5" style={{ color: POS_THEME.muted }}>Sale price (LKR)</p>
+              <input
+                ref={inputRef}
+                type="number"
+                min={0}
+                step="0.01"
+                inputMode="decimal"
+                className="w-full h-11 px-3 rounded-xl text-lg font-extrabold outline-none border"
+                style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
+                value={value}
+                onChange={e => onChange(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    if (!qtyLocked) { qtyRef.current?.focus(); qtyRef.current?.select(); return }
+                    if (valid) onConfirm()
+                  }
+                  if (e.key === 'Escape') { e.preventDefault(); onClose() }
+                }}
+              />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.1em] mb-1.5" style={{ color: POS_THEME.muted }}>Qty</p>
+              <input
+                ref={qtyRef}
+                type="number"
+                min={1}
+                step={1}
+                inputMode="numeric"
+                disabled={qtyLocked}
+                className="w-full h-11 px-2 rounded-xl text-lg font-extrabold outline-none border text-center disabled:opacity-60"
+                style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
+                value={qty}
+                onChange={e => onQtyChange(e.target.value.replace(/[^\d]/g, ''))}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { e.preventDefault(); if (valid) onConfirm() }
+                  if (e.key === 'Escape') { e.preventDefault(); onClose() }
+                }}
+              />
+            </div>
           </div>
+          <p className="text-[11px]" style={{ color: POS_THEME.muted }}>
+            Catalog {formatCurrency(catalogPrice)}
+            {lineTotal != null && (
+              <span className="font-semibold" style={{ color: POS_THEME.text }}>
+                {' · '}Line {formatCurrency(lineTotal)}
+              </span>
+            )}
+            {qtyLocked && <span>{' · '}IMEI qty fixed at 1</span>}
+          </p>
         </div>
 
         <div
@@ -1314,6 +1405,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
     catalogPrice: number
   } | null>(null)
   const [pricePromptVal, setPricePromptVal] = useState('')
+  const [pricePromptQty, setPricePromptQty] = useState('1')
   useEffect(() => {
     const check = () => setIsDesktop(window.innerWidth >= 1024)
     check()
@@ -2021,6 +2113,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
     variation?: ProductVariation,
     priceOverride?: number,
     warranty?: { months?: number; note?: string },
+    quantity = 1,
   ) => {
     const catalogPrice = variation
       ? resolveCatalogPrice(variation, effectivePriceMode)
@@ -2029,6 +2122,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
     const price = priceOverride !== undefined
       ? Math.max(0, Number(priceOverride) || 0)
       : (isService ? Number(product.price) || 0 : catalogPrice)
+    const qty = imei ? 1 : Math.max(1, Math.floor(Number(quantity) || 1))
     const sku   = variation?.sku ?? product.sku ?? product.category ?? ''
     const name  = variation
       ? (variation.storage === 'Standard' && variation.colorName === 'Default'
@@ -2058,7 +2152,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
             && i.price === price
             && (i.warrantyMonths ?? 0) === warrantyMonths
             && (i.warrantyNote ?? '') === (warrantyNote ?? ''))
-        if (existing) return prev.map(i => i.cartId === existing.cartId ? { ...i, quantity: i.quantity + 1 } : i)
+        if (existing) return prev.map(i => i.cartId === existing.cartId ? { ...i, quantity: i.quantity + qty } : i)
       }
       return [...prev, {
         cartId: `${product.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -2069,7 +2163,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         price,
         originalPrice: catalogPrice || price,
         cost,
-        quantity: 1,
+        quantity: qty,
         imei,
         isService,
         variationLabel: isSyntheticVariant ? undefined : (variation ? `${variation.storage}::${variation.colorName}` : undefined),
@@ -2098,6 +2192,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
     }
     setPricePrompt({ product, imei, variation, catalogPrice })
     setPricePromptVal(catalogPrice > 0 ? String(catalogPrice) : '')
+    setPricePromptQty(imei ? '1' : '1')
   }
 
   const confirmPricePrompt = () => {
@@ -2108,13 +2203,19 @@ function POSContent({ onClose }: { onClose: () => void }) {
       return
     }
     const { product, imei, variation } = pricePrompt
-    addToCart(product, imei, variation, val)
+    const qty = imei ? 1 : Math.max(1, Math.floor(Number(pricePromptQty) || 1))
+    if (!imei && (!Number.isFinite(Number(pricePromptQty)) || Number(pricePromptQty) < 1)) {
+      toast.error('Enter a valid quantity')
+      return
+    }
+    addToCart(product, imei, variation, val, undefined, qty)
     const label = variation
       ? `${product.name} · ${variation.storage} / ${variation.colorName}`
       : (product.displayName ?? product.name)
-    toast.success(`Added: ${label}`)
+    toast.success(qty > 1 ? `Added: ${label} × ${qty}` : `Added: ${label}`)
     setPricePrompt(null)
     setPricePromptVal('')
+    setPricePromptQty('1')
   }
 
   const resolveVariationFromImei = (product: any, variation?: string | null): ProductVariation | undefined => {
@@ -2799,7 +2900,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       if (e.key === 'Escape') {
         e.preventDefault()
         e.stopPropagation()
-        if (pricePrompt) { setPricePrompt(null); setPricePromptVal(''); return }
+        if (pricePrompt) { setPricePrompt(null); setPricePromptVal(''); setPricePromptQty('1'); return }
         if (showRecentInvoices) setShowRecentInvoices(false)
         else if (showHeldCarts) setShowHeldCarts(false)
         else if (showCalc) setShowCalc(false)
@@ -3209,11 +3310,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
           showWarranty={hasWarranty}
           onPriceModeChange={selectPriceMode}
           onClose={() => setVariationPickerProduct(null)}
-          onAdd={(variation, imei, price, warranty) => {
+          onAdd={(variation, imei, price, warranty, quantity) => {
             const product = variationPickerProduct
             setVariationPickerProduct(null)
-            addToCart(product, imei, variation, price, warranty)
-            toast.success(`Added: ${product.name} · ${variation.storage} / ${variation.colorName}`)
+            addToCart(product, imei, variation, price, warranty, quantity)
+            const qty = quantity && quantity > 1 ? ` × ${quantity}` : ''
+            toast.success(`Added: ${product.name} · ${variation.storage} / ${variation.colorName}${qty}`)
           }}
         />
       )}
@@ -3229,8 +3331,11 @@ function POSContent({ onClose }: { onClose: () => void }) {
           catalogPrice={pricePrompt.catalogPrice}
           value={pricePromptVal}
           onChange={setPricePromptVal}
+          qty={pricePromptQty}
+          onQtyChange={setPricePromptQty}
+          qtyLocked={Boolean(pricePrompt.imei)}
           onConfirm={confirmPricePrompt}
-          onClose={() => { setPricePrompt(null); setPricePromptVal('') }}
+          onClose={() => { setPricePrompt(null); setPricePromptVal(''); setPricePromptQty('1') }}
           priceMode={effectivePriceMode}
           showWholesale={hasWholesalePricing}
           showCredit={hasCreditPricing}
