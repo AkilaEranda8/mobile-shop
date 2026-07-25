@@ -360,7 +360,19 @@ router.post('/from-pos', requireModuleAccess('HIRE_PURCHASE', 'edit'), requireHp
           employer: req.body.customer?.employer, status: 'ACTIVE', approvedAt: new Date(),
           qrCode: `/hire-purchase/agreements/${number}`, barcode: number,
           installments: { create: calc.schedule.map(line => ({ tenantId, branchId, ...line })) },
-          guarantors: req.body.guarantor?.name ? { create: [{ tenantId, branchId, ...req.body.guarantor }] } : undefined,
+          guarantors: req.body.guarantor?.name
+            ? {
+                create: [{
+                  tenantId,
+                  branchId,
+                  name: String(req.body.guarantor.name).trim(),
+                  nic: String(req.body.guarantor.nic ?? '').trim() || 'N/A',
+                  phone: String(req.body.guarantor.phone ?? '').trim() || 'N/A',
+                  address: req.body.guarantor.address ? String(req.body.guarantor.address).trim() : undefined,
+                  relationship: req.body.guarantor.relationship ? String(req.body.guarantor.relationship).trim() : undefined,
+                }],
+              }
+            : undefined,
         },
         include: { installments: true, customer: true },
       })

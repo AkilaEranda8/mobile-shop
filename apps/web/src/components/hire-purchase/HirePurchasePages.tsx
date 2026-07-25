@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
-  AlertTriangle, Banknote, Calendar, CalendarDays, CheckCircle2, Clock3,
-  Download, Eye, FileText, Hash, Loader2, Phone, Printer, Settings,
-  ShieldCheck, Smartphone, User, Users, Wallet, X,
+  AlertTriangle, Banknote, Bell, Calendar, CalendarDays, CheckCircle2, Clock3,
+  Download, Eye, FileText, Hash, Loader2, Phone, Printer, Save, Settings,
+  Shield, ShieldCheck, Smartphone, User, Users, Wallet, X,
 } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import toast from 'react-hot-toast'
@@ -49,7 +49,14 @@ type Agreement = {
     id: string; receiptNumber: string; amount: number; occurredAt: string
     methods: Array<{ method: string; amount: number }>
   }>
-  guarantors?: Array<{ id: string; name: string; nic: string; phone: string; relationship?: string }>
+  guarantors?: Array<{
+    id: string
+    name: string
+    nic: string
+    phone: string
+    address?: string | null
+    relationship?: string | null
+  }>
   documents?: Array<{ id: string; type: string; fileName: string; fileUrl: string }>
 }
 
@@ -114,6 +121,31 @@ function SectionTable({ title, children }: { title: string; children: React.Reac
   )
 }
 
+function SettingsPanel({
+  title,
+  icon: Icon,
+  children,
+  className = '',
+}: {
+  title: string
+  icon?: React.ComponentType<{ size?: number; className?: string; style?: React.CSSProperties }>
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <div className={`card overflow-hidden ${className}`}>
+      <div
+        className="px-4 py-3 flex items-center gap-2"
+        style={{ borderBottom: '1px solid var(--border-subtle)' }}
+      >
+        {Icon ? <Icon size={15} style={{ color: 'var(--text-muted)' }} /> : null}
+        <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</h2>
+      </div>
+      {children}
+    </div>
+  )
+}
+
 function useAgreements(status?: string) {
   const branchId = useActiveBranchId()
   const [rows, setRows] = useState<Agreement[]>([])
@@ -136,6 +168,11 @@ function AgreementDetailModal({ id, onClose }: { id: string; onClose: () => void
   const [loading, setLoading] = useState(true)
   const [qr, setQr] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [addingGuarantor, setAddingGuarantor] = useState(false)
+  const [savingGuarantor, setSavingGuarantor] = useState(false)
+  const [guarantorForm, setGuarantorForm] = useState({
+    name: '', nic: '', phone: '', address: '', relationship: '',
+  })
   const printableRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -144,13 +181,15 @@ function AgreementDetailModal({ id, onClose }: { id: string; onClose: () => void
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  useEffect(() => {
+  const reload = useCallback(() => {
     setLoading(true)
     hirePurchaseApi.agreement(id)
       .then((res: any) => setRow(res.data ?? res))
       .catch((e: any) => toast.error(e.message))
       .finally(() => setLoading(false))
   }, [id])
+
+  useEffect(reload, [reload])
 
   useEffect(() => {
     if (!row) return
@@ -186,6 +225,36 @@ function AgreementDetailModal({ id, onClose }: { id: string; onClose: () => void
       toast.error(e.message)
     } finally {
       setUploading(false)
+    }
+  }
+
+  const saveGuarantor = async () => {
+    if (!row) return
+    if (!guarantorForm.name.trim() || !guarantorForm.nic.trim() || !guarantorForm.phone.trim()) {
+      return toast.error('Guarantor name, NIC and phone are required')
+    }
+    setSavingGuarantor(true)
+    try {
+      await hirePurchaseApi.addGuarantor(row.id, guarantorForm)
+      toast.success('Guarantor added')
+      setAddingGuarantor(false)
+      setGuarantorForm({ name: '', nic: '', phone: '', address: '', relationship: '' })
+      reload()
+    } catch (e: any) {
+      toast.error(e.message)
+    } finally {
+      setSavingGuarantor(false)
+    }
+  }
+
+  const removeGuarantor = async (guarantorId: string) => {
+    if (!canEdit) return viewOnlyToast('hire purchase')
+    try {
+      await hirePurchaseApi.deleteGuarantor(guarantorId)
+      toast.success('Guarantor removed')
+      reload()
+    } catch (e: any) {
+      toast.error(e.message)
     }
   }
 
@@ -438,24 +507,118 @@ function AgreementDetailModal({ id, onClose }: { id: string; onClose: () => void
               </div>
 
               <div className="space-y-4">
-                {(row.guarantors?.length ?? 0) > 0 && (
-                  <SectionTable title="Guarantors">
-                    <div className="p-3 space-y-3">
-                      {row.guarantors!.map(g => (
-                        <div key={g.id} className="text-[12px] space-y-1 border-b last:border-0 pb-2 last:pb-0" style={{ borderColor: 'var(--border-subtle)' }}>
-                          <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{g.name}</p>
-                          <p style={{ color: 'var(--text-muted)' }}>{g.nic} · {g.phone}</p>
-                          {g.relationship && <p style={{ color: 'var(--text-muted)' }}>{g.relationship}</p>}
-                        </div>
-                      ))}
-                    </div>
-                  </SectionTable>
-                )}
+                <SectionTable title="Guarantors">
+                  <div className="overflow-x-auto">
+                    {(row.guarantors?.length ?? 0) > 0 ? (
+                      <table className="min-w-[280px] w-full text-[12px]">
+                        <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                          <tr style={{ color: 'var(--text-secondary)' }}>
+                            <th className="px-3 py-2 text-left">Name</th>
+                            <th className="px-3 py-2 text-left">NIC</th>
+                            <th className="px-3 py-2 text-left">Phone</th>
+                            <th className="px-3 py-2 text-left">Relation</th>
+                            {canEdit && <th className="px-3 py-2 text-right print:hidden"> </th>}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {row.guarantors!.map(g => (
+                            <tr key={g.id} className="border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
+                              <td className="px-3 py-2">
+                                <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{safeText(g.name)}</p>
+                                {g.address && (
+                                  <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{g.address}</p>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 font-mono">{safeText(g.nic)}</td>
+                              <td className="px-3 py-2">
+                                {g.phone ? (
+                                  <a href={`tel:${g.phone}`} className="text-cyan-600 dark:text-cyan-400 hover:underline">{g.phone}</a>
+                                ) : '—'}
+                              </td>
+                              <td className="px-3 py-2">{safeText(g.relationship)}</td>
+                              {canEdit && (
+                                <td className="px-3 py-2 text-right print:hidden">
+                                  <button
+                                    type="button"
+                                    onClick={() => removeGuarantor(g.id)}
+                                    className="text-[11px] font-semibold text-rose-600 hover:underline"
+                                  >
+                                    Remove
+                                  </button>
+                                </td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <p className="px-3 py-4 text-[12px]" style={{ color: 'var(--text-muted)' }}>
+                        No guarantors linked to this agreement.
+                      </p>
+                    )}
+                  </div>
 
-                {canEdit && (
-                  <SectionTable title="Documents">
-                    <div className="p-3 space-y-3 print:hidden">
-                      <label className="btn-secondary inline-flex cursor-pointer text-xs items-center gap-2">
+                  {canEdit && (
+                    <div className="border-t p-3 space-y-3 print:hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                      {!addingGuarantor ? (
+                        <button
+                          type="button"
+                          onClick={() => setAddingGuarantor(true)}
+                          className="btn-secondary text-xs inline-flex items-center gap-1.5"
+                        >
+                          <Users size={13} /> Add guarantor
+                        </button>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {[
+                              ['name', 'Full name *'],
+                              ['nic', 'NIC *'],
+                              ['phone', 'Phone *'],
+                              ['relationship', 'Relationship'],
+                              ['address', 'Address'],
+                            ].map(([key, label]) => (
+                              <label key={key} className={`text-[11px] ${key === 'address' ? 'sm:col-span-2' : ''}`} style={{ color: 'var(--text-muted)' }}>
+                                {label}
+                                <input
+                                  className="input-field mt-1 text-xs"
+                                  value={(guarantorForm as any)[key]}
+                                  onChange={e => setGuarantorForm(p => ({ ...p, [key]: e.target.value }))}
+                                />
+                              </label>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAddingGuarantor(false)
+                                setGuarantorForm({ name: '', nic: '', phone: '', address: '', relationship: '' })
+                              }}
+                              className="btn-secondary flex-1 text-xs"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={saveGuarantor}
+                              disabled={savingGuarantor}
+                              className="btn-primary flex-1 text-xs inline-flex items-center justify-center gap-1.5 disabled:opacity-60"
+                            >
+                              {savingGuarantor ? <Loader2 size={13} className="animate-spin" /> : <Users size={13} />}
+                              Save guarantor
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </SectionTable>
+
+                <SectionTable title="Documents">
+                  <div className="p-3 space-y-3">
+                    {canEdit && (
+                      <label className="btn-secondary inline-flex cursor-pointer text-xs items-center gap-2 print:hidden">
                         {uploading ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />}
                         Upload KYC / Document
                         <input
@@ -469,26 +632,26 @@ function AgreementDetailModal({ id, onClose }: { id: string; onClose: () => void
                           }}
                         />
                       </label>
-                      {(row.documents?.length ?? 0) > 0 ? (
-                        <div className="space-y-1">
-                          {row.documents!.map(doc => (
-                            <a
-                              key={doc.id}
-                              href={doc.fileUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="block text-xs text-emerald-600 dark:text-emerald-400 hover:underline"
-                            >
-                              {doc.fileName}
-                            </a>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>No documents uploaded yet.</p>
-                      )}
-                    </div>
-                  </SectionTable>
-                )}
+                    )}
+                    {(row.documents?.length ?? 0) > 0 ? (
+                      <div className="space-y-1">
+                        {row.documents!.map(doc => (
+                          <a
+                            key={doc.id}
+                            href={doc.fileUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block text-xs text-emerald-600 dark:text-emerald-400 hover:underline"
+                          >
+                            {doc.fileName}
+                          </a>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>No documents uploaded yet.</p>
+                    )}
+                  </div>
+                </SectionTable>
               </div>
             </div>
           </div>
@@ -770,33 +933,72 @@ export function HpAgreementsPage({ fixedStatus }: { fixedStatus?: string } = {})
 
 /* ── Payment Collection ──────────────────────────────────────────────── */
 export function HpPaymentsPage() {
-  const { rows, reload } = useAgreements()
+  const { rows, loading: listLoading, reload } = useAgreements()
   const payMethods = usePaymentMethods()
   const { canEdit } = useModuleAccess()
   const [query, setQuery] = useState('')
+  const [tab, setTab] = useState<'open' | 'ACTIVE' | 'DEFAULTED'>('open')
   const [selected, setSelected] = useState<Agreement | null>(null)
+  const [detail, setDetail] = useState<string | null>(null)
   const [amount, setAmount] = useState('')
   const [method, setMethod] = useState('CASH')
   const [splitMethod, setSplitMethod] = useState('')
   const [splitAmount, setSplitAmount] = useState('')
   const [reference, setReference] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
 
-  const candidates = useMemo(() =>
-    rows.filter(r =>
-      ['ACTIVE', 'DEFAULTED'].includes(r.status)
-      && [r.agreementNumber, r.customer.name, r.customer.phone, r.imei].some(v => v.toLowerCase().includes(query.toLowerCase())),
-    ),
-  [rows, query])
+  const openRows = useMemo(
+    () => rows.filter(r => ['ACTIVE', 'DEFAULTED'].includes(r.status) && r.outstandingBalance > 0.001),
+    [rows],
+  )
+
+  const filtered = useMemo(() => {
+    let list = openRows
+    if (tab === 'ACTIVE') list = list.filter(r => r.status === 'ACTIVE')
+    if (tab === 'DEFAULTED') list = list.filter(r => r.status === 'DEFAULTED')
+    const q = query.trim().toLowerCase()
+    if (!q) return list
+    return list.filter(row =>
+      [row.agreementNumber, row.customer.name, row.customer.phone, row.imei, row.productName]
+        .some(v => v?.toLowerCase().includes(q)),
+    )
+  }, [openRows, query, tab])
+
+  const totals = useMemo(() => ({
+    open: openRows.length,
+    active: openRows.filter(r => r.status === 'ACTIVE').length,
+    defaulted: openRows.filter(r => r.status === 'DEFAULTED').length,
+    outstanding: openRows.reduce((sum, row) => sum + (Number(row.outstandingBalance) || 0), 0),
+  }), [openRows])
 
   useEffect(() => {
-    if (selected) setAmount(selected.outstandingBalance.toFixed(2))
+    if (!selected) return
+    setAmount(selected.outstandingBalance.toFixed(2))
+    setMethod('CASH')
+    setSplitMethod('')
+    setSplitAmount('')
+    setReference('')
   }, [selected])
+
+  useEffect(() => {
+    if (!selected) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelected(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selected])
+
+  const resetCollect = () => {
+    setSelected(null)
+    setAmount('')
+    setSplitMethod('')
+    setSplitAmount('')
+    setReference('')
+  }
 
   const submit = async () => {
     if (!canEdit) return viewOnlyToast('hire purchase')
     if (!selected || Number(amount) <= 0) return
-    setLoading(true)
+    setSaving(true)
     try {
       const split = Math.max(0, Number(splitAmount) || 0)
       const methods = splitMethod && split > 0
@@ -804,156 +1006,288 @@ export function HpPaymentsPage() {
         : undefined
       await hirePurchaseApi.collectPayment(selected.id, { amount: Number(amount), method, methods, reference })
       toast.success('Payment recorded')
-      setSelected(null)
-      setQuery('')
-      setSplitMethod('')
-      setSplitAmount('')
-      setReference('')
+      resetCollect()
       reload()
     } catch (e: any) {
       toast.error(e.message)
     } finally {
-      setLoading(false)
+      setSaving(false)
     }
   }
+
+  const columns = useMemo<ColumnDef<Agreement>[]>(() => [
+    {
+      accessorKey: 'agreementNumber',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Agreement" />,
+      cell: ({ row }) => (
+        <button type="button" className="flex items-center gap-2 hover:opacity-80" onClick={() => setDetail(row.original.id)}>
+          <FileText size={13} className="text-emerald-500 flex-shrink-0" />
+          <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400 hover:underline">{row.original.agreementNumber}</span>
+        </button>
+      ),
+    },
+    {
+      accessorKey: 'customer.name',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Customer" />,
+      cell: ({ row }) => (
+        <div>
+          <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{row.original.customer.name}</p>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{row.original.customer.phone}</p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'productName',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Device / IMEI" />,
+      cell: ({ row }) => (
+        <div>
+          <p className="text-sm truncate max-w-[180px]" style={{ color: 'var(--text-primary)' }}>{row.original.productName}</p>
+          <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{row.original.imei}</p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'monthlyInstallment',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Installment" />,
+      cell: ({ row }) => <span className="text-sm">{formatCurrency(row.original.monthlyInstallment)}</span>,
+    },
+    {
+      accessorKey: 'outstandingBalance',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Outstanding" />,
+      cell: ({ row }) => (
+        <span className="text-sm font-semibold text-rose-600 dark:text-rose-400">
+          {formatCurrency(row.original.outstandingBalance)}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'status',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+      cell: ({ row }) => <StatusBadge value={row.original.status} />,
+    },
+    {
+      id: 'actions',
+      header: () => <span className="text-right block w-full">Actions</span>,
+      cell: ({ row }) => (
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setDetail(row.original.id)}
+            className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg border font-semibold text-emerald-700 dark:text-emerald-300 border-emerald-500/25 bg-emerald-500/10"
+          >
+            <Eye size={12} /> View
+          </button>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!canEdit) return viewOnlyToast('hire purchase')
+                setSelected(row.original)
+              }}
+              className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg border font-semibold text-sky-700 dark:text-sky-300 border-sky-500/25 bg-sky-500/10"
+            >
+              <Banknote size={12} /> Collect
+            </button>
+          )}
+        </div>
+      ),
+    },
+  ], [canEdit])
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Payment Collection"
-        subtitle="Find an agreement and allocate full, partial or advance payments"
+        subtitle={`${filtered.length} open agreements · full, partial or split installment payments`}
       />
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Open', value: totals.open, icon: FileText, color: 'violet', key: 'open' as const },
+          { label: 'Active', value: totals.active, icon: ShieldCheck, color: 'sky', key: 'ACTIVE' as const },
+          { label: 'Defaulted', value: totals.defaulted, icon: AlertTriangle, color: 'rose', key: 'DEFAULTED' as const },
+          { label: 'Outstanding', value: formatCurrency(totals.outstanding), icon: Banknote, color: 'amber', key: 'open' as const },
+        ].map(({ label, value, icon: Icon, color, key }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => setTab(key)}
+            className={`card p-4 flex items-center gap-3 text-left transition-all w-full ${tab === key && label !== 'Outstanding' ? 'ring-2 ring-emerald-500/40' : 'hover:border-emerald-500/30'}`}
+          >
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20`}>
+              <Icon size={15} className={`text-${color}-500`} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-lg font-bold truncate" style={{ color: 'var(--text-primary)' }}>{value}</p>
+              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{label}</p>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      <div className="flex gap-1 p-1 rounded-xl w-fit border" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+        {([['open', 'All open'], ['ACTIVE', 'Active'], ['DEFAULTED', 'Defaulted']] as const).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setTab(key)}
+            className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${tab === key ? 'bg-emerald-600 text-white' : 'hover:text-emerald-500'}`}
+            style={tab !== key ? { color: 'var(--text-muted)' } : undefined}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       <ToolbarSearch
         value={query}
-        onChange={v => { setQuery(v); setSelected(null) }}
-        placeholder="Agreement, customer, phone or IMEI…"
-        className="max-w-xl"
+        onChange={setQuery}
+        placeholder="Search agreement, customer, phone or IMEI…"
+        className="max-w-md"
       />
 
-      {query && !selected && (
-        <div className="card overflow-hidden max-w-xl">
-          {candidates.length === 0 ? (
-            <p className="p-4 text-sm" style={{ color: 'var(--text-muted)' }}>No open agreements found</p>
-          ) : candidates.slice(0, 8).map(row => (
-            <button
-              key={row.id}
-              type="button"
-              onClick={() => setSelected(row)}
-              className="flex w-full items-center justify-between border-b last:border-0 px-4 py-3 text-left hover:bg-[var(--bg-subtle)] transition-colors"
-              style={{ borderColor: 'var(--border-subtle)' }}
-            >
-              <span>
-                <span className="font-mono text-xs font-semibold text-emerald-600 dark:text-emerald-400">{row.agreementNumber}</span>
-                <span className="block text-sm" style={{ color: 'var(--text-primary)' }}>{row.customer.name}</span>
-                <span className="block text-[11px] font-mono" style={{ color: 'var(--text-muted)' }}>{row.imei}</span>
-              </span>
-              <span className="font-bold text-rose-600 dark:text-rose-400">{formatCurrency(row.outstandingBalance)}</span>
-            </button>
-          ))}
-        </div>
-      )}
+      <ClientSideTable
+        data={filtered}
+        columns={columns}
+        isLoading={listLoading}
+        pageCount={Math.ceil((filtered.length || 1) / 20)}
+        searchableColumns={[]}
+        showFilter={false}
+      />
+
+      {detail && <AgreementDetailModal id={detail} onClose={() => setDetail(null)} />}
 
       {selected && (
-        <div className="max-w-3xl rounded-xl border shadow-sm" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-card)' }}>
-          <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-emerald-500/10 border border-emerald-500/20">
-                <Banknote size={14} className="text-emerald-500" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Record Payment</h3>
-                <p className="text-[11px] font-mono text-emerald-600">{selected.agreementNumber}</p>
-              </div>
-            </div>
-            <button type="button" onClick={() => setSelected(null)} className="p-1.5 rounded-lg" style={{ color: 'var(--text-muted)' }}>
-              <X size={15} />
-            </button>
-          </div>
-
-          <div className="p-5 space-y-4">
-            <div className="grid grid-cols-2 gap-3 text-[12px] rounded-lg border p-3" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-              <div>
-                <p style={{ color: 'var(--text-muted)' }}>Customer</p>
-                <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{selected.customer.name}</p>
-              </div>
-              <div className="text-right">
-                <p style={{ color: 'var(--text-muted)' }}>Outstanding</p>
-                <p className="text-lg font-bold text-rose-600 dark:text-rose-400">{formatCurrency(selected.outstandingBalance)}</p>
-              </div>
-              <div>
-                <p style={{ color: 'var(--text-muted)' }}>Device</p>
-                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{selected.productName}</p>
-              </div>
-              <div className="text-right">
-                <p style={{ color: 'var(--text-muted)' }}>IMEI</p>
-                <p className="font-mono" style={{ color: 'var(--text-primary)' }}>{selected.imei}</p>
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Amount *</label>
-                <input
-                  type="number"
-                  min="0.01"
-                  max={selected.outstandingBalance}
-                  step="0.01"
-                  className="input-field"
-                  value={amount}
-                  onChange={e => setAmount(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Reference</label>
-                <input className="input-field" value={reference} onChange={e => setReference(e.target.value)} placeholder="Optional note / slip no." />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-muted)' }}>Payment method</label>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {payMethods.map(item => (
-                  <button
-                    type="button"
-                    key={item.id}
-                    onClick={() => setMethod(item.key)}
-                    className={`rounded-lg border p-2.5 text-xs font-semibold transition-colors ${method === item.key ? 'border-emerald-500 bg-emerald-500/10 text-emerald-600' : ''}`}
-                    style={method !== item.key ? { borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' } : undefined}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Optional split method</label>
-                <select className="input-field" value={splitMethod} onChange={e => setSplitMethod(e.target.value)}>
-                  <option value="">No split</option>
-                  {payMethods.filter(item => item.key !== method).map(item => (
-                    <option key={item.id} value={item.key}>{item.label}</option>
-                  ))}
-                </select>
-              </div>
-              {splitMethod && (
-                <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Amount on split method</label>
-                  <input type="number" className="input-field" min="0" max={amount} value={splitAmount} onChange={e => setSplitAmount(e.target.value)} />
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm"
+          onClick={resetCollect}
+        >
+          <div
+            className="rounded-xl w-full max-w-lg shadow-2xl max-h-[92vh] overflow-y-auto border"
+            style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', borderColor: 'var(--border-default)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div
+              className="flex items-center justify-between px-4 sm:px-5 py-3 border-b sticky top-0 z-10"
+              style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
+            >
+              <div className="flex items-start gap-2 min-w-0">
+                <Banknote size={16} className="text-emerald-500 mt-0.5 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold truncate">
+                    Record Payment ( <span className="font-mono">{selected.agreementNumber}</span> )
+                  </p>
+                  <p className="text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>
+                    {selected.customer.name} · {selected.productName}
+                  </p>
                 </div>
-              )}
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <StatusBadge value={selected.status} />
+                <button
+                  type="button"
+                  onClick={resetCollect}
+                  className="p-1.5 rounded-lg transition-colors"
+                  style={{ color: 'var(--text-muted)' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-subtle)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </div>
 
-            <div className="flex flex-col-reverse sm:flex-row gap-2 pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-              <button type="button" onClick={() => setSelected(null)} className="btn-secondary flex-1 text-sm">Cancel</button>
+            <div className="p-4 sm:p-5 space-y-4">
+              <div className="grid grid-cols-2 gap-3 text-[12px] rounded-lg border p-3" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                <div>
+                  <p style={{ color: 'var(--text-muted)' }}>Customer</p>
+                  <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{selected.customer.name}</p>
+                  <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{selected.customer.phone}</p>
+                </div>
+                <div className="text-right">
+                  <p style={{ color: 'var(--text-muted)' }}>Outstanding</p>
+                  <p className="text-lg font-bold text-rose-600 dark:text-rose-400">{formatCurrency(selected.outstandingBalance)}</p>
+                </div>
+                <div>
+                  <p style={{ color: 'var(--text-muted)' }}>Device</p>
+                  <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{selected.productName}</p>
+                </div>
+                <div className="text-right">
+                  <p style={{ color: 'var(--text-muted)' }}>IMEI</p>
+                  <p className="font-mono" style={{ color: 'var(--text-primary)' }}>{selected.imei}</p>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Amount *</label>
+                  <input
+                    type="number"
+                    min="0.01"
+                    max={selected.outstandingBalance}
+                    step="0.01"
+                    className="input-field"
+                    value={amount}
+                    onChange={e => setAmount(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Reference</label>
+                  <input
+                    className="input-field"
+                    value={reference}
+                    onChange={e => setReference(e.target.value)}
+                    placeholder="Optional note / slip no."
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-muted)' }}>Payment method</label>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {payMethods.map(item => (
+                    <button
+                      type="button"
+                      key={item.id}
+                      onClick={() => setMethod(item.key)}
+                      className={`rounded-lg border p-2.5 text-xs font-semibold transition-colors ${method === item.key ? 'border-emerald-500 bg-emerald-500/10 text-emerald-600' : ''}`}
+                      style={method !== item.key ? { borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' } : undefined}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Optional split method</label>
+                  <select className="input-field" value={splitMethod} onChange={e => setSplitMethod(e.target.value)}>
+                    <option value="">No split</option>
+                    {payMethods.filter(item => item.key !== method).map(item => (
+                      <option key={item.id} value={item.key}>{item.label}</option>
+                    ))}
+                  </select>
+                </div>
+                {splitMethod && (
+                  <div>
+                    <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Amount on split method</label>
+                    <input type="number" className="input-field" min="0" max={amount} value={splitAmount} onChange={e => setSplitAmount(e.target.value)} />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row gap-2 px-4 sm:px-5 py-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+              <button type="button" onClick={resetCollect} className="btn-secondary flex-1 text-sm">Cancel</button>
               <button
                 type="button"
                 className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60"
-                disabled={loading || Number(amount) <= 0 || Number(amount) > selected.outstandingBalance}
+                disabled={saving || Number(amount) <= 0 || Number(amount) > selected.outstandingBalance}
                 onClick={submit}
               >
-                {loading ? <Loader2 size={14} className="animate-spin" /> : <Banknote size={14} />}
+                {saving ? <Loader2 size={14} className="animate-spin" /> : <Banknote size={14} />}
                 Record Payment
               </button>
             </div>
@@ -1264,37 +1598,41 @@ export function HpReportsPage() {
 export function HpSettingsPage() {
   const { canEdit } = useModuleAccess()
   const [form, setForm] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setLoading(true)
     hirePurchaseApi.settings()
       .then((r: any) => setForm(r.data ?? r))
       .catch((e: any) => toast.error(e.message))
+      .finally(() => setLoading(false))
   }, [])
 
-  if (!form) {
-    return (
-      <div className="flex justify-center py-20">
-        <Loader2 className="animate-spin text-emerald-500" />
-      </div>
-    )
-  }
+  useEffect(load, [load])
 
   const field = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm((p: any) => ({ ...p, [key]: e.target.value }))
 
   const save = async () => {
     if (!canEdit) return viewOnlyToast('hire purchase settings')
+    if (!form) return
     setSaving(true)
     try {
       await hirePurchaseApi.updateSettings({
-        ...form,
+        defaultInterestType: form.defaultInterestType,
         defaultInterestRate: Number(form.defaultInterestRate),
         defaultLateFee: Number(form.defaultLateFee),
         defaultGracePeriod: Number(form.defaultGracePeriod),
         defaultDueDay: Number(form.defaultDueDay),
+        agreementTemplate: form.agreementTemplate,
+        receiptTemplate: form.receiptTemplate,
+        reminderSettings: form.reminderSettings,
+        penaltyRules: form.penaltyRules,
+        rolePermissions: form.rolePermissions,
       })
-      toast.success('Settings saved')
+      toast.success('Hire purchase settings saved')
+      load()
     } catch (e: any) {
       toast.error(e.message)
     } finally {
@@ -1302,14 +1640,14 @@ export function HpSettingsPage() {
     }
   }
 
-  const actions = ['CREATE', 'EDIT', 'DELETE', 'APPROVE', 'RECEIVE_PAYMENT', 'CANCEL', 'EXPORT_REPORTS'] as const
+  const actions = ['CREATE', 'EDIT', 'DELETE', 'APPROVE', 'RECEIVE_PAYMENT', 'CANCEL', 'EXPORT_REPORTS', 'EDIT_SETTINGS'] as const
   const defaults: Record<string, string[]> = {
     MANAGER: [...actions],
     CASHIER: ['CREATE', 'RECEIVE_PAYMENT'],
     TECHNICIAN: [],
   }
   const actionEnabled = (role: string, action: string) =>
-    form.rolePermissions?.[role]?.[action] ?? defaults[role]?.includes(action) ?? false
+    form?.rolePermissions?.[role]?.[action] ?? defaults[role]?.includes(action) ?? false
   const setAction = (role: string, action: string, enabled: boolean) =>
     setForm((p: any) => ({
       ...p,
@@ -1319,122 +1657,250 @@ export function HpSettingsPage() {
       },
     }))
 
+  const saveButton = canEdit ? (
+    <button
+      type="button"
+      onClick={save}
+      disabled={saving || loading || !form}
+      className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60"
+    >
+      {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+      Save settings
+    </button>
+  ) : null
+
   return (
     <div className="space-y-6">
-      <PageHeader title="HP Settings" subtitle="Branch defaults, agreement text, reminders and penalty rules" />
+      <PageHeader
+        title="HP Settings"
+        subtitle="Branch defaults, reminders, penalties, templates and role actions"
+        action={saveButton}
+      />
 
-      <div className="max-w-4xl card p-5 space-y-5">
-        <div>
-          <p className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Finance defaults</p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Interest method</label>
-              <select className="input-field" value={form.defaultInterestType} onChange={field('defaultInterestType')}>
-                <option value="NONE">No Interest</option>
-                <option value="FLAT">Flat Rate</option>
-                <option value="REDUCING">Reducing Balance</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Interest %</label>
-              <input type="number" className="input-field" value={form.defaultInterestRate} onChange={field('defaultInterestRate')} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Late fee</label>
-              <input type="number" className="input-field" value={form.defaultLateFee} onChange={field('defaultLateFee')} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Grace period (days)</label>
-              <input type="number" className="input-field" value={form.defaultGracePeriod} onChange={field('defaultGracePeriod')} />
-            </div>
-          </div>
+      {loading || !form ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="animate-spin text-emerald-500" />
         </div>
+      ) : (
+        <>
+          <fieldset disabled={!canEdit} className="space-y-6 min-w-0">
+            <div className="grid xl:grid-cols-2 gap-6 w-full">
+              <SettingsPanel title="Finance defaults" icon={Banknote}>
+                <div className="p-5 space-y-4">
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    Defaults used by the POS hire-purchase wizard for this branch.
+                  </p>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Interest method</label>
+                      <select className="input-field" value={form.defaultInterestType ?? 'FLAT'} onChange={field('defaultInterestType')}>
+                        <option value="NONE">No Interest</option>
+                        <option value="FLAT">Flat Rate</option>
+                        <option value="REDUCING">Reducing Balance</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Interest %</label>
+                      <input type="number" step="0.01" min="0" className="input-field" value={form.defaultInterestRate ?? 0} onChange={field('defaultInterestRate')} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Late fee</label>
+                      <input type="number" step="0.01" min="0" className="input-field" value={form.defaultLateFee ?? 0} onChange={field('defaultLateFee')} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Grace period (days)</label>
+                      <input type="number" min="0" className="input-field" value={form.defaultGracePeriod ?? 3} onChange={field('defaultGracePeriod')} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Default due day</label>
+                      <input type="number" min="1" max="28" className="input-field" value={form.defaultDueDay ?? 1} onChange={field('defaultDueDay')} />
+                    </div>
+                  </div>
+                </div>
+              </SettingsPanel>
 
-        <div className="border-t pt-5" style={{ borderColor: 'var(--border-subtle)' }}>
-          <p className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Reminders</p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
-              <input
-                type="checkbox"
-                checked={form.reminderSettings?.enabled === true}
-                onChange={e => setForm((p: any) => ({
-                  ...p,
-                  reminderSettings: {
-                    ...(p.reminderSettings ?? {}),
-                    enabled: e.target.checked,
-                    days: p.reminderSettings?.days ?? [3, 1, 0, -1],
-                  },
-                }))}
-              />
-              Automated payment reminders
-            </label>
-            <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Reminder channel</label>
-              <select
-                className="input-field"
-                value={form.reminderSettings?.channel ?? 'WHATSAPP'}
-                onChange={e => setForm((p: any) => ({
-                  ...p,
-                  reminderSettings: { ...(p.reminderSettings ?? {}), channel: e.target.value },
-                }))}
-              >
-                <option value="WHATSAPP">WhatsApp</option>
-                <option value="EMAIL">Email</option>
-              </select>
+              <SettingsPanel title="Reminders" icon={Bell}>
+                <div className="p-5 space-y-4">
+                  <label className="flex items-start gap-3 text-sm cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
+                    <input
+                      type="checkbox"
+                      className="rounded mt-0.5"
+                      checked={form.reminderSettings?.enabled === true}
+                      onChange={e => setForm((p: any) => ({
+                        ...p,
+                        reminderSettings: {
+                          ...(p.reminderSettings ?? {}),
+                          enabled: e.target.checked,
+                          days: p.reminderSettings?.days ?? [3, 1, 0, -1],
+                          channel: p.reminderSettings?.channel ?? 'WHATSAPP',
+                        },
+                      }))}
+                    />
+                    <span>Automated payment reminders — send before/after due dates for open installments</span>
+                  </label>
+                  <div>
+                    <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Reminder channel</label>
+                    <select
+                      className="input-field"
+                      value={form.reminderSettings?.channel ?? 'WHATSAPP'}
+                      onChange={e => setForm((p: any) => ({
+                        ...p,
+                        reminderSettings: { ...(p.reminderSettings ?? {}), channel: e.target.value },
+                      }))}
+                    >
+                      <option value="WHATSAPP">WhatsApp</option>
+                      <option value="EMAIL">Email</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>
+                      Reminder offsets (days relative to due)
+                    </label>
+                    <input
+                      className="input-field"
+                      value={(form.reminderSettings?.days ?? [3, 1, 0, -1]).join(', ')}
+                      onChange={e => {
+                        const days = e.target.value
+                          .split(',')
+                          .map((part: string) => Number(part.trim()))
+                          .filter((n: number) => Number.isFinite(n))
+                        setForm((p: any) => ({
+                          ...p,
+                          reminderSettings: { ...(p.reminderSettings ?? {}), days },
+                        }))
+                      }}
+                      placeholder="3, 1, 0, -1"
+                    />
+                    <p className="mt-1.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                      Positive = before due, 0 = due day, negative = overdue days.
+                    </p>
+                  </div>
+                </div>
+              </SettingsPanel>
             </div>
-          </div>
-        </div>
 
-        <div className="border-t pt-5" style={{ borderColor: 'var(--border-subtle)' }}>
-          <p className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Role action permissions</p>
-          <div className="overflow-x-auto rounded-lg border" style={{ borderColor: 'var(--border-subtle)' }}>
-            <table className="min-w-[720px] w-full text-[11px]">
-              <thead style={{ background: 'var(--bg-subtle)' }}>
-                <tr>
-                  <th className="p-2.5 text-left">Role</th>
-                  {actions.map(action => (
-                    <th key={action} className="p-2.5 text-center">{action.replace('_', ' ')}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {['MANAGER', 'CASHIER', 'TECHNICIAN'].map(role => (
-                  <tr key={role} className="border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                    <td className="p-2.5 font-semibold">{role}</td>
-                    {actions.map(action => (
-                      <td key={action} className="p-2.5 text-center">
-                        <input
-                          type="checkbox"
-                          checked={actionEnabled(role, action)}
-                          onChange={e => setAction(role, action, e.target.checked)}
-                          disabled={!canEdit}
-                        />
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+            <SettingsPanel title="Penalty rules" icon={AlertTriangle}>
+              <div className="p-5 grid gap-4 sm:grid-cols-2">
+                <label className="flex items-start gap-3 text-sm cursor-pointer sm:col-span-2" style={{ color: 'var(--text-secondary)' }}>
+                  <input
+                    type="checkbox"
+                    className="rounded mt-0.5"
+                    checked={form.penaltyRules?.enabled !== false}
+                    onChange={e => setForm((p: any) => ({
+                      ...p,
+                      penaltyRules: { ...(p.penaltyRules ?? {}), enabled: e.target.checked },
+                    }))}
+                  />
+                  <span>Apply late fees automatically after the grace period (maintenance job)</span>
+                </label>
+                <div>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Penalty amount override</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    className="input-field"
+                    value={form.penaltyRules?.amount ?? form.defaultLateFee ?? 0}
+                    onChange={e => setForm((p: any) => ({
+                      ...p,
+                      penaltyRules: { ...(p.penaltyRules ?? {}), amount: e.target.value },
+                    }))}
+                    placeholder="Uses default late fee when empty"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Max penalties per installment</label>
+                  <input
+                    type="number"
+                    min="1"
+                    className="input-field"
+                    value={form.penaltyRules?.maxPerInstallment ?? 1}
+                    onChange={e => setForm((p: any) => ({
+                      ...p,
+                      penaltyRules: { ...(p.penaltyRules ?? {}), maxPerInstallment: Number(e.target.value) || 1 },
+                    }))}
+                  />
+                </div>
+              </div>
+            </SettingsPanel>
 
-        <div className="border-t pt-5" style={{ borderColor: 'var(--border-subtle)' }}>
-          <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Agreement template</label>
-          <textarea
-            className="input-field min-h-32"
-            value={form.agreementTemplate ?? ''}
-            onChange={field('agreementTemplate')}
-            placeholder="Optional agreement wording / clauses…"
-          />
-        </div>
+            <SettingsPanel title="Role action permissions" icon={Shield}>
+              <div className="p-5 space-y-3">
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Fine-grained hire-purchase actions on top of the module View / Edit permission.
+                </p>
+                <div className="overflow-x-auto rounded-lg border" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <table className="min-w-[820px] w-full text-[12px]">
+                    <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                      <tr style={{ color: 'var(--text-secondary)' }}>
+                        <th className="px-3 py-2 text-left">Role</th>
+                        {actions.map(action => (
+                          <th key={action} className="px-3 py-2 text-center whitespace-nowrap">
+                            {action.replaceAll('_', ' ')}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {['MANAGER', 'CASHIER', 'TECHNICIAN'].map(role => (
+                        <tr key={role} className="border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
+                          <td className="px-3 py-2.5 font-semibold" style={{ color: 'var(--text-primary)' }}>{role}</td>
+                          {actions.map(action => (
+                            <td key={action} className="px-3 py-2.5 text-center">
+                              <input
+                                type="checkbox"
+                                className="rounded"
+                                checked={actionEnabled(role, action)}
+                                onChange={e => setAction(role, action, e.target.checked)}
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </SettingsPanel>
 
-        {canEdit && (
-          <button type="button" onClick={save} disabled={saving} className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
-            {saving ? <Loader2 size={14} className="animate-spin" /> : <Settings size={14} />}
-            Save Settings
-          </button>
-        )}
-      </div>
+            <div className="grid xl:grid-cols-2 gap-6 w-full">
+              <SettingsPanel title="Agreement template" icon={FileText}>
+                <div className="p-5 space-y-2">
+                  <label className="block text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+                    Optional agreement wording / clauses
+                  </label>
+                  <textarea
+                    className="input-field min-h-36 text-sm"
+                    value={form.agreementTemplate ?? ''}
+                    onChange={field('agreementTemplate')}
+                    placeholder="Terms printed on the hire purchase agreement…"
+                  />
+                </div>
+              </SettingsPanel>
+
+              <SettingsPanel title="Receipt template" icon={FileText}>
+                <div className="p-5 space-y-2">
+                  <label className="block text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+                    Optional collection receipt footer text
+                  </label>
+                  <textarea
+                    className="input-field min-h-36 text-sm"
+                    value={form.receiptTemplate ?? ''}
+                    onChange={field('receiptTemplate')}
+                    placeholder="Thank-you note or payment instructions…"
+                  />
+                </div>
+              </SettingsPanel>
+            </div>
+          </fieldset>
+
+          {canEdit && (
+            <div className="flex justify-end">
+              {saveButton}
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }

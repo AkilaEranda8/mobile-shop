@@ -450,6 +450,11 @@ export const hirePurchaseApi = {
   earlySettlement: (id: string) => api.post(`/hire-purchase/agreements/${id}/early-settlement`, {}),
   dues: (scope: string) => api.get(`/hire-purchase/dues?scope=${encodeURIComponent(scope)}`),
   guarantors: () => api.get('/hire-purchase/guarantors'),
+  addGuarantor: (agreementId: string, body: unknown) =>
+    api.post(`/hire-purchase/agreements/${agreementId}/guarantors`, body),
+  updateGuarantor: (id: string, body: unknown) =>
+    api.patch(`/hire-purchase/guarantors/${id}`, body),
+  deleteGuarantor: (id: string) => api.delete(`/hire-purchase/guarantors/${id}`),
   settings: () => api.get('/hire-purchase/settings'),
   updateSettings: (body: unknown) => api.patch('/hire-purchase/settings', body),
   report: (type: string) => api.get(`/hire-purchase/reports/${encodeURIComponent(type)}`),

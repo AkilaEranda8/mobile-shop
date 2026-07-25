@@ -73,6 +73,9 @@ export function HirePurchaseWizard({ cart, branchId, selectedCustomer, onClose, 
 
   const next = () => {
     if (step === 1 && (!customer.name.trim() || !customer.phone.trim() || !customer.nic.trim())) return toast.error('Customer name, phone and NIC are required')
+    if (step === 2 && guarantor.name.trim() && (!guarantor.nic.trim() || !guarantor.phone.trim())) {
+      return toast.error('Guarantor NIC and phone are required when a guarantor name is entered')
+    }
     if (step === 3 && (!device || cart.length !== 1 || !device.imei || !device.productId)) return toast.error('Hire Purchase requires one IMEI-tracked device')
     setStep(p => Math.min(5, p + 1))
   }
