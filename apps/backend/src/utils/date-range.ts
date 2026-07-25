@@ -41,6 +41,14 @@ export function parseOptionalPaymentAt(raw: unknown): Date | undefined {
   return d
 }
 
+/** Reject payment timestamps more than ~2 minutes in the future (clock skew). */
+export function assertPaymentAtNotFuture(at: Date | undefined): void {
+  if (!at) return
+  if (at.getTime() > Date.now() + 2 * 60 * 1000) {
+    throw new Error('Payment date/time cannot be in the future')
+  }
+}
+
 /** Accept YYYY-MM-DD or fall back to today's Colombo business date */
 export function normalizeBusinessDate(dateStr?: string | null): string {
   if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr

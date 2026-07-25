@@ -18,6 +18,7 @@ import type { Supplier, PurchaseOrder, POItem } from '@/types'
 import { isImeiHealthBannerDismissed, dismissImeiHealthBanner } from '@/lib/productImei'
 import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
 import { ChequeDetailsFields, ChequePaymentMeta, formatChequeReference, todayChequeDate } from '@/components/payments/ChequeDetailsFields'
+import { datetimeLocalMaxNow, clampDatetimeLocalToNow } from '@/lib/business-date'
 
 export type PoProduct = { id: string; trackImei?: boolean; name?: string }
 
@@ -767,16 +768,17 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
 
             <div>
               <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-                Payment Date &amp; Time <span style={{ color: 'var(--text-muted)' }}>(optional)</span>
+                Payment Date &amp; Time <span style={{ color: 'var(--text-muted)' }}>(optional · past only)</span>
               </label>
               <input
                 type="datetime-local"
                 className="input-field"
                 value={paymentDate}
-                onChange={e => setPaymentDate(e.target.value)}
+                max={datetimeLocalMaxNow()}
+                onChange={e => setPaymentDate(clampDatetimeLocalToNow(e.target.value))}
               />
               <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
-                Leave blank to use current date &amp; time
+                Leave blank to use current date &amp; time. Future dates are not allowed.
               </p>
             </div>
 
@@ -1200,7 +1202,7 @@ export function SupplierDetailsModal({ supplier, allPOs, onClose, onEdit }: { su
                       <tbody>
                         {payments.map((p: any) => (
                           <tr key={p.id} className="border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
-                            <td className="px-3 py-2 whitespace-nowrap">{safeText(formatDate(p.paymentDate || p.occurredAt || p.createdAt))}</td>
+                            <td className="px-3 py-2 whitespace-nowrap">{safeText(formatDate(p.paymentDate || p.occurredAt || p.createdAt, 'long'))}</td>
                             <td className="px-3 py-2">
                               <ChequePaymentMeta
                                 method={p.paymentMethod || p.method}

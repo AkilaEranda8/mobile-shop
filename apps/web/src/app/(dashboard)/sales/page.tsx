@@ -811,7 +811,7 @@ function SaleDetailsModal({
               <div className="flex items-center gap-1.5">
                 <Calendar size={13} style={{ color: 'var(--text-muted)' }} />
                 <span style={{ color: 'var(--text-muted)' }}>Date:</span>
-                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(formatDate(liveSale.createdAt))}</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(formatDate(liveSale.createdAt, 'long'))}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Hash size={13} style={{ color: 'var(--text-muted)' }} />

@@ -7,7 +7,7 @@ import { useFeatureFlag } from '@/lib/hooks'
 import { accountingApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
-import { businessToday } from '@/lib/business-date'
+import { businessToday, datetimeLocalMaxNow, clampDatetimeLocalToNow } from '@/lib/business-date'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
 import { ChequeDetailsFields, formatChequeReference, todayChequeDate } from '@/components/payments/ChequeDetailsFields'
@@ -358,12 +358,13 @@ export default function ArApPage() {
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <label className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
-                        Date &amp; time <span style={{ opacity: 0.7 }}>(optional)</span>
+                        Date &amp; time <span style={{ opacity: 0.7 }}>(optional · past only)</span>
                       </label>
                       <input
                         type="datetime-local"
                         value={payAt}
-                        onChange={e => setPayAt(e.target.value)}
+                        max={datetimeLocalMaxNow()}
+                        onChange={e => setPayAt(clampDatetimeLocalToNow(e.target.value))}
                         className="input-field text-sm min-w-[200px]"
                       />
                       {payAt && (
@@ -431,7 +432,13 @@ export default function ArApPage() {
                     <tbody>
                       {detail.lines.map((l, i) => (
                         <tr key={i}>
-                          <AccountingTd>{l.entryDate}</AccountingTd>
+                          <AccountingTd>
+                            {l.entryDate
+                              ? new Date(`${l.entryDate}T12:00:00+05:30`).toLocaleDateString('en-LK', {
+                                  day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Colombo',
+                                })
+                              : '—'}
+                          </AccountingTd>
                           <AccountingTd>{l.entryNo}</AccountingTd>
                           <AccountingTd align="right" mono>{l.debit > 0 ? formatCurrency(l.debit) : '—'}</AccountingTd>
                           <AccountingTd align="right" mono>{l.credit > 0 ? formatCurrency(l.credit) : '—'}</AccountingTd>

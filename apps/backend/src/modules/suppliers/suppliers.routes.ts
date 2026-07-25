@@ -12,7 +12,7 @@ import { effectiveBranchId, resolveMutationBranchId, assertBranchRecordAccess } 
 import { emitPurchaseAccounting, emitOpeningSupplierApAccounting } from '../accounting/integration/accounting-events.service'
 import { applyPurchaseOrderReceive } from '../../utils/po-receive.util'
 import { applyPurchaseOrderReceiveEffectsIfEnabled } from '../inventory-engine/inventory-engine.service'
-import { businessDayRange, normalizeBusinessDate, resolveQueryDateRange, parseOptionalPaymentAt } from '../../utils/date-range'
+import { resolveQueryDateRange, parseOptionalPaymentAt, assertPaymentAtNotFuture } from '../../utils/date-range'
 import { recordSupplierPayment } from './supplier-payment.service'
 import { OPENING_BALANCE_SUPPLIER_PO_NOTES } from '../../constants/business-rules.constants'
 import { assertPurchaseOrderTransitionIfEnabled } from '../workflow-validators/workflow-validators.service'
@@ -898,8 +898,9 @@ router.post('/:id/payments', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIA
     let occurredAt: Date | undefined
     try {
       occurredAt = parseOptionalPaymentAt(paymentAt ?? paymentDate)
-    } catch {
-      throw new AppError('Invalid payment date/time', 400)
+      assertPaymentAtNotFuture(occurredAt)
+    } catch (err) {
+      throw new AppError(err instanceof Error ? err.message : 'Invalid payment date/time', 400)
     }
 
     const result = await recordSupplierPayment({

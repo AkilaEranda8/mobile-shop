@@ -6,7 +6,7 @@ import { requireAccountingFeature } from './accounting.middleware'
 import { getAccountingStatus, listGlAccounts } from './accounting.service'
 import { initializeAccounting } from './accounting-init.service'
 import { effectiveBranchId, resolveMutationBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
-import { resolveQueryDateRange, businessDateDb, businessDateFromInstant, parseOptionalPaymentAt } from '../../utils/date-range'
+import { resolveQueryDateRange, businessDateDb, businessDateFromInstant, parseOptionalPaymentAt, assertPaymentAtNotFuture } from '../../utils/date-range'
 import { getPagination } from '../../utils/pagination'
 import { syncOutboxForTenant } from './integration/accounting-outbox.service'
 import { processAccountingOutbox } from './integration/accounting-processor.service'
@@ -579,8 +579,9 @@ router.post('/ar/payments', authorize('OWNER', 'MANAGER'), async (req: Request, 
     let occurredAt: Date | undefined
     try {
       occurredAt = parseOptionalPaymentAt(req.body.paymentAt ?? req.body.paymentDate ?? req.body.occurredAt)
-    } catch {
-      throw new AppError('Invalid payment date/time', 400)
+      assertPaymentAtNotFuture(occurredAt)
+    } catch (err) {
+      throw new AppError(err instanceof Error ? err.message : 'Invalid payment date/time', 400)
     }
 
     sendSuccess(
@@ -610,8 +611,9 @@ router.post('/ap/payments', authorize('OWNER', 'MANAGER'), async (req: Request, 
     let occurredAt: Date | undefined
     try {
       occurredAt = parseOptionalPaymentAt(req.body.paymentAt ?? req.body.paymentDate ?? req.body.occurredAt)
-    } catch {
-      throw new AppError('Invalid payment date/time', 400)
+      assertPaymentAtNotFuture(occurredAt)
+    } catch (err) {
+      throw new AppError(err instanceof Error ? err.message : 'Invalid payment date/time', 400)
     }
 
     const result = await recordSupplierPayment({

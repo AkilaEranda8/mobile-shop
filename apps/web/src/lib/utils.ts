@@ -16,16 +16,21 @@ export function formatCurrency(amount: number, currency = 'LKR'): string {
 
 export function formatDate(dateStr: string, format = 'short'): string {
   const date = new Date(dateStr)
+  if (Number.isNaN(date.getTime())) return ''
+  const tz = 'Asia/Colombo'
   if (format === 'short') {
-    return date.toLocaleDateString('en-LK', { day: '2-digit', month: 'short', year: 'numeric' })
+    return date.toLocaleDateString('en-LK', { day: '2-digit', month: 'short', year: 'numeric', timeZone: tz })
   }
   if (format === 'long') {
-    return date.toLocaleDateString('en-LK', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    return date.toLocaleString('en-LK', {
+      day: 'numeric', month: 'long', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true, timeZone: tz,
+    })
   }
   if (format === 'time') {
-    return date.toLocaleTimeString('en-LK', { hour: '2-digit', minute: '2-digit' })
+    return date.toLocaleTimeString('en-LK', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: tz })
   }
-  return date.toLocaleDateString('en-LK')
+  return date.toLocaleDateString('en-LK', { timeZone: tz })
 }
 
 export function formatRelativeTime(dateStr: string): string {

@@ -3,6 +3,28 @@ export function businessToday(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' })
 }
 
+/** Current Colombo date-time for `<input type="datetime-local" max=…>` (no future picks). */
+export function datetimeLocalMaxNow(): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Colombo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date())
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find(p => p.type === type)?.value ?? '00'
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`
+}
+
+/** Clamp a datetime-local value so it is never after "now" (Colombo). */
+export function clampDatetimeLocalToNow(value: string): string {
+  if (!value) return value
+  const max = datetimeLocalMaxNow()
+  return value > max ? max : value
+}
+
 /** Shift a Colombo business date by N days (negative = past) */
 export function shiftBusinessDate(dateStr: string, deltaDays: number): string {
   const d = new Date(`${dateStr}T12:00:00+05:30`)
