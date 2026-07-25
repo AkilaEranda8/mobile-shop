@@ -41,6 +41,7 @@ import toast from 'react-hot-toast'
 import { getInvoiceSettings, fetchInvoiceSettings, shopContextFromTenant, resolveInvoiceTemplate, HEXALYTE_SOFTWARE_FOOTER, type InvoiceSettings, type ShopContext } from '@/lib/invoiceSettings'
 import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
 import { ChequeDetailsFields, formatChequeReference, todayChequeDate } from '@/components/payments/ChequeDetailsFields'
+import { HirePurchaseWizard } from '@/components/hire-purchase/HirePurchaseWizard'
 import {
   usePosUiSettings,
   gridColsClass,
@@ -1364,7 +1365,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [includeOutstanding, setIncludeOutstanding] = useState(false)
   const [outstandingPayAmount, setOutstandingPayAmount] = useState('')
   const [amountPaying, setAmountPaying] = useState('')
+  const [showHirePurchaseWizard, setShowHirePurchaseWizard] = useState(false)
   const hasCustomerCredit = useFeatureFlag('CUSTOMER_CREDIT')
+  const hasHirePurchase = useFeatureFlag('HIRE_PURCHASE')
   const hasCreditPricing = useFeatureFlag('CREDIT_PRICING')
   const hasPosPriceEdit = useFeatureFlag('POS_PRICE_EDIT')
   const hasRepairs = useFeatureFlag('REPAIRS')
@@ -4248,6 +4251,28 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       )
                     })}
                   </div>
+                  {hasHirePurchase && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (cart.length !== 1 || !cart[0]?.imei || !cart[0]?.productId) {
+                          setCheckoutError('Hire Purchase requires exactly one IMEI-tracked device')
+                          return
+                        }
+                        if (!getBranchId()) {
+                          setCheckoutError('Select an operational branch first')
+                          return
+                        }
+                        setCheckoutError('')
+                        setShowHirePurchaseWizard(true)
+                      }}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-3 text-xs font-bold transition-colors"
+                      style={{ background: `${POS_THEME.green}18`, borderColor: `${POS_THEME.green}66`, color: POS_THEME.green }}
+                    >
+                      <Calendar size={15} />
+                      Hire Purchase / Installments
+                    </button>
+                  )}
                   {paymentMethod === 'CHEQUE' && (
                     <ChequeDetailsFields
                       variant="pos"
@@ -4329,6 +4354,26 @@ function POSContent({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* Mobile sticky cart bar removed — bottom Products|Cart tabs + toolbar cart icon */}
+
+      {showHirePurchaseWizard && (
+        <HirePurchaseWizard
+          cart={cart}
+          branchId={getBranchId() || ''}
+          selectedCustomer={selectedCustomer}
+          onClose={() => setShowHirePurchaseWizard(false)}
+          onComplete={() => {
+            setShowHirePurchaseWizard(false)
+            setCart([])
+            setDiscountPct(0)
+            setDiscountFlat(0)
+            setCustomerPaid('')
+            setCartView('items')
+            setMobileView('cart')
+            refetchProducts()
+            window.dispatchEvent(new CustomEvent('pos:sale-complete'))
+          }}
+        />
+      )}
 
       {/* ── Calculator ── */}
       {showCalc && (

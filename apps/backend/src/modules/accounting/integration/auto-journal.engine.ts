@@ -1071,3 +1071,51 @@ export async function postOpeningCustomerArJournal(tenantId: string, saleId: str
   return je
 }
 
+export async function postHirePurchaseAgreementJournal(tenantId: string, agreementId: string, actorEmail?: string) {
+  const agreement = await prisma.hirePurchaseAgreement.findFirst({
+    where: { id: agreementId, tenantId },
+    include: { customer: { select: { name: true } } },
+  })
+  if (!agreement) throw new AppError('Hire purchase agreement not found', 404)
+  const down = round2(Math.max(0, agreement.downPayment))
+  const receivable = round2(Math.max(0, agreement.totalPayable))
+  const extraIncome = round2(Math.max(0, down + receivable - agreement.cashPrice))
+  const lines: JournalDraftLine[] = []
+  if (down > 0) lines.push({
+    accountId: await resolveBranchCashGlAccountId(tenantId, agreement.branchId),
+    debit: down, credit: 0, description: 'Hire purchase down payment',
+    customerId: agreement.customerId, metadata: { agreementNumber: agreement.agreementNumber },
+  })
+  if (receivable > 0) lines.push({
+    accountId: await resolveAccountIdByKey(tenantId, 'ar'),
+    debit: receivable, credit: 0, description: 'Hire purchase receivable',
+    customerId: agreement.customerId, metadata: { agreementNumber: agreement.agreementNumber },
+  })
+  lines.push({
+    accountId: await resolveAccountIdByKey(tenantId, 'salesMobile'),
+    debit: 0, credit: round2(agreement.cashPrice), description: 'Mobile sale under hire purchase',
+    metadata: { agreementNumber: agreement.agreementNumber, imei: agreement.imei },
+  })
+  if (extraIncome > 0) lines.push({
+    accountId: await resolveAccountIdByKey(tenantId, 'serviceIncome'),
+    debit: 0, credit: extraIncome, description: 'Hire purchase interest and fees',
+    metadata: { agreementNumber: agreement.agreementNumber },
+  })
+  const je = await createPostedJournalEntry({
+    tenantId,
+    branchId: agreement.branchId,
+    entryDate: agreement.approvedAt ?? agreement.createdAt,
+    sourceModule: 'SALES',
+    sourceRefType: 'HirePurchaseAgreement',
+    sourceRefId: agreement.id,
+    sourceEvent: 'HP_AGREEMENT_ACTIVATED',
+    memo: `Hire Purchase ${agreement.agreementNumber} — ${agreement.customer.name}`,
+    createdByEmail: actorEmail,
+    lines,
+  })
+  await prisma.integrationLink.create({
+    data: { tenantId, sourceType: 'HirePurchaseAgreement', sourceId: agreement.id, eventType: 'HP_AGREEMENT_ACTIVATED', journalEntryId: je.id },
+  })
+  return je
+}
+

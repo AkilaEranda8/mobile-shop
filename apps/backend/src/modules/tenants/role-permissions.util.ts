@@ -26,6 +26,7 @@ export const ROLE_PERMISSION_MODULES = [
   { key: 'PROFIT_ALLOCATION', label: 'Profit Allocation' },
   { key: 'DAILY_CLOSING', label: 'Daily Closing' },
   { key: 'ACCOUNTING', label: 'Accounting' },
+  { key: 'HIRE_PURCHASE', label: 'Hire Purchase' },
   { key: 'REPORTS', label: 'Reports' },
   { key: 'STAFF', label: 'Staff & Roles' },
   { key: 'DELIVERY', label: 'Delivery' },
@@ -60,6 +61,7 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMatrix = {
     SETTINGS: 'view',
     PROFIT_ALLOCATION: 'view',
     ACCOUNTING: 'view',
+    HIRE_PURCHASE: 'edit',
     PRODUCT_COST: 'view',
   },
   CASHIER: {
@@ -69,6 +71,7 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMatrix = {
     CUSTOMERS: 'edit',
     SERVICES: 'view',
     WARRANTY: 'view',
+    HIRE_PURCHASE: 'edit',
     PRODUCT_COST: 'hide',
   },
   TECHNICIAN: {

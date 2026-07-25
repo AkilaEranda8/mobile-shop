@@ -319,6 +319,34 @@ export async function postArPaymentFromTransaction(tenantId: string, txId: strin
     entryDate: tx.createdAt,
   })
 }
+
+export async function postHirePurchasePaymentFromTransaction(tenantId: string, txId: string, actorEmail?: string) {
+  const tx = await prisma.transaction.findFirst({
+    where: { id: txId, tenantId, type: 'INCOME', category: 'Hire Purchase Collection' },
+  })
+  if (!tx) throw new AppError('Hire purchase payment transaction not found', 404)
+  const payment = tx.reference
+    ? await prisma.hirePurchasePayment.findFirst({
+        where: { tenantId, receiptNumber: tx.reference },
+        include: { agreement: { select: { customerId: true } } },
+      })
+    : null
+  if (!payment) throw new AppError('Hire purchase receipt not found for transaction', 404)
+  return postArPaymentJournal(tenantId, payment.agreement.customerId, {
+    tenantId,
+    branchId: tx.branchId,
+    amount: tx.amount,
+    paymentMethod: tx.paymentMethod,
+    reference: tx.reference,
+    memo: tx.description,
+    sourceRefType: 'Transaction',
+    sourceRefId: tx.id,
+    sourceEvent: 'HP_PAYMENT_RECEIVED',
+    actorEmail: actorEmail ?? tx.performedBy,
+    entryDate: tx.occurredAt ?? tx.createdAt,
+  })
+}
+
 export async function postApPaymentFromTransaction(
   tenantId: string,
   txId: string,

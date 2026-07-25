@@ -205,6 +205,27 @@ export const uploadApi = {
     if (!res.ok) throw new Error(responseErrorMessage(json, text, 'Upload failed'))
     return json.data as { url: string }
   },
+  hirePurchaseDocument: async (
+    agreementId: string,
+    type: string,
+    file: File,
+    guarantorId?: string,
+  ): Promise<{ id: string; fileUrl: string }> => {
+    const form = new FormData()
+    form.append('agreementId', agreementId)
+    form.append('type', type)
+    if (guarantorId) form.append('guarantorId', guarantorId)
+    form.append('file', file)
+    const headers: Record<string, string> = {}
+    const token = authStorage.getAccessToken()
+    if (token) headers.Authorization = `Bearer ${token}`
+    const branchId = getActiveBranchId()
+    if (branchId) headers['x-active-branch-id'] = branchId
+    const res = await fetch(`${getApiBaseUrl()}/upload/hire-purchase-document`, { method: 'POST', headers, body: form })
+    const body = await res.json()
+    if (!res.ok) throw new Error(body.message || 'Upload failed')
+    return body.data
+  },
 }
 
 export const tenantApi = {
@@ -412,6 +433,30 @@ export const warrantyApi = {
   addClaim: (id: string, body: unknown) => api.post(`/warranties/${id}/claims`, body),
   updateClaim: (id: string, claimId: string, body: unknown) => api.put(`/warranties/${id}/claims/${claimId}`, body),
   sendEmail: (id: string, email?: string) => api.post(`/warranties/${id}/email`, { email }),
+}
+
+export const hirePurchaseApi = {
+  dashboard: () => api.get('/hire-purchase/dashboard'),
+  agreements: (params?: Record<string, string>) =>
+    api.get(`/hire-purchase/agreements${params ? `?${new URLSearchParams(params)}` : ''}`),
+  agreement: (id: string) => api.get(`/hire-purchase/agreements/${id}`),
+  calculate: (body: unknown) => api.post('/hire-purchase/calculate', body),
+  createAgreement: (body: unknown) => api.post('/hire-purchase/agreements', body),
+  createFromPos: (body: unknown) => api.post('/hire-purchase/from-pos', body),
+  updateStatus: (id: string, status: string, reason?: string) =>
+    api.patch(`/hire-purchase/agreements/${id}/status`, { status, reason }),
+  collectPayment: (id: string, body: unknown) =>
+    api.post(`/hire-purchase/agreements/${id}/payments`, body),
+  earlySettlement: (id: string) => api.post(`/hire-purchase/agreements/${id}/early-settlement`, {}),
+  dues: (scope: string) => api.get(`/hire-purchase/dues?scope=${encodeURIComponent(scope)}`),
+  guarantors: () => api.get('/hire-purchase/guarantors'),
+  settings: () => api.get('/hire-purchase/settings'),
+  updateSettings: (body: unknown) => api.patch('/hire-purchase/settings', body),
+  report: (type: string) => api.get(`/hire-purchase/reports/${encodeURIComponent(type)}`),
+  logs: () => api.get('/hire-purchase/logs'),
+  applyPenalties: () => api.post('/hire-purchase/maintenance/apply-penalties', {}),
+  sendReminders: (agreementIds: string[], channel: 'WHATSAPP' | 'EMAIL' | 'SMS' = 'WHATSAPP') =>
+    api.post('/hire-purchase/reminders/send', { agreementIds, channel }),
 }
 
 export const branchesApi = {

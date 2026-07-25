@@ -126,6 +126,14 @@ export const customersService = {
           where: branchId ? { branchId } : undefined,
           orderBy: { createdAt: 'desc' },
         },
+        hirePurchaseAgreements: {
+          where: branchId ? { branchId } : undefined,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            payments: { orderBy: { occurredAt: 'desc' } },
+            installments: { orderBy: { sequence: 'asc' } },
+          },
+        },
       },
     })
     if (!c) throw new AppError('Customer not found', 404)

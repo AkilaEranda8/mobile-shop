@@ -107,6 +107,7 @@ enum StockMovementType {
 enum ImeiStatus {
   IN_STOCK
   SOLD
+  UNDER_HIRE_PURCHASE
   IN_REPAIR
   UNDER_WARRANTY_CLAIM
   SCRAPPED
@@ -133,6 +134,46 @@ enum ProfitTxnType {
   WITHDRAW
   DEPOSIT
   ADJUSTMENT
+}
+
+enum HpInterestType {
+  NONE
+  FLAT
+  REDUCING
+}
+
+enum HpAgreementStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  DEFAULTED
+}
+
+enum HpInstallmentStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+  WAIVED
+}
+
+enum HpPaymentStatus {
+  COMPLETED
+  REVERSED
+}
+
+enum HpDocumentType {
+  CUSTOMER_PHOTO
+  CUSTOMER_NIC_FRONT
+  CUSTOMER_NIC_BACK
+  PROOF_OF_ADDRESS
+  GUARANTOR_PHOTO
+  GUARANTOR_NIC_FRONT
+  GUARANTOR_NIC_BACK
+  CUSTOMER_SIGNATURE
+  AGREEMENT_PDF
+  OTHER
 }
 
 // ─────────────── Tenant / Auth ───────────────
@@ -209,6 +250,14 @@ model Tenant {
   repairFaultOptions          RepairFaultOption[]
   featureSuggestions          FeatureSuggestion[]
   userNotifications           UserNotification[]
+  hirePurchaseAgreements      HirePurchaseAgreement[]
+  hirePurchaseInstallments    HirePurchaseInstallment[]
+  hirePurchasePayments        HirePurchasePayment[]
+  hirePurchaseGuarantors      HirePurchaseGuarantor[]
+  hirePurchaseDocuments       HirePurchaseDocument[]
+  hirePurchasePenalties       HirePurchasePenalty[]
+  hirePurchaseSettings        HirePurchaseSettings[]
+  hirePurchaseLogs            HirePurchaseLog[]
 }
 
 model TenantFeature {
@@ -241,23 +290,23 @@ model Service {
 }
 
 model Branch {
-  id             String   @id @default(cuid())
-  tenantId       String
-  name           String
-  address        String
-  city           String
-  state          String
-  phone          String
-  email          String?
-  isHeadquarters Boolean  @default(false)
-  isDefault      Boolean  @default(false)
-  isActive       Boolean  @default(true)
+  id                  String   @id @default(cuid())
+  tenantId            String
+  name                String
+  address             String
+  city                String
+  state               String
+  phone               String
+  email               String?
+  isHeadquarters      Boolean  @default(false)
+  isDefault           Boolean  @default(false)
+  isActive            Boolean  @default(true)
   /// When tenant has DAILY_CLOSING, this branch can opt out of day lock / day close UI
-  dailyClosingEnabled Boolean @default(true)
+  dailyClosingEnabled Boolean  @default(true)
   /// Per-branch bill/receipt header overrides (merged over Tenant.invoiceSettings)
-  invoiceSettings Json?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  invoiceSettings     Json?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   tenant                      Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   users                       UserBranch[]
@@ -286,6 +335,14 @@ model Branch {
   bankAccounts                BankAccount[]
   accountingOutbox            AccountingOutbox[]
   autoJournalRules            AutoJournalRule[]
+  hirePurchaseAgreements      HirePurchaseAgreement[]
+  hirePurchaseInstallments    HirePurchaseInstallment[]
+  hirePurchasePayments        HirePurchasePayment[]
+  hirePurchaseGuarantors      HirePurchaseGuarantor[]
+  hirePurchaseDocuments       HirePurchaseDocument[]
+  hirePurchasePenalties       HirePurchasePenalty[]
+  hirePurchaseSettings        HirePurchaseSettings[]
+  hirePurchaseLogs            HirePurchaseLog[]
 }
 
 model User {
@@ -308,6 +365,7 @@ model User {
   announcementDismissals AnnouncementDismissal[]
   featureSuggestions     FeatureSuggestion[]
   userNotifications      UserNotification[]
+  hirePurchaseSales      HirePurchaseAgreement[] @relation("HpSalesPerson")
 
   @@unique([tenantId, email])
 }
@@ -393,17 +451,18 @@ model Product {
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 
-  tenant         Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch         Branch            @relation(fields: [branchId], references: [id])
-  category       Category          @relation(fields: [categoryId], references: [id])
-  brand          Brand             @relation(fields: [brandId], references: [id])
-  imeiRecords    ImeiRecord[]
-  stockMovements StockMovement[]
-  saleItems      SaleItem[]
-  returnItems    SaleReturnItem[]
-  repairParts    RepairSparePart[]
-  poItems        POItem[]
-  warranties     Warranty[]
+  tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch                 Branch                  @relation(fields: [branchId], references: [id])
+  category               Category                @relation(fields: [categoryId], references: [id])
+  brand                  Brand                   @relation(fields: [brandId], references: [id])
+  imeiRecords            ImeiRecord[]
+  stockMovements         StockMovement[]
+  saleItems              SaleItem[]
+  returnItems            SaleReturnItem[]
+  repairParts            RepairSparePart[]
+  poItems                POItem[]
+  warranties             Warranty[]
+  hirePurchaseAgreements HirePurchaseAgreement[]
 
   @@unique([tenantId, sku])
 }
@@ -422,11 +481,12 @@ model ImeiRecord {
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
-  product       Product        @relation(fields: [productId], references: [id])
-  branch        Branch         @relation(fields: [branchId], references: [id])
-  customer      Customer?      @relation(fields: [customerId], references: [id])
-  sale          Sale?          @relation(fields: [saleId], references: [id])
-  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  product                Product                 @relation(fields: [productId], references: [id])
+  branch                 Branch                  @relation(fields: [branchId], references: [id])
+  customer               Customer?               @relation(fields: [customerId], references: [id])
+  sale                   Sale?                   @relation(fields: [saleId], references: [id])
+  purchaseOrder          PurchaseOrder?          @relation(fields: [purchaseOrderId], references: [id])
+  hirePurchaseAgreements HirePurchaseAgreement[]
 }
 
 model StockMovement {
@@ -465,13 +525,14 @@ model Customer {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch      Branch?          @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  sales       Sale[]
-  repairs     RepairTicket[]
-  warranties  Warranty[]
-  imeiRecords ImeiRecord[]
-  exchanges   DeviceExchange[]
+  tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch                 Branch?                 @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  sales                  Sale[]
+  repairs                RepairTicket[]
+  warranties             Warranty[]
+  imeiRecords            ImeiRecord[]
+  exchanges              DeviceExchange[]
+  hirePurchaseAgreements HirePurchaseAgreement[]
 
   @@unique([tenantId, branchId, phone])
   @@index([tenantId, branchId])
@@ -503,15 +564,16 @@ model Sale {
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
-  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch        Branch?        @relation(fields: [branchId], references: [id])
-  customer      Customer?      @relation(fields: [customerId], references: [id])
-  cashier       User?          @relation("SaleCashier", fields: [cashierId], references: [id])
-  deliveryOrder DeliveryOrder? @relation(fields: [deliveryOrderId], references: [id])
-  items         SaleItem[]
-  payments      SalePayment[]
-  returns       SaleReturn[]
-  imeiRecords   ImeiRecord[]
+  tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch                Branch?                @relation(fields: [branchId], references: [id])
+  customer              Customer?              @relation(fields: [customerId], references: [id])
+  cashier               User?                  @relation("SaleCashier", fields: [cashierId], references: [id])
+  deliveryOrder         DeliveryOrder?         @relation(fields: [deliveryOrderId], references: [id])
+  items                 SaleItem[]
+  payments              SalePayment[]
+  returns               SaleReturn[]
+  imeiRecords           ImeiRecord[]
+  hirePurchaseAgreement HirePurchaseAgreement?
 
   @@unique([tenantId, invoiceNumber])
 }
@@ -934,12 +996,12 @@ model PurchaseOrder {
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
 
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch       Branch        @relation(fields: [branchId], references: [id])
-  supplier     Supplier      @relation(fields: [supplierId], references: [id])
-  items        POItem[]
-  imeiRecords  ImeiRecord[]
-  transactions Transaction[]
+  tenant             Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch             Branch                      @relation(fields: [branchId], references: [id])
+  supplier           Supplier                    @relation(fields: [supplierId], references: [id])
+  items              POItem[]
+  imeiRecords        ImeiRecord[]
+  transactions       Transaction[]
   paymentAllocations SupplierPaymentAllocation[]
 
   @@unique([tenantId, poNumber])
@@ -985,11 +1047,11 @@ model Transaction {
   performedBy     String
   createdAt       DateTime        @default(now())
 
-  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch        Branch         @relation(fields: [branchId], references: [id])
-  bankAccount   BankAccount?   @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
-  supplier      Supplier?      @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  tenant                     Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch                     Branch                      @relation(fields: [branchId], references: [id])
+  bankAccount                BankAccount?                @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+  supplier                   Supplier?                   @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  purchaseOrder              PurchaseOrder?              @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
   supplierPaymentAllocations SupplierPaymentAllocation[]
 
   @@index([tenantId, bankAccountId])
@@ -1011,6 +1073,253 @@ model SupplierPaymentAllocation {
   @@unique([transactionId, purchaseOrderId])
   @@index([tenantId, purchaseOrderId])
   @@index([tenantId, transactionId])
+}
+
+// ─────────────── Hire Purchase / Installments ───────────────
+
+model HirePurchaseAgreement {
+  id                   String            @id @default(cuid())
+  tenantId             String
+  branchId             String
+  agreementNumber      String
+  customerId           String
+  saleId               String?           @unique
+  productId            String?
+  imeiRecordId         String?
+  salesPersonId        String?
+  productName          String
+  brandName            String?
+  modelName            String?
+  imei                 String
+  color                String?
+  storage              String?
+  cashPrice            Float
+  downPayment          Float             @default(0)
+  financeAmount        Float
+  interestType         HpInterestType
+  interestRate         Float             @default(0)
+  interestAmount       Float             @default(0)
+  processingFee        Float             @default(0)
+  insuranceFee         Float             @default(0)
+  documentFee          Float             @default(0)
+  otherCharges         Float             @default(0)
+  installmentMonths    Int
+  monthlyInstallment   Float
+  totalPayable         Float
+  paidAmount           Float             @default(0)
+  outstandingBalance   Float
+  gracePeriodDays      Int               @default(0)
+  lateFee              Float             @default(0)
+  dueDay               Int
+  firstDueDate         DateTime          @db.Date
+  customerNic          String?
+  customerDob          DateTime?         @db.Date
+  occupation           String?
+  monthlyIncome        Float?
+  employer             String?
+  agreementPdfUrl      String?
+  qrCode               String?
+  barcode              String?
+  customerSignatureUrl String?
+  status               HpAgreementStatus @default(PENDING)
+  approvedAt           DateTime?
+  completedAt          DateTime?
+  cancelledAt          DateTime?
+  cancellationReason   String?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  tenant       Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch       Branch                    @relation(fields: [branchId], references: [id])
+  customer     Customer                  @relation(fields: [customerId], references: [id])
+  sale         Sale?                     @relation(fields: [saleId], references: [id])
+  product      Product?                  @relation(fields: [productId], references: [id])
+  imeiRecord   ImeiRecord?               @relation(fields: [imeiRecordId], references: [id])
+  salesPerson  User?                     @relation("HpSalesPerson", fields: [salesPersonId], references: [id])
+  installments HirePurchaseInstallment[]
+  payments     HirePurchasePayment[]
+  guarantors   HirePurchaseGuarantor[]
+  documents    HirePurchaseDocument[]
+  penalties    HirePurchasePenalty[]
+  logs         HirePurchaseLog[]
+
+  @@unique([tenantId, agreementNumber])
+  @@index([tenantId, branchId, status])
+  @@index([tenantId, branchId, imei])
+  @@index([tenantId, customerId])
+}
+
+model HirePurchaseInstallment {
+  id          String              @id @default(cuid())
+  tenantId    String
+  branchId    String
+  agreementId String
+  sequence    Int
+  dueDate     DateTime            @db.Date
+  principal   Float
+  interest    Float
+  fees        Float               @default(0)
+  totalDue    Float
+  paidAmount  Float               @default(0)
+  outstanding Float
+  status      HpInstallmentStatus @default(PENDING)
+  paidAt      DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  tenant    Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch    Branch                @relation(fields: [branchId], references: [id])
+  agreement HirePurchaseAgreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  penalties HirePurchasePenalty[]
+
+  @@unique([agreementId, sequence])
+  @@index([tenantId, branchId, dueDate, status])
+}
+
+model HirePurchasePayment {
+  id              String          @id @default(cuid())
+  tenantId        String
+  branchId        String
+  agreementId     String
+  receiptNumber   String
+  amount          Float
+  principalAmount Float           @default(0)
+  interestAmount  Float           @default(0)
+  penaltyAmount   Float           @default(0)
+  methods         Json
+  allocationJson  Json
+  reference       String?
+  notes           String?
+  status          HpPaymentStatus @default(COMPLETED)
+  occurredAt      DateTime        @default(now())
+  performedBy     String
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  tenant    Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch    Branch                @relation(fields: [branchId], references: [id])
+  agreement HirePurchaseAgreement @relation(fields: [agreementId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, receiptNumber])
+  @@index([tenantId, branchId, occurredAt])
+  @@index([agreementId, occurredAt])
+}
+
+model HirePurchaseGuarantor {
+  id           String   @id @default(cuid())
+  tenantId     String
+  branchId     String
+  agreementId  String
+  name         String
+  nic          String
+  phone        String
+  address      String?
+  relationship String?
+  photoUrl     String?
+  nicFrontUrl  String?
+  nicBackUrl   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant    Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch    Branch                 @relation(fields: [branchId], references: [id])
+  agreement HirePurchaseAgreement  @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  documents HirePurchaseDocument[]
+
+  @@index([tenantId, branchId, nic])
+  @@index([agreementId])
+}
+
+model HirePurchaseDocument {
+  id          String         @id @default(cuid())
+  tenantId    String
+  branchId    String
+  agreementId String
+  guarantorId String?
+  type        HpDocumentType
+  fileName    String
+  fileUrl     String
+  mimeType    String?
+  fileSize    Int?
+  uploadedBy  String
+  createdAt   DateTime       @default(now())
+
+  tenant    Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch    Branch                 @relation(fields: [branchId], references: [id])
+  agreement HirePurchaseAgreement  @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  guarantor HirePurchaseGuarantor? @relation(fields: [guarantorId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, branchId, agreementId])
+}
+
+model HirePurchasePenalty {
+  id            String    @id @default(cuid())
+  tenantId      String
+  branchId      String
+  agreementId   String
+  installmentId String?
+  amount        Float
+  reason        String
+  appliedAt     DateTime  @default(now())
+  paidAmount    Float     @default(0)
+  waivedAt      DateTime?
+  waivedBy      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant      Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch      Branch                   @relation(fields: [branchId], references: [id])
+  agreement   HirePurchaseAgreement    @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  installment HirePurchaseInstallment? @relation(fields: [installmentId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, branchId, appliedAt])
+  @@index([agreementId])
+}
+
+model HirePurchaseSettings {
+  id                  String         @id @default(cuid())
+  tenantId            String
+  branchId            String
+  defaultInterestType HpInterestType @default(FLAT)
+  defaultInterestRate Float          @default(0)
+  defaultLateFee      Float          @default(0)
+  defaultGracePeriod  Int            @default(3)
+  defaultDueDay       Int            @default(1)
+  agreementTemplate   String?
+  receiptTemplate     String?
+  reminderSettings    Json?
+  penaltyRules        Json?
+  smsProviderSettings Json?
+  whatsappSettings    Json?
+  rolePermissions     Json?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, branchId])
+}
+
+model HirePurchaseLog {
+  id          String   @id @default(cuid())
+  tenantId    String
+  branchId    String
+  agreementId String?
+  action      String
+  actorId     String?
+  actorEmail  String?
+  beforeJson  Json?
+  afterJson   Json?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  tenant    Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch    Branch                 @relation(fields: [branchId], references: [id])
+  agreement HirePurchaseAgreement? @relation(fields: [agreementId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, branchId, createdAt])
+  @@index([agreementId, createdAt])
 }
 
 model DailySummary {
@@ -1921,9 +2230,9 @@ model BankAccount {
   glAccountId String
   isActive    Boolean         @default(true)
 
-  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch    Branch?   @relation(fields: [branchId], references: [id])
-  glAccount GlAccount @relation(fields: [glAccountId], references: [id])
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch       Branch?       @relation(fields: [branchId], references: [id])
+  glAccount    GlAccount     @relation(fields: [glAccountId], references: [id])
   transactions Transaction[]
 
   @@unique([tenantId, name])
@@ -2024,23 +2333,23 @@ enum UserNotificationType {
 }
 
 model FeatureSuggestion {
-  id                String                     @id @default(cuid())
-  tenantId          String
-  submittedById     String
-  category          String
-  title             String
-  description       String
-  status            FeatureSuggestionStatus    @default(NEW)
-  priority          FeatureSuggestionPriority  @default(MEDIUM)
-  publicResponse    String?
-  internalNote      String?
-  respondedByEmail  String?
-  respondedAt       DateTime?
-  createdAt         DateTime                   @default(now())
-  updatedAt         DateTime                   @updatedAt
+  id               String                    @id @default(cuid())
+  tenantId         String
+  submittedById    String
+  category         String
+  title            String
+  description      String
+  status           FeatureSuggestionStatus   @default(NEW)
+  priority         FeatureSuggestionPriority @default(MEDIUM)
+  publicResponse   String?
+  internalNote     String?
+  respondedByEmail String?
+  respondedAt      DateTime?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
 
-  tenant      Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  submittedBy User                        @relation(fields: [submittedById], references: [id], onDelete: Cascade)
+  tenant      Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submittedBy User                       @relation(fields: [submittedById], references: [id], onDelete: Cascade)
   history     FeatureSuggestionHistory[]
 
   @@index([tenantId])
@@ -2057,7 +2366,7 @@ model FeatureSuggestion {
 /// Append-only audit trail. Application code never updates/deletes rows.
 /// Cascade from parent suggestion exists only so tenant cleanup can remove orphans.
 model FeatureSuggestionHistory {
-  id               String                          @id @default(cuid())
+  id               String                         @id @default(cuid())
   suggestionId     String
   action           FeatureSuggestionHistoryAction
   oldStatus        FeatureSuggestionStatus?
@@ -2066,7 +2375,7 @@ model FeatureSuggestionHistory {
   newPriority      FeatureSuggestionPriority?
   publicResponse   String?
   performedByEmail String
-  createdAt        DateTime                        @default(now())
+  createdAt        DateTime                       @default(now())
 
   suggestion FeatureSuggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
 

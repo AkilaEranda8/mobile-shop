@@ -12,10 +12,12 @@ import {
   postSaleJournal,
   postSaleReturnCogsJournal,
   postSaleReturnJournal,
+  postHirePurchaseAgreementJournal,
 } from './auto-journal.engine'
 import {
   postApPaymentFromTransaction,
   postArPaymentFromTransaction,
+  postHirePurchasePaymentFromTransaction,
 } from '../subledgers/ar-ap-payment.service'
 
 async function markFailed(id: string, err: unknown) {
@@ -71,6 +73,8 @@ export async function processAccountingOutbox(tenantId: string, limit = 50, acto
     OPENING_CUSTOMER_AR: 5,
     AR_PAYMENT_RECEIVED: 10,
     AP_PAYMENT_MADE: 10,
+    HP_AGREEMENT_ACTIVATED: 10,
+    HP_PAYMENT_RECEIVED: 10,
     DAILY_CLOSING_VARIANCE: 15,
     SALE_COGS: 20,
     REPAIR_COGS: 20,
@@ -132,6 +136,10 @@ export async function processAccountingOutbox(tenantId: string, limit = 50, acto
           allocations?: Array<{ purchaseOrderId?: string; amount: number }>
         } | null
         await postApPaymentFromTransaction(tenantId, item.sourceId, actorEmail, payload?.allocations)
+      } else if (item.eventType === 'HP_AGREEMENT_ACTIVATED' && item.sourceType === 'HirePurchaseAgreement') {
+        await postHirePurchaseAgreementJournal(tenantId, item.sourceId, actorEmail)
+      } else if (item.eventType === 'HP_PAYMENT_RECEIVED' && item.sourceType === 'Transaction') {
+        await postHirePurchasePaymentFromTransaction(tenantId, item.sourceId, actorEmail)
       } else {
         throw new AppError(`Unsupported outbox item: ${item.sourceType} ${item.eventType}`, 400)
       }

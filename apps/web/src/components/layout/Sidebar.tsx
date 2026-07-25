@@ -6,7 +6,7 @@ import {
   LayoutDashboard, ShoppingCart, Package, Users, Wrench,
   Shield, Truck, BarChart3, Settings, LogOut,
   CreditCard, Smartphone,   FileText, Building2,
-  UserCheck, ChevronLeft, ChevronRight, ChevronDown, Receipt, MessageSquare, MessageSquarePlus, PackageCheck, RotateCcw, ArrowLeftRight, Layers, RefreshCw, Lock, PieChart, Sparkles, BookOpen, TrendingUp, Landmark, Wallet, Calendar, ReceiptText, Plus, ClipboardList, DollarSign, Activity, PhoneCall, Tag,
+  UserCheck, ChevronLeft, ChevronRight, ChevronDown, Receipt, MessageSquare, MessageSquarePlus, PackageCheck, RotateCcw, ArrowLeftRight, Layers, RefreshCw, Lock, PieChart, Sparkles, BookOpen, TrendingUp, Landmark, Wallet, Calendar, ReceiptText, Plus, ClipboardList, DollarSign, Activity, PhoneCall, Tag, AlertTriangle,
 } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
 import { cn } from '@/lib/utils'
@@ -69,6 +69,17 @@ const accountingSubmenu: NavSubItem[] = [
   { href: '/dashboard/accounting/periods', icon: Calendar, label: 'Periods', permission: 'ACCOUNTING', requiresEdit: true },
   { href: '/dashboard/accounting/audit', icon: Shield, label: 'Audit Trail', permission: 'ACCOUNTING' },
   { href: '/dashboard/accounting/settings', icon: Settings, label: 'Settings', permission: 'ACCOUNTING', requiresEdit: true },
+]
+
+const hirePurchaseSubmenu: NavSubItem[] = [
+  { href: '/dashboard/hire-purchase', icon: LayoutDashboard, label: 'HP Dashboard', feature: 'HIRE_PURCHASE', permission: 'HIRE_PURCHASE' },
+  { href: '/dashboard/hire-purchase/agreements', icon: FileText, label: 'Agreements', feature: 'HIRE_PURCHASE', permission: 'HIRE_PURCHASE' },
+  { href: '/dashboard/hire-purchase/payments', icon: Wallet, label: 'Payment Collection', feature: 'HIRE_PURCHASE', permission: 'HIRE_PURCHASE', requiresEdit: true },
+  { href: '/dashboard/hire-purchase/dues', icon: Calendar, label: 'Due Collections', feature: 'HIRE_PURCHASE', permission: 'HIRE_PURCHASE' },
+  { href: '/dashboard/hire-purchase/defaulters', icon: AlertTriangle, label: 'Defaulters', feature: 'HIRE_PURCHASE', permission: 'HIRE_PURCHASE' },
+  { href: '/dashboard/hire-purchase/guarantors', icon: Users, label: 'Guarantors', feature: 'HIRE_PURCHASE', permission: 'HIRE_PURCHASE' },
+  { href: '/dashboard/hire-purchase/reports', icon: BarChart3, label: 'HP Reports', feature: 'HIRE_PURCHASE', permission: 'HIRE_PURCHASE' },
+  { href: '/dashboard/hire-purchase/settings', icon: Settings, label: 'HP Settings', feature: 'HIRE_PURCHASE', permission: 'HIRE_PURCHASE', requiresEdit: true },
 ]
 
 const reportsSubmenu: NavSubItem[] = [
@@ -141,6 +152,15 @@ const navItems: NavGroup[] = [
       { href: '/dashboard/expenses',  icon: Receipt,    label: 'Expenses',  badge: 'NEW', feature: 'FINANCE', permission: 'FINANCE' },
       { href: '/dashboard/profit-allocation', icon: PieChart, label: 'Profit Allocation', badge: 'NEW', feature: 'PROFIT_ALLOCATION', permission: 'PROFIT_ALLOCATION' },
       { href: '/dashboard/daily-closing', icon: Lock,   label: 'Daily Closing', badge: 'NEW', feature: 'DAILY_CLOSING', permission: 'DAILY_CLOSING' },
+      {
+        href: '/dashboard/hire-purchase',
+        icon: Calendar,
+        label: 'Hire Purchase',
+        badge: 'NEW',
+        feature: 'HIRE_PURCHASE',
+        permission: 'HIRE_PURCHASE',
+        submenu: hirePurchaseSubmenu,
+      },
       {
         href: '/dashboard/accounting',
         icon: BookOpen,

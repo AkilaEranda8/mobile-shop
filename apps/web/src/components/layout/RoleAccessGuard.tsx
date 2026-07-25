@@ -24,6 +24,7 @@ const FALLBACK_HREFS: Record<string, string> = {
   EXCHANGES: '/dashboard/exchanges',
   FINANCE: '/dashboard/finance',
   ACCOUNTING: '/dashboard/accounting',
+  HIRE_PURCHASE: '/dashboard/hire-purchase',
   REPORTS: '/dashboard/reports',
   STAFF: '/dashboard/staff',
   DELIVERY: '/dashboard/delivery',

@@ -21,6 +21,7 @@ const statusConfig: Record<string, { label: string; color: string; bg: string; b
   SOLD:                 { label: 'Sold',          color: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/20'   },
   IN_REPAIR:            { label: 'In Repair',     color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20' },
   UNDER_WARRANTY_CLAIM: { label: 'Warranty',      color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20' },
+  UNDER_HIRE_PURCHASE:  { label: 'Hire Purchase', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
   SCRAPPED:             { label: 'Scrapped',      color: 'text-red-400',    bg: 'bg-red-500/10',    border: 'border-red-500/20'    },
   REPAIR_ONLY:          { label: 'Repair Record', color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20' },
 }
@@ -86,6 +87,7 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
   const repairs: any[] = data?.repairs ?? []
   const sale = data?.saleDetails
   const customer = data?.customerDetails
+  const hirePurchase = data?.hirePurchaseAgreement
   const firstRepair = repairs[0]
   const safeText = (v: any) => (v === null || v === undefined || v === '' ? '—' : String(v))
 
@@ -95,7 +97,7 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
   const ownerName = customer?.name ?? firstRepair?.customerName ?? '—'
   const ownerPhone = customer?.phone ?? firstRepair?.customerPhone ?? '—'
   const st = record ? (statusConfig[record.status] ?? statusConfig.IN_STOCK) : statusConfig.REPAIR_ONLY
-  const statusOptions = ['IN_STOCK', 'SOLD', 'IN_REPAIR', 'UNDER_WARRANTY_CLAIM', 'SCRAPPED']
+  const statusOptions = ['IN_STOCK', 'SOLD', 'UNDER_HIRE_PURCHASE', 'IN_REPAIR', 'UNDER_WARRANTY_CLAIM', 'SCRAPPED']
 
   return (
     <div
@@ -229,6 +231,46 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
                 </div>
               </div>
             </div>
+
+            {hirePurchase && (
+              <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                <div className="bg-emerald-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide">
+                  Hire Purchase Agreement
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-[640px] w-full text-[12px]">
+                    <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                      <tr style={{ color: 'var(--text-secondary)' }}>
+                        <th className="px-3 py-2 text-left">Field</th>
+                        <th className="px-3 py-2 text-left">Value</th>
+                        <th className="px-3 py-2 text-left">Field</th>
+                        <th className="px-3 py-2 text-left">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Agreement</td>
+                        <td className="px-3 py-2 font-mono font-medium text-emerald-600 dark:text-emerald-400">{hirePurchase.agreementNumber}</td>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Status</td>
+                        <td className="px-3 py-2 font-medium">{hirePurchase.status ?? '—'}</td>
+                      </tr>
+                      <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Customer</td>
+                        <td className="px-3 py-2 font-medium">{hirePurchase.customer?.name ?? '—'}</td>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Phone</td>
+                        <td className="px-3 py-2 font-medium">{hirePurchase.customer?.phone ?? '—'}</td>
+                      </tr>
+                      <tr>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Monthly</td>
+                        <td className="px-3 py-2 font-medium">{formatCurrency(hirePurchase.monthlyInstallment)}</td>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>Outstanding</td>
+                        <td className="px-3 py-2 font-semibold text-rose-600 dark:text-rose-400">{formatCurrency(hirePurchase.outstandingBalance)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <div className="lg:col-span-2 space-y-4">

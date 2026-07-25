@@ -4,6 +4,7 @@ import { connectRedis, redis } from './config/redis'
 import { refreshRateLimitSettings } from './config/rate-limit-settings'
 import { restoreQrSessions } from './modules/whatsapp/whatsapp.service'
 import { startTrialExpiryJob, stopTrialExpiryJob } from './jobs/trial-expiry.job'
+import { startHirePurchaseMaintenanceJob, stopHirePurchaseMaintenanceJob } from './jobs/hire-purchase-maintenance.job'
 import { ensurePlatformAdmin } from './utils/ensure-platform-admin'
 import app from './app'
 
@@ -17,6 +18,7 @@ async function bootstrap() {
       console.warn('[whatsapp] session restore skipped:', err?.message)
     })
     startTrialExpiryJob()
+    startHirePurchaseMaintenanceJob()
 
     const server = app.listen(parseInt(env.PORT), () => {
       console.log(`🚀 Hexalyte API running on port ${env.PORT}`)
@@ -28,6 +30,7 @@ async function bootstrap() {
       console.log(`\n${signal} received. Shutting down gracefully...`)
       server.close(async () => {
         stopTrialExpiryJob()
+        stopHirePurchaseMaintenanceJob()
         await disconnectDatabase()
         await redis.quit()
         console.log('✅ Graceful shutdown complete')

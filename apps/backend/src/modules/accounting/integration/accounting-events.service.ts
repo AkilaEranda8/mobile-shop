@@ -140,3 +140,27 @@ export function emitDailyClosingAccounting(tenantId: string, closingId: string, 
     { tenantId, branchId, sourceType: 'DailyClosing', sourceId: closingId, eventType: 'DAILY_CLOSING_VARIANCE' },
   ], actorEmail)
 }
+
+export function emitHirePurchaseAgreementAccounting(
+  tenantId: string,
+  agreementId: string,
+  saleId: string,
+  branchId: string,
+  actorEmail?: string,
+) {
+  return emitAccountingEvents([
+    { tenantId, branchId, sourceType: 'HirePurchaseAgreement', sourceId: agreementId, eventType: 'HP_AGREEMENT_ACTIVATED' },
+    { tenantId, branchId, sourceType: 'Sale', sourceId: saleId, eventType: 'SALE_COGS' },
+  ], actorEmail)
+}
+
+export function emitHirePurchasePaymentAccounting(
+  tenantId: string,
+  transactionId: string,
+  branchId: string,
+  actorEmail?: string,
+) {
+  return emitAccountingEvents([
+    { tenantId, branchId, sourceType: 'Transaction', sourceId: transactionId, eventType: 'HP_PAYMENT_RECEIVED' },
+  ], actorEmail)
+}

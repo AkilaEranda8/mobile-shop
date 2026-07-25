@@ -538,6 +538,7 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
   const [customer, setCustomer] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [detailTab, setDetailTab] = useState<'overview' | 'hirePurchase'>('overview')
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -562,6 +563,7 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
   const safeText = (v: any) => (v === null || v === undefined || v === '' ? '—' : String(v))
   const sales = customer?.sales ?? []
   const repairs = customer?.repairs ?? []
+  const hpAgreements = customer?.hirePurchaseAgreements ?? []
   const isVip = (customer?.loyaltyPoints ?? 0) > 500
   const hasDue = (customer?.totalDue ?? 0) > 0
   const salesTotal = sales.reduce((s: number, sale: any) => s + Number(sale.total ?? 0), 0)
@@ -635,8 +637,12 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
 
         {!loading && customer && (
           <div className="p-4 sm:p-5 space-y-4">
+            <div className="flex gap-2 border-b pb-3" style={{ borderColor: 'var(--border-subtle)' }}>
+              <button type="button" onClick={() => setDetailTab('overview')} className={`rounded-lg px-3 py-2 text-xs font-semibold ${detailTab === 'overview' ? 'bg-violet-500/15 text-violet-600' : ''}`}>Overview</button>
+              <button type="button" onClick={() => setDetailTab('hirePurchase')} className={`rounded-lg px-3 py-2 text-xs font-semibold ${detailTab === 'hirePurchase' ? 'bg-emerald-500/15 text-emerald-600' : ''}`}>Hire Purchase ({hpAgreements.length})</button>
+            </div>
             {/* Top meta row */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div className={`grid grid-cols-1 lg:grid-cols-3 gap-3 ${detailTab !== 'overview' ? 'hidden' : ''}`}>
               <div className="space-y-1 text-[12px]">
                 <div className="flex items-center gap-1.5">
                   <Calendar size={13} style={{ color: 'var(--text-muted)' }} />
@@ -713,8 +719,60 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
               </div>
             </div>
 
+            {detailTab === 'hirePurchase' && hpAgreements.length > 0 && (
+              <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                <div className="bg-emerald-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide flex items-center gap-1.5">
+                  <Calendar size={12} /> Hire Purchase
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-[760px] w-full text-[12px]">
+                    <thead style={{ background: 'var(--bg-subtle)' }}>
+                      <tr>
+                        <th className="px-3 py-2 text-left">Agreement</th>
+                        <th className="px-3 py-2 text-left">Device / IMEI</th>
+                        <th className="px-3 py-2 text-right">Total</th>
+                        <th className="px-3 py-2 text-right">Paid</th>
+                        <th className="px-3 py-2 text-right">Outstanding</th>
+                        <th className="px-3 py-2 text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {hpAgreements.map((agreement: any) => (
+                        <tr key={agreement.id} className="border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                          <td className="px-3 py-2 font-mono font-semibold text-emerald-600">{agreement.agreementNumber}</td>
+                          <td className="px-3 py-2">
+                            <p>{agreement.productName}</p>
+                            <p className="font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>{agreement.imei}</p>
+                          </td>
+                          <td className="px-3 py-2 text-right">{formatCurrency(agreement.totalPayable)}</td>
+                          <td className="px-3 py-2 text-right">{formatCurrency(agreement.paidAmount)}</td>
+                          <td className="px-3 py-2 text-right font-bold text-red-500">{formatCurrency(agreement.outstandingBalance)}</td>
+                          <td className="px-3 py-2 text-center">
+                            <span className={`inline-flex text-[11px] px-2.5 py-1 rounded-full border font-semibold ${
+                              agreement.status === 'ACTIVE' ? 'bg-sky-500/10 border-sky-500/20 text-sky-600 dark:text-sky-400'
+                              : agreement.status === 'COMPLETED' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                              : agreement.status === 'DEFAULTED' ? 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400'
+                              : agreement.status === 'CANCELLED' ? 'bg-slate-500/10 border-slate-500/20 text-slate-500'
+                              : 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+                            }`}>
+                              {agreement.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+            {detailTab === 'hirePurchase' && hpAgreements.length === 0 && (
+              <div className="py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
+                No hire purchase agreements for this customer.
+              </div>
+            )}
+
             {/* Sales + Repairs + Totals */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className={`grid grid-cols-1 lg:grid-cols-3 gap-4 ${detailTab !== 'overview' ? 'hidden' : ''}`}>
               <div className="lg:col-span-2 space-y-4">
                 {/* Sales history */}
                 <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
@@ -931,7 +989,7 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
             </div>
 
             {/* Bottom actions */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-end pt-2 flex-wrap">
+            <div className={`flex flex-col sm:flex-row sm:items-center gap-2 justify-end pt-2 flex-wrap ${detailTab !== 'overview' ? 'hidden' : ''}`}>
               <button
                 type="button"
                 onClick={() => {

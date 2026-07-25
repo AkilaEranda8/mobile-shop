@@ -25,6 +25,7 @@ export const ROLE_PERMISSION_MODULES = [
   { key: 'PROFIT_ALLOCATION', label: 'Profit Allocation' },
   { key: 'DAILY_CLOSING', label: 'Daily Closing' },
   { key: 'ACCOUNTING', label: 'Accounting' },
+  { key: 'HIRE_PURCHASE', label: 'Hire Purchase' },
   { key: 'REPORTS', label: 'Reports' },
   { key: 'STAFF', label: 'Staff & Roles' },
   { key: 'DELIVERY', label: 'Delivery' },
@@ -58,6 +59,7 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMatrix = {
     SETTINGS: 'view',
     PROFIT_ALLOCATION: 'view',
     ACCOUNTING: 'view',
+    HIRE_PURCHASE: 'edit',
     PRODUCT_COST: 'view',
   },
   CASHIER: {
@@ -67,6 +69,7 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMatrix = {
     CUSTOMERS: 'edit',
     SERVICES: 'view',
     WARRANTY: 'view',
+    HIRE_PURCHASE: 'edit',
     PRODUCT_COST: 'hide',
   },
   TECHNICIAN: {
@@ -172,6 +175,8 @@ export const EDIT_ONLY_PATH_PREFIXES = [
   '/dashboard/accounting/payroll',
   '/dashboard/accounting/periods',
   '/dashboard/accounting/settings',
+  '/dashboard/hire-purchase/payments',
+  '/dashboard/hire-purchase/settings',
 ] as const
 
 export function pathRequiresEdit(pathname: string): boolean {
@@ -240,6 +245,13 @@ export function pathToPermissionModule(pathname: string): RolePermissionModuleKe
   if (pathname.startsWith('/dashboard/profit-allocation')) return 'PROFIT_ALLOCATION'
   if (pathname.startsWith('/dashboard/daily-closing')) return 'DAILY_CLOSING'
   if (pathname.startsWith('/dashboard/accounting')) return 'ACCOUNTING'
+  if (
+    pathname.startsWith('/dashboard/hire-purchase')
+    || pathname === '/hire-purchase'
+    || pathname.startsWith('/hire-purchase/')
+  ) {
+    return 'HIRE_PURCHASE'
+  }
   if (
     pathname.startsWith('/dashboard/finance') ||
     pathname === '/finance' ||

@@ -103,7 +103,7 @@ router.get('/lookup/:imei', async (req: Request, res: Response, next: NextFuncti
     if (record) assertBranchRecordAccess(req, record.branchId)
     const branchId = record?.branchId ?? effectiveBranchId(req)
 
-    const [repairs, exchanges] = await Promise.all([
+    const [repairs, exchanges, hirePurchaseAgreement] = await Promise.all([
       prisma.repairTicket.findMany({
         where: { imei, tenantId, ...(branchId && { branchId }) },
         orderBy: { createdAt: 'desc' },
@@ -133,6 +133,26 @@ router.get('/lookup/:imei', async (req: Request, res: Response, next: NextFuncti
           branchId: true,
         },
       }),
+      prisma.hirePurchaseAgreement.findFirst({
+        where: {
+          tenantId,
+          imei,
+          ...(branchId && { branchId }),
+          status: { in: ['PENDING', 'ACTIVE', 'DEFAULTED'] },
+        },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          agreementNumber: true,
+          status: true,
+          totalPayable: true,
+          paidAmount: true,
+          outstandingBalance: true,
+          monthlyInstallment: true,
+          firstDueDate: true,
+          customer: { select: { id: true, name: true, phone: true } },
+        },
+      }),
     ])
 
     if (!record && repairs.length === 0 && exchanges.length === 0) throw new AppError('IMEI not found', 404)
@@ -160,7 +180,7 @@ router.get('/lookup/:imei', async (req: Request, res: Response, next: NextFuncti
       }).catch(() => null)
     }
 
-    sendSuccess(res, { record, repairs, saleDetails, customerDetails, exchanges })
+    sendSuccess(res, { record, repairs, saleDetails, customerDetails, exchanges, hirePurchaseAgreement })
   } catch (e) { next(e) }
 })
 
@@ -188,9 +208,18 @@ router.post('/', authorize('OWNER', 'MANAGER'), async (req: Request, res: Respon
 router.patch('/:id/status', authorize('OWNER', 'MANAGER', 'TECHNICIAN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { status } = req.body
+    const allowed = ['IN_STOCK', 'SOLD', 'UNDER_HIRE_PURCHASE', 'IN_REPAIR', 'UNDER_WARRANTY_CLAIM', 'SCRAPPED']
+    if (!allowed.includes(status)) throw new AppError('Invalid IMEI status', 400)
     const existing = await prisma.imeiRecord.findFirst({ where: { id: req.params.id, product: { tenantId: req.tenantId! } } })
     if (!existing) throw new AppError('IMEI record not found', 404)
     assertBranchRecordAccess(req, existing.branchId)
+    const activeAgreement = await prisma.hirePurchaseAgreement.findFirst({
+      where: { imeiRecordId: existing.id, tenantId: req.tenantId!, status: { in: ['PENDING', 'ACTIVE', 'DEFAULTED'] } },
+      select: { agreementNumber: true },
+    })
+    if (activeAgreement && status !== 'UNDER_HIRE_PURCHASE') {
+      throw new AppError(`IMEI is locked by hire purchase agreement ${activeAgreement.agreementNumber}`, 409)
+    }
     const record = await prisma.imeiRecord.update({ where: { id: req.params.id }, data: { status } })
     sendSuccess(res, record, 'Status updated')
   } catch (e) { next(e) }

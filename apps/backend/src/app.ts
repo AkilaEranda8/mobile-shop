@@ -42,6 +42,7 @@ import accountingRoutes from './modules/accounting/accounting.routes'
 import featureSuggestionsRoutes from './modules/feature-suggestions/feature-suggestions.routes'
 import notificationsRoutes from './modules/feature-suggestions/notifications.routes'
 import productTraceabilityRoutes from './modules/product-traceability/product-traceability.routes'
+import hirePurchaseRoutes from './modules/hire-purchase/hire-purchase.routes'
 
 const app = express()
 
@@ -152,6 +153,7 @@ app.use(`${API}/services`, servicesRoutes)
 app.use(`${API}/daily-reloads`, dailyReloadRoutes)
 app.use(`${API}/daily-closing`, dailyClosingRoutes)
 app.use(`${API}/profit-allocation`, profitAllocationRoutes)
+app.use(`${API}/hire-purchase`, hirePurchaseRoutes)
 app.use(`${API}/accounting`, accountingRoutes)
 app.use(`${API}/delivery`, deliveryRoutes)
 app.use(`${API}/device-catalog`, deviceCatalogRoutes)
